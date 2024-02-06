@@ -38,6 +38,7 @@ use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::value::MetadataValue;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
+use buck2_node::rule_type::RuleType;
 use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
 use futures::future::try_join_all;
@@ -74,6 +75,7 @@ async fn eval_pre_constraint_analysis<'v>(
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
+    rule_type: &RuleType,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
 ) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v>)> {
@@ -98,6 +100,7 @@ async fn eval_pre_constraint_analysis<'v>(
                 .alloc(package_cfg_modifiers.map(|m| m.as_json()));
             let target_cfg_modifiers = eval.heap().alloc(target_cfg_modifiers.map(|m| m.as_json()));
             let cli_modifiers = eval.heap().alloc(cli_modifiers);
+            let rule_name = eval.heap().alloc(rule_type.name());
 
             // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
             let pre_constraint_analysis_args = vec![
@@ -105,6 +108,7 @@ async fn eval_pre_constraint_analysis<'v>(
                 ("package_modifiers", package_cfg_modifiers),
                 ("target_modifiers", target_cfg_modifiers),
                 ("cli_modifiers", cli_modifiers),
+                ("rule_name", rule_name),
             ];
 
             // Type check + unpack
@@ -210,6 +214,7 @@ async fn eval_underlying(
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
+    rule_type: &RuleType,
 ) -> anyhow::Result<ConfigurationData> {
     let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
@@ -224,6 +229,7 @@ async fn eval_underlying(
         package_cfg_modifiers,
         target_cfg_modifiers,
         cli_modifiers,
+        rule_type,
         &module,
         &print,
     )
@@ -254,6 +260,7 @@ impl CfgConstructorImpl for CfgConstructor {
         package_cfg_modifiers: Option<&'a MetadataValue>,
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
+        rule_type: &'a RuleType,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
         let fut = async move {
@@ -264,6 +271,7 @@ impl CfgConstructorImpl for CfgConstructor {
                 package_cfg_modifiers,
                 target_cfg_modifiers,
                 cli_modifiers,
+                rule_type,
             )
             .await
         };

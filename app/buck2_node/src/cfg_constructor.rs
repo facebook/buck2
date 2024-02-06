@@ -21,6 +21,7 @@ use dice::DiceComputations;
 use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::value::MetadataValue;
 use crate::nodes::unconfigured::TargetNodeRef;
+use crate::rule_type::RuleType;
 use crate::super_package::SuperPackage;
 
 /// Trait for configuration constructor functions.
@@ -34,6 +35,7 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
         package_cfg_modifiers: Option<&'a MetadataValue>,
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
+        rule_type: &'a RuleType,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>>;
 
     /// Returns the metadata key used to encode modifiers in PACKAGE values and metadata attribute
@@ -61,5 +63,6 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
         super_package: &SuperPackage,
         cfg: ConfigurationData,
         cli_modifiers: &Arc<Vec<String>>,
+        rule_name: &RuleType,
     ) -> anyhow::Result<ConfigurationData>;
 }

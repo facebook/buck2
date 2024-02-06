@@ -24,6 +24,7 @@ use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::metadata::value::MetadataValue;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
+use buck2_node::rule_type::RuleType;
 use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
 use dice::CancellationContext;
@@ -85,6 +86,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         super_package: &SuperPackage,
         cfg: ConfigurationData,
         cli_modifiers: &Arc<Vec<String>>,
+        rule_type: &RuleType,
     ) -> anyhow::Result<ConfigurationData> {
         #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display(fmt = "CfgConstructorInvocationKey")]
@@ -93,6 +95,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             target_cfg_modifiers: Option<MetadataValue>,
             cfg: ConfigurationData,
             cli_modifiers: Arc<Vec<String>>,
+            rule_type: RuleType,
         }
 
         #[async_trait]
@@ -117,6 +120,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         self.package_cfg_modifiers.as_ref(),
                         self.target_cfg_modifiers.as_ref(),
                         &self.cli_modifiers,
+                        &self.rule_type,
                     )
                     .await
                     .map_err(buck2_error::Error::from)
@@ -155,6 +159,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             target_cfg_modifiers,
             cfg,
             cli_modifiers: cli_modifiers.dupe(),
+            rule_type: rule_type.dupe(),
         };
         Ok(ctx.compute(&key).await??)
     }

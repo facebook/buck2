@@ -67,6 +67,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     &super_package,
                     current_cfg,
                     &global_cfg_options.cli_modifiers,
+                    node.rule_type(),
                 )
                 .await?)
         };
