@@ -15,6 +15,6 @@ Buck2Compatibility = enum(
 BUCK2_COMPATIBILITY_ATTRIB_NAME = "buck2_compatibility"
 BUCK2_COMPATIBILITY_ATTRIB_TYPE = attrs.enum(Buck2Compatibility.values(), default = "unknown")
 
-def apple_check_buck2_compatibility(ctx: AnalysisContext):
+def check_buck2_compatibility(ctx: AnalysisContext):
     if hasattr(ctx.attrs, "buck2_compatibility") and ctx.attrs.buck2_compatibility == "incompatible":
         warning("The target '{}' is marked as incompatible with buck2, output might be incorrect".format(ctx.label))

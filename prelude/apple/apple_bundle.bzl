@@ -12,7 +12,6 @@ load(
     "project_artifacts",
 )
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//apple:apple_buck2_compatibility.bzl", "apple_check_buck2_compatibility")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
@@ -306,7 +305,6 @@ def _infer_apple_bundle_type(ctx: AnalysisContext) -> AppleBundleType:
 
 def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     _apple_bundle_run_validity_checks(ctx)
-    apple_check_buck2_compatibility(ctx)
 
     binary_outputs = _get_binary(ctx)
 

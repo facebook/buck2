@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:buck2_compatibility.bzl", "check_buck2_compatibility")
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 load("@prelude//decls/common.bzl", "prelude_rule")
 load("@prelude//is_full_meta_repo.bzl", "is_full_meta_repo")
@@ -86,10 +87,17 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     extra_args.setdefault("is_configuration_rule", name in _config_implemented_rules)
     extra_args.setdefault("is_toolchain_rule", name in toolchain_rule_names)
     return rule(
-        impl = impl,
+        impl = buck2_compatibility_check_wrapper(impl),
         attrs = attributes,
         **extra_args
     )
+
+def buck2_compatibility_check_wrapper(impl) -> typing.Callable:
+    def buck2_compatibility_shim(ctx: AnalysisContext) -> [list[Provider], Promise]:
+        check_buck2_compatibility(ctx)
+        return impl(ctx)
+
+    return buck2_compatibility_shim
 
 def _flatten_decls():
     decls = {}

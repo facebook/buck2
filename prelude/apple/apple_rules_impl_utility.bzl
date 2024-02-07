@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_buck2_compatibility.bzl", "BUCK2_COMPATIBILITY_ATTRIB_NAME", "BUCK2_COMPATIBILITY_ATTRIB_TYPE")
+load("@prelude//:buck2_compatibility.bzl", "BUCK2_COMPATIBILITY_ATTRIB_NAME", "BUCK2_COMPATIBILITY_ATTRIB_TYPE")
 load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignType")

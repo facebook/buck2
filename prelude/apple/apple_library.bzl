@@ -9,7 +9,6 @@ load(
     "@prelude//:artifact_tset.bzl",
     "project_artifacts",
 )
-load("@prelude//apple:apple_buck2_compatibility.bzl", "apple_check_buck2_compatibility")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
@@ -108,8 +107,6 @@ AppleLibraryAdditionalParams = record(
 )
 
 def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
-    apple_check_buck2_compatibility(ctx)
-
     def get_apple_library_providers(deps_providers) -> list[Provider]:
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
