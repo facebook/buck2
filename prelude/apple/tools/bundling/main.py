@@ -20,7 +20,7 @@ from apple.tools.code_signing.codesign_bundle import (
     AdhocSigningContext,
     codesign_bundle,
     CodesignConfiguration,
-    non_adhoc_signing_context,
+    signing_context_with_profile_selection,
 )
 from apple.tools.code_signing.list_codesign_identities_command_factory import (
     ListCodesignIdentitiesCommandFactory,
@@ -279,7 +279,7 @@ def _main() -> None:
                 raise RuntimeError(
                     "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
                 )
-            signing_context = non_adhoc_signing_context(
+            signing_context = signing_context_with_profile_selection(
                 info_plist_source=args.info_plist_source,
                 info_plist_destination=args.info_plist_destination,
                 provisioning_profiles_dir=args.profiles_dir,

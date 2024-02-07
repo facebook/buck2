@@ -13,7 +13,7 @@ from .apple_platform import ApplePlatform
 from .codesign_bundle import (
     AdhocSigningContext,
     codesign_bundle,
-    non_adhoc_signing_context,
+    signing_context_with_profile_selection,
 )
 from .provisioning_profile_selection import CodeSignProvisioningError
 
@@ -97,7 +97,7 @@ def _main():
             assert (
                 args.profiles_dir
             ), "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
-            signing_context = non_adhoc_signing_context(
+            signing_context = signing_context_with_profile_selection(
                 info_plist_source=args.bundle_path / args.info_plist,
                 info_plist_destination=args.info_plist,
                 provisioning_profiles_dir=args.profiles_dir,

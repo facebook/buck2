@@ -108,14 +108,14 @@ class AdhocSigningContext:
 
 
 @dataclass
-class NonAdhocSigningContext:
+class SigningContextWithProfileSelection:
     info_plist_source: Path
     info_plist_destination: Path
     info_plist_metadata: InfoPlistMetadata
     selected_profile_info: SelectedProvisioningProfileInfo
 
 
-def non_adhoc_signing_context(
+def signing_context_with_profile_selection(
     info_plist_source: Path,
     info_plist_destination: Path,
     provisioning_profiles_dir: Path,
@@ -125,7 +125,7 @@ def non_adhoc_signing_context(
         IListCodesignIdentitiesCommandFactory
     ] = None,
     log_file_path: Optional[Path] = None,
-) -> NonAdhocSigningContext:
+) -> SigningContextWithProfileSelection:
     with open(info_plist_source, mode="rb") as info_plist_file:
         info_plist_metadata = InfoPlistMetadata.from_file(info_plist_file)
     selected_profile_info = _select_provisioning_profile(
@@ -138,7 +138,7 @@ def non_adhoc_signing_context(
         log_file_path=log_file_path,
     )
 
-    return NonAdhocSigningContext(
+    return SigningContextWithProfileSelection(
         info_plist_source,
         info_plist_destination,
         info_plist_metadata,
@@ -154,7 +154,7 @@ class CodesignConfiguration(str, Enum):
 
 def codesign_bundle(
     bundle_path: Path,
-    signing_context: Union[AdhocSigningContext, NonAdhocSigningContext],
+    signing_context: Union[AdhocSigningContext, SigningContextWithProfileSelection],
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
     codesign_on_copy_paths: List[Path],
@@ -163,7 +163,7 @@ def codesign_bundle(
     codesign_configuration: Optional[CodesignConfiguration] = None,
 ) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
-        if isinstance(signing_context, NonAdhocSigningContext):
+        if isinstance(signing_context, SigningContextWithProfileSelection):
             info_plist_metadata = signing_context.info_plist_metadata
             selected_profile_info = signing_context.selected_profile_info
             prepared_entitlements_path = prepare_code_signing_entitlements(
