@@ -257,16 +257,28 @@ def _main() -> None:
         pr.enable()
 
     if args.codesign:
-        assert args.info_plist_source and args.info_plist_destination and args.platform
+        if not args.info_plist_source:
+            raise RuntimeError(
+                "Paths to Info.plist source file should be set when code signing is required."
+            )
+        if not args.info_plist_destination:
+            raise RuntimeError(
+                "Info.plist destination path should be set when code signing is required."
+            )
+        if not args.platform:
+            raise RuntimeError(
+                "Apple platform should be set when code signing is required."
+            )
         if args.ad_hoc:
             signing_context = AdhocSigningContext(
                 codesign_identity=args.ad_hoc_codesign_identity
             )
             selected_identity_argument = args.ad_hoc_codesign_identity
         else:
-            assert (
-                args.profiles_dir
-            ), "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
+            if not args.profiles_dir:
+                raise RuntimeError(
+                    "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
+                )
             signing_context = non_adhoc_signing_context(
                 info_plist_source=args.info_plist_source,
                 info_plist_destination=args.info_plist_destination,
