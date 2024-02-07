@@ -12,7 +12,7 @@ anymap = "0.12.1"
 async-trait = "0.1.24"
 buck2_futures = { path = "../../app/buck2_futures" }
 cmp_any = { workspace = true }
-dashmap = "4.0.2"
+dashmap = "5.5.3"
 derivative = { workspace = true }
 derive_more = "0.99.3"
 dupe = { workspace = true }
