@@ -1068,7 +1068,13 @@ impl<'a> InvocationRecorder<'a> {
     }
 }
 
+#[allow(clippy::map_unwrap_or)]
 fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
+    let best_tag = best_tag(error.tags.iter().filter_map(|tag|
+        // This should never fail, but it is safer to just ignore incorrect integers.
+        ErrorTag::from_i32(*tag)))
+    .map(|t| t.as_str_name())
+    .unwrap_or(ERROR_TAG_UNCLASSIFIED);
     buck2_data::ProcessedErrorReport {
         category: error.category,
         message: error.message,
@@ -1085,6 +1091,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
             .filter_map(buck2_data::error::ErrorTag::from_i32)
             .map(|t| t.as_str_name().to_owned())
             .collect(),
+        best_tag: Some(best_tag.to_owned()),
     }
 }
 

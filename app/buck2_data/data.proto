@@ -1971,6 +1971,9 @@ message ProcessedErrorReport {
   optional string telemetry_message = 4;
   optional string source_location = 5;
   repeated string tags = 6;
+  // `buck2_error` crate has logic of selecting the most interesting error tag
+  // among all error tags. This is such tag.
+  optional string best_tag = 7;
 }
 
 message MaterializerStateInfo {
