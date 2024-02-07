@@ -22,9 +22,7 @@ from apple.tools.code_signing.codesign_bundle import (
     CodesignConfiguration,
     signing_context_with_profile_selection,
 )
-from apple.tools.code_signing.list_codesign_identities_command_factory import (
-    ListCodesignIdentitiesCommandFactory,
-)
+from apple.tools.code_signing.list_codesign_identities import ListCodesignIdentities
 
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
@@ -285,7 +283,7 @@ def _main() -> None:
                 provisioning_profiles_dir=args.profiles_dir,
                 entitlements_path=args.entitlements,
                 platform=args.platform,
-                list_codesign_identities_command_factory=ListCodesignIdentitiesCommandFactory.override(
+                list_codesign_identities=ListCodesignIdentities.override(
                     shlex.split(args.codesign_identities_command)
                 )
                 if args.codesign_identities_command
