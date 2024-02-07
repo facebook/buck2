@@ -53,22 +53,20 @@ def _header_path_prefix_arg():
      using
 
     ```
-
     apple_library(
         name = "Library",
         headers = glob(["**/*.h"]),
         header_path_prefix = "Lib",
     )
-
     ```
+
     can be imported using following mapping
 
     ```
-
     Library/SubDir/Header1.h -> Lib/Header1.h
     Library/Header2.h -> Lib/Header2.h
-
     ```
+
     Defaults to the short name of the target. Can contain forward slashes (`/`), but
      cannot start with one. See `headers` for more information.
 """),

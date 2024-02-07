@@ -146,7 +146,15 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
         })
         .fold(String::new(), |mut output, (name, docs)| {
             let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
-            let _ = writeln!(output, "* `{name}`: {docs}");
+
+            let mut lines_iter = docs.lines();
+            let first_line = lines_iter.next().unwrap();
+            let rest_of_lines: Vec<&str> = lines_iter.collect();
+
+            let _ = writeln!(output, "* `{name}`: {first_line}");
+            for line in &rest_of_lines {
+                let _ = writeln!(output, "  {line}");
+            }
             output
         });
     Some(param_list)
