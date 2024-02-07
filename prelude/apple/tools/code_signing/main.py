@@ -15,6 +15,7 @@ from .codesign_bundle import (
     codesign_bundle,
     signing_context_with_profile_selection,
 )
+from .list_codesign_identities import ListCodesignIdentities
 from .provisioning_profile_selection import CodeSignProvisioningError
 
 
@@ -102,6 +103,7 @@ def _main():
                 info_plist_destination=args.info_plist,
                 provisioning_profiles_dir=args.profiles_dir,
                 entitlements_path=args.entitlements,
+                list_codesign_identities=ListCodesignIdentities.default(),
                 platform=args.platform,
             )
         codesign_bundle(

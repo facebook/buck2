@@ -27,7 +27,7 @@ from .codesign_command_factory import (
 )
 from .fast_adhoc import is_fast_adhoc_codesign_allowed, should_skip_adhoc_signing_path
 from .info_plist_metadata import InfoPlistMetadata
-from .list_codesign_identities import IListCodesignIdentities, ListCodesignIdentities
+from .list_codesign_identities import IListCodesignIdentities
 from .prepare_code_signing_entitlements import prepare_code_signing_entitlements
 from .prepare_info_plist import prepare_info_plist
 from .provisioning_profile_diagnostics import (
@@ -117,7 +117,7 @@ def signing_context_with_profile_selection(
     provisioning_profiles_dir: Path,
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
-    list_codesign_identities: Optional[IListCodesignIdentities] = None,
+    list_codesign_identities: IListCodesignIdentities,
     log_file_path: Optional[Path] = None,
 ) -> SigningContextWithProfileSelection:
     with open(info_plist_source, mode="rb") as info_plist_file:
@@ -127,8 +127,7 @@ def signing_context_with_profile_selection(
         provisioning_profiles_dir=provisioning_profiles_dir,
         entitlements_path=entitlements_path,
         platform=platform,
-        list_codesign_identities=list_codesign_identities
-        or ListCodesignIdentities.default(),
+        list_codesign_identities=list_codesign_identities,
         log_file_path=log_file_path,
     )
 

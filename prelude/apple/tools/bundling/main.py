@@ -287,7 +287,7 @@ def _main() -> None:
                     shlex.split(args.codesign_identities_command)
                 )
                 if args.codesign_identities_command
-                else None,
+                else ListCodesignIdentities.default(),
                 log_file_path=args.log_file,
             )
             selected_identity_argument = (
