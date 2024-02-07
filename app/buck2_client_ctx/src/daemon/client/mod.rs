@@ -165,9 +165,22 @@ enum GrpcToStreamError {
 ///
 /// This function **must** be used explicitly to convert the error, because we want a tag.
 pub(crate) fn tonic_status_to_error(status: tonic::Status) -> anyhow::Error {
-    buck2_error::Error::from(status)
-        .tag([ErrorTag::ClientGrpc])
-        .into()
+    let mut tags = vec![ErrorTag::ClientGrpc];
+    if status.code() == tonic::Code::ResourceExhausted {
+        // The error looks like this:
+        // ```
+        // status: ResourceExhausted
+        // message: "Cannot return body with more than 4GB of data but got 4294992775 bytes"
+        // details: [], metadata: MetadataMap { headers: {} }
+        // ```
+        if status
+            .message()
+            .contains("Cannot return body with more than")
+        {
+            tags.push(ErrorTag::GrpcResponseMessageTooLarge);
+        }
+    }
+    buck2_error::Error::from(status).tag(tags).into()
 }
 
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC

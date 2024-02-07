@@ -25,6 +25,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::ServerPanicked => line!(),
         ErrorTag::ServerSegv => line!(),
         ErrorTag::DaemonConnect => line!(),
+        ErrorTag::GrpcResponseMessageTooLarge => line!(),
         ErrorTag::ClientGrpc => line!(),
         ErrorTag::StarlarkFail => line!(),
         ErrorTag::WatchmanTimeout => line!(),
