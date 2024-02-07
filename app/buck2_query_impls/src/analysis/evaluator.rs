@@ -17,6 +17,7 @@ use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::literals::extract_target_literals;
 use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query_parser::multi_query::MaybeMultiQuery;
 use buck2_query_parser::multi_query::MultiQueryItem;
@@ -42,16 +43,30 @@ pub(crate) async fn eval_query<
             Ok(QueryEvaluationResult::Multiple(results))
         }
         MaybeMultiQuery::SingleQuery(query) => {
-            let mut literals = SmallSet::new();
-            extract_target_literals(functions, &query, &mut literals)?;
-            let env = environment(literals.into_iter().collect()).await?;
-            Ok(QueryEvaluationResult::Single(
-                QueryEvaluator::new(&env, functions)
-                    .eval_query(&query)
-                    .await?,
-            ))
+            let result = eval_single_query(functions, &query, environment).await?;
+            Ok(QueryEvaluationResult::Single(result))
         }
     }
+}
+
+async fn eval_single_query<
+    F: QueryFunctions<Env = Env>,
+    Env: QueryEnvironment,
+    Fut: Future<Output = anyhow::Result<Env>>,
+>(
+    functions: &F,
+    query: &str,
+    environment: impl Fn(Vec<String>) -> Fut,
+) -> anyhow::Result<QueryEvaluationValue<<Env as QueryEnvironment>::Target>>
+where
+    F: QueryFunctions<Env = Env>,
+    Env: QueryEnvironment,
+    Fut: Future<Output = anyhow::Result<Env>>,
+{
+    let mut literals = SmallSet::new();
+    extract_target_literals(functions, query, &mut literals)?;
+    let env = environment(literals.into_iter().collect()).await?;
+    QueryEvaluator::new(&env, functions).eval_query(query).await
 }
 
 async fn process_multi_query<Env, EnvFut, Qf>(
