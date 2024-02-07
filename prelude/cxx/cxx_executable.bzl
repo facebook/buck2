@@ -710,7 +710,7 @@ def _link_into_executable(
         output_name = "{}{}".format(executable_name if executable_name else get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else "")
     output = ctx.actions.declare_output(output_name)
     executable_args = executable_shared_lib_arguments(
-        ctx.actions,
+        ctx,
         get_cxx_toolchain_info(ctx),
         output,
         shared_libs,

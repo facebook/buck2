@@ -183,7 +183,7 @@ def _rust_binary_common(
         # link groups shared libraries link args are directly added to the link command,
         # we don't have to add them here
         executable_args = executable_shared_lib_arguments(
-            ctx.actions,
+            ctx,
             compile_ctx.cxx_toolchain_info,
             output,
             shared_libs,

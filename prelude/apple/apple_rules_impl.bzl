@@ -87,6 +87,7 @@ def _apple_binary_extra_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
         "stripped": attrs.option(attrs.bool(), default = None),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,

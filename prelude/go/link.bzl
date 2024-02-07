@@ -97,7 +97,7 @@ def _process_shared_dependencies(
         shared_libs[name] = shared_lib.lib
 
     return executable_shared_lib_arguments(
-        ctx.actions,
+        ctx,
         ctx.attrs._go_toolchain[GoToolchainInfo].cxx_toolchain_for_linking,
         artifact,
         shared_libs,

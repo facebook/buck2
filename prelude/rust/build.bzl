@@ -267,7 +267,7 @@ def generate_rustdoc_test(
         for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
             shared_libs[soname] = shared_lib.lib
     executable_args = executable_shared_lib_arguments(
-        ctx.actions,
+        ctx,
         compile_ctx.cxx_toolchain_info,
         resources,
         shared_libs,

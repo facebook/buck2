@@ -165,10 +165,13 @@ CxxSanitizerRuntimeArguments = record(
 # @executable_path/Frameworks
 
 def _sanitizer_runtime_arguments(
+        ctx: AnalysisContext,
         cxx_toolchain: CxxToolchainInfo,
         output: Artifact) -> CxxSanitizerRuntimeArguments:
     linker_info = cxx_toolchain.linker_info
-    if not linker_info.sanitizer_runtime_enabled:
+    target_sanitizer_runtime_enabled = ctx.attrs.sanitizer_runtime_enabled if hasattr(ctx.attrs, "sanitizer_runtime_enabled") else None
+    sanitizer_runtime_enabled = target_sanitizer_runtime_enabled if target_sanitizer_runtime_enabled != None else linker_info.sanitizer_runtime_enabled
+    if not sanitizer_runtime_enabled:
         return CxxSanitizerRuntimeArguments()
 
     if linker_info.sanitizer_runtime_dir == None:
@@ -199,7 +202,7 @@ def _sanitizer_runtime_arguments(
     return CxxSanitizerRuntimeArguments()
 
 def executable_shared_lib_arguments(
-        actions: AnalysisActions,
+        ctx: AnalysisContext,
         cxx_toolchain: CxxToolchainInfo,
         output: Artifact,
         shared_libs: dict[str, LinkedObject]) -> ExecutableSharedLibArguments:
@@ -210,7 +213,7 @@ def executable_shared_lib_arguments(
     # External debug info is materialized only when the executable is the output
     # of a build. Do not add to runtime_files.
     external_debug_info = project_artifacts(
-        actions = actions,
+        actions = ctx.actions,
         tsets = [shlib.external_debug_info for shlib in shared_libs.values()],
     )
 
@@ -218,7 +221,7 @@ def executable_shared_lib_arguments(
 
     if len(shared_libs) > 0:
         if linker_type == "windows":
-            shared_libs_symlink_tree = [actions.symlink_file(
+            shared_libs_symlink_tree = [ctx.actions.symlink_file(
                 shlib.output.basename,
                 shlib.output,
             ) for _, shlib in shared_libs.items()]
@@ -226,7 +229,7 @@ def executable_shared_lib_arguments(
             # Windows doesn't support rpath.
 
         else:
-            shared_libs_symlink_tree = actions.symlinked_dir(
+            shared_libs_symlink_tree = ctx.actions.symlinked_dir(
                 shared_libs_symlink_tree_name(output),
                 {name: shlib.output for name, shlib in shared_libs.items()},
             )
@@ -237,7 +240,7 @@ def executable_shared_lib_arguments(
             rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
             extra_link_args.append(rpath_arg)
 
-    sanitizer_runtime_args = _sanitizer_runtime_arguments(cxx_toolchain, output)
+    sanitizer_runtime_args = _sanitizer_runtime_arguments(ctx, cxx_toolchain, output)
     extra_link_args += sanitizer_runtime_args.extra_link_args
     runtime_files += sanitizer_runtime_args.sanitizer_runtime
 
