@@ -16,7 +16,7 @@ load(
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:pick.bzl", _pick = "pick", _pick_and_add = "pick_and_add", _pick_bin = "pick_bin", _pick_dep = "pick_dep")
-load("@prelude//utils:utils.bzl", "map_val", "value_or")
+load("@prelude//utils:utils.bzl", "flatten", "map_val", "value_or")
 
 def _cxx_toolchain_override(ctx):
     base_toolchain = ctx.attrs.base[CxxToolchainInfo]
@@ -76,6 +76,7 @@ def _cxx_toolchain_override(ctx):
     pdb_expected = linker_type == "windows" and pdb_expected
     shlib_interfaces = ShlibInterfacesMode(ctx.attrs.shared_library_interface_mode) if ctx.attrs.shared_library_interface_mode else None
     sanitizer_runtime_dir = ctx.attrs.sanitizer_runtime_dir[DefaultInfo].default_outputs[0] if ctx.attrs.sanitizer_runtime_dir else None
+    sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]) if ctx.attrs.sanitizer_runtime_files != None else None
     linker_info = LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
         archiver_type = base_linker_info.archiver_type,
@@ -101,6 +102,7 @@ def _cxx_toolchain_override(ctx):
         independent_shlib_interface_linker_flags = base_linker_info.independent_shlib_interface_linker_flags,
         sanitizer_runtime_dir = value_or(sanitizer_runtime_dir, base_linker_info.sanitizer_runtime_dir),
         sanitizer_runtime_enabled = value_or(ctx.attrs.sanitizer_runtime_enabled, base_linker_info.sanitizer_runtime_enabled),
+        sanitizer_runtime_files = value_or(sanitizer_runtime_files, base_linker_info.sanitizer_runtime_files),
         shared_dep_runtime_ld_flags = [],
         shared_library_name_default_prefix = ctx.attrs.shared_library_name_default_prefix if ctx.attrs.shared_library_name_default_prefix != None else base_linker_info.shared_library_name_default_prefix,
         shared_library_name_format = ctx.attrs.shared_library_name_format if ctx.attrs.shared_library_name_format != None else base_linker_info.shared_library_name_format,
@@ -211,6 +213,7 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "sanitizer_runtime_dir": attrs.option(attrs.dep(), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "sanitizer_runtime_enabled": attrs.bool(default = False),
+        "sanitizer_runtime_files": attrs.option(attrs.set(attrs.dep(), sorted = True, default = []), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "shared_library_interface_mode": attrs.option(attrs.enum(ShlibInterfacesMode.values()), default = None),
         "shared_library_name_default_prefix": attrs.option(attrs.string(), default = None),
         "shared_library_name_format": attrs.option(attrs.string(), default = None),

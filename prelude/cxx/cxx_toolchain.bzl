@@ -12,7 +12,7 @@ load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
-load("@prelude//utils:utils.bzl", "value_or")
+load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//decls/cxx_rules.bzl", "cxx_rules")
 
 def cxx_toolchain_impl(ctx):
@@ -97,6 +97,7 @@ def cxx_toolchain_impl(ctx):
         requires_objects = value_or(ctx.attrs.requires_objects, False),
         sanitizer_runtime_dir = ctx.attrs.sanitizer_runtime_dir[DefaultInfo].default_outputs[0] if ctx.attrs.sanitizer_runtime_dir else None,
         sanitizer_runtime_enabled = ctx.attrs.sanitizer_runtime_enabled,
+        sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]),
         supports_distributed_thinlto = ctx.attrs.supports_distributed_thinlto,
         shared_dep_runtime_ld_flags = ctx.attrs.shared_dep_runtime_ld_flags,
         shared_library_name_default_prefix = _get_shared_library_name_default_prefix(ctx),
@@ -198,6 +199,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "requires_objects": attrs.bool(default = False),
         "sanitizer_runtime_dir": attrs.option(attrs.dep(), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "sanitizer_runtime_enabled": attrs.bool(default = False),
+        "sanitizer_runtime_files": attrs.set(attrs.dep(), sorted = True, default = []),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "shared_library_interface_mode": attrs.enum(ShlibInterfacesMode.values(), default = "disabled"),
         "shared_library_interface_producer": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
