@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:buck2_compatibility.bzl", "BUCK2_COMPATIBILITY_ATTRIB_NAME", "BUCK2_COMPATIBILITY_ATTRIB_TYPE")
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
 load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour")
@@ -95,6 +96,7 @@ extra_attributes = {
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": toolchains_common.java_for_android(),
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     },
     "android_build_config": {
         "_android_toolchain": toolchains_common.android(),
@@ -123,6 +125,7 @@ extra_attributes = {
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": toolchains_common.java_for_android(),
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     },
     "android_instrumentation_apk": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
@@ -148,6 +151,7 @@ extra_attributes = {
         "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_java_toolchain": toolchains_common.java_for_android(),
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     },
     "android_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -160,6 +164,7 @@ extra_attributes = {
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java_for_android(),
         "_kotlin_toolchain": toolchains_common.kotlin(),
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     },
     "android_manifest": {
         "_android_toolchain": toolchains_common.android(),
@@ -211,5 +216,6 @@ extra_attributes = {
         "_java_test_toolchain": toolchains_common.java_test(),
         "_java_toolchain": toolchains_common.java_for_host_test(),
         "_kotlin_toolchain": toolchains_common.kotlin(),
+        BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
     },
 }
