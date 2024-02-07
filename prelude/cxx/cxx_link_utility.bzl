@@ -159,7 +159,7 @@ ExecutableSharedLibArguments = record(
 
 CxxSanitizerRuntimeArguments = record(
     extra_link_args = field(list[ArgLike], []),
-    sanitizer_runtime = field(list[Artifact], []),
+    sanitizer_runtime_dir = field(Artifact | None, None),
 )
 
 # @executable_path/Frameworks
@@ -194,9 +194,7 @@ def _sanitizer_runtime_arguments(
                 "-Wl,-rpath,@loader_path/../Frameworks",  # macOS
                 "-Wl,-rpath,@executable_path/../Frameworks",  # macOS
             ],
-            sanitizer_runtime = [
-                linker_info.sanitizer_runtime_dir,
-            ],
+            sanitizer_runtime_dir = linker_info.sanitizer_runtime_dir,
         )
 
     return CxxSanitizerRuntimeArguments()
@@ -242,7 +240,8 @@ def executable_shared_lib_arguments(
 
     sanitizer_runtime_args = _sanitizer_runtime_arguments(ctx, cxx_toolchain, output)
     extra_link_args += sanitizer_runtime_args.extra_link_args
-    runtime_files += sanitizer_runtime_args.sanitizer_runtime
+    if sanitizer_runtime_args.sanitizer_runtime_dir != None:
+        runtime_files.append(sanitizer_runtime_args.sanitizer_runtime_dir)
 
     return ExecutableSharedLibArguments(
         extra_link_args = extra_link_args,
