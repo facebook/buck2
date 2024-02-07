@@ -410,20 +410,10 @@ impl<T: LspContext> Backend<T> {
                 trigger_characters: Some(vec![
                     // e.g. function call
                     "(".to_owned(),
-                    // e.g. list creation, function call
-                    ",".to_owned(),
-                    // e.g. when typing a load path
-                    "/".to_owned(),
-                    // e.g. dict creation
-                    ":".to_owned(),
                     // e.g. variable assignment
                     "=".to_owned(),
-                    // e.g. list creation
-                    "[".to_owned(),
                     // e.g. string literal (load path, target name)
                     "\"".to_owned(),
-                    // don't lose autocomplete when typing a space, e.g. after a comma
-                    " ".to_owned(),
                 ]),
                 ..Default::default()
             }),
