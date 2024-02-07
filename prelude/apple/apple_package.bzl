@@ -48,12 +48,6 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
             DefaultInfo(default_outputs = prepackaged_validators_artifacts),
         ]
 
-    if ctx.attrs.validator != None:
-        process_ipa_cmd.add([
-            "--validator",
-            ctx.attrs.validator[RunInfo],
-            [cmd_args(["--validator-args=", arg], delimiter = "") for arg in ctx.attrs.validator_args],
-        ])
     ctx.actions.run(process_ipa_cmd, category = category)
 
     return [DefaultInfo(
