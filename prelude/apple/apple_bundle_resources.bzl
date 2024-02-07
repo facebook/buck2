@@ -8,6 +8,10 @@
 load("@prelude//:artifacts.bzl", "single_artifact")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load(
+    "@prelude//linking:link_info.bzl",
+    "CxxSanitizerRuntimeInfo",
+)
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":apple_asset_catalog.bzl",
@@ -79,6 +83,15 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
                 destination = AppleResourceDestination("resources"),
             ),
         )
+
+    cxx_sanitizer_runtime_info = ctx.attrs.binary.get(CxxSanitizerRuntimeInfo) if ctx.attrs.binary else None
+    if cxx_sanitizer_runtime_info:
+        runtime_resource_spec = AppleResourceSpec(
+            content_dirs = [cxx_sanitizer_runtime_info.runtime_dir],
+            destination = AppleResourceDestination("frameworks"),
+            codesign_files_on_copy = True,
+        )
+        resource_specs.append(runtime_resource_spec)
 
     asset_catalog_result = compile_apple_asset_catalog(ctx, asset_catalog_specs)
     if asset_catalog_result != None:
