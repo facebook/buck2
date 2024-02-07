@@ -155,6 +155,8 @@ ExecutableSharedLibArguments = record(
     external_debug_info = field(list[TransitiveSetArgsProjection], []),
     # Optional shared libs symlink tree symlinked_dir action.
     shared_libs_symlink_tree = field(list[Artifact] | Artifact | None, None),
+    # A directory containing sanitizer runtime shared libraries
+    sanitizer_runtime_dir = field(Artifact | None, None),
 )
 
 CxxSanitizerRuntimeArguments = record(
@@ -248,6 +250,7 @@ def executable_shared_lib_arguments(
         runtime_files = runtime_files,
         external_debug_info = external_debug_info,
         shared_libs_symlink_tree = shared_libs_symlink_tree,
+        sanitizer_runtime_dir = sanitizer_runtime_args.sanitizer_runtime_dir,
     )
 
 def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> ((RunInfo | cmd_args), cmd_args):

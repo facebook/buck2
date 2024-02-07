@@ -52,6 +52,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "CxxSanitizerRuntimeInfo",
     "LinkCommandDebugOutputInfo",
     "UnstrippedLinkOutputInfo",
 )
@@ -187,6 +188,10 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         if cxx_output.link_command_debug_output:
             link_command_providers.append(LinkCommandDebugOutputInfo(debug_outputs = [cxx_output.link_command_debug_output]))
 
+        sanitizer_runtime_providers = []
+        if cxx_output.sanitizer_runtime_dir:
+            sanitizer_runtime_providers.append(CxxSanitizerRuntimeInfo(runtime_dir = cxx_output.sanitizer_runtime_dir))
+
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
             RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
@@ -196,7 +201,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),
             UnstrippedLinkOutputInfo(artifact = unstripped_binary),
-        ] + [resource_graph] + min_version_providers + link_command_providers
+        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)

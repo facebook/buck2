@@ -25,6 +25,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
+    "CxxSanitizerRuntimeInfo",
     "LibOutputStyle",
     "LinkArgs",
     "LinkCommandDebugOutputInfo",
@@ -243,6 +244,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     extra_providers = []
     if output.link_command_debug_output:
         extra_providers.append(LinkCommandDebugOutputInfo(debug_outputs = [output.link_command_debug_output]))
+    if output.sanitizer_runtime_dir:
+        extra_providers.append(CxxSanitizerRuntimeInfo(runtime_dir = output.sanitizer_runtime_dir))
 
     # When an executable is the output of a build, also materialize all the
     # unpacked external debuginfo that goes with it. This makes `buck2 build

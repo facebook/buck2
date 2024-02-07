@@ -184,6 +184,7 @@ CxxExecutableOutput = record(
     linker_map_data = [CxxLinkerMapData, None],
     link_command_debug_output = field([LinkCommandDebugOutput, None], None),
     dist_info = DistInfo,
+    sanitizer_runtime_dir = field([Artifact, None], None),
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
@@ -679,6 +680,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             shared_libs = shlib_info.set,
             nondebug_runtime_files = runtime_files,
         ),
+        sanitizer_runtime_dir = link_result.sanitizer_runtime_dir,
     )
 
 _CxxLinkExecutableResult = record(
@@ -695,6 +697,7 @@ _CxxLinkExecutableResult = record(
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = [list[Artifact], Artifact, None],
     linker_map_data = [CxxLinkerMapData, None],
+    sanitizer_runtime_dir = [Artifact, None],
 )
 
 def _link_into_executable(
@@ -732,6 +735,7 @@ def _link_into_executable(
         external_debug_info = executable_args.external_debug_info,
         shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
         linker_map_data = link_result.linker_map_data,
+        sanitizer_runtime_dir = executable_args.sanitizer_runtime_dir,
     )
 
 def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:
