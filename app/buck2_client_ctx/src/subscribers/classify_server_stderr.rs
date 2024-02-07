@@ -12,6 +12,9 @@ use buck2_data::error::ErrorTag;
 pub(crate) fn classify_server_stderr(stderr: &str) -> ErrorTag {
     if stderr.is_empty() {
         ErrorTag::ServerStderrEmpty
+    } else if stderr.contains("<jemalloc>: size mismatch detected") {
+        // P1181704561
+        ErrorTag::ServerJemallocAssert
     } else if stderr.contains("panicked at") {
         // Sample output of `buck2 debug crash`: P1159041719
         ErrorTag::ServerPanicked

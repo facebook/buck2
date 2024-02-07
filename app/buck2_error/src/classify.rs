@@ -20,6 +20,7 @@ pub fn best_tag(tags: impl IntoIterator<Item = ErrorTag>) -> Option<ErrorTag> {
 /// Tag rank: smaller is more interesting.
 fn tag_rank(tag: ErrorTag) -> u32 {
     match tag {
+        ErrorTag::ServerJemallocAssert => line!(),
         ErrorTag::ServerStackOverflow => line!(),
         ErrorTag::ServerPanicked => line!(),
         ErrorTag::ServerSegv => line!(),
