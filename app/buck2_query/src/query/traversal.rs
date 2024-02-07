@@ -223,6 +223,7 @@ mod tests {
     use buck2_core::cells::cell_path::CellPath;
     use derive_more::Display;
     use dupe::Dupe;
+    use dupe::IterDupedExt;
     use gazebo::prelude::*;
 
     use super::*;
@@ -328,11 +329,23 @@ mod tests {
 
             ChildVisitorImpl
         }
+
+        fn async_node_lookup(&self) -> impl AsyncNodeLookup<Node> + '_ {
+            struct Lookup<'a>(&'a Graph);
+
+            #[async_trait]
+            impl<'a> AsyncNodeLookup<Node> for Lookup<'a> {
+                async fn get(&self, label: &Ref) -> anyhow::Result<Node> {
+                    self.0.get(label)
+                }
+            }
+
+            Lookup(self)
+        }
     }
 
-    #[async_trait]
-    impl AsyncNodeLookup<Node> for Graph {
-        async fn get(&self, label: &Ref) -> anyhow::Result<Node> {
+    impl NodeLookup<Node> for Graph {
+        fn get(&self, label: &Ref) -> anyhow::Result<Node> {
             self.0
                 .get(label)
                 .ok_or_else(|| anyhow::anyhow!("missing node"))
@@ -358,13 +371,13 @@ mod tests {
             (4, &[]),
         ])?;
         let mut targets = TargetSet::new();
-        targets.insert(graph.get(&Ref(0)).await?);
+        targets.insert(graph.get(&Ref(0))?);
 
         let mut results = Vec::new();
         {
             let child_visitor = graph.child_visitor();
             async_depth_first_postorder_traversal(
-                &graph,
+                &graph.async_node_lookup(),
                 targets.iter_names(),
                 child_visitor,
                 |n| {
@@ -390,13 +403,13 @@ mod tests {
             (4, &[]),
         ])?;
         let mut targets = TargetSet::new();
-        targets.insert(graph.get(&Ref(0)).await?);
+        targets.insert(graph.get(&Ref(0))?);
 
         let mut results0 = Vec::new();
         {
             let delegate = graph.child_visitor();
             async_depth_limited_traversal(
-                &graph,
+                &graph.async_node_lookup(),
                 targets.iter_names(),
                 delegate,
                 |n| {
@@ -413,7 +426,7 @@ mod tests {
         {
             let delegate = graph.child_visitor();
             async_depth_limited_traversal(
-                &graph,
+                &graph.async_node_lookup(),
                 targets.iter_names(),
                 delegate,
                 |n| {
@@ -425,6 +438,36 @@ mod tests {
             .await?;
         }
         assert_eq!(results1, vec![Ref(0), Ref(1), Ref(2)]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_fast_depth_first_postorder_traversal() -> anyhow::Result<()> {
+        let graph = make_graph(&[
+            (0, &[1, 2]),
+            (1, &[2, 3, 4]),
+            (2, &[3, 4]),
+            (3, &[4]),
+            (4, &[]),
+        ])?;
+        let mut targets = TargetSet::new();
+        targets.insert(graph.get(&Ref(0))?);
+
+        let mut results = Vec::new();
+        {
+            async_fast_depth_first_postorder_traversal(
+                &graph,
+                targets.iter_names().duped(),
+                graph.child_visitor(),
+                |n| {
+                    results.push(n.0);
+                    Ok(())
+                },
+            )
+            .await?;
+        }
+        assert_eq!(results, vec![Ref(4), Ref(3), Ref(2), Ref(1), Ref(0)]);
 
         Ok(())
     }
