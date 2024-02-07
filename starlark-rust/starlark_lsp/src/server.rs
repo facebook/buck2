@@ -1008,10 +1008,7 @@ impl<T: LspContext> Backend<T> {
         [
             // Actual keywords
             "and", "else", "load", "break", "for", "not", "continue", "if", "or", "def", "in",
-            "pass", "elif", "return", "lambda", //
-            // Reserved words
-            "as", "import", "is", "class", "nonlocal", "del", "raise", "except", "try", "finally",
-            "while", "from", "with", "global", "yield",
+            "pass", "elif", "return", "lambda",
         ]
         .into_iter()
         .map(|keyword| CompletionItem {
