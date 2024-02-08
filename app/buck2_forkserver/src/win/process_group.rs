@@ -8,6 +8,7 @@
  */
 
 use std::os::windows::io::AsRawHandle;
+use std::os::windows::process::ChildExt;
 use std::os::windows::process::CommandExt;
 use std::process::Child;
 use std::process::Command;
@@ -15,15 +16,11 @@ use std::process::ExitStatus;
 use std::process::Stdio;
 
 use buck2_error::Context;
-use buck2_wrapper_common::winapi_handle::WinapiHandle;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
 use winapi::shared::minwindef;
-use winapi::um::handleapi;
 use winapi::um::processthreadsapi;
-use winapi::um::tlhelp32;
-use winapi::um::winnt;
 
 use crate::win::child_process::ChildProcess;
 use crate::win::job_object::JobObject;
@@ -143,66 +140,20 @@ impl ProcessGroupImpl {
     }
 
     fn resume(&self) -> anyhow::Result<()> {
-        let process_id = self.id().context("can't resume an exited process")?;
+        let handle = self
+            .child
+            .as_option()
+            .context("can't resume an exited process")?
+            .as_std()
+            .main_thread_handle()
+            .as_raw_handle();
         unsafe {
-            let main_thread_id = get_main_thread(process_id)?;
-            resume_thread(main_thread_id)
-        }
-    }
-}
-
-// We need main thread handle to resume process after assigning it to JobObject
-// Currently there is no way to get main thread handle from tokio's process::Child
-// We use CreateToolhelp32Snapshot to get a snapshot of all threads in the system
-// and find the one with the given process_id.
-// todo(yurysamkevich): use main_thread_handle once issue is closed
-// https://github.com/tokio-rs/tokio/issues/6153
-unsafe fn get_main_thread(process_id: u32) -> anyhow::Result<minwindef::DWORD> {
-    let snapshot_handle = tlhelp32::CreateToolhelp32Snapshot(tlhelp32::TH32CS_SNAPTHREAD, 0);
-    if snapshot_handle == handleapi::INVALID_HANDLE_VALUE {
-        return Err(anyhow::anyhow!("Failed to list threads"));
-    }
-    let snapshot_handle = WinapiHandle::new(snapshot_handle);
-    let mut thread_entry_32 = tlhelp32::THREADENTRY32 {
-        dwSize: std::mem::size_of::<tlhelp32::THREADENTRY32>() as u32,
-        cntUsage: 0,
-        th32ThreadID: 0,
-        th32OwnerProcessID: 0,
-        tpBasePri: 0,
-        tpDeltaPri: 0,
-        dwFlags: 0,
-    };
-    let raw_pointer_to_thread_entry_32 = &mut thread_entry_32 as *mut tlhelp32::THREADENTRY32;
-
-    let mut thread_result =
-        tlhelp32::Thread32First(snapshot_handle.handle(), raw_pointer_to_thread_entry_32);
-    while thread_result == minwindef::TRUE {
-        if thread_entry_32.dwSize as usize
-            >= std::mem::offset_of!(tlhelp32::THREADENTRY32, th32OwnerProcessID)
-        {
-            if thread_entry_32.th32OwnerProcessID == process_id {
-                return Ok(thread_entry_32.th32ThreadID);
+            let resume_thread_result = processthreadsapi::ResumeThread(handle);
+            if resume_thread_result == minwindef::DWORD::MAX {
+                Err(anyhow::anyhow!("Failed to resume thread"))
+            } else {
+                Ok(())
             }
         }
-        thread_result = winapi::um::tlhelp32::Thread32Next(
-            snapshot_handle.handle(),
-            raw_pointer_to_thread_entry_32,
-        );
-    }
-    Err(anyhow::anyhow!("Failed to find thread to resume"))
-}
-
-unsafe fn resume_thread(thread_id: minwindef::DWORD) -> anyhow::Result<()> {
-    let thread_handle =
-        processthreadsapi::OpenThread(winnt::THREAD_SUSPEND_RESUME, minwindef::FALSE, thread_id);
-    if thread_handle.is_null() {
-        return Err(anyhow::anyhow!("Failed to open thread to resume"));
-    }
-    let thread_handle = WinapiHandle::new(thread_handle);
-    let resume_thread_result = processthreadsapi::ResumeThread(thread_handle.handle());
-    if resume_thread_result == minwindef::DWORD::MAX {
-        Err(anyhow::anyhow!("Failed to resume thread"))
-    } else {
-        Ok(())
     }
 }
