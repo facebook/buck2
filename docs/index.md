@@ -93,6 +93,13 @@ your team.
 
 ### External videos about Buck2
 
+- [Accelerating builds with Buck2](https://www.youtube.com/watch?v=oMIzKVxUNAE)
+  Neil talks about why Buck2 is fast.
+- [Buck2: optimizations & dynamic dependencies](https://www.youtube.com/watch?v=EQfVu42KwDs)
+  Neil and Chris talk about why Buck2 is fast and some of the advanced
+  dependency features.
+- [Building Erlang with Buck2](https://www.youtube.com/watch?v=4ALgsBqNBhQ)
+  Andreas talks about building WhatsApp with Buck2.
 - [antlir2: Deterministic image bulids with Buck2](https://www.youtube.com/watch?v=Wv-ilbckSx4)
   talks about layering a packaging system over Buck2.
 
