@@ -86,3 +86,42 @@ impl ProcessGroup {
         self.inner.kill(graceful_shutdown_timeout_s).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_util::process::background_command;
+
+    use crate::run::process_group::ProcessCommand;
+
+    // The test check basic functionality of process implementation as it differs on Unix and Windows
+    #[tokio::test]
+    async fn test_process_impl() -> anyhow::Result<()> {
+        let mut cmd;
+
+        if cfg!(windows) {
+            cmd = background_command("cmd");
+            cmd.arg("/c");
+        } else {
+            cmd = background_command("sh");
+            cmd.arg("-c");
+        }
+        cmd.arg("exit 2");
+
+        let mut cmd = ProcessCommand::new(cmd);
+        let mut child = cmd.spawn().unwrap();
+
+        let id = child.id().expect("missing id");
+        assert!(id > 0);
+
+        let status = child.wait().await?;
+        assert_eq!(status.code(), Some(2));
+
+        // test that the `.wait()` method is fused like tokio
+        let status = child.wait().await?;
+        assert_eq!(status.code(), Some(2));
+
+        // Can't get id after process has exited
+        assert_eq!(child.id(), None);
+        Ok(())
+    }
+}
