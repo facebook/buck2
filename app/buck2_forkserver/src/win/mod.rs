@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub mod child_process;
 pub mod job_object;
 pub mod process_group;
