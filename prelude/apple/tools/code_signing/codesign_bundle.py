@@ -351,7 +351,7 @@ def _codesign_everything(
 
 
 @dataclass
-class CodesignProcess:
+class ParallelProcess:
     process: subprocess.Popen
     stdout_path: str
     stderr_path: str
@@ -367,6 +367,24 @@ class CodesignProcess:
             )
 
 
+def _spawn_process(
+    command: List[Union[str, Path]],
+    tmp_dir: str,
+    stack: ExitStack,
+) -> ParallelProcess:
+    stdout_path = os.path.join(tmp_dir, uuid.uuid4().hex)
+    stdout = stack.enter_context(open(stdout_path, "w"))
+    stderr_path = os.path.join(tmp_dir, uuid.uuid4().hex)
+    stderr = stack.enter_context(open(stderr_path, "w"))
+    _LOGGER.info(f"Executing command: {command}")
+    process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
+    return ParallelProcess(
+        process,
+        stdout_path,
+        stderr_path,
+    )
+
+
 def _spawn_codesign_process(
     path: Path,
     identity_fingerprint: str,
@@ -375,21 +393,11 @@ def _spawn_codesign_process(
     entitlements: Optional[Path],
     stack: ExitStack,
     codesign_args: List[str],
-) -> CodesignProcess:
-    stdout_path = os.path.join(tmp_dir, uuid.uuid4().hex)
-    stdout = stack.enter_context(open(stdout_path, "w"))
-    stderr_path = os.path.join(tmp_dir, uuid.uuid4().hex)
-    stderr = stack.enter_context(open(stderr_path, "w"))
+) -> ParallelProcess:
     command = codesign_command_factory.codesign_command(
         path, identity_fingerprint, entitlements, codesign_args
     )
-    _LOGGER.info(f"Executing codesign command: {command}")
-    process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
-    return CodesignProcess(
-        process,
-        stdout_path,
-        stderr_path,
-    )
+    return _spawn_process(command, tmp_dir, stack)
 
 
 def _codesign_paths(
@@ -402,7 +410,7 @@ def _codesign_paths(
     codesign_args: List[str],
 ) -> None:
     """Codesigns several paths in parallel."""
-    processes: List[CodesignProcess] = []
+    processes: List[ParallelProcess] = []
     with ExitStack() as stack:
         for path in paths:
             process = _spawn_codesign_process(
