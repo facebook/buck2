@@ -246,7 +246,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     /// def increment_items(a):
     ///     return [v + 1 for v in a]
     ///
-    /// select_map([1, 2] + select({"c": [2]}}, increment_items) == [2, 3] + select({"c": [3]})
+    /// select_map([1, 2] + select({"c": [2]}), increment_items) == [2, 3] + select({"c": [3]})
     /// ```
     fn select_map<'v>(
         #[starlark(require = pos)] d: Value<'v>,
