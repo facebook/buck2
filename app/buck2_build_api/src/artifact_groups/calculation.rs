@@ -120,11 +120,9 @@ pub(super) fn ensure_base_artifact_staged<'a>(
     artifact: BaseArtifactKind,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     match artifact {
-        BaseArtifactKind::Build(built) => {
-            ensure_build_artifact_staged(dice, built.clone()).left_future()
-        }
+        BaseArtifactKind::Build(built) => ensure_build_artifact_staged(dice, built).left_future(),
         BaseArtifactKind::Source(source) => {
-            ensure_source_artifact_staged(dice, source.clone()).right_future()
+            ensure_source_artifact_staged(dice, source).right_future()
         }
     }
 }
@@ -147,11 +145,9 @@ fn ensure_build_artifact_staged<'a>(
     dice: &'a DiceComputations,
     built: BuildArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    let key = built.key().clone();
-    let path = built.get_path().clone();
-    ActionCalculation::build_action(dice, key.clone()).map(move |action_outputs| {
+    ActionCalculation::build_action(dice, built.key.clone()).map(move |action_outputs| {
         let action_outputs = action_outputs?;
-        if let Some(value) = action_outputs.get(&path) {
+        if let Some(value) = action_outputs.get(&built.path) {
             Ok(EnsureArtifactGroupReady::Single(value.dupe()))
         } else {
             Err(
@@ -250,11 +246,11 @@ fn _assert_ensure_artifact_group_future_size() {
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ensure_base_artifact_staged(&ctx, panic!());
-    let e = [0u8; 576 / 8];
+    let e = [0u8; 512 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ensure_build_artifact_staged(&ctx, panic!());
-    let e = [0u8; 576 / 8];
+    let e = [0u8; 512 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ActionCalculation::build_action(&ctx, panic!());
