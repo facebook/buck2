@@ -27,14 +27,14 @@ use starlark::collections::SmallSet;
 pub(crate) async fn eval_query<
     F: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
-    Fut: Future<Output = anyhow::Result<Env>>,
+    Fut: Future<Output = anyhow::Result<Env>> + Send,
     A: AsRef<str>,
 >(
     dispatcher: EventDispatcher,
     functions: &F,
     query: &str,
     query_args: &[A],
-    environment: impl Fn(Vec<String>) -> Fut,
+    environment: impl Fn(Vec<String>) -> Fut + Send + Sync,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
     let query = MaybeMultiQuery::parse(query, query_args)?;
     match query {
@@ -72,33 +72,25 @@ where
 async fn process_multi_query<Env, EnvFut, Qf>(
     dispatcher: EventDispatcher,
     functions: &Qf,
-    env: impl Fn(Vec<String>) -> EnvFut,
+    env: impl Fn(Vec<String>) -> EnvFut + Send + Sync,
     queries: &[MultiQueryItem],
 ) -> anyhow::Result<MultiQueryResult<Env::Target>>
 where
     Qf: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
-    EnvFut: Future<Output = anyhow::Result<Env>>,
+    EnvFut: Future<Output = anyhow::Result<Env>> + Send,
 {
-    let mut literals = SmallSet::new();
-    for q in queries {
-        extract_target_literals(functions, &q.query, &mut literals)?;
-    }
-    // TODO(nga): we create one environment shared by all queries.
-    //   This is fine for `uquery`, but for `cquery` if universe is inferred from arguments,
-    //   it should be inferred only from current query, not from all the queries.
-    let env = env(literals.into_iter().collect()).await?;
-
     // SAFETY: it is safe as long as we don't forget the future. We don't do that.
     let ((), future_results) = unsafe {
         scope_and_collect_with_dispatcher(dispatcher, |scope| {
             for (i, query) in queries.iter().enumerate() {
                 let arg: String = query.arg.clone();
-                let arg_1: String = arg.clone();
-                let evaluator = QueryEvaluator::new(&env, functions);
+                let arg_1: String = query.arg.clone();
+                let env = &env;
                 scope.spawn_cancellable(
                     async move {
-                        let result = evaluator.eval_query(&query.query).await;
+                        let result = eval_single_query(functions, &query.query, env);
+                        let result = result.await;
                         (i, arg, result)
                     },
                     move || (i, arg_1, Err(anyhow::anyhow!("future was cancelled"))),

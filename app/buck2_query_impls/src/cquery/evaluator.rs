@@ -42,7 +42,7 @@ pub(crate) struct CqueryEvaluator<'c> {
 }
 
 impl CqueryEvaluator<'_> {
-    pub(crate) async fn eval_query<A: AsRef<str>, U: AsRef<str>>(
+    pub(crate) async fn eval_query<A: AsRef<str>, U: AsRef<str> + Send + Sync>(
         &self,
         query: &str,
         query_args: &[A],
