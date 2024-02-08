@@ -6,6 +6,14 @@
 # of this source tree.
 
 def _cgo_enabled_transition(platform, refs, attrs):
+    constraints = platform.configuration.constraints
+
+    # Cancel transition if the value already set
+    # to enable using configuration modifiers for overiding this option
+    cgo_enabled_setting = refs.cgo_enabled_auto[ConstraintValueInfo].setting
+    if cgo_enabled_setting.label in constraints:
+        return platform
+
     if attrs.cgo_enabled == None:
         cgo_enabled_ref = refs.cgo_enabled_auto
     elif attrs.cgo_enabled == True:
@@ -14,7 +22,6 @@ def _cgo_enabled_transition(platform, refs, attrs):
         cgo_enabled_ref = refs.cgo_enabled_false
 
     cgo_enabled_value = cgo_enabled_ref[ConstraintValueInfo]
-    constraints = platform.configuration.constraints
     constraints[cgo_enabled_value.setting.label] = cgo_enabled_value
 
     new_cfg = ConfigurationInfo(
