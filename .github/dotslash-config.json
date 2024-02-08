@@ -1,0 +1,29 @@
+{
+    "exclude-github-release-provider": true,
+    "outputs": {
+      "hermes": {
+        "platforms": {
+          "macos-aarch64": {
+            "regex": "^buck2-aarch64-apple-darwin.zst$",
+            "path": "buck2-aarch64-apple-darwin"
+          },
+          "linux-aarch64": {
+            "regex": "^buck2-aarch64-unknown-linux-gnu.zst$",
+            "path": "buck2-aarch64-unknown-linux-gnu"
+          },
+          "macos-x86_64": {
+            "regex": "^buck2-x86_64-apple-darwin.zst$",
+            "path": "buck2-x86_64-apple-darwin"
+          },
+          "windows-x86_64": {
+            "regex": "^buck2-x86_64-pc-windows-msvc.exe.zst$",
+            "path": "buck2-x86_64-pc-windows-msvc.exe"
+          },
+          "linux-x86_64": {
+            "regex": "^buck2-x86_64-unknown-linux-gnu.zst$",
+            "path": "buck2-x86_64-unknown-linux-gnu"
+          }
+        }
+      }
+    }
+  }

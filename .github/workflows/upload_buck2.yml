@@ -194,6 +194,12 @@ jobs:
         with:
           tag: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: facebook/dotslash-publish-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config: .github/dotslash-config.json
+          tag: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
 
   build_docs_job:
     name: Publish buck2.build
