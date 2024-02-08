@@ -1,7 +1,8 @@
 # Tips and tricks for hacking on Buck2
 
 You might have been lead here by reading [CONTRIBUTING.md](/CONTRIBUTING.md). If
-not, please read that as well! That will give you the high level overview; this document is all about the needed elbow grease you'll have to apply.
+not, please read that as well! That will give you the high level overview; this
+document is all about the needed elbow grease you'll have to apply.
 
 ## Building the code
 
@@ -110,8 +111,8 @@ have written. Some rules:
 ### Error messages
 
 - Names (of variables, targets, files, etc) should be quoted with backticks,
-  e.g. ``Variable `x` not defined``.
-- Lists should use square brackets, e.g. ``Available targets: [`aa`, `bb`]``.
+  e.g. `` Variable `x` not defined ``.
+- Lists should use square brackets, e.g. `` Available targets: [`aa`, `bb`] ``.
 - Error messages should start with an upper case letter. Error messages should
   not end with a period.
 
@@ -120,10 +121,10 @@ have written. Some rules:
 Most code is shared as-is between open source and the internal Meta version of
 Buck2. However, there are some exceptions:
 
-* The open-source remote execution client is different, because our internal
-  one works with custom servers/infrastructure that is not publicly available.
-* There are places controlled with `is_open_source()` which change configuration
+- The open-source remote execution client is different, because our internal one
+  works with custom servers/infrastructure that is not publicly available.
+- There are places controlled with `is_open_source()` which change configuration
   between the internal and open source versions.
-* Some places use `@oss-enable` or `@oss-disable` to comment/uncomment lines
-  of code. The internal code is visible, but the comment markers are moved
-  during export/import of code.
+- Some places use `@oss-enable` or `@oss-disable` to comment/uncomment lines of
+  code. The internal code is visible, but the comment markers are moved during
+  export/import of code.

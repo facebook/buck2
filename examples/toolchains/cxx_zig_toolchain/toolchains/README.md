@@ -1,15 +1,17 @@
 This example tests the `zig cc` based self-contained C/C++ toolchain.
 
 To build it within the open source tree of buck2 to you need to
-* Create a symlink for the prelude
+
+- Create a symlink for the prelude
   ```
   ln -s ../../../prelude prelude
   ```
-* Remove the top-level `.buckconfig`
+- Remove the top-level `.buckconfig`
   ```
   rm ../../../.buckconfig
   ```
-* Apply the following patch to the prelude
+- Apply the following patch to the prelude
+
   ```
   diff --git a/prelude/cxx/tools/TARGETS.v2 b/prelude/cxx/tools/TARGETS.v2
   index 2030d2f..5db1689 100644

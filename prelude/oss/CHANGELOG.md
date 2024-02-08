@@ -1,3 +1,3 @@
 # Buck2 Prelude
 
-* Initial version.
+- Initial version.

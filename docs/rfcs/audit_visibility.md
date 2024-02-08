@@ -2,12 +2,12 @@
 
 ## Context
 
-Buck has a concept of Visibility for every
-target. It allows users to define, for each target, the targets it can depend on
-and targets that can depend on it. Visibility is specified as an allowlist of
-targets/target patterns, and any target used that falls outside of the allowlist
-fails visibility checking. Visibility pattern can be specified on `visibility`
-and `within_view` attributes in buildfiles and
+Buck has a concept of Visibility for every target. It allows users to define,
+for each target, the targets it can depend on and targets that can depend on it.
+Visibility is specified as an allowlist of targets/target patterns, and any
+target used that falls outside of the allowlist fails visibility checking.
+Visibility pattern can be specified on `visibility` and `within_view` attributes
+in buildfiles and
 [PACKAGE files](https://www.internalfb.com/intern/wiki/Buck-users/Key_Concepts/Package_Files/).
 
 Visibility is important to lots of codebase maintainers because it can be used

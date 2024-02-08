@@ -1,3 +1,3 @@
 # Buck2
 
-* Initial version.
+- Initial version.

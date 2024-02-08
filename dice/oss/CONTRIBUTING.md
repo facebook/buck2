@@ -1,12 +1,13 @@
 # Contributing to DICE
 
-We want to make contributing to this project as easy and transparent as possible.
+We want to make contributing to this project as easy and transparent as
+possible.
 
 ## Our Development Process
 
-DICE is currently developed in Facebook's internal repositories and then exported
-out to GitHub by a Facebook team member; however, we invite you to submit pull
-requests as described below.
+DICE is currently developed in Facebook's internal repositories and then
+exported out to GitHub by a Facebook team member; however, we invite you to
+submit pull requests as described below.
 
 ## Pull Requests
 
@@ -41,6 +42,6 @@ Follow the automatic `rust fmt` configuration.
 
 ## License
 
-By contributing to DICE, you agree that your contributions will be
-licensed under both the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)
+By contributing to DICE, you agree that your contributions will be licensed
+under both the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE)
 files in the root directory of this source tree.

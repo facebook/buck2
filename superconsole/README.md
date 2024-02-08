@@ -1,14 +1,25 @@
 # A component-based framework for building Rust Text-based User Interfaces (TUIs)
 
-There are several copies of this repo on GitHub, [facebookincubator/superconsole](https://github.com/facebookincubator/superconsole) is the canonical one.
+There are several copies of this repo on GitHub,
+[facebookincubator/superconsole](https://github.com/facebookincubator/superconsole)
+is the canonical one.
 
-The superconsole framework provides a powerful line based abstraction over text based rendering to the terminal.  It also provides basic building blocks like line manipulation, and a higher level of composable components.  A base set of "batteries" components are included to help developers create Text-based User Interfaces (TUIs) as quickly as possible.
+The superconsole framework provides a powerful line based abstraction over text
+based rendering to the terminal. It also provides basic building blocks like
+line manipulation, and a higher level of composable components. A base set of
+"batteries" components are included to help developers create Text-based User
+Interfaces (TUIs) as quickly as possible.
 
-The design choices that underly superconsole are selected to prioritize testability, ease of composition, and flexibility.
+The design choices that underly superconsole are selected to prioritize
+testability, ease of composition, and flexibility.
 
-Superconsole also offers stylization, including italics, underlining, bolding, and coloring text.  Furthermore, relying on crossterm ensures that it is compatible with Windows, Unix, and MacOS.
+Superconsole also offers stylization, including italics, underlining, bolding,
+and coloring text. Furthermore, relying on crossterm ensures that it is
+compatible with Windows, Unix, and MacOS.
 
-Finally, superconsole delineates between rendering logic and program state - each render call accepts an immutable reference to state, which components may use to inject state into their otherwise immutable rendering logic.
+Finally, superconsole delineates between rendering logic and program state -
+each render call accepts an immutable reference to state, which components may
+use to inject state into their otherwise immutable rendering logic.
 
 ## Demo
 
@@ -46,4 +57,5 @@ See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
 
 ## License
 
-Superconsole is both MIT and Apache License, Version 2.0 licensed, as found in the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) files.
+Superconsole is both MIT and Apache License, Version 2.0 licensed, as found in
+the [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) files.

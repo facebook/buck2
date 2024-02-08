@@ -2,13 +2,14 @@
 
 # Buck2: fast multi-language build system
 
-![Version]
-![License]
-[![Build Status]][CI]
+![Version] ![License] [![Build Status]][CI]
 
-[Version]:  https://img.shields.io/badge/release-unstable,%20"Developer%20Edition"-orange.svg
-[License]:  https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blueviolet.svg
-[Build Status]: https://github.com/facebook/buck2/actions/workflows/build-and-test.yml/badge.svg
+[Version]:
+  https://img.shields.io/badge/release-unstable,%20"Developer%20Edition"-orange.svg
+[License]:
+  https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blueviolet.svg
+[Build Status]:
+  https://github.com/facebook/buck2/actions/workflows/build-and-test.yml/badge.svg
 [CI]: https://github.com/facebook/buck2/actions/workflows/build-and-test.yml
 
 <strong>
@@ -31,13 +32,13 @@ already exist?
   complete, or 0.1 seconds: when you have to build things, Buck2 doesn't waste
   time &mdash; it calculates the critical path and gets out of the way, with
   minimal overhead. It's not just the core design, but also careful attention to
-  detail that makes Buck2 so snappy. Buck2 is up to 2x faster than Buck1 *in
-  practice*[^perf-note]. So you spend more time iterating, and less time
+  detail that makes Buck2 so snappy. Buck2 is up to 2x faster than Buck1 _in
+  practice_[^perf-note]. So you spend more time iterating, and less time
   waiting.
 - **Hermetic**. When using Remote Execution[^hermetic-re-only], Buck2 becomes
-  *hermetic*: it is required for a build rule to correctly declare all of its
-  inputs; if they aren't specified correctly (e.g. a `.c` file needs a `.h`
-  file that isn't correctly specified), the build will fail. This enforced
+  _hermetic_: it is required for a build rule to correctly declare all of its
+  inputs; if they aren't specified correctly (e.g. a `.c` file needs a `.h` file
+  that isn't correctly specified), the build will fail. This enforced
   correctness helps avoids entire classes of errors that most build systems
   allow, and helps ensure builds work everywhere for all users. And Buck2
   correctly tracks dependencies with far better accuracy than Buck1, in more
@@ -49,22 +50,24 @@ already exist?
   But then how do you run test suites, code coverage, or query code databases?
   Buck2 is designed to support multiple languages from the start, with
   abstractions for interoperation. And because it's completely scriptable, and
-  *users* can implement language support &mdash; it's incredibly flexible. Now
+  _users_ can implement language support &mdash; it's incredibly flexible. Now
   your Python library can depend on an OCaml library, and your OCaml library can
   depend on a Rust crate &mdash; and with a single build tool, you have a
   consistent UX to build and test and integrate all of these components.
 
-[^perf-note]: This number comes from internal usage of Buck1 versus Buck2 at
-    Meta. Please note that *appropriate* comparisons with systems like Bazel
-    have yet to be performed; Buck1 is the baseline because it's simply what
-    existed and what had to be replaced. Please benchmark Buck2 against your
-    favorite tools and let us know how it goes!
+[^perf-note]:
+    This number comes from internal usage of Buck1 versus Buck2 at Meta. Please
+    note that _appropriate_ comparisons with systems like Bazel have yet to be
+    performed; Buck1 is the baseline because it's simply what existed and what
+    had to be replaced. Please benchmark Buck2 against your favorite tools and
+    let us know how it goes!
 
-[^hermetic-re-only]: Buck2 currently does not sandbox *local-only* build steps;
-    in contrast, Buck2 using Remote Execution is *always* hermetic by design.
-    The vast majority of build rules are remote compatible, as well. Despite
-    that, we hope to lift this restriction in the (hopefully short-term) future
-    so that local-only builds are hermetic as well.
+[^hermetic-re-only]:
+    Buck2 currently does not sandbox _local-only_ build steps; in contrast,
+    Buck2 using Remote Execution is _always_ hermetic by design. The vast
+    majority of build rules are remote compatible, as well. Despite that, we
+    hope to lift this restriction in the (hopefully short-term) future so that
+    local-only builds are hermetic as well.
 
 If you're familiar with systems like Buck1, [Bazel](https://bazel.build/), or
 [Pants](https://www.pantsbuild.org/) &mdash; then Buck2 will feel warm and cozy,
@@ -90,8 +93,8 @@ rest of the pack, including:
   build systems and incremental computation.
 - And more!
 
-If these headline features make you interested &mdash; check out the [Getting
-Started](https://buck2.build/docs/getting_started/) guide!
+If these headline features make you interested &mdash; check out the
+[Getting Started](https://buck2.build/docs/getting_started/) guide!
 
 ## 🚧🚧🚧 **Warning** 🚧🚧🚧 &mdash; rough terrain lies ahead
 
@@ -115,10 +118,10 @@ Please provide feedback by submitting [issues and questions!](/issues)
 
 ## Installing Buck2
 
-You can get started by downloading the [latest buck2
-binary](https://github.com/facebook/buck2/releases/tag/latest) for your
-platform. The `latest` tag always refers to a recent commit; it is updated on
-every single push to the GitHub repository, so it will always be a recent
+You can get started by downloading the
+[latest buck2 binary](https://github.com/facebook/buck2/releases/tag/latest) for
+your platform. The `latest` tag always refers to a recent commit; it is updated
+on every single push to the GitHub repository, so it will always be a recent
 version.
 
 You can also compile Buck2 from source, if a binary isn't immediately available
@@ -126,8 +129,8 @@ for your use; check out the [HACKING.md](./HACKING.md) file for information.
 
 ## Terminology conventions
 
-Frequently used terms and their definitions can be found on the [glossary
-page](https://buck2.build/docs/concepts/glossary/).
+Frequently used terms and their definitions can be found on the
+[glossary page](https://buck2.build/docs/concepts/glossary/).
 
 ## License
 
