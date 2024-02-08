@@ -460,6 +460,7 @@ def generate_install_data(
     data = {
         "fullyQualifiedName": ctx.label,
         "info_plist": plist_path,
+        "platform_name": get_apple_sdk_name(ctx),
         "use_idb": "true",
         ## TODO(T110665037): read from .buckconfig
         # We require the user to have run `xcode-select` and `/var/db/xcode_select_link` to symlink
