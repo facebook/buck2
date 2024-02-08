@@ -37,7 +37,6 @@ load(
     "multidict_projection",
     "multidict_projection_key",
     "normalise_metadata",
-    "str_to_bool",
     "to_term_args",
 )
 
@@ -366,7 +365,7 @@ def link_output(
 
 def _link_srcs_folder(ctx: AnalysisContext) -> dict[str, Artifact]:
     """Build mapping for the src folder if erlang.include_src is set"""
-    if not str_to_bool(read_root_config("erlang", "include_src", "False")):
+    if not ctx.attrs.include_src:
         return {}
     srcs = {
         paths.join("src", src_file.basename): src_file

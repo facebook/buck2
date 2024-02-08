@@ -121,6 +121,9 @@ rules_attributes = {
                 [application_opt()](https://www.erlang.org/doc/man/application.html#load-2). The key-value pair will be stored in the
                 applications `.app` file and can be accessed by `file:consult/1`.
             """),
+        "include_src": attrs.bool(default = True, doc = """
+                This field controlls if the generated application directory contains a src/ directory with the Erlang code or not.
+            """),
         "includes": attrs.list(attrs.source(), default = [], doc = """
                 The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
             """),
