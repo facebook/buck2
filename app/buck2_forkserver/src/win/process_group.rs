@@ -7,23 +7,25 @@
  * of this source tree.
  */
 
+use std::os::windows::io::AsRawHandle;
 use std::os::windows::process::CommandExt;
-use std::process::Command as StdCommand;
+use std::process::Child;
+use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
 
+use buck2_error::Context;
 use buck2_wrapper_common::winapi_handle::WinapiHandle;
 use tokio::io;
-use tokio::process::Child;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
-use tokio::process::Command;
 use winapi::shared::minwindef;
 use winapi::um::handleapi;
 use winapi::um::processthreadsapi;
 use winapi::um::tlhelp32;
 use winapi::um::winnt;
 
+use crate::win::child_process::ChildProcess;
 use crate::win::job_object::JobObject;
 
 pub struct ProcessCommandImpl {
@@ -31,13 +33,13 @@ pub struct ProcessCommandImpl {
 }
 
 impl ProcessCommandImpl {
-    pub fn new(mut cmd: StdCommand) -> Self {
+    pub fn new(mut cmd: Command) -> Self {
         // On windows we create suspended process to assign it to a job (group) and then resume.
         // This is necessary because the process might finish before we add it to a job
         cmd.creation_flags(
             winapi::um::winbase::CREATE_NO_WINDOW | winapi::um::winbase::CREATE_SUSPENDED,
         );
-        Self { inner: cmd.into() }
+        Self { inner: cmd }
     }
 
     pub fn spawn(&mut self) -> io::Result<Child> {
@@ -53,18 +55,42 @@ impl ProcessCommandImpl {
     }
 }
 
+/// Keeps track of the exit status of a child process without worrying about
+/// polling the underlying futures even after they have completed.
+enum FusedChild {
+    Child(ChildProcess),
+    Done(ExitStatus),
+}
+
+impl FusedChild {
+    fn as_option(&self) -> Option<&ChildProcess> {
+        match &self {
+            FusedChild::Child(child) => Some(child),
+            FusedChild::Done(_) => None,
+        }
+    }
+
+    fn as_option_mut(&mut self) -> Option<&mut ChildProcess> {
+        match self {
+            FusedChild::Child(child) => Some(child),
+            FusedChild::Done(_) => None,
+        }
+    }
+}
+
 pub struct ProcessGroupImpl {
-    inner: Child,
+    child: FusedChild,
     job: JobObject,
 }
 
 impl ProcessGroupImpl {
     pub fn new(child: Child) -> anyhow::Result<ProcessGroupImpl> {
         let job = JobObject::new()?;
-        if let Some(handle) = child.raw_handle() {
-            job.assign_process(handle)?;
-        }
-        let process = ProcessGroupImpl { inner: child, job };
+        job.assign_process(child.as_raw_handle())?;
+        let process = ProcessGroupImpl {
+            child: FusedChild::Child(ChildProcess::new(child)),
+            job,
+        };
         // We create suspended process to assign it to a job (group)
         // So we resume the process after assignment
         process.resume()?;
@@ -72,19 +98,43 @@ impl ProcessGroupImpl {
     }
 
     pub fn take_stdout(&mut self) -> Option<ChildStdout> {
-        self.inner.stdout.take()
+        self.child
+            .as_option_mut()?
+            .as_std_mut()
+            .stdout
+            .take()
+            .and_then(|s| ChildStdout::from_std(s).ok())
     }
 
     pub fn take_stderr(&mut self) -> Option<ChildStderr> {
-        self.inner.stderr.take()
+        self.child
+            .as_option_mut()?
+            .as_std_mut()
+            .stderr
+            .take()
+            .and_then(|s| ChildStderr::from_std(s).ok())
     }
 
     pub async fn wait(&mut self) -> io::Result<ExitStatus> {
-        self.inner.wait().await
+        match &mut self.child {
+            FusedChild::Done(exit) => Ok(*exit),
+            FusedChild::Child(child) => {
+                // Ensure stdin is closed so the child isn't stuck waiting on
+                // input while the parent is waiting for it to exit.
+                drop(child.as_std_mut().stdin.take());
+                let ret = child.await;
+
+                if let Ok(exit) = ret {
+                    self.child = FusedChild::Done(exit);
+                }
+
+                ret
+            }
+        }
     }
 
     pub fn id(&self) -> Option<u32> {
-        self.inner.id()
+        Some(self.child.as_option()?.as_std().id())
     }
 
     // On Windows we use JobObject API to kill the whole process tree
@@ -93,10 +143,7 @@ impl ProcessGroupImpl {
     }
 
     fn resume(&self) -> anyhow::Result<()> {
-        let process_id = self
-            .inner
-            .id()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get the process id"))?;
+        let process_id = self.id().context("can't resume an exited process")?;
         unsafe {
             let main_thread_id = get_main_thread(process_id)?;
             resume_thread(main_thread_id)

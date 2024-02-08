@@ -29,12 +29,19 @@ pub struct ChildProcess {
 }
 
 impl ChildProcess {
-    #![allow(dead_code)]
     pub fn new(child: Child) -> Self {
         Self {
             inner: child,
             waiting: None,
         }
+    }
+
+    pub fn as_std(&self) -> &Child {
+        &self.inner
+    }
+
+    pub fn as_std_mut(&mut self) -> &mut Child {
+        &mut self.inner
     }
 }
 
