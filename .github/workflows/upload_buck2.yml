@@ -149,7 +149,7 @@ jobs:
         name: Store date information so we stay consistent between the steps
         run: |
           month=$(date +%Y-%m)
-          day=$(date +%d)
+          day=$(date +%d | sed 's/^0*//')
           tag=$(date +%Y-%m-%d)
           echo "month=$month" >> "$GITHUB_OUTPUT"
           echo "day=$day" >> "$GITHUB_OUTPUT"
