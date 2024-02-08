@@ -24,56 +24,59 @@ use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
 use tokio::process::Command;
 
-pub struct ProcessCommandImpl {
+pub(crate) struct ProcessCommandImpl {
     inner: Command,
 }
 
 impl ProcessCommandImpl {
-    pub fn new(mut cmd: StdCommand) -> Self {
+    pub(crate) fn new(mut cmd: StdCommand) -> Self {
         cmd.process_group(0);
         Self { inner: cmd.into() }
     }
 
-    pub fn spawn(&mut self) -> io::Result<Child> {
+    pub(crate) fn spawn(&mut self) -> io::Result<Child> {
         self.inner.spawn()
     }
 
-    pub fn stdout(&mut self, stdout: Stdio) {
+    pub(crate) fn stdout(&mut self, stdout: Stdio) {
         self.inner.stdout(stdout);
     }
 
-    pub fn stderr(&mut self, stdout: Stdio) {
+    pub(crate) fn stderr(&mut self, stdout: Stdio) {
         self.inner.stderr(stdout);
     }
 }
 
-pub struct ProcessGroupImpl {
+pub(crate) struct ProcessGroupImpl {
     inner: Child,
 }
 
 impl ProcessGroupImpl {
-    pub fn new(child: Child) -> anyhow::Result<ProcessGroupImpl> {
+    pub(crate) fn new(child: Child) -> anyhow::Result<ProcessGroupImpl> {
         Ok(ProcessGroupImpl { inner: child })
     }
 
-    pub fn take_stdout(&mut self) -> Option<ChildStdout> {
+    pub(crate) fn take_stdout(&mut self) -> Option<ChildStdout> {
         self.inner.stdout.take()
     }
 
-    pub fn take_stderr(&mut self) -> Option<ChildStderr> {
+    pub(crate) fn take_stderr(&mut self) -> Option<ChildStderr> {
         self.inner.stderr.take()
     }
 
-    pub async fn wait(&mut self) -> io::Result<ExitStatus> {
+    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
         self.inner.wait().await
     }
 
-    pub fn id(&self) -> Option<u32> {
+    pub(crate) fn id(&self) -> Option<u32> {
         self.inner.id()
     }
 
     // On unix we use killpg to kill the whole process tree
-    pub async fn kill(&self, graceful_shutdown_timeout_s: Option<u32>) -> anyhow::Result<()> {
+    pub(crate) async fn kill(
+        &self,
+        graceful_shutdown_timeout_s: Option<u32>,
+    ) -> anyhow::Result<()> {
         let pid: i32 = self
             .inner
             .id()

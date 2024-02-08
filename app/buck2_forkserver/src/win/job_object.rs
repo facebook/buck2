@@ -15,12 +15,12 @@ use winapi::shared::minwindef::FALSE;
 use winapi::um::jobapi2;
 use winapi::um::winnt::HANDLE;
 
-pub struct JobObject {
+pub(crate) struct JobObject {
     handle: WinapiHandle,
 }
 
 impl JobObject {
-    pub fn new() -> anyhow::Result<Self> {
+    pub(crate) fn new() -> anyhow::Result<Self> {
         let handle = unsafe {
             let handle = jobapi2::CreateJobObjectW(ptr::null_mut(), ptr::null_mut());
             WinapiHandle::new(handle)
@@ -31,7 +31,7 @@ impl JobObject {
         Ok(Self { handle })
     }
 
-    pub fn assign_process(&self, process: HANDLE) -> anyhow::Result<()> {
+    pub(crate) fn assign_process(&self, process: HANDLE) -> anyhow::Result<()> {
         let res = unsafe { jobapi2::AssignProcessToJobObject(self.handle.handle(), process) };
         if res == FALSE {
             Err(anyhow::anyhow!(io::Error::last_os_error()))
@@ -40,7 +40,7 @@ impl JobObject {
         }
     }
 
-    pub fn terminate(&self, exit_code: u32) -> anyhow::Result<()> {
+    pub(crate) fn terminate(&self, exit_code: u32) -> anyhow::Result<()> {
         let res = unsafe { jobapi2::TerminateJobObject(self.handle.handle(), exit_code) };
         if res == FALSE {
             return Err(anyhow::anyhow!(io::Error::last_os_error()));

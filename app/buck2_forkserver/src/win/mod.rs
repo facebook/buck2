@@ -7,6 +7,6 @@
  * of this source tree.
  */
 
-pub mod child_process;
-pub mod job_object;
-pub mod process_group;
+pub(crate) mod child_process;
+pub(crate) mod job_object;
+pub(crate) mod process_group;

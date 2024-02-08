@@ -15,7 +15,8 @@ use futures::stream::StreamExt;
 use crate::run::CommandEvent;
 use crate::run::GatherOutputStatus;
 
-pub fn encode_event_stream<S>(
+#[allow(dead_code)]
+pub(crate) fn encode_event_stream<S>(
     s: S,
 ) -> impl Stream<Item = Result<buck2_forkserver_proto::CommandEvent, tonic::Status>>
 where
@@ -61,7 +62,7 @@ where
     s.map(|r| r.map(convert_event).map_err(convert_err))
 }
 
-pub fn decode_event_stream<S>(s: S) -> impl Stream<Item = anyhow::Result<CommandEvent>>
+pub(crate) fn decode_event_stream<S>(s: S) -> impl Stream<Item = anyhow::Result<CommandEvent>>
 where
     S: Stream<Item = Result<buck2_forkserver_proto::CommandEvent, tonic::Status>>,
 {

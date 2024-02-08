@@ -71,7 +71,7 @@ impl From<DecodedStatus> for GatherOutputStatus {
 }
 
 #[derive(Debug)]
-pub enum CommandEvent {
+pub(crate) enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
     Exit(GatherOutputStatus),
@@ -172,7 +172,7 @@ pub async fn timeout_into_cancellation(
     }
 }
 
-pub fn stream_command_events<T>(
+pub(crate) fn stream_command_events<T>(
     process_group: anyhow::Result<ProcessGroup>,
     cancellation: T,
     decoder: impl StatusDecoder,
@@ -315,12 +315,12 @@ where
 
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
-pub trait KillProcess {
+pub(crate) trait KillProcess {
     async fn kill(self, process: &mut ProcessGroup) -> anyhow::Result<()>;
 }
 
 #[derive(Default)]
-pub struct DefaultKillProcess {
+pub(crate) struct DefaultKillProcess {
     pub graceful_shutdown_timeout_s: Option<u32>,
 }
 

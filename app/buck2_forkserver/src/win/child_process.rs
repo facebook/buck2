@@ -23,24 +23,24 @@ use winapi::um::winbase;
 use winapi::um::winnt;
 use winapi::um::winnt::HANDLE;
 
-pub struct ChildProcess {
+pub(crate) struct ChildProcess {
     inner: Child,
     waiting: Option<Waiting>,
 }
 
 impl ChildProcess {
-    pub fn new(child: Child) -> Self {
+    pub(crate) fn new(child: Child) -> Self {
         Self {
             inner: child,
             waiting: None,
         }
     }
 
-    pub fn as_std(&self) -> &Child {
+    pub(crate) fn as_std(&self) -> &Child {
         &self.inner
     }
 
-    pub fn as_std_mut(&mut self) -> &mut Child {
+    pub(crate) fn as_std_mut(&mut self) -> &mut Child {
         &mut self.inner
     }
 }

@@ -22,19 +22,19 @@ use crate::unix::process_group as imp;
 use crate::win::process_group as imp;
 
 #[derive(Error, Debug)]
-pub enum SpawnError {
+pub(crate) enum SpawnError {
     #[error("Failed to spawn a process")]
     IoError(#[from] io::Error),
     #[error("Failed to create a process group")]
     GenericError(#[from] anyhow::Error),
 }
 
-pub struct ProcessCommand {
+pub(crate) struct ProcessCommand {
     inner: imp::ProcessCommandImpl,
 }
 
 impl ProcessCommand {
-    pub fn new(mut cmd: StdCommand) -> Self {
+    pub(crate) fn new(mut cmd: StdCommand) -> Self {
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -43,46 +43,51 @@ impl ProcessCommand {
         }
     }
 
-    pub fn spawn(&mut self) -> anyhow::Result<ProcessGroup, SpawnError> {
+    pub(crate) fn spawn(&mut self) -> anyhow::Result<ProcessGroup, SpawnError> {
         let child = self.inner.spawn()?;
         Ok(ProcessGroup {
             inner: imp::ProcessGroupImpl::new(child)?,
         })
     }
 
-    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
+    #[allow(dead_code)]
+    pub(crate) fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
         self.inner.stdout(cfg.into());
         self
     }
 
-    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
+    #[allow(dead_code)]
+    pub(crate) fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
         self.inner.stderr(cfg.into());
         self
     }
 }
 
-pub struct ProcessGroup {
+pub(crate) struct ProcessGroup {
     inner: imp::ProcessGroupImpl,
 }
 
 impl ProcessGroup {
-    pub fn take_stdout(&mut self) -> Option<ChildStdout> {
+    pub(crate) fn take_stdout(&mut self) -> Option<ChildStdout> {
         self.inner.take_stdout()
     }
 
-    pub fn take_stderr(&mut self) -> Option<ChildStderr> {
+    pub(crate) fn take_stderr(&mut self) -> Option<ChildStderr> {
         self.inner.take_stderr()
     }
 
-    pub async fn wait(&mut self) -> io::Result<ExitStatus> {
+    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
         self.inner.wait().await
     }
 
-    pub fn id(&self) -> Option<u32> {
+    pub(crate) fn id(&self) -> Option<u32> {
         self.inner.id()
     }
 
-    pub async fn kill(&self, graceful_shutdown_timeout_s: Option<u32>) -> anyhow::Result<()> {
+    pub(crate) async fn kill(
+        &self,
+        graceful_shutdown_timeout_s: Option<u32>,
+    ) -> anyhow::Result<()> {
         self.inner.kill(graceful_shutdown_timeout_s).await
     }
 }

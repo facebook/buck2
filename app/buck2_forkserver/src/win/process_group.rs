@@ -25,12 +25,12 @@ use winapi::um::processthreadsapi;
 use crate::win::child_process::ChildProcess;
 use crate::win::job_object::JobObject;
 
-pub struct ProcessCommandImpl {
+pub(crate) struct ProcessCommandImpl {
     inner: Command,
 }
 
 impl ProcessCommandImpl {
-    pub fn new(mut cmd: Command) -> Self {
+    pub(crate) fn new(mut cmd: Command) -> Self {
         // On windows we create suspended process to assign it to a job (group) and then resume.
         // This is necessary because the process might finish before we add it to a job
         cmd.creation_flags(
@@ -39,15 +39,17 @@ impl ProcessCommandImpl {
         Self { inner: cmd }
     }
 
-    pub fn spawn(&mut self) -> io::Result<Child> {
+    pub(crate) fn spawn(&mut self) -> io::Result<Child> {
         self.inner.spawn()
     }
 
-    pub fn stdout(&mut self, stdout: Stdio) {
+    #[allow(dead_code)]
+    pub(crate) fn stdout(&mut self, stdout: Stdio) {
         self.inner.stdout(stdout);
     }
 
-    pub fn stderr(&mut self, stdout: Stdio) {
+    #[allow(dead_code)]
+    pub(crate) fn stderr(&mut self, stdout: Stdio) {
         self.inner.stderr(stdout);
     }
 }
@@ -75,13 +77,13 @@ impl FusedChild {
     }
 }
 
-pub struct ProcessGroupImpl {
+pub(crate) struct ProcessGroupImpl {
     child: FusedChild,
     job: JobObject,
 }
 
 impl ProcessGroupImpl {
-    pub fn new(child: Child) -> anyhow::Result<ProcessGroupImpl> {
+    pub(crate) fn new(child: Child) -> anyhow::Result<ProcessGroupImpl> {
         let job = JobObject::new()?;
         job.assign_process(child.as_raw_handle())?;
         let process = ProcessGroupImpl {
@@ -94,7 +96,7 @@ impl ProcessGroupImpl {
         Ok(process)
     }
 
-    pub fn take_stdout(&mut self) -> Option<ChildStdout> {
+    pub(crate) fn take_stdout(&mut self) -> Option<ChildStdout> {
         self.child
             .as_option_mut()?
             .as_std_mut()
@@ -103,7 +105,7 @@ impl ProcessGroupImpl {
             .and_then(|s| ChildStdout::from_std(s).ok())
     }
 
-    pub fn take_stderr(&mut self) -> Option<ChildStderr> {
+    pub(crate) fn take_stderr(&mut self) -> Option<ChildStderr> {
         self.child
             .as_option_mut()?
             .as_std_mut()
@@ -112,7 +114,7 @@ impl ProcessGroupImpl {
             .and_then(|s| ChildStderr::from_std(s).ok())
     }
 
-    pub async fn wait(&mut self) -> io::Result<ExitStatus> {
+    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
         match &mut self.child {
             FusedChild::Done(exit) => Ok(*exit),
             FusedChild::Child(child) => {
@@ -130,12 +132,15 @@ impl ProcessGroupImpl {
         }
     }
 
-    pub fn id(&self) -> Option<u32> {
+    pub(crate) fn id(&self) -> Option<u32> {
         Some(self.child.as_option()?.as_std().id())
     }
 
     // On Windows we use JobObject API to kill the whole process tree
-    pub async fn kill(&self, _graceful_shutdown_timeout_s: Option<u32>) -> anyhow::Result<()> {
+    pub(crate) async fn kill(
+        &self,
+        _graceful_shutdown_timeout_s: Option<u32>,
+    ) -> anyhow::Result<()> {
         self.job.terminate(0)
     }
 

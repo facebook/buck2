@@ -28,12 +28,12 @@ use tokio_util::codec::FramedRead;
 /// This trait represents the ability to transition a Reader (R) to a Drainer (Self). Both are
 /// [AsyncRead], but we expect the Drainer (which implements this trait) to not wait longer for
 /// more data to be produced.
-pub trait DrainerFromReader<R> {
+pub(crate) trait DrainerFromReader<R> {
     fn from_reader(reader: R) -> Self;
 }
 
 /// This trait represents a AsyncRead that can be told to interrupt (and transition to draining).
-pub trait InterruptNotifiable {
+pub(crate) trait InterruptNotifiable {
     fn notify_interrupt(self: Pin<&mut Self>);
 }
 
@@ -42,7 +42,7 @@ pub trait InterruptNotifiable {
 /// proceed to "drain" the reader, which means reading the data that is there but not waiting for
 /// any further data to get written.
 #[pin_project]
-pub struct InterruptibleAsyncRead<R, D> {
+pub(crate) struct InterruptibleAsyncRead<R, D> {
     state: InterruptibleAsyncReadState<R, D>,
 }
 
@@ -95,7 +95,7 @@ mod unix_non_blocking_drainer {
     /// hasn't completed `select()` on the pipe we want to drain, we'll still get to execute
     /// `read()` (and potentially get WouldBlock if there is nothing to read and the pipe isn't
     /// ready).
-    pub struct UnixNonBlockingDrainer<R> {
+    pub(crate) struct UnixNonBlockingDrainer<R> {
         fd: RawFd,
         // Kept so this is dropped and closed properly.
         _owner: R,
@@ -140,10 +140,10 @@ mod unix_non_blocking_drainer {
 }
 
 #[cfg(unix)]
-pub use unix_non_blocking_drainer::*;
+pub(crate) use unix_non_blocking_drainer::*;
 
 #[pin_project]
-pub struct TimeoutDrainer<R> {
+pub(crate) struct TimeoutDrainer<R> {
     state: TimeoutDrainerState,
     // To have a generic parameter like UnixNonBlockingDrainer does.
     _phantom: PhantomData<R>,

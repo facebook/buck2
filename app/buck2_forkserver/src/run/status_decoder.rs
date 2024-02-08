@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_miniperf_proto::MiniperfOutput;
 
-pub enum DecodedStatus {
+pub(crate) enum DecodedStatus {
     /// An actual status.
     Status {
         exit_code: i32,
@@ -26,7 +26,7 @@ pub enum DecodedStatus {
 }
 
 #[async_trait]
-pub trait StatusDecoder {
+pub(crate) trait StatusDecoder {
     /// Status decoders receive the exit status of the command we ran, but they might also obtain
     /// information out of band to obtain a different exit status.
     async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus>;
@@ -35,7 +35,7 @@ pub trait StatusDecoder {
     async fn cancel(self) -> anyhow::Result<()>;
 }
 
-pub struct DefaultStatusDecoder;
+pub(crate) struct DefaultStatusDecoder;
 
 #[async_trait]
 impl StatusDecoder for DefaultStatusDecoder {
@@ -51,7 +51,7 @@ impl StatusDecoder for DefaultStatusDecoder {
     }
 }
 
-pub fn default_decode_exit_code(status: ExitStatus) -> i32 {
+fn default_decode_exit_code(status: ExitStatus) -> i32 {
     let exit_code;
 
     #[cfg(unix)]
@@ -70,11 +70,12 @@ pub fn default_decode_exit_code(status: ExitStatus) -> i32 {
     exit_code.unwrap_or(-1)
 }
 
-pub struct MiniperfStatusDecoder {
+pub(crate) struct MiniperfStatusDecoder {
     out_path: AbsNormPathBuf,
 }
 
 impl MiniperfStatusDecoder {
+    #[allow(dead_code)]
     pub fn new(out_path: AbsNormPathBuf) -> Self {
         Self { out_path }
     }
