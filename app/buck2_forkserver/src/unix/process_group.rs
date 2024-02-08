@@ -7,7 +7,10 @@
  * of this source tree.
  */
 
+use std::os::unix::process::CommandExt;
+use std::process::Command as StdCommand;
 use std::process::ExitStatus;
+use std::process::Stdio;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -19,6 +22,30 @@ use tokio::io;
 use tokio::process::Child;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
+use tokio::process::Command;
+
+pub struct ProcessCommandImpl {
+    inner: Command,
+}
+
+impl ProcessCommandImpl {
+    pub fn new(mut cmd: StdCommand) -> Self {
+        cmd.process_group(0);
+        Self { inner: cmd.into() }
+    }
+
+    pub fn spawn(&mut self) -> io::Result<Child> {
+        self.inner.spawn()
+    }
+
+    pub fn stdout(&mut self, stdout: Stdio) {
+        self.inner.stdout(stdout);
+    }
+
+    pub fn stderr(&mut self, stdout: Stdio) {
+        self.inner.stderr(stdout);
+    }
+}
 
 pub struct ProcessGroupImpl {
     inner: Child,

@@ -7,13 +7,17 @@
  * of this source tree.
  */
 
+use std::os::windows::process::CommandExt;
+use std::process::Command as StdCommand;
 use std::process::ExitStatus;
+use std::process::Stdio;
 
 use buck2_wrapper_common::winapi_handle::WinapiHandle;
 use tokio::io;
 use tokio::process::Child;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
+use tokio::process::Command;
 use winapi::shared::minwindef;
 use winapi::um::handleapi;
 use winapi::um::processthreadsapi;
@@ -21,6 +25,33 @@ use winapi::um::tlhelp32;
 use winapi::um::winnt;
 
 use crate::win::job_object::JobObject;
+
+pub struct ProcessCommandImpl {
+    inner: Command,
+}
+
+impl ProcessCommandImpl {
+    pub fn new(mut cmd: StdCommand) -> Self {
+        // On windows we create suspended process to assign it to a job (group) and then resume.
+        // This is necessary because the process might finish before we add it to a job
+        cmd.creation_flags(
+            winapi::um::winbase::CREATE_NO_WINDOW | winapi::um::winbase::CREATE_SUSPENDED,
+        );
+        Self { inner: cmd.into() }
+    }
+
+    pub fn spawn(&mut self) -> io::Result<Child> {
+        self.inner.spawn()
+    }
+
+    pub fn stdout(&mut self, stdout: Stdio) {
+        self.inner.stdout(stdout);
+    }
+
+    pub fn stderr(&mut self, stdout: Stdio) {
+        self.inner.stderr(stdout);
+    }
+}
 
 pub struct ProcessGroupImpl {
     inner: Child,

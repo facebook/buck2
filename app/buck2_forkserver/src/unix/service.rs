@@ -44,8 +44,7 @@ use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
 use crate::run::maybe_absolutize_exe;
-use crate::run::prepare_command;
-use crate::run::process_group::ProcessGroup;
+use crate::run::process_group::ProcessCommand;
 use crate::run::status_decoder::DefaultStatusDecoder;
 use crate::run::status_decoder::MiniperfStatusDecoder;
 use crate::run::stream_command_events;
@@ -161,16 +160,14 @@ impl Forkserver for UnixForkserverService {
                 }
             }
 
-            let mut cmd = prepare_command(cmd);
             let stream_stdio = std_redirects.is_none();
+            let mut cmd = ProcessCommand::new(cmd);
             if let Some(std_redirects) = std_redirects {
                 cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
                 cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
             }
-            let child = cmd.spawn();
-            let process_group = child
-                .map_err(anyhow::Error::from)
-                .and_then(ProcessGroup::new);
+
+            let process_group = cmd.spawn().map_err(anyhow::Error::from);
 
             let timeout = timeout_into_cancellation(timeout);
 

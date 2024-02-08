@@ -7,10 +7,12 @@
  * of this source tree.
  */
 
+use std::process::Command as StdCommand;
 use std::process::ExitStatus;
+use std::process::Stdio;
 
+use thiserror::Error;
 use tokio::io;
-use tokio::process::Child;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
 
@@ -19,17 +21,51 @@ use crate::unix::process_group as imp;
 #[cfg(windows)]
 use crate::win::process_group as imp;
 
-pub struct ProcessGroup {
-    inner: imp::ProcessGroupImpl,
+#[derive(Error, Debug)]
+pub enum SpawnError {
+    #[error("Failed to spawn a process")]
+    IoError(#[from] io::Error),
+    #[error("Failed to create a process group")]
+    GenericError(#[from] anyhow::Error),
 }
 
-impl ProcessGroup {
-    pub fn new(child: Child) -> anyhow::Result<ProcessGroup> {
+pub struct ProcessCommand {
+    inner: imp::ProcessCommandImpl,
+}
+
+impl ProcessCommand {
+    pub fn new(mut cmd: StdCommand) -> Self {
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        Self {
+            inner: imp::ProcessCommandImpl::new(cmd),
+        }
+    }
+
+    pub fn spawn(&mut self) -> anyhow::Result<ProcessGroup, SpawnError> {
+        let child = self.inner.spawn()?;
         Ok(ProcessGroup {
             inner: imp::ProcessGroupImpl::new(child)?,
         })
     }
 
+    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
+        self.inner.stdout(cfg.into());
+        self
+    }
+
+    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
+        self.inner.stderr(cfg.into());
+        self
+    }
+}
+
+pub struct ProcessGroup {
+    inner: imp::ProcessGroupImpl,
+}
+
+impl ProcessGroup {
     pub fn take_stdout(&mut self) -> Option<ChildStdout> {
         self.inner.take_stdout()
     }

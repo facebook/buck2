@@ -15,6 +15,7 @@ futures = { workspace = true }
 libc = { workspace = true }
 pin-project = { workspace = true }
 take_mut = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }

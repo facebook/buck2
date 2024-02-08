@@ -16,7 +16,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
-use std::process::Stdio;
 use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
@@ -40,7 +39,9 @@ use self::interruptible_async_read::InterruptibleAsyncRead;
 use self::status_decoder::DecodedStatus;
 use self::status_decoder::DefaultStatusDecoder;
 use self::status_decoder::StatusDecoder;
+use crate::run::process_group::ProcessCommand;
 use crate::run::process_group::ProcessGroup;
+use crate::run::process_group::SpawnError;
 
 #[derive(Debug)]
 pub enum GatherOutputStatus {
@@ -297,7 +298,7 @@ pub async fn gather_output<T>(
 where
     T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
 {
-    let cmd = prepare_command(cmd);
+    let cmd = ProcessCommand::new(cmd);
 
     let process_details =
         spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
@@ -358,29 +359,6 @@ pub fn maybe_absolutize_exe<'a>(
     Ok(exe.into())
 }
 
-pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-    }
-
-    #[cfg(windows)]
-    {
-        // On windows we create suspended process to assign it to a job (group) and then resume.
-        // This is necessary because the process might finish before we add it to a job
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(
-            winapi::um::winbase::CREATE_NO_WINDOW | winapi::um::winbase::CREATE_SUSPENDED,
-        );
-    }
-
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    cmd.into()
-}
-
 /// fork-exec is a bit tricky in a busy process. We often have files open to writing just prior to
 /// executing them (as we download from RE), and many processes being spawned concurrently. We do
 /// close the fds properly before the exec, but what can happn is:
@@ -397,7 +375,7 @@ pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
 /// The more correct solution for this here would be to start a fork server in a separate process
 /// when we start.  However, until we get there, this should do the trick.
 async fn spawn_retry_txt_busy<F, D>(
-    mut cmd: tokio::process::Command,
+    mut cmd: ProcessCommand,
     mut delay: F,
 ) -> anyhow::Result<ProcessGroup>
 where
@@ -409,11 +387,14 @@ where
     loop {
         let res = cmd.spawn();
 
-        let res_errno = res.as_ref().map_err(|e| e.raw_os_error());
+        let res_errno = res.as_ref().map_err(|e| match e {
+            SpawnError::IoError(e) => e.raw_os_error(),
+            SpawnError::GenericError(_) => None,
+        });
         let is_txt_busy = matches!(res_errno, Err(Some(libc::ETXTBSY)));
 
         if attempts == 0 || !is_txt_busy {
-            return res.map_err(anyhow::Error::from).and_then(ProcessGroup::new);
+            return res.map_err(anyhow::Error::from);
         }
 
         delay().await;
@@ -431,7 +412,6 @@ mod tests {
     use std::time::Instant;
 
     use assert_matches::assert_matches;
-    use buck2_util::process::async_background_command;
     use buck2_util::process::background_command;
     use dupe::Dupe;
 
@@ -533,7 +513,8 @@ mod tests {
 
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
-        let cmd = async_background_command(&bin);
+        let cmd = background_command(&bin);
+        let cmd = ProcessCommand::new(cmd);
         let mut process_group = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
@@ -554,7 +535,8 @@ mod tests {
         let tempdir = tempfile::tempdir()?;
         let bin = tempdir.path().join("bin"); // Does not actually exist
 
-        let cmd = async_background_command(&bin);
+        let cmd = background_command(&bin);
+        let cmd = ProcessCommand::new(cmd);
         let res = spawn_retry_txt_busy(cmd, || async { panic!("Should not be called!") }).await;
         assert!(res.is_err());
 
@@ -617,10 +599,8 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        let process = prepare_command(cmd)
-            .spawn()
-            .map_err(anyhow::Error::from)
-            .and_then(ProcessGroup::new);
+        let mut cmd = ProcessCommand::new(cmd);
+        let process = cmd.spawn().map_err(anyhow::Error::from);
         let mut events = stream_command_events(
             process,
             futures::future::pending(),
@@ -696,11 +676,8 @@ mod tests {
         };
         cmd.args(["-c", "sleep 10000"]);
 
-        let mut cmd = prepare_command(cmd);
-        let process = cmd
-            .spawn()
-            .map_err(anyhow::Error::from)
-            .and_then(ProcessGroup::new);
+        let mut cmd = ProcessCommand::new(cmd);
+        let process = cmd.spawn().map_err(anyhow::Error::from);
 
         let stream = stream_command_events(
             process,
@@ -730,15 +707,12 @@ mod tests {
         let mut cmd = background_command("sh");
         cmd.args(["-c", "echo hello"]);
 
-        let mut cmd = prepare_command(cmd);
         let tempdir = tempfile::tempdir()?;
         let stdout = tempdir.path().join("stdout");
+        let mut cmd = ProcessCommand::new(cmd);
         cmd.stdout(std::fs::File::create(stdout.clone())?);
 
-        let process_group = cmd
-            .spawn()
-            .map_err(anyhow::Error::from)
-            .and_then(ProcessGroup::new);
+        let process_group = cmd.spawn().map_err(anyhow::Error::from);
         let mut events = stream_command_events(
             process_group,
             futures::future::pending(),
