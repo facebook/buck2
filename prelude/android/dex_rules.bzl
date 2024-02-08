@@ -365,8 +365,7 @@ def _filter_pre_dexed_libs(
         batch_number: int) -> DexInputsWithClassNamesAndWeightEstimatesFile:
     weight_estimate_and_filtered_class_names_file = actions.declare_output("class_names_and_weight_estimates_for_batch_{}".format(batch_number))
 
-    filter_dex_cmd = cmd_args([
-        android_toolchain.filter_dex_class_names[RunInfo],
+    filter_dex_cmd_args = cmd_args([
         "--primary-dex-patterns",
         primary_dex_patterns_file,
         "--dex-target-identifiers",
@@ -377,6 +376,12 @@ def _filter_pre_dexed_libs(
         [lib.weight_estimate for lib in pre_dexed_libs],
         "--output",
         weight_estimate_and_filtered_class_names_file.as_output(),
+    ])
+    filter_dex_cmd_argsfile = actions.write("filter_dex_cmd_args_{}".format(batch_number), filter_dex_cmd_args)
+
+    filter_dex_cmd = cmd_args([
+        android_toolchain.filter_dex_class_names[RunInfo],
+        cmd_args(filter_dex_cmd_argsfile, format = "@{}").hidden(filter_dex_cmd_args),
     ])
     actions.run(filter_dex_cmd, category = "filter_dex", identifier = "batch_{}".format(batch_number))
 

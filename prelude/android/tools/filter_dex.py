@@ -72,7 +72,8 @@ class ClassNameFilter:
 
 def _parse_args():
     parser = argparse.ArgumentParser(
-        description="Tool to filter a dex for primary class names."
+        description="Tool to filter a dex for primary class names.",
+        fromfile_prefix_chars="@",
     )
 
     parser.add_argument(
