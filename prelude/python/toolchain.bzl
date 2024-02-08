@@ -69,6 +69,7 @@ PythonToolchainInfo = provider(
         "pex_executor": provider_field(typing.Any, default = None),
         "pex_extension": provider_field(typing.Any, default = None),
         "type_checker": provider_field(typing.Any, default = None),
+        "typeshed_stubs": provider_field(typing.Any, default = []),
         "emit_omnibus_metadata": provider_field(typing.Any, default = None),
         "fail_with_message": provider_field(typing.Any, default = None),
         "emit_dependency_metadata": provider_field(typing.Any, default = None),
