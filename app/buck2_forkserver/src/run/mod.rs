@@ -193,14 +193,10 @@ where
 
     let stdio = if stream_stdio {
         let stdout = process_group
-            .child()
-            .stdout
-            .take()
+            .take_stdout()
             .context("Child stdout is not piped")?;
         let stderr = process_group
-            .child()
-            .stderr
-            .take()
+            .take_stderr()
             .context("Child stderr is not piped")?;
 
         #[cfg(unix)]
@@ -232,7 +228,7 @@ where
         // NOTE: This wrapping here is so that we release the borrow of `child` that stems from
         // `wait()` by the time we call kill_process a few lines down.
         let execute = async {
-            let status = process_group.child().wait();
+            let status = process_group.wait();
             futures::pin_mut!(status);
             futures::pin_mut!(cancellation);
 
@@ -258,7 +254,6 @@ where
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
                 process_group
-                    .child()
                     .wait()
                     .await
                     .context("Failed to await child after kill")?;
@@ -331,7 +326,7 @@ pub struct DefaultKillProcess {
 #[async_trait]
 impl KillProcess for DefaultKillProcess {
     async fn kill(self, process_group: &mut ProcessGroup) -> anyhow::Result<()> {
-        let pid = match process_group.child().id() {
+        let pid = match process_group.id() {
             Some(pid) => pid,
             None => {
                 // Child just exited, so in this case we don't want to kill anything.
@@ -339,15 +334,7 @@ impl KillProcess for DefaultKillProcess {
             }
         };
         tracing::info!("Killing process {}", pid);
-
-        if cfg!(any(windows, unix)) {
-            return process_group.kill(self.graceful_shutdown_timeout_s).await;
-        }
-
-        process_group
-            .child()
-            .start_kill()
-            .map_err(anyhow::Error::from)
+        process_group.kill(self.graceful_shutdown_timeout_s).await
     }
 }
 
@@ -556,7 +543,7 @@ mod tests {
         })
         .await?;
 
-        let status = process_group.child().wait().await?;
+        let status = process_group.wait().await?;
         assert_eq!(status.code(), Some(0));
 
         Ok(())

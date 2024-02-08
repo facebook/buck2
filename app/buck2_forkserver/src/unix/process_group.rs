@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::process::ExitStatus;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -14,7 +15,10 @@ use buck2_common::kill_util::try_terminate_process_gracefully;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
+use tokio::io;
 use tokio::process::Child;
+use tokio::process::ChildStderr;
+use tokio::process::ChildStdout;
 
 pub struct ProcessGroupImpl {
     inner: Child,
@@ -25,8 +29,20 @@ impl ProcessGroupImpl {
         Ok(ProcessGroupImpl { inner: child })
     }
 
-    pub fn child(&mut self) -> &mut Child {
-        &mut self.inner
+    pub fn take_stdout(&mut self) -> Option<ChildStdout> {
+        self.inner.stdout.take()
+    }
+
+    pub fn take_stderr(&mut self) -> Option<ChildStderr> {
+        self.inner.stderr.take()
+    }
+
+    pub async fn wait(&mut self) -> io::Result<ExitStatus> {
+        self.inner.wait().await
+    }
+
+    pub fn id(&self) -> Option<u32> {
+        self.inner.id()
     }
 
     // On unix we use killpg to kill the whole process tree

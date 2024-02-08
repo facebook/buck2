@@ -7,7 +7,12 @@
  * of this source tree.
  */
 
+use std::process::ExitStatus;
+
+use tokio::io;
 use tokio::process::Child;
+use tokio::process::ChildStderr;
+use tokio::process::ChildStdout;
 
 #[cfg(unix)]
 use crate::unix::process_group as imp;
@@ -25,8 +30,20 @@ impl ProcessGroup {
         })
     }
 
-    pub fn child(&mut self) -> &mut Child {
-        self.inner.child()
+    pub fn take_stdout(&mut self) -> Option<ChildStdout> {
+        self.inner.take_stdout()
+    }
+
+    pub fn take_stderr(&mut self) -> Option<ChildStderr> {
+        self.inner.take_stderr()
+    }
+
+    pub async fn wait(&mut self) -> io::Result<ExitStatus> {
+        self.inner.wait().await
+    }
+
+    pub fn id(&self) -> Option<u32> {
+        self.inner.id()
     }
 
     pub async fn kill(&self, graceful_shutdown_timeout_s: Option<u32>) -> anyhow::Result<()> {

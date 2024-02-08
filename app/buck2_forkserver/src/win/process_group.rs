@@ -7,8 +7,13 @@
  * of this source tree.
  */
 
+use std::process::ExitStatus;
+
 use buck2_wrapper_common::winapi_handle::WinapiHandle;
+use tokio::io;
 use tokio::process::Child;
+use tokio::process::ChildStderr;
+use tokio::process::ChildStdout;
 use winapi::shared::minwindef;
 use winapi::um::handleapi;
 use winapi::um::processthreadsapi;
@@ -35,8 +40,20 @@ impl ProcessGroupImpl {
         Ok(process)
     }
 
-    pub fn child(&mut self) -> &mut Child {
-        &mut self.inner
+    pub fn take_stdout(&mut self) -> Option<ChildStdout> {
+        self.inner.stdout.take()
+    }
+
+    pub fn take_stderr(&mut self) -> Option<ChildStderr> {
+        self.inner.stderr.take()
+    }
+
+    pub async fn wait(&mut self) -> io::Result<ExitStatus> {
+        self.inner.wait().await
+    }
+
+    pub fn id(&self) -> Option<u32> {
+        self.inner.id()
     }
 
     // On Windows we use JobObject API to kill the whole process tree
