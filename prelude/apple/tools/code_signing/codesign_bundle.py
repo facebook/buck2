@@ -353,27 +353,36 @@ def _codesign_everything(
 @dataclass
 class ParallelProcess:
     process: subprocess.Popen
-    stdout_path: str
+    stdout_path: Optional[str]
     stderr_path: str
 
     def check_result(self) -> None:
         if self.process.returncode == 0:
             return
-        with open(self.stdout_path, encoding="utf8") as stdout, open(
-            self.stderr_path, encoding="utf8"
-        ) as stderr:
-            raise RuntimeError(
-                "\nstdout:\n{}\n\nstderr:\n{}\n".format(stdout.read(), stderr.read())
+        with ExitStack() as stack:
+            stderr = stack.enter_context(open(self.stderr_path, encoding="utf8"))
+            stderr_string = f"\nstderr:\n{stderr.read()}\n"
+            stdout = (
+                stack.enter_context(open(self.stdout_path, encoding="utf8"))
+                if self.stdout_path
+                else None
             )
+            stdout_string = f"\nstdout:\n{stdout.read()}\n" if stdout else ""
+            raise RuntimeError(f"{stdout_string}{stderr_string}")
 
 
 def _spawn_process(
     command: List[Union[str, Path]],
     tmp_dir: str,
     stack: ExitStack,
+    pipe_stdout: bool = False,
 ) -> ParallelProcess:
-    stdout_path = os.path.join(tmp_dir, uuid.uuid4().hex)
-    stdout = stack.enter_context(open(stdout_path, "w"))
+    if pipe_stdout:
+        stdout_path = None
+        stdout = subprocess.PIPE
+    else:
+        stdout_path = os.path.join(tmp_dir, uuid.uuid4().hex)
+        stdout = stack.enter_context(open(stdout_path, "w"))
     stderr_path = os.path.join(tmp_dir, uuid.uuid4().hex)
     stderr = stack.enter_context(open(stderr_path, "w"))
     _LOGGER.info(f"Executing command: {command}")
@@ -397,7 +406,7 @@ def _spawn_codesign_process(
     command = codesign_command_factory.codesign_command(
         path, identity_fingerprint, entitlements, codesign_args
     )
-    return _spawn_process(command, tmp_dir, stack)
+    return _spawn_process(command=command, tmp_dir=tmp_dir, stack=stack)
 
 
 def _codesign_paths(
