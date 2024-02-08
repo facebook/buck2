@@ -30,6 +30,7 @@ rust_library(
         "fbsource//third-party/rust:scopeguard",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:slab",
+        "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",

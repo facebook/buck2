@@ -142,6 +142,17 @@ impl<'a> DerefMut for DiceComputationsParallel<'a> {
     }
 }
 
+// This assertion assures we don't unknowingly regress the size of this critical future.
+// TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
+#[allow(unused, clippy::diverging_sub_expression)]
+fn _assert_dice_compute_future_sizes<K: Key>() {
+    let ctx: DiceComputations = panic!();
+    let k: K = panic!();
+    let v = ctx.compute(&k);
+    let e = [0u8; 640 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
