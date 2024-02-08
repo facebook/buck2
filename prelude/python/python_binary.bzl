@@ -406,10 +406,11 @@ def python_executable(
         exe.sub_targets.update({
             "typecheck": [
                 create_per_target_type_check(
-                    ctx.actions,
+                    ctx,
                     type_checker,
                     src_manifest,
                     python_deps,
+                    typeshed_stubs = python_toolchain.typeshed_stubs,
                     py_version = ctx.attrs.py_version_for_type_checking,
                     typing_enabled = ctx.attrs.typing,
                 ),

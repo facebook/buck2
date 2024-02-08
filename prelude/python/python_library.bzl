@@ -317,10 +317,11 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if type_checker != None:
         sub_targets["typecheck"] = [
             create_per_target_type_check(
-                ctx.actions,
+                ctx,
                 type_checker,
                 src_type_manifest,
                 deps,
+                typeshed_stubs = python_toolchain.typeshed_stubs,
                 py_version = ctx.attrs.py_version_for_type_checking,
                 typing_enabled = ctx.attrs.typing,
             ),
