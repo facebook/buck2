@@ -170,10 +170,12 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Some Qt genrules don't support RE yet
     "qt_moc",
-    "qt_qrc_gen",
-    "qt_qrc_compile",
-    "qt_qsb_gen",
     "qt_qmlcachegen",
+    "qt_qrc_compile",
+    "qt_qrc_gen",
+    "qt_qsb_gen",
+    "qt_rcc",
+    "qt_uic",
 
     # use local jar
     "uses_jar",
