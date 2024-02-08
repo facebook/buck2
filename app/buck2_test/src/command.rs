@@ -286,7 +286,8 @@ async fn test(
         Some(config) => {
             let test_executor = post_process_test_executor(config.as_ref())
                 .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))?;
-            let test_executor_args = Vec::new();
+            let test_executor_args =
+                vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
             (test_executor, test_executor_args)
         }
         None => {
