@@ -59,6 +59,8 @@ enum ErrorTag {
   DAEMON_CONNECT = 5;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
+  // Error during analysis.
+  ANALYSIS = 7;
   // Server stderr is empty.
   SERVER_STDERR_EMPTY = 11;
   // Server stderr indicates that the server panicked.

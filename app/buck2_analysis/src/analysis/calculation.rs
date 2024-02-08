@@ -23,6 +23,7 @@ use buck2_build_api::keep_going;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_data::error::ErrorTag;
 use buck2_data::ToProtoMessage;
 use buck2_error::Context;
 use buck2_events::dispatch::async_record_root_spans;
@@ -224,6 +225,16 @@ pub async fn get_rule_spec(
 }
 
 async fn get_analysis_result(
+    ctx: &DiceComputations,
+    target: &ConfiguredTargetLabel,
+    profile_mode: &StarlarkProfileModeOrInstrumentation,
+) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
+    get_analysis_result_inner(ctx, target, profile_mode)
+        .await
+        .tag(ErrorTag::Analysis)
+}
+
+async fn get_analysis_result_inner(
     ctx: &DiceComputations,
     target: &ConfiguredTargetLabel,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
