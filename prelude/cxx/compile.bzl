@@ -559,7 +559,7 @@ def _get_compile_base(compiler_info: typing.Any) -> cmd_args:
 
 def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
     # Raw assembly doesn't make sense to capture dep files for.
-    if ext.value in (".s", ".S", ".asm"):
+    if ext.value in (".s", ".asm"):
         return None
     elif ext.value == ".hip":
         # TODO (T118797886): HipCompilerInfo doesn't have dep files processor.
@@ -573,7 +573,7 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
         return DepFileType("c")
     elif ext.value == ".cu":
         return DepFileType("cuda")
-    elif ext.value in (".asmpp"):
+    elif ext.value in (".asmpp", ".S"):
         return DepFileType("asm")
     else:
         # This should be unreachable as long as we handle all enum values
