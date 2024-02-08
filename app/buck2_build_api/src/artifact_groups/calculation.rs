@@ -233,12 +233,36 @@ static_assertions::assert_eq_size!(EnsureArtifactGroupReady, [usize; 3]);
 #[allow(unused, clippy::diverging_sub_expression)]
 fn _assert_ensure_artifact_group_future_size() {
     let ctx: DiceComputations = panic!();
+
+    // These first two are the important ones to track and not regress.
     let v = ctx.ensure_artifact_group(panic!());
     let e = [0u8; 128 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
-    let v = ensure_artifact_group_staged(panic!(), panic!());
+    let v = ensure_artifact_group_staged(&ctx, panic!());
     let e = [0u8; 704 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+
+    // The rest of these are to help understand how changes are impacting the important ones above. Regressing these
+    // is generally okay if the above don't regress.
+    let v = ensure_artifact_staged(&ctx, panic!());
+    let e = [0u8; 640 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+
+    let v = ensure_base_artifact_staged(&ctx, panic!());
+    let e = [0u8; 576 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+
+    let v = ensure_build_artifact_staged(&ctx, panic!());
+    let e = [0u8; 576 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+
+    let v = ActionCalculation::build_action(&ctx, panic!());
+    let e = [0u8; 128 / 8];
+    static_assertions::assert_eq_size_ptr!(&v, &e);
+
+    let v = ensure_source_artifact_staged(&ctx, panic!());
+    let e = [0u8; 128 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 }
 
