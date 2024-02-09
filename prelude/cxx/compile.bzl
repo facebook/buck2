@@ -559,6 +559,8 @@ def _get_compile_base(compiler_info: typing.Any) -> cmd_args:
 
 def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
     # Raw assembly doesn't make sense to capture dep files for.
+    # .S is preprocessed assembly, but some builds use it with
+    # assemblers that don't support -MF, so leave depfiles off.
     if ext.value in (".s", ".S", ".asm"):
         return None
     elif ext.value == ".hip":
