@@ -11,11 +11,11 @@ import subprocess
 import sys
 
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Union
 
 from .apple_platform import ApplePlatform
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 def _find_executable_for_signed_path(path: Path, platform: ApplePlatform) -> Path:
@@ -29,7 +29,9 @@ def _find_executable_for_signed_path(path: Path, platform: ApplePlatform) -> Pat
     return contents_dir / path.stem
 
 
-def _logged_subprocess_run(name, why, args):
+def _logged_subprocess_run(
+    name: str, why: str, args: List[Union[str, Path]]
+) -> subprocess.CompletedProcess[str]:
     _LOGGER.info(f"  Calling {name} to {why}: `{args}`")
     result = subprocess.run(
         args,
@@ -74,7 +76,7 @@ def should_skip_adhoc_signing_path(
     identity_fingerprint: str,
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
-):
+) -> bool:
     logging.getLogger(__name__).info(
         f"Checking if should skip adhoc signing path `{path}` with identity `{identity_fingerprint}` and entitlements `{entitlements_path}` for platform `{platform}`"
     )

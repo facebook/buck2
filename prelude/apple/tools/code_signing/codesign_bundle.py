@@ -50,7 +50,7 @@ _default_read_provisioning_profile_command_factory = (
     DefaultReadProvisioningProfileCommandFactory()
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 def _select_provisioning_profile(
@@ -99,7 +99,7 @@ def _select_provisioning_profile(
 class AdhocSigningContext:
     codesign_identity: str
 
-    def __init__(self, codesign_identity: Optional[str] = None):
+    def __init__(self, codesign_identity: Optional[str] = None) -> None:
         self.codesign_identity = codesign_identity or "-"
 
 
@@ -238,7 +238,7 @@ def _read_provisioning_profiles(
 
 
 def _decode_provisioning_profiles(
-    paths: [Path],
+    paths: List[Path],
     tmp_dir: str,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
 ) -> Dict[Path, bytes]:
@@ -384,7 +384,7 @@ def _codesign_everything(
 
 @dataclass
 class ParallelProcess:
-    process: subprocess.Popen
+    process: subprocess.Popen[bytes]
     stdout_path: Optional[str]
     stderr_path: str
 

@@ -24,7 +24,7 @@ class IListCodesignIdentities(metaclass=ABCMeta):
 class ListCodesignIdentities(IListCodesignIdentities):
     _default_command = ["security", "find-identity", "-v", "-p", "codesigning"]
 
-    def __init__(self, command: List[str]):
+    def __init__(self, command: List[str]) -> None:
         self.command = command
 
     @classmethod

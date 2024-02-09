@@ -22,11 +22,11 @@ class AppId:
         team_id = "team_id"
         bundle_id = "bundle_id"
 
-    _re_string = "^(?P<{team_id}>[A-Z0-9]{{10}})\\.(?P<{bundle_id}>.+)$".format(
+    _re_string: str = "^(?P<{team_id}>[A-Z0-9]{{10}})\\.(?P<{bundle_id}>.+)$".format(
         team_id=_ReGroupName.team_id,
         bundle_id=_ReGroupName.bundle_id,
     )
-    _re_pattern = re.compile(_re_string)
+    _re_pattern: re.Pattern[str] = re.compile(_re_string)
 
     # Takes a application identifier and splits it into Team ID and bundle ID.
     # Prefix is always a ten-character alphanumeric sequence. Bundle ID may be a fully-qualified name or a wildcard ending in *.

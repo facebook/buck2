@@ -25,7 +25,7 @@ META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK: str = "https://www.internalfb.com/intern/
 class IProvisioningProfileDiagnostics(metaclass=ABCMeta):
     profile: ProvisioningProfileMetadata
 
-    def __init__(self, profile: ProvisioningProfileMetadata):
+    def __init__(self, profile: ProvisioningProfileMetadata) -> None:
         self.profile = profile
 
     @abstractmethod
@@ -42,7 +42,7 @@ class TeamIdMismatch(IProvisioningProfileDiagnostics):
         profile: ProvisioningProfileMetadata,
         team_id: str,
         team_id_constraint: str,
-    ):
+    ) -> None:
         super().__init__(profile)
         self.team_id = team_id
         self.team_id_constraint = team_id_constraint
@@ -60,7 +60,7 @@ class BundleIdMismatch(IProvisioningProfileDiagnostics):
         profile: ProvisioningProfileMetadata,
         bundle_id: str,
         bundle_id_constraint: str,
-    ):
+    ) -> None:
         super().__init__(profile)
         self.bundle_id = bundle_id
         self.bundle_id_constraint = bundle_id_constraint
@@ -76,7 +76,7 @@ class ProfileExpired(IProvisioningProfileDiagnostics):
         self,
         profile: ProvisioningProfileMetadata,
         bundle_id_match_length: int,
-    ):
+    ) -> None:
         super().__init__(profile)
         self.bundle_id_match_length = bundle_id_match_length
 
@@ -93,7 +93,7 @@ class UnsupportedPlatform(IProvisioningProfileDiagnostics):
         profile: ProvisioningProfileMetadata,
         bundle_id_match_length: int,
         platform_constraint: ApplePlatform,
-    ):
+    ) -> None:
         super().__init__(profile)
         self.bundle_id_match_length = bundle_id_match_length
         self.platform_constraint = platform_constraint
@@ -114,7 +114,7 @@ class EntitlementsMismatch(IProvisioningProfileDiagnostics):
         bundle_id_match_length: int,
         mismatched_key: str,
         mismatched_value: str,
-    ):
+    ) -> None:
         super().__init__(profile)
         self.bundle_id_match_length = bundle_id_match_length
         self.mismatched_key = mismatched_key
@@ -131,7 +131,7 @@ class DeveloperCertificateMismatch(IProvisioningProfileDiagnostics):
         self,
         profile: ProvisioningProfileMetadata,
         bundle_id_match_length: int,
-    ):
+    ) -> None:
         super().__init__(profile)
         self.bundle_id_match_length = bundle_id_match_length
 

@@ -87,7 +87,7 @@ def decorate_error_message(message: str) -> str:
     return " ".join(["❗️", message])
 
 
-def _main():
+def _main() -> None:
     args = _args_parser().parse_args()
     try:
         if args.ad_hoc:

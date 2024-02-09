@@ -20,7 +20,7 @@ class InfoPlistMetadata:
     is_watchos_app: bool
 
     @staticmethod
-    def from_file(info_plist_file: IO) -> InfoPlistMetadata:
+    def from_file(info_plist_file: IO[bytes]) -> InfoPlistMetadata:
         root = detect_format_and_load(info_plist_file)
         return InfoPlistMetadata(
             root["CFBundleIdentifier"],
