@@ -23,4 +23,6 @@ pub mod rtabort;
 pub mod self_ref;
 pub mod system_stats;
 pub mod thin_box;
+pub mod threads;
+pub mod tokio_runtime;
 pub mod truncate;
