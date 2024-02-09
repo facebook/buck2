@@ -23,6 +23,9 @@
 -type ct_run_arg() :: {atom(), term()}.
 -type ct_exec_arg() :: {output_dir | suite | providers, term()}.
 
+% For testing
+-export([split_args/1]).
+
 -spec run([string()]) -> no_return().
 run(Args) when is_list(Args) ->
     ExitCode =
@@ -114,17 +117,12 @@ parse_arguments(Args) ->
 
 % @doc Splits the argument before those that happens
 % before ct_args (the executor args) and those after
-% (the args for ct_run).
+% (the args for ct_run). ct_args will always be
+% present in the list
 -spec split_args([term()]) -> {[ct_exec_arg()], [ct_run_arg()]}.
-split_args(Args) -> split_args(Args, [], []).
-
--spec split_args([term()], [ct_exec_arg()], [ct_run_arg()]) -> {[ct_exec_arg()], [ct_run_arg()]}.
-split_args([ct_args | Args], CtExecutorArgs, []) ->
-    {parse_ct_exec_args(lists:reverse(CtExecutorArgs)), parse_ct_run_args(Args)};
-split_args([Arg | Args], CtExecutorArgs, []) ->
-    split_args(Args, [Arg | CtExecutorArgs], []);
-split_args([], CtExecutorArgs, []) ->
-    {parse_ct_exec_args(lists:reverse(CtExecutorArgs)), []}.
+split_args(Args) ->
+    {CtExecutorArgs, [ct_args | CtRunArgs]} = lists:splitwith(fun(Arg) -> Arg =/= ct_args end, Args),
+    {parse_ct_exec_args(CtExecutorArgs), parse_ct_run_args(CtRunArgs)}.
 
 -spec parse_ct_run_args([term()]) -> [ct_run_arg()].
 parse_ct_run_args([]) ->
