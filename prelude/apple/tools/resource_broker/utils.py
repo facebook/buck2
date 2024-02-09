@@ -36,7 +36,7 @@ class IdbCompanionProcess:
         self.stderr.close()
 
 
-async def _read_until_valid_json(stream: asyncio.StreamReader) -> Any:
+async def _read_until_valid_json(stream: asyncio.StreamReader) -> object:
     buffer = b""
     while True:
         data = await stream.readuntil(b"}")
@@ -50,7 +50,7 @@ async def _read_until_valid_json(stream: asyncio.StreamReader) -> Any:
     )
 
 
-async def _read_stdout(p: IdbCompanionProcess) -> Tuple[int, TextIOWrapper, Any]:
+async def _read_stdout(p: IdbCompanionProcess) -> Tuple[int, TextIOWrapper, object]:
     if not p.process.stdout:
         raise ValueError("Expected stdout to be set for idb companion launch process.")
     try:
