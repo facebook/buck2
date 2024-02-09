@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_data::*;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_util::threads::thread_spawn;
 use dice::DiceEvent;
 use dice::DiceEventListener;
 use dupe::Dupe;
@@ -42,7 +43,7 @@ impl BuckDiceTracker {
     pub fn new(events: EventDispatcher) -> Self {
         let (event_forwarder, receiver) = mpsc::unbounded();
 
-        std::thread::spawn(move || {
+        thread_spawn("buck2-dice-tracker", move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -51,7 +52,8 @@ impl BuckDiceTracker {
                 events.dupe(),
                 Self::run_task(events, receiver),
             ))
-        });
+        })
+        .unwrap();
 
         Self { event_forwarder }
     }

@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::thread;
-
 use anyhow::Context;
 use buck2_client::commands::kill::kill_command_impl;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
@@ -17,6 +15,7 @@ use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_util::threads::thread_spawn;
 use fbinit::FacebookInit;
 
 use crate::commands::daemon::DaemonCommand;
@@ -49,7 +48,7 @@ pub(crate) fn start_in_process_daemon(
     Ok(Some(Box::new(move || {
         let (tx, rx) = std::sync::mpsc::channel();
         // Spawn a thread which runs the daemon.
-        thread::spawn(move || {
+        thread_spawn("buck2-no-buckd", move || {
             let tx_clone = tx.clone();
             let result = DaemonCommand::new_in_process(daemon_startup_config).exec(
                 init,
@@ -74,7 +73,7 @@ pub(crate) fn start_in_process_daemon(
                     )),
                 }
             }
-        });
+        })?;
         // Wait for listener to start (or to fail).
         match rx.recv() {
             Ok(r) => r,

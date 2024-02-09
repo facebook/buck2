@@ -15,6 +15,7 @@ use std::task::Poll;
 use std::thread::JoinHandle;
 
 use buck2_core::buck2_env;
+use buck2_util::threads::thread_spawn;
 use bytes::Bytes;
 use futures::stream::Fuse;
 use futures::stream::StreamExt;
@@ -96,7 +97,7 @@ impl State {
                     buffer_size,
                     mut tx,
                 } => {
-                    let handle = std::thread::spawn({
+                    let handle = thread_spawn("buck2-stdin", {
                         move || {
                             #[allow(clippy::let_and_return)]
                             let stdin = std::io::stdin().lock();
@@ -109,7 +110,8 @@ impl State {
                             // NOTE: We ignore send errors since there is no point in reading without a receiver.
                             let _ignored = read_and_forward(stdin, &mut tx, buffer_size);
                         }
-                    });
+                    })
+                    .unwrap();
 
                     Self::Started(handle)
                 }
