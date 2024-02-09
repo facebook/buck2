@@ -73,11 +73,7 @@ impl<'a> BuckdClientConnector<'a> {
     }
 
     pub fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
-        self.client
-            .events_ctx
-            .subscribers
-            .iter()
-            .filter_map(|s| s.as_error_observer())
+        self.client.events_ctx.subscribers.error_observers()
     }
 }
 

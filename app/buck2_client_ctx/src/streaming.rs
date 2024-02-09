@@ -35,11 +35,12 @@ use crate::subscribers::get::try_get_event_log_subscriber;
 use crate::subscribers::get::try_get_re_log_subscriber;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::subscribers::EventSubscribers;
 
 fn default_subscribers<'a, T: StreamingCommand>(
     cmd: &T,
     ctx: &ClientCommandContext<'a>,
-) -> anyhow::Result<Vec<Box<dyn EventSubscriber + 'a>>> {
+) -> anyhow::Result<EventSubscribers<'a>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
     let expect_spans = cmd.should_expect_spans();
@@ -81,7 +82,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
     subscribers.push(recorder);
 
     subscribers.extend(cmd.extra_subscribers());
-    Ok(subscribers)
+    Ok(EventSubscribers::new(subscribers))
 }
 
 /// Trait to generalize the behavior of executable buck2 commands that rely on a server.

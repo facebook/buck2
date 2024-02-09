@@ -20,7 +20,6 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
 use futures::stream;
-use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
 use futures::Stream;
@@ -40,8 +39,8 @@ use crate::daemon::client::NoPartialResultHandler;
 use crate::exit_result::ExitResult;
 use crate::file_tailer::FileTailer;
 use crate::file_tailer::StdoutOrStderr;
-use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
+use crate::subscribers::subscribers::EventSubscribers;
 use crate::ticker::Ticker;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example
@@ -96,7 +95,8 @@ pub struct PartialResultCtx<'a, 'b> {
 impl<'a, 'b> PartialResultCtx<'a, 'b> {
     pub async fn stdout(&mut self, bytes: &[u8]) -> anyhow::Result<()> {
         self.inner
-            .handle_subscribers(|subscriber| subscriber.handle_output(bytes))
+            .subscribers
+            .for_each_subscriber(|subscriber| subscriber.handle_output(bytes))
             .await
     }
 }
@@ -104,7 +104,7 @@ impl<'a, 'b> PartialResultCtx<'a, 'b> {
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// forwards them to the appropriate subscribers registered on this struct
 pub struct EventsCtx<'a> {
-    pub(crate) subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
+    pub(crate) subscribers: EventSubscribers<'a>,
     ticker: Ticker,
     client_cpu_tracker: ClientCpuTracker,
 }
@@ -122,7 +122,7 @@ pub struct FileTailers {
 }
 
 impl<'a> EventsCtx<'a> {
-    pub fn new(subscribers: Vec<Box<dyn EventSubscriber + 'a>>) -> Self {
+    pub fn new(subscribers: EventSubscribers<'a>) -> Self {
         Self {
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
@@ -251,7 +251,7 @@ impl<'a> EventsCtx<'a> {
         };
 
         let flush_result = self.flush(Some(tailers)).await;
-        let exit_result = self.handle_exit().await;
+        let exit_result = self.subscribers.handle_exit().await;
 
         let command_result = match (command_result, shutdown) {
             (Ok(r), _) => r,
@@ -322,26 +322,11 @@ impl<'a> EventsCtx<'a> {
             .await
     }
 
-    /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.
-    /// Quits on the first error encountered.
-    async fn handle_subscribers<'b, Fut>(
-        &'b mut self,
-        f: impl FnMut(&'b mut Box<dyn EventSubscriber + 'a>) -> Fut,
-    ) -> anyhow::Result<()>
-    where
-        Fut: Future<Output = anyhow::Result<()>> + 'b,
-    {
-        let mut futures: FuturesUnordered<_> = self.subscribers.iter_mut().map(f).collect();
-        while let Some(res) = futures.next().await {
-            res?;
-        }
-        Ok(())
-    }
-
     async fn handle_error_owned(&mut self, error: anyhow::Error) -> anyhow::Error {
         let error: buck2_error::Error = error.into();
         let result = self
-            .handle_subscribers(|subscriber| subscriber.handle_error(&error))
+            .subscribers
+            .for_each_subscriber(|subscriber| subscriber.handle_error(&error))
             .await;
         match result {
             Ok(()) => error.into(),
@@ -402,12 +387,14 @@ impl<'a> EventsCtx<'a> {
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> anyhow::Result<()> {
         let stderr = String::from_utf8_lossy(stderr);
         let stderr = stderr.trim_end();
-        self.handle_subscribers(|subscriber| subscriber.handle_tailer_stderr(stderr))
+        self.subscribers
+            .for_each_subscriber(|subscriber| subscriber.handle_tailer_stderr(stderr))
             .await
     }
 
     async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
-        self.handle_subscribers(|subscriber| subscriber.handle_console_interaction(c))
+        self.subscribers
+            .for_each_subscriber(|subscriber| subscriber.handle_console_interaction(c))
             .await
     }
 
@@ -442,7 +429,8 @@ impl<'a> EventsCtx<'a> {
             }
             Arc::new(event)
         });
-        self.handle_subscribers(|subscriber| subscriber.handle_events(&events))
+        self.subscribers
+            .for_each_subscriber(|subscriber| subscriber.handle_events(&events))
             .await
     }
 
@@ -450,7 +438,8 @@ impl<'a> EventsCtx<'a> {
         &mut self,
         result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
-        self.handle_subscribers(|subscriber| subscriber.handle_command_result(result))
+        self.subscribers
+            .for_each_subscriber(|subscriber| subscriber.handle_command_result(result))
             .await
     }
 
@@ -458,21 +447,9 @@ impl<'a> EventsCtx<'a> {
     /// A subscriber will have the opportunity to do an arbitrary process at a reliable interval.
     /// In particular, this is crucial for superconsole so that it can draw itself consistently.
     async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
-        self.handle_subscribers(|subscriber| subscriber.tick(tick))
+        self.subscribers
+            .for_each_subscriber(|subscriber| subscriber.tick(tick))
             .await
-    }
-
-    async fn handle_exit(&mut self) -> anyhow::Result<()> {
-        let mut r = Ok(());
-        for subscriber in &mut self.subscribers {
-            // Exit all subscribers, do not stop on first one.
-            let subscriber_err = subscriber.exit().await;
-            if r.is_ok() {
-                // Keep first error.
-                r = subscriber_err;
-            }
-        }
-        r
     }
 }
 

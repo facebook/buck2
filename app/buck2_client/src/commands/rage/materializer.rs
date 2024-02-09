@@ -18,6 +18,7 @@ use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
+use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
@@ -31,9 +32,10 @@ pub async fn upload_materializer_data(
     manifold_id: &String,
     materializer_data: MaterializerRageUploadData,
 ) -> anyhow::Result<String> {
-    let mut buckd = buckd
-        .await?
-        .with_subscribers(vec![Box::new(TracingSubscriber) as _]);
+    let mut buckd =
+        buckd.await?.with_subscribers(EventSubscribers::new(
+            vec![Box::new(TracingSubscriber) as _],
+        ));
 
     let mut capture = CaptureStdout::new();
 

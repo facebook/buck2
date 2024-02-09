@@ -50,7 +50,7 @@ use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
-use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::subscribers::EventSubscribers;
 
 /// The client side matcher for DaemonConstraints.
 #[derive(Clone, Debug)]
@@ -494,7 +494,7 @@ impl BootstrapBuckdClient {
 
     pub fn with_subscribers<'a>(
         self,
-        subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
+        subscribers: EventSubscribers<'a>,
     ) -> BuckdClientConnector<'a> {
         BuckdClientConnector {
             client: BuckdClient {
@@ -533,7 +533,7 @@ pub struct BuckdConnectOptions<'a> {
     /// Subscribers manage the way that incoming events from the server are handled.
     /// The client will forward events and stderr/stdout output from the server to each subscriber.
     /// By default, this list is set to a single subscriber that notifies the user of basic output from the server.
-    pub(crate) subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
+    pub(crate) subscribers: EventSubscribers<'a>,
     pub constraints: BuckdConnectConstraints,
 }
 
@@ -541,12 +541,12 @@ impl<'a> BuckdConnectOptions<'a> {
     pub fn existing_only_no_console() -> Self {
         Self {
             constraints: BuckdConnectConstraints::ExistingOnly,
-            subscribers: vec![Box::new(StdoutStderrForwarder)],
+            subscribers: EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]),
         }
     }
 
     pub async fn connect(
-        self,
+        mut self,
         paths: &InvocationPaths,
     ) -> anyhow::Result<BuckdClientConnector<'a>> {
         match BootstrapBuckdClient::connect(paths, self.constraints)
@@ -555,9 +555,7 @@ impl<'a> BuckdConnectOptions<'a> {
         {
             Ok(client) => Ok(client.with_subscribers(self.subscribers)),
             Err(e) => {
-                self.subscribers
-                    .into_iter()
-                    .for_each(|mut s| s.handle_daemon_connection_failure(&e));
+                self.subscribers.handle_daemon_connection_failure(&e);
                 Err(e.into())
             }
         }
@@ -772,7 +770,7 @@ async fn get_constraints(
 ) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
     // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
     // otherwise we leave them alone.
-    let status = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)])
+    let status = EventsCtx::new(EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]))
         .unpack_oneshot(None, {
             client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
                 snapshot: false,

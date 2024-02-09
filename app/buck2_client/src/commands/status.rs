@@ -15,6 +15,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
@@ -66,7 +67,9 @@ impl StatusCommand {
                     if let Ok(bootstrap_client) = establish_connection_existing(&dir).await {
                         statuses.push(process_status(
                             bootstrap_client
-                                .with_subscribers(vec![Box::new(StdoutStderrForwarder)])
+                                .with_subscribers(EventSubscribers::new(vec![Box::new(
+                                    StdoutStderrForwarder,
+                                )]))
                                 .with_flushing()
                                 .status(self.snapshot)
                                 .await?,

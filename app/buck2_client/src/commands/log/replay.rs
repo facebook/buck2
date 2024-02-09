@@ -16,6 +16,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
+use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -73,7 +74,7 @@ impl ReplayCommand {
                     console_opts.superconsole_config(),
                 )?;
 
-                let res = EventsCtx::new(vec![console])
+                let res = EventsCtx::new(EventSubscribers::new(vec![console]))
                     .unpack_stream::<_, ReplayResult, _>(
                         &mut NoPartialResultHandler,
                         Box::pin(replayer),
