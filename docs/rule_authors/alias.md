@@ -34,7 +34,6 @@ alias(
 The `versioned_alias` rule has the following relevant attributes:
 
 - `name` - (required) what the `actual`'s label should be aliased as.
-- `actual` - (required) a target label.
 - `versions` - (required) a map of versions to their respective versioned target
   labels.
 
