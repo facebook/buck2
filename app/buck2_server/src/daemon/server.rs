@@ -16,7 +16,6 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
-use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -63,6 +62,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use buck2_server_ctx::test_command::TEST_COMMAND;
 use buck2_server_starlark_debug::run::run_dap_server_command;
+use buck2_util::threads::thread_spawn;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::WhichDice;
@@ -665,11 +665,9 @@ where
     // We run the event consumer on new non-tokio thread to avoid the consumer task from getting stuck behind
     // another tokio task in its lifo task slot. See T96012305 and https://github.com/tokio-rs/tokio/issues/4323 for more
     // information.
-    let merge_task = thread::Builder::new()
-        .name("pump-events".to_owned())
-        .spawn(move || {
-            pump_events(events, state, output_send);
-        });
+    let merge_task = thread_spawn("pump-events", move || {
+        pump_events(events, state, output_send);
+    });
     if let Err(e) = merge_task {
         return error_to_response_stream(
             anyhow::Error::new(e).context("failed to spawn pump-events"),

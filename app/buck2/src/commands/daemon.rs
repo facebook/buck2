@@ -11,7 +11,6 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 
 use allocative::Allocative;
@@ -41,6 +40,8 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark::server::server_starlark_command;
+use buck2_util::threads::thread_spawn;
+use buck2_util::tokio_runtime::new_tokio_runtime;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
@@ -305,9 +306,8 @@ impl DaemonCommand {
             }
         }
 
-        let mut builder = Builder::new_multi_thread();
+        let mut builder = new_tokio_runtime("buck2-rt");
         builder.enable_all();
-        builder.thread_name("buck2-rt");
 
         if let Some(threads) = buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)? {
             builder.worker_threads(threads);
@@ -322,9 +322,8 @@ impl DaemonCommand {
         let rt = builder.build().context("Error creating Tokio runtime")?;
         let handle = rt.handle().clone();
 
-        let rt = Builder::new_multi_thread()
+        let rt = new_tokio_runtime("buck2-tn")
             .enable_all()
-            .thread_name("buck2-tn")
             // These values are arbitrary, but I/O shouldn't take up many threads.
             .worker_threads(2)
             .max_blocking_threads(2)
@@ -386,15 +385,13 @@ impl DaemonCommand {
 
             let checker_interval_seconds = self.checker_interval_seconds;
 
-            thread::Builder::new()
-                .name("check-daemon-dir".to_owned())
-                .spawn(move || {
-                    Self::check_daemon_dir_thread(
-                        checker_interval_seconds,
-                        daemon_dir,
-                        hard_shutdown_sender,
-                    )
-                })?;
+            thread_spawn("check-daemon-dir", move || {
+                Self::check_daemon_dir_thread(
+                    checker_interval_seconds,
+                    daemon_dir,
+                    hard_shutdown_sender,
+                )
+            })?;
 
             tracing::info!("Initialization complete, running the server.");
 

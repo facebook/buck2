@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use buck2_core::buck2_env;
 use buck2_util::process_stats::process_cpu_time_us;
+use buck2_util::threads::thread_spawn;
 
 fn elapsed_cpu_time_as_percents(
     cpu_time_before_us: Option<u64>,
@@ -29,34 +30,32 @@ fn elapsed_cpu_time_as_percents(
 /// if they are terminated. This allows the daemon to self-destruct.
 pub(crate) fn maybe_schedule_termination() -> anyhow::Result<()> {
     if let Some(duration) = buck2_env!("BUCK2_TERMINATE_AFTER", type=u64)? {
-        thread::Builder::new()
-            .name("buck2-terminate-after".to_owned())
-            .spawn(move || {
-                const MEASURE_CPU_TIME_FOR: u64 = 10;
-                let (sleep_before, sleep_after) = match duration.checked_sub(MEASURE_CPU_TIME_FOR) {
-                    Some(sleep_before) => (sleep_before, MEASURE_CPU_TIME_FOR),
-                    None => (0, duration),
-                };
+        thread_spawn("buck2-terminate-after", move || {
+            const MEASURE_CPU_TIME_FOR: u64 = 10;
+            let (sleep_before, sleep_after) = match duration.checked_sub(MEASURE_CPU_TIME_FOR) {
+                Some(sleep_before) => (sleep_before, MEASURE_CPU_TIME_FOR),
+                None => (0, duration),
+            };
 
-                thread::sleep(Duration::from_secs(sleep_before));
-                let process_cpu_time_us_before = process_cpu_time_us();
-                thread::sleep(Duration::from_secs(sleep_after));
-                let process_cpu_time_us_after = process_cpu_time_us();
+            thread::sleep(Duration::from_secs(sleep_before));
+            let process_cpu_time_us_before = process_cpu_time_us();
+            thread::sleep(Duration::from_secs(sleep_after));
+            let process_cpu_time_us_after = process_cpu_time_us();
 
-                let elapsed_cpu_time_avg_in_percents = elapsed_cpu_time_as_percents(
-                    process_cpu_time_us_before,
-                    process_cpu_time_us_after,
-                    sleep_after,
+            let elapsed_cpu_time_avg_in_percents = elapsed_cpu_time_as_percents(
+                process_cpu_time_us_before,
+                process_cpu_time_us_after,
+                sleep_after,
+            );
+            if let Some(elapsed_cpu_time_avg_in_percents) = elapsed_cpu_time_avg_in_percents {
+                panic!(
+                    "Buck is exiting after {}s elapsed; avg process CPU in the last {}s is {}%",
+                    duration, sleep_after, elapsed_cpu_time_avg_in_percents
                 );
-                if let Some(elapsed_cpu_time_avg_in_percents) = elapsed_cpu_time_avg_in_percents {
-                    panic!(
-                        "Buck is exiting after {}s elapsed; avg process CPU in the last {}s is {}%",
-                        duration, sleep_after, elapsed_cpu_time_avg_in_percents
-                    );
-                } else {
-                    panic!("Buck is exiting after {}s elapsed", duration);
-                }
-            })?;
+            } else {
+                panic!("Buck is exiting after {}s elapsed", duration);
+            }
+        })?;
     }
 
     Ok(())

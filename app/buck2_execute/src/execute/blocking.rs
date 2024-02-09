@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_util::threads::thread_spawn;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -103,15 +104,13 @@ impl BuckBlockingExecutor {
         for i in 0..io_threads {
             let command_receiver = command_receiver.clone();
             let fs = fs.dupe();
-            std::thread::Builder::new()
-                .name(format!("buck-io-{}", i))
-                .spawn(move || {
-                    for ThreadPoolIoRequest { sender, io } in command_receiver.iter() {
-                        let res = io.execute(&fs);
-                        let _ignored = sender.send(res);
-                    }
-                })
-                .context("Failed to spawn io worker")?;
+            thread_spawn(&format!("buck-io-{}", i), move || {
+                for ThreadPoolIoRequest { sender, io } in command_receiver.iter() {
+                    let res = io.execute(&fs);
+                    let _ignored = sender.send(res);
+                }
+            })
+            .context("Failed to spawn io worker")?;
         }
 
         Ok(Self {

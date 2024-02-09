@@ -64,6 +64,7 @@ use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
+use buck2_util::threads::thread_spawn;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Duration;
@@ -1025,26 +1026,24 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
 
         let access_time_update_max_buffer_size = access_time_update_max_buffer_size()?;
 
-        let command_thread = std::thread::Builder::new()
-            .name("buck2-dm".to_owned())
-            .spawn({
-                move || {
-                    let rt = tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                        .unwrap();
+        let command_thread = thread_spawn("buck2-dm", {
+            move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
 
-                    let cancellations = CancellationContext::never_cancelled();
+                let cancellations = CancellationContext::never_cancelled();
 
-                    rt.block_on(command_processor(cancellations).run(
-                        command_receiver,
-                        configs.ttl_refresh,
-                        access_time_update_max_buffer_size,
-                        configs.update_access_times,
-                    ));
-                }
-            })
-            .context("Cannot start materializer thread")?;
+                rt.block_on(command_processor(cancellations).run(
+                    command_receiver,
+                    configs.ttl_refresh,
+                    access_time_update_max_buffer_size,
+                    configs.update_access_times,
+                ));
+            }
+        })
+        .context("Cannot start materializer thread")?;
 
         Ok(Self {
             command_thread,

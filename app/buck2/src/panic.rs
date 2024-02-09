@@ -54,7 +54,6 @@ fn the_panic_hook(fb: FacebookInit, info: &PanicInfo) {
 mod imp {
     use std::collections::HashMap;
     use std::panic::PanicInfo;
-    use std::thread;
     use std::time::Duration;
 
     use backtrace::Backtrace;
@@ -63,6 +62,7 @@ mod imp {
     use buck2_events::metadata;
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
     use buck2_events::BuckEvent;
+    use buck2_util::threads::thread_spawn;
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;
 
@@ -238,23 +238,22 @@ mod imp {
         // on that thread.
         //
         // Note that if we fail to spawn a writer thread, then we just won't log.
-        let _err = thread::Builder::new()
-            .spawn(move || {
-                let runtime = Builder::new_current_thread().enable_all().build().unwrap();
-                runtime.block_on(
-                    sink.send_now(BuckEvent::new(
-                        SystemTime::now(),
-                        TraceId::new(),
-                        None,
-                        None,
-                        InstantEvent {
-                            data: Some(data.into()),
-                        }
-                        .into(),
-                    )),
-                );
-            })
-            .map_err(|_| ())
-            .and_then(|t| t.join().map_err(|_| ()));
+        let _err = thread_spawn("buck2-write-panic-to-scribe", move || {
+            let runtime = Builder::new_current_thread().enable_all().build().unwrap();
+            runtime.block_on(
+                sink.send_now(BuckEvent::new(
+                    SystemTime::now(),
+                    TraceId::new(),
+                    None,
+                    None,
+                    InstantEvent {
+                        data: Some(data.into()),
+                    }
+                    .into(),
+                )),
+            );
+        })
+        .map_err(|_| ())
+        .and_then(|t| t.join().map_err(|_| ()));
     }
 }
