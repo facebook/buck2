@@ -28,6 +28,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::GrpcResponseMessageTooLarge => line!(),
         ErrorTag::ClientGrpc => line!(),
         ErrorTag::StarlarkFail => line!(),
+        ErrorTag::Visibility => line!(),
         ErrorTag::Analysis => line!(),
         ErrorTag::WatchmanTimeout => line!(),
         ErrorTag::Http => line!(),

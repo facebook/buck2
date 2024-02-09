@@ -61,6 +61,8 @@ enum ErrorTag {
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // Error during analysis.
   ANALYSIS = 7;
+  // `visibility`, `within_view`.
+  VISIBILITY = 8;
   // Server stderr is empty.
   SERVER_STDERR_EMPTY = 11;
   // Server stderr indicates that the server panicked.

@@ -43,6 +43,7 @@ enum CheckWithinViewError {
         _0,
         indented_within_view(_1)
     )]
+    #[buck2(tag = Visibility)]
     DepNotWithinView(TargetLabel, WithinViewSpecification),
 }
 

@@ -26,7 +26,7 @@ pub enum VisibilityError {
     #[error(
         "`{0}` is not visible to `{1}` (run `buck2 uquery --output-attribute visibility {0}` to check the visibility)"
     )]
-    #[buck2(user)]
+    #[buck2(user, tag = Visibility)]
     NotVisibleTo(TargetLabel, TargetLabel),
 }
 
