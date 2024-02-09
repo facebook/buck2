@@ -80,7 +80,7 @@ def should_assemble_incrementally(
 def _codesigned_on_copy_paths_from_previous_build_which_are_present_in_current_build(
     previously_codesigned_on_copy_paths: Set[Path],
     all_input_files: Set[Path],
-):
+) -> Set[Path]:
     all_input_files_and_directories = all_input_files | {
         i for file in all_input_files for i in file.parents
     }

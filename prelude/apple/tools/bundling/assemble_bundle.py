@@ -9,7 +9,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import cast, Dict, List, Optional
+from typing import Any, cast, Dict, List, Optional
 
 from .assemble_bundle_types import BundleSpecItem, IncrementalContext
 from .incremental_state import IncrementalState, IncrementalStateItem
@@ -18,7 +18,7 @@ from .incremental_utils import (
     should_assemble_incrementally,
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 def assemble_bundle(
@@ -63,9 +63,9 @@ def _assemble_non_incrementally(
     logging.getLogger(__name__).info("Assembling bundle non-incrementally.")
     _cleanup_output(incremental=False, path=bundle_path)
 
-    copied_contents = {}
+    copied_contents: Dict[Path, str] = {}
 
-    def _copy(src, dst, **kwargs) -> None:
+    def _copy(src: str, dst: Path, **kwargs: Any) -> None:
         if check_conflicts:
             if dst in copied_contents:
                 raise RuntimeError(

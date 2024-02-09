@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+from __future__ import annotations
+
 import functools
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,21 +25,21 @@ class BundleSpecItem:
     dst: str
     codesign_on_copy: bool = False
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self: BundleSpecItem, other: Optional[BundleSpecItem]) -> bool:
         return (
-            other
+            other is not None
             and self.src == other.src
             and self.dst == other.dst
             and self.codesign_on_copy == other.codesign_on_copy
         )
 
-    def __ne__(self, other) -> bool:
+    def __ne__(self: BundleSpecItem, other: BundleSpecItem) -> bool:
         return not self.__eq__(other)
 
-    def __hash__(self) -> int:
+    def __hash__(self: BundleSpecItem) -> int:
         return hash((self.src, self.dst, self.codesign_on_copy))
 
-    def __lt__(self, other) -> bool:
+    def __lt__(self: BundleSpecItem, other: BundleSpecItem) -> bool:
         return (
             self.src < other.src
             or self.dst < other.dst

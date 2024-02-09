@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass
 from io import TextIOBase
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
@@ -49,7 +49,7 @@ class IncrementalState:
 
 
 class IncrementalStateJSONEncoder(json.JSONEncoder):
-    def default(self, o: Any) -> Any:
+    def default(self, o: object) -> object:
         if isinstance(o, IncrementalState):
             return {
                 "items": [self.default(i) for i in o.items],
@@ -76,7 +76,7 @@ class IncrementalStateJSONEncoder(json.JSONEncoder):
             return super().default(o)
 
 
-def _object_hook(dict: Dict[str, Any]) -> Any:
+def _object_hook(dict: Dict[str, Any]) -> Union[IncrementalState, IncrementalStateItem]:
     if "version" in dict:
         dict["codesign_on_copy_paths"] = [
             Path(p) for p in dict.pop("codesign_on_copy_paths")

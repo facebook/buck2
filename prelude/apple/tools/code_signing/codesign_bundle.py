@@ -150,7 +150,7 @@ def codesign_bundle(
     signing_context: Union[AdhocSigningContext, SigningContextWithProfileSelection],
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
-    codesign_on_copy_paths: List[Path],
+    codesign_on_copy_paths: List[str],
     codesign_args: List[str],
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
@@ -288,7 +288,7 @@ def _read_entitlements_file(path: Optional[Path]) -> Optional[Dict[str, Any]]:
 
 def _dry_codesign_everything(
     bundle_path: Path,
-    codesign_on_copy_paths: List[Path],
+    codesign_on_copy_paths: List[str],
     identity_fingerprint: str,
     tmp_dir: str,
     codesign_tool: Path,
@@ -337,7 +337,7 @@ def _dry_codesign_everything(
 
 def _codesign_everything(
     bundle_path: Path,
-    codesign_on_copy_paths: List[Path],
+    codesign_on_copy_paths: List[str],
     identity_fingerprint: str,
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,

@@ -10,7 +10,7 @@ import platform
 import stat
 
 
-def make_path_user_writable(path: str):
+def make_path_user_writable(path: str) -> None:
     # On Linux, `os.chmod()` does not support setting the permissions on a symlink.
     # `chmod` manpage says:
     #   > AT_SYMLINK_NOFOLLOW     If pathname is a symbolic link, do not
@@ -26,7 +26,7 @@ def make_path_user_writable(path: str):
     os.chmod(path, st.st_mode | stat.S_IWUSR, follow_symlinks=follow_symlinks)
 
 
-def make_dir_recursively_writable(dir: str):
+def make_dir_recursively_writable(dir: str) -> None:
     for dirpath, _, filenames in os.walk(dir):
         make_path_user_writable(dirpath)
         for filename in filenames:

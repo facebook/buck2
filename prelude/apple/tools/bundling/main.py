@@ -13,7 +13,7 @@ import pstats
 import shlex
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from apple.tools.code_signing.apple_platform import ApplePlatform
 from apple.tools.code_signing.codesign_bundle import (
@@ -463,7 +463,7 @@ def _write_incremental_state(
     codesign_configuration: CodesignConfiguration,
     selected_codesign_identity: Optional[str],
     swift_stdlib_paths: List[Path],
-):
+) -> None:
     state = IncrementalState(
         items,
         codesigned=codesigned,
@@ -524,7 +524,7 @@ def _setup_logging(
 
 class ColoredLogFormatter(logging.Formatter):
 
-    _colors = {
+    _colors: Dict[int, str] = {
         logging.DEBUG: "\x1b[m",
         logging.INFO: "\x1b[37m",
         logging.WARNING: "\x1b[33m",
@@ -533,10 +533,10 @@ class ColoredLogFormatter(logging.Formatter):
     }
     _reset_color = "\x1b[0m"
 
-    def __init__(self, text_format: str):
+    def __init__(self, text_format: str) -> None:
         self.text_format = text_format
 
-    def format(self, record: logging.LogRecord):
+    def format(self, record: logging.LogRecord) -> str:
         colored_format = (
             self._colors[record.levelno] + self.text_format + self._reset_color
         )
