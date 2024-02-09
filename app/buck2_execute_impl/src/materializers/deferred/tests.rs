@@ -92,6 +92,7 @@ mod state_machine {
     use assert_matches::assert_matches;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
+    use buck2_util::threads::ignore_stack_overflow_checks_for_future;
     use parking_lot::Mutex;
     use tokio::time::sleep;
     use tokio::time::Duration as TokioDuration;
@@ -292,52 +293,60 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_declare_reuse() -> anyhow::Result<()> {
-        let (mut dm, _) = make_processor(Default::default());
-        let digest_config = dm.io.digest_config();
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, _) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
 
-        let path = make_path("foo/bar");
-        let value = ArtifactValue::file(digest_config.empty_file());
+            let path = make_path("foo/bar");
+            let value = ArtifactValue::file(digest_config.empty_file());
 
-        dm.declare(
-            &path,
-            value.dupe(),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
+            dm.declare(
+                &path,
+                value.dupe(),
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
-        let res = dm
-            .materialize_artifact(&path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
-        assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
+            let res = dm
+                .materialize_artifact(&path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
+            assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
 
-        dm.materialization_finished(path.clone(), Utc::now(), dm.version_tracker.current(), res);
-        assert_eq!(dm.io.take_log(), &[]);
+            dm.materialization_finished(
+                path.clone(),
+                Utc::now(),
+                dm.version_tracker.current(),
+                res,
+            );
+            assert_eq!(dm.io.take_log(), &[]);
 
-        // When redeclaring the same artifact nothing happens.
-        dm.declare(
-            &path,
-            value.dupe(),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[]);
+            // When redeclaring the same artifact nothing happens.
+            dm.declare(
+                &path,
+                value.dupe(),
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            assert_eq!(dm.io.take_log(), &[]);
 
-        // When declaring the same artifact but under it, we clean it and it's a new artifact.
-        let path2 = make_path("foo/bar/baz");
-        dm.declare(
-            &path2,
-            value.dupe(),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, path2.clone())]);
+            // When declaring the same artifact but under it, we clean it and it's a new artifact.
+            let path2 = make_path("foo/bar/baz");
+            dm.declare(
+                &path2,
+                value.dupe(),
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, path2.clone())]);
 
-        let _ignore = dm
-            .materialize_artifact(&path2, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
-        assert_eq!(dm.io.take_log(), &[(Op::Materialize, path2.clone())]);
+            let _ignore = dm
+                .materialize_artifact(&path2, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
+            assert_eq!(dm.io.take_log(), &[(Op::Materialize, path2.clone())]);
 
-        Ok(())
+            Ok(())
+        })
+        .await
     }
 
     fn make_artifact_value_with_symlink_dep(
@@ -364,133 +373,139 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_materialize_symlink_and_target() -> anyhow::Result<()> {
-        // Construct a tree with a symlink and its target, materialize both at once
-        let symlink_path = make_path("foo/bar_symlink");
-        let target_path = make_path("foo/bar_target");
-        let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+        ignore_stack_overflow_checks_for_future(async {
+            // Construct a tree with a symlink and its target, materialize both at once
+            let symlink_path = make_path("foo/bar_symlink");
+            let target_path = make_path("foo/bar_target");
+            let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
 
-        let mut materialization_config = HashMap::new();
-        // Materialize the symlink target slowly so that we actually hit the logic point where we
-        // await for symlink targets and the entry materialization
-        materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
+            let mut materialization_config = HashMap::new();
+            // Materialize the symlink target slowly so that we actually hit the logic point where we
+            // await for symlink targets and the entry materialization
+            materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let (mut dm, _) = make_processor(materialization_config);
-        let digest_config = dm.io.digest_config();
+            let (mut dm, _) = make_processor(materialization_config);
+            let digest_config = dm.io.digest_config();
 
-        // Declare symlink target
-        dm.declare(
-            &target_path,
-            ArtifactValue::file(digest_config.empty_file()),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
-
-        // Declare symlink
-        let symlink_value = make_artifact_value_with_symlink_dep(
-            &target_path,
-            &target_from_symlink,
-            digest_config,
-        )?;
-        dm.declare(
-            &symlink_path,
-            symlink_value,
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
-
-        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await
-            .map_err(|_| anyhow::anyhow!("error materializing"))?;
-
-        let logs = dm.io.take_log();
-        if cfg!(unix) {
-            assert_eq!(
-                logs,
-                &[
-                    (Op::Materialize, symlink_path.clone()),
-                    (Op::Materialize, target_path.clone())
-                ]
+            // Declare symlink target
+            dm.declare(
+                &target_path,
+                ArtifactValue::file(digest_config.empty_file()),
+                Box::new(ArtifactMaterializationMethod::Test),
             );
-        } else {
-            assert_eq!(
-                logs,
-                &[
-                    (Op::Materialize, target_path.clone()),
-                    (Op::Materialize, symlink_path.clone())
-                ]
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+
+            // Declare symlink
+            let symlink_value = make_artifact_value_with_symlink_dep(
+                &target_path,
+                &target_from_symlink,
+                digest_config,
+            )?;
+            dm.declare(
+                &symlink_path,
+                symlink_value,
+                Box::new(ArtifactMaterializationMethod::Test),
             );
-        }
-        Ok(())
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
+
+            dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await
+                .map_err(|_| anyhow::anyhow!("error materializing"))?;
+
+            let logs = dm.io.take_log();
+            if cfg!(unix) {
+                assert_eq!(
+                    logs,
+                    &[
+                        (Op::Materialize, symlink_path.clone()),
+                        (Op::Materialize, target_path.clone())
+                    ]
+                );
+            } else {
+                assert_eq!(
+                    logs,
+                    &[
+                        (Op::Materialize, target_path.clone()),
+                        (Op::Materialize, symlink_path.clone())
+                    ]
+                );
+            }
+            Ok(())
+        })
+        .await
     }
 
     #[tokio::test]
     async fn test_materialize_symlink_first_then_target() -> anyhow::Result<()> {
-        // Materialize a symlink, then materialize the target. Test that we still
-        // materialize deps if the main artifact has already been materialized.
-        let symlink_path = make_path("foo/bar_symlink");
-        let target_path = make_path("foo/bar_target");
-        let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+        ignore_stack_overflow_checks_for_future(async {
+            // Materialize a symlink, then materialize the target. Test that we still
+            // materialize deps if the main artifact has already been materialized.
+            let symlink_path = make_path("foo/bar_symlink");
+            let target_path = make_path("foo/bar_target");
+            let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
 
-        let mut materialization_config = HashMap::new();
-        // Materialize the symlink target slowly so that we actually hit the logic point where we
-        // await for symlink targets and the entry materialization
-        materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
+            let mut materialization_config = HashMap::new();
+            // Materialize the symlink target slowly so that we actually hit the logic point where we
+            // await for symlink targets and the entry materialization
+            materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
 
-        let (mut dm, _) = make_processor(materialization_config);
-        let digest_config = dm.io.digest_config();
+            let (mut dm, _) = make_processor(materialization_config);
+            let digest_config = dm.io.digest_config();
 
-        // Declare symlink
-        let symlink_value = make_artifact_value_with_symlink_dep(
-            &target_path,
-            &target_from_symlink,
-            digest_config,
-        )?;
-        dm.declare(
-            &symlink_path,
-            symlink_value,
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
+            // Declare symlink
+            let symlink_value = make_artifact_value_with_symlink_dep(
+                &target_path,
+                &target_from_symlink,
+                digest_config,
+            )?;
+            dm.declare(
+                &symlink_path,
+                symlink_value,
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
-        // Materialize the symlink, at this point the target is not in the tree so it's ignored
-        let res = dm
-            .materialize_artifact(&symlink_path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
+            // Materialize the symlink, at this point the target is not in the tree so it's ignored
+            let res = dm
+                .materialize_artifact(&symlink_path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
 
-        let logs = dm.io.take_log();
-        assert_eq!(logs, &[(Op::Materialize, symlink_path.clone())]);
+            let logs = dm.io.take_log();
+            assert_eq!(logs, &[(Op::Materialize, symlink_path.clone())]);
 
-        // Mark the symlink as materialized
-        dm.materialization_finished(
-            symlink_path.clone(),
-            Utc::now(),
-            dm.version_tracker.current(),
-            res,
-        );
-        assert_eq!(dm.io.take_log(), &[]);
+            // Mark the symlink as materialized
+            dm.materialization_finished(
+                symlink_path.clone(),
+                Utc::now(),
+                dm.version_tracker.current(),
+                res,
+            );
+            assert_eq!(dm.io.take_log(), &[]);
 
-        // Declare symlink target
-        dm.declare(
-            &target_path,
-            ArtifactValue::file(digest_config.empty_file()),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+            // Declare symlink target
+            dm.declare(
+                &target_path,
+                ArtifactValue::file(digest_config.empty_file()),
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
-        // Materialize the symlink again.
-        // This time, we don't re-materialize the symlink as that's already been done.
-        // But we still materialize the target as that has not been materialized yet.
-        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await
-            .map_err(|_| anyhow::anyhow!("error materializing"))?;
+            // Materialize the symlink again.
+            // This time, we don't re-materialize the symlink as that's already been done.
+            // But we still materialize the target as that has not been materialized yet.
+            dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await
+                .map_err(|_| anyhow::anyhow!("error materializing"))?;
 
-        let logs = dm.io.take_log();
-        assert_eq!(logs, &[(Op::Materialize, target_path.clone())]);
+            let logs = dm.io.take_log();
+            assert_eq!(logs, &[(Op::Materialize, target_path.clone())]);
 
-        Ok(())
+            Ok(())
+        })
+        .await
     }
 
     #[tokio::test]
@@ -516,315 +531,330 @@ mod state_machine {
 
     #[tokio::test]
     async fn test_subscription_notifications() {
-        let (mut dm, mut channel) = make_processor(Default::default());
-        let digest_config = dm.io.digest_config();
-        let value = ArtifactValue::file(digest_config.empty_file());
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, mut channel) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
+            let value = ArtifactValue::file(digest_config.empty_file());
 
-        let mut handle = {
-            let (sender, recv) = oneshot::channel();
-            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
-            recv.await.unwrap()
-        };
+            let mut handle = {
+                let (sender, recv) = oneshot::channel();
+                MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
+                recv.await.unwrap()
+            };
 
-        let foo_bar = make_path("foo/bar");
-        let foo_bar_baz = make_path("foo/bar/baz");
-        let bar = make_path("bar");
-        let qux = make_path("qux");
+            let foo_bar = make_path("foo/bar");
+            let foo_bar_baz = make_path("foo/bar/baz");
+            let bar = make_path("bar");
+            let qux = make_path("qux");
 
-        dm.declare_existing(&foo_bar, value.dupe());
+            dm.declare_existing(&foo_bar, value.dupe());
 
-        handle.subscribe_to_paths(vec![foo_bar_baz.clone(), bar.clone()]);
-        while let Ok(cmd) = channel.high_priority.try_recv() {
-            dm.process_one_command(cmd);
-        }
+            handle.subscribe_to_paths(vec![foo_bar_baz.clone(), bar.clone()]);
+            while let Ok(cmd) = channel.high_priority.try_recv() {
+                dm.process_one_command(cmd);
+            }
 
-        dm.declare_existing(&bar, value.dupe());
-        dm.declare_existing(&foo_bar_baz, value.dupe());
-        dm.declare_existing(&qux, value.dupe());
+            dm.declare_existing(&bar, value.dupe());
+            dm.declare_existing(&foo_bar_baz, value.dupe());
+            dm.declare_existing(&qux, value.dupe());
 
-        let mut paths = Vec::new();
-        while let Ok(path) = handle.receiver().try_recv() {
-            paths.push(path);
-        }
+            let mut paths = Vec::new();
+            while let Ok(path) = handle.receiver().try_recv() {
+                paths.push(path);
+            }
 
-        assert_eq!(paths, vec![foo_bar_baz.clone(), bar, foo_bar_baz]);
+            assert_eq!(paths, vec![foo_bar_baz.clone(), bar, foo_bar_baz]);
+        })
+        .await
     }
 
     #[tokio::test]
     async fn test_subscription_subscribe_also_materializes() -> anyhow::Result<()> {
-        let (mut dm, mut channel) = make_processor(Default::default());
-        let digest_config = dm.io.digest_config();
-        let value = ArtifactValue::file(digest_config.empty_file());
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, mut channel) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
+            let value = ArtifactValue::file(digest_config.empty_file());
 
-        let mut handle = {
-            let (sender, recv) = oneshot::channel();
-            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
-            recv.await.unwrap()
-        };
+            let mut handle = {
+                let (sender, recv) = oneshot::channel();
+                MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
+                recv.await.unwrap()
+            };
 
-        let foo_bar = make_path("foo/bar");
+            let foo_bar = make_path("foo/bar");
 
-        dm.declare(
-            &foo_bar,
-            value.dupe(),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
+            dm.declare(
+                &foo_bar,
+                value.dupe(),
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
 
-        handle.subscribe_to_paths(vec![foo_bar.clone()]);
-        while let Ok(cmd) = channel.high_priority.try_recv() {
-            dm.process_one_command(cmd);
-        }
+            handle.subscribe_to_paths(vec![foo_bar.clone()]);
+            while let Ok(cmd) = channel.high_priority.try_recv() {
+                dm.process_one_command(cmd);
+            }
 
-        // We need to yield to let the materialization task run. If we had a handle to it, we'd
-        // just await it, but the subscription isn't retaining those handles.
-        let mut log = Vec::new();
-        while log.len() < 2 {
-            log.extend(dm.io.take_log());
-            tokio::task::yield_now().await;
-        }
+            // We need to yield to let the materialization task run. If we had a handle to it, we'd
+            // just await it, but the subscription isn't retaining those handles.
+            let mut log = Vec::new();
+            while log.len() < 2 {
+                log.extend(dm.io.take_log());
+                tokio::task::yield_now().await;
+            }
 
-        assert_eq!(
-            &log,
-            &[
-                (Op::Clean, foo_bar.clone()),
-                (Op::Materialize, foo_bar.clone())
-            ]
-        );
+            assert_eq!(
+                &log,
+                &[
+                    (Op::Clean, foo_bar.clone()),
+                    (Op::Materialize, foo_bar.clone())
+                ]
+            );
 
-        // Drain low priority commands. This should include our materialization finished message,
-        // at which point we'll notify the subscription handle.
-        while let Ok(cmd) = channel.low_priority.try_recv() {
-            dm.process_one_low_priority_command(cmd);
-        }
+            // Drain low priority commands. This should include our materialization finished message,
+            // at which point we'll notify the subscription handle.
+            while let Ok(cmd) = channel.low_priority.try_recv() {
+                dm.process_one_low_priority_command(cmd);
+            }
 
-        let mut paths = Vec::new();
-        while let Ok(path) = handle.receiver().try_recv() {
-            paths.push(path);
-        }
+            let mut paths = Vec::new();
+            while let Ok(path) = handle.receiver().try_recv() {
+                paths.push(path);
+            }
 
-        assert_eq!(paths, vec![foo_bar]);
+            assert_eq!(paths, vec![foo_bar]);
 
-        Ok(())
+            Ok(())
+        })
+        .await
     }
 
     #[tokio::test]
     async fn test_subscription_unsubscribe() {
-        let (mut dm, mut channel) = make_processor(Default::default());
-        let digest_config = dm.io.digest_config();
-        let value1 = ArtifactValue::file(digest_config.empty_file());
-        let value2 = ArtifactValue::dir(digest_config.empty_directory());
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, mut channel) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
+            let value1 = ArtifactValue::file(digest_config.empty_file());
+            let value2 = ArtifactValue::dir(digest_config.empty_directory());
 
-        let mut handle = {
-            let (sender, recv) = oneshot::channel();
-            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
-            recv.await.unwrap()
-        };
+            let mut handle = {
+                let (sender, recv) = oneshot::channel();
+                MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
+                recv.await.unwrap()
+            };
 
-        let path = make_path("foo/bar");
+            let path = make_path("foo/bar");
 
-        handle.subscribe_to_paths(vec![path.clone()]);
-        while let Ok(cmd) = channel.high_priority.try_recv() {
-            dm.process_one_command(cmd);
-        }
+            handle.subscribe_to_paths(vec![path.clone()]);
+            while let Ok(cmd) = channel.high_priority.try_recv() {
+                dm.process_one_command(cmd);
+            }
 
-        dm.declare_existing(&path, value1.dupe());
+            dm.declare_existing(&path, value1.dupe());
 
-        handle.unsubscribe_from_paths(vec![path.clone()]);
-        while let Ok(cmd) = channel.high_priority.try_recv() {
-            dm.process_one_command(cmd);
-        }
+            handle.unsubscribe_from_paths(vec![path.clone()]);
+            while let Ok(cmd) = channel.high_priority.try_recv() {
+                dm.process_one_command(cmd);
+            }
 
-        dm.declare_existing(&path, value2.dupe());
+            dm.declare_existing(&path, value2.dupe());
 
-        let mut paths = Vec::new();
-        while let Ok(path) = handle.receiver().try_recv() {
-            paths.push(path);
-        }
+            let mut paths = Vec::new();
+            while let Ok(path) = handle.receiver().try_recv() {
+                paths.push(path);
+            }
 
-        // Expect only one notification
-        assert_eq!(paths, vec![path]);
+            // Expect only one notification
+            assert_eq!(paths, vec![path]);
+        })
+        .await
     }
 
     #[tokio::test]
     async fn test_invalidate_error() -> anyhow::Result<()> {
-        let (mut dm, _) = make_processor(Default::default());
-        let digest_config = dm.io.digest_config();
+        ignore_stack_overflow_checks_for_future(async{
+            let (mut dm, _) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
 
-        let path = make_path("test/invalidate/failure");
-        let value1 = ArtifactValue::file(digest_config.empty_file());
-        let value2 = ArtifactValue::dir(digest_config.empty_directory());
+            let path = make_path("test/invalidate/failure");
+            let value1 = ArtifactValue::file(digest_config.empty_file());
+            let value2 = ArtifactValue::dir(digest_config.empty_directory());
 
-        // Start from having something.
-        dm.declare_existing(&path, value1);
+            // Start from having something.
+            dm.declare_existing(&path, value1);
 
-        // This will collect the existing future and invalidate, and then fail in doing so.
-        dm.declare(&path, value2, Box::new(ArtifactMaterializationMethod::Test));
+            // This will collect the existing future and invalidate, and then fail in doing so.
+            dm.declare(&path, value2, Box::new(ArtifactMaterializationMethod::Test));
 
-        // Now we check that materialization fails. This needs to wait on the previous clean.
-        let res = dm
-            .materialize_artifact(&path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
+            // Now we check that materialization fails. This needs to wait on the previous clean.
+            let res = dm
+                .materialize_artifact(&path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
 
-        assert_matches!(
+            assert_matches!(
             res,
             Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
         );
 
-        // We do not actually get to materializing or cleaning.
-        assert_eq!(dm.io.take_log(), &[]);
+            // We do not actually get to materializing or cleaning.
+            assert_eq!(dm.io.take_log(), &[]);
 
-        Ok(())
+            Ok(())
+        }).await
     }
 
     #[tokio::test]
     async fn test_materialize_dep_error() -> anyhow::Result<()> {
-        // Construct a tree with a symlink and its target, materialize both at once
-        let symlink_path = make_path("foo/bar_symlink");
-        let target_path = make_path("foo/bar_target");
-        let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+        ignore_stack_overflow_checks_for_future(async {
+            // Construct a tree with a symlink and its target, materialize both at once
+            let symlink_path = make_path("foo/bar_symlink");
+            let target_path = make_path("foo/bar_target");
+            let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
 
-        let (mut dm, mut channel) = make_processor(Default::default());
-        let digest_config = dm.io.digest_config();
+            let (mut dm, mut channel) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
 
-        let target_value = ArtifactValue::file(digest_config.empty_file());
-        let symlink_value = make_artifact_value_with_symlink_dep(
-            &target_path,
-            &target_from_symlink,
-            digest_config,
-        )?;
-        // Declare and materialize symlink and target
-        dm.declare(
-            &target_path,
-            target_value.clone(),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        dm.declare(
-            &symlink_path,
-            symlink_value.clone(),
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await
-            .map_err(|err| anyhow::anyhow!("error materializing {:?}", err))?;
-        assert_eq!(
-            dm.io.take_log(),
-            &[
-                (Op::Clean, target_path.clone()),
-                (Op::Clean, symlink_path.clone()),
-                (Op::Materialize, target_path.clone()),
-                (Op::Materialize, symlink_path.clone()),
-            ]
-        );
+            let target_value = ArtifactValue::file(digest_config.empty_file());
+            let symlink_value = make_artifact_value_with_symlink_dep(
+                &target_path,
+                &target_from_symlink,
+                digest_config,
+            )?;
+            // Declare and materialize symlink and target
+            dm.declare(
+                &target_path,
+                target_value.clone(),
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            dm.declare(
+                &symlink_path,
+                symlink_value.clone(),
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await
+                .map_err(|err| anyhow::anyhow!("error materializing {:?}", err))?;
+            assert_eq!(
+                dm.io.take_log(),
+                &[
+                    (Op::Clean, target_path.clone()),
+                    (Op::Clean, symlink_path.clone()),
+                    (Op::Materialize, target_path.clone()),
+                    (Op::Materialize, symlink_path.clone()),
+                ]
+            );
 
-        // Process materialization_finished, change symlink stage to materialized
-        while let Ok(cmd) = channel.low_priority.try_recv() {
-            dm.process_one_low_priority_command(cmd);
-        }
+            // Process materialization_finished, change symlink stage to materialized
+            while let Ok(cmd) = channel.low_priority.try_recv() {
+                dm.process_one_low_priority_command(cmd);
+            }
 
-        // Change symlink target value and re-declare
-        let content = b"not empty";
-        let meta = FileMetadata {
-            digest: TrackedFileDigest::from_content(content, digest_config.cas_digest_config()),
-            is_executable: false,
-        };
-        let target_value = ArtifactValue::file(meta);
-        dm.declare(
-            &target_path,
-            target_value,
-            Box::new(ArtifactMaterializationMethod::Test),
-        );
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+            // Change symlink target value and re-declare
+            let content = b"not empty";
+            let meta = FileMetadata {
+                digest: TrackedFileDigest::from_content(content, digest_config.cas_digest_config()),
+                is_executable: false,
+            };
+            let target_value = ArtifactValue::file(meta);
+            dm.declare(
+                &target_path,
+                target_value,
+                Box::new(ArtifactMaterializationMethod::Test),
+            );
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
-        // Request to materialize symlink, fail to materialize target
-        dm.io.set_fail_on(vec![target_path.clone()]);
-        let res = dm
-            .materialize_artifact(&symlink_path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
-        assert_matches!(
+            // Request to materialize symlink, fail to materialize target
+            dm.io.set_fail_on(vec![target_path.clone()]);
+            let res = dm
+                .materialize_artifact(&symlink_path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
+            assert_matches!(
             res,
             Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
         );
-        assert_eq!(
-            dm.io.take_log(),
-            &[(Op::MaterializeError, target_path.clone())]
-        );
-        // Process materialization_finished, _only_ target is cleaned, not symlink
-        while let Ok(cmd) = channel.low_priority.try_recv() {
-            dm.process_one_low_priority_command(cmd);
-        }
-        assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
+            assert_eq!(
+                dm.io.take_log(),
+                &[(Op::MaterializeError, target_path.clone())]
+            );
+            // Process materialization_finished, _only_ target is cleaned, not symlink
+            while let Ok(cmd) = channel.low_priority.try_recv() {
+                dm.process_one_low_priority_command(cmd);
+            }
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
-        // Request symlink again, target is materialized and symlink materialization succeeds
-        dm.io.set_fail_on(vec![]);
-        dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await
-            .map_err(|err| anyhow::anyhow!("error materializing 2 {:?}", err))?;
-        assert_eq!(dm.io.take_log(), &[(Op::Materialize, target_path.clone()),]);
-        Ok(())
+            // Request symlink again, target is materialized and symlink materialization succeeds
+            dm.io.set_fail_on(vec![]);
+            dm.materialize_artifact(&symlink_path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await
+                .map_err(|err| anyhow::anyhow!("error materializing 2 {:?}", err))?;
+            assert_eq!(dm.io.take_log(), &[(Op::Materialize, target_path.clone()), ]);
+            Ok(())
+        }).await
     }
 
     #[tokio::test]
     async fn test_retry() -> anyhow::Result<()> {
-        let (mut dm, mut channel) = make_processor(Default::default());
-        let digest_config = dm.io.digest_config();
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, mut channel) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
 
-        let path = make_path("test");
-        let value1 = ArtifactValue::file(digest_config.empty_file());
+            let path = make_path("test");
+            let value1 = ArtifactValue::file(digest_config.empty_file());
 
-        // Declare a value.
-        dm.declare(&path, value1, Box::new(ArtifactMaterializationMethod::Test));
+            // Declare a value.
+            dm.declare(&path, value1, Box::new(ArtifactMaterializationMethod::Test));
 
-        // Make materializations fail
-        dm.io.set_fail(true);
+            // Make materializations fail
+            dm.io.set_fail(true);
 
-        // Materializing it fails.
-        let res = dm
-            .materialize_artifact(&path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
+            // Materializing it fails.
+            let res = dm
+                .materialize_artifact(&path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
 
-        assert_matches!(
-            res,
-            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
-        );
+            assert_matches!(
+                res,
+                Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+            );
 
-        // Unset fail, but we haven't processed materialization_finished yet so this does nothing.
-        dm.io.set_fail(false);
+            // Unset fail, but we haven't processed materialization_finished yet so this does nothing.
+            dm.io.set_fail(false);
 
-        // Rejoining the existing future fails.
-        let res = dm
-            .materialize_artifact(&path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
+            // Rejoining the existing future fails.
+            let res = dm
+                .materialize_artifact(&path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
 
-        assert_matches!(
-            res,
-            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
-        );
+            assert_matches!(
+                res,
+                Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+            );
 
-        // Now process cleanup_finished_vacant and materialization_finished.
-        let mut processed = 0;
+            // Now process cleanup_finished_vacant and materialization_finished.
+            let mut processed = 0;
 
-        while let Ok(cmd) = channel.low_priority.try_recv() {
-            eprintln!("got cmd = {:?}", cmd);
-            dm.process_one_low_priority_command(cmd);
-            processed += 1;
-        }
+            while let Ok(cmd) = channel.low_priority.try_recv() {
+                eprintln!("got cmd = {:?}", cmd);
+                dm.process_one_low_priority_command(cmd);
+                processed += 1;
+            }
 
-        assert_eq!(processed, 2);
+            assert_eq!(processed, 2);
 
-        // Materializing works now:
-        let res = dm
-            .materialize_artifact(&path, EventDispatcher::null())
-            .context("Expected a future")?
-            .await;
+            // Materializing works now:
+            let res = dm
+                .materialize_artifact(&path, EventDispatcher::null())
+                .context("Expected a future")?
+                .await;
 
-        assert_matches!(res, Ok(()));
+            assert_matches!(res, Ok(()));
 
-        Ok(())
+            Ok(())
+        }).await
     }
 }

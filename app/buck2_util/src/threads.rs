@@ -8,7 +8,11 @@
  */
 
 use std::cell::Cell;
+use std::future::Future;
 use std::hint;
+use std::pin::pin;
+use std::pin::Pin;
+use std::task::Poll;
 use std::thread;
 
 use anyhow::Context;
@@ -43,6 +47,14 @@ pub(crate) fn stack_pointer() -> *const () {
 struct ValidStackRange {
     start: *const (),
     end: *const (),
+}
+
+impl ValidStackRange {
+    fn full_range() -> ValidStackRange {
+        let start = usize::MAX as *const ();
+        let end = usize::MIN as *const ();
+        ValidStackRange { start, end }
+    }
 }
 
 thread_local! {
@@ -86,6 +98,44 @@ pub fn check_stack_overflow() -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("stack overflow (internal error)"));
     }
     Ok(())
+}
+
+#[must_use]
+pub struct IgnoreStackOverflowChecksForCurrentThread {
+    prev: Option<ValidStackRange>,
+}
+
+impl Drop for IgnoreStackOverflowChecksForCurrentThread {
+    fn drop(&mut self) {
+        STACK_RANGE.set(self.prev.take());
+    }
+}
+
+/// For tests.
+pub fn ignore_stack_overflow_checks_for_current_thread() -> IgnoreStackOverflowChecksForCurrentThread
+{
+    let prev = STACK_RANGE.replace(Some(ValidStackRange::full_range()));
+    IgnoreStackOverflowChecksForCurrentThread { prev }
+}
+
+/// For tests.
+pub async fn ignore_stack_overflow_checks_for_future<F: Future>(f: F) -> F::Output {
+    let f = pin!(f);
+
+    struct IgnoreStackOverflowChecksForFuture<'a, F> {
+        f: Pin<&'a mut F>,
+    }
+
+    impl<'a, F: Future> Future for IgnoreStackOverflowChecksForFuture<'a, F> {
+        type Output = F::Output;
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+            let _ignore = ignore_stack_overflow_checks_for_current_thread();
+            self.f.as_mut().poll(cx)
+        }
+    }
+
+    IgnoreStackOverflowChecksForFuture { f }.await
 }
 
 #[cfg(test)]

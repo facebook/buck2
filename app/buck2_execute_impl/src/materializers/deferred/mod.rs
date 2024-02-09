@@ -64,6 +64,7 @@ use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
+use buck2_util::threads::check_stack_overflow;
 use buck2_util::threads::thread_spawn;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
@@ -1599,6 +1600,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         mut path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
     ) -> Option<MaterializingFuture> {
+        // TODO(nga): rewrite without recursion.
+        check_stack_overflow().unwrap();
+
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
         let data = match self.tree.prefix_get_mut(&mut path_iter) {
