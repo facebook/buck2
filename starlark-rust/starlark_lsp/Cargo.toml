@@ -11,7 +11,7 @@ keywords = ["starlark", "skylark", "language", "interpreter"]
 license = "Apache-2.0"
 name = "starlark_lsp"
 repository = "https://github.com/facebookexperimental/starlark-rust"
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies]
 anyhow = "1.0.65"
@@ -25,8 +25,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0.36"
 
-starlark = { version = "0.11.0", path = "../starlark" }
-starlark_syntax = { version = "0.11.0", path = "../starlark_syntax" }
+starlark = { version = "0.12.0", path = "../starlark" }
+starlark_syntax = { version = "0.12.0", path = "../starlark_syntax" }
 
 [dev-dependencies]
 regex = "1.5.4"

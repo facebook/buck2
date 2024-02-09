@@ -11,14 +11,14 @@ keywords = ["starlark", "skylark", "language", "interpreter"]
 license = "Apache-2.0"
 name = "starlark_bin"
 repository = "https://github.com/facebookexperimental/starlark-rust"
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies]
 dupe = { workspace = true }
 
-starlark = { version = "0.11.0", path = "../starlark" }
-starlark_lsp = { version = "0.11.0", path = "../starlark_lsp" }
-starlark_map = { version = "0.11.0", path = "../starlark_map" }
+starlark = { version = "0.12.0", path = "../starlark" }
+starlark_lsp = { version = "0.12.0", path = "../starlark_lsp" }
+starlark_map = { version = "0.12.0", path = "../starlark_map" }
 
 anyhow = "1.0.65"
 argfile = "0.1.0"
