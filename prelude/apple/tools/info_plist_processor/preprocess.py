@@ -8,6 +8,7 @@
 import json
 import re
 from enum import Enum
+from typing import Dict, TextIO
 
 
 class _ReGroupName(str, Enum):
@@ -17,7 +18,7 @@ class _ReGroupName(str, Enum):
     closeparen = "closeparen"
 
 
-_re_string = "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::(?P<{modifier}>[^\\}}\\)]+))?(?P<{closeparen}>[\\}}\\)])".format(
+_re_string: str = "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::(?P<{modifier}>[^\\}}\\)]+))?(?P<{closeparen}>[\\}}\\)])".format(
     openparen=_ReGroupName.openparen,
     variable=_ReGroupName.variable,
     modifier=_ReGroupName.modifier,
@@ -25,7 +26,9 @@ _re_string = "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::(?P<{
 )
 
 
-def _make_substitution_dict(substitutions_json_file, product_name):
+def _make_substitution_dict(
+    substitutions_json_file: TextIO, product_name: str
+) -> Dict[str, str]:
     result = {
         "EXECUTABLE_NAME": product_name,
         "PRODUCT_NAME": product_name,
@@ -36,7 +39,9 @@ def _make_substitution_dict(substitutions_json_file, product_name):
     return result
 
 
-def _process_line(line, pattern, substitutions):
+def _process_line(
+    line: str, pattern: re.Pattern[str], substitutions: Dict[str, str]
+) -> str:
     result = line
     pos = 0
     substituted_keys = set()
@@ -62,7 +67,12 @@ def _process_line(line, pattern, substitutions):
     return result
 
 
-def preprocess(input_file, output_file, substitutions_file, product_name):
+def preprocess(
+    input_file: TextIO,
+    output_file: TextIO,
+    substitutions_file: TextIO,
+    product_name: str,
+) -> None:
     pattern = re.compile(_re_string)
     substitutions = _make_substitution_dict(substitutions_file, product_name)
     for line in input_file:
