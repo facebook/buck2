@@ -25,7 +25,7 @@ display_container = { workspace = true }
 dupe = { workspace = true }
 either = "1.8"
 erased-serde = "0.3.12"
-hashbrown = { version = "0.12.3", features = ["raw"] }
+hashbrown = { version = "0.14.3", features = ["raw"] }
 inventory = "0.3.8"
 itertools = "0.10"
 maplit = "1.0.2"

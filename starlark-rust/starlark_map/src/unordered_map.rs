@@ -473,7 +473,7 @@ impl<'a, K, V> RawOccupiedEntryMut<'a, K, V> {
     /// Remove the entry, return the key and value.
     #[inline]
     pub fn remove_entry(self) -> (K, V) {
-        unsafe { self.map.0.remove(self.bucket) }
+        unsafe { self.map.0.remove(self.bucket).0 }
     }
 }
 
