@@ -65,4 +65,12 @@ impl<'a> EventSubscribers<'a> {
             .iter()
             .filter_map(|s| s.as_error_observer())
     }
+
+    pub(crate) async fn eprintln(&mut self, message: &str) -> anyhow::Result<()> {
+        self.for_each_subscriber(|s| {
+            // TODO(nga): this is not a tailer.
+            s.handle_tailer_stderr(message)
+        })
+        .await
+    }
 }

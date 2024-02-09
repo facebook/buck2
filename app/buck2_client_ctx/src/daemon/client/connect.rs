@@ -462,6 +462,7 @@ impl BootstrapBuckdClient {
     pub async fn connect(
         paths: &InvocationPaths,
         constraints: BuckdConnectConstraints,
+        event_subscribers: &mut EventSubscribers<'_>,
     ) -> anyhow::Result<Self> {
         let daemon_dir = paths.daemon_dir()?;
 
@@ -485,7 +486,7 @@ impl BootstrapBuckdClient {
                 establish_connection_existing(&daemon_dir).await
             }
             BuckdConnectConstraints::Constraints(constraints) => {
-                establish_connection(paths, constraints).await
+                establish_connection(paths, constraints, event_subscribers).await
             }
         }
         .with_context(|| daemon_connect_error(paths))
@@ -549,7 +550,7 @@ impl<'a> BuckdConnectOptions<'a> {
         mut self,
         paths: &InvocationPaths,
     ) -> anyhow::Result<BuckdClientConnector<'a>> {
-        match BootstrapBuckdClient::connect(paths, self.constraints)
+        match BootstrapBuckdClient::connect(paths, self.constraints, &mut self.subscribers)
             .await
             .map_err(buck2_error::Error::from)
         {
@@ -583,6 +584,7 @@ pub async fn establish_connection_existing(
 async fn establish_connection(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
+    event_subscribers: &mut EventSubscribers<'_>,
 ) -> anyhow::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
@@ -591,7 +593,7 @@ async fn establish_connection(
     deadline
         .down(
             "establishing connection to Buck daemon or start a daemon",
-            |timeout| establish_connection_inner(paths, constraints, timeout),
+            |timeout| establish_connection_inner(paths, constraints, timeout, event_subscribers),
         )
         .await
 }
@@ -600,6 +602,7 @@ async fn establish_connection_inner(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
     deadline: StartupDeadline,
+    event_subscribers: &mut EventSubscribers<'_>,
 ) -> anyhow::Result<BootstrapBuckdClient> {
     let daemon_dir = paths.daemon_dir()?;
     let connect_before_restart = deadline
@@ -641,6 +644,10 @@ async fn establish_connection_inner(
         .clean_daemon_dir()
         .context("Cleaning daemon dir")?;
 
+    event_subscribers
+        .eprintln("Could not connect to buck2 daemon, starting a new one...")
+        .await?;
+
     // Now there's definitely no server that can be connected to
     // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
     lifecycle_lock.start_server().await?;
@@ -665,6 +672,10 @@ async fn establish_connection_inner(
         }
         .into());
     }
+
+    event_subscribers
+        .eprintln("Connected to new buck2 daemon.")
+        .await?;
 
     Ok(client)
 }
