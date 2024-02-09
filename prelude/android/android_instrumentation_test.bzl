@@ -15,6 +15,7 @@ load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
 DEFAULT_ANDROID_PLATFORM = "android-emulator"
+DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE = "instrumentation-tests"
 
 def android_instrumentation_test_impl(ctx: AnalysisContext):
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -95,7 +96,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
                     "platform": _compute_emulator_platform(ctx.attrs.labels or []),
                     "subplatform": _compute_emulator_subplatform(ctx.attrs.labels or []),
                 },
-                remote_execution_use_case = "instrumentation-tests",
+                remote_execution_use_case = _compute_re_use_case(ctx.attrs.labels or []),
             ),
             "static-listing": CommandExecutorConfig(
                 local_enabled = True,
@@ -133,3 +134,11 @@ def _compute_emulator_platform(labels: list[str]) -> str:
         return DEFAULT_ANDROID_PLATFORM
     else:  # len(emulator_platform_labels) == 1:
         return emulator_platform_labels[0].replace("re_platform_", "")
+
+def _compute_re_use_case(labels: list[str]) -> str:
+    re_use_case_labels = [label for label in labels if label.startswith("re_opts_use_case=")]
+    expect(len(re_use_case_labels) <= 1, "multiple 're_opts_use_case' labels were found:[{}], there must be only one!".format(", ".join(re_use_case_labels)))
+    if len(re_use_case_labels) == 0:
+        return DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE
+    else:  # len(re_use_case_labels) == 1:
+        return re_use_case_labels[0].replace("re_opts_use_case=", "")
