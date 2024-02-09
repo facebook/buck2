@@ -694,6 +694,11 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// Make all artifact paths relative to a given location. Typically used when the command
     /// you are running changes directory.
     ///
+    /// By default, the paths are relative to the artifacts themselves (equivalent to
+    /// `parent = 0`). Use `parent` to make the paths relative to an ancestor directory.
+    /// For example `parent = 1` would make all paths relative to the containing dirs
+    /// of any artifacts in the `cmd_args`.
+    ///
     /// ```python
     /// dir = symlinked_dir(...)
     /// script = [
