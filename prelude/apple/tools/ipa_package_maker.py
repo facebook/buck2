@@ -19,13 +19,13 @@ from typing import List, Optional
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
 
-def _copy_ipa_contents(ipa_contents_dir: Path, output_dir: Path):
+def _copy_ipa_contents(ipa_contents_dir: Path, output_dir: Path) -> None:
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir, ignore_errors=False)
     shutil.copytree(ipa_contents_dir, output_dir, symlinks=True, dirs_exist_ok=False)
 
 
-def _delete_empty_SwiftSupport_dir(output_dir: Path):
+def _delete_empty_SwiftSupport_dir(output_dir: Path) -> None:
     swiftSupportDir = output_dir / "SwiftSupport"
     if not swiftSupportDir.exists():
         return
@@ -46,7 +46,7 @@ def _package_ipa_contents(
     compression_level: int,
     validator: Optional[Path],
     validator_args: List[str],
-):
+) -> None:
     with tempfile.TemporaryDirectory() as processed_package_dir:
         processed_package_dir_path = Path(processed_package_dir)
         _copy_ipa_contents(ipa_contents_dir, processed_package_dir_path)
@@ -86,7 +86,7 @@ def _package_ipa_contents(
             )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Tool to make an .ipa package file.")
     parser.add_argument(
         "--ipa-contents-dir",

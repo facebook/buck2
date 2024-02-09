@@ -31,7 +31,7 @@ def _args_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _main():
+def _main() -> None:
     args = _args_parser().parse_args()
 
     output_dwarf_path = os.path.join(args.output, "Contents/Resources/DWARF")

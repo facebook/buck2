@@ -48,7 +48,7 @@ def _args_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _main():
+def _main() -> None:
     args = _args_parser().parse_args()
     content = {
         # This is always empty string if you check `DryCodeSignStep` class usages in buck1
