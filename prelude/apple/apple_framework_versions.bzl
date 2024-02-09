@@ -660,6 +660,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     "MobileCoreServices": {
         "appletvos": (9, 0, 0),
         "iphoneos": (2, 0, 0),
+        "maccatalyst": (14, 0, 0),
         "watchos": (1, 0, 0),
     },
     "ModelIO": {
