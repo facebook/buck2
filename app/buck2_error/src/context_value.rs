@@ -62,10 +62,26 @@ impl<T: fmt::Display> From<T> for ContextValue {
     }
 }
 
-#[derive(allocative::Allocative, PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(
+    allocative::Allocative,
+    PartialEq,
+    Eq,
+    Copy,
+    Clone,
+    Debug,
+    PartialOrd,
+    Ord
+)]
 pub enum Category {
     User,
     Infra,
+}
+
+impl Category {
+    pub fn combine(self, other: Option<Category>) -> Category {
+        let Some(other) = other else { return self };
+        std::cmp::max(self, other)
+    }
 }
 
 impl From<Category> for ContextValue {
@@ -76,7 +92,8 @@ impl From<Category> for ContextValue {
 
 #[cfg(test)]
 mod tests {
-    use crate as buck2_error;
+    use crate::Category;
+    use crate::{self as buck2_error};
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("test error")]
@@ -98,5 +115,19 @@ mod tests {
             .context(crate::Category::Infra)
             .context(crate::Category::User);
         assert_eq!(e.get_category(), Some(crate::Category::Infra));
+    }
+
+    #[test]
+    fn test_combine() {
+        assert_eq!(Category::User.combine(None), Category::User);
+        assert_eq!(Category::User.combine(Some(Category::User)), Category::User);
+        assert_eq!(
+            Category::User.combine(Some(Category::Infra)),
+            Category::Infra
+        );
+        assert_eq!(
+            Category::Infra.combine(Some(Category::User)),
+            Category::Infra
+        );
     }
 }
