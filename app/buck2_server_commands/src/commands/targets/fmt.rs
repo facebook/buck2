@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
+use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
@@ -19,6 +19,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
+use buck2_error::Context;
 use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
@@ -327,6 +328,8 @@ impl TargetFormatter for JsonFormat {
 #[derive(Debug, Default)]
 pub(crate) struct Stats {
     pub(crate) errors: u64,
+    error_tags: BTreeSet<buck2_error::ErrorTag>,
+    error_category: Option<buck2_error::Category>,
     pub(crate) success: u64,
     pub(crate) targets: u64,
 }
@@ -338,8 +341,11 @@ impl Stats {
         self.targets += stats.targets;
     }
 
-    // TODO(JakobDegen): Use error
-    pub(crate) fn add_error(&mut self, _e: &buck2_error::Error) {
+    pub(crate) fn add_error(&mut self, e: &buck2_error::Error) {
+        self.error_tags.extend(e.tags());
+        if let Some(category) = e.get_category() {
+            self.error_category = Some(category.combine(self.error_category.take()));
+        }
         self.errors += 1;
     }
 
@@ -353,11 +359,19 @@ impl Stats {
         } else {
             "packages"
         };
-        Some(anyhow::anyhow!(
-            "Failed to parse {} {}",
-            self.errors,
-            package_str
-        ))
+
+        #[derive(buck2_error::Error, Debug)]
+        enum TargetsError {
+            #[error("Failed to parse {0} {1}")]
+            FailedToParse(u64, &'static str),
+        }
+
+        let mut e = buck2_error::Error::from(TargetsError::FailedToParse(self.errors, package_str));
+        e = e.tag(self.error_tags.iter().copied());
+        if let Some(category) = self.error_category {
+            e = e.context(category);
+        }
+        Some(e.into())
     }
 }
 
