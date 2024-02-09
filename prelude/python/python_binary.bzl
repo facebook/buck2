@@ -396,6 +396,7 @@ def python_executable(
     exe.sub_targets.update({
         "dbg-source-db": [dbg_source_db],
         "library-info": [library_info],
+        "main": [DefaultInfo(default_output = ctx.actions.write_json("main.json", main))],
         "source-db": [source_db],
         "source-db-no-deps": [source_db_no_deps, create_python_source_db_info(library_info.manifests)],
     })
