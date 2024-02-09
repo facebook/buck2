@@ -48,7 +48,6 @@ use tokio::sync::Semaphore;
 use crate::commands::targets::fmt::Stats;
 use crate::commands::targets::fmt::TargetFormatter;
 use crate::commands::targets::fmt::TargetInfo;
-use crate::commands::targets::mk_error;
 use crate::commands::targets::Outputter;
 use crate::target_hash::TargetHashes;
 
@@ -99,7 +98,7 @@ pub(crate) async fn targets_streaming(
                                 load_targets(&ctx, package.dupe(), spec, cached, keep_going).await
                             };
                             let mut show_err = |err| {
-                                res.stats.errors += 1;
+                                res.stats.add_error(err);
                                 let mut stderr = String::new();
                                 formatter.package_error(
                                     package.dupe(),
@@ -112,7 +111,7 @@ pub(crate) async fn targets_streaming(
                             match targets {
                                 Ok((eval_result, targets, err)) => {
                                     if let Some(err) = err {
-                                        show_err(&err);
+                                        show_err(&err.into());
                                         formatter.separator(&mut res.stdout);
                                     }
                                     res.stats.success += 1;
@@ -147,7 +146,7 @@ pub(crate) async fn targets_streaming(
                                     }
                                 }
                                 Err(err) => {
-                                    show_err(&err);
+                                    show_err(&err.into());
                                 }
                             }
                             anyhow::Ok(res)
@@ -174,7 +173,9 @@ pub(crate) async fn targets_streaming(
         if let Some(stderr) = &res.stderr {
             server_ctx.stderr()?.write_all(stderr.as_bytes())?;
             if !keep_going {
-                return Err(mk_error(stats.errors));
+                return Err(stats
+                    .to_error()
+                    .expect("Result only has a stderr if there were errors"));
             }
         }
         if !res.stdout.is_empty() {

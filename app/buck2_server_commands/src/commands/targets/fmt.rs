@@ -52,7 +52,11 @@ pub(crate) struct TargetInfo<'a> {
     pub(crate) super_package: &'a SuperPackage,
 }
 
-fn package_error_to_stderr(package: &PackageLabel, error: &anyhow::Error, stderr: &mut String) {
+fn package_error_to_stderr(
+    package: &PackageLabel,
+    error: &buck2_error::Error,
+    stderr: &mut String,
+) {
     writeln!(stderr, "Error parsing {package}\n{error:?}").unwrap();
 }
 
@@ -74,7 +78,7 @@ pub(crate) trait TargetFormatter: Send + Sync {
     fn package_error(
         &self,
         package: PackageLabel,
-        error: &anyhow::Error,
+        error: &buck2_error::Error,
         stdout: &mut String,
         stderr: &mut String,
     ) {
@@ -294,7 +298,7 @@ impl TargetFormatter for JsonFormat {
     fn package_error(
         &self,
         package: PackageLabel,
-        error: &anyhow::Error,
+        error: &buck2_error::Error,
         stdout: &mut String,
         stderr: &mut String,
     ) {
@@ -332,6 +336,28 @@ impl Stats {
         self.errors += stats.errors;
         self.success += stats.success;
         self.targets += stats.targets;
+    }
+
+    // TODO(JakobDegen): Use error
+    pub(crate) fn add_error(&mut self, _e: &buck2_error::Error) {
+        self.errors += 1;
+    }
+
+    pub(crate) fn to_error(&self) -> Option<anyhow::Error> {
+        if self.errors == 0 {
+            return None;
+        }
+        // Simpler error so that we don't print long errors twice (when exiting buck2)
+        let package_str = if self.errors == 1 {
+            "package"
+        } else {
+            "packages"
+        };
+        Some(anyhow::anyhow!(
+            "Failed to parse {} {}",
+            self.errors,
+            package_str
+        ))
     }
 }
 

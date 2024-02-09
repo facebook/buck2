@@ -230,9 +230,3 @@ async fn targets(
     outputter.flush()?;
     Ok(response)
 }
-
-fn mk_error(errors: u64) -> anyhow::Error {
-    // Simpler error so that we don't print long errors twice (when exiting buck2)
-    let package_str = if errors == 1 { "package" } else { "packages" };
-    anyhow::anyhow!("Failed to parse {} {}", errors, package_str)
-}

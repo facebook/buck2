@@ -37,7 +37,6 @@ use dupe::OptionDupedExt;
 use crate::commands::targets::fmt::Stats;
 use crate::commands::targets::fmt::TargetFormatter;
 use crate::commands::targets::fmt::TargetInfo;
-use crate::commands::targets::mk_error;
 use crate::target_hash::TargetHashes;
 use crate::target_hash::TargetHashesFileMode;
 
@@ -151,14 +150,14 @@ pub(crate) async fn targets_batch(
                 }
             }
             Err(e) => {
-                stats.errors += 1;
+                stats.add_error(e);
                 let mut stderr = String::new();
 
                 if needs_separator {
                     formatter.separator(&mut buffer);
                 }
                 needs_separator = true;
-                formatter.package_error(package.dupe(), &e.dupe().into(), &mut buffer, &mut stderr);
+                formatter.package_error(package.dupe(), e, &mut buffer, &mut stderr);
 
                 server_ctx.stderr()?.write_all(stderr.as_bytes())?;
 
@@ -169,8 +168,8 @@ pub(crate) async fn targets_batch(
         }
     }
     formatter.end(&stats, &mut buffer);
-    if !keep_going && stats.errors != 0 {
-        Err(mk_error(stats.errors))
+    if !keep_going && let Some(e) = stats.to_error() {
+        Err(e)
     } else {
         Ok(TargetsResponse {
             error_count: stats.errors,

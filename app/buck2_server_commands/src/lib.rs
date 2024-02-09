@@ -13,6 +13,7 @@
 
 #![feature(async_closure)]
 #![feature(box_patterns)]
+#![feature(let_chains)]
 #![feature(try_blocks)]
 
 pub mod commands;
