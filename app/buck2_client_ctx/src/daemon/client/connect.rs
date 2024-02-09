@@ -626,7 +626,7 @@ async fn establish_connection_inner(
 
     // Even if we didn't connect before, it's possible that we just raced with another invocation
     // starting the server, so we try to connect again while holding the lock.
-    if let Ok(channel) = try_connect_existing(&daemon_dir, &deadline).await {
+    if let Ok(channel) = try_connect_existing(&daemon_dir, &deadline, &lifecycle_lock).await {
         let mut client = channel.upgrade().await?;
         if constraints.satisfied(&client.constraints) {
             return Ok(client);
@@ -715,6 +715,7 @@ async fn try_connect_existing_before_daemon_restart(
 async fn try_connect_existing(
     daemon_dir: &DaemonDir,
     timeout: &StartupDeadline,
+    _lock: &BuckdLifecycle<'_>,
 ) -> anyhow::Result<BuckdChannel> {
     timeout
         .min(buckd_startup_timeout()?)?
