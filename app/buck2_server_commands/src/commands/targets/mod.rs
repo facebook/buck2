@@ -159,11 +159,6 @@ async fn targets(
     mut dice: DiceTransaction,
     request: &TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
-    // TODO(nmj): Rather than returning fully formatted data in the TargetsResponse, we should
-    //            instead return structured data, and return *that* to the CLI. The CLI should
-    //            then handle printing. The current approach is just a temporary hack to fix some
-    //            issues with printing to stdout.
-
     let cwd = server_ctx.working_dir();
     let cell_resolver = dice.get_cell_resolver().await?;
     let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
