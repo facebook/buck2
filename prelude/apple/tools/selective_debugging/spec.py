@@ -46,11 +46,11 @@ class Spec:
     include_build_target_patterns: List[BuildTargetPatternOutputPathMatcher] = field(
         init=False
     )
-    include_regular_expressions: List[re.Pattern] = field(init=False)
+    include_regular_expressions: List[re.Pattern[str]] = field(init=False)
     exclude_build_target_patterns: List[BuildTargetPatternOutputPathMatcher] = field(
         init=False
     )
-    exclude_regular_expressions: List[re.Pattern] = field(init=False)
+    exclude_regular_expressions: List[re.Pattern[str]] = field(init=False)
 
     def __post_init__(self) -> None:
         with open(self.spec_path, "r") as f:
@@ -95,7 +95,7 @@ class Spec:
 def _path_matches_pattern_or_expression(
     debug_file_path: str,
     patterns: List[BuildTargetPatternOutputPathMatcher],
-    expressions: List[re.Pattern],
+    expressions: List[re.Pattern[str]],
 ) -> bool:
     for pattern in patterns:
         if pattern.match_path(debug_file_path):
