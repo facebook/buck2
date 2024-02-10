@@ -55,7 +55,9 @@ use crate::subscribers::subscribers::EventSubscribers;
 /// The client side matcher for DaemonConstraints.
 #[derive(Clone, Debug)]
 pub struct DaemonConstraintsRequest {
+    /// The version of buck2.
     version: String,
+    /// Sandcastle id.
     user_version: Option<String>,
     desired_trace_io_state: DesiredTraceIoState,
     pub reject_daemon: Option<String>,
