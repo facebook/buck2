@@ -177,7 +177,7 @@ pub(crate) fn validate_action_instantiation(
     } else {
         let execution_platform = bxl_execution_resolution.resolved_execution.clone();
         let analysis_registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKey::BxlLabel(this.current_bxl.dupe().into_base_deferred_key_dyn_impl(
+            BaseDeferredKey::BxlLabel(this.current_bxl().dupe().into_base_deferred_key_dyn_impl(
                 execution_platform.clone(),
                 bxl_execution_resolution.exec_deps_configured.clone(),
                 bxl_execution_resolution.toolchain_deps_configured.clone(),

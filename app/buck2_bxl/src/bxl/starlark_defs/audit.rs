@@ -121,10 +121,10 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Option<Value<'v>>> {
         let target_platform = target_platform.parse_target_platforms(
-            &this.ctx.data.target_alias_resolver,
-            &this.ctx.data.cell_resolver,
-            this.ctx.data.cell_name,
-            &this.ctx.data.global_cfg_options().target_platform,
+            this.ctx.target_alias_resolver(),
+            this.ctx.cell_resolver(),
+            this.ctx.cell_name(),
+            &this.ctx.global_cfg_options().target_platform,
         )?;
 
         this.ctx.async_ctx.borrow_mut().via(|ctx| {

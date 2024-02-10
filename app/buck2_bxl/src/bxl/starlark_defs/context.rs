@@ -14,6 +14,7 @@ use std::cell::RefMut;
 use std::fmt::Display;
 use std::io::Write;
 use std::iter;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -218,6 +219,14 @@ pub(crate) struct BxlContext<'v> {
     pub(crate) data: BxlContextNoDice<'v>,
 }
 
+impl<'v> Deref for BxlContext<'v> {
+    type Target = BxlContextNoDice<'v>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
 #[derive(Derivative, Display, Trace, NoSerialize, Allocative)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
@@ -367,17 +376,6 @@ impl<'v> BxlContext<'v> {
         f(self.async_ctx.borrow_mut(), data)
     }
 
-    pub(crate) fn project_root(&self) -> &ProjectRoot {
-        self.data.project_root()
-    }
-
-    /// Working dir for resolving literals.
-    /// Note, unlike buck2 command line UI, we resolve targets and literals
-    /// against the cell root instead of user working dir.
-    pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.data.working_dir()
-    }
-
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
@@ -450,26 +448,54 @@ impl<'v> BxlContextNoDice<'v> {
         self.current_bxl.global_cfg_options()
     }
 
+    pub(crate) fn target_alias_resolver(&self) -> &BuckConfigTargetAliasResolver {
+        &self.target_alias_resolver
+    }
+
+    pub(crate) fn cell_resolver(&self) -> &CellResolver {
+        &self.cell_resolver
+    }
+
+    pub(crate) fn cell_name(&self) -> CellName {
+        self.cell_name
+    }
+
+    pub(crate) fn cell_root_abs(&self) -> &AbsNormPathBuf {
+        &self.cell_root_abs
+    }
+
+    pub(crate) fn current_bxl(&self) -> &BxlKey {
+        &self.current_bxl
+    }
+
+    pub(crate) fn project_fs(&self) -> &ProjectRoot {
+        &self.project_fs
+    }
+
+    pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
+        &self.artifact_fs
+    }
+
     /// Working dir for resolving literals.
     /// Note, unlike buck2 command line UI, we resolve targets and literals
     /// against the cell root instead of user working dir.
     pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
-        let cell = self.cell_resolver.get(self.cell_name)?;
+        let cell = self.cell_resolver().get(self.cell_name())?;
         Ok(cell.path().as_project_relative_path().to_owned())
     }
 
     pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
         parse_query_file_literal(
             literal,
-            self.cell_resolver
-                .get(self.cell_name)?
+            self.cell_resolver()
+                .get(self.cell_name())?
                 .cell_alias_resolver(),
-            &self.cell_resolver,
+            self.cell_resolver(),
             // NOTE(nga): we pass cell root as working directory here,
             //   which is inconsistent with the rest of buck2:
             //   The same query `owner(foo.h)` is resolved using
             //   current directory in `buck2 query`, but relative to cell root in BXL.
-            &self.cell_root_abs,
+            self.cell_root_abs(),
             self.project_root(),
         )
     }
@@ -690,7 +716,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             .context_type
             .unpack_root()
             .context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
-        Ok(this.data.cell_root_abs.to_owned().to_string())
+        Ok(this.cell_root_abs().to_owned().to_string())
     }
 
     /// Gets the target nodes for the `labels`, accepting an optional `target_platform` which is the
@@ -720,10 +746,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
         Either<NoneOr<StarlarkConfiguredTargetNode>, StarlarkTargetSet<ConfiguredTargetNode>>,
     > {
         let target_platform = target_platform.parse_target_platforms(
-            &this.data.target_alias_resolver,
-            &this.data.cell_resolver,
-            this.data.cell_name,
-            &this.data.global_cfg_options().target_platform,
+            this.target_alias_resolver(),
+            this.cell_resolver(),
+            this.cell_name(),
+            &this.global_cfg_options().target_platform,
         )?;
 
         this.via_dice(|mut dice, this| {
@@ -847,10 +873,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] keep_going: bool,
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
         let target_platform = target_platform.parse_target_platforms(
-            &this.data.target_alias_resolver,
-            &this.data.cell_resolver,
-            this.data.cell_name,
-            &this.data.global_cfg_options().target_platform,
+            this.target_alias_resolver(),
+            this.cell_resolver(),
+            this.cell_name(),
+            &this.global_cfg_options().target_platform,
         )?;
 
         this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
@@ -1001,9 +1027,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
                     let (exec_deps, toolchains) = match &this.context_type {
                         BxlContextType::Root { .. } => {
                             let target_platform = target_platform.parse_target_platforms(
-                                &this.target_alias_resolver,
-                                &this.cell_resolver,
-                                this.cell_name,
+                                this.target_alias_resolver(),
+                                this.cell_resolver(),
+                                this.cell_name(),
                                 &this.global_cfg_options().target_platform,
                             )?;
                             let exec_deps = match exec_deps {
@@ -1045,7 +1071,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
 
                             let execution_resolution = resolve_bxl_execution_platform(
                                 ctx,
-                                this.cell_name,
+                                this.cell_name(),
                                 exec_deps,
                                 toolchains,
                                 target_platform.clone(),
@@ -1124,9 +1150,9 @@ fn context_methods(builder: &mut MethodsBuilder) {
         >,
     > {
         let target_platform = target_platform.parse_target_platforms(
-            &this.data.target_alias_resolver,
-            &this.data.cell_resolver,
-            this.data.cell_name,
+            this.data.target_alias_resolver(),
+            this.data.cell_resolver(),
+            this.data.cell_name(),
             &this.data.global_cfg_options().target_platform,
         )?;
 
@@ -1257,10 +1283,10 @@ fn context_methods(builder: &mut MethodsBuilder) {
             ctx.via(|ctx| {
                 async move {
                     match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-                        &this_no_dice.target_alias_resolver,
-                        CellPathRef::new(this_no_dice.cell_name, CellRelativePath::empty()),
+                        this_no_dice.target_alias_resolver(),
+                        CellPathRef::new(this_no_dice.cell_name(), CellRelativePath::empty()),
                         label,
-                        &this_no_dice.cell_resolver,
+                        this_no_dice.cell_resolver(),
                     )? {
                         ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                             let target_label = TargetLabel::new(pkg, name.as_ref());
@@ -1280,8 +1306,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
             ctx.via(|ctx| {
                 async move {
                     Ok((
-                        this.cell_resolver
-                            .get(this.cell_name)?
+                        this.cell_resolver()
+                            .get(this.cell_name())?
                             .path()
                             .as_project_relative_path()
                             .to_buf(),
@@ -1324,7 +1350,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this.via_dice(|mut dice, this| {
             dice.via(|dice| {
                 action_factory
-                    .run_promises(dice, eval, format!("bxl$promises:{}", &this.current_bxl))
+                    .run_promises(dice, eval, format!("bxl$promises:{}", this.current_bxl()))
                     .boxed_local()
             })
         })?;
@@ -1343,8 +1369,8 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] metadata: Value<'v>,
     ) -> anyhow::Result<NoneType> {
         let parser = StarlarkUserEventParser {
-            artifact_fs: &this.data.artifact_fs,
-            project_fs: &this.data.project_fs,
+            artifact_fs: this.artifact_fs(),
+            project_fs: this.project_fs(),
         };
         let event = parser.parse(id, metadata)?;
 

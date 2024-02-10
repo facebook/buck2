@@ -196,9 +196,9 @@ pub(crate) fn build<'v>(
         ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
 
     let target_platform = target_platform.parse_target_platforms(
-        &ctx.data.target_alias_resolver,
-        &ctx.data.cell_resolver,
-        ctx.data.cell_name,
+        ctx.target_alias_resolver(),
+        ctx.cell_resolver(),
+        ctx.cell_name(),
         &ctx.data.global_cfg_options().target_platform,
     )?;
 

@@ -97,9 +97,9 @@ impl<'v> StarlarkAQueryCtx<'v> {
         default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
         let target_platform = global_target_platform.parse_target_platforms(
-            &ctx.data.target_alias_resolver,
-            &ctx.data.cell_resolver,
-            ctx.data.cell_name,
+            ctx.target_alias_resolver(),
+            ctx.cell_resolver(),
+            ctx.cell_name(),
             default_target_platform,
         )?;
 
@@ -120,8 +120,8 @@ pub(crate) async fn get_aquery_env(
     (NEW_BXL_AQUERY_FUNCTIONS.get()?)(
         global_cfg_options_override.clone(),
         ctx.project_root().dupe(),
-        ctx.cell_name,
-        ctx.cell_resolver.dupe(),
+        ctx.cell_name(),
+        ctx.cell_resolver().dupe(),
     )
     .await
 }

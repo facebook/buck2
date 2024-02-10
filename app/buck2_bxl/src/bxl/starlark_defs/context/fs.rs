@@ -83,15 +83,15 @@ impl<'v> BxlFilesystem<'v> {
     }
 
     fn artifact_fs(&self) -> &ArtifactFs {
-        &self.ctx.data.artifact_fs
+        self.ctx.artifact_fs()
     }
 
     fn project_fs(&self) -> &ProjectRoot {
-        &self.ctx.data.project_fs
+        self.ctx.project_fs()
     }
 
     fn cell(&self) -> anyhow::Result<&CellInstance> {
-        self.ctx.data.cell_resolver.get(self.ctx.data.cell_name)
+        self.ctx.cell_resolver().get(self.ctx.cell_name())
     }
 }
 

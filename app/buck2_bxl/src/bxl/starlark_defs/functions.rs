@@ -98,15 +98,15 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                 get_artifact_path_display(
                     artifact.get_path(),
                     abs,
-                    &ctx.data.project_fs,
-                    &ctx.data.artifact_fs,
+                    ctx.project_fs(),
+                    ctx.artifact_fs(),
                 )?
             }
             ValueAsArtifactLikeUnpack::DeclaredArtifact(a) => get_artifact_path_display(
                 a.get_artifact_path(),
                 abs,
-                &ctx.data.project_fs,
-                &ctx.data.artifact_fs,
+                ctx.project_fs(),
+                ctx.artifact_fs(),
             )?,
             _ => return Err(PromiseArtifactsNotSupported.into()),
         };
@@ -156,8 +156,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                         let path = get_artifact_path_display(
                             artifact_path,
                             abs,
-                            &bxl_ctx.project_fs,
-                            &bxl_ctx.artifact_fs,
+                            bxl_ctx.project_fs(),
+                            bxl_ctx.artifact_fs(),
                         )?;
 
                         paths.push(path);

@@ -365,11 +365,11 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         keep_going: bool,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-            &ctx.target_alias_resolver,
+            ctx.target_alias_resolver(),
             // TODO(nga): Parse relaxed relative to cell root is incorrect.
-            CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+            CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
             val,
-            &ctx.cell_resolver,
+            ctx.cell_resolver(),
         )? {
             ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                 let result = match dice
@@ -514,11 +514,11 @@ impl<'v> TargetListExpr<'v, TargetNode> {
             )),
             TargetNodeOrTargetLabelOrStr::Str(s) => {
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-                    &ctx.target_alias_resolver,
+                    ctx.target_alias_resolver(),
                     // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+                    CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
                     s,
-                    &ctx.cell_resolver,
+                    ctx.cell_resolver(),
                 )? {
                     ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                         Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(

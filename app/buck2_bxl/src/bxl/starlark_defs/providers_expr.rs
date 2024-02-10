@@ -225,11 +225,11 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
         match arg {
             ProvidersLabelArg::Str(s) => {
                 Ok(ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
-                    &ctx.target_alias_resolver,
+                    ctx.target_alias_resolver(),
                     // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+                    CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
                     s,
-                    &ctx.cell_resolver,
+                    ctx.cell_resolver(),
                 )?
                 .as_providers_label(s)?)
             }

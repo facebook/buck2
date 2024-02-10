@@ -83,8 +83,8 @@ pub(crate) async fn get_uquery_env<'v>(
 ) -> anyhow::Result<Box<dyn BxlUqueryFunctions>> {
     (NEW_BXL_UQUERY_FUNCTIONS.get()?)(
         ctx.project_root().dupe(),
-        ctx.cell_name,
-        ctx.cell_resolver.dupe(),
+        ctx.cell_name(),
+        ctx.cell_resolver().dupe(),
     )
     .await
 }
