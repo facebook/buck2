@@ -72,6 +72,7 @@ impl PersistEventLogsCommand {
         let sink = create_scribe_sink(&ctx)?;
         ctx.with_runtime(async move |mut ctx| {
             let mut stdin = io::BufReader::new(ctx.stdin());
+            let allow_vpnless = self.allow_vpnless;
             let (local_result, remote_result) = self.write_and_upload(&mut stdin).await;
 
             let (local_error_messages, local_error_category, local_success) =
@@ -86,6 +87,8 @@ impl PersistEventLogsCommand {
                 remote_error_messages,
                 remote_error_category,
                 remote_success,
+                allow_vpnless,
+                metadata: buck2_events::metadata::collect(),
             };
             dispatch_event_to_scribe(sink.as_ref(), &ctx.trace_id, event_to_send).await;
         });
