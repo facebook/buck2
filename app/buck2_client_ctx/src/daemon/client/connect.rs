@@ -65,6 +65,15 @@ pub struct DaemonConstraintsRequest {
     pub daemon_startup_config: DaemonStartupConfig,
 }
 
+enum ConstraintUnsatisfiedReason {
+    Version,
+    UserVersion,
+    StartupConfig,
+    RejectDaemonId,
+    TraceIo,
+    MaterializerStateIdentity,
+}
+
 impl DaemonConstraintsRequest {
     pub fn new(
         immediate_config: &ImmediateConfigContext<'_>,
@@ -84,13 +93,16 @@ impl DaemonConstraintsRequest {
         matches!(self.desired_trace_io_state, DesiredTraceIoState::Enabled)
     }
 
-    fn satisfied(&self, daemon: &buck2_cli_proto::DaemonConstraints) -> bool {
+    fn satisfied(
+        &self,
+        daemon: &buck2_cli_proto::DaemonConstraints,
+    ) -> Result<(), ConstraintUnsatisfiedReason> {
         if self.version != daemon.version {
-            return false;
+            return Err(ConstraintUnsatisfiedReason::Version);
         }
 
         if self.user_version != daemon.user_version {
-            return false;
+            return Err(ConstraintUnsatisfiedReason::UserVersion);
         }
 
         let server_daemon_startup_config = daemon.daemon_startup_config.as_ref().and_then(|c| {
@@ -102,12 +114,12 @@ impl DaemonConstraintsRequest {
         });
 
         if Some(&self.daemon_startup_config) != server_daemon_startup_config.as_ref() {
-            return false;
+            return Err(ConstraintUnsatisfiedReason::StartupConfig);
         }
 
         if let Some(r) = &self.reject_daemon {
             if *r == daemon.daemon_id {
-                return false;
+                return Err(ConstraintUnsatisfiedReason::RejectDaemonId);
             }
         }
 
@@ -116,12 +128,16 @@ impl DaemonConstraintsRequest {
 
         let extra = match &daemon.extra {
             Some(e) => e,
-            None => return true,
+            None => return Ok(()),
         };
 
         match (self.desired_trace_io_state, extra.trace_io_enabled) {
-            (DesiredTraceIoState::Enabled, false) => return false,
-            (DesiredTraceIoState::Disabled, true) => return false,
+            (DesiredTraceIoState::Enabled, false) => {
+                return Err(ConstraintUnsatisfiedReason::TraceIo);
+            }
+            (DesiredTraceIoState::Disabled, true) => {
+                return Err(ConstraintUnsatisfiedReason::TraceIo);
+            }
             _ => {}
         }
 
@@ -131,11 +147,11 @@ impl DaemonConstraintsRequest {
                 .as_ref()
                 .map_or(false, |i| i == r)
             {
-                return false;
+                return Err(ConstraintUnsatisfiedReason::MaterializerStateIdentity);
             }
         }
 
-        true
+        Ok(())
     }
 }
 
@@ -632,7 +648,7 @@ async fn establish_connection_inner(
     // starting the server, so we try to connect again while holding the lock.
     if let Ok(channel) = try_connect_existing(&daemon_dir, &deadline, &lifecycle_lock).await {
         let mut client = channel.upgrade().await?;
-        if constraints.satisfied(&client.constraints) {
+        if constraints.satisfied(&client.constraints).is_ok() {
             return Ok(client);
         }
         deadline
@@ -672,7 +688,7 @@ async fn establish_connection_inner(
 
     let client = channel.upgrade().await?;
 
-    if !constraints.satisfied(&client.constraints) {
+    if constraints.satisfied(&client.constraints).is_err() {
         return Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart {
             expected: constraints.clone(),
             actual: client.constraints,
@@ -708,7 +724,7 @@ async fn try_connect_existing_before_daemon_restart(
     match BuckdProcessInfo::load_and_create_channel(daemon_dir).await {
         Ok(channel) => {
             let client = channel.upgrade().await?;
-            if constraints.satisfied(&client.constraints) {
+            if constraints.satisfied(&client.constraints).is_ok() {
                 Ok(ConnectBeforeRestart::Accepted(client))
             } else {
                 Ok(ConnectBeforeRestart::Rejected)
@@ -881,21 +897,21 @@ mod tests {
     fn test_constraints_equal_for_same_constraints() {
         let req = request(DesiredTraceIoState::Enabled);
         let daemon = constraints(true);
-        assert!(req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_ok());
     }
 
     #[test]
     fn test_constraints_equal_for_trace_io_existing() {
         let req = request(DesiredTraceIoState::Existing);
         let daemon = constraints(true);
-        assert!(req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_ok());
     }
 
     #[test]
     fn test_constraints_unequal_for_trace_io() {
         let req = request(DesiredTraceIoState::Disabled);
         let daemon = constraints(true);
-        assert!(!req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_err());
     }
 
     #[test]
@@ -928,11 +944,11 @@ mod tests {
             ),
         };
 
-        assert!(req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_ok());
         req.reject_daemon = Some("zzz".to_owned());
-        assert!(req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_ok());
         req.reject_daemon = Some("ddd".to_owned());
-        assert!(!req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_err());
     }
 
     #[test]
@@ -959,11 +975,11 @@ mod tests {
             ),
         };
 
-        assert!(req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_ok());
         req.reject_materializer_state = Some("zzz".to_owned());
-        assert!(req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_ok());
         req.reject_materializer_state = Some("mmm".to_owned());
-        assert!(!req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_err());
     }
 
     #[test]
@@ -990,8 +1006,8 @@ mod tests {
             ),
         };
 
-        assert!(req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_ok());
         req.daemon_startup_config.daemon_buster = Some("1".to_owned());
-        assert!(!req.satisfied(&daemon));
+        assert!(req.satisfied(&daemon).is_err());
     }
 }
