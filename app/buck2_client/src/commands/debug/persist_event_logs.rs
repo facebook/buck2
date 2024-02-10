@@ -21,7 +21,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
-use buck2_data::PersistSubprocess;
+use buck2_data::PersistEventLogSubprocess;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::BuckEvent;
@@ -76,7 +76,7 @@ impl PersistEventLogsCommand {
                 dispatch_event_to_scribe(
                     sink.as_ref(),
                     &ctx.trace_id,
-                    PersistSubprocess {
+                    PersistEventLogSubprocess {
                         errors: vec![e.to_string()],
                     },
                 )
@@ -310,9 +310,9 @@ fn categorize_error(err: &anyhow::Error) -> &'static str {
 async fn dispatch_event_to_scribe(
     sink: Option<&ThriftScribeSink>,
     invocation_id: &TraceId,
-    result: PersistSubprocess,
+    result: PersistEventLogSubprocess,
 ) {
-    let data = Some(Data::PersistSubprocess(result));
+    let data = Some(Data::PersistEventLogSubprocess(result));
     let event = InstantEvent { data };
     if let Some(sink) = sink {
         sink.send_now(BuckEvent::new(

@@ -232,7 +232,7 @@ mod fbcode {
                     Some(Data::RageResult(..)) => true,
                     Some(Data::ReSession(..)) => true,
                     Some(Data::StructuredError(..)) => true,
-                    Some(Data::PersistSubprocess(..)) => true,
+                    Some(Data::PersistEventLogSubprocess(..)) => true,
                     None => false,
                     _ => false,
                 }

@@ -250,7 +250,7 @@ message InstantEvent {
     ConcurrentCommands concurrent_commands = 32;
 
     // Info coming from the `buck2 debug persist-event-log` subprocess
-    PersistSubprocess persist_subprocess = 33;
+    PersistEventLogSubprocess persist_event_log_subprocess = 33;
 
     // An action error encountered during the build
     ActionError action_error = 34;
@@ -1989,7 +1989,7 @@ message ConcurrentCommands {
   repeated string trace_ids = 1;
 }
 
-message PersistSubprocess {
+message PersistEventLogSubprocess {
   repeated string errors = 1;
 }
 

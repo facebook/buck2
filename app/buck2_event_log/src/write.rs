@@ -272,7 +272,7 @@ impl<'a> WriteEventLog<'a> {
             path: logdir.as_abs_path().join(file_name),
             encoding,
         };
-        let writer = start_persist_subprocess(
+        let writer = start_persist_event_log_subprocess(
             path,
             event.trace_id()?.clone(),
             self.log_size_counter_bytes.clone(),
@@ -368,7 +368,7 @@ impl<'a> Drop for WriteEventLog<'a> {
     }
 }
 
-async fn start_persist_subprocess(
+async fn start_persist_event_log_subprocess(
     path: EventLogPathBuf,
     trace_id: TraceId,
     bytes_written: Option<Arc<AtomicU64>>,
