@@ -22,6 +22,7 @@ use std::vec;
 use dupe::Dupe;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::ErrorKind;
 
 use crate::errors::Frame;
 use crate::eval::runtime::frame_span::FrameSpan;
@@ -154,9 +155,11 @@ impl<'v> CheapCallStack<'v> {
         &mut self,
         function: Value<'v>,
         span: Option<FrozenRef<'static, FrameSpan>>,
-    ) -> anyhow::Result<()> {
+    ) -> crate::Result<()> {
         if unlikely(self.count >= self.stack.len()) {
-            return Err(CallStackError::Overflow.into());
+            return Err(crate::Error::new(ErrorKind::StackOverflow(
+                CallStackError::Overflow.into(),
+            )));
         }
         self.stack[self.count] = CheapFrame { function, span };
         self.count += 1;

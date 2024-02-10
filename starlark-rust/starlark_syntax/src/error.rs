@@ -156,6 +156,8 @@ impl fmt::Debug for Error {
 pub enum ErrorKind {
     /// An explicit `fail` invocation
     Fail(anyhow::Error),
+    /// Starlark call stack overflow.
+    StackOverflow(anyhow::Error),
     /// An error approximately associated with a value.
     ///
     /// Includes unsupported operations, missing attributes, things of that sort.
@@ -182,6 +184,7 @@ impl ErrorKind {
     pub fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Fail(_) => None,
+            Self::StackOverflow(_) => None,
             Self::Value(_) => None,
             Self::Function(_) => None,
             Self::Scope(_) => None,
@@ -197,6 +200,7 @@ impl fmt::Debug for ErrorKind {
         match self {
             Self::Fail(s) => write!(f, "fail:{}", s),
             Self::Value(e) => fmt::Debug::fmt(e, f),
+            Self::StackOverflow(e) => fmt::Debug::fmt(e, f),
             Self::Function(e) => fmt::Debug::fmt(e, f),
             Self::Scope(e) => fmt::Debug::fmt(e, f),
             Self::Lexer(e) => fmt::Debug::fmt(e, f),
@@ -210,6 +214,7 @@ impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Fail(s) => write!(f, "fail:{}", s),
+            Self::StackOverflow(e) => fmt::Display::fmt(e, f),
             Self::Value(e) => fmt::Display::fmt(e, f),
             Self::Function(e) => fmt::Display::fmt(e, f),
             Self::Scope(e) => fmt::Display::fmt(e, f),
