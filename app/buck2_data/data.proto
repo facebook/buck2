@@ -1649,7 +1649,15 @@ message TypedMetadata {
 }
 
 // Why current command started buckd.
-enum DaemonWasStartedReason { UNKNOWN_REASON = 0; }
+enum DaemonWasStartedReason {
+  UNKNOWN_REASON = 0;
+  CONSTRAINT_MISMATCH_VERSION = 1;
+  CONSTRAINT_MISMATCH_USER_VERSION = 2;
+  CONSTRAINT_MISMATCH_STARTUP_CONFIG = 3;
+  CONSTRAINT_REJECT_DAEMON_ID = 4;
+  CONSTRAINT_MISMATCH_TRACE_IO = 5;
+  CONSTRAINT_MISMATCH_MATERIALIZER_STATE_IDENTITY = 6;
+}
 
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation

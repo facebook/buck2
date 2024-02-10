@@ -81,6 +81,31 @@ pub(crate) enum ConstraintUnsatisfiedReason {
     MaterializerStateIdentity,
 }
 
+impl ConstraintUnsatisfiedReason {
+    pub(crate) fn to_daemon_was_started_reason(&self) -> buck2_data::DaemonWasStartedReason {
+        match self {
+            ConstraintUnsatisfiedReason::Version => {
+                buck2_data::DaemonWasStartedReason::ConstraintMismatchVersion
+            }
+            ConstraintUnsatisfiedReason::UserVersion => {
+                buck2_data::DaemonWasStartedReason::ConstraintMismatchUserVersion
+            }
+            ConstraintUnsatisfiedReason::StartupConfig => {
+                buck2_data::DaemonWasStartedReason::ConstraintMismatchStartupConfig
+            }
+            ConstraintUnsatisfiedReason::RejectDaemonId => {
+                buck2_data::DaemonWasStartedReason::ConstraintRejectDaemonId
+            }
+            ConstraintUnsatisfiedReason::TraceIo => {
+                buck2_data::DaemonWasStartedReason::ConstraintMismatchTraceIo
+            }
+            ConstraintUnsatisfiedReason::MaterializerStateIdentity => {
+                buck2_data::DaemonWasStartedReason::ConstraintMismatchMaterializerStateIdentity
+            }
+        }
+    }
+}
+
 impl DaemonConstraintsRequest {
     pub fn new(
         immediate_config: &ImmediateConfigContext<'_>,
@@ -629,7 +654,7 @@ async fn establish_connection_inner(
     deadline: StartupDeadline,
     event_subscribers: &mut EventSubscribers<'_>,
 ) -> anyhow::Result<BootstrapBuckdClient> {
-    let daemon_was_started_reason = buck2_data::DaemonWasStartedReason::UnknownReason;
+    let mut daemon_was_started_reason = buck2_data::DaemonWasStartedReason::UnknownReason;
 
     let daemon_dir = paths.daemon_dir()?;
     let connect_before_restart = deadline
@@ -655,8 +680,9 @@ async fn establish_connection_inner(
     // starting the server, so we try to connect again while holding the lock.
     if let Ok(channel) = try_connect_existing(&daemon_dir, &deadline, &lifecycle_lock).await {
         let mut client = channel.upgrade().await?;
-        if constraints.satisfied(&client.constraints).is_ok() {
-            return Ok(client);
+        match constraints.satisfied(&client.constraints) {
+            Ok(()) => return Ok(client),
+            Err(reason) => daemon_was_started_reason = reason.to_daemon_was_started_reason(),
         }
         deadline
             .run(
