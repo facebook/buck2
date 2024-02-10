@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import importlib
 import multiprocessing.util as mp_util
 import os
 import sys
@@ -71,28 +70,12 @@ def __clear_env(patch_spawn: bool = True) -> None:
 
 
 def __startup__() -> None:
-    # ALL STARTUP_* methods will be called here in lexicographic order.
-    startup_functions = sorted(
-        [
-            (name, var)
-            for name, var in os.environ.items()
-            if name.startswith("STARTUP_")
-        ],
-    )
-    for name, var in startup_functions:
-        mod, sep, func = var.partition(":")
-        if sep:
-            try:
-                module = importlib.import_module(mod)
-                getattr(module, func)()
-            except Exception as e:
-                # TODO: Ignoring errors for now. The way to properly fix this should be to make
-                # sure we are still at the same binary that configured `STARTUP_` before importing.
-                warnings.warn(
-                    "Startup function %s (%s:%s) not executed: %s"
-                    % (mod, name, func, e),
-                    stacklevel=1,
-                )
+    try:
+        from __par__.__startup_function_loader__ import load_startup_functions
+
+        load_startup_functions()
+    except Exception:
+        warnings.warn("could not load startup functions", stacklevel=1)
 
 
 def __passthrough_exec_module() -> None:
