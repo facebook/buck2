@@ -14,9 +14,11 @@ use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use derivative::Derivative;
 use derive_more::Display;
+use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use gazebo::prelude::*;
@@ -98,6 +100,26 @@ pub(crate) async fn get_cquery_env(
     .await
 }
 
+async fn unpack_targets<'v>(
+    this: &StarlarkCQueryCtx<'v>,
+    dice: &mut DiceComputations,
+    targets: ConfiguredTargetListExprArg<'v>,
+) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    filter_incompatible(
+        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
+            targets,
+            &this.global_cfg_options_override,
+            &this.ctx.data,
+            dice,
+        )
+        .await?
+        .get(dice)
+        .await?
+        .into_iter(),
+        &this.ctx.data,
+    )
+}
+
 impl<'v> StarlarkCQueryCtx<'v> {
     pub(crate) fn new(
         ctx: &'v BxlContext<'v>,
@@ -137,32 +159,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(move |mut dice, ctx| {
             dice.via(|dice| {
                 async move {
-                    let from = filter_incompatible(
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                            from,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                        )
-                        .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        ctx,
-                    )?;
-                    let to = filter_incompatible(
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                            to,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                        )
-                        .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        ctx,
-                    )?;
+                    let from = unpack_targets(this, dice, from).await?;
+                    let to = unpack_targets(this, dice, to).await?;
                     get_cquery_env(ctx, &this.global_cfg_options_override)
                         .await?
                         .allpaths(dice, &from, &to)
@@ -183,32 +181,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|mut dice, ctx| {
             dice.via(|dice| {
                 async {
-                    let from = filter_incompatible(
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                            from,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                        )
-                        .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        ctx,
-                    )?;
-                    let to = filter_incompatible(
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                            to,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                        )
-                        .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        ctx,
-                    )?;
+                    let from = unpack_targets(this, dice, from).await?;
+                    let to = unpack_targets(this, dice, to).await?;
                     get_cquery_env(ctx, &this.global_cfg_options_override)
                         .await?
                         .somepath(dice, &from, &to)
@@ -227,24 +201,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|mut dice, ctx| {
+        this.ctx.via_dice(|mut dice, _| {
             dice.via(|dice| {
                 async {
-                    filter_incompatible(
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                            targets,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                        )
+                    unpack_targets(this, dice, targets)
                         .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        ctx,
-                    )?
-                    .attrfilter(attr, &|v| Ok(v == value))
-                    .map(StarlarkTargetSet::from)
+                        .attrfilter(attr, &|v| Ok(v == value))
+                        .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
@@ -264,24 +227,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         regex: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|mut dice, ctx| {
+        this.ctx.via_dice(|mut dice, _| {
             dice.via(|dice| {
                 async {
-                    filter_incompatible(
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                            targets,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                        )
+                    unpack_targets(this, dice, targets)
                         .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        ctx,
-                    )?
-                    .kind(regex)
-                    .map(StarlarkTargetSet::from)
+                        .kind(regex)
+                        .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
@@ -302,24 +254,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|mut dice, ctx| {
+        this.ctx.via_dice(|mut dice, _| {
             dice.via(|dice| {
                 async {
-                    filter_incompatible(
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                            targets,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                        )
+                    unpack_targets(this, dice, targets)
                         .await?
-                        .get(dice)
-                        .await?
-                        .into_iter(),
-                        ctx,
-                    )?
-                    .attrregexfilter(attribute, value)
-                    .map(StarlarkTargetSet::from)
+                        .attrregexfilter(attribute, value)
+                        .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
@@ -347,19 +288,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let universe = match universe.into_option() {
-                            Some(universe) => Some(filter_incompatible(
-                                TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                    universe,
-                                    &this.global_cfg_options_override,
-                                    ctx,
-                                    dice,
-                                )
-                                .await?
-                                .get(dice)
-                                .await?
-                                .into_iter(),
-                                ctx,
-                            )?),
+                            Some(universe) => Some(unpack_targets(this, dice, universe).await?),
                             None => None,
                         };
 
@@ -396,19 +325,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             .into_option()
                             .try_map(buck2_query_parser::parse_expr)?;
 
-                        let targets = filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                universe,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
-                            .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?;
+                        let targets = unpack_targets(this, dice, universe).await?;
 
                         get_cquery_env(ctx, &this.global_cfg_options_override)
                             .await?
@@ -443,23 +360,12 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
-            .via_dice(|mut dice, ctx| {
+            .via_dice(|mut dice, _| {
                 dice.via(|dice| {
                     async {
-                        filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                targets,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
+                        unpack_targets(this, dice, targets)
                             .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?
-                        .filter_name(regex)
+                            .filter_name(regex)
                     }
                     .boxed_local()
                 })
@@ -480,25 +386,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
-            .via_dice(|mut dice, ctx| {
+            .via_dice(|mut dice, _| {
                 dice.via(|dice| {
-                    async {
-                        filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                targets,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
-                            .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?
-                        .inputs()
-                    }
-                    .boxed_local()
+                    async { unpack_targets(this, dice, targets).await?.inputs() }.boxed_local()
                 })
             })
             .map(StarlarkFileSet::from)
@@ -513,19 +403,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let targets = filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                targets,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
-                            .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?;
+                        let targets = unpack_targets(this, dice, targets).await?;
                         get_cquery_env(ctx, &this.global_cfg_options_override)
                             .await?
                             .testsof(dice, &targets)
@@ -547,19 +425,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let targets = filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
-                                targets,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
-                            .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?;
+                        let targets = unpack_targets(this, dice, targets).await?;
                         let maybe_compatibles =
                             get_cquery_env(ctx, &this.global_cfg_options_override)
                                 .await?
@@ -592,32 +458,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let universe = filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                universe,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
-                            .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?;
-                        let targets = filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                from,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
-                            .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?;
+                        let universe = unpack_targets(this, dice, universe).await?;
+                        let targets = unpack_targets(this, dice, from).await?;
                         get_cquery_env(ctx, &this.global_cfg_options_override)
                             .await?
                             .rdeps(dice, &universe, &targets, depth)
@@ -692,23 +534,10 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkFileSet> {
         this.ctx
-            .via_dice(|mut dice, ctx| {
+            .via_dice(|mut dice, _| {
                 dice.via(|dice| {
                     async {
-                        let targets = &filter_incompatible(
-                            TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
-                                targets,
-                                &this.global_cfg_options_override,
-                                ctx,
-                                dice,
-                            )
-                            .await?
-                            .get(dice)
-                            .await?
-                            .into_iter(),
-                            ctx,
-                        )?;
-
+                        let targets = unpack_targets(this, dice, targets).await?;
                         Ok(targets.buildfile())
                     }
                     .boxed_local()
