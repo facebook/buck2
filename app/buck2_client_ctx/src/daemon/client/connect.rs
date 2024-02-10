@@ -65,12 +65,19 @@ pub struct DaemonConstraintsRequest {
     pub daemon_startup_config: DaemonStartupConfig,
 }
 
-enum ConstraintUnsatisfiedReason {
+#[derive(Debug, derive_more::Display)]
+pub(crate) enum ConstraintUnsatisfiedReason {
+    #[display(fmt = "Version mismatch")]
     Version,
+    #[display(fmt = "User version mismatch")]
     UserVersion,
+    #[display(fmt = "Startup config mismatch")]
     StartupConfig,
+    #[display(fmt = "Reject daemon id")]
     RejectDaemonId,
+    #[display(fmt = "Trace IO mismatch")]
     TraceIo,
+    #[display(fmt = "Materializer state identity mismatch")]
     MaterializerStateIdentity,
 }
 
@@ -688,8 +695,9 @@ async fn establish_connection_inner(
 
     let client = channel.upgrade().await?;
 
-    if constraints.satisfied(&client.constraints).is_err() {
+    if let Err(reason) = constraints.satisfied(&client.constraints) {
         return Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart {
+            reason,
             expected: constraints.clone(),
             actual: client.constraints,
         }
@@ -838,9 +846,10 @@ enum BuckdConnectError {
         stderr: String,
     },
     #[error(
-        "during buck daemon startup, the started process did not match constraints.\nexpected: {expected:?}\nactual: {actual:?}"
+        "during buck daemon startup, the started process did not match constraints ({reason}).\nexpected: {expected:?}\nactual: {actual:?}"
     )]
     BuckDaemonConstraintWrongAfterStart {
+        reason: ConstraintUnsatisfiedReason,
         expected: DaemonConstraintsRequest,
         actual: buck2_cli_proto::DaemonConstraints,
     },
