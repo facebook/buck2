@@ -72,25 +72,35 @@ impl PersistEventLogsCommand {
         let sink = create_scribe_sink(&ctx)?;
         ctx.with_runtime(async move |mut ctx| {
             let mut stdin = io::BufReader::new(ctx.stdin());
-            if let Err(e) = self.write_and_upload(&mut stdin).await {
-                dispatch_event_to_scribe(
-                    sink.as_ref(),
-                    &ctx.trace_id,
-                    PersistEventLogSubprocess {
-                        errors: vec![e.to_string()],
-                    },
-                )
-                .await;
-                let _res = soft_error!(categorize_error(&e), e);
+            let (local_result, remote_result) = self.write_and_upload(&mut stdin).await;
+
+            let (local_error_messages, local_error_category, local_success) =
+                status_from_result(local_result);
+            let (remote_error_messages, remote_error_category, remote_success) =
+                status_from_result(remote_result);
+
+            let event_to_send = PersistEventLogSubprocess {
+                local_error_messages,
+                local_error_category,
+                local_success,
+                remote_error_messages,
+                remote_error_category,
+                remote_success,
             };
+            dispatch_event_to_scribe(sink.as_ref(), &ctx.trace_id, event_to_send).await;
         });
         ExitResult::success()
     }
 
-    async fn write_and_upload(self, stdin: impl io::AsyncBufRead + Unpin) -> anyhow::Result<()> {
+    async fn write_and_upload(
+        self,
+        stdin: impl io::AsyncBufRead + Unpin,
+    ) -> (anyhow::Result<()>, anyhow::Result<()>) {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let file = Mutex::new(create_log_file(self.local_path).await?);
-
+        let file = match create_log_file(self.local_path).await {
+            Ok(f) => Mutex::new(f),
+            Err(e) => return (Err(e), Err(anyhow::anyhow!("Not tried"))),
+        };
         let write = write_task(&file, tx, stdin);
         let upload = upload_task(
             &file,
@@ -102,9 +112,7 @@ impl PersistEventLogsCommand {
 
         // Wait for both tasks to finish. If the upload fails we want to keep writing to disk
         let (write_result, upload_result) = tokio::join!(write, upload);
-        write_result?;
-        upload_result?;
-        Ok(())
+        (write_result, upload_result)
     }
 }
 
@@ -276,6 +284,21 @@ async fn write_to_file(
     file.write_all(buf).await?;
     file.flush().await?;
     Ok(())
+}
+
+fn status_from_result(res: anyhow::Result<()>) -> (Vec<String>, Option<String>, bool) {
+    // Returns a tuple of error messages, error category, and success/failure
+    if let Err(e) = res {
+        let status = (
+            vec![e.to_string()],
+            Some(categorize_error(&e).to_owned()),
+            false,
+        );
+        let _unused = soft_error!(categorize_error(&e), e);
+        status
+    } else {
+        (vec![], None, true)
+    }
 }
 
 fn categorize_error(err: &anyhow::Error) -> &'static str {
