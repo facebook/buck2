@@ -654,8 +654,6 @@ async fn establish_connection_inner(
     deadline: StartupDeadline,
     event_subscribers: &mut EventSubscribers<'_>,
 ) -> anyhow::Result<BootstrapBuckdClient> {
-    let mut daemon_was_started_reason = buck2_data::DaemonWasStartedReason::UnknownReason;
-
     let daemon_dir = paths.daemon_dir()?;
     let connect_before_restart = deadline
         .half()?
@@ -678,22 +676,24 @@ async fn establish_connection_inner(
 
     // Even if we didn't connect before, it's possible that we just raced with another invocation
     // starting the server, so we try to connect again while holding the lock.
-    if let Ok(channel) = try_connect_existing(&daemon_dir, &deadline, &lifecycle_lock).await {
-        let mut client = channel.upgrade().await?;
-        match constraints.satisfied(&client.constraints) {
-            Ok(()) => return Ok(client),
-            Err(reason) => daemon_was_started_reason = reason.to_daemon_was_started_reason(),
-        }
-        deadline
-            .run(
-                "sending kill command to the Buck daemon",
-                client.kill_for_constraints_mismatch(),
-            )
-            .await?;
-    }
-
-    // TODO(nga): store the reason why we failed to connect to the daemon
-    //   in `daemon_was_started_reason`.
+    let daemon_was_started_reason =
+        match try_connect_existing(&daemon_dir, &deadline, &lifecycle_lock).await {
+            Ok(channel) => {
+                let mut client = channel.upgrade().await?;
+                let daemon_was_started_reason = match constraints.satisfied(&client.constraints) {
+                    Ok(()) => return Ok(client),
+                    Err(reason) => reason.to_daemon_was_started_reason(),
+                };
+                deadline
+                    .run(
+                        "sending kill command to the Buck daemon",
+                        client.kill_for_constraints_mismatch(),
+                    )
+                    .await?;
+                daemon_was_started_reason
+            }
+            Err(..) => buck2_data::DaemonWasStartedReason::CouldNotConnectToDaemon,
+        };
 
     // Daemon dir may be corrupted. Safer to delete it.
     lifecycle_lock

@@ -1657,6 +1657,7 @@ enum DaemonWasStartedReason {
   CONSTRAINT_REJECT_DAEMON_ID = 4;
   CONSTRAINT_MISMATCH_TRACE_IO = 5;
   CONSTRAINT_MISMATCH_MATERIALIZER_STATE_IDENTITY = 6;
+  COULD_NOT_CONNECT_TO_DAEMON = 11;
 }
 
 // This is the origin for every sample in buck2_builds scuba table
