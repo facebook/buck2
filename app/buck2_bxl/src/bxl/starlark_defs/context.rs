@@ -231,18 +231,25 @@ impl<'v> Deref for BxlContext<'v> {
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlContextNoDice<'v> {
-    pub(crate) current_bxl: BxlKey,
-    #[derivative(Debug = "ignore")]
-    pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
-    pub(crate) cell_name: CellName,
-    pub(crate) cell_root_abs: AbsNormPathBuf,
-    #[derivative(Debug = "ignore")]
-    pub(crate) cell_resolver: CellResolver,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
     pub(crate) context_type: BxlContextType<'v>,
-    pub(crate) project_fs: ProjectRoot,
+    core: BxlContextCoreData,
+}
+
+#[derive(Derivative, Display, Trace, Allocative)]
+#[derivative(Debug)]
+#[display(fmt = "{:?}", self)]
+pub(crate) struct BxlContextCoreData {
+    current_bxl: BxlKey,
     #[derivative(Debug = "ignore")]
-    pub(crate) artifact_fs: ArtifactFs,
+    target_alias_resolver: BuckConfigTargetAliasResolver,
+    cell_name: CellName,
+    cell_root_abs: AbsNormPathBuf,
+    #[derivative(Debug = "ignore")]
+    cell_resolver: CellResolver,
+    project_fs: ProjectRoot,
+    #[derivative(Debug = "ignore")]
+    artifact_fs: ArtifactFs,
 }
 
 impl<'v> BxlContext<'v> {
@@ -291,11 +298,6 @@ impl<'v> BxlContext<'v> {
         Ok(Self {
             async_ctx: async_ctx.clone(),
             data: BxlContextNoDice {
-                current_bxl,
-                target_alias_resolver,
-                cell_name,
-                cell_root_abs,
-                cell_resolver,
                 state: heap.alloc_typed(AnalysisActions {
                     state: RefCell::new(None),
                     // TODO(nga): attributes struct should not be accessible to BXL.
@@ -307,8 +309,15 @@ impl<'v> BxlContext<'v> {
                     digest_config,
                 }),
                 context_type,
-                project_fs,
-                artifact_fs,
+                core: BxlContextCoreData {
+                    current_bxl,
+                    target_alias_resolver,
+                    cell_name,
+                    cell_root_abs,
+                    cell_resolver,
+                    project_fs,
+                    artifact_fs,
+                },
             },
         })
     }
@@ -336,11 +345,6 @@ impl<'v> BxlContext<'v> {
         Ok(Self {
             async_ctx,
             data: BxlContextNoDice {
-                current_bxl,
-                target_alias_resolver,
-                cell_name,
-                cell_root_abs,
-                cell_resolver,
                 state: heap.alloc_typed(AnalysisActions {
                     state: RefCell::new(Some(analysis_registry)),
                     // TODO(nga): attributes struct should not be accessible to BXL.
@@ -352,8 +356,15 @@ impl<'v> BxlContext<'v> {
                     digest_config,
                 }),
                 context_type: BxlContextType::Dynamic(dynamic_data),
-                project_fs,
-                artifact_fs,
+                core: BxlContextCoreData {
+                    current_bxl,
+                    target_alias_resolver,
+                    cell_name,
+                    cell_root_abs,
+                    cell_resolver,
+                    project_fs,
+                    artifact_fs,
+                },
             },
         })
     }
@@ -441,39 +452,39 @@ impl<'v> BxlContextNoDice<'v> {
     }
 
     pub(crate) fn project_root(&self) -> &ProjectRoot {
-        &self.project_fs
+        &self.core.project_fs
     }
 
     pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
-        self.current_bxl.global_cfg_options()
+        self.core.current_bxl.global_cfg_options()
     }
 
     pub(crate) fn target_alias_resolver(&self) -> &BuckConfigTargetAliasResolver {
-        &self.target_alias_resolver
+        &self.core.target_alias_resolver
     }
 
     pub(crate) fn cell_resolver(&self) -> &CellResolver {
-        &self.cell_resolver
+        &self.core.cell_resolver
     }
 
     pub(crate) fn cell_name(&self) -> CellName {
-        self.cell_name
+        self.core.cell_name
     }
 
     pub(crate) fn cell_root_abs(&self) -> &AbsNormPathBuf {
-        &self.cell_root_abs
+        &self.core.cell_root_abs
     }
 
     pub(crate) fn current_bxl(&self) -> &BxlKey {
-        &self.current_bxl
+        &self.core.current_bxl
     }
 
     pub(crate) fn project_fs(&self) -> &ProjectRoot {
-        &self.project_fs
+        &self.core.project_fs
     }
 
     pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
-        &self.artifact_fs
+        &self.core.artifact_fs
     }
 
     /// Working dir for resolving literals.
