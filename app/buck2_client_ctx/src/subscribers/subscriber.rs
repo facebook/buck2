@@ -82,4 +82,5 @@ pub trait EventSubscriber: Send {
     }
 
     fn handle_daemon_connection_failure(&mut self, _error: &buck2_error::Error) {}
+    fn handle_daemon_started(&mut self, _reason: buck2_data::DaemonWasStartedReason) {}
 }

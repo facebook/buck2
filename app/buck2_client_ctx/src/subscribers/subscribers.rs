@@ -60,6 +60,12 @@ impl<'a> EventSubscribers<'a> {
         }
     }
 
+    pub(crate) fn handle_daemon_started(&mut self, reason: buck2_data::DaemonWasStartedReason) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_daemon_started(reason);
+        }
+    }
+
     pub(crate) fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
         self.subscribers
             .iter()

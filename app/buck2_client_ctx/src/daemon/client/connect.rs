@@ -604,6 +604,8 @@ async fn establish_connection_inner(
     deadline: StartupDeadline,
     event_subscribers: &mut EventSubscribers<'_>,
 ) -> anyhow::Result<BootstrapBuckdClient> {
+    let daemon_was_started_reason = buck2_data::DaemonWasStartedReason::UnknownReason;
+
     let daemon_dir = paths.daemon_dir()?;
     let connect_before_restart = deadline
         .half()?
@@ -639,6 +641,9 @@ async fn establish_connection_inner(
             .await?;
     }
 
+    // TODO(nga): store the reason why we failed to connect to the daemon
+    //   in `daemon_was_started_reason`.
+
     // Daemon dir may be corrupted. Safer to delete it.
     lifecycle_lock
         .clean_daemon_dir()
@@ -672,6 +677,8 @@ async fn establish_connection_inner(
         }
         .into());
     }
+
+    event_subscribers.handle_daemon_started(daemon_was_started_reason);
 
     event_subscribers
         .eprintln("Connected to new buck2 daemon.")

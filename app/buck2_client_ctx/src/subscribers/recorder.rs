@@ -135,6 +135,8 @@ pub(crate) struct InvocationRecorder<'a> {
     initial_re_download_bytes: Option<u64>,
     concurrent_command_ids: HashSet<String>,
     daemon_connection_failure: bool,
+    /// Daemon started by this command.
+    daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     client_metadata: Vec<buck2_data::ClientMetadata>,
     errors: Vec<ErrorIntermediate>,
     /// To append to gRPC errors.
@@ -230,6 +232,7 @@ impl<'a> InvocationRecorder<'a> {
             initial_re_download_bytes: None,
             concurrent_command_ids: HashSet::new(),
             daemon_connection_failure: false,
+            daemon_was_started: None,
             client_metadata,
             errors: Vec::new(),
             server_stderr: String::new(),
@@ -451,6 +454,7 @@ impl<'a> InvocationRecorder<'a> {
                 .into_iter()
                 .collect(),
             daemon_connection_failure: Some(self.daemon_connection_failure),
+            daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             client_metadata: std::mem::take(&mut self.client_metadata),
             errors: std::mem::take(&mut self.errors).into_map(|e| e.processed),
             best_error_tag: best_error_tag.map(|t| t.to_owned()),
@@ -1190,6 +1194,10 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
             want_stderr: false,
             best_tag,
         });
+    }
+
+    fn handle_daemon_started(&mut self, daemon_was_started: buck2_data::DaemonWasStartedReason) {
+        self.daemon_was_started = Some(daemon_was_started);
     }
 }
 
