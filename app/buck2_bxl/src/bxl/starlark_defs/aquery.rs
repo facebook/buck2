@@ -139,26 +139,30 @@ enum UnpackActionNodes<'v> {
 // and `ProvidersExpr`, we need to pass the aquery delegate a list of configured providers labels, and it will
 // run analysis on them to construct the `ActionQueryNode`s.
 async fn unpack_action_nodes<'v>(
-    expr: UnpackActionNodes<'v>,
-    global_cfg_options: &GlobalCfgOptions,
-    ctx: &BxlContextNoDice<'v>,
+    this: &StarlarkAQueryCtx<'v>,
     dice: &mut DiceComputations,
-    aquery_env: &dyn BxlAqueryFunctions,
+    expr: UnpackActionNodes<'v>,
 ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    let aquery_env = get_aquery_env(&this.ctx.data, &this.global_cfg_options_override).await?;
     let providers = match expr {
         UnpackActionNodes::ActionQueryNodes(action_nodes) => return Ok(action_nodes.0.clone()),
         UnpackActionNodes::ConfiguredProviders(arg) => {
-            ProvidersExpr::<ConfiguredProvidersLabel>::unpack(arg, global_cfg_options, ctx, dice)
-                .await?
-                .labels()
-                .cloned()
-                .collect()
+            ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
+                arg,
+                &this.global_cfg_options_override,
+                &this.ctx.data,
+                dice,
+            )
+            .await?
+            .labels()
+            .cloned()
+            .collect()
         }
         UnpackActionNodes::ConfiguredTargets(arg) => {
             TargetListExpr::<ConfiguredTargetNode>::unpack_opt(
                 arg,
-                global_cfg_options,
-                ctx,
+                &this.global_cfg_options_override,
+                &this.ctx.data,
                 dice,
                 true,
             )
@@ -170,14 +174,13 @@ async fn unpack_action_nodes<'v>(
     let (incompatible_targets, result) = aquery_env.get_target_set(dice, providers).await?;
 
     if !incompatible_targets.is_empty() {
-        ctx.print_to_error_stream(IncompatiblePlatformReason::skipping_message_for_multiple(
-            incompatible_targets.iter(),
-        ))?;
+        this.ctx.data.print_to_error_stream(
+            IncompatiblePlatformReason::skipping_message_for_multiple(incompatible_targets.iter()),
+        )?;
     }
 
     Ok(result)
 }
-
 /// The context for performing `aquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within aquery command.
 ///
@@ -197,22 +200,14 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let aquery_env =
-                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
-
                         let filter = filter
                             .into_option()
                             .try_map(buck2_query_parser::parse_expr)?;
 
-                        let universe = unpack_action_nodes(
-                            universe,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                            aquery_env.as_ref(),
-                        )
-                        .await?;
+                        let universe = unpack_action_nodes(this, dice, universe).await?;
 
+                        let aquery_env =
+                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
                         aquery_env
                             .deps(
                                 dice,
@@ -244,17 +239,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let aquery_env =
-                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
-
-                        let targets = unpack_action_nodes(
-                            targets,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                            aquery_env.as_ref(),
-                        )
-                        .await?;
+                        let targets = unpack_action_nodes(this, dice, targets).await?;
 
                         get_aquery_env(ctx, &this.global_cfg_options_override)
                             .await?
@@ -281,17 +266,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|mut dice, ctx| {
                 dice.via(|dice| {
                     async {
-                        let aquery_env =
-                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
-
-                        let targets = unpack_action_nodes(
-                            targets,
-                            &this.global_cfg_options_override,
-                            ctx,
-                            dice,
-                            aquery_env.as_ref(),
-                        )
-                        .await?;
+                        let targets = unpack_action_nodes(this, dice, targets).await?;
 
                         get_aquery_env(ctx, &this.global_cfg_options_override)
                             .await?
@@ -312,19 +287,10 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         value: &str,
         targets: UnpackActionNodes<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
-        this.ctx.via_dice(|mut dice, ctx| {
+        this.ctx.via_dice(|mut dice, _| {
             dice.via(|dice| {
                 async {
-                    let aquery_env = get_aquery_env(ctx, &this.global_cfg_options_override).await?;
-
-                    let targets = unpack_action_nodes(
-                        targets,
-                        &this.global_cfg_options_override,
-                        ctx,
-                        dice,
-                        aquery_env.as_ref(),
-                    )
-                    .await?;
+                    let targets = unpack_action_nodes(this, dice, targets).await?;
 
                     targets
                         .attrfilter(attr, &|v| Ok(v == value))
