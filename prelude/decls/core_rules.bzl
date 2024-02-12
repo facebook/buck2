@@ -379,7 +379,7 @@ export_file = prelude_rule(
 
         genrule(
           name = 'demo',
-          out = 'result.html'
+          out = 'result.html',
           cmd = 'cp $(location :example) $OUT',
         )
 
