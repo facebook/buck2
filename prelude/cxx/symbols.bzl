@@ -7,6 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 
 def _extract_symbol_names(
         ctx: AnalysisContext,
@@ -45,26 +46,48 @@ def _extract_symbol_names(
     if dynamic and cxx_toolchain.linker_info.type != "darwin":
         nm_flags += "D"
 
-    script = (
-        "set -euo pipefail; " +
-        '"$1" {} "${{@:2}}"'.format(nm_flags) +
-        # Grab only the symbol name field.
-        ' | cut -d" " -f2 ' +
-        # Strip off ABI Version (@...) when using llvm-nm to keep compat with buck1
-        " | cut -d@ -f1 " +
-        # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
-        # make it significantly faster. CAUTION: if ten of these processes
-        # run in parallel, they'll have cumulative allocations larger than RAM.
-        " | LC_ALL=C sort -S 10% -u > {}"
-    )
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
-    ctx.actions.run(
-        [
+    if is_windows:
+        script = (
+            """& {{
+                $result = & $args[0] {} $($args[1..($args.Length-1)] -join " ")
+                $lines = $result -split '`n'
+                $lines = $lines | ForEach-Object {{ ($_ -split ' ')[1] }}
+                $lines = $lines | ForEach-Object {{ ($_ -split '@')[0] }}
+                $lines = $lines | Sort-Object -Unique
+                [IO.File]::WriteAllLines('{{}}', $lines)
+            }}""".format(nm_flags)
+        )
+        symbol_extraction_args = [
+            "powershell",
+            "-Command",
+            cmd_args(output.as_output(), format = script),
+        ]
+    else:
+        script = (
+            "set -euo pipefail; " +
+            '"$1" {} "${{@:2}}"'.format(nm_flags) +
+            # Grab only the symbol name field.
+            ' | cut -d" " -f2 ' +
+            # Strip off ABI Version (@...) when using llvm-nm to keep compat with buck1
+            " | cut -d@ -f1 " +
+            # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
+            # make it significantly faster. CAUTION: if ten of these processes
+            # run in parallel, they'll have cumulative allocations larger than RAM.
+            " | LC_ALL=C sort -S 10% -u > {}"
+        )
+        symbol_extraction_args = [
             "/usr/bin/env",
             "bash",
             "-c",
             cmd_args(output.as_output(), format = script),
             "",
+        ]
+
+    ctx.actions.run(
+        symbol_extraction_args +
+        [
             nm,
         ] +
         objects,
@@ -75,6 +98,7 @@ def _extract_symbol_names(
         weight_percentage = 15,  # 10% + a little padding
         allow_cache_upload = allow_cache_upload,
     )
+
     return output
 
 _SymbolsInfo = provider(fields = {
