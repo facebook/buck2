@@ -32,9 +32,6 @@ GoToolchainInfo = provider(
         "linker": provider_field(typing.Any, default = None),
         "linker_flags": provider_field(typing.Any, default = None),
         "packer": provider_field(typing.Any, default = None),
-        "prebuilt_stdlib": provider_field(typing.Any, default = None),
-        "prebuilt_stdlib_shared": provider_field(typing.Any, default = None),
-        "prebuilt_stdlib_noncgo": provider_field(typing.Any, default = None),
         "tags": provider_field(typing.Any, default = None),
     },
 )
