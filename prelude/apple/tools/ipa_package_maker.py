@@ -14,8 +14,6 @@ import tempfile
 
 from pathlib import Path
 
-from typing import List, Optional
-
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
 
@@ -44,8 +42,6 @@ def _package_ipa_contents(
     ipa_contents_dir: Path,
     ipa_output_path: Path,
     compression_level: int,
-    validator: Optional[Path],
-    validator_args: List[str],
 ) -> None:
     with tempfile.TemporaryDirectory() as processed_package_dir:
         processed_package_dir_path = Path(processed_package_dir)
@@ -61,18 +57,6 @@ def _package_ipa_contents(
         # In normal development outside Meta, all files in an .ipa will be user writable, so let's just the sensible thing
         # and mirror behavior which Apple expects, so we're future-proof.
         make_dir_recursively_writable(str(processed_package_dir_path))
-
-        if validator:
-            validation_command = [
-                str(validator),
-                "--ipa-contents-dir",
-                str(processed_package_dir_path),
-                *validator_args,
-            ]
-            subprocess.run(
-                validation_command,
-                check=True,
-            )
 
         with open(ipa_output_path, "wb") as ipa_file:
             zip_cmd = ["zip", "-X", "-r", f"-{compression_level}", "-", "."]
@@ -106,21 +90,12 @@ def main() -> None:
         required=True,
         help="The compression level to use for 'zip'.",
     )
-    parser.add_argument(
-        "--validator",
-        type=Path,
-        required=False,
-        help="A path to an executable which will be passed the path to the IPA contents dir to validate",
-    )
-    parser.add_argument("--validator-args", required=False, default=[], action="append")
 
     args = parser.parse_args()
     _package_ipa_contents(
         args.ipa_contents_dir,
         args.ipa_output_path,
         args.compression_level,
-        args.validator,
-        args.validator_args,
     )
 
 
