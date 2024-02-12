@@ -48,8 +48,9 @@ runs:
     - name: Post a summary
       shell: bash
       run: |
+        # GITHUB_REPOSITORY is used below to allow this action to work on forks
         cat <<EOF >> $GITHUB_STEP_SUMMARY
         # `${{ inputs.tag }}` Release Complete! :rocket:
         For the public download links of these build artifacts, please see:
-          <https://github.com/facebook/buck2/releases/tag/${{ inputs.tag }}>
+          <https://github.com/$GITHUB_REPOSITORY/releases/tag/${{ inputs.tag }}>
         EOF

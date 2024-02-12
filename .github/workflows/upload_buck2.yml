@@ -149,7 +149,9 @@ jobs:
         name: Store date information so we stay consistent between the steps
         run: |
           month=$(date +%Y-%m)
-          day=$(date +%d)
+          # The math below uses the day number "XX" as a number, but if it has a leading 0 and the
+          # second digit is larger than 7 this fails as it parses as an octal, so we use `sed` to fix:
+          day=$(date +%d | sed 's/^0*//')
           tag=$(date +%Y-%m-%d)
           echo "month=$month" >> "$GITHUB_OUTPUT"
           echo "day=$day" >> "$GITHUB_OUTPUT"
@@ -158,7 +160,8 @@ jobs:
       - id: get_tags_count
         name: Count the number of tags already published for this month
         run: |
-          url="https://api.github.com/repos/facebook/buck2/tags"
+          # GITHUB_REPOSITORY is used to allow this action to work on forks
+          url="https://api.github.com/repos/$GITHUB_REPOSITORY/tags"
           curl --retry 5 -fsSL "$url" -o tags.txt
           tags=$(cat tags.txt |  jq -r ".[].name")
           tags_count=$(echo "$tags" | grep -c "${{ steps.get_date.outputs.month }}" || true)
@@ -194,6 +197,12 @@ jobs:
         with:
           tag: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: facebook/dotslash-publish-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config: .github/dotslash-config.json
+          tag: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
 
   build_docs_job:
     name: Publish buck2.build
