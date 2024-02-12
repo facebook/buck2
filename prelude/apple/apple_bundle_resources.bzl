@@ -87,8 +87,9 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
     cxx_sanitizer_runtime_info = ctx.attrs.binary.get(CxxSanitizerRuntimeInfo) if ctx.attrs.binary else None
     if cxx_sanitizer_runtime_info:
         runtime_resource_spec = AppleResourceSpec(
-            content_dirs = [cxx_sanitizer_runtime_info.runtime_dir],
+            files = cxx_sanitizer_runtime_info.runtime_files,
             destination = AppleResourceDestination("frameworks"),
+            # Sanitizer dylibs require signing, for hardened runtime on macOS and iOS device builds
             codesign_files_on_copy = True,
         )
         resource_specs.append(runtime_resource_spec)

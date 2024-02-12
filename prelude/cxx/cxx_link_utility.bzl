@@ -155,13 +155,13 @@ ExecutableSharedLibArguments = record(
     external_debug_info = field(list[TransitiveSetArgsProjection], []),
     # Optional shared libs symlink tree symlinked_dir action.
     shared_libs_symlink_tree = field(list[Artifact] | Artifact | None, None),
-    # A directory containing sanitizer runtime shared libraries
-    sanitizer_runtime_dir = field(Artifact | None, None),
+    # A list of runtime shared libraries
+    sanitizer_runtime_files = field(list[Artifact], []),
 )
 
 CxxSanitizerRuntimeArguments = record(
     extra_link_args = field(list[ArgLike], []),
-    sanitizer_runtime_dir = field(Artifact | None, None),
+    sanitizer_runtime_files = field(list[Artifact], []),
 )
 
 # @executable_path/Frameworks
@@ -176,11 +176,22 @@ def _sanitizer_runtime_arguments(
     if not sanitizer_runtime_enabled:
         return CxxSanitizerRuntimeArguments()
 
-    if linker_info.sanitizer_runtime_dir == None:
-        fail("C++ sanitizer runtime enabled but there's no runtime directory")
+    if not linker_info.sanitizer_runtime_files:
+        fail("C++ sanitizer runtime enabled but there are no runtime files")
 
     if linker_info.type == "darwin":
-        runtime_rpath = cmd_args(linker_info.sanitizer_runtime_dir, format = "-Wl,-rpath,@executable_path/{}").relative_to(output, parent = 1)
+        runtime_rpath = cmd_args()
+        runtime_files = linker_info.sanitizer_runtime_files
+        for runtime_shared_lib in runtime_files:
+            # Rpath-relative dylibs have an install name of `@rpath/libName.dylib`,
+            # which means we need to add the parent dir of the dylib as an rpath.
+            runtime_shared_lib_dir = cmd_args(runtime_shared_lib).parent()
+
+            # The parent dir of the runtime shared lib must appear as a path
+            # relative to the parent dir of the binary. `@executable_path`
+            # represents the parent dir of the binary, not the binary itself.
+            runtime_shared_lib_rpath = cmd_args(runtime_shared_lib_dir, format = "-Wl,-rpath,@executable_path/{}").relative_to(output, parent = 1)
+            runtime_rpath.add(runtime_shared_lib_rpath)
 
         # Ignore_artifacts() as the runtime directory is not required at _link_ time
         runtime_rpath = runtime_rpath.ignore_artifacts()
@@ -196,7 +207,7 @@ def _sanitizer_runtime_arguments(
                 "-Wl,-rpath,@loader_path/../Frameworks",  # macOS
                 "-Wl,-rpath,@executable_path/../Frameworks",  # macOS
             ],
-            sanitizer_runtime_dir = linker_info.sanitizer_runtime_dir,
+            sanitizer_runtime_files = runtime_files,
         )
 
     return CxxSanitizerRuntimeArguments()
@@ -242,15 +253,15 @@ def executable_shared_lib_arguments(
 
     sanitizer_runtime_args = _sanitizer_runtime_arguments(ctx, cxx_toolchain, output)
     extra_link_args += sanitizer_runtime_args.extra_link_args
-    if sanitizer_runtime_args.sanitizer_runtime_dir != None:
-        runtime_files.append(sanitizer_runtime_args.sanitizer_runtime_dir)
+    if sanitizer_runtime_args.sanitizer_runtime_files:
+        runtime_files.extend(sanitizer_runtime_args.sanitizer_runtime_files)
 
     return ExecutableSharedLibArguments(
         extra_link_args = extra_link_args,
         runtime_files = runtime_files,
         external_debug_info = external_debug_info,
         shared_libs_symlink_tree = shared_libs_symlink_tree,
-        sanitizer_runtime_dir = sanitizer_runtime_args.sanitizer_runtime_dir,
+        sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
     )
 
 def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> ((RunInfo | cmd_args), cmd_args):

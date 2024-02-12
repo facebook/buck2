@@ -186,8 +186,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             link_command_providers.append(LinkCommandDebugOutputInfo(debug_outputs = [cxx_output.link_command_debug_output]))
 
         sanitizer_runtime_providers = []
-        if cxx_output.sanitizer_runtime_dir:
-            sanitizer_runtime_providers.append(CxxSanitizerRuntimeInfo(runtime_dir = cxx_output.sanitizer_runtime_dir))
+        if cxx_output.sanitizer_runtime_files:
+            sanitizer_runtime_providers.append(CxxSanitizerRuntimeInfo(runtime_files = cxx_output.sanitizer_runtime_files))
 
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),

@@ -178,7 +178,7 @@ LinkOrdering = enum(
 )
 
 CxxSanitizerRuntimeInfo = provider(fields = {
-    "runtime_dir": provider_field(Artifact),
+    "runtime_files": provider_field(list[Artifact]),
 })
 
 def set_link_info_link_whole(info: LinkInfo) -> LinkInfo:
