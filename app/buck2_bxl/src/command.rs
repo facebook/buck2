@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
@@ -35,6 +36,7 @@ use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
@@ -183,12 +185,13 @@ async fn bxl(
         // in a separate instance of the map.
         &Arc::new((*materializations).clone()),
     );
-    let build_results = bxl_result.get_build_result_opt();
-    let configured_build_results = filter_bxl_build_results(build_results);
+    let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
+    let labeled_configured_build_results = filter_bxl_build_results(build_results);
+    let configured_build_results = labeled_configured_build_results.values();
     let build_result = ensure_artifacts(
         ctx,
         &materialization_context,
-        &configured_build_results,
+        configured_build_results,
         bxl_result.get_artifacts_opt(),
     )
     .await;
@@ -265,7 +268,7 @@ async fn copy_output<W: Write>(
 async fn ensure_artifacts(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
-    target_results: &[&ConfiguredBuildTargetResult],
+    target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: Option<&Vec<ArtifactGroup>>,
 ) -> Result<(), Vec<buck2_error::Error>> {
     if let Some(artifacts) = artifacts {
@@ -287,12 +290,12 @@ async fn ensure_artifacts(
 async fn ensure_artifacts_inner(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
-    target_results: &[&ConfiguredBuildTargetResult],
+    target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: &[ArtifactGroup],
 ) -> Result<(), Vec<buck2_error::Error>> {
     let mut futs = vec![];
 
-    target_results.iter().for_each(|res| {
+    target_results.into_iter().for_each(|res| {
         for res in &res.outputs {
             match res {
                 Ok(artifacts) => {
@@ -394,15 +397,21 @@ pub(crate) fn parse_bxl_label_from_cli(
 
 fn filter_bxl_build_results(
     build_results: Option<&Vec<BxlBuildResult>>,
-) -> Vec<&ConfiguredBuildTargetResult> {
+) -> BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult> {
+    let mut btree = BTreeMap::new();
     if let Some(build_results) = build_results {
-        return build_results
-            .iter()
-            .filter_map(|res| match res {
-                BxlBuildResult::Built { result, .. } => Some(result),
-                BxlBuildResult::None => None,
-            })
-            .collect();
+        for res in build_results {
+            match res {
+                BxlBuildResult::Built { label, result } => {
+                    assert!(
+                        btree.insert(label.to_owned(), result.to_owned()).is_none(),
+                        "Found duped bxl build result {}",
+                        label
+                    );
+                }
+                BxlBuildResult::None => (),
+            }
+        }
     }
-    vec![]
+    btree
 }
