@@ -722,12 +722,13 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
+    ocaml_toolchain_runtime_deps = ocaml_toolchain.runtime_dep_link_extras
 
     env = _mk_env(ctx)
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
     ocamlc = _mk_ocaml_compiler(ctx, env, BuildMode("bytecode"))
 
-    dep_link_infos = _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc])
+    dep_link_infos = _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]) + [d.get(MergedLinkInfo) for d in ocaml_toolchain_runtime_deps]
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     link_args_output = make_link_args(
         ctx.actions,
@@ -757,6 +758,8 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     # dependencies of the link step.
     cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs, link_args_output.hidden)
     binary_nat = ctx.actions.declare_output(ctx.attrs.name + ".opt")
+
+    cmd_nat.add([cmd_args(["-cclib", f]) for f in ocaml_toolchain.runtime_dep_link_flags])
     cmd_nat.add("-cclib", "-lpthread")
     cmd_nat.add("-o", binary_nat.as_output())
     local_only = link_cxx_binary_locally(ctx)
@@ -770,6 +773,7 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd_byt.hidden(cmos, cmis_byt, cmts_byt, cmtis_byt, link_args_output.hidden)
     binary_byt = ctx.actions.declare_output(ctx.attrs.name)
     cmd_byt.add("-custom")
+    cmd_byt.add([cmd_args(["-cclib", f]) for f in ocaml_toolchain.runtime_dep_link_flags])
     cmd_byt.add("-cclib", "-lpthread")
     cmd_byt.add("-o", binary_byt.as_output())
     local_only = link_cxx_binary_locally(ctx)
