@@ -157,29 +157,16 @@ def codesign_bundle(
 ) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         if isinstance(signing_context, SigningContextWithProfileSelection):
-            info_plist_metadata = signing_context.info_plist_metadata
-            selected_profile_info = signing_context.selected_profile_info
-            prepared_entitlements_path = prepare_code_signing_entitlements(
-                entitlements_path,
-                info_plist_metadata.bundle_id,
-                selected_profile_info.profile,
-                tmp_dir,
+            prepared_entitlements_path = _prepare_entitlements_and_info_plist(
+                bundle_path=bundle_path,
+                entitlements_path=entitlements_path,
+                platform=platform,
+                signing_context=signing_context,
+                tmp_dir=tmp_dir,
             )
-            prepared_info_plist_path = prepare_info_plist(
-                signing_context.info_plist_source,
-                info_plist_metadata,
-                selected_profile_info.profile,
-                tmp_dir,
+            selected_identity_fingerprint = (
+                signing_context.selected_profile_info.identity.fingerprint
             )
-            os.replace(
-                prepared_info_plist_path,
-                bundle_path / signing_context.info_plist_destination,
-            )
-            shutil.copy2(
-                selected_profile_info.profile.file_path,
-                bundle_path / platform.embedded_provisioning_profile_file_name(),
-            )
-            selected_identity_fingerprint = selected_profile_info.identity.fingerprint
         else:
             prepared_entitlements_path = entitlements_path
             selected_identity_fingerprint = signing_context.codesign_identity
@@ -216,6 +203,38 @@ def codesign_bundle(
                 fast_adhoc_signing=fast_adhoc_signing_enabled,
                 codesign_args=codesign_args,
             )
+
+
+def _prepare_entitlements_and_info_plist(
+    bundle_path: Path,
+    entitlements_path: Optional[Path],
+    platform: ApplePlatform,
+    signing_context: SigningContextWithProfileSelection,
+    tmp_dir: str,
+) -> Path:
+    info_plist_metadata = signing_context.info_plist_metadata
+    selected_profile = signing_context.selected_profile_info.profile
+    prepared_entitlements_path = prepare_code_signing_entitlements(
+        entitlements_path,
+        info_plist_metadata.bundle_id,
+        selected_profile,
+        tmp_dir,
+    )
+    prepared_info_plist_path = prepare_info_plist(
+        signing_context.info_plist_source,
+        info_plist_metadata,
+        selected_profile,
+        tmp_dir,
+    )
+    os.replace(
+        prepared_info_plist_path,
+        bundle_path / signing_context.info_plist_destination,
+    )
+    shutil.copy2(
+        selected_profile.file_path,
+        bundle_path / platform.embedded_provisioning_profile_file_name(),
+    )
+    return prepared_entitlements_path
 
 
 def _read_provisioning_profiles(
