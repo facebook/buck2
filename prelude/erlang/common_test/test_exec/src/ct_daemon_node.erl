@@ -14,6 +14,8 @@
 
 -module(ct_daemon_node).
 
+-compile(warn_missing_spec_all).
+
 -include_lib("kernel/include/logger.hrl").
 
 %% Public API
@@ -84,6 +86,7 @@ start(
     true = erlang:register(?MODULE, self()),
     port_loop(Port, []).
 
+-spec port_loop(port(), list()) -> ok | {error, {crash_on_startup, integer()}}.
 port_loop(Port, Acc) ->
     receive
         {Port, {data, {eol, Line}}} ->
@@ -106,6 +109,7 @@ stop() ->
     %% monitore node
     true = erlang:monitor_node(Node, true),
     %% kill node
+    %% elp:ignore W0014
     _Pid = erlang:spawn(Node, fun() -> erlang:halt() end),
     %% wait for node to come down
     receive
