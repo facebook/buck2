@@ -121,8 +121,7 @@ impl Drop for Waiting {
 
 unsafe extern "system" fn callback(ptr: *mut std::ffi::c_void, _timer_fired: winnt::BOOLEAN) {
     let complete = &mut *(ptr as *mut Option<oneshot::Sender<()>>);
-    // ignore the error as Waiting could be drop before the callback fires
-    let _ = complete.take().unwrap().send(());
+    complete.take().unwrap().send(()).unwrap();
 }
 
 #[cfg(test)]
