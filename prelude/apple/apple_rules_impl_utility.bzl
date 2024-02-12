@@ -39,6 +39,8 @@ def get_apple_xctoolchain_bundle_id_attr():
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
+APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_embed_provisioning_profile_when_adhoc_code_signing"
+APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "embed_provisioning_profile_when_adhoc_code_signing"
 
 APPLE_VALIDATION_DEPS_ATTR_NAME = "validation_deps"
 APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default = [])
@@ -69,6 +71,8 @@ def _apple_bundle_like_common_attrs():
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
+        APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
+        APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
         BUCK2_COMPATIBILITY_ATTRIB_NAME: BUCK2_COMPATIBILITY_ATTRIB_TYPE,
         APPLE_VALIDATION_DEPS_ATTR_NAME: APPLE_VALIDATION_DEPS_ATTR_TYPE,
     }

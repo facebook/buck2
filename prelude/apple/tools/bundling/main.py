@@ -121,6 +121,11 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Perform ad-hoc signing if set.",
     )
     parser.add_argument(
+        "--embed-provisioning-profile-when-signing-ad-hoc",
+        action="store_true",
+        help="Perform selection of provisioining profile and embed it into final bundle when ad-hoc signing if set.",
+    )
+    parser.add_argument(
         "--ad-hoc-codesign-identity",
         metavar="<identity>",
         type=str,
