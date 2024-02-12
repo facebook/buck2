@@ -71,6 +71,7 @@ def __clear_env(patch_spawn: bool = True) -> None:
 
 def __startup__() -> None:
     try:
+        # pyre-fixme[21]: Could not find module `__par__.__startup_function_loader__`.
         from __par__.__startup_function_loader__ import load_startup_functions
 
         load_startup_functions()
