@@ -241,46 +241,14 @@ def _read_provisioning_profiles(
     dirpath: Path,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
 ) -> List[ProvisioningProfileMetadata]:
-    paths = [
-        dirpath / f
+    return [
+        _provisioning_profile_from_file_path(
+            dirpath / f,
+            read_provisioning_profile_command_factory,
+        )
         for f in os.listdir(dirpath)
         if (f.endswith(".mobileprovision") or f.endswith(".provisionprofile"))
     ]
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        path_to_data = _decode_provisioning_profiles(
-            paths, tmp_dir, read_provisioning_profile_command_factory
-        )
-    return [
-        ProvisioningProfileMetadata.from_provisioning_profile_file_content(path, data)
-        for path, data in path_to_data.items()
-    ]
-
-
-def _decode_provisioning_profiles(
-    paths: List[Path],
-    tmp_dir: str,
-    read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
-) -> Dict[Path, bytes]:
-    """Reads multiple provisioning profiles in parallel."""
-    processes: Dict[Path, ParallelProcess] = {}
-    result = {}
-    with ExitStack() as stack:
-        for path in paths:
-            command = read_provisioning_profile_command_factory.read_provisioning_profile_command(
-                path
-            )
-            process = _spawn_process(
-                command=command,
-                tmp_dir=tmp_dir,
-                stack=stack,
-                pipe_stdout=True,
-            )
-            processes[path] = process
-        for path, process in processes.items():
-            data, _ = process.process.communicate()
-            process.check_result()
-            result[path] = data
-    return result
 
 
 def _provisioning_profile_from_file_path(
