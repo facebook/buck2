@@ -709,6 +709,9 @@ async fn establish_connection_inner(
                 reason.to_daemon_was_started_reason()
             }
             Err(reason) => {
+                // TODO(nga): even if we failed to connect, a daemon may still be alive.
+                //   We should kill it by process id.
+
                 event_subscribers
                     .eprintln("Could not connect to buck2 daemon, starting a new one...")
                     .await?;
