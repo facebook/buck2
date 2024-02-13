@@ -163,17 +163,34 @@ def codesign_bundle(
 ) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         if isinstance(signing_context, SigningContextWithProfileSelection):
+            selection_profile_context = signing_context
+        elif isinstance(signing_context, AdhocSigningContext):
+            selection_profile_context = signing_context.profile_selection_context
+        else:
+            raise RuntimeError(
+                f"Unexpected type of signing context `{type(signing_context)}`"
+            )
+
+        if selection_profile_context:
             prepared_entitlements_path = _prepare_entitlements_and_info_plist(
                 bundle_path=bundle_path,
                 entitlements_path=entitlements_path,
                 platform=platform,
-                signing_context=signing_context,
+                signing_context=selection_profile_context,
                 tmp_dir=tmp_dir,
             )
             selected_identity_fingerprint = (
-                signing_context.selected_profile_info.identity.fingerprint
+                selection_profile_context.selected_profile_info.identity.fingerprint
             )
         else:
+            if not isinstance(signing_context, AdhocSigningContext):
+                raise AssertionError(
+                    f"Expected `AdhocSigningContext`, got `{type(signing_context)}` instead."
+                )
+            if signing_context.profile_selection_context:
+                raise AssertionError(
+                    "Expected no profile selection context in `AdhocSigningContext` when `selection_profile_context` is `None`."
+                )
             prepared_entitlements_path = entitlements_path
             selected_identity_fingerprint = signing_context.codesign_identity
 
@@ -238,7 +255,7 @@ def _prepare_entitlements_and_info_plist(
     )
     shutil.copy2(
         selected_profile.file_path,
-        bundle_path / platform.embedded_provisioning_profile_file_name(),
+        bundle_path / platform.embedded_provisioning_profile_path(),
     )
     return prepared_entitlements_path
 

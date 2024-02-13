@@ -36,12 +36,12 @@ class ApplePlatform(str, Enum):
         else:
             return None
 
-    def embedded_provisioning_profile_file_name(self) -> str:
+    def embedded_provisioning_profile_path(self) -> str:
         """
         Returns:
            The name of the provisioning profile in the final application bundle.
         """
         if self.is_desktop():
-            return "embedded.provisionprofile"
+            return "Contents/embedded.provisionprofile"
         else:
             return "embedded.mobileprovision"
