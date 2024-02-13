@@ -127,7 +127,8 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
     let mut processes_still_alive: Vec<(ProcessInfo, _)> = Vec::new();
     for process in buck2_processes {
         match kill::kill(process.pid) {
-            Ok(handle) => processes_still_alive.push((process, handle)),
+            Ok(Some(handle)) => processes_still_alive.push((process, handle)),
+            Ok(None) => {}
             Err(e) => printer.failed_to_kill(&process, e),
         };
     }

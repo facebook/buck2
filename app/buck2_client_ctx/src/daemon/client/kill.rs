@@ -123,7 +123,9 @@ async fn hard_kill_impl(
             .unwrap_or("<unknown>")
     );
 
-    let handle = kill::kill(pid)?;
+    let Some(handle) = kill::kill(pid)? else {
+        return Ok(KillResponse { pid });
+    };
     let timestamp_after_kill = Instant::now();
     while start_at.elapsed() < deadline {
         if handle.has_exited()? {

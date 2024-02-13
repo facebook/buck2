@@ -18,10 +18,10 @@ pub fn process_exists(pid: Pid) -> anyhow::Result<bool> {
 /// Send `KILL` or call `TerminateProcess` on the given process.
 ///
 /// Returns a KilledProcessHandle that can be used to observe the termination of the killed process.
-pub fn kill(pid: Pid) -> anyhow::Result<Box<dyn KilledProcessHandle>> {
+pub fn kill(pid: Pid) -> anyhow::Result<Option<Box<dyn KilledProcessHandle>>> {
     match os_specific::kill(pid)? {
-        Some(handle) => Ok(Box::new(handle) as _),
-        None => Ok(Box::new(NoProcess) as _),
+        Some(handle) => Ok(Some(Box::new(handle) as _)),
+        None => Ok(None),
     }
 }
 
@@ -46,20 +46,6 @@ pub fn get_sysinfo_status(pid: Pid) -> Option<String> {
 
     let proc = system.process(pid)?;
     Some(proc.status().to_string())
-}
-
-/// Returned when os_specific::kill reports that nothing was killed because the process wasn't even
-/// running.
-struct NoProcess;
-
-impl KilledProcessHandle for NoProcess {
-    fn has_exited(&self) -> anyhow::Result<bool> {
-        Ok(true)
-    }
-
-    fn status(&self) -> Option<String> {
-        Some("NoProcess".to_owned())
-    }
 }
 
 #[cfg(unix)]
@@ -182,7 +168,7 @@ mod tests {
             assert!(process_exists(pid).unwrap());
         }
 
-        let handle = kill(pid).unwrap();
+        let handle = kill(pid).unwrap().unwrap();
 
         child.wait().unwrap();
         // Drop child to ensure the Windows handle is closed.
