@@ -22,6 +22,10 @@ use display_container::fmt_container;
 use gazebo::prelude::VecExt;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
@@ -118,15 +122,27 @@ impl Deref for StarlarkFileSet {
 #[derive(Debug, Display, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
 #[starlark_docs(directory = "bxl")]
-pub(crate) struct StarlarkFileNode(
-    /// Cell path to the file or directory.
-    pub(crate) CellPath,
-);
+pub(crate) struct StarlarkFileNode(pub(crate) CellPath);
 
 starlark_simple_value!(StarlarkFileNode);
 
 #[starlark_value(type = "file_node")]
-impl<'v> StarlarkValue<'v> for StarlarkFileNode {}
+impl<'v> StarlarkValue<'v> for StarlarkFileNode {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(file_node_methods)
+    }
+}
+
+/// Wrapper around the cell relative path to the file or directory.
+#[starlark_module]
+pub(crate) fn file_node_methods(methods: &mut MethodsBuilder) {
+    /// The cell relative path as a string.
+    #[starlark(attribute)]
+    fn path<'v>(this: &StarlarkFileNode) -> anyhow::Result<&'v str> {
+        Ok(this.0.path().as_str())
+    }
+}
 
 #[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
