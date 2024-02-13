@@ -649,6 +649,7 @@ async fn establish_connection(
         .await
 }
 
+#[allow(clippy::collapsible_match)]
 async fn establish_connection_inner(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
@@ -656,16 +657,18 @@ async fn establish_connection_inner(
     event_subscribers: &mut EventSubscribers<'_>,
 ) -> anyhow::Result<BootstrapBuckdClient> {
     let daemon_dir = paths.daemon_dir()?;
-    let connect_before_restart = deadline
+
+    let res = deadline
         .half()?
         .run("connecting to existing buck daemon", {
             try_connect_existing_before_daemon_restart(&daemon_dir, &constraints).map(Ok)
         })
-        .await?;
-
-    if let ConnectBeforeRestart::Accepted(client) = connect_before_restart {
-        return Ok(client);
-    };
+        .await;
+    if let Ok(connect_before_restart) = res {
+        if let ConnectBeforeRestart::Accepted(client) = connect_before_restart {
+            return Ok(client);
+        };
+    }
 
     // At this point, we've either failed to connect to buckd or buckd had the wrong constraints.
     // Get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
