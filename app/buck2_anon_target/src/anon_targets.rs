@@ -326,7 +326,7 @@ impl AnonTargetKey {
                     &mut StarlarkProfilerOrInstrumentation::disabled(),
                     format!("anon_analysis:{}", self),
                     |provider, dice| {
-                        let mut eval = provider.make(&env)?;
+                        let (mut eval, _) = provider.make(&env)?;
                         eval.set_print_handler(&print);
 
                         // No attributes are allowed to contain macros or other stuff, so an empty resolution context works

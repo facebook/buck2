@@ -205,7 +205,7 @@ async fn eval_bxl_inner(
                 )),
             )?;
 
-            let mut eval = provider.make(&env)?;
+            let (mut eval, _) = provider.make(&env)?;
             let bxl_function_name = key.label().name.clone();
             let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
             eval.set_print_handler(&print);

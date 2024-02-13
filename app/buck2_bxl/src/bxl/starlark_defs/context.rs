@@ -570,7 +570,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                         format!("bxl_dynamic:{}", "foo"),
                         move |provider, dice_ctx| {
                             tokio::task::block_in_place(|| {
-                                let mut eval = provider.make(&env)?;
+                                let (mut eval, _) = provider.make(&env)?;
                                 eval.set_print_handler(&print);
 
                                 let (analysis_registry, declared_outputs) = {

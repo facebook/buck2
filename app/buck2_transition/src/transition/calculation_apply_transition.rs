@@ -136,7 +136,7 @@ async fn do_apply_transition(
         &mut StarlarkProfilerOrInstrumentation::disabled(),
         format!("transition:{}", transition_id),
         move |provider, _| {
-            let mut eval = provider.make(&module)?;
+            let (mut eval, _) = provider.make(&module)?;
             eval.set_print_handler(&print);
             let refs = module.heap().alloc(AllocStruct(refs));
             let attrs = match (&transition.attrs, attrs) {

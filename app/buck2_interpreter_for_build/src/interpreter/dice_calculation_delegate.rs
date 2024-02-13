@@ -488,7 +488,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                     "Check starlark stack size".to_owned(),
                     move |provider, _| {
                         let env = Module::new();
-                        let mut eval = provider.make(&env)?;
+                        let (mut eval, _) = provider.make(&env)?;
                         let content = indoc!(
                             r#"
                                 def f():

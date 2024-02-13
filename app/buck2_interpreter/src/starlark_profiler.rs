@@ -236,10 +236,12 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::None)
     }
 
-    pub fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+    pub fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<bool> {
         match &mut self.0 {
-            StarlarkProfilerOrInstrumentationImpl::None => Ok(()),
-            StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => profiler.initialize(eval),
+            StarlarkProfilerOrInstrumentationImpl::None => Ok(false),
+            StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => {
+                profiler.initialize(eval).map(|_| true)
+            }
         }
     }
 

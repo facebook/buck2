@@ -56,17 +56,20 @@ pub async fn with_starlark_eval_provider<D: Deref<Target = DiceComputations>, R>
     }
 
     impl StarlarkEvaluatorProvider for EvalProvider<'_, '_> {
-        fn make<'v, 'a>(&mut self, module: &'v Module) -> anyhow::Result<Evaluator<'v, 'a>> {
+        fn make<'v, 'a>(
+            &mut self,
+            module: &'v Module,
+        ) -> anyhow::Result<(Evaluator<'v, 'a>, bool)> {
             let mut eval = Evaluator::new(module);
             if let Some(stack_size) = self.starlark_max_callstack_size {
                 eval.set_max_callstack_size(stack_size)?;
             }
 
-            self.profiler.initialize(&mut eval)?;
+            let is_profiling_enabled = self.profiler.initialize(&mut eval)?;
             if let Some(v) = &mut self.debugger {
                 v.initialize(&mut eval)?;
             }
-            Ok(eval)
+            Ok((eval, is_profiling_enabled))
         }
 
         fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {

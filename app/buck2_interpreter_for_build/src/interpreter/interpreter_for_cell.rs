@@ -481,7 +481,7 @@ impl InterpreterForCell {
         extra_context: PerFileTypeContext,
         eval_provider: &'a mut dyn StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<BuildContext<'a>> {
+    ) -> anyhow::Result<(BuildContext<'a>, bool)> {
         let import = extra_context.starlark_path();
         let globals = self
             .global_state
@@ -499,9 +499,11 @@ impl InterpreterForCell {
             extra_context,
             self.ignore_attrs_for_profiling,
         );
+        let is_profiling_enabled;
         let print = EventDispatcherPrintHandler(get_dispatcher());
         {
-            let mut eval = eval_provider.make(env)?;
+            let (mut eval, is_profiling_enabled_by_provider) = eval_provider.make(env)?;
+            is_profiling_enabled = is_profiling_enabled_by_provider;
             eval.enable_static_typechecking(unstable_typecheck);
             eval.set_print_handler(&print);
             eval.set_loader(&file_loader);
@@ -521,7 +523,7 @@ impl InterpreterForCell {
                 Err(p) => return Err(BuckStarlarkError::new(p).into()),
             }
         };
-        Ok(extra)
+        Ok((extra, is_profiling_enabled))
     }
 
     /// Evaluates the AST for a parsed module. Loaded modules must contain the loaded
@@ -596,6 +598,7 @@ impl InterpreterForCell {
                 eval_provider,
                 false,
             )?
+            .0
             .additional;
 
         let extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>> =
@@ -636,7 +639,7 @@ impl InterpreterForCell {
             package_boundary_exception,
             &loaded_modules,
         )?;
-        let build_ctx = self.eval(
+        let (build_ctx, is_profiling_enabled) = self.eval(
             &env,
             ast,
             buckconfig,
@@ -649,9 +652,10 @@ impl InterpreterForCell {
 
         let internals = build_ctx.additional.into_build()?;
         let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
-        let starlark_peak_mem_check_enabled = root_buckconfig
-            .parse("buck2", "check_starlark_peak_memory")?
-            .unwrap_or(false);
+        let starlark_peak_mem_check_enabled = !is_profiling_enabled
+            && root_buckconfig
+                .parse("buck2", "check_starlark_peak_memory")?
+                .unwrap_or(false);
         let default_limit = 2 * (1 << 30);
         let starlark_mem_limit = build_ctx
             .starlark_peak_allocated_byte_limit

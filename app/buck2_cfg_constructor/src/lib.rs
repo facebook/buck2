@@ -85,7 +85,7 @@ async fn eval_pre_constraint_analysis<'v>(
         &mut StarlarkProfilerOrInstrumentation::disabled(),
         "pre constraint-analysis invocation".to_owned(),
         |provider, _| {
-            let mut eval = provider.make(module)?;
+            let (mut eval, _) = provider.make(module)?;
             eval.set_print_handler(print);
 
             let legacy_platform = if cfg.is_bound() {
