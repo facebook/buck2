@@ -808,11 +808,12 @@ async fn try_connect_existing(
     };
     match tokio::time::timeout(
         rem_duration,
-        BuckdProcessInfo::load_and_create_channel(daemon_dir),
+        BuckdProcessInfo::load_and_create_channel_if_exists(daemon_dir),
     )
     .await
     {
-        Ok(Ok(channel)) => Ok(channel),
+        Ok(Ok(Some(channel))) => Ok(channel),
+        Ok(Ok(None)) => Err(buck2_data::DaemonWasStartedReason::NoBuckdInfo),
         Ok(Err(_)) => Err(buck2_data::DaemonWasStartedReason::CouldNotConnectToDaemon),
         Err(e) => {
             let _assert_type: tokio::time::error::Elapsed = e;
@@ -832,10 +833,36 @@ impl<'a> BuckdProcessInfo<'a> {
         Self::load(daemon_dir)?.create_channel().await
     }
 
+    /// Utility method for places that want to match on the overall result of those two operations.
+    async fn load_and_create_channel_if_exists(
+        daemon_dir: &'a DaemonDir,
+    ) -> anyhow::Result<Option<BuckdChannel>> {
+        match Self::load_if_exists(daemon_dir)? {
+            Some(info) => Ok(Some(info.create_channel().await?)),
+            None => Ok(None),
+        }
+    }
+
     pub fn load(daemon_dir: &'a DaemonDir) -> anyhow::Result<Self> {
+        Self::load_if_exists(daemon_dir)?.with_context(|| {
+            format!(
+                "buckd info {} does not exist",
+                daemon_dir.buckd_info().display()
+            )
+        })
+    }
+
+    pub fn load_if_exists(daemon_dir: &'a DaemonDir) -> anyhow::Result<Option<Self>> {
         let location = daemon_dir.buckd_info();
-        let file = File::open(&location)
-            .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
+        let file = match File::open(&location) {
+            Ok(file) => file,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => {
+                return Err(e).with_context(|| {
+                    format!("Trying to open buckd info, `{}`", location.display())
+                });
+            }
+        };
         let reader = BufReader::new(file);
         let info =serde_json::from_reader(reader).with_context(|| {
             format!(
@@ -845,7 +872,7 @@ impl<'a> BuckdProcessInfo<'a> {
             )
         })?;
 
-        Ok(Self { info, daemon_dir })
+        Ok(Some(BuckdProcessInfo { info, daemon_dir }))
     }
 
     pub async fn create_channel(&self) -> anyhow::Result<BuckdChannel> {
