@@ -36,7 +36,7 @@ pub(crate) mod typecheck;
 #[non_exhaustive]
 pub enum ProfileMode {
     /// The heap profile mode provides information about the time spent in each function and allocations
-    /// performed by each function. Enabling this mode the side effect of disabling garbage-collection.
+    /// performed by each function. Enabling this mode has the side effect of disabling garbage-collection.
     /// This profiling mode is the recommended one.
     HeapSummaryAllocated,
     /// Like heap summary, but information about retained memory after module is frozen.

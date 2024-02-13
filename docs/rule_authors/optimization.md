@@ -1,6 +1,6 @@
 ---
 id: optimization
-title: Optimization
+title: Observability and Optimization
 ---
 
 Optimization involves the use of techniques for determining and improving the
@@ -22,14 +22,36 @@ There are three `buck2` profiling commands:
 For example:
 
 ```shell
-buck2 profile loading --mode=heap-summary -o heap-summary.csv //some/package:
-buck2 profile analysis --mode=heap-summary -o heap-summary.csv //some/package:target
+buck2 profile loading --mode=heap-summary-allocated -o heap-summary.csv //some/package:
+buck2 profile analysis --mode=heap-summary-allocated -o heap-summary.csv //some/package:target
 ```
+
+Possible values for profiling modes are as follows:
+
+- [heap-summary-allocated](#summary-profiling): The heap profile mode provides
+  information about the time spent in each function and allocations performed by
+  each function. Enabling this mode has the side effect of disabling
+  garbage-collection. This profiling mode is the recommended one.
+- heap-summary-retained: Like heap summary, but information about retained
+  memory after module is frozen.
+- time-flame: Provide output compatible with
+  [flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl).
+- heap-flame-allocated: Like heap profile, but writes output comparible with
+  [flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl).
+- heap-flame-retained: Like heap flame, but information about retained memory
+  after module is frozen.
+- [statement](#statement-profiling): The statement profile mode provides
+  information about time spent in each statement.
+- bytecode: The bytecode profile mode provides information about bytecode
+  instruction pairs.
+- bytecode-pairs: The bytecode profile mode provides information about bytecode
+  instruction pairs.
+- typecheck: Profile runtime typechecking.
 
 ### Summary profiling
 
-The first profiling mode provides the time spent within a function and the
-allocations that are performed.
+The first profiling mode (`heap-summary-allocated`) provides the time spent
+within a function and the allocations that are performed.
 
 As an example, running over a folly BUCK file, produces a CSV file whose
 top-left corner is:
@@ -105,7 +127,8 @@ slight caution.
 ### Flame profiling
 
 The flame profiling modes produces a `.svg` flamegraph showing either time spent
-or allocations.
+or allocations. You can open it in Google chrome and inspect the resulting flame
+graph.
 
 <FbInternalOnly>
 
