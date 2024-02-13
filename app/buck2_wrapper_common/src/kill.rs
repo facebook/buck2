@@ -9,14 +9,16 @@
 
 //! Cross-platform process killing.
 
-pub fn process_exists(pid: u32) -> anyhow::Result<bool> {
+use crate::pid::Pid;
+
+pub fn process_exists(pid: Pid) -> anyhow::Result<bool> {
     os_specific::process_exists(pid)
 }
 
 /// Send `KILL` or call `TerminateProcess` on the given process.
 ///
 /// Returns a KilledProcessHandle that can be used to observe the termination of the killed process.
-pub fn kill(pid: u32) -> anyhow::Result<Box<dyn KilledProcessHandle>> {
+pub fn kill(pid: Pid) -> anyhow::Result<Box<dyn KilledProcessHandle>> {
     match os_specific::kill(pid)? {
         Some(handle) => Ok(Box::new(handle) as _),
         None => Ok(Box::new(NoProcess) as _),
@@ -30,16 +32,14 @@ pub trait KilledProcessHandle {
 }
 
 /// Get the status of a given process according to sysinfo.
-pub fn get_sysinfo_status(pid: impl TryInto<u32>) -> Option<String> {
-    use sysinfo::Pid;
+pub fn get_sysinfo_status(pid: Pid) -> Option<String> {
     use sysinfo::PidExt;
     use sysinfo::ProcessExt;
     use sysinfo::ProcessRefreshKind;
     use sysinfo::System;
     use sysinfo::SystemExt;
 
-    let pid = pid.try_into().ok()?;
-    let pid = Pid::from_u32(pid);
+    let pid = sysinfo::Pid::from_u32(pid.to_u32());
 
     let mut system = System::new();
     system.refresh_process_specifics(pid, ProcessRefreshKind::new());
@@ -69,12 +69,10 @@ mod os_specific {
 
     use crate::kill::get_sysinfo_status;
     use crate::kill::KilledProcessHandle;
+    use crate::pid::Pid;
 
-    pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
-        let pid = nix::unistd::Pid::from_raw(
-            pid.try_into()
-                .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
-        );
+    pub(crate) fn process_exists(pid: Pid) -> anyhow::Result<bool> {
+        let pid = pid.to_nix()?;
         match nix::sys::signal::kill(pid, None) {
             Ok(_) => Ok(true),
             Err(nix::errno::Errno::ESRCH) => Ok(false),
@@ -83,7 +81,8 @@ mod os_specific {
         }
     }
 
-    fn process_exists_impl(pid: nix::unistd::Pid) -> anyhow::Result<bool> {
+    fn process_exists_impl(pid: Pid) -> anyhow::Result<bool> {
+        let pid = pid.to_nix()?;
         match nix::sys::signal::kill(pid, None) {
             Ok(_) => Ok(true),
             Err(nix::errno::Errno::ESRCH) => Ok(false),
@@ -92,13 +91,10 @@ mod os_specific {
         }
     }
 
-    pub(super) fn kill(pid: u32) -> anyhow::Result<Option<impl KilledProcessHandle>> {
-        let pid = nix::unistd::Pid::from_raw(
-            pid.try_into()
-                .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
-        );
+    pub(super) fn kill(pid: Pid) -> anyhow::Result<Option<impl KilledProcessHandle>> {
+        let pid_nix = pid.to_nix()?;
 
-        match nix::sys::signal::kill(pid, Signal::SIGKILL) {
+        match nix::sys::signal::kill(pid_nix, Signal::SIGKILL) {
             Ok(()) => Ok(Some(UnixKilledProcessHandle { pid })),
             Err(nix::errno::Errno::ESRCH) => Ok(None),
             Err(e) => Err(e).with_context(|| format!("Failed to kill pid {}", pid)),
@@ -106,7 +102,7 @@ mod os_specific {
     }
 
     struct UnixKilledProcessHandle {
-        pid: nix::unistd::Pid,
+        pid: Pid,
     }
 
     impl KilledProcessHandle for UnixKilledProcessHandle {
@@ -115,7 +111,7 @@ mod os_specific {
         }
 
         fn status(&self) -> Option<String> {
-            get_sysinfo_status(self.pid.as_raw())
+            get_sysinfo_status(self.pid)
         }
     }
 }
@@ -126,13 +122,14 @@ pub mod os_specific {
 
     use crate::kill::get_sysinfo_status;
     use crate::kill::KilledProcessHandle;
+    use crate::pid::Pid;
     use crate::winapi_process::WinapiProcessHandle;
 
-    pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
+    pub(crate) fn process_exists(pid: Pid) -> anyhow::Result<bool> {
         Ok(WinapiProcessHandle::open_for_info(pid).is_some())
     }
 
-    pub(super) fn kill(pid: u32) -> anyhow::Result<Option<impl KilledProcessHandle>> {
+    pub(super) fn kill(pid: Pid) -> anyhow::Result<Option<impl KilledProcessHandle>> {
         let handle = match WinapiProcessHandle::open_for_terminate(pid) {
             Some(proc_handle) => proc_handle,
             None => return Ok(None),
@@ -161,7 +158,7 @@ pub mod os_specific {
     }
 
     /// Returns process creation time with 100 ns precision.
-    pub fn process_creation_time(pid: u32) -> Option<Duration> {
+    pub fn process_creation_time(pid: Pid) -> Option<Duration> {
         let proc_handle = WinapiProcessHandle::open_for_info(pid)?;
         proc_handle.process_creation_time().ok()
     }
@@ -176,6 +173,7 @@ mod tests {
 
     use crate::kill::kill;
     use crate::kill::process_exists;
+    use crate::pid::Pid;
 
     #[test]
     fn test_process_exists_kill() {
@@ -189,7 +187,7 @@ mod tests {
             command
         };
         let mut child = command.spawn().unwrap();
-        let pid = child.id();
+        let pid = Pid::from_u32(child.id()).unwrap();
         for _ in 0..5 {
             assert!(process_exists(pid).unwrap());
         }

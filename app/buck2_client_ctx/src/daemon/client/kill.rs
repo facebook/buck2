@@ -10,11 +10,10 @@
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Context;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::*;
 use buck2_wrapper_common::kill;
-use sysinfo::Pid;
+use buck2_wrapper_common::pid::Pid;
 use sysinfo::PidExt;
 use sysinfo::ProcessExt;
 use sysinfo::ProcessRefreshKind;
@@ -29,7 +28,7 @@ use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 #[derive(Debug, thiserror::Error)]
 enum KillError {
     #[error("Daemon pid {} did not die after kill within {:.1}s (status: {})", _0, _1.as_secs_f32(), _2)]
-    DidNotDie(u32, Duration, String),
+    DidNotDie(Pid, Duration, String),
 }
 
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
@@ -38,7 +37,7 @@ const KILL_REQUEST_TIMEOUT: Duration = Duration::from_secs(3);
 const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct KillResponse {
-    pid: u32,
+    pid: Pid,
 }
 
 impl KillResponse {
@@ -53,10 +52,7 @@ pub async fn kill(
     info: &DaemonProcessInfo,
     reason: &str,
 ) -> anyhow::Result<KillResponse> {
-    let pid = info.pid;
-    let pid: u32 = pid
-        .try_into()
-        .with_context(|| format!("Integer overflow converting pid {}", pid))?;
+    let pid = Pid::from_i64(info.pid)?;
     let callers = get_callers_for_kill();
 
     tracing::debug!("Killing daemon with PID {}", pid);
@@ -109,16 +105,13 @@ pub async fn kill(
 }
 
 pub async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<KillResponse> {
-    let pid = info
-        .pid
-        .try_into()
-        .with_context(|| format!("Integer overflow converting pid {}", info.pid))?;
+    let pid = Pid::from_i64(info.pid)?;
 
     hard_kill_impl(pid, Instant::now(), FORCE_SHUTDOWN_TIMEOUT).await
 }
 
 async fn hard_kill_impl(
-    pid: u32,
+    pid: Pid,
     start_at: Instant,
     deadline: Duration,
 ) -> anyhow::Result<KillResponse> {
@@ -167,23 +160,26 @@ mod os_specific {
 mod os_specific {
     use std::time::Duration;
 
+    use buck2_wrapper_common::pid::Pid;
     use sysinfo::PidExt;
     use sysinfo::Process;
     use sysinfo::ProcessExt;
 
     pub(super) fn process_creation_time(process: &Process) -> Option<Duration> {
-        buck2_wrapper_common::kill::os_specific::process_creation_time(process.pid().as_u32())
+        buck2_wrapper_common::kill::os_specific::process_creation_time(
+            Pid::from_u32(process.pid().as_u32()).ok()?,
+        )
     }
 }
 
 fn get_callers_for_kill() -> Vec<String> {
     /// Add a process to our parts and return its parent PID.
     fn push_process(
-        pid: Pid,
+        pid: sysinfo::Pid,
         creation_time: Duration,
         system: &mut System,
         process_tree: &mut Vec<String>,
-    ) -> Option<(Pid, Duration)> {
+    ) -> Option<(sysinfo::Pid, Duration)> {
         // Specifics about this process need to be refreshed by this time.
         let proc = system.process(pid)?;
         let title =
@@ -203,7 +199,7 @@ fn get_callers_for_kill() -> Vec<String> {
     let mut system = System::new();
     let mut process_tree = Vec::new();
 
-    let pid = Pid::from_u32(std::process::id());
+    let pid = sysinfo::Pid::from_u32(std::process::id());
     system.refresh_process_specifics(pid, ProcessRefreshKind::new());
     let mut curr = system
         .process(pid)

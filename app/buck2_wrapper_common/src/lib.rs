@@ -22,17 +22,18 @@ use std::time::Duration;
 use std::time::Instant;
 
 use is_buck2::WhoIsAsking;
-use sysinfo::Pid;
 use sysinfo::PidExt;
 use sysinfo::ProcessExt;
 use sysinfo::System;
 use sysinfo::SystemExt;
 
 use crate::is_buck2::is_buck2_exe;
+use crate::pid::Pid;
 
 pub mod invocation_id;
 pub mod is_buck2;
 pub mod kill;
+pub mod pid;
 pub mod winapi_handle;
 pub(crate) mod winapi_process;
 
@@ -41,7 +42,7 @@ pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 
 /// Because `sysinfo::Process` is not `Clone`.
 struct ProcessInfo {
-    pid: u32,
+    pid: Pid,
     name: String,
     cmd: Vec<String>,
 }
@@ -52,7 +53,7 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     system.refresh_processes();
 
     let mut current_parents = HashSet::new();
-    let mut parent = Some(Pid::from_u32(std::process::id()));
+    let mut parent = Some(sysinfo::Pid::from_u32(std::process::id()));
     while let Some(pid) = parent {
         // There is a small chance on Windows that the PID of a dead parent
         // was reused by some of its descendants, and this can create a loop.
@@ -65,8 +66,11 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut buck2_processes = Vec::new();
     for (pid, process) in system.processes() {
         if is_buck2_exe(process.exe(), who_is_asking) && !current_parents.contains(pid) {
+            let Ok(pid) = Pid::from_u32(pid.as_u32()) else {
+                continue;
+            };
             buck2_processes.push(ProcessInfo {
-                pid: pid.as_u32(),
+                pid,
                 name: process.name().to_owned(),
                 cmd: process.cmd().to_vec(),
             });
