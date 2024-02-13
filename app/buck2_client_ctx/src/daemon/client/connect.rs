@@ -29,6 +29,7 @@ use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;
 use futures::future::try_join3;
+use futures::FutureExt;
 use tokio::io::AsyncReadExt;
 use tokio::time::timeout;
 use tonic::codegen::InterceptedService;
@@ -658,7 +659,7 @@ async fn establish_connection_inner(
     let connect_before_restart = deadline
         .half()?
         .run("connecting to existing buck daemon", {
-            try_connect_existing_before_daemon_restart(&daemon_dir, &constraints)
+            try_connect_existing_before_daemon_restart(&daemon_dir, &constraints).map(Ok)
         })
         .await?;
 
@@ -754,19 +755,21 @@ enum ConnectBeforeRestart {
 async fn try_connect_existing_before_daemon_restart(
     daemon_dir: &DaemonDir,
     constraints: &DaemonConstraintsRequest,
-) -> anyhow::Result<ConnectBeforeRestart> {
+) -> ConnectBeforeRestart {
     match BuckdProcessInfo::load_and_create_channel(daemon_dir).await {
         Ok(channel) => {
-            let client = channel.upgrade().await?;
+            let Ok(client) = channel.upgrade().await else {
+                return ConnectBeforeRestart::Rejected;
+            };
             if constraints.satisfied(&client.constraints).is_ok() {
-                Ok(ConnectBeforeRestart::Accepted(client))
+                ConnectBeforeRestart::Accepted(client)
             } else {
-                Ok(ConnectBeforeRestart::Rejected)
+                ConnectBeforeRestart::Rejected
             }
         }
         Err(e) => {
             tracing::debug!("Connect failed: {:#}", e);
-            Ok(ConnectBeforeRestart::Rejected)
+            ConnectBeforeRestart::Rejected
         }
     }
 }
