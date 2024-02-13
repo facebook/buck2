@@ -735,7 +735,7 @@ def _link_into_executable(
         external_debug_info = executable_args.external_debug_info,
         shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
         linker_map_data = link_result.linker_map_data,
-        sanitizer_runtime_files = executable_args.sanitizer_runtime_files,
+        sanitizer_runtime_files = link_result.sanitizer_runtime_files,
     )
 
 def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:

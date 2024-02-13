@@ -155,8 +155,6 @@ ExecutableSharedLibArguments = record(
     external_debug_info = field(list[TransitiveSetArgsProjection], []),
     # Optional shared libs symlink tree symlinked_dir action.
     shared_libs_symlink_tree = field(list[Artifact] | Artifact | None, None),
-    # A list of runtime shared libraries
-    sanitizer_runtime_files = field(list[Artifact], []),
 )
 
 CxxSanitizerRuntimeArguments = record(
@@ -166,7 +164,7 @@ CxxSanitizerRuntimeArguments = record(
 
 # @executable_path/Frameworks
 
-def _sanitizer_runtime_arguments(
+def cxx_sanitizer_runtime_arguments(
         ctx: AnalysisContext,
         cxx_toolchain: CxxToolchainInfo,
         output: Artifact) -> CxxSanitizerRuntimeArguments:
@@ -251,17 +249,11 @@ def executable_shared_lib_arguments(
             rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
             extra_link_args.append(rpath_arg)
 
-    sanitizer_runtime_args = _sanitizer_runtime_arguments(ctx, cxx_toolchain, output)
-    extra_link_args += sanitizer_runtime_args.extra_link_args
-    if sanitizer_runtime_args.sanitizer_runtime_files:
-        runtime_files.extend(sanitizer_runtime_args.sanitizer_runtime_files)
-
     return ExecutableSharedLibArguments(
         extra_link_args = extra_link_args,
         runtime_files = runtime_files,
         external_debug_info = external_debug_info,
         shared_libs_symlink_tree = shared_libs_symlink_tree,
-        sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
     )
 
 def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> ((RunInfo | cmd_args), cmd_args):

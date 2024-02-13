@@ -50,6 +50,7 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
     "cxx_link_cmd_parts",
+    "cxx_sanitizer_runtime_arguments",
     "generates_split_debug",
     "linker_map_args",
     "make_link_args",
@@ -75,6 +76,8 @@ CxxLinkResult = record(
     linked_object = LinkedObject,
     linker_map_data = [CxxLinkerMapData, None],
     link_execution_preference_info = LinkExecutionPreferenceInfo,
+    # A list of runtime shared libraries
+    sanitizer_runtime_files = field(list[Artifact]),
 )
 
 def link_external_debug_info(
@@ -132,6 +135,9 @@ def cxx_link_into(
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
+        sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
+        if sanitizer_runtime_args.extra_link_args or sanitizer_runtime_args.sanitizer_runtime_files:
+            fail("Cannot use distributed thinlto with sanitizer runtime")
         exe = cxx_dist_link(
             ctx,
             opts.links,
@@ -148,6 +154,7 @@ def cxx_link_into(
             link_execution_preference_info = LinkExecutionPreferenceInfo(
                 preference = opts.link_execution_preference,
             ),
+            sanitizer_runtime_files = [],
         )
 
     if linker_info.generate_linker_maps:
@@ -158,6 +165,9 @@ def cxx_link_into(
     linker, toolchain_linker_flags = cxx_link_cmd_parts(cxx_toolchain_info)
     all_link_args = cmd_args(toolchain_linker_flags)
     all_link_args.add(get_output_flags(linker_info.type, output))
+
+    sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
+    all_link_args.add(sanitizer_runtime_args.extra_link_args)
 
     # Darwin LTO requires extra link outputs to preserve debug info
     split_debug_output = None
@@ -308,6 +318,7 @@ def cxx_link_into(
         linked_object = linked_object,
         linker_map_data = linker_map_data,
         link_execution_preference_info = link_execution_preference_info,
+        sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
     )
 
 _AnonLinkInfo = provider(fields = {
@@ -394,6 +405,10 @@ def _anon_cxx_link(
         split_debug_output = split_debug_output,
     )
 
+    # The anon target API doesn't allow us to return the list of artifacts for
+    # sanitizer runtime, so it has be computed here
+    sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain, output)
+
     return CxxLinkResult(
         linked_object = LinkedObject(
             output = output,
@@ -405,6 +420,7 @@ def _anon_cxx_link(
         link_execution_preference_info = LinkExecutionPreferenceInfo(
             preference = LinkExecutionPreference("any"),
         ),
+        sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
     )
 
 def cxx_link(
