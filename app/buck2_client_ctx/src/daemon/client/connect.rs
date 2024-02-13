@@ -684,29 +684,43 @@ async fn establish_connection_inner(
         match try_connect_existing(&daemon_dir, &deadline, &lifecycle_lock).await {
             Ok(channel) => {
                 let mut client = channel.upgrade().await?;
-                let daemon_was_started_reason = match constraints.satisfied(&client.constraints) {
+                let reason = match constraints.satisfied(&client.constraints) {
                     Ok(()) => return Ok(client),
-                    Err(reason) => reason.to_daemon_was_started_reason(),
+                    Err(reason) => reason,
                 };
+
+                event_subscribers
+                    .eprintln(&format!(
+                        "buck2 daemon constraint mismatch: {reason}; killing daemon..."
+                    ))
+                    .await?;
+
                 deadline
                     .run(
                         "sending kill command to the Buck daemon",
                         client.kill_for_constraints_mismatch(),
                     )
                     .await?;
-                daemon_was_started_reason
+
+                event_subscribers
+                    .eprintln("Starting new buck2 daemon...")
+                    .await?;
+
+                reason.to_daemon_was_started_reason()
             }
-            Err(reason) => reason,
+            Err(reason) => {
+                event_subscribers
+                    .eprintln("Could not connect to buck2 daemon, starting a new one...")
+                    .await?;
+
+                reason
+            }
         };
 
     // Daemon dir may be corrupted. Safer to delete it.
     lifecycle_lock
         .clean_daemon_dir()
         .context("Cleaning daemon dir")?;
-
-    event_subscribers
-        .eprintln("Could not connect to buck2 daemon, starting a new one...")
-        .await?;
 
     // Now there's definitely no server that can be connected to
     // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
