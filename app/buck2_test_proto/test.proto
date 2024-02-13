@@ -231,6 +231,9 @@ message ArgValueContent {
 
 message DeclaredOutput {
   string name = 1;
+  // Flags that a consumer supports *remote* output, in which case it's not
+  // necessary to materialize this output.
+  bool supports_remote = 2;
 }
 
 message Output {

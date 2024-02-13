@@ -22,6 +22,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 pub use buck2_test_proto::ExecutionDetails;
+use derivative::Derivative;
 use derive_more::From;
 use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
@@ -176,15 +177,19 @@ pub enum ArgValueContent {
     DeclaredOutput(DeclaredOutput),
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Derivative, Debug, Clone)]
+#[derivative(PartialEq, Eq, Hash)]
 pub struct DeclaredOutput {
     pub name: ForwardRelativePathBuf,
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub supports_remote: bool,
 }
 
 impl DeclaredOutput {
     pub fn unchecked_new(name: String) -> Self {
         Self {
             name: ForwardRelativePathBuf::unchecked_new(name),
+            supports_remote: false,
         }
     }
 }

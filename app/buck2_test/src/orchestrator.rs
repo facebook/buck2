@@ -299,6 +299,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 let abs_path = fs.fs().resolve(&project_path);
                 let declared_output = DeclaredOutput {
                     name: test_path.into_path(),
+                    supports_remote: false,
                 };
                 ((declared_output, Output::LocalPath(abs_path)), project_path)
             })
