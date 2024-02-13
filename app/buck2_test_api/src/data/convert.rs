@@ -734,7 +734,7 @@ impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
             .context("Invalid `pre_create_dirs`")?;
 
         Ok(TestExecutable {
-            ui_prints,
+            display: ui_prints,
             target,
             cmd,
             env,
@@ -747,7 +747,7 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<buck2_test_proto::TestExecutable, Self::Error> {
-        let ui_prints = Some(self.ui_prints.try_into().context("Invalid `ui_prints`")?);
+        let ui_prints = Some(self.display.try_into().context("Invalid `ui_prints`")?);
         let target = Some(self.target.try_into().context("Invalid `target`")?);
         let cmd = self
             .cmd
@@ -881,7 +881,7 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            ui_prints: DisplayMetadata::Listing("name".to_owned()),
+            display: DisplayMetadata::Listing("name".to_owned()),
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {
@@ -977,7 +977,7 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            ui_prints: DisplayMetadata::Listing("name".to_owned()),
+            display: DisplayMetadata::Listing("name".to_owned()),
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {

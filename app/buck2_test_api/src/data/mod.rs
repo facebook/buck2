@@ -242,7 +242,7 @@ pub enum ExecuteResponse {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TestExecutable {
-    pub ui_prints: DisplayMetadata,
+    pub display: DisplayMetadata,
     pub target: ConfiguredTargetHandle,
     pub cmd: Vec<ArgValue>,
     pub env: SortedVectorMap<String, ArgValue>,

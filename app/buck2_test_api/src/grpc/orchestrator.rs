@@ -145,7 +145,7 @@ impl TestOrchestratorClient {
         required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<ExecuteResponse> {
         let test_executable = TestExecutable {
-            ui_prints,
+            display: ui_prints,
             target,
             cmd,
             env,
@@ -244,7 +244,7 @@ impl TestOrchestratorClient {
         pre_create_dirs: Vec<DeclaredOutput>,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let executable = TestExecutable {
-            ui_prints,
+            display: ui_prints,
             target,
             cmd,
             env,
@@ -308,7 +308,7 @@ where
                 .context("Invalid execute2 request")?;
 
             let TestExecutable {
-                ui_prints,
+                display,
                 target,
                 cmd,
                 env,
@@ -318,7 +318,7 @@ where
             let response = self
                 .inner
                 .execute2(
-                    ui_prints,
+                    display,
                     target,
                     cmd,
                     env,
@@ -440,7 +440,7 @@ where
                 request.into_inner();
 
             let TestExecutable {
-                ui_prints,
+                display,
                 target,
                 cmd,
                 env,
@@ -453,7 +453,7 @@ where
 
             let result = self
                 .inner
-                .prepare_for_local_execution(ui_prints, target, cmd, env, pre_create_dirs)
+                .prepare_for_local_execution(display, target, cmd, env, pre_create_dirs)
                 .await
                 .context("Prepare for local execution failed")?;
 
