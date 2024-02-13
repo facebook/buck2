@@ -96,19 +96,25 @@ def _select_provisioning_profile(
 
 
 @dataclass
-class AdhocSigningContext:
-    codesign_identity: str
-
-    def __init__(self, codesign_identity: Optional[str] = None) -> None:
-        self.codesign_identity = codesign_identity or "-"
-
-
-@dataclass
 class SigningContextWithProfileSelection:
     info_plist_source: Path
     info_plist_destination: Path
     info_plist_metadata: InfoPlistMetadata
     selected_profile_info: SelectedProvisioningProfileInfo
+
+
+@dataclass
+class AdhocSigningContext:
+    codesign_identity: str
+    profile_selection_context: Optional[SigningContextWithProfileSelection]
+
+    def __init__(
+        self,
+        codesign_identity: Optional[str] = None,
+        profile_selection_context: Optional[SigningContextWithProfileSelection] = None,
+    ) -> None:
+        self.codesign_identity = codesign_identity or "-"
+        self.profile_selection_context = profile_selection_context
 
 
 def signing_context_with_profile_selection(

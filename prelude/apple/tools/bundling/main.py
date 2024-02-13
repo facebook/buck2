@@ -22,7 +22,10 @@ from apple.tools.code_signing.codesign_bundle import (
     CodesignConfiguration,
     signing_context_with_profile_selection,
 )
-from apple.tools.code_signing.list_codesign_identities import ListCodesignIdentities
+from apple.tools.code_signing.list_codesign_identities import (
+    AdHocListCodesignIdentities,
+    ListCodesignIdentities,
+)
 
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
@@ -130,7 +133,7 @@ def _args_parser() -> argparse.ArgumentParser:
         metavar="<identity>",
         type=str,
         required=False,
-        help="Codesign identity to use when ad-hoc signing is performed.",
+        help="Codesign identity to use when ad-hoc signing is performed. Should be present when selection of provisioining profile is requested for ad-hoc signing.",
     )
     parser.add_argument(
         "--codesign-configuration",
@@ -272,9 +275,40 @@ def _main() -> None:
             raise RuntimeError(
                 "Apple platform should be set when code signing is required."
             )
+        list_codesign_identities = (
+            ListCodesignIdentities.override(
+                shlex.split(args.codesign_identities_command)
+            )
+            if args.codesign_identities_command
+            else ListCodesignIdentities.default()
+        )
         if args.ad_hoc:
+            if args.embed_provisioning_profile_when_signing_ad_hoc:
+                if not args.profiles_dir:
+                    raise RuntimeError(
+                        "Path to directory with provisioning profile files should be set when selection of provisioining profile is enabled for ad-hoc code signing."
+                    )
+                if not args.ad_hoc_codesign_identity:
+                    raise RuntimeError(
+                        "Code signing identity should be set when selection of provisioining profile is enabled for ad-hoc code signing."
+                    )
+                profile_selection_context = signing_context_with_profile_selection(
+                    info_plist_source=args.info_plist_source,
+                    info_plist_destination=args.info_plist_destination,
+                    provisioning_profiles_dir=args.profiles_dir,
+                    entitlements_path=args.entitlements,
+                    platform=args.platform,
+                    list_codesign_identities=AdHocListCodesignIdentities(
+                        original=list_codesign_identities,
+                        subject_common_name=args.ad_hoc_codesign_identity,
+                    ),
+                    log_file_path=args.log_file,
+                )
+            else:
+                profile_selection_context = None
             signing_context = AdhocSigningContext(
-                codesign_identity=args.ad_hoc_codesign_identity
+                codesign_identity=args.ad_hoc_codesign_identity,
+                profile_selection_context=profile_selection_context,
             )
             selected_identity_argument = args.ad_hoc_codesign_identity
         else:
@@ -288,11 +322,7 @@ def _main() -> None:
                 provisioning_profiles_dir=args.profiles_dir,
                 entitlements_path=args.entitlements,
                 platform=args.platform,
-                list_codesign_identities=ListCodesignIdentities.override(
-                    shlex.split(args.codesign_identities_command)
-                )
-                if args.codesign_identities_command
-                else ListCodesignIdentities.default(),
+                list_codesign_identities=list_codesign_identities,
                 log_file_path=args.log_file,
             )
             selected_identity_argument = (

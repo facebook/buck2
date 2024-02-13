@@ -47,3 +47,27 @@ def _list_identities(
         encoding="utf-8",
     )
     return CodeSigningIdentity.parse_security_stdout(output)
+
+
+class AdHocListCodesignIdentities(IListCodesignIdentities):
+    def __init__(
+        self, original: IListCodesignIdentities, subject_common_name: str
+    ) -> None:
+        self.original = original
+        self.subject_common_name = subject_common_name
+
+    def list_codesign_identities(self) -> List[CodeSigningIdentity]:
+        unfiltered_identities = self.original.list_codesign_identities()
+        identity = next(
+            (
+                i
+                for i in unfiltered_identities
+                if i.subject_common_name == self.subject_common_name
+            ),
+            None,
+        )
+        if not identity:
+            raise RuntimeError(
+                f"No identity found with subject common name `{self.subject_common_name}`"
+            )
+        return [identity]
