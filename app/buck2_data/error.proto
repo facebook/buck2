@@ -48,6 +48,7 @@ enum ErrorTag {
   // Same as above
   UNUSED_DEFAULT_TAG = 0;
   STARLARK_FAIL = 1;
+  STARLARK_STACK_OVERFLOW = 102;
   WATCHMAN_TIMEOUT = 2;
   HTTP = 3;
   // gRPC protocol error between client and server from the client side.
