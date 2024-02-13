@@ -181,6 +181,14 @@ pub struct DeclaredOutput {
     pub name: ForwardRelativePathBuf,
 }
 
+impl DeclaredOutput {
+    pub fn unchecked_new(name: String) -> Self {
+        Self {
+            name: ForwardRelativePathBuf::unchecked_new(name),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ExecutorConfigOverride {
     pub name: String,
