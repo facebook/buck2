@@ -102,6 +102,7 @@ def apple_test_extra_attrs():
         "resource_group": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group_map": attrs.option(attrs.string(), default = None),
+        "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
         "stripped": attrs.bool(default = False),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "use_m1_simulator": attrs.bool(default = False),

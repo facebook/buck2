@@ -128,6 +128,16 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         bundle_parts = part_list_output.parts + _get_xctest_framework(ctx, xctest_swift_support_needed)
 
+        for sanitizer_runtime_dylib in cxx_library_output.sanitizer_runtime_files:
+            frameworks_destination = AppleBundleDestination("frameworks")
+            bundle_parts.append(
+                AppleBundlePart(
+                    source = sanitizer_runtime_dylib,
+                    destination = frameworks_destination,
+                    codesign_on_copy = True,
+                ),
+            )
+
         primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
         swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
 
