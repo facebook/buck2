@@ -289,10 +289,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 match mode {
                     ProfileMode::HeapFlameRetained => self
                         .module_env
-                        .enable_heap_profile(RetainedHeapProfileMode::Flame),
+                        .enable_retained_heap_profile(RetainedHeapProfileMode::Flame),
                     ProfileMode::HeapSummaryRetained => self
                         .module_env
-                        .enable_heap_profile(RetainedHeapProfileMode::Summary),
+                        .enable_retained_heap_profile(RetainedHeapProfileMode::Summary),
                     _ => {}
                 }
 

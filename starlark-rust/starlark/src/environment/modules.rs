@@ -335,7 +335,7 @@ impl Module {
         }
     }
 
-    pub(crate) fn enable_heap_profile(&self, mode: RetainedHeapProfileMode) {
+    pub(crate) fn enable_retained_heap_profile(&self, mode: RetainedHeapProfileMode) {
         self.heap_profile_on_freeze.set(Some(mode));
     }
 
