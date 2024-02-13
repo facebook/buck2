@@ -103,7 +103,17 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     fn length(&self) -> starlark::Result<i32> {
         i32::try_from(self.0.len()).map_err(starlark::Error::new_other)
     }
+
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(register_file_set)
+    }
 }
+
+/// A set of `file_node`s. Supports the operations such as set addition/subtraction, length,
+/// iteration, equality and indexing.
+#[starlark_module]
+pub(crate) fn register_file_set(globals: &mut MethodsBuilder) {}
 
 impl From<FileSet> for StarlarkFileSet {
     fn from(v: FileSet) -> Self {
