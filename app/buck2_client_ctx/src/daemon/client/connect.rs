@@ -25,6 +25,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::buck2_env;
+use buck2_data::DaemonWasStartedReason;
 use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::pid::Pid;
@@ -652,6 +653,28 @@ async fn establish_connection(
         .await
 }
 
+fn explain_failed_to_connect_reason(reason: buck2_data::DaemonWasStartedReason) -> &'static str {
+    match reason {
+        DaemonWasStartedReason::UnknownReason => "Unknown reason",
+        DaemonWasStartedReason::ConstraintMismatchVersion => "Version mismatch",
+        DaemonWasStartedReason::ConstraintMismatchUserVersion => "User version mismatch",
+        DaemonWasStartedReason::ConstraintMismatchStartupConfig => "Startup config mismatch",
+        DaemonWasStartedReason::ConstraintRejectDaemonId => "Reject daemon id",
+        DaemonWasStartedReason::ConstraintMismatchTraceIo => "Trace IO mismatch",
+        DaemonWasStartedReason::ConstraintMismatchMaterializerStateIdentity => {
+            "Materializer state identity mismatch"
+        }
+        DaemonWasStartedReason::CouldNotConnectToDaemon => {
+            // TODO(nga): get rid of this variant.
+            "Could not connect to daemon"
+        }
+        DaemonWasStartedReason::TimedOutConnectingToDaemon => "Timed out connecting to daemon",
+        DaemonWasStartedReason::TimeoutCalculationError => "Timeout calculation error",
+        DaemonWasStartedReason::NoBuckdInfo => "No buckd.info",
+        DaemonWasStartedReason::CouldNotLoadBuckdInfo => "Could not load buckd.info",
+    }
+}
+
 #[allow(clippy::collapsible_match)]
 async fn establish_connection_inner(
     paths: &InvocationPaths,
@@ -719,7 +742,10 @@ async fn establish_connection_inner(
                             .await?;
 
                         event_subscribers
-                            .eprintln("Could not connect to buck2 daemon, starting a new one...")
+                            .eprintln(&format!(
+                                "Could not connect to buck2 daemon ({}), starting a new one...",
+                                explain_failed_to_connect_reason(reason)
+                            ))
                             .await?;
 
                         reason
