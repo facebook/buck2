@@ -27,6 +27,7 @@ use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::buck2_env;
 use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
+use buck2_wrapper_common::pid::Pid;
 use dupe::Dupe;
 use futures::future::try_join3;
 use futures::FutureExt;
@@ -559,11 +560,12 @@ impl BootstrapBuckdClient {
         }
     }
 
-    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<kill::KillResponse> {
-        kill::kill(&mut self.client, &self.info, reason).await
+    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<Pid> {
+        kill::kill(&mut self.client, &self.info, reason).await?;
+        Pid::from_i64(self.info.pid)
     }
 
-    async fn kill_for_constraints_mismatch(&mut self) -> anyhow::Result<kill::KillResponse> {
+    async fn kill_for_constraints_mismatch(&mut self) -> anyhow::Result<Pid> {
         self.kill("client expected different buckd constraints")
             .await
     }
@@ -890,7 +892,7 @@ impl<'a> BuckdProcessInfo<'a> {
         })
     }
 
-    pub async fn hard_kill(&self) -> anyhow::Result<kill::KillResponse> {
+    pub async fn hard_kill(&self) -> anyhow::Result<()> {
         kill::hard_kill(&self.info).await
     }
 

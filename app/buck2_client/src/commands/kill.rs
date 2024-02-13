@@ -18,6 +18,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_wrapper_common::pid::Pid;
 
 /// Kill the buck daemon.
 ///
@@ -68,7 +69,7 @@ pub async fn kill_command_impl(
     })
     .await;
 
-    let response = match buckd {
+    let pid = match buckd {
         Ok(Ok(mut buckd)) => {
             buck2_client_ctx::eprintln!("killing buckd server")?;
             Some(buckd.kill(reason).await?)
@@ -103,12 +104,13 @@ pub async fn kill_command_impl(
             // This means the socket is probably open. We can reasonably got and kill this
             // process if both the PID and the port exist.
             buck2_client_ctx::eprintln!("killing unresponsive buckd server")?;
-            Some(process.hard_kill().await?)
+            process.hard_kill().await?;
+            Some(Pid::from_i64(process.pid())?)
         }
     };
 
-    if let Some(response) = response {
-        response.log()?;
+    if let Some(pid) = pid {
+        buck2_client_ctx::eprintln!("Buck2 daemon pid {} has exited", pid)?;
     }
 
     Ok(())
