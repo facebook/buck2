@@ -692,7 +692,7 @@ async fn establish_connection_inner(
                     .await?;
                 daemon_was_started_reason
             }
-            Err(..) => buck2_data::DaemonWasStartedReason::CouldNotConnectToDaemon,
+            Err(reason) => reason,
         };
 
     // Daemon dir may be corrupted. Safer to delete it.
@@ -775,14 +775,27 @@ async fn try_connect_existing(
     daemon_dir: &DaemonDir,
     timeout: &StartupDeadline,
     _lock: &BuckdLifecycle<'_>,
-) -> anyhow::Result<BuckdChannel> {
-    timeout
-        .min(buckd_startup_timeout()?)?
-        .run(
-            "connect existing buckd",
-            BuckdProcessInfo::load_and_create_channel(daemon_dir),
-        )
-        .await
+) -> Result<BuckdChannel, buck2_data::DaemonWasStartedReason> {
+    let timeout: anyhow::Result<_> = try { timeout.min(buckd_startup_timeout()?)? };
+    let Ok(timeout) = timeout else {
+        return Err(buck2_data::DaemonWasStartedReason::TimeoutCalculationError);
+    };
+    let Ok(rem_duration) = timeout.rem_duration("connect existing buckd") else {
+        return Err(buck2_data::DaemonWasStartedReason::TimedOutConnectingToDaemon);
+    };
+    match tokio::time::timeout(
+        rem_duration,
+        BuckdProcessInfo::load_and_create_channel(daemon_dir),
+    )
+    .await
+    {
+        Ok(Ok(channel)) => Ok(channel),
+        Ok(Err(_)) => Err(buck2_data::DaemonWasStartedReason::CouldNotConnectToDaemon),
+        Err(e) => {
+            let _assert_type: tokio::time::error::Elapsed = e;
+            Err(buck2_data::DaemonWasStartedReason::TimedOutConnectingToDaemon)
+        }
+    }
 }
 
 pub struct BuckdProcessInfo<'a> {

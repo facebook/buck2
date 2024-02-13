@@ -1658,6 +1658,8 @@ enum DaemonWasStartedReason {
   CONSTRAINT_MISMATCH_TRACE_IO = 5;
   CONSTRAINT_MISMATCH_MATERIALIZER_STATE_IDENTITY = 6;
   COULD_NOT_CONNECT_TO_DAEMON = 11;
+  TIMED_OUT_CONNECTING_TO_DAEMON = 12;
+  TIMEOUT_CALCULATION_ERROR = 13;
 }
 
 // This is the origin for every sample in buck2_builds scuba table
