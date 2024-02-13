@@ -14,6 +14,8 @@ load(
 )
 load(":python.bzl", "PythonLibraryManifestsTSet")
 
+DEFAULT_PY_VERSION = "3.10"
+
 def create_typeshed_manifest_info(
         ctx: AnalysisContext,
         typeshed_deps: list[Dependency]) -> ManifestInfo:
@@ -64,7 +66,7 @@ def create_per_target_type_check(
         # Create input configs
         input_config = {
             "dependencies": dep_manifests,
-            "py_version": py_version,
+            "py_version": py_version or DEFAULT_PY_VERSION,
             "sources": source_manifests,
             "typeshed": typeshed_manifest,
         }
