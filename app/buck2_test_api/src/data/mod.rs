@@ -186,10 +186,10 @@ pub struct DeclaredOutput {
 }
 
 impl DeclaredOutput {
-    pub fn unchecked_new(name: String) -> Self {
+    pub fn unchecked_new(name: String, supports_remote: bool) -> Self {
         Self {
             name: ForwardRelativePathBuf::unchecked_new(name),
-            supports_remote: false,
+            supports_remote,
         }
     }
 }
