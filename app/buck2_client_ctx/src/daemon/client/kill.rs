@@ -47,7 +47,7 @@ impl KillResponse {
     }
 }
 
-pub async fn kill(
+pub(crate) async fn kill(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     info: &DaemonProcessInfo,
     reason: &str,
@@ -104,7 +104,7 @@ pub async fn kill(
     hard_kill_impl(pid, time_req_sent, time_to_kill).await
 }
 
-pub async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<KillResponse> {
+pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<KillResponse> {
     let pid = Pid::from_i64(info.pid)?;
 
     hard_kill_impl(pid, Instant::now(), FORCE_SHUTDOWN_TIMEOUT).await
