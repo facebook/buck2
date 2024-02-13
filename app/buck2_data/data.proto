@@ -1661,6 +1661,7 @@ enum DaemonWasStartedReason {
   TIMED_OUT_CONNECTING_TO_DAEMON = 12;
   TIMEOUT_CALCULATION_ERROR = 13;
   NO_BUCKD_INFO = 14;
+  COULD_NOT_LOAD_BUCKD_INFO = 15;
 }
 
 // This is the origin for every sample in buck2_builds scuba table

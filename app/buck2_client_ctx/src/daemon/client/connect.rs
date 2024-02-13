@@ -682,45 +682,67 @@ async fn establish_connection_inner(
 
     // Even if we didn't connect before, it's possible that we just raced with another invocation
     // starting the server, so we try to connect again while holding the lock.
-    let daemon_was_started_reason =
-        match try_connect_existing(&daemon_dir, &deadline, &lifecycle_lock).await {
-            Ok(channel) => {
-                let mut client = channel.upgrade().await?;
-                let reason = match constraints.satisfied(&client.constraints) {
-                    Ok(()) => return Ok(client),
-                    Err(reason) => reason,
-                };
+    let daemon_was_started_reason = {
+        match BuckdProcessInfo::load_if_exists(&daemon_dir) {
+            Ok(Some(buckd_info)) => {
+                match try_connect_existing(&buckd_info, &deadline, &lifecycle_lock).await {
+                    Ok(channel) => {
+                        let mut client = channel.upgrade().await?;
+                        let reason = match constraints.satisfied(&client.constraints) {
+                            Ok(()) => return Ok(client),
+                            Err(reason) => reason,
+                        };
 
-                event_subscribers
-                    .eprintln(&format!(
-                        "buck2 daemon constraint mismatch: {reason}; killing daemon..."
-                    ))
-                    .await?;
+                        event_subscribers
+                            .eprintln(&format!(
+                                "buck2 daemon constraint mismatch: {reason}; killing daemon..."
+                            ))
+                            .await?;
 
-                deadline
-                    .run(
-                        "sending kill command to the Buck daemon",
-                        client.kill_for_constraints_mismatch(),
-                    )
-                    .await?;
+                        deadline
+                            .run(
+                                "sending kill command to the Buck daemon",
+                                client.kill_for_constraints_mismatch(),
+                            )
+                            .await?;
 
+                        event_subscribers
+                            .eprintln("Starting new buck2 daemon...")
+                            .await?;
+
+                        reason.to_daemon_was_started_reason()
+                    }
+                    Err(reason) => {
+                        // TODO(nga): even if we failed to connect, a daemon may still be alive.
+                        //   We should kill it by process id.
+
+                        event_subscribers
+                            .eprintln("Could not connect to buck2 daemon, starting a new one...")
+                            .await?;
+
+                        reason
+                    }
+                }
+            }
+            Ok(None) => {
                 event_subscribers
                     .eprintln("Starting new buck2 daemon...")
                     .await?;
 
-                reason.to_daemon_was_started_reason()
+                buck2_data::DaemonWasStartedReason::NoBuckdInfo
             }
-            Err(reason) => {
-                // TODO(nga): even if we failed to connect, a daemon may still be alive.
-                //   We should kill it by process id.
-
+            Err(e) => {
                 event_subscribers
-                    .eprintln("Could not connect to buck2 daemon, starting a new one...")
+                    .eprintln(&format!(
+                        "Could not load buckd.info: {}, starting new buck2 daemon...",
+                        e
+                    ))
                     .await?;
 
-                reason
+                buck2_data::DaemonWasStartedReason::CouldNotLoadBuckdInfo
             }
-        };
+        }
+    };
 
     // Daemon dir may be corrupted. Safer to delete it.
     lifecycle_lock
@@ -797,7 +819,7 @@ async fn try_connect_existing_before_acquiring_lifecycle_lock(
 }
 
 async fn try_connect_existing(
-    daemon_dir: &DaemonDir,
+    buckd_info: &BuckdProcessInfo<'_>,
     timeout: &StartupDeadline,
     _lock: &BuckdLifecycle<'_>,
 ) -> Result<BuckdChannel, buck2_data::DaemonWasStartedReason> {
@@ -808,14 +830,8 @@ async fn try_connect_existing(
     let Ok(rem_duration) = timeout.rem_duration("connect existing buckd") else {
         return Err(buck2_data::DaemonWasStartedReason::TimedOutConnectingToDaemon);
     };
-    match tokio::time::timeout(
-        rem_duration,
-        BuckdProcessInfo::load_and_create_channel_if_exists(daemon_dir),
-    )
-    .await
-    {
-        Ok(Ok(Some(channel))) => Ok(channel),
-        Ok(Ok(None)) => Err(buck2_data::DaemonWasStartedReason::NoBuckdInfo),
+    match tokio::time::timeout(rem_duration, buckd_info.create_channel()).await {
+        Ok(Ok(channel)) => Ok(channel),
         Ok(Err(_)) => Err(buck2_data::DaemonWasStartedReason::CouldNotConnectToDaemon),
         Err(e) => {
             let _assert_type: tokio::time::error::Elapsed = e;
@@ -833,16 +849,6 @@ impl<'a> BuckdProcessInfo<'a> {
     /// Utility method for places that want to match on the overall result of those two operations.
     async fn load_and_create_channel(daemon_dir: &'a DaemonDir) -> anyhow::Result<BuckdChannel> {
         Self::load(daemon_dir)?.create_channel().await
-    }
-
-    /// Utility method for places that want to match on the overall result of those two operations.
-    async fn load_and_create_channel_if_exists(
-        daemon_dir: &'a DaemonDir,
-    ) -> anyhow::Result<Option<BuckdChannel>> {
-        match Self::load_if_exists(daemon_dir)? {
-            Some(info) => Ok(Some(info.create_channel().await?)),
-            None => Ok(None),
-        }
     }
 
     pub fn load(daemon_dir: &'a DaemonDir) -> anyhow::Result<Self> {
