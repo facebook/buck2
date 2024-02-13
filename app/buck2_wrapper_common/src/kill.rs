@@ -81,16 +81,6 @@ mod os_specific {
         }
     }
 
-    fn process_exists_impl(pid: Pid) -> anyhow::Result<bool> {
-        let pid = pid.to_nix()?;
-        match nix::sys::signal::kill(pid, None) {
-            Ok(_) => Ok(true),
-            Err(nix::errno::Errno::ESRCH) => Ok(false),
-            Err(e) => Err(e)
-                .with_context(|| format!("unexpected error checking if process {} exists", pid)),
-        }
-    }
-
     pub(super) fn kill(pid: Pid) -> anyhow::Result<Option<impl KilledProcessHandle>> {
         let pid_nix = pid.to_nix()?;
 
@@ -107,7 +97,7 @@ mod os_specific {
 
     impl KilledProcessHandle for UnixKilledProcessHandle {
         fn has_exited(&self) -> anyhow::Result<bool> {
-            Ok(!process_exists_impl(self.pid)?)
+            Ok(!process_exists(self.pid)?)
         }
 
         fn status(&self) -> Option<String> {
