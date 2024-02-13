@@ -99,6 +99,16 @@ pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
     hard_kill_impl(pid, Instant::now(), FORCE_SHUTDOWN_TIMEOUT).await
 }
 
+pub(crate) async fn hard_kill_until(
+    info: &DaemonProcessInfo,
+    deadline: Instant,
+) -> anyhow::Result<()> {
+    let pid = Pid::from_i64(info.pid)?;
+
+    let now = Instant::now();
+    hard_kill_impl(pid, now, deadline.saturating_duration_since(now)).await
+}
+
 async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyhow::Result<()> {
     tracing::info!(
         "Killing PID {} with status {}",

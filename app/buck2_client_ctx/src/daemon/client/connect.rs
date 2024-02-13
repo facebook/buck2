@@ -42,6 +42,7 @@ use tonic::Status;
 
 use crate::command_outcome::CommandOutcome;
 use crate::daemon::client::kill;
+use crate::daemon::client::kill::hard_kill_until;
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdLifecycleLock;
@@ -713,8 +714,9 @@ async fn establish_connection_inner(
                         reason.to_daemon_was_started_reason()
                     }
                     Err(reason) => {
-                        // TODO(nga): even if we failed to connect, a daemon may still be alive.
-                        //   We should kill it by process id.
+                        // TODO(nga): should print some proper message here.
+                        hard_kill_until(&buckd_info.info, deadline.down_deadline()?.deadline())
+                            .await?;
 
                         event_subscribers
                             .eprintln("Could not connect to buck2 daemon, starting a new one...")
@@ -841,7 +843,7 @@ async fn try_connect_existing(
 }
 
 pub struct BuckdProcessInfo<'a> {
-    info: DaemonProcessInfo,
+    pub(crate) info: DaemonProcessInfo,
     daemon_dir: &'a DaemonDir,
 }
 

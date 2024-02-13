@@ -37,10 +37,14 @@ impl StartupDeadline {
         })
     }
 
+    pub(crate) fn deadline(&self) -> Instant {
+        self.deadline
+    }
+
     /// Deadline for a nested operation.
     ///
     /// Must be lower than outer deadline to make sure inner operation times out before outer one.
-    fn down_deadline(&self) -> anyhow::Result<StartupDeadline> {
+    pub(crate) fn down_deadline(&self) -> anyhow::Result<StartupDeadline> {
         let new_deadline = self
             .deadline
             .checked_sub(Duration::from_millis(100))
