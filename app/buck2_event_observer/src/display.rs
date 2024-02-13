@@ -559,6 +559,7 @@ pub struct ActionErrorDisplay<'a> {
     pub action_id: String,
     pub reason: String,
     pub command: Option<&'a buck2_data::CommandExecutionDetails>,
+    pub error_diagnostics: Option<&'a buck2_data::ActionErrorDiagnostics>,
 }
 
 fn strip_trailing_newline(stream_contents: &str) -> &str {
@@ -653,6 +654,35 @@ impl<'a> ActionErrorDisplay<'a> {
 
         append_stream("Stdout", &command_failed.stdout);
         append_stream("Stderr", &command_failed.stderr);
+
+        if let Some(error_diagnostics) = self.error_diagnostics {
+            match error_diagnostics.data.as_ref().unwrap() {
+                buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
+                    let sub_errors = &sub_errors.sub_errors;
+                    let mut all_sub_errors = String::new();
+                    if !sub_errors.is_empty() {
+                        for sub_error in sub_errors {
+                            let mut sub_error_line = String::new();
+
+                            write!(sub_error_line, "[{}]", sub_error.category).unwrap();
+                            if let Some(message) = &sub_error.message {
+                                write!(sub_error_line, " {}", message).unwrap();
+                            }
+
+                            // TODO(@wendyy) - handle locations later
+                            writeln!(all_sub_errors, "- {}", sub_error_line).unwrap();
+                        }
+                    }
+                    append_stream(
+                        "\nAction sub-errors produced by error handlers",
+                        &all_sub_errors,
+                    );
+                }
+                buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
+                    append_stream("\nCould not produce error diagnostics", error);
+                }
+            };
+        }
         s
     }
 }
@@ -692,6 +722,7 @@ pub fn display_action_error<'a>(
         action_id: display_action_identity(error.key.as_ref(), error.name.as_ref(), opts)?,
         reason,
         command,
+        error_diagnostics: error.error_diagnostics.as_ref(),
     })
 }
 

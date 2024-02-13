@@ -687,6 +687,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             action_id,
             reason,
             command,
+            ..
         } = display::display_action_error(
             error,
             TargetDisplayOptions::for_console(display_platform),
