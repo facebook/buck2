@@ -124,17 +124,21 @@ a new way to resolve a target's configuration for every top-level target.
 
 Every top-level target starts with an empty configuration, and Buck will apply a
 list of "modifiers" to obtain a configuration. A modifier is a modification of a
-constraint from the existing configuration to obtain a new configuration.
+constraint from the existing configuration to obtain a new configuration. There
+are two types of modifiers, _conditional_ and _unconditional_ modifiers.
 
-The simplest modifier is a constraint value, which inserts that value into the
-configuration for its respective constraint setting, replacing any existing
-constraint value for that setting. For example, specifying `cfg//os:linux` as a
-modifier will insert `cfg//os:linux` into the configuration, overriding any
-existing constraint value for the `cfg//os:_` constraint setting.
+An unconditional modifier is just a constraint value. Applying an unconditional
+modifier will insert the associated constraint value into the configuration for
+its respective constraint setting, replacing any existing constraint value for
+that setting. For example, specifying `cfg//os:linux` as a modifier will insert
+`cfg//os:linux` into the configuration, overriding any existing constraint value
+for the `cfg//os:_` constraint setting.
 
-Another type of modifier is the `modifiers.match()` operator. This operator can
-change the constraint value inserted based on the existing configuration. For
-example, a modifier like
+A conditional modifier is a modifier that only applies when a certain condition
+is satisfied. This lets one express powerful composition based on other
+criteria. `modifiers.match()` is a conditional modifier that changes the
+constraint value inserted based on the existing configuration. For example, a
+modifier like
 
 ```python
 modifiers.match({
@@ -343,11 +347,11 @@ before resolving compiler modifiers. `modifiers.match` that ends up with a cycle
 of matched constraints (ex. compiler modifier matches on sanitizer but sanitizer
 modifier also matches on compiler) will be an error.
 
-### Modifier Matches
+### Conditional Modifiers
 
-Modifiers have 3 types of `match` operators that allow for powerful
-compositions. Each operation is a function that accepts a dictionary where the
-keys are conditionals and values are modifiers.
+Modifiers have 3 types of conditional modifiers that allow for powerful
+compositions. Each operator is a function that accepts a dictionary where the
+keys are the conditionals and values are modifiers.
 
 1. `modifiers.match`. Introduced in the previous sections, this is capable of
    inserting constraints based on constraints in the existing configuration.
