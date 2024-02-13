@@ -59,6 +59,7 @@ def _system_rust_toolchain_impl(ctx):
             rustdoc = RunInfo(args = ["rustdoc"]),
             rustdoc_flags = ctx.attrs.rustdoc_flags,
             rustdoc_test_with_resources = ctx.attrs.rustdoc_test_with_resources[RunInfo],
+            rustdoc_coverage = ctx.attrs.rustdoc_coverage[RunInfo],
             transitive_dependency_symlinks_tool = ctx.attrs.transitive_dependency_symlinks_tool[RunInfo],
             warn_lints = ctx.attrs.warn_lints,
         ),

@@ -228,6 +228,62 @@ def generate_rustdoc(
 
     return output
 
+def generate_rustdoc_coverage(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        # link strategy doesn't matter, but caller should pass in build params
+        # with static-pic (to get best cache hits for deps)
+        params: BuildParams,
+        default_roots: list[str]) -> Artifact:
+    toolchain_info = compile_ctx.toolchain_info
+
+    common_args = _compute_common_args(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        dep_ctx = compile_ctx.dep_ctx,
+        # to make sure we get the rmeta's generated for the crate dependencies,
+        # rather than full .rlibs
+        emit = Emit("metadata"),
+        params = params,
+        default_roots = default_roots,
+        is_rustdoc_test = False,
+    )
+
+    file = common_args.subdir + "-rustdoc-coverage"
+    output = ctx.actions.declare_output(file)
+
+    rustdoc_cmd = cmd_args(
+        toolchain_info.rustdoc,
+        toolchain_info.rustdoc_flags,
+        ctx.attrs.rustdoc_flags,
+        common_args.args,
+        "-Zunstable-options",
+        "--show-coverage",
+    )
+
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
+
+    rustdoc_cmd_action = cmd_args(
+        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
+        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
+        rustdoc_cmd,
+    )
+
+    rustdoc_cmd = _long_command(
+        ctx = ctx,
+        exe = toolchain_info.rustc_action,
+        args = rustdoc_cmd_action,
+        argfile_name = "{}.args".format(file),
+    )
+
+    cmd = cmd_args([toolchain_info.rustdoc_coverage, output.as_output(), rustdoc_cmd])
+
+    ctx.actions.run(cmd, category = "rustdoc_coverage")
+
+    return output
+
 def generate_rustdoc_test(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,

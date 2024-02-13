@@ -72,6 +72,7 @@ load(
     "RustcOutput",  # @unused Used as a type
     "compile_context",
     "generate_rustdoc",
+    "generate_rustdoc_coverage",
     "generate_rustdoc_test",
     "rust_compile",
     "rust_compile_multi",
@@ -269,6 +270,13 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         document_private_items = False,
     )
 
+    rustdoc_coverage = generate_rustdoc_coverage(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        params = static_library_params,
+        default_roots = default_roots,
+    )
+
     expand = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -319,6 +327,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         check_artifacts = check_artifacts,
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
+        rustdoc_coverage = rustdoc_coverage,
     )
     rust_link_info = _rust_providers(
         ctx = ctx,
@@ -476,12 +485,14 @@ def _default_providers(
         doctests_enabled: bool,
         check_artifacts: dict[str, Artifact],
         expand: Artifact,
-        sources: Artifact) -> list[Provider]:
+        sources: Artifact,
+        rustdoc_coverage: Artifact) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
     targets["expand"] = expand
     targets["doc"] = rustdoc
+    targets["doc-coverage"] = rustdoc_coverage
     sub_targets = {
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()

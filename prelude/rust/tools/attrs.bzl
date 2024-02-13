@@ -14,6 +14,7 @@ def _internal_tool(default: str) -> Attr:
 internal_tool_attrs = {
     "failure_filter_action": _internal_tool("prelude//rust/tools:failure_filter_action"),
     "rustc_action": _internal_tool("prelude//rust/tools:rustc_action"),
+    "rustdoc_coverage": _internal_tool("prelude//rust/tools:rustdoc_coverage"),
     "rustdoc_test_with_resources": _internal_tool("prelude//rust/tools:rustdoc_test_with_resources"),
     "transitive_dependency_symlinks_tool": _internal_tool("prelude//rust/tools:transitive_dependency_symlinks"),
 }
