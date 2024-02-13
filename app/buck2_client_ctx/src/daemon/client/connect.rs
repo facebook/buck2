@@ -661,7 +661,7 @@ async fn establish_connection_inner(
     let res = deadline
         .half()?
         .run("connecting to existing buck daemon", {
-            try_connect_existing_before_daemon_restart(&daemon_dir, &constraints).map(Ok)
+            try_connect_existing_before_acquiring_lifecycle_lock(&daemon_dir, &constraints).map(Ok)
         })
         .await;
     if let Ok(connect_before_restart) = res {
@@ -772,7 +772,7 @@ enum ConnectBeforeRestart {
 /// * `Ok(Some(client))` if we connected to an existing buckd
 /// * `Ok(None)` if we failed to connect and should restart buckd
 /// * `Err` if we failed to connect and should abandon startup
-async fn try_connect_existing_before_daemon_restart(
+async fn try_connect_existing_before_acquiring_lifecycle_lock(
     daemon_dir: &DaemonDir,
     constraints: &DaemonConstraintsRequest,
 ) -> ConnectBeforeRestart {
