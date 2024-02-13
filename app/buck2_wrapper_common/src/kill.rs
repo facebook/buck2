@@ -18,17 +18,28 @@ pub fn process_exists(pid: Pid) -> anyhow::Result<bool> {
 /// Send `KILL` or call `TerminateProcess` on the given process.
 ///
 /// Returns a KilledProcessHandle that can be used to observe the termination of the killed process.
-pub fn kill(pid: Pid) -> anyhow::Result<Option<Box<dyn KilledProcessHandle>>> {
+pub fn kill(pid: Pid) -> anyhow::Result<Option<KilledProcessHandle>> {
     match os_specific::kill(pid)? {
-        Some(handle) => Ok(Some(Box::new(handle) as _)),
+        Some(handle) => Ok(Some(KilledProcessHandle { handle })),
         None => Ok(None),
     }
 }
 
-pub trait KilledProcessHandle {
-    fn has_exited(&self) -> anyhow::Result<bool>;
+pub struct KilledProcessHandle {
+    #[cfg(windows)]
+    handle: os_specific::WindowsKilledProcessHandle,
+    #[cfg(unix)]
+    handle: os_specific::UnixKilledProcessHandle,
+}
 
-    fn status(&self) -> Option<String>;
+impl KilledProcessHandle {
+    pub fn has_exited(&self) -> anyhow::Result<bool> {
+        self.handle.has_exited()
+    }
+
+    pub fn status(&self) -> Option<String> {
+        self.handle.status()
+    }
 }
 
 /// Get the status of a given process according to sysinfo.
@@ -54,7 +65,6 @@ mod os_specific {
     use nix::sys::signal::Signal;
 
     use crate::kill::get_sysinfo_status;
-    use crate::kill::KilledProcessHandle;
     use crate::pid::Pid;
 
     pub(crate) fn process_exists(pid: Pid) -> anyhow::Result<bool> {
@@ -67,7 +77,7 @@ mod os_specific {
         }
     }
 
-    pub(super) fn kill(pid: Pid) -> anyhow::Result<Option<impl KilledProcessHandle>> {
+    pub(super) fn kill(pid: Pid) -> anyhow::Result<Option<UnixKilledProcessHandle>> {
         let pid_nix = pid.to_nix()?;
 
         match nix::sys::signal::kill(pid_nix, Signal::SIGKILL) {
@@ -77,16 +87,16 @@ mod os_specific {
         }
     }
 
-    struct UnixKilledProcessHandle {
+    pub(crate) struct UnixKilledProcessHandle {
         pid: Pid,
     }
 
-    impl KilledProcessHandle for UnixKilledProcessHandle {
-        fn has_exited(&self) -> anyhow::Result<bool> {
+    impl UnixKilledProcessHandle {
+        pub(crate) fn has_exited(&self) -> anyhow::Result<bool> {
             Ok(!process_exists(self.pid)?)
         }
 
-        fn status(&self) -> Option<String> {
+        pub(crate) fn status(&self) -> Option<String> {
             get_sysinfo_status(self.pid)
         }
     }
@@ -97,7 +107,6 @@ pub mod os_specific {
     use std::time::Duration;
 
     use crate::kill::get_sysinfo_status;
-    use crate::kill::KilledProcessHandle;
     use crate::pid::Pid;
     use crate::winapi_process::WinapiProcessHandle;
 
@@ -105,7 +114,7 @@ pub mod os_specific {
         Ok(WinapiProcessHandle::open_for_info(pid).is_some())
     }
 
-    pub(super) fn kill(pid: Pid) -> anyhow::Result<Option<impl KilledProcessHandle>> {
+    pub(super) fn kill(pid: Pid) -> anyhow::Result<Option<WindowsKilledProcessHandle>> {
         let handle = match WinapiProcessHandle::open_for_terminate(pid) {
             Some(proc_handle) => proc_handle,
             None => return Ok(None),
@@ -118,16 +127,16 @@ pub mod os_specific {
 
     /// Windows reuses PIDs more aggressively than UNIX, so there we add an extra guard in the form
     /// of the process creation time.
-    struct WindowsKilledProcessHandle {
+    pub(crate) struct WindowsKilledProcessHandle {
         handle: WinapiProcessHandle,
     }
 
-    impl KilledProcessHandle for WindowsKilledProcessHandle {
-        fn has_exited(&self) -> anyhow::Result<bool> {
+    impl WindowsKilledProcessHandle {
+        pub(crate) fn has_exited(&self) -> anyhow::Result<bool> {
             self.handle.has_exited()
         }
 
-        fn status(&self) -> Option<String> {
+        pub(crate) fn status(&self) -> Option<String> {
             // Maybe there is a better way to get this via the handle, but for now this'll do.
             get_sysinfo_status(self.handle.pid())
         }
