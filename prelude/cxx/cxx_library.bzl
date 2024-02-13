@@ -261,6 +261,7 @@ _CxxAllLibraryOutputs = record(
     providers = field(list[Provider], default = []),
     # Shared object name to shared library mapping if this target produces a shared library.
     solib = field([(str, LinkedObject), None]),
+    sanitizer_runtime_files = field(list[Artifact], []),
 )
 
 _CxxLibraryCompileOutput = record(
@@ -317,6 +318,8 @@ _CxxLibraryParameterizedOutput = record(
     cxx_compilationdb_info = field([CxxCompilationDbInfo, None], None),
     # LinkableRootInfo provider, same as above.
     linkable_root = field([LinkableRootInfo, None], None),
+    # List of shared libraries for the sanitizer runtime linked into the library
+    sanitizer_runtime_files = field(list[Artifact], []),
 )
 
 def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams) -> _CxxLibraryParameterizedOutput:
@@ -843,6 +846,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         xcode_data_info = xcode_data_info,
         cxx_compilationdb_info = comp_db_info,
         linkable_root = linkable_root,
+        sanitizer_runtime_files = library_outputs.sanitizer_runtime_files,
     )
 
 def get_default_cxx_library_product_name(ctx, impl_params) -> str:
@@ -934,6 +938,7 @@ def _form_library_outputs(
     solib = None
     link_infos = {}
     providers = []
+    sanitizer_runtime_files = []
 
     linker_flags = cxx_attr_linker_flags_all(ctx)
 
@@ -1062,6 +1067,12 @@ def _form_library_outputs(
 
                 providers.append(result.link_result.link_execution_preference_info)
 
+                link_sanitizer_runtime_files = result.link_result.sanitizer_runtime_files
+                if link_sanitizer_runtime_files:
+                    if sanitizer_runtime_files:
+                        fail("Cannot specify sanitizer runtime files multiple times")
+                    sanitizer_runtime_files = link_sanitizer_runtime_files
+
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
         if output:
@@ -1076,6 +1087,7 @@ def _form_library_outputs(
         link_infos = link_infos,
         providers = providers,
         solib = solib,
+        sanitizer_runtime_files = sanitizer_runtime_files,
     )
 
 def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifact]:
