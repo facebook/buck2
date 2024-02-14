@@ -286,6 +286,10 @@ impl BxlContextCoreData {
         })
     }
 
+    pub(crate) fn key(&self) -> &BxlKey {
+        &self.current_bxl
+    }
+
     pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
         &self.artifact_fs
     }
