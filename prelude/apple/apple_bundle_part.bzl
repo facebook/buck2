@@ -122,6 +122,8 @@ def assemble_bundle(
             codesign_args.append("--ad-hoc")
             if ctx.attrs.codesign_identity:
                 codesign_args.extend(["--ad-hoc-codesign-identity", ctx.attrs.codesign_identity])
+            if profile_selection_required:
+                codesign_args.append("--embed-provisioning-profile-when-signing-ad-hoc")
 
         codesign_args += get_entitlements_codesign_args(ctx, codesign_type)
         codesign_args += _get_extra_codesign_args(ctx)
