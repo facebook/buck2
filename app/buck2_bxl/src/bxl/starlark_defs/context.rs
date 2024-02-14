@@ -324,24 +324,12 @@ impl<'v> BxlContext<'v> {
 
     pub(crate) fn new_dynamic(
         heap: &'v Heap,
-        current_bxl: BxlKey,
-        target_alias_resolver: BuckConfigTargetAliasResolver,
-        project_fs: ProjectRoot,
-        artifact_fs: ArtifactFs,
-        cell_resolver: CellResolver,
-        cell_name: CellName,
+        core: BxlContextCoreData,
         async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         dynamic_data: DynamicBxlContextData,
     ) -> anyhow::Result<Self> {
-        let cell_root_abs = project_fs.root().join(
-            cell_resolver
-                .get(cell_name)?
-                .path()
-                .as_project_relative_path(),
-        );
-
         Ok(Self {
             async_ctx,
             data: BxlContextNoDice {
@@ -356,15 +344,7 @@ impl<'v> BxlContext<'v> {
                     digest_config,
                 }),
                 context_type: BxlContextType::Dynamic(dynamic_data),
-                core: BxlContextCoreData {
-                    current_bxl,
-                    target_alias_resolver,
-                    cell_name,
-                    cell_root_abs,
-                    cell_resolver,
-                    project_fs,
-                    artifact_fs,
-                },
+                core,
             },
         })
     }
@@ -548,6 +528,23 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
     let print = EventDispatcherPrintHandler(dispatcher.dupe());
 
+    let cell_root_abs = project_fs.root().join(
+        cell_resolver
+            .get(cell_name)?
+            .path()
+            .as_project_relative_path(),
+    );
+
+    let core_data = BxlContextCoreData {
+        current_bxl: key,
+        target_alias_resolver,
+        cell_name,
+        cell_root_abs,
+        cell_resolver,
+        project_fs,
+        artifact_fs,
+    };
+
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
@@ -586,12 +583,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
 
                                     let bxl_dynamic_ctx = BxlContext::new_dynamic(
                                         env.heap(),
-                                        key,
-                                        target_alias_resolver,
-                                        project_fs,
-                                        artifact_fs,
-                                        cell_resolver,
-                                        cell_name,
+                                        core_data,
                                         async_ctx,
                                         digest_config,
                                         dynamic_lambda_ctx_data.registry,
