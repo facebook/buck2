@@ -333,7 +333,7 @@ impl Buck {
         Buck { mode }
     }
 
-    pub fn command(&self) -> Command {
+    fn command(&self, subcommand_name: &str) -> Command {
         let mut cmd = Command::new("buck2");
 
         // rust-analyzer invokes the check-on-save command with `RUST_BACKTRACE=short`
@@ -343,14 +343,24 @@ impl Buck {
         cmd.env_remove("RUST_BACKTRACE")
             .env_remove("RUST_LIB_BACKTRACE");
 
+        cmd.args(["--isolation-dir", ".rust-analyzer"]);
+        cmd.arg(subcommand_name);
+        cmd.args(["--oncall", "rust_devx"]);
+
+        cmd
+    }
+
+    fn bxl_command(&self) -> Command {
+        let mut cmd = self.command("bxl");
+        cmd.args(["-c", "client.id=rust-project"]);
+
         cmd
     }
 
     /// Return the absolute path of the current Buck project root.
     pub fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command();
-
-        command.args(["root", "--kind=project"]);
+        let mut command = self.command("root");
+        command.arg("--kind=project");
 
         let mut stdout = utf8_output(command.output(), &command)?;
         truncate_line_ending(&mut stdout);
@@ -363,8 +373,8 @@ impl Buck {
     }
 
     pub fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command();
-        command.args(["audit", "config", "--json", "--", "rust.sysroot_src_path"]);
+        let mut command = self.command("audit");
+        command.args(["config", "--json", "--", "rust.sysroot_src_path"]);
         command
             .stderr(Stdio::null())
             .stdout(Stdio::piped())
@@ -393,12 +403,7 @@ impl Buck {
         use_clippy: bool,
         saved_filed: &Path,
     ) -> Result<Vec<PathBuf>, anyhow::Error> {
-        let mut command = self.command();
-
-        command.args(["--isolation-dir", ".rust-analyzer"]);
-
-        command.arg("bxl");
-        command.args(["--oncall", "rust_devx", "-c", "client.id=rust-project"]);
+        let mut command = self.bxl_command();
 
         if let Some(mode) = &self.mode {
             command.arg(mode);
@@ -432,10 +437,7 @@ impl Buck {
             return Ok(ExpandedAndResolved::default());
         }
 
-        let mut command = self.command();
-        command.args(["--isolation-dir", ".rust-analyzer"]);
-        command.arg("bxl");
-        command.args(["--oncall", "rust_devx", "-c", "client.id=rust-project"]);
+        let mut command = self.bxl_command();
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
@@ -455,7 +457,7 @@ impl Buck {
         targets: &[Target],
     ) -> Result<BTreeMap<Target, AliasedTargetInfo>, anyhow::Error> {
         // FIXME: Do this in bxl as well instead of manually writing a separate query
-        let mut command = self.command();
+        let mut command = self.command("cquery");
 
         // Fetch all aliases used by transitive deps. This is so we
         // can translate an apparent dependency of e.g.
@@ -463,7 +465,6 @@ impl Buck {
         // name of fbsource//third-party/rust:once_cell-1.15. This
         // query also fetches non-Rust aliases, but they shouldn't
         // hurt anything.
-        command.arg("cquery");
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
@@ -487,10 +488,9 @@ impl Buck {
         &self,
         files: &Vec<PathBuf>,
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let mut command = self.command();
+        let mut command = self.command("uquery");
 
         command.args([
-            "uquery",
             // Limit fb_xplat to just generate CXX targets (unsuffixed)
             // so that we don't end up with a bunch of duplicate targets
             // pointing to the same crate
