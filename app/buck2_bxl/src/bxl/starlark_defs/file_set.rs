@@ -36,6 +36,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
@@ -102,6 +103,35 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
 
     fn length(&self) -> starlark::Result<i32> {
         i32::try_from(self.0.len()).map_err(starlark::Error::new_other)
+    }
+
+    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
+        let other = other.downcast_ref::<Self>()?;
+        let union = self.0.union(&other.0);
+        Some(Ok(heap.alloc(Self(union))))
+    }
+
+    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+        let Some(other) = other.downcast_ref::<Self>() else {
+            return ValueError::unsupported_with(self, "-", other);
+        };
+        let difference = self.0.difference(&other.0)?;
+        Ok(heap.alloc(Self(difference)))
+    }
+
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
+        match other.downcast_ref::<StarlarkFileSet>() {
+            Some(other) => Ok(self.0 == other.0),
+            None => Ok(false),
+        }
+    }
+
+    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+        let Some(other) = other.downcast_ref::<Self>() else {
+            return ValueError::unsupported_with(self, "&", other);
+        };
+        let intersect = self.0.intersect(&other.0)?;
+        Ok(heap.alloc(Self(intersect)))
     }
 
     fn get_methods() -> Option<&'static Methods> {

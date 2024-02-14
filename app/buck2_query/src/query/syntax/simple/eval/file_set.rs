@@ -97,6 +97,18 @@ impl FileSet {
     pub fn len(&self) -> usize {
         self.files.len()
     }
+
+    pub fn contains(&self, item: &FileNode) -> bool {
+        self.files.contains(item)
+    }
+
+    pub fn intersect(&self, right: &FileSet) -> anyhow::Result<FileSet> {
+        self.filter(|file| Ok(right.contains(file)))
+    }
+
+    pub fn difference(&self, right: &FileSet) -> anyhow::Result<FileSet> {
+        self.filter(|file| Ok(!right.contains(file)))
+    }
 }
 
 impl FromIterator<FileNode> for FileSet {
