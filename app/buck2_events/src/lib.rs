@@ -241,7 +241,7 @@ pub trait EventSinkWithStats: Send + Sync {
     fn to_event_sync(self: Arc<Self>) -> Arc<dyn EventSink>;
 
     /// Collects stats on this sink (e.g. messages accepted, rejected).
-    fn stats(&self) -> Option<EventSinkStats>;
+    fn stats(&self) -> EventSinkStats;
 }
 
 impl EventSink for Arc<dyn EventSink> {

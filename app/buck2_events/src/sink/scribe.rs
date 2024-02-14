@@ -176,14 +176,14 @@ mod fbcode {
             self as _
         }
 
-        fn stats(&self) -> Option<EventSinkStats> {
+        fn stats(&self) -> EventSinkStats {
             let counters = self.client.export_counters();
-            Some(EventSinkStats {
+            EventSinkStats {
                 successes: counters.successes,
                 failures: counters.failures,
                 buffered: counters.queue_depth,
                 dropped: counters.dropped,
-            })
+            }
         }
     }
 
@@ -275,7 +275,7 @@ mod fbcode {
             self as _
         }
 
-        fn stats(&self) -> Option<EventSinkStats> {
+        fn stats(&self) -> EventSinkStats {
             match *self {}
         }
     }
