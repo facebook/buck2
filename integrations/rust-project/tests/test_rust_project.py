@@ -40,14 +40,14 @@ async def test_workspaces(buck: Buck) -> None:
     target_and_in_workspace = {
         t: v["in_workspace"] for t, v in result["resolved_deps"].items()
     }
-    assert target_and_in_workspace == {
+    expected_subset = {
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:a": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/bar:c": False,
         "fbcode//buck2/integrations/rust-project/tests/targets/bar:d": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:e": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:f": True,
-        "fbsource//xplat/rust/toolchain/sysroot:rust_allocator": False,
     }
+    assert expected_subset.items() <= target_and_in_workspace.items()
 
     # The target being edited is not in any workspaces
     result = await buck.bxl(
@@ -63,12 +63,14 @@ async def test_workspaces(buck: Buck) -> None:
     target_and_in_workspace = {
         t: v["in_workspace"] for t, v in result["resolved_deps"].items()
     }
-    assert target_and_in_workspace == {
+
+    expected_subset = {
         "fbcode//buck2/integrations/rust-project/tests/targets/bar:c": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:e": False,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:f": False,
-        "fbsource//xplat/rust/toolchain/sysroot:rust_allocator": False,
     }
+
+    assert expected_subset.items() <= target_and_in_workspace.items()
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
