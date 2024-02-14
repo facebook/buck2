@@ -260,7 +260,7 @@ mod fbcode {
     use crate::EventSinkStats;
     use crate::EventSinkWithStats;
 
-    pub struct ThriftScribeSink;
+    pub enum ThriftScribeSink {}
 
     impl ThriftScribeSink {
         pub async fn send_now(&self, _event: BuckEvent) {}
@@ -277,7 +277,7 @@ mod fbcode {
         }
 
         fn stats(&self) -> Option<EventSinkStats> {
-            None
+            match *self {}
         }
     }
 }
