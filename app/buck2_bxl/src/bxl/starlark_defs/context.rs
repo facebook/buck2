@@ -58,8 +58,10 @@ use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -499,7 +501,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dice_ctx: &'v mut DiceComputations,
 ) -> anyhow::Result<Vec<ActionKey>> {
     // TODO(wendyy) emit telemetry, support profiler
-    let env = Module::new();
     let liveness = deferred_ctx.liveness();
     let dynamic_key =
         BxlDynamicKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
@@ -526,7 +527,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         .dupe();
 
     let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
-    let print = EventDispatcherPrintHandler(dispatcher.dupe());
 
     let cell_root_abs = project_fs.root().join(
         cell_resolver
@@ -543,6 +543,16 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         cell_resolver,
         project_fs,
         artifact_fs,
+    };
+
+    let eval_ctx = BxlEvalContext {
+        data: core_data,
+        liveness,
+        dynamic_lambda,
+        dynamic_data,
+        digest_config,
+        deferred_ctx,
+        print: EventDispatcherPrintHandler(dispatcher.dupe()),
     };
 
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
@@ -566,64 +576,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                         &mut StarlarkProfilerOrInstrumentation::disabled(),
                         format!("bxl_dynamic:{}", "foo"),
                         move |provider, dice_ctx| {
-                            tokio::task::block_in_place(|| {
-                                let (mut eval, _) = provider.make(&env)?;
-                                eval.set_print_handler(&print);
-
-                                let (analysis_registry, declared_outputs) = {
-                                    let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
-                                        dynamic_lambda,
-                                        deferred_ctx,
-                                        &env,
-                                    )?;
-
-                                    let async_ctx = Rc::new(RefCell::new(
-                                        BxlSafeDiceComputations::new(dice_ctx, liveness),
-                                    ));
-
-                                    let bxl_dynamic_ctx = BxlContext::new_dynamic(
-                                        env.heap(),
-                                        core_data,
-                                        async_ctx,
-                                        digest_config,
-                                        dynamic_lambda_ctx_data.registry,
-                                        dynamic_data,
-                                    )?;
-
-                                    let ctx = ValueTyped::<BxlContext>::new(
-                                        env.heap().alloc(bxl_dynamic_ctx),
-                                    )
-                                    .unwrap();
-
-                                    eval.eval_function(
-                                        dynamic_lambda_ctx_data.lambda,
-                                        &[
-                                            ctx.to_value(),
-                                            dynamic_lambda_ctx_data.artifacts,
-                                            dynamic_lambda_ctx_data.outputs,
-                                        ],
-                                        &[],
-                                    )
-                                    .map_err(BuckStarlarkError::new)?;
-
-                                    (
-                                        ctx.take_state_dynamic()?,
-                                        dynamic_lambda_ctx_data.declared_outputs,
-                                    )
-                                };
-
-                                std::mem::drop(eval);
-
-                                let (_frozen_env, deferred) =
-                                    analysis_registry.finalize(&env)?(env)?;
-                                let _fake_registry =
-                                    std::mem::replace(deferred_ctx.registry(), deferred);
-                                let output: anyhow::Result<Vec<_>> = declared_outputs
-                                    .into_iter()
-                                    .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
-                                    .collect();
-                                output
-                            })
+                            tokio::task::block_in_place(|| eval_ctx.do_eval(provider, dice_ctx))
                         },
                     )
                     .await
@@ -637,6 +590,74 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     match futs.into_iter().exactly_one() {
         Ok(res) => res?,
         Err(_) => panic!("only spawned one task"),
+    }
+}
+
+struct BxlEvalContext<'v> {
+    data: BxlContextCoreData,
+    liveness: CancellationObserver,
+    dynamic_lambda: &'v DynamicLambda,
+    dynamic_data: DynamicBxlContextData,
+    digest_config: DigestConfig,
+    deferred_ctx: &'v mut dyn DeferredCtx,
+    print: EventDispatcherPrintHandler,
+}
+
+impl BxlEvalContext<'_> {
+    fn do_eval(
+        self,
+        provider: &mut dyn StarlarkEvaluatorProvider,
+        dice: &mut DiceComputations,
+    ) -> anyhow::Result<Vec<ActionKey>> {
+        let env = Module::new();
+
+        let (analysis_registry, declared_outputs) = {
+            let (mut eval, _) = provider.make(&env)?;
+            eval.set_print_handler(&self.print);
+
+            let dynamic_lambda_ctx_data =
+                dynamic_lambda_ctx_data(self.dynamic_lambda, self.deferred_ctx, &env)?;
+
+            let async_ctx = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
+                dice,
+                self.liveness,
+            )));
+
+            let bxl_dynamic_ctx = BxlContext::new_dynamic(
+                env.heap(),
+                self.data,
+                async_ctx,
+                self.digest_config,
+                dynamic_lambda_ctx_data.registry,
+                self.dynamic_data,
+            )?;
+
+            let ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_dynamic_ctx)).unwrap();
+
+            eval.eval_function(
+                dynamic_lambda_ctx_data.lambda,
+                &[
+                    ctx.to_value(),
+                    dynamic_lambda_ctx_data.artifacts,
+                    dynamic_lambda_ctx_data.outputs,
+                ],
+                &[],
+            )
+            .map_err(BuckStarlarkError::new)?;
+
+            (
+                ctx.take_state_dynamic()?,
+                dynamic_lambda_ctx_data.declared_outputs,
+            )
+        };
+
+        let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
+        let _fake_registry = std::mem::replace(self.deferred_ctx.registry(), deferred);
+        let output: anyhow::Result<Vec<_>> = declared_outputs
+            .into_iter()
+            .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
+            .collect();
+        output
     }
 }
 
