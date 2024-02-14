@@ -41,7 +41,7 @@ def cxx_by_language_ext(x: dict[typing.Any, typing.Any], ext: str) -> list[typin
     elif ext == ".mm":
         key_pp = "objcxx"
         key_compiler = "objcxx_cpp_output"
-    elif ext in (".s", ".S"):
+    elif ext in (".s", ".sx", ".S"):
         key_pp = "assembler_with_cpp"
         key_compiler = "assembler"
     elif ext == ".cu":

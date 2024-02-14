@@ -48,6 +48,7 @@ CxxExtension = enum(
     ".c++",
     ".c",
     ".s",
+    ".sx",
     ".S",
     ".m",
     ".mm",
@@ -512,7 +513,7 @@ def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing
         compiler_info = toolchain.cxx_compiler_info
     elif ext.value in (".c", ".m"):
         compiler_info = toolchain.c_compiler_info
-    elif ext.value in (".s", ".S"):
+    elif ext.value in (".s", ".sx", ".S"):
         compiler_info = toolchain.as_compiler_info
     elif ext.value == ".cu":
         compiler_info = toolchain.cuda_compiler_info
@@ -538,7 +539,7 @@ def _get_category(ext: CxxExtension) -> str:
         return "objc_compile"
     if ext.value == ".mm":
         return "objcxx_compile"
-    elif ext.value in (".s", ".S", ".asm", ".asmpp"):
+    elif ext.value in (".s", ".sx", ".S", ".asm", ".asmpp"):
         return "asm_compile"
     elif ext.value == ".cu":
         return "cuda_compile"
@@ -575,7 +576,7 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
         return DepFileType("c")
     elif ext.value == ".cu":
         return DepFileType("cuda")
-    elif ext.value in (".asmpp"):
+    elif ext.value in (".asmpp", ".sx"):
         return DepFileType("asm")
     else:
         # This should be unreachable as long as we handle all enum values
