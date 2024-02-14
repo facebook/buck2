@@ -254,6 +254,39 @@ pub(crate) struct BxlContextCoreData {
     artifact_fs: ArtifactFs,
 }
 
+impl BxlContextCoreData {
+    async fn new(key: BxlKey, dice: &mut DiceComputations) -> anyhow::Result<Self> {
+        let label = key.label();
+        let cell_resolver = dice.get_cell_resolver().await?;
+        let cell = label.bxl_path.cell();
+        let bxl_cell = cell_resolver
+            .get(cell)
+            .with_context(|| format!("Cell does not exist: `{}`", cell))?
+            .dupe();
+        let cell_name = bxl_cell.name();
+        let target_alias_resolver = dice.target_alias_resolver_for_cell(cell_name).await?;
+        let artifact_fs = dice.get_artifact_fs().await?;
+        let project_fs = dice.global_data().get_io_provider().project_root().dupe();
+
+        let cell_root_abs = project_fs.root().join(
+            cell_resolver
+                .get(cell_name)?
+                .path()
+                .as_project_relative_path(),
+        );
+
+        Ok(Self {
+            current_bxl: key,
+            target_alias_resolver,
+            cell_name,
+            cell_root_abs,
+            cell_resolver,
+            project_fs,
+            artifact_fs,
+        })
+    }
+}
+
 impl<'v> BxlContext<'v> {
     pub(crate) fn new(
         heap: &'v Heap,
@@ -509,44 +542,10 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         exec_deps: dynamic_key.0.exec_deps.clone(),
         toolchains: dynamic_key.0.toolchains.clone(),
     };
-    let label = key.label();
-    let cell_resolver = dice_ctx.get_cell_resolver().await?;
-    let cell = label.bxl_path.cell();
-    let bxl_cell = cell_resolver
-        .get(cell)
-        .with_context(|| format!("Cell does not exist: `{}`", cell))?
-        .dupe();
-    let cell_name = bxl_cell.name();
-    let target_alias_resolver = dice_ctx.target_alias_resolver_for_cell(cell_name).await?;
-    let artifact_fs = dice_ctx.get_artifact_fs().await?;
     let digest_config = dice_ctx.global_data().get_digest_config();
-    let project_fs = dice_ctx
-        .global_data()
-        .get_io_provider()
-        .project_root()
-        .dupe();
-
     let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
-
-    let cell_root_abs = project_fs.root().join(
-        cell_resolver
-            .get(cell_name)?
-            .path()
-            .as_project_relative_path(),
-    );
-
-    let core_data = BxlContextCoreData {
-        current_bxl: key,
-        target_alias_resolver,
-        cell_name,
-        cell_root_abs,
-        cell_resolver,
-        project_fs,
-        artifact_fs,
-    };
-
     let eval_ctx = BxlEvalContext {
-        data: core_data,
+        data: BxlContextCoreData::new(key, dice_ctx).await?,
         liveness,
         dynamic_lambda,
         dynamic_data,
