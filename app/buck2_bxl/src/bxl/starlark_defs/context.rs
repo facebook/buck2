@@ -255,7 +255,7 @@ pub(crate) struct BxlContextCoreData {
 }
 
 impl BxlContextCoreData {
-    async fn new(key: BxlKey, dice: &mut DiceComputations) -> anyhow::Result<Self> {
+    pub(crate) async fn new(key: BxlKey, dice: &mut DiceComputations) -> anyhow::Result<Self> {
         let label = key.label();
         let cell_resolver = dice.get_cell_resolver().await?;
         let cell = label.bxl_path.cell();
@@ -285,49 +285,43 @@ impl BxlContextCoreData {
             artifact_fs,
         })
     }
+
+    pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
+        &self.artifact_fs
+    }
+
+    pub(crate) fn project_fs(&self) -> &ProjectRoot {
+        &self.project_fs
+    }
 }
 
 impl<'v> BxlContext<'v> {
     pub(crate) fn new(
         heap: &'v Heap,
-        current_bxl: BxlKey,
+        core: BxlContextCoreData,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
-        target_alias_resolver: BuckConfigTargetAliasResolver,
-        project_fs: ProjectRoot,
-        artifact_fs: ArtifactFs,
-        cell_resolver: CellResolver,
-        cell_name: CellName,
         async_ctx: BxlSafeDiceComputations<'v>,
         output_sink: RefCell<Box<dyn Write>>,
         error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<Self> {
-        let cell_root_abs = project_fs.root().join(
-            cell_resolver
-                .get(cell_name)?
-                .path()
-                .as_project_relative_path(),
-        );
-
         let async_ctx = Rc::new(RefCell::new(async_ctx));
-
         let root_data = RootBxlContextData {
             cli_args,
             output_stream: heap.alloc_typed(OutputStream::new(
-                project_fs.clone(),
-                artifact_fs.clone(),
+                core.project_fs.clone(),
+                core.artifact_fs.clone(),
                 output_sink,
                 async_ctx.dupe(),
             )),
             error_stream: heap.alloc_typed(OutputStream::new(
-                project_fs.clone(),
-                artifact_fs.clone(),
+                core.project_fs.clone(),
+                core.artifact_fs.clone(),
                 error_sink,
                 async_ctx.dupe(),
             )),
             materializations: Arc::new(DashMap::new()),
         };
-
         let context_type = BxlContextType::Root(root_data);
 
         Ok(Self {
@@ -344,15 +338,7 @@ impl<'v> BxlContext<'v> {
                     digest_config,
                 }),
                 context_type,
-                core: BxlContextCoreData {
-                    current_bxl,
-                    target_alias_resolver,
-                    cell_name,
-                    cell_root_abs,
-                    cell_resolver,
-                    project_fs,
-                    artifact_fs,
-                },
+                core,
             },
         })
     }

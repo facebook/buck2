@@ -12,16 +12,12 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::deferred::types::DeferredTable;
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
-use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::CellResolver;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -70,6 +66,7 @@ use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
 pub(crate) async fn eval(
@@ -134,21 +131,8 @@ async fn eval_bxl_inner(
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;
 
-    let cell_resolver = ctx.get_cell_resolver().await?;
-
-    let bxl_cell = cell_resolver
-        .get(key.label().bxl_path.cell())
-        .with_context(|| format!("Cell does not exist: `{}`", key.label().bxl_path.cell()))?
-        .dupe();
-
-    let target_alias_resolver = ctx
-        .target_alias_resolver_for_cell(key.label().bxl_path.cell())
-        .await?;
-
-    let project_fs = ctx.global_data().get_io_provider().project_root().dupe();
-    let artifact_fs = ctx.get_artifact_fs().await?;
-
     let digest_config = ctx.global_data().get_digest_config();
+    let core_data = BxlContextCoreData::new(key.dupe(), ctx).await?;
 
     // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
     // will be blocking calls so that starlark can remain synchronous.
@@ -158,23 +142,27 @@ async fn eval_bxl_inner(
     // should have no noticeable different compared to spawn_blocking
 
     let output_stream = mk_stream_cache("output", &key);
-    let file_path = artifact_fs
+    let file_path = core_data
+        .artifact_fs()
         .buck_out_path_resolver()
         .resolve_gen(&output_stream);
 
     let file = RefCell::new(Box::new(
-        project_fs
+        core_data
+            .project_fs()
             .create_file(&file_path, false)
             .context("Failed to create output cache for BXL")?,
     ));
 
     let error_stream = mk_stream_cache("error", &key);
-    let error_file_path = artifact_fs
+    let error_file_path = core_data
+        .artifact_fs()
         .buck_out_path_resolver()
         .resolve_gen(&error_stream);
 
     let error_file = RefCell::new(Box::new(
-        project_fs
+        core_data
+            .project_fs()
             .create_file(&error_file_path, false)
             .context("Failed to create error cache for BXL")?,
     ));
@@ -215,13 +203,8 @@ async fn eval_bxl_inner(
             let force_print_stacktrace = key.force_print_stacktrace();
             let bxl_ctx = BxlContext::new(
                 eval.heap(),
-                key,
+                core_data,
                 resolved_args,
-                target_alias_resolver,
-                project_fs,
-                artifact_fs,
-                cell_resolver,
-                bxl_cell.name(),
                 bxl_dice,
                 file,
                 error_file,
