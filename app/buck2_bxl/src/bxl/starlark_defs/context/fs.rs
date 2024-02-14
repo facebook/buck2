@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::ops::DerefMut;
-
 use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
@@ -129,10 +127,11 @@ impl<'v> BxlFilesystem<'v> {
         &'v self,
         expr: FileExpr<'v>,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        let cell_path =
-            self.ctx.async_ctx.borrow_mut().via(|dice| {
-                async { expr.get(dice.deref_mut(), self.cell()?).await }.boxed_local()
-            })?;
+        let cell_path = self
+            .ctx
+            .async_ctx
+            .borrow_mut()
+            .via(|dice| async { expr.get(dice, self.cell()?).await }.boxed_local())?;
         self.artifact_fs().resolve_cell_path(cell_path.as_ref())
     }
 }

@@ -240,7 +240,6 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
-
                         get_aquery_env(ctx, &this.global_cfg_options_override)
                             .await?
                             .all_actions(dice, &targets)

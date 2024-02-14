@@ -114,6 +114,7 @@ use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
@@ -216,7 +217,7 @@ pub(crate) struct BxlContext<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    pub(crate) async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
+    pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
     pub(crate) data: BxlContextNoDice<'v>,
 }
 
@@ -380,7 +381,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn via_dice<'a, 's, T>(
         &'a self,
         f: impl for<'x> FnOnce(
-            &'x mut BxlSafeDiceComputations<'v>,
+            &'x mut dyn BxlDiceComputations,
             &'a BxlContextNoDice<'v>,
         ) -> anyhow::Result<T>,
     ) -> anyhow::Result<T>
@@ -388,7 +389,7 @@ impl<'v> BxlContext<'v> {
         'v: 'a,
     {
         let data = &self.data;
-        f(&mut self.async_ctx.borrow_mut(), data)
+        f(&mut *self.async_ctx.borrow_mut(), data)
     }
 
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.

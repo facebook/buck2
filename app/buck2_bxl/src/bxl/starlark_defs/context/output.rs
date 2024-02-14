@@ -61,12 +61,12 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
-use super::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifactArg;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGroup;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 
 #[derive(
     ProvidesStaticType,
@@ -94,7 +94,7 @@ pub(crate) struct OutputStream<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    pub(crate) async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
+    pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
 }
 
 /// We can ensure either an `Artifact` or an `ArtifactGroup`. When we want to ensure a `CommandLineArgLike` object,
@@ -111,7 +111,7 @@ impl<'v> OutputStream<'v> {
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
+        async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
     ) -> Self {
         Self {
             sink,
@@ -230,14 +230,14 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=named, default=true)] pretty: bool,
     ) -> anyhow::Result<NoneType> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
-        struct SerializeValue<'a, 'v> {
+        struct SerializeValue<'a, 'v, 'd> {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
-            async_ctx: &'a Rc<RefCell<BxlSafeDiceComputations<'v>>>,
+            async_ctx: &'a Rc<RefCell<dyn BxlDiceComputations + 'd>>,
         }
 
-        impl<'a, 'v> SerializeValue<'a, 'v> {
+        impl<'v> SerializeValue<'_, 'v, '_> {
             fn with_value(&self, x: Value<'v>) -> Self {
                 Self {
                     value: x,
@@ -248,7 +248,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             }
         }
 
-        impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
+        impl Serialize for SerializeValue<'_, '_, '_> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: Serializer,
