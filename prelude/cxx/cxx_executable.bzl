@@ -731,7 +731,7 @@ def _link_into_executable(
 
     return _CxxLinkExecutableResult(
         exe = link_result.linked_object,
-        runtime_files = executable_args.runtime_files,
+        runtime_files = executable_args.runtime_files + link_result.sanitizer_runtime_files,
         external_debug_info = executable_args.external_debug_info,
         shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
         linker_map_data = link_result.linker_map_data,
