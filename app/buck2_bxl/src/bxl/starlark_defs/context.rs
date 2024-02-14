@@ -10,7 +10,6 @@
 //! The context containing the available buck commands and query operations for `bxl` functions.
 
 use std::cell::RefCell;
-use std::cell::RefMut;
 use std::fmt::Display;
 use std::io::Write;
 use std::iter;
@@ -381,7 +380,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn via_dice<'a, 's, T>(
         &'a self,
         f: impl for<'x> FnOnce(
-            RefMut<'x, BxlSafeDiceComputations<'v>>,
+            &'x mut BxlSafeDiceComputations<'v>,
             &'a BxlContextNoDice<'v>,
         ) -> anyhow::Result<T>,
     ) -> anyhow::Result<T>
@@ -389,7 +388,7 @@ impl<'v> BxlContext<'v> {
         'v: 'a,
     {
         let data = &self.data;
-        f(self.async_ctx.borrow_mut(), data)
+        f(&mut self.async_ctx.borrow_mut(), data)
     }
 
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
@@ -765,7 +764,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.global_cfg_options().target_platform,
         )?;
 
-        this.via_dice(|mut dice, this| {
+        this.via_dice(|dice, this| {
             dice.via(|ctx| {
                 async move {
                     let target_expr =
@@ -815,7 +814,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         labels: TargetListExprArg<'v>,
     ) -> anyhow::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
-        this.via_dice(|mut ctx, this| {
+        this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
                 async move {
                     let expr = TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await?;
@@ -892,7 +891,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.global_cfg_options().target_platform,
         )?;
 
-        this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
+        this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
                 async move {
                     let target_expr = if keep_going {
@@ -1034,7 +1033,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         >,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
-        this.via_dice(|mut ctx, this| {
+        this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
                 async {
                     let (exec_deps, toolchains) = match &this.context_type {
@@ -1169,7 +1168,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
             &this.data.global_cfg_options().target_platform,
         )?;
 
-        let res: anyhow::Result<_> = this.via_dice(|mut dice, ctx| {
+        let res: anyhow::Result<_> = this.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
                     let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
@@ -1292,7 +1291,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
 
     /// Checks if a target label exists. Target label must be a string literal, and an exact target.
     fn target_exists<'v>(this: &'v BxlContext<'v>, label: &'v str) -> anyhow::Result<bool> {
-        this.via_dice(|mut ctx, this_no_dice: &BxlContextNoDice<'_>| {
+        this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
                 async move {
                     match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
@@ -1315,7 +1314,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
 
     /// Returns the `audit_ctx` that holds all the audit functions.
     fn audit<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
-        let (working_dir, cell_resolver) = this.via_dice(|mut ctx, this| {
+        let (working_dir, cell_resolver) = this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
                 async move {
                     Ok((
@@ -1360,7 +1359,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Value<'v>>> {
-        this.via_dice(|mut dice, this| {
+        this.via_dice(|dice, this| {
             dice.via(|dice| {
                 action_factory
                     .run_promises(dice, eval, format!("bxl$promises:{}", this.current_bxl()))

@@ -197,7 +197,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
-            .via_dice(|mut dice, ctx| {
+            .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -236,7 +236,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         targets: UnpackActionNodes<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
-            .via_dice(|mut dice, ctx| {
+            .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -263,7 +263,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         targets: UnpackActionNodes<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
         this.ctx
-            .via_dice(|mut dice, ctx| {
+            .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -287,7 +287,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         value: &str,
         targets: UnpackActionNodes<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ActionQueryNode>> {
-        this.ctx.via_dice(|mut dice, _| {
+        this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -322,7 +322,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
-        this.ctx.via_dice(|mut dice, ctx| {
+        this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(

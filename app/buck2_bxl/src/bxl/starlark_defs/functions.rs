@@ -147,7 +147,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
 
         let mut paths = Vec::new();
 
-        ctx.via_dice(|mut dice_ctx, bxl_ctx| {
+        ctx.via_dice(|dice_ctx, bxl_ctx| {
             dice_ctx.via(|dice_ctx| {
                 visit_artifact_path_without_associated_deduped(
                     &result,
