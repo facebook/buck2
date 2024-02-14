@@ -333,6 +333,7 @@ def _cxx_binary_and_test_attrs():
         "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_profile": attrs.option(attrs.source(), default = None),
+        "constraint_overrides": attrs.list(attrs.string(), default = []),
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
@@ -604,6 +605,8 @@ extra_attributes = struct(**all_extra_attributes)
 transitions = {
     "android_binary": constraint_overrides_transition,
     "apple_resource": apple_resource_transition,
+    "cxx_binary": constraint_overrides_transition,
+    "cxx_test": constraint_overrides_transition,
     "go_binary": go_binary_transition,
     "go_exported_library": go_exported_library_transition,
     "go_test": go_test_transition,
