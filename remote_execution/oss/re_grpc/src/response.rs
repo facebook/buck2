@@ -98,6 +98,7 @@ pub struct TActionResult2 {
     pub stderr_digest: Option<TDigest>,
     pub execution_metadata: TExecutedActionMetadata,
     pub auxiliary_metadata: Vec<TAny>,
+    pub output_symlinks: Vec<TSymlink>,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }
@@ -230,6 +231,14 @@ pub struct TFile {
     pub existed: bool,
     pub executable: bool,
     pub ttl: i64,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TSymlink {
+    pub name: String,
+    pub target: String,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }

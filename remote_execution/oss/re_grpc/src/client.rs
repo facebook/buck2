@@ -793,6 +793,16 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
         })
     })?;
 
+    let output_symlinks = action_result
+        .output_symlinks
+        .into_try_map(|output_symlink| {
+            anyhow::Ok(TSymlink {
+                name: output_symlink.path,
+                target: output_symlink.target,
+                _dot_dot_default: (),
+            })
+        })?;
+
     let output_directories = action_result
         .output_directories
         .into_try_map(|output_directory| {
@@ -811,6 +821,7 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
 
     let action_result = TActionResult2 {
         output_files,
+        output_symlinks,
         output_directories,
         exit_code: action_result.exit_code,
         stdout_raw: Some(action_result.stdout_raw),
