@@ -676,11 +676,20 @@ async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
     if no_paste {
         buck2_client_ctx::println!("{}", output)?;
     } else {
-        let paste = generate_paste("Buck2 Rage", output).await?;
-        buck2_client_ctx::eprintln!(
-            "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
-            paste
-        )?;
+        match generate_paste("Buck2 Rage", output).await {
+            Err(e) => {
+                buck2_client_ctx::eprintln!(
+                    "Failed to generate paste automatically with error \"{:?}\".
+                    Please create paste manually with `bunnylol paste` using the output below:\n\n\n",
+                    e
+                )?;
+                buck2_client_ctx::println!("{}", output)?;
+            }
+            Ok(paste) => buck2_client_ctx::eprintln!(
+                "\nPlease post in https://fb.workplace.com/groups/buck2users with the following link:\n\n{}\n",
+                paste
+            )?,
+        }
     };
     Ok(())
 }
