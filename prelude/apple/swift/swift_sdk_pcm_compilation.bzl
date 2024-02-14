@@ -44,6 +44,10 @@ def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
         # to avoid serializing it as an absolute path.
         "-Xcc",
         "-working-directory=",
+        # AssetsLibrary is shipping with a #warning, which we shouldn't error on when compiling
+        # the SDK module. I don't think this is actually avoidable or removable until the next xcode major version
+        "-Xcc",
+        "-Wno-error=#warnings",
     ])
 
     cmd.add(get_disable_pch_validation_flags())
