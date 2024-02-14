@@ -62,7 +62,18 @@ def _solution_for_file(ctx, file, project_universe):
     target_universe = ctx.target_universe(unconfigured_owners).target_set()
     owners = ctx.cquery().owner(file, target_universe)
     if not owners or len(owners) == 0:
-        fail("No owner found for " + file)
+        return {
+            "external_dependencies": [],
+            "flags": [],
+            "generated_dependencies": [],
+            "haskell_deps": {},
+            "import_dirs": [],
+            "owner": "No owner found for " + file,
+            "project": "",
+            "project_type": "",
+            "sources": [],
+            "targets": [],
+        }
 
     owner = owners[0]
 
