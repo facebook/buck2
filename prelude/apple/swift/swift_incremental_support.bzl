@@ -59,6 +59,7 @@ def _get_incremental_compilation_flags_and_objects(
     cmd = cmd_args([
         "-incremental",
         "-enable-incremental-imports",
+        "-disable-cmo",  # To minimize changes in generated swiftmodule file.
         "-enable-batch-mode",
         "-driver-batch-count",
         "1",
@@ -83,7 +84,8 @@ def _write_output_file_map(
         srcs: list[CxxSrcWithFlags],
         compilation_mode: str,  # Either "object" or "swiftmodule"
         extension: str) -> _WriteOutputFileMapOutput:  # Either ".o" or ".swiftmodule"
-    module_swiftdeps = ctx.actions.declare_output("module-build-record." + compilation_mode + ".swiftdeps")
+    # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
+    module_swiftdeps = ctx.actions.declare_output("module-build-record." + compilation_mode + ".priors")
 
     output_file_map = {
         "": {
