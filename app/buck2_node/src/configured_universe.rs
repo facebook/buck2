@@ -104,6 +104,14 @@ impl CqueryUniverse {
             .sum()
     }
 
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = ConfiguredTargetNodeRef<'a>> {
+        self.data
+            .data()
+            .targets
+            .values()
+            .flat_map(|map| map.values().flat_map(|set| set.iter().map(|node| node.0)))
+    }
+
     pub fn build(universe: &TargetSet<ConfiguredTargetNode>) -> anyhow::Result<CqueryUniverse> {
         span(buck2_data::CqueryUniverseBuildStart {}, || {
             let r = SelfRef::try_new(universe.clone(), |universe| {
