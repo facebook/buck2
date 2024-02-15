@@ -191,7 +191,7 @@ pub trait TargetHashingTargetNode: QueryTarget {
     // Takes in Target Nodes and returns a new set of (un)Configured
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<TargetSet<Self>>;
@@ -204,7 +204,7 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
     }
 
     async fn get_target_nodes(
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<TargetSet<Self>> {
@@ -219,7 +219,7 @@ impl TargetHashingTargetNode for TargetNode {
     }
 
     async fn get_target_nodes(
-        _dice: &DiceComputations,
+        _dice: &mut DiceComputations,
         loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         _global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<TargetSet<Self>> {
@@ -412,7 +412,7 @@ impl TargetHashes {
     }
 
     pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
-        dice: DiceTransaction,
+        mut dice: DiceTransaction,
         lookup: L,
         targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
@@ -423,7 +423,7 @@ impl TargetHashes {
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
-        let targets = T::get_target_nodes(&dice, targets, global_cfg_options).await?;
+        let targets = T::get_target_nodes(&mut dice, targets, global_cfg_options).await?;
         let file_hasher = Self::new_file_hasher(dice.dupe(), file_hash_mode);
         if target_hash_recursive {
             Self::compute_recursive_target_hashes(dice, lookup, targets, file_hasher, use_fast_hash)

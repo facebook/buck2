@@ -53,7 +53,7 @@ fn split_compatible_incompatible(
 }
 
 pub async fn get_maybe_compatible_targets<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a mut DiceComputations<'_>,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_cfg_options: &GlobalCfgOptions,
     keep_going: bool,
@@ -89,16 +89,14 @@ pub async fn get_maybe_compatible_targets<'a>(
         }
     }
 
-    Ok(
-        futures::future::join_all(ctx.bad_dice().compute_many(by_package_fns))
-            .await
-            .into_iter(),
-    )
+    Ok(futures::future::join_all(ctx.compute_many(by_package_fns))
+        .await
+        .into_iter())
 }
 
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
@@ -118,7 +116,7 @@ pub async fn get_compatible_targets(
 }
 
 pub async fn load_compatible_patterns(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     global_cfg_options: &GlobalCfgOptions,
     skip_missing_targets: MissingTargetBehavior,

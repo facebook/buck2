@@ -338,7 +338,7 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         load_compatible_patterns(
-            ctx,
+            &mut ctx.bad_dice(),
             parsed_patterns,
             &self.global_cfg_options,
             MissingTargetBehavior::Fail,

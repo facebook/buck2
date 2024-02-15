@@ -84,7 +84,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         let skip_missing_targets = MissingTargetBehavior::from_skip(self.req.skip_missing_targets);
 
         let compatible_targets = load_compatible_patterns(
-            &ctx,
+            &mut ctx,
             parsed_patterns,
             &global_cfg_options,
             skip_missing_targets,
