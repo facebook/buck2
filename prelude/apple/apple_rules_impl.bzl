@@ -151,6 +151,7 @@ extra_attributes = {
     "apple_package": {
         "bundle": attrs.dep(providers = [AppleBundleInfo]),
         "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
+        "package_name": attrs.option(attrs.string(), default = None),
         "packager": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "packager_args": attrs.list(attrs.arg(), default = []),
         "prepackaged_validators": attrs.list(

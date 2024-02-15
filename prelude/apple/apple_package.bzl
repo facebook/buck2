@@ -15,7 +15,8 @@ load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
-    package = ctx.actions.declare_output("{}.{}".format(ctx.attrs.bundle.label.name, ctx.attrs.ext))
+    package_name = ctx.attrs.package_name if ctx.attrs.package_name else ctx.attrs.bundle.label.name
+    package = ctx.actions.declare_output("{}.{}".format(package_name, ctx.attrs.ext))
 
     contents = (
         ctx.attrs.bundle[DefaultInfo].default_outputs[0] if ctx.attrs.packager else _get_ipa_contents(ctx)
