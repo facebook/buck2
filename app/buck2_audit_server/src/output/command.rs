@@ -44,7 +44,7 @@ async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
     cell_resolver: &'v CellResolver,
-    dice_ctx: &'v DiceComputations<'_>,
+    dice_ctx: &'v mut DiceComputations<'_>,
     global_cfg_options: &'v GlobalCfgOptions,
 ) -> anyhow::Result<Option<AuditOutputResult>> {
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
@@ -135,7 +135,7 @@ impl AuditSubcommand for AuditOutputCommand {
                 )
                 .await?;
 
-                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &dice_ctx, &global_cfg_options).await?;
+                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &mut dice_ctx, &global_cfg_options).await?;
 
                 let mut stdout = stdout.as_writer();
 

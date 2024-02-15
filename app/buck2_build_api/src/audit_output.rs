@@ -33,7 +33,7 @@ pub static AUDIT_OUTPUT: LateBinding<
         &'v str,
         &'v ProjectRelativePath,
         &'v CellResolver,
-        &'v DiceComputations,
+        &'v mut DiceComputations,
         &'v GlobalCfgOptions,
     )
         -> Pin<Box<dyn Future<Output = anyhow::Result<Option<AuditOutputResult>>> + 'v>>,
@@ -43,7 +43,7 @@ pub async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
     cell_resolver: &'v CellResolver,
-    dice_ctx: &'v DiceComputations<'_>,
+    dice_ctx: &'v mut DiceComputations<'_>,
     global_cfg_options: &'v GlobalCfgOptions,
 ) -> anyhow::Result<Option<AuditOutputResult>> {
     (AUDIT_OUTPUT.get()?)(

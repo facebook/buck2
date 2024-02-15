@@ -244,6 +244,7 @@ impl AnonTargetDependents {
                 .iter()
                 .map(async move |dep| {
                     let res = dice
+                        .bad_dice()
                         .get_analysis_result(dep)
                         .await
                         .and_then(|v| v.require_compatible());

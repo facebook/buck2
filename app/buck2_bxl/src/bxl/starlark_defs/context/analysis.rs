@@ -28,7 +28,7 @@ pub(crate) async fn analysis<'v>(
     Either<Option<StarlarkAnalysisResult>, Vec<(ConfiguredProvidersLabel, StarlarkAnalysisResult)>>,
 > {
     let analysis = futures::future::join_all(expr.labels().map(async move |label| {
-        let maybe_result = dice.get_analysis_result(label.target()).await?;
+        let maybe_result = dice.bad_dice().get_analysis_result(label.target()).await?;
 
         match maybe_result {
             MaybeCompatible::Incompatible(reason) => {

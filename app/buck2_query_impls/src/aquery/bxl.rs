@@ -186,7 +186,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         let dice = delegate.ctx();
         let target_sets = futures::future::join_all(configured_labels.iter().map(
             async move |label: &ConfiguredProvidersLabel| {
-                let maybe_result = dice.get_analysis_result(label.target()).await?;
+                let maybe_result = dice.bad_dice().get_analysis_result(label.target()).await?;
 
                 match maybe_result {
                     MaybeCompatible::Incompatible(reason) => {

@@ -217,6 +217,7 @@ impl ApplyTransition for DiceComputations<'_> {
         target: &TargetLabel,
     ) -> buck2_error::Result<FrozenProviderCollectionValue> {
         Ok(self
+            .bad_dice()
             .get_configuration_analysis_result(target)
             .await?
             .providers()

@@ -292,7 +292,11 @@ async fn build_configured_label_inner<'a>(
 
     let (outputs, run_args, target_rule_type_name) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
-        let providers = match ctx.get_providers(providers_label.as_ref()).await? {
+        let providers = match ctx
+            .bad_dice()
+            .get_providers(providers_label.as_ref())
+            .await?
+        {
             MaybeCompatible::Incompatible(reason) => {
                 if opts.skippable {
                     console_message(reason.skipping_message(providers_label.target()));

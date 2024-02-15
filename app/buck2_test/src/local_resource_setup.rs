@@ -110,7 +110,11 @@ async fn get_local_resource_info<'v>(
     dice: &DiceTransaction,
     target: &'v ConfiguredProvidersLabel,
 ) -> anyhow::Result<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)> {
-    let providers = dice.get_providers(target).await?.require_compatible()?;
+    let providers = dice
+        .bad_dice()
+        .get_providers(target)
+        .await?
+        .require_compatible()?;
     let providers = providers.provider_collection();
     Ok((
         target.target(),

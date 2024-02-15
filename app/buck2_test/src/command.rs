@@ -858,7 +858,11 @@ async fn test_target(
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
     // in v1: https://fb.workplace.com/groups/buckeng/posts/8520953297953210
-    let frozen_providers = ctx.get_providers(&target).await?.require_compatible()?;
+    let frozen_providers = ctx
+        .bad_dice()
+        .get_providers(&target)
+        .await?
+        .require_compatible()?;
     let providers = frozen_providers.provider_collection();
     build_artifacts(ctx, providers, &label_filtering).await?;
 

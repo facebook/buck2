@@ -205,7 +205,7 @@ async fn install(
 
     let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {
-        let ctx = &ctx;
+        let ctx = &mut ctx;
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
             buck2_core::pattern::PackageSpec::Targets(targets) => targets,
             buck2_core::pattern::PackageSpec::All => {
@@ -350,7 +350,7 @@ async fn handle_install_request<'a>(
         ]);
 
         build_launch_installer(
-            ctx,
+            &mut ctx.bad_dice(),
             materializations,
             installer_label,
             &installer_run_args,
@@ -444,7 +444,7 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
 }
 
 async fn build_launch_installer<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a mut DiceComputations<'_>,
     materializations: &'a MaterializationContext,
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
@@ -475,6 +475,7 @@ async fn build_launch_installer<'a>(
             installer_run_info.add_to_command_line(&mut run_args, &mut ctx)?;
             (artifact_visitor.inputs, run_args)
         };
+        let ctx = &*ctx;
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
         try_join_all(inputs.into_iter().map(|input| async move {
             materialize_artifact_group(ctx, &input, materializations)

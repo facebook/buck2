@@ -42,7 +42,7 @@ pub static EVAL_ANALYSIS_QUERY: LateBinding<
 pub trait RuleAnalsysisCalculationImpl: Send + Sync + 'static {
     async fn get_analysis_result(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
 }
@@ -55,21 +55,21 @@ pub trait RuleAnalysisCalculation {
     /// Returns the analysis result for a ConfiguredTargetLabel. This is the full set of Providers
     /// returned by the target's rule implementation function.
     async fn get_analysis_result(
-        &self,
+        &mut self,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
 
     /// Return the analysis result for a configuration rule `TargetLabel`
     /// (e. g. `constraint_value`).
     async fn get_configuration_analysis_result(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> anyhow::Result<AnalysisResult>;
 
     /// Returns the provider collection for a ConfiguredProvidersLabel. This is the full set of Providers
     /// returned by the target's rule implementation function.
     async fn get_providers(
-        &self,
+        &mut self,
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 }
@@ -77,7 +77,7 @@ pub trait RuleAnalysisCalculation {
 #[async_trait]
 impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_analysis_result(
-        &self,
+        &mut self,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
         RULE_ANALYSIS_CALCULATION
@@ -87,7 +87,7 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     }
 
     async fn get_configuration_analysis_result(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> anyhow::Result<AnalysisResult> {
         // Analysis for configuration nodes is always done with the unbound configuration.
@@ -99,7 +99,7 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     }
 
     async fn get_providers(
-        &self,
+        &mut self,
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
         let analysis = self.get_analysis_result(target.target()).await?;

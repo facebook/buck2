@@ -775,6 +775,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     ) -> anyhow::Result<FrozenRef<'static, FrozenExternalRunnerTestInfo>> {
         let providers = self
             .dice
+            .bad_dice()
             .get_providers(test_target)
             .await?
             .require_compatible()?;

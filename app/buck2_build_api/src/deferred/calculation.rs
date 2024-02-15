@@ -87,7 +87,7 @@ impl DeferredCalculation for DiceComputations<'_> {
         data: &DeferredData<T>,
     ) -> anyhow::Result<DeferredValueReady<T>> {
         if data.deferred_key().id().is_trivial() {
-            let deferred = lookup_deferred(self, data.deferred_key()).await?;
+            let deferred = lookup_deferred(&mut self.bad_dice(), data.deferred_key()).await?;
             let deferred = deferred
                 .get()?
                 .as_trivial()
@@ -117,7 +117,7 @@ pub static GET_PROMISED_ARTIFACT: LateBinding<
 
 async fn lookup_deferred_inner(
     key: &BaseDeferredKey,
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
 ) -> anyhow::Result<DeferredHolder> {
     match key {
         BaseDeferredKey::TargetLabel(target) => {
@@ -156,7 +156,7 @@ impl PartialLookup {
 
 /// looks up an deferred
 async fn lookup_deferred(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     key: &DeferredKey,
 ) -> anyhow::Result<PartialLookup> {
     Ok(match key {

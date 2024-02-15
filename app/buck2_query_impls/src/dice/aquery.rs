@@ -409,7 +409,11 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                         )
                         .await?;
 
-                    match dice.get_analysis_result(configured_label.target()).await? {
+                    match dice
+                        .bad_dice()
+                        .get_analysis_result(configured_label.target())
+                        .await?
+                    {
                         MaybeCompatible::Incompatible(_) => {
                             // ignored
                         }

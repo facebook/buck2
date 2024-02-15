@@ -209,10 +209,11 @@ impl ProviderLookUp<ConfiguredTargetNode> for DiceComputations<'_> {
         &self,
         t: &ConfiguredTargetNode,
     ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
-        self.get_providers(&ConfiguredProvidersLabel::new(
-            t.label().dupe(),
-            ProvidersName::Default,
-        ))
-        .await
+        self.bad_dice()
+            .get_providers(&ConfiguredProvidersLabel::new(
+                t.label().dupe(),
+                ProvidersName::Default,
+            ))
+            .await
     }
 }

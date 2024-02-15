@@ -90,7 +90,7 @@ pub(crate) fn init_rule_analysis_calculation() {
 impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
     async fn get_analysis_result(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
         #[async_trait]
@@ -114,8 +114,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
             }
         }
 
-        ctx.bad_dice()
-            .compute(&AnalysisKey(target.dupe()))
+        ctx.compute(&AnalysisKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)
     }
@@ -173,7 +172,8 @@ async fn resolve_queries_impl(
                     let label = node.label();
                     query_results.push((
                         label.dupe(),
-                        ctx.get_analysis_result(label)
+                        ctx.bad_dice()
+                            .get_analysis_result(label)
                             .await?
                             .require_compatible()?
                             .provider_collection,
@@ -205,6 +205,7 @@ pub async fn get_dep_analysis<'v>(
             .deps()
             .map(async move |dep| {
                 let res = ctx
+                    .bad_dice()
                     .get_analysis_result(dep.label())
                     .await
                     .and_then(|v| v.require_compatible());
@@ -414,7 +415,7 @@ pub async fn profile_analysis_recursively(
 
     let mut futures = all_deps
         .iter()
-        .map(|node| ctx.get_analysis_result(node.label()))
+        .map(|node| async move { ctx.bad_dice().get_analysis_result(node.label()).await })
         .collect::<FuturesOrdered<_>>();
 
     let mut profile_datas: Vec<Arc<StarlarkProfileDataAndStats>> = Vec::new();

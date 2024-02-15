@@ -144,6 +144,7 @@ pub(crate) async fn get_dependency_for_label<'v>(
     module: &'v Module,
 ) -> anyhow::Result<Dependency<'v>> {
     let analysis_result = ctx
+        .bad_dice()
         .get_analysis_result(configured.target())
         .await?
         .require_compatible()?;

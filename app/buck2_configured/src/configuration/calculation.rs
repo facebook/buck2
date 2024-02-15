@@ -111,7 +111,7 @@ async fn get_target_platform_detector(
 
 /// Returns the configured [ExecutionPlatforms] or None if `build.execution_platforms` is not configured.
 async fn get_execution_platforms(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
     let cells = ctx.get_cell_resolver().await?;
 
@@ -388,7 +388,7 @@ pub trait ConfigurationCalculation {
 }
 
 async fn compute_platform_configuration_no_label_check(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
     let result = ctx.get_configuration_analysis_result(target).await?;
@@ -402,7 +402,7 @@ async fn compute_platform_configuration_no_label_check(
 
 /// Basically, evaluate `platform()` rule.
 async fn compute_platform_configuration(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
     let configuration_data = compute_platform_configuration_no_label_check(ctx, target).await?;

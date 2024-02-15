@@ -286,7 +286,8 @@ async fn get_template_info_provider_artifacts(
     let providers_label =
         ConfiguredProvidersLabel::new(configured_label.dupe(), ProvidersName::Default);
 
-    let providers = ctx.get_providers(&providers_label);
+    let mut as_mut = ctx.bad_dice();
+    let providers = as_mut.get_providers(&providers_label);
 
     let mut artifacts = vec![];
 

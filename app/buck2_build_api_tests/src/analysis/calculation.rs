@@ -185,7 +185,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         )?,
         configs,
     )?;
-    let dice = dice.commit().await;
+    let mut dice = dice.commit().await;
 
     let analysis = dice
         .get_analysis_result(

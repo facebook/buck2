@@ -238,6 +238,7 @@ async fn retrieve_artifacts_for_provider_label(
         .await?;
 
     let providers = ctx
+        .bad_dice()
         .get_providers(&providers_label)
         .await?
         .require_compatible()?;

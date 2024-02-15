@@ -111,7 +111,7 @@ async fn server_execute_with_dice(
             // but we did not updated vendored `futures` yet.
             #[allow(deprecated)]
             futs.push(async move {
-                let result = ctx.get_providers(&providers_label).await;
+                let result = ctx.bad_dice().get_providers(&providers_label).await;
                 (providers_label, result)
             });
         }
