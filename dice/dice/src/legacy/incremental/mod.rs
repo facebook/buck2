@@ -179,7 +179,7 @@ where
     }
 
     /// Dirties the value at K
-    #[instrument(level = "info", skip(self), fields(k = %k, version = %version))]
+    #[cfg_attr(debug_assertions, instrument(level = "info", skip(self), fields(k = %k, version = %version)))]
     pub(crate) fn dirty(&self, k: K::Key, version: VersionNumber, force_dirty: bool) {
         // It is crucial that we dirty first before updating the rdeps.
         // This is related to the race condition where we invalidate while nodes are being inserted
@@ -269,7 +269,7 @@ where
     }
 
     /// Updates the value at K. Returns whether this injected value actually causes a change
-    #[instrument(level = "info", skip(self, res, ), fields(k = %k, version = %version))]
+    #[cfg_attr(debug_assertions, instrument(level = "info", skip(self, res, ), fields(k = %k, version = %version)))]
     pub(crate) fn update_injected_value(
         self: &Arc<Self>,
         k: K::Key,
@@ -355,11 +355,11 @@ where
         }
     }
 
-    #[instrument(
+    #[cfg_attr(debug_assertions, instrument(
         level = "debug",
         skip(self, transaction_ctx, extra, cancelled_instance),
         fields(k = %k),
-    )]
+    ))]
     fn new_dice_task(
         self: Arc<IncrementalEngine<K>>,
         k: K::Key,
@@ -539,11 +539,11 @@ where
         (task, fut)
     }
 
-    #[instrument(
+    #[cfg_attr(debug_assertions, instrument(
         level = "debug",
         skip(self, transaction_ctx, extra, cancellation),
         fields(k = %k, version = %transaction_ctx.get_version()),
-    )]
+    ))]
     async fn compute(
         self: &Arc<Self>,
         k: &K::Key,
@@ -630,11 +630,11 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
     }
 
     /// Synchronously evaluate projection key without recording dependencies.
-    #[instrument(
+    #[cfg_attr(debug_assertions, instrument(
              level = "debug",
              skip(self, transaction_ctx, extra, derive_from),
              fields(k = %k, v = %transaction_ctx.get_version()),
-    )]
+    ))]
     fn eval_projection_versioned(
         self: &Arc<Self>,
         k: &ProjectionKeyAsKey<P>,

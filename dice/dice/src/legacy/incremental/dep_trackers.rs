@@ -277,7 +277,7 @@ mod internals {
     where
         K: IncrementalComputeProperties,
     {
-        #[instrument(level = "info", skip(self, transaction_ctx, extra), fields(k = %self.k, version = %transaction_ctx.get_version()))]
+        #[cfg_attr(debug_assertions, instrument(level = "info", skip(self, transaction_ctx, extra), fields(k = %self.k, version = %transaction_ctx.get_version())))]
         async fn recompute(
             &self,
             transaction_ctx: &Arc<TransactionCtx>,

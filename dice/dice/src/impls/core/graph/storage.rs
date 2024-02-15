@@ -165,7 +165,7 @@ impl VersionedGraph {
     /// is only updated if the version of the new value is of a newer
     /// version than what is stored.
     /// Returns the new entry, and an optional old entry that was invalidated due to this update
-    #[instrument(level = "debug", skip(self, value, storage_type, deps, reusable), fields(key = ?key))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, storage_type, deps, reusable), fields(key = ?key)))]
     pub(crate) fn update(
         &mut self,
         key: VersionedGraphKey,
@@ -276,7 +276,7 @@ impl VersionedGraph {
         }
     }
 
-    #[instrument(level = "debug", skip(self, value, deps), fields(key = ?key, v = %v, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps), fields(key = ?key, v = %v, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
     fn update_empty(
         &mut self,
         key: DiceKey,
@@ -305,7 +305,7 @@ impl VersionedGraph {
     }
 
     /// Returns the newly updated value for the key, and whether or not any state changed.
-    #[instrument(level = "debug", skip(self, value, deps, num_to_keep, reusable), fields(key = ?key, key_of_e = %key_of_e, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps, num_to_keep, reusable), fields(key = ?key, key_of_e = %key_of_e, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
     fn update_entry(
         &mut self,
         key_of_e: VersionNumber,

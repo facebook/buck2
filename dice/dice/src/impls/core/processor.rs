@@ -48,7 +48,7 @@ impl StateProcessor {
         debug!("Processor terminated");
     }
 
-    #[instrument(skip_all, fields(kind = %message.variant_name()))]
+    #[cfg_attr(debug_assertions, instrument(skip_all, fields(kind = %message.variant_name())))]
     fn iteration(&mut self, message: StateRequest) {
         match message {
             StateRequest::UpdateState { changes, resp } => {

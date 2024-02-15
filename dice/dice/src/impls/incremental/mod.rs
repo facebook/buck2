@@ -103,11 +103,11 @@ impl IncrementalEngine {
         )
     }
 
-    #[instrument(
+    #[cfg_attr(debug_assertions, instrument(
         level = "debug",
         skip(state, promise, eval, event_dispatcher),
         fields(k = ?k, version = %v),
-    )]
+    ))]
     pub(crate) fn project_for_key(
         state: CoreStateHandle,
         promise: DicePromise,
@@ -289,11 +289,11 @@ impl IncrementalEngine {
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
     /// 'target_version'
-    #[instrument(
+    #[cfg_attr(debug_assertions, instrument(
         level = "debug",
         skip(self, eval, deps, check_deps_state),
         fields(version = %eval.per_live_version_ctx.get_version(), verified_versions = %verified_versions)
-    )]
+    ))]
     async fn compute_whether_dependencies_changed(
         &self,
         parent_key: ParentKey,
