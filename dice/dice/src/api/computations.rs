@@ -60,6 +60,13 @@ impl<'d> DiceComputations<'d> {
         DiceComputations(DiceComputationsKind::Owned(inner))
     }
 
+    /// To support migration to a &mut-based DiceComputations api, this allows callers to get an
+    /// owned DiceComputations (which effectively allows upgrading a &DiceComputations to a &mut
+    /// DiceComputations). That makes it easier to incrementally migrate things to the &mut api.
+    pub fn bad_dice<'a>(&'a self) -> DiceComputations<'a> {
+        DiceComputations::borrowed(self.inner())
+    }
+
     pub(crate) fn inner(&self) -> &DiceComputationsImpl {
         match &self.0 {
             DiceComputationsKind::Owned(v) => &v,
