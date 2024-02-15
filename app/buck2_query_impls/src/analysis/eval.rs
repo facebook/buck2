@@ -28,7 +28,7 @@ pub(crate) fn init_eval_analysis_query() {
 }
 
 async fn eval_analysis_query(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     query: &str,
     resolved_literals: HashMap<String, ConfiguredTargetNode>,
 ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {

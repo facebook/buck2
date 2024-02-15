@@ -183,7 +183,7 @@ struct AnalysisEnv<'a> {
 }
 
 pub(crate) async fn run_analysis<'a>(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     label: &ConfiguredTargetLabel,
     results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
@@ -226,7 +226,7 @@ pub fn get_deps_from_analysis_results<'v>(
 }
 
 fn run_analysis_with_env<'a>(
-    dice: &'a DiceComputations,
+    dice: &'a DiceComputations<'_>,
     analysis_env: AnalysisEnv<'a>,
     node: ConfiguredTargetNodeRef<'a>,
     profile_mode: &'a StarlarkProfileModeOrInstrumentation,
@@ -238,7 +238,7 @@ fn run_analysis_with_env<'a>(
 }
 
 async fn run_analysis_with_env_underlying(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     analysis_env: AnalysisEnv<'_>,
     node: ConfiguredTargetNodeRef<'_>,
     profile_mode: &StarlarkProfileModeOrInstrumentation,

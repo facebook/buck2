@@ -112,7 +112,7 @@ fn call_transition_function<'v>(
 }
 
 async fn do_apply_transition(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     attrs: Option<&[Option<CoercedAttr>]>,
     conf: &ConfigurationData,
     transition_id: &TransitionId,
@@ -211,7 +211,7 @@ pub(crate) trait ApplyTransition {
 }
 
 #[async_trait]
-impl ApplyTransition for DiceComputations {
+impl ApplyTransition for DiceComputations<'_> {
     async fn fetch_transition_function_reference(
         &self,
         target: &TargetLabel,
@@ -234,7 +234,7 @@ pub(crate) fn init_transition_calculation() {
 impl TransitionCalculation for TransitionCalculationImpl {
     async fn apply_transition(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target_node: TargetNodeRef<'_>,
         cfg: &ConfigurationData,
         transition_id: &TransitionId,

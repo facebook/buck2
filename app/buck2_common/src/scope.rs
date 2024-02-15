@@ -60,8 +60,8 @@ pub async unsafe fn scope_and_collect_with_dispatcher<'d, 'a, T, R, F>(
 }
 
 /// Wrap `async_scoped::TokioScope::scope_and_collect` propagating the event dispatcher.
-pub async unsafe fn scope_and_collect_with_dice<'d, 'a, T, R, F>(
-    ctx: &'d mut DiceComputations,
+pub async unsafe fn scope_and_collect_with_dice<'c, 'd, 'a, T, R, F>(
+    ctx: &'c mut DiceComputations<'d>,
     f: F,
 ) -> (
     R,
@@ -69,7 +69,7 @@ pub async unsafe fn scope_and_collect_with_dice<'d, 'a, T, R, F>(
 )
 where
     T: Send + 'static,
-    F: for<'x> FnOnce(&'d mut DiceComputations, &mut Scope<'a, 'x, T>) -> R,
+    F: for<'x> FnOnce(&'c mut DiceComputations<'d>, &mut Scope<'a, 'x, T>) -> R,
 {
     let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
     scope_and_collect_with_dispatcher(dispatcher, |scope| f(ctx, scope)).await

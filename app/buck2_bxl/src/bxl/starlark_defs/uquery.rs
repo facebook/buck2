@@ -103,7 +103,7 @@ impl<'v> StarlarkUQueryCtx<'v> {
 
 async fn unpack_targets<'c, 'v>(
     this: &'c StarlarkUQueryCtx<'v>,
-    dice: &'c mut DiceComputations,
+    dice: &'c mut DiceComputations<'_>,
     targets: TargetListExprArg<'v>,
 ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
     TargetListExpr::<'v, TargetNode>::unpack(targets, &this.ctx.data, dice)

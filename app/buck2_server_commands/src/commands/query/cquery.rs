@@ -204,7 +204,7 @@ async fn cquery(
 }
 
 #[async_trait]
-impl ProviderLookUp<ConfiguredTargetNode> for DiceComputations {
+impl ProviderLookUp<ConfiguredTargetNode> for DiceComputations<'_> {
     async fn lookup(
         &self,
         t: &ConfiguredTargetNode,

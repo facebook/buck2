@@ -64,30 +64,30 @@ use crate::UserCycleDetectorGuard;
 
 /// Context that is the base for which all requests start from
 #[derive(Allocative)]
-pub(crate) struct BaseComputeCtx {
+pub(crate) struct BaseComputeCtx<'a> {
     // we need to give off references of `DiceComputation` so hold this for now, but really once we
     // get rid of the enum, we just hold onto the base data directly and do some ref casts
-    data: DiceComputations,
+    data: DiceComputations<'a>,
     live_version_guard: ActiveTransactionGuard,
 }
 
-impl Clone for BaseComputeCtx {
+impl Clone for BaseComputeCtx<'_> {
     fn clone(&self) -> Self {
         Self {
             data: match &self.data.0 {
                 DiceComputationsImpl::Legacy(_) => {
                     unreachable!("wrong dice")
                 }
-                modern => DiceComputations(modern.clone()),
+                modern => DiceComputations::new(modern.clone()),
             },
             live_version_guard: self.live_version_guard.dupe(),
         }
     }
 }
 
-impl Dupe for BaseComputeCtx {}
+impl Dupe for BaseComputeCtx<'_> {}
 
-impl BaseComputeCtx {
+impl<'a> BaseComputeCtx<'a> {
     pub(crate) fn new(
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
@@ -95,7 +95,7 @@ impl BaseComputeCtx {
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
-            data: DiceComputations(DiceComputationsImpl::Modern(Arc::new(
+            data: DiceComputations::new(DiceComputationsImpl::Modern(Arc::new(
                 ModernComputeCtx::new(
                     ParentKey::None,
                     per_live_version_ctx,
@@ -121,16 +121,16 @@ impl BaseComputeCtx {
         })
     }
 
-    pub(crate) fn as_computations(&self) -> &DiceComputations {
+    pub(crate) fn as_computations(&self) -> &DiceComputations<'a> {
         &self.data
     }
 
-    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations {
+    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'a> {
         &mut self.data
     }
 }
 
-impl Deref for BaseComputeCtx {
+impl Deref for BaseComputeCtx<'_> {
     type Target = ModernComputeCtx;
 
     fn deref(&self) -> &Self::Target {

@@ -28,7 +28,7 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
     /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
     async fn get_interpreter_results_uncached(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         package: PackageLabel,
     ) -> buck2_error::Result<Arc<EvaluationResult>>;
 
@@ -75,7 +75,7 @@ pub trait TargetGraphCalculation {
 }
 
 #[async_trait]
-impl TargetGraphCalculation for DiceComputations {
+impl TargetGraphCalculation for DiceComputations<'_> {
     async fn get_interpreter_results_uncached(
         &self,
         package: PackageLabel,

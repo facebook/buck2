@@ -236,7 +236,7 @@ impl AnonTargetDependents {
 
     pub(crate) async fn get_analysis_results<'v>(
         &'v self,
-        dice: &'v DiceComputations,
+        dice: &'v DiceComputations<'_>,
     ) -> anyhow::Result<AnonTargetDependentAnalysisResults<'v>> {
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
             dice,

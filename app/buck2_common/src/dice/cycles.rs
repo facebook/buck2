@@ -41,7 +41,7 @@ pub struct CycleDetectorAdapter<D: CycleAdapterDescriptor> {
 #[async_trait]
 pub trait CycleGuard<E> {
     async fn guard_this<R: Send, Fut: Future<Output = R> + Send>(
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         fut: Fut,
     ) -> anyhow::Result<Result<R, E>>;
 }
@@ -60,7 +60,7 @@ impl<D: CycleAdapterDescriptor> CycleGuard<D::Error> for D {
     /// It's probably the case that the keys in the cycle should treat the cycle error case as invalid (in the sense
     /// of Dice Key::validity()).
     async fn guard_this<R: Send, Fut: Future<Output = R> + Send>(
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         fut: Fut,
     ) -> anyhow::Result<Result<R, D::Error>> {
         match ctx.cycle_guard::<CycleAdapterGuard<D>>()? {

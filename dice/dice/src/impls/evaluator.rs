@@ -59,7 +59,7 @@ impl AsyncEvaluator {
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
-                let mut new_ctx = DiceComputations(DiceComputationsImpl::Modern(Arc::new(
+                let mut new_ctx = DiceComputations::new(DiceComputationsImpl::Modern(Arc::new(
                     ModernComputeCtx::new(
                         ParentKey::Some(key), // within this key's compute, this key is the parent
                         self.per_live_version_ctx.dupe(),

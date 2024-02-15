@@ -40,15 +40,16 @@ pub enum Unit {
     Literal(bool),
 }
 
-async fn resolve_units(
-    ctx: &mut DiceComputations,
+async fn resolve_units<'a>(
+    ctx: &'a mut DiceComputations<'_>,
     units: &[Unit],
     state: Arc<FuzzState>,
 ) -> anyhow::Result<Vec<bool>> {
     let futs = ctx.compute_many(units.iter().map(|unit| {
         let state = state.dupe();
         higher_order_closure! {
-            for<'x> move |ctx: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Result<bool, anyhow::Error>> {
+            #![with<'a>]
+            for<'x> move |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, Result<bool, anyhow::Error>> {
                 match unit {
                     Unit::Variable(var) => ctx.eval(state, *var).boxed(),
                     Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
@@ -70,7 +71,7 @@ pub enum Expr {
     Xor(Vec<Unit>),
 }
 
-async fn lookup_unit(ctx: &mut DiceComputations, var: Var) -> anyhow::Result<Arc<Expr>> {
+async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: Var) -> anyhow::Result<Arc<Expr>> {
     Ok(ctx.compute(&LookupVar(var)).await?)
 }
 
@@ -113,7 +114,7 @@ pub trait FuzzMath {
 }
 
 #[async_trait]
-impl FuzzMath for DiceComputations {
+impl FuzzMath for DiceComputations<'_> {
     async fn eval(&mut self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool> {
         Ok(*self
             .compute(&state.eval_var(var))

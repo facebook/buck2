@@ -257,7 +257,7 @@ pub struct BuildConfiguredLabelOptions {
 }
 
 pub async fn build_configured_label<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a DiceComputations<'_>,
     materialization_context: &MaterializationContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
@@ -282,7 +282,7 @@ pub async fn build_configured_label<'a>(
 }
 
 async fn build_configured_label_inner<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a DiceComputations<'_>,
     materialization_context: &MaterializationContext,
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
@@ -481,7 +481,7 @@ async fn build_configured_label_inner<'a>(
     }
 }
 pub async fn materialize_artifact_group_owned(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     artifact_group: ArtifactGroup,
     materialization_context: MaterializationContext,
 ) -> anyhow::Result<ArtifactGroupValues> {
@@ -513,7 +513,7 @@ impl Debug for ProviderArtifacts {
 }
 
 pub async fn materialize_artifact_group(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     materialization_context: &MaterializationContext,
 ) -> anyhow::Result<ArtifactGroupValues> {

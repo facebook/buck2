@@ -71,7 +71,7 @@ use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
 pub(crate) async fn eval(
-    ctx: &mut DiceComputations,
+    ctx: &mut DiceComputations<'_>,
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,
     liveness: CancellationObserver,
@@ -279,7 +279,7 @@ impl BxlInnerEvaluator {
 }
 
 async fn eval_bxl_inner(
-    ctx: &mut DiceComputations,
+    ctx: &mut DiceComputations<'_>,
     dispatcher: EventDispatcher,
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,

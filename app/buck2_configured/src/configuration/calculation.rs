@@ -62,7 +62,7 @@ pub enum ConfigurationError {
 }
 
 async fn get_target_platform_detector(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> buck2_error::Result<Arc<TargetPlatformDetector>> {
     // This requires a bit of computation so cache it on the graph.
     // TODO(cjhopman): Should we construct this (and similar buckconfig-derived objects) as part of the buck config itself?
@@ -111,7 +111,7 @@ async fn get_target_platform_detector(
 
 /// Returns the configured [ExecutionPlatforms] or None if `build.execution_platforms` is not configured.
 async fn get_execution_platforms(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
     let cells = ctx.get_cell_resolver().await?;
 
@@ -155,7 +155,7 @@ async fn get_execution_platforms(
 /// Check if a particular execution platform is compatible with the constraints or not.
 /// Return either Ok/Ok if it is, or a reason if not.
 async fn check_execution_platform(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &[TargetLabel],
@@ -226,7 +226,7 @@ async fn check_execution_platform(
 }
 
 async fn get_execution_platforms_enabled(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<ExecutionPlatforms> {
     ctx.get_execution_platforms()
         .await?
@@ -234,7 +234,7 @@ async fn get_execution_platforms_enabled(
 }
 
 async fn resolve_execution_platform_from_constraints(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &[TargetLabel],
@@ -281,7 +281,7 @@ async fn resolve_execution_platform_from_constraints(
 }
 
 async fn configuration_matches(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cfg: &ConfigurationData,
     target_node_cell: CellName,
     constraints_and_configs: &ConfigSettingData,
@@ -388,7 +388,7 @@ pub trait ConfigurationCalculation {
 }
 
 async fn compute_platform_configuration_no_label_check(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
     let result = ctx.get_configuration_analysis_result(target).await?;
@@ -402,7 +402,7 @@ async fn compute_platform_configuration_no_label_check(
 
 /// Basically, evaluate `platform()` rule.
 async fn compute_platform_configuration(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
     let configuration_data = compute_platform_configuration_no_label_check(ctx, target).await?;
@@ -434,7 +434,7 @@ async fn compute_platform_configuration(
 }
 
 #[async_trait]
-impl ConfigurationCalculation for DiceComputations {
+impl ConfigurationCalculation for DiceComputations<'_> {
     async fn get_platform_configuration(
         &self,
         target: &TargetLabel,

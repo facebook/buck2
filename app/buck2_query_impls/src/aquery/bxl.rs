@@ -56,10 +56,10 @@ struct BxlAqueryFunctionsImpl {
 }
 
 impl BxlAqueryFunctionsImpl {
-    async fn aquery_delegate<'c>(
+    async fn aquery_delegate<'c, 'd>(
         &self,
-        dice: &'c mut DiceComputations,
-    ) -> anyhow::Result<Arc<DiceAqueryDelegate<'c>>> {
+        dice: &'c mut DiceComputations<'d>,
+    ) -> anyhow::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
         let cell_resolver = dice.get_cell_resolver().await?;
 
         let package_boundary_exceptions = dice.get_package_boundary_exceptions().await?;
@@ -80,9 +80,9 @@ impl BxlAqueryFunctionsImpl {
         Ok(Arc::new(DiceAqueryDelegate::new(query_delegate).await?))
     }
 
-    async fn aquery_env<'c>(
+    async fn aquery_env<'c, 'd>(
         &self,
-        delegate: &Arc<DiceAqueryDelegate<'c>>,
+        delegate: &Arc<DiceAqueryDelegate<'c, 'd>>,
     ) -> anyhow::Result<AqueryEnvironment<'c>> {
         let literals = delegate.query_data().dupe();
         Ok(AqueryEnvironment::new(delegate.dupe(), literals))
@@ -93,7 +93,7 @@ impl BxlAqueryFunctionsImpl {
 impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
     async fn allpaths(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
@@ -107,7 +107,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
     }
     async fn somepath(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
@@ -121,7 +121,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
     }
     async fn deps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
@@ -138,7 +138,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
     }
     async fn rdeps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         universe: &TargetSet<ActionQueryNode>,
         targets: &TargetSet<ActionQueryNode>,
         depth: Option<i32>,
@@ -154,7 +154,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
     }
     async fn testsof(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         Ok(aquery_functions()
@@ -166,7 +166,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
     }
     async fn owner(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         Ok(aquery_functions()
@@ -179,7 +179,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
 
     async fn get_target_set(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         configured_labels: Vec<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)> {
         let delegate = &self.aquery_delegate(dice).await?;
@@ -223,7 +223,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
 
     async fn all_outputs(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         let query_val = special_aquery_functions()
@@ -241,7 +241,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
 
     async fn all_actions(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         let query_val = special_aquery_functions()

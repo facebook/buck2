@@ -116,7 +116,7 @@ pub enum InstallError {
 
 async fn get_installer_log_directory(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<AbsNormPathBuf> {
     let out_path = ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.project_root();
@@ -310,7 +310,7 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 }
 
 async fn handle_install_request<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a DiceComputations<'_>,
     materializations: &'a MaterializationContext,
     install_log_dir: &AbsNormPathBuf,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
@@ -444,7 +444,7 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
 }
 
 async fn build_launch_installer<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a DiceComputations<'_>,
     materializations: &'a MaterializationContext,
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
@@ -513,7 +513,7 @@ pub struct FileResult {
 }
 
 async fn build_files(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     materializations: &MaterializationContext,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,

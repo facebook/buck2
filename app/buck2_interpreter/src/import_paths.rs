@@ -78,7 +78,7 @@ pub trait HasImportPaths {
 }
 
 #[async_trait]
-impl HasImportPaths for DiceComputations {
+impl HasImportPaths for DiceComputations<'_> {
     async fn import_paths_for_cell(
         &self,
         cell_name: BuildFileCell,

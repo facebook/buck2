@@ -18,19 +18,19 @@ use crate::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use crate::nodes::frontend::TargetGraphCalculation;
 use crate::nodes::unconfigured::TargetNode;
 
-pub struct TargetNodeLookup<'c>(pub &'c DiceComputations);
+pub struct TargetNodeLookup<'c, 'd>(pub &'c DiceComputations<'d>);
 
 #[async_trait]
-impl<'c> AsyncNodeLookup<TargetNode> for TargetNodeLookup<'c> {
+impl AsyncNodeLookup<TargetNode> for TargetNodeLookup<'_, '_> {
     async fn get(&self, label: &TargetLabel) -> anyhow::Result<TargetNode> {
         Ok(self.0.get_target_node(label).await?)
     }
 }
 
-pub struct ConfiguredTargetNodeLookup<'c>(pub &'c DiceComputations);
+pub struct ConfiguredTargetNodeLookup<'c, 'd>(pub &'c DiceComputations<'d>);
 
 #[async_trait]
-impl<'c> AsyncNodeLookup<ConfiguredTargetNode> for ConfiguredTargetNodeLookup<'c> {
+impl AsyncNodeLookup<ConfiguredTargetNode> for ConfiguredTargetNodeLookup<'_, '_> {
     async fn get(&self, label: &ConfiguredTargetLabel) -> anyhow::Result<ConfiguredTargetNode> {
         self.0
             .get_configured_target_node(label)

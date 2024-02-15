@@ -21,7 +21,7 @@ use smallvec::SmallVec;
 /// If any future fails, it will fail.
 /// If KEEP_GOING is true, it will first make all others continue.
 pub async fn try_join_all<C, R, E>(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     mut inputs: impl Stream<Item = Result<R, E>> + Unpin,
 ) -> Result<C, E>
 where

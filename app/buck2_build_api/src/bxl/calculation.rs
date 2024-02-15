@@ -27,7 +27,7 @@ use crate::bxl::result::BxlResult;
 pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
     async fn eval_bxl(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         bxl: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<BxlComputeResult>;
 }

@@ -81,7 +81,7 @@ pub trait DeferredCalculation {
 }
 
 #[async_trait]
-impl DeferredCalculation for DiceComputations {
+impl DeferredCalculation for DiceComputations<'_> {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
         data: &DeferredData<T>,
@@ -117,7 +117,7 @@ pub static GET_PROMISED_ARTIFACT: LateBinding<
 
 async fn lookup_deferred_inner(
     key: &BaseDeferredKey,
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
 ) -> anyhow::Result<DeferredHolder> {
     match key {
         BaseDeferredKey::TargetLabel(target) => {
@@ -156,7 +156,7 @@ impl PartialLookup {
 
 /// looks up an deferred
 async fn lookup_deferred(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     key: &DeferredKey,
 ) -> anyhow::Result<PartialLookup> {
     Ok(match key {
@@ -177,7 +177,7 @@ async fn lookup_deferred(
 /// Fully resolve the deferred, including any deferreds it might have return when attempting
 /// to calculate it.
 async fn resolve_deferred(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     deferred: &DeferredKey,
 ) -> anyhow::Result<DeferredValueAnyReady> {
     #[async_trait]
@@ -212,7 +212,7 @@ async fn resolve_deferred(
 /// Computes and returns the untyped deferred at the given key. This does not fully resolve
 /// the deferred as another deferred may be returned.
 async fn compute_deferred(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     deferred: &DeferredKey,
 ) -> anyhow::Result<DeferredResult> {
     #[async_trait]

@@ -48,7 +48,7 @@ impl InjectedKey for CellResolverKey {
 }
 
 #[async_trait]
-impl HasCellResolver for DiceComputations {
+impl HasCellResolver for DiceComputations<'_> {
     async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver> {
         self.compute(&CellResolverKey).await?.ok_or_else(|| {
             panic!("Tried to retrieve CellResolverKey from the graph, but key has None value")

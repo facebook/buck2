@@ -20,7 +20,7 @@ use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 pub(crate) async fn analysis<'v>(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     ctx: &BxlContextNoDice<'v>,
     expr: ProvidersExpr<ConfiguredProvidersLabel>,
     skip_incompatible: bool,

@@ -30,7 +30,7 @@ pub struct PatternParser {
 
 impl PatternParser {
     pub async fn new(
-        ctx: &mut DiceComputations,
+        ctx: &mut DiceComputations<'_>,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -63,7 +63,7 @@ impl PatternParser {
 /// with strings passed by the user on the CLI.
 /// See `ParsedPattern::parse_relaxed` for details.
 pub async fn parse_patterns_from_cli_args<T: PatternType>(
-    ctx: &mut DiceComputations,
+    ctx: &mut DiceComputations<'_>,
     target_patterns: &[buck2_data::TargetPattern],
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<ParsedPattern<T>>> {
@@ -76,7 +76,7 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
 pub async fn global_cfg_options_from_client_context(
     client_context: &ClientContext,
     server_ctx: &dyn ServerCommandContextTrait,
-    dice_ctx: &mut DiceComputations,
+    dice_ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<GlobalCfgOptions> {
     let cell_resolver: &CellResolver = &dice_ctx.get_cell_resolver().await?;
     let working_dir: &ProjectRelativePath = server_ctx.working_dir();

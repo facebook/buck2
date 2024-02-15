@@ -224,7 +224,7 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
 }
 
 async fn get_starlark_profiler_instrumentation_override(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<StarlarkProfilerConfiguration> {
     Ok(ctx
         .compute(&StarlarkProfilerInstrumentationOverrideKey)
@@ -236,13 +236,13 @@ async fn get_starlark_profiler_instrumentation_override(
 /// This function is not exposed outside,
 /// because accessing full configuration may invalidate too much.
 async fn get_starlark_profiler_configuration(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<StarlarkProfilerConfiguration> {
     Ok(ctx.compute(&StarlarkProfilerConfigurationKey).await??)
 }
 
 #[async_trait]
-impl GetStarlarkProfilerInstrumentation for DiceComputations {
+impl GetStarlarkProfilerInstrumentation for DiceComputations<'_> {
     async fn get_profile_mode_for_intermediate_analysis(
         &self,
     ) -> anyhow::Result<StarlarkProfileModeOrInstrumentation> {

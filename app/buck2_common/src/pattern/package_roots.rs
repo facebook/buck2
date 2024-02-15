@@ -35,10 +35,10 @@ use crate::find_buildfile::find_buildfile;
 /// packages recursively contained in the paths (used for resolving patterns
 /// like `//module/...`). There's no guarantees about the order that results
 /// are returned, if ordering is important the caller needs to handle it.
-pub fn find_package_roots_stream(
-    ctx: &DiceTransaction,
+pub fn find_package_roots_stream<'a>(
+    ctx: &'a DiceTransaction,
     paths: Vec<CellPath>,
-) -> impl Stream<Item = anyhow::Result<PackageLabel>> {
+) -> impl Stream<Item = anyhow::Result<PackageLabel>> + 'a {
     // Ideally we wouldn't take a Transaction here, but if we pull things like the package_listing_resolver
     // out of the ctx, that resolver would have a lifetime bound to the ctx and then we couldn't
     // do a tokio::spawn. So, we need to only pull those things out within the spawned task.

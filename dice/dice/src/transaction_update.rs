@@ -39,7 +39,7 @@ impl DiceTransactionUpdaterImpl {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
                 futures::future::ready(DiceTransaction(DiceTransactionImpl::Legacy(
-                    DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                    DiceComputations::new(DiceComputationsImpl::Legacy(ctx.dupe())),
                 )))
                 .left_future()
             }
@@ -86,7 +86,7 @@ impl DiceTransactionUpdaterImpl {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
                 futures::future::ready(DiceTransaction(DiceTransactionImpl::Legacy(
-                    DiceComputations(DiceComputationsImpl::Legacy(ctx.commit())),
+                    DiceComputations::new(DiceComputationsImpl::Legacy(ctx.commit())),
                 )))
                 .left_future()
             }
@@ -104,12 +104,12 @@ impl DiceTransactionUpdaterImpl {
         extra: UserComputationData,
     ) -> impl Future<Output = DiceTransaction> {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => {
-                futures::future::ready(DiceTransaction(DiceTransactionImpl::Legacy(
-                    DiceComputations(DiceComputationsImpl::Legacy(ctx.commit_with_data(extra))),
-                )))
-                .left_future()
-            }
+            DiceTransactionUpdaterImpl::Legacy(ctx) => futures::future::ready(DiceTransaction(
+                DiceTransactionImpl::Legacy(DiceComputations::new(DiceComputationsImpl::Legacy(
+                    ctx.commit_with_data(extra),
+                ))),
+            ))
+            .left_future(),
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .commit_with_data(extra)
                 .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x)))

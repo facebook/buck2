@@ -67,7 +67,7 @@ pub trait ActionCalculation {
 }
 
 async fn build_action_impl(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     key: &ActionKey,
 ) -> anyhow::Result<ActionOutputs> {
@@ -91,7 +91,7 @@ async fn build_action_impl(
 }
 
 async fn build_action_no_redirect(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     action: Arc<RegisteredAction>,
 ) -> anyhow::Result<ActionOutputs> {
@@ -381,7 +381,7 @@ pub struct BuildKeyActivationData {
 /// we drop the `async_trait` common in other `*Calculation` types and avoid `async fn` (for
 /// build_action/build_artifact at least).
 #[async_trait]
-impl ActionCalculation for DiceComputations {
+impl ActionCalculation for DiceComputations<'_> {
     async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>> {
         // TODO add async/deferred stuff
         self.compute_deferred_data(action_key.deferred_data())

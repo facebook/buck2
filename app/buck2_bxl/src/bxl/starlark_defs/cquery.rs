@@ -102,7 +102,7 @@ pub(crate) async fn get_cquery_env(
 
 async fn unpack_targets<'v>(
     this: &StarlarkCQueryCtx<'v>,
-    dice: &mut DiceComputations,
+    dice: &mut DiceComputations<'_>,
     targets: ConfiguredTargetListExprArg<'v>,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     filter_incompatible(

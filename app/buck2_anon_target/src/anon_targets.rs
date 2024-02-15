@@ -266,7 +266,10 @@ impl AnonTargetKey {
         AnonTargetAttr::from_coerced_attr(x, ty)
     }
 
-    pub(crate) async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
+    pub(crate) async fn resolve(
+        &self,
+        dice: &DiceComputations<'_>,
+    ) -> anyhow::Result<AnalysisResult> {
         #[async_trait]
         impl Key for AnonTargetKey {
             type Value = buck2_error::Result<AnalysisResult>;
@@ -289,13 +292,16 @@ impl AnonTargetKey {
 
     fn run_analysis<'a>(
         &'a self,
-        dice: &'a DiceComputations,
+        dice: &'a DiceComputations<'_>,
     ) -> impl Future<Output = anyhow::Result<AnalysisResult>> + Send + 'a {
         let fut = async move { self.run_analysis_impl(dice).await };
         unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
     }
 
-    async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
+    async fn run_analysis_impl(
+        &self,
+        dice: &DiceComputations<'_>,
+    ) -> anyhow::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
 
@@ -573,7 +579,7 @@ pub(crate) fn init_get_promised_artifact() {
 
 pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
     promise_id: &'v PromiseArtifactId,
-    ctx: &'v DiceComputations,
+    ctx: &'v DiceComputations<'_>,
 ) -> anyhow::Result<Artifact> {
     let owner = promise_id.owner();
     let analysis_result = match owner {

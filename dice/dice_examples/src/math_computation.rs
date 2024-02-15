@@ -153,7 +153,7 @@ impl Key for EvalVar {
 }
 
 #[async_trait]
-impl Math for DiceComputations {
+impl Math for DiceComputations<'_> {
     async fn eval(&mut self, var: Var) -> Result<i64, Arc<anyhow::Error>> {
         Ok(self
             .compute(&EvalVar(var))
@@ -162,13 +162,14 @@ impl Math for DiceComputations {
     }
 }
 
-async fn resolve_units(
-    ctx: &DiceComputations,
+async fn resolve_units<'a>(
+    ctx: &DiceComputations<'a>,
     units: &[Unit],
 ) -> Result<Vec<i64>, Arc<anyhow::Error>> {
     let futs = ctx.compute_many(units.iter().map(|unit|
         higher_order_closure! {
-            for<'x> move |ctx: &'x mut DiceComputationsParallel<'_>| -> BoxFuture<'x, Result<i64, Arc<anyhow::Error>>> {
+            #![with<'a>]
+            for<'x> move |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, Result<i64, Arc<anyhow::Error>>> {
                 match unit {
                     Unit::Var(var) => ctx.eval(var.clone()).boxed(),
                     Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
@@ -183,7 +184,7 @@ async fn resolve_units(
         .collect::<Result<_, _>>()
 }
 
-async fn lookup_unit(ctx: &DiceComputations, var: &Var) -> anyhow::Result<Arc<Equation>> {
+async fn lookup_unit(ctx: &DiceComputations<'_>, var: &Var) -> anyhow::Result<Arc<Equation>> {
     Ok(ctx.compute(&LookupVar(var.clone())).await?)
 }
 

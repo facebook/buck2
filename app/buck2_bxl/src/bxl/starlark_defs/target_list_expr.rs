@@ -75,7 +75,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     /// in order to get the `TargetSet<ConfiguredTargetNode>`.
     pub(crate) async fn get(
         self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         let futs = self.iter().map(|node_or_ref| async {
             let node_or_ref = node_or_ref;
@@ -89,7 +89,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     /// Get a single maybe compatible `ConfiguredTargetNode`.
     pub(crate) async fn get_one(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Option<MaybeCompatible<ConfiguredTargetNode>>> {
         Ok(match &self {
             Self::One(node_or_ref) => Some(
@@ -198,7 +198,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub(crate) async fn get(
         self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
         let mut set = TargetSet::new();
         let futs = self.iter().map(|node_or_ref| async {
@@ -216,7 +216,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     /// Get a single `TargetNode`
     pub(crate) async fn get_one(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<Option<TargetNode>> {
         Ok(match &self {
             Self::One(node_or_ref) => Some(node_or_ref.get_from_dice(ctx).await?),
@@ -252,7 +252,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
@@ -276,7 +276,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, false).await
     }
@@ -285,7 +285,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, true).await
     }
@@ -311,7 +311,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         arg: ConfiguredTargetNodeArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
@@ -346,7 +346,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
             ConfiguredTargetListExprArg::Target(ConfiguredTargetNodeArg::Str(val)) => {
@@ -361,7 +361,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         val: &str,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         keep_going: bool,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
@@ -427,7 +427,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         value: ValueOf<'v, ConfiguredTargetListArg<'v>>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match value.typed {
@@ -492,7 +492,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     pub(crate) async fn unpack<'c>(
         value: TargetListExprArg<'v>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetListExpr<'v, TargetNode>> {
         match value {
             TargetListExprArg::Target(x) => Self::unpack_literal(x, ctx, dice).await,
@@ -503,7 +503,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     async fn unpack_literal(
         value: TargetNodeOrTargetLabelOrStr<'v>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetListExpr<'v, TargetNode>> {
         match value {
             TargetNodeOrTargetLabelOrStr::TargetNode(target) => {
@@ -542,7 +542,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     async fn unpack_iterable<'c>(
         value: TargetSetOrTargetList<'v>,
         ctx: &BxlContextNoDice<'_>,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetListExpr<'v, TargetNode>> {
         match value {
             TargetSetOrTargetList::TargetSet(s) => Ok(Self::TargetSet(Cow::Borrowed(s))),

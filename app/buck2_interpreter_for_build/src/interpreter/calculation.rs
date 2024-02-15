@@ -67,7 +67,7 @@ pub(crate) fn init_target_graph_calculation_impl() {
 impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
     async fn get_interpreter_results_uncached(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         package: PackageLabel,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
         let interpreter = ctx
@@ -140,7 +140,7 @@ pub(crate) fn init_interpreter_calculation_impl() {
 impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     async fn get_loaded_module(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule> {
         ctx.get_interpreter_calculator(path.cell(), path.build_file_cell())
@@ -151,7 +151,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 
     async fn get_module_deps(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         package: PackageLabel,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<ModuleDeps> {
@@ -177,7 +177,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 
     async fn get_package_file_deps(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         package: &PackageFilePath,
     ) -> anyhow::Result<Option<Vec<ImportPath>>> {
         // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
@@ -194,7 +194,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 
     async fn global_env_for_file_type(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         file_type: StarlarkFileType,
     ) -> anyhow::Result<Globals> {
         Ok(ctx
@@ -204,7 +204,10 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .dupe())
     }
 
-    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<PreludePath>> {
+    async fn prelude_import(
+        &self,
+        ctx: &DiceComputations<'_>,
+    ) -> anyhow::Result<Option<PreludePath>> {
         Ok(ctx
             .get_global_interpreter_state()
             .await?
@@ -218,7 +221,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 impl PackageValuesCalculation for PackageValuesCalculationInstance {
     async fn package_values(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         package: PackageLabel,
     ) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>> {
         let listing = ctx.resolve_package_listing(package.dupe()).await?;

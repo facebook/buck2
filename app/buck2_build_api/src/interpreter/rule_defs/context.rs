@@ -79,7 +79,7 @@ impl<'v> AnalysisActions<'v> {
 
     pub async fn run_promises(
         &self,
-        dice: &DiceComputations,
+        dice: &DiceComputations<'_>,
         eval: &mut Evaluator<'v, '_>,
         description: String,
     ) -> anyhow::Result<()> {
@@ -104,7 +104,7 @@ impl<'v> AnalysisActions<'v> {
     // Called after `run_promises()` to assert short paths and resolve consumer's promise artifacts.
     pub async fn assert_short_paths_and_resolve(
         &self,
-        dice: &DiceComputations,
+        dice: &DiceComputations<'_>,
     ) -> anyhow::Result<()> {
         let (short_path_assertions, consumer_analysis_artifacts) = {
             let state = self.state();

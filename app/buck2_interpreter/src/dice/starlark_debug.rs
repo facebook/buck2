@@ -20,7 +20,7 @@ pub trait SetStarlarkDebugger {
     fn set_starlark_debugger_handle(&mut self, hook: Option<Box<dyn StarlarkDebuggerHandle>>);
 }
 
-impl HasStarlarkDebugger for DiceComputations {
+impl HasStarlarkDebugger for DiceComputations<'_> {
     fn get_starlark_debugger_handle(&self) -> Option<&dyn StarlarkDebuggerHandle> {
         self.per_transaction_data()
             .data

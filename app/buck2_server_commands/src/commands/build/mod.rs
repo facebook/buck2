@@ -403,7 +403,7 @@ async fn process_build_result(
 }
 
 async fn build_targets(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
@@ -478,7 +478,7 @@ fn build_targets_in_universe<'a>(
 }
 
 fn build_targets_with_global_target_platform<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a DiceComputations<'_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
@@ -536,7 +536,7 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 }
 
 async fn build_targets_for_spec<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a DiceComputations<'_>,
     spec: PackageSpec<ProvidersPatternExtra>,
     package: PackageLabel,
     global_cfg_options: GlobalCfgOptions,
@@ -636,7 +636,7 @@ async fn build_targets_for_spec<'a>(
 }
 
 async fn build_target<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a DiceComputations<'_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_context: &MaterializationContext,

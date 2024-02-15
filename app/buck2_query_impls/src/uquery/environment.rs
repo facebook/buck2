@@ -103,7 +103,7 @@ pub(crate) trait QueryLiterals<T: QueryTarget>: Send + Sync {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        dice: &DiceComputations,
+        dice: &DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<T>>;
 }
 
@@ -126,7 +126,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
     pub(crate) async fn pre_resolve(
         base: &dyn QueryLiterals<T>,
         literals: &[String],
-        dice: &DiceComputations,
+        dice: &DiceComputations<'_>,
     ) -> Self {
         let futs = literals
             .iter()
@@ -153,7 +153,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        _: &DiceComputations,
+        _: &DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<T>> {
         let mut targets = TargetSet::new();
         for lit in literals {

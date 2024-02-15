@@ -59,7 +59,7 @@ impl ArtifactGroup {
     /// the analysis results of the owning anon target's analysis.
     pub async fn resolved_artifact(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<ResolvedArtifactGroup> {
         Ok(match self {
             ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),

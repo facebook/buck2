@@ -241,7 +241,7 @@ pub(crate) async fn get_bxl_cli_args(
 
 async fn copy_output<W: Write>(
     mut output: W,
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     output_loc: &BuckOutPath,
 ) -> anyhow::Result<()> {
     let loc = dice.global_data().get_io_provider().project_root().resolve(
@@ -266,7 +266,7 @@ async fn copy_output<W: Write>(
 }
 
 async fn ensure_artifacts(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     materialization_ctx: &MaterializationContext,
     target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: Option<&Vec<ArtifactGroup>>,
@@ -288,7 +288,7 @@ async fn ensure_artifacts(
 }
 
 async fn ensure_artifacts_inner(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     materialization_ctx: &MaterializationContext,
     target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: &[ArtifactGroup],

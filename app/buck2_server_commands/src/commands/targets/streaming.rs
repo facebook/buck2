@@ -241,10 +241,10 @@ pub(crate) async fn targets_streaming(
 }
 
 /// Given the patterns, separate into those which have an explicit package, and those which are recursive
-fn stream_packages<T: PatternType>(
-    dice: &DiceTransaction,
+fn stream_packages<'a, T: PatternType>(
+    dice: &'a DiceTransaction,
     patterns: Vec<ParsedPattern<T>>,
-) -> impl Stream<Item = anyhow::Result<(PackageLabel, PackageSpec<T>)>> {
+) -> impl Stream<Item = anyhow::Result<(PackageLabel, PackageSpec<T>)>> + 'a {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_paths = Vec::new();
 
@@ -277,7 +277,7 @@ enum TargetsError {
 
 /// Load the targets from a package. If `keep_going` is specified then it may return a `Some` error in the triple.
 async fn load_targets(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
     cached: bool,
@@ -328,7 +328,7 @@ async fn load_targets(
 
 /// Return `None` if the PACKAGE file doesn't exist
 async fn package_imports(
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
     path: &PackageFilePath,
 ) -> anyhow::Result<Option<Vec<ImportPath>>> {
     INTERPRETER_CALCULATION_IMPL

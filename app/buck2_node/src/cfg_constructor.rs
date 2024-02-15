@@ -51,14 +51,14 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
     /// Loads and returns cfg constructor functions.
     async fn get_cfg_constructor(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>>;
 
     /// Invokes starlark cfg constructors on provided configuration
     /// and returns the result.
     async fn eval_cfg_constructor(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,

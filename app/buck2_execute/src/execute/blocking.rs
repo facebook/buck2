@@ -170,7 +170,7 @@ impl SetBlockingExecutor for UserComputationData {
     }
 }
 
-impl HasBlockingExecutor for DiceComputations {
+impl HasBlockingExecutor for DiceComputations<'_> {
     fn get_blocking_executor(&self) -> Arc<dyn BlockingExecutor> {
         self.per_transaction_data()
             .data

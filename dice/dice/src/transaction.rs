@@ -18,20 +18,20 @@ use crate::DiceComputations;
 use crate::DiceTransactionUpdater;
 
 #[derive(Allocative)]
-pub(crate) enum DiceTransactionImpl {
-    Legacy(DiceComputations),
-    Modern(BaseComputeCtx),
+pub(crate) enum DiceTransactionImpl<'a> {
+    Legacy(DiceComputations<'a>),
+    Modern(BaseComputeCtx<'a>),
 }
 
-impl Clone for DiceTransactionImpl {
+impl Clone for DiceTransactionImpl<'_> {
     fn clone(&self) -> Self {
         match self {
             DiceTransactionImpl::Legacy(ctx) => match &ctx.0 {
                 // since 'DiceComputations' should not be clone or dupe, we manually implement
                 // clone and dupe for the 'DiceTransaction'
-                DiceComputationsImpl::Legacy(ctx) => DiceTransactionImpl::Legacy(DiceComputations(
-                    DiceComputationsImpl::Legacy(ctx.dupe()),
-                )),
+                DiceComputationsImpl::Legacy(ctx) => DiceTransactionImpl::Legacy(
+                    DiceComputations::new(DiceComputationsImpl::Legacy(ctx.dupe())),
+                ),
                 DiceComputationsImpl::Modern(_) => {
                     unreachable!("wrong dice")
                 }
@@ -41,9 +41,9 @@ impl Clone for DiceTransactionImpl {
     }
 }
 
-impl Dupe for DiceTransactionImpl {}
+impl Dupe for DiceTransactionImpl<'_> {}
 
-impl DiceTransactionImpl {
+impl<'a> DiceTransactionImpl<'a> {
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
             DiceTransactionImpl::Legacy(ctx) => ctx.0.get_version(),
@@ -65,14 +65,14 @@ impl DiceTransactionImpl {
         }
     }
 
-    pub(crate) fn as_computations(&self) -> &DiceComputations {
+    pub(crate) fn as_computations(&self) -> &DiceComputations<'a> {
         match self {
             DiceTransactionImpl::Legacy(ctx) => ctx,
             DiceTransactionImpl::Modern(ctx) => ctx.as_computations(),
         }
     }
 
-    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations {
+    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'a> {
         match self {
             DiceTransactionImpl::Legacy(ctx) => ctx,
             DiceTransactionImpl::Modern(ctx) => ctx.as_computations_mut(),

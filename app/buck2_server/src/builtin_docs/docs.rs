@@ -144,7 +144,7 @@ pub async fn get_prelude_docs(
 }
 
 async fn get_docs_from_module(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     import_path: &ImportPath,
     // If we want to promote `native`, what should we exclude
     promote_native: Option<&HashSet<&str>>,

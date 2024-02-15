@@ -44,7 +44,7 @@ async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
     cell_resolver: &'v CellResolver,
-    dice_ctx: &'v DiceComputations,
+    dice_ctx: &'v DiceComputations<'_>,
     global_cfg_options: &'v GlobalCfgOptions,
 ) -> anyhow::Result<Option<AuditOutputResult>> {
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);

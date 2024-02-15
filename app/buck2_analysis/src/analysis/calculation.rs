@@ -90,7 +90,7 @@ pub(crate) fn init_rule_analysis_calculation() {
 impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
     async fn get_analysis_result(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
         #[async_trait]
@@ -121,7 +121,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
 }
 
 pub async fn resolve_queries(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let mut queries = configured_node.queries().peekable();
@@ -145,7 +145,7 @@ pub async fn resolve_queries(
 }
 
 async fn resolve_queries_impl(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
@@ -196,7 +196,7 @@ async fn resolve_queries_impl(
 
 pub async fn get_dep_analysis<'v>(
     configured_node: ConfiguredTargetNodeRef<'v>,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
     keep_going::try_join_all(
         ctx,
@@ -215,7 +215,7 @@ pub async fn get_dep_analysis<'v>(
 }
 
 pub async fn get_rule_spec(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     func: &StarlarkRuleType,
 ) -> anyhow::Result<impl RuleSpec> {
     let module = ctx
@@ -225,7 +225,7 @@ pub async fn get_rule_spec(
 }
 
 async fn get_analysis_result(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
@@ -235,7 +235,7 @@ async fn get_analysis_result(
 }
 
 async fn get_analysis_result_inner(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
@@ -352,7 +352,7 @@ enum ProfileAnalysisError {
 /// Run get_analysis_result but discard the results (public outside the `analysis` module, unlike
 /// get_analysis_result)
 pub async fn profile_analysis(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
     profile_mode: &ProfileMode,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
@@ -392,7 +392,7 @@ fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode>
 }
 
 pub async fn profile_analysis_recursively(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
     // Self check.

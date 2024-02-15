@@ -72,7 +72,7 @@ enum DiceCalculationDelegateError {
 }
 
 #[async_trait]
-pub trait HasCalculationDelegate<'c> {
+pub trait HasCalculationDelegate<'c, 'd> {
     /// Get calculator for a file evaluation.
     ///
     /// This function only accepts cell names, but it is created
@@ -81,16 +81,16 @@ pub trait HasCalculationDelegate<'c> {
         &'c self,
         cell: CellName,
         build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<DiceCalculationDelegate<'c>>;
+    ) -> anyhow::Result<DiceCalculationDelegate<'c, 'd>>;
 }
 
 #[async_trait]
-impl<'c> HasCalculationDelegate<'c> for DiceComputations {
+impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
     async fn get_interpreter_calculator(
         &'c self,
         cell: CellName,
         build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<DiceCalculationDelegate<'c>> {
+    ) -> anyhow::Result<DiceCalculationDelegate<'c, 'd>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display(fmt = "{}@{}", _0, _1)]
         struct InterpreterConfigForCellKey(CellName, BuildFileCell);
@@ -137,14 +137,14 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
 }
 
 #[derive(Clone)]
-pub struct DiceCalculationDelegate<'c> {
+pub struct DiceCalculationDelegate<'c, 'd> {
     build_file_cell: BuildFileCell,
-    ctx: &'c DiceComputations,
-    fs: DiceFileOps<'c>,
+    ctx: &'c DiceComputations<'d>,
+    fs: DiceFileOps<'c, 'd>,
     configs: Arc<InterpreterForCell>,
 }
 
-impl<'c> DiceCalculationDelegate<'c> {
+impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     /// InterpreterCalculation invokes eval_import recursively. To support
     /// an embedder caching the result of that, the InterpreterCalculation will
     /// call into the delegate instead of calling itself directly.
@@ -200,7 +200,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
     async fn get_legacy_buck_config_for_starlark(
         &self,
-    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c>> {
+    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
         self.ctx
             .get_legacy_config_on_dice(self.build_file_cell.name())
             .await

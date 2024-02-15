@@ -32,7 +32,7 @@ use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 ///
 /// The provided closure will be invoked and passed an appropriate
 /// StarlarkEvaluatorProvider.
-pub async fn with_starlark_eval_provider<D: Deref<Target = DiceComputations>, R>(
+pub async fn with_starlark_eval_provider<'a, D: Deref<Target = DiceComputations<'a>>, R>(
     ctx: D,
     profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
     description: String,

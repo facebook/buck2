@@ -274,7 +274,7 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 
         let value = k
             .compute(
-                &mut DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                &mut DiceComputations::new(DiceComputationsImpl::Legacy(ctx.dupe())),
                 cancellations,
             )
             .await;

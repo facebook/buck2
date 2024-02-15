@@ -140,8 +140,8 @@ impl DiceAqueryNodesCache {
     }
 }
 
-pub(crate) struct DiceAqueryDelegate<'c> {
-    base_delegate: DiceQueryDelegate<'c>,
+pub(crate) struct DiceAqueryDelegate<'c, 'd> {
+    base_delegate: DiceQueryDelegate<'c, 'd>,
     query_data: Arc<AqueryData>,
 }
 
@@ -158,7 +158,7 @@ pub(crate) struct AqueryData {
 // artifact side of it holds a starlark ref. That would allow someone with an ArtifactGroup to synchronously
 // traverse the tset graph rather than needing to asynchronously resolve a TransitiveSetKey.
 async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
-    ctx: &'c DiceComputations,
+    ctx: &'c DiceComputations<'_>,
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
@@ -200,7 +200,7 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
 
 fn compute_tset_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations,
+    ctx: &'c DiceComputations<'_>,
     key: TransitiveSetProjectionKey,
 ) -> BoxFuture<'c, buck2_error::Result<SetProjectionInputs>> {
     async move {
@@ -227,7 +227,7 @@ fn compute_tset_node<'c>(
 
 async fn get_tset_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations,
+    ctx: &'c DiceComputations<'_>,
     key: TransitiveSetProjectionKey,
 ) -> anyhow::Result<SetProjectionInputs> {
     let copied_node_cache = node_cache.dupe();
@@ -241,7 +241,7 @@ async fn get_tset_node<'c>(
 
 fn compute_action_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations,
+    ctx: &'c DiceComputations<'_>,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
 ) -> BoxFuture<'c, buck2_error::Result<ActionQueryNode>> {
@@ -255,7 +255,7 @@ fn compute_action_node<'c>(
 
 async fn get_action_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations,
+    ctx: &'c DiceComputations<'_>,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
 ) -> anyhow::Result<ActionQueryNode> {
@@ -268,10 +268,10 @@ async fn get_action_node<'c>(
         .await?)
 }
 
-impl<'c> DiceAqueryDelegate<'c> {
+impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
     pub(crate) async fn new(
-        base_delegate: DiceQueryDelegate<'c>,
-    ) -> anyhow::Result<DiceAqueryDelegate<'c>> {
+        base_delegate: DiceQueryDelegate<'c, 'd>,
+    ) -> anyhow::Result<DiceAqueryDelegate<'c, 'd>> {
         let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?);
         let query_data = Arc::new(AqueryData {
             artifact_fs,
@@ -300,12 +300,12 @@ impl<'c> DiceAqueryDelegate<'c> {
 }
 
 #[async_trait]
-impl<'c> AqueryDelegate for DiceAqueryDelegate<'c> {
+impl<'c, 'd> AqueryDelegate for DiceAqueryDelegate<'c, 'd> {
     fn cquery_delegate(&self) -> &dyn CqueryDelegate {
         &self.base_delegate
     }
 
-    fn ctx(&self) -> &DiceComputations {
+    fn ctx(&self) -> &DiceComputations<'d> {
         self.base_delegate.ctx()
     }
 
@@ -350,7 +350,7 @@ async fn get_target_set_from_analysis_inner(
     query_data: &AqueryData,
     configured_label: &ConfiguredProvidersLabel,
     analysis: AnalysisResult,
-    dice: &DiceComputations,
+    dice: &DiceComputations<'_>,
 ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
     let mut result = TargetSet::new();
 
@@ -387,7 +387,7 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        dice: &DiceComputations,
+        dice: &DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         // For literal evaluation, we resolve the providers pattern to the analysis result, pull out
         // the default outputs and look up the corresponding actions.

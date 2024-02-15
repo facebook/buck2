@@ -69,7 +69,7 @@ enum BxlActionsError {
 
 #[allow(unused)]
 pub(crate) async fn resolve_bxl_execution_platform(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cell: CellName,
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,
@@ -140,7 +140,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
 
 pub(crate) async fn get_dependency_for_label<'v>(
     configured: ConfiguredProvidersLabel,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     module: &'v Module,
 ) -> anyhow::Result<Dependency<'v>> {
     let analysis_result = ctx
@@ -215,7 +215,7 @@ impl<'v> BxlActions<'v> {
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
         eval: &mut Evaluator<'v, '_>,
-        ctx: &'c DiceComputations,
+        ctx: &'c DiceComputations<'_>,
     ) -> anyhow::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
         let toolchains = alloc_deps(toolchains, eval, ctx).await?;
@@ -230,7 +230,7 @@ impl<'v> BxlActions<'v> {
 async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
     eval: &mut Evaluator<'v, '_>,
-    ctx: &'c DiceComputations,
+    ctx: &'c DiceComputations<'_>,
 ) -> anyhow::Result<ValueOfUnchecked<'v, DictRef<'v>>> {
     let deps: Vec<_> = deps
         .into_iter()

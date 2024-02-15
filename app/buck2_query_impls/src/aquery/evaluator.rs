@@ -26,11 +26,11 @@ use crate::dice::aquery::DiceAqueryDelegate;
 use crate::dice::get_dice_query_delegate;
 use crate::uquery::environment::PreresolvedQueryLiterals;
 
-pub(crate) struct AqueryEvaluator<'c> {
-    dice_query_delegate: Arc<DiceAqueryDelegate<'c>>,
+pub(crate) struct AqueryEvaluator<'c, 'd> {
+    dice_query_delegate: Arc<DiceAqueryDelegate<'c, 'd>>,
 }
 
-impl AqueryEvaluator<'_> {
+impl AqueryEvaluator<'_, '_> {
     pub(crate) async fn eval_query(
         &self,
         query: &str,
@@ -66,11 +66,11 @@ impl AqueryEvaluator<'_> {
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
-pub(crate) async fn get_aquery_evaluator<'a, 'c: 'a>(
-    ctx: &'c DiceComputations,
+pub(crate) async fn get_aquery_evaluator<'a, 'c: 'a, 'd>(
+    ctx: &'c DiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<AqueryEvaluator<'c>> {
+) -> anyhow::Result<AqueryEvaluator<'c, 'd>> {
     let dice_query_delegate =
         get_dice_aquery_delegate(ctx, working_dir, global_cfg_options).await?;
     Ok(AqueryEvaluator {
@@ -79,11 +79,11 @@ pub(crate) async fn get_aquery_evaluator<'a, 'c: 'a>(
 }
 
 // Provides the dice query delegate for aquery evaluator
-pub(crate) async fn get_dice_aquery_delegate<'a, 'c: 'a>(
-    ctx: &'c DiceComputations,
+pub(crate) async fn get_dice_aquery_delegate<'a, 'c: 'a, 'd>(
+    ctx: &'c DiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<Arc<DiceAqueryDelegate<'c>>> {
+) -> anyhow::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
     let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
     let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await?);
     Ok(dice_query_delegate)

@@ -27,9 +27,9 @@
 //! use buck2_futures::cancellation::CancellationContext;
 //!
 //!     /// A configuration computation that consists of values that are pre-computed outside of DICE
-//!     pub struct InjectConfigs<'compute>(&'compute DiceComputations);
+//!     pub struct InjectConfigs<'compute, 'd>(&'compute DiceComputations<'d>);
 //!
-//!     impl<'compute> InjectConfigs<'compute> {
+//!     impl<'compute, 'd> InjectConfigs<'compute, 'd> {
 //!         pub async fn get_config(&self) -> usize {
 //!             self.0.compute(&ConfigKey).await.unwrap()
 //!         }
@@ -48,9 +48,9 @@
 //!         }
 //!     }
 //!
-//!     pub struct MyComputation<'compute>(&'compute DiceComputations);
+//!     pub struct MyComputation<'compute, 'd>(&'compute DiceComputations<'d>);
 //!
-//!     impl<'compute> MyComputation<'compute> {
+//!     impl<'compute, 'd> MyComputation<'compute, 'd> {
 //!         // declaring a computation function
 //!         pub async fn compute_a(&self, a: usize, s: String) -> Arc<String> {
 //!             #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -89,7 +89,7 @@
 //!     impl Key for ComputeB {
 //!         type Value = usize;
 //!
-//!         async fn compute(&self, ctx: &mut DiceComputations, _cancellations: &CancellationContext) -> Self::Value {
+//!         async fn compute(&self, ctx: &mut DiceComputations, cancellations: &CancellationContext) -> Self::Value {
 //!             self.0 + ctx.injected_configs().get_config().await + ctx.global_data().static_data().len()
 //!         }
 //!
@@ -104,7 +104,7 @@
 //!     }
 //!
 //!     // attach the declared computation to DICE via the context
-//!     impl HasMyComputation for DiceComputations {
+//!     impl HasMyComputation for DiceComputations<'_>{
 //!         fn my_computation(&self) -> MyComputation {
 //!             MyComputation(self)
 //!         }
@@ -115,7 +115,7 @@
 //!         fn injected_configs(&self) -> InjectConfigs;
 //!     }
 //!
-//!     impl HasInjectedConfig for DiceComputations {
+//!     impl HasInjectedConfig for DiceComputations<'_>{
 //!         fn injected_configs(&self) -> InjectConfigs {
 //!             InjectConfigs(self)
 //!         }

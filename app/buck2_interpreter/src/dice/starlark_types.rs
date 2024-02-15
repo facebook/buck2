@@ -73,7 +73,7 @@ pub trait GetStarlarkTypes {
 }
 
 #[async_trait]
-impl GetStarlarkTypes for DiceComputations {
+impl GetStarlarkTypes for DiceComputations<'_> {
     async fn get_disable_starlark_types(&self) -> anyhow::Result<bool> {
         Ok(self
             .compute(&StarlarkTypesKey)

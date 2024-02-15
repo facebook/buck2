@@ -43,7 +43,7 @@ enum BuildErrors {
 }
 
 async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
-    ctx: &'c DiceComputations,
+    ctx: &'c DiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> anyhow::Result<(
     ResolvedPattern<T>,
@@ -52,8 +52,8 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();
 
-    struct Builder<'c> {
-        ctx: &'c DiceComputations,
+    struct Builder<'c, 'd> {
+        ctx: &'c DiceComputations<'d>,
         already_loading: HashSet<PackageLabel, FnvBuildHasher>,
         load_package_futs:
             FuturesUnordered<BoxFuture<'c, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)>>,
@@ -65,7 +65,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         already_loading: HashSet::default(),
     };
 
-    impl<'c> Builder<'c> {
+    impl Builder<'_, '_> {
         fn load_package(&mut self, package: PackageLabel) {
             if !self.already_loading.insert(package.dupe()) {
                 return;
@@ -258,7 +258,7 @@ fn apply_spec<T: PatternType>(
 }
 
 pub async fn load_patterns<T: PatternType>(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
     skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<LoadedPatterns<T>> {

@@ -33,7 +33,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     dynamic_lambda: &'v DynamicLambda,
     deferred_ctx: &'v mut dyn DeferredCtx,
-    dice_ctx: &'v mut DiceComputations,
+    dice_ctx: &'v mut DiceComputations<'_>,
 ) -> anyhow::Result<Vec<ActionKey>> {
     (EVAL_BXL_FOR_DYNAMIC_OUTPUT.get()?)(base_deferred_key, dynamic_lambda, deferred_ctx, dice_ctx)
         .await

@@ -64,7 +64,7 @@ pub trait DiceHasCommandExecutor {
 }
 
 #[async_trait]
-impl DiceHasCommandExecutor for DiceComputations {
+impl DiceHasCommandExecutor for DiceComputations<'_> {
     async fn get_command_executor_from_dice(
         &self,
         config: &CommandExecutorConfig,
@@ -87,7 +87,7 @@ pub trait HasFallbackExecutorConfig {
     fn get_fallback_executor_config(&self) -> &Arc<CommandExecutorConfig>;
 }
 
-impl HasFallbackExecutorConfig for DiceComputations {
+impl HasFallbackExecutorConfig for DiceComputations<'_> {
     fn get_fallback_executor_config(&self) -> &Arc<CommandExecutorConfig> {
         self.per_transaction_data()
             .data

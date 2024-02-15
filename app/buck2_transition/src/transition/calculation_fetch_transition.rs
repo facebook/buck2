@@ -32,7 +32,7 @@ enum FetchTransitionError {
 }
 
 #[async_trait]
-impl FetchTransition for DiceComputations {
+impl FetchTransition for DiceComputations<'_> {
     async fn fetch_transition(
         &self,
         id: &TransitionId,

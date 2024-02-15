@@ -62,7 +62,7 @@ pub trait ServerCommandContextTrait: Send + Sync {
 
     async fn config_metadata(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<HashMap<String, String>>;
 
     fn log_target_pattern(

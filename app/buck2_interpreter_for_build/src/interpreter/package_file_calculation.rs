@@ -20,7 +20,7 @@ pub trait EvalPackageFile {
 }
 
 #[async_trait]
-impl EvalPackageFile for DiceComputations {
+impl EvalPackageFile for DiceComputations<'_> {
     async fn eval_package_file(&self, path: &PackageFilePath) -> anyhow::Result<SuperPackage> {
         self.get_interpreter_calculator(path.cell(), path.build_file_cell())
             .await?

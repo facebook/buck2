@@ -166,7 +166,7 @@ impl Key for TargetAliasResolverKey {
 }
 
 #[async_trait]
-impl HasTargetAliasResolver for DiceComputations {
+impl HasTargetAliasResolver for DiceComputations<'_> {
     async fn target_alias_resolver_for_cell(
         &self,
         cell_name: CellName,

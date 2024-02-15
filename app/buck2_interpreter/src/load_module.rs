@@ -26,13 +26,13 @@ use crate::prelude_path::PreludePath;
 pub trait InterpreterCalculationImpl: Send + Sync + 'static {
     async fn get_loaded_module(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule>;
 
     async fn get_module_deps(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         package: PackageLabel,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<ModuleDeps>;
@@ -40,17 +40,20 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
     /// Return `None` if the PACKAGE file doesn't exist.
     async fn get_package_file_deps(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         package: &PackageFilePath,
     ) -> anyhow::Result<Option<Vec<ImportPath>>>;
 
     async fn global_env_for_file_type(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         file_type: StarlarkFileType,
     ) -> anyhow::Result<Globals>;
 
-    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<PreludePath>>;
+    async fn prelude_import(
+        &self,
+        ctx: &DiceComputations<'_>,
+    ) -> anyhow::Result<Option<PreludePath>>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =
@@ -72,7 +75,7 @@ pub trait InterpreterCalculation {
 }
 
 #[async_trait]
-impl InterpreterCalculation for DiceComputations {
+impl InterpreterCalculation for DiceComputations<'_> {
     async fn get_loaded_module(
         &self,
         path: StarlarkModulePath<'_>,

@@ -67,7 +67,7 @@ pub trait ArtifactGroupCalculation {
 }
 
 #[async_trait]
-impl ArtifactGroupCalculation for DiceComputations {
+impl ArtifactGroupCalculation for DiceComputations<'_> {
     /// makes the 'Artifact' available to be accessed
     async fn ensure_artifact_group(
         &self,
@@ -263,7 +263,7 @@ fn _assert_ensure_artifact_group_future_size() {
 }
 
 async fn dir_artifact_value(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     // We keep running into this performance footgun where a large directory is declared
@@ -321,7 +321,7 @@ async fn dir_artifact_value(
 
 #[async_recursion]
 async fn path_artifact_value(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     let file_ops = &ctx.file_ops() as &dyn FileOps;

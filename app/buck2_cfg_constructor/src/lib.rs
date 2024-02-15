@@ -70,7 +70,7 @@ pub(crate) struct CfgConstructor {
 
 async fn eval_pre_constraint_analysis<'v>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
@@ -129,7 +129,7 @@ async fn eval_pre_constraint_analysis<'v>(
 }
 
 async fn analyze_constraints(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     refs: Vec<String>,
 ) -> anyhow::Result<SmallMap<String, FrozenProviderCollectionValue>> {
     let res: SmallMap<String, FrozenProviderCollectionValue> =
@@ -166,7 +166,7 @@ async fn analyze_constraints(
 
 async fn eval_post_constraint_analysis<'v>(
     cfg_constructor_post_constraint_analysis: Value<'v>,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     params: Value<'v>,
     mut eval: Evaluator<'v, 'v>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
@@ -209,7 +209,7 @@ async fn eval_post_constraint_analysis<'v>(
 
 async fn eval_underlying(
     cfg_constructor: &CfgConstructor,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,

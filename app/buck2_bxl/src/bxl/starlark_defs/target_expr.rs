@@ -33,7 +33,7 @@ impl<'v, Node: QueryTarget> TargetExpr<'v, Node> {
 impl<'v> TargetExpr<'v, TargetNode> {
     pub(crate) async fn get_from_dice(
         &self,
-        dice: &DiceComputations,
+        dice: &DiceComputations<'_>,
     ) -> anyhow::Result<TargetNode> {
         match self {
             TargetExpr::Node(node) => Ok(node.dupe()),

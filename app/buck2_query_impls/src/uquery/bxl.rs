@@ -41,10 +41,10 @@ struct BxlUqueryFunctionsImpl {
 }
 
 impl BxlUqueryFunctionsImpl {
-    async fn uquery_delegate<'c>(
+    async fn uquery_delegate<'c, 'd>(
         &self,
-        dice: &'c mut DiceComputations,
-    ) -> anyhow::Result<DiceQueryDelegate<'c>> {
+        dice: &'c mut DiceComputations<'d>,
+    ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
         let cell_resolver = dice.get_cell_resolver().await?;
 
         let package_boundary_exceptions = dice.get_package_boundary_exceptions().await?;
@@ -67,9 +67,9 @@ impl BxlUqueryFunctionsImpl {
         ))
     }
 
-    async fn uquery_env<'c>(
+    async fn uquery_env<'c, 'd>(
         &self,
-        delegate: &'c DiceQueryDelegate<'c>,
+        delegate: &'c DiceQueryDelegate<'c, 'd>,
     ) -> anyhow::Result<UqueryEnvironment<'c>> {
         let literals = delegate.query_data().dupe();
         Ok(UqueryEnvironment::new(delegate, literals))
@@ -80,7 +80,7 @@ impl BxlUqueryFunctionsImpl {
 impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     async fn allpaths(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
@@ -94,7 +94,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn somepath(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
@@ -108,7 +108,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn deps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
@@ -125,7 +125,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn rdeps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         universe: &TargetSet<TargetNode>,
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
@@ -141,7 +141,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn testsof(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()
@@ -153,7 +153,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
     }
     async fn owner(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         Ok(uquery_functions()

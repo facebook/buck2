@@ -71,7 +71,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
     ags: &[ArtifactGroup],
     abs: bool,
     mut visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<()> {
     // If there's a case where a tset projection returns a projection, we want to make sure
     // we are not reprocessing the nested projection over again. Since we are using
@@ -136,7 +136,7 @@ impl<'v> EnsuredArtifactGroup<'v> {
     pub(crate) async fn visit_artifact_path_without_associated_deduped(
         &self,
         visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<()> {
         visit_artifact_path_without_associated_deduped(self.inner(), self.abs, visitor, ctx).await
     }

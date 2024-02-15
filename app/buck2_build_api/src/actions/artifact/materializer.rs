@@ -39,7 +39,7 @@ pub trait ArtifactMaterializer {
 }
 
 #[async_trait]
-impl ArtifactMaterializer for DiceComputations {
+impl ArtifactMaterializer for DiceComputations<'_> {
     async fn materialize(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;

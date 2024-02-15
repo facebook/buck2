@@ -22,7 +22,7 @@ pub trait TransitionCalculation: Send + Sync + 'static {
     /// Apply transition function to configuration and cache the result.
     async fn apply_transition(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target_node: TargetNodeRef<'_>,
         conf: &ConfigurationData,
         transition_id: &TransitionId,

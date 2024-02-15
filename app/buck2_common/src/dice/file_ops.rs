@@ -52,9 +52,9 @@ pub trait HasFileOps<'c> {
     fn file_ops(&'c self) -> Self::T;
 }
 
-impl<'c> HasFileOps<'c> for DiceComputations {
-    type T = DiceFileOps<'c>;
-    fn file_ops(&'c self) -> DiceFileOps<'c> {
+impl<'c, 'd: 'c> HasFileOps<'c> for DiceComputations<'d> {
+    type T = DiceFileOps<'c, 'd>;
+    fn file_ops(&'c self) -> DiceFileOps<'c, 'd> {
         DiceFileOps(self)
     }
 }
@@ -73,7 +73,7 @@ impl FileToken {
 }
 
 #[derive(Clone, Dupe, Allocative)]
-pub struct DiceFileOps<'c>(#[allocative(skip)] pub &'c DiceComputations);
+pub struct DiceFileOps<'c, 'd>(#[allocative(skip)] pub &'c DiceComputations<'d>);
 
 pub mod keys {
     use std::sync::Arc;
@@ -92,7 +92,9 @@ pub mod keys {
     pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOps>);
 }
 
-async fn get_default_file_ops(dice: &DiceComputations) -> buck2_error::Result<Arc<dyn FileOps>> {
+async fn get_default_file_ops(
+    dice: &DiceComputations<'_>,
+) -> buck2_error::Result<Arc<dyn FileOps>> {
     #[derive(Clone, Dupe, Derivative, Allocative)]
     #[derivative(PartialEq)]
     struct DiceFileOpsDelegate {
@@ -438,7 +440,7 @@ impl Key for PathMetadataKey {
 }
 
 #[async_trait]
-impl<'c> FileOps for DiceFileOps<'c> {
+impl<'c, 'd> FileOps for DiceFileOps<'c, 'd> {
     async fn read_file_if_exists(
         &self,
         path: CellPathRef<'async_trait>,

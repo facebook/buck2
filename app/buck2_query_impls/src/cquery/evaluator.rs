@@ -35,13 +35,13 @@ use crate::uquery::environment::PreresolvedQueryLiterals;
 use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
 
-pub(crate) struct CqueryEvaluator<'c> {
-    dice_query_delegate: DiceQueryDelegate<'c>,
+pub(crate) struct CqueryEvaluator<'c, 'd> {
+    dice_query_delegate: DiceQueryDelegate<'c, 'd>,
     functions: DefaultQueryFunctionsModule<CqueryEnvironment<'c>>,
     owner_behavior: CqueryOwnerBehavior,
 }
 
-impl CqueryEvaluator<'_> {
+impl CqueryEvaluator<'_, '_> {
     pub(crate) async fn eval_query<A: AsRef<str>, U: AsRef<str> + Send + Sync>(
         &self,
         query: &str,
@@ -80,7 +80,7 @@ impl CqueryEvaluator<'_> {
 }
 
 pub(crate) async fn preresolve_literals_and_build_universe(
-    dice_query_delegate: &DiceQueryDelegate<'_>,
+    dice_query_delegate: &DiceQueryDelegate<'_, '_>,
     dice_query_data: &DiceQueryData,
     literals: &[String],
 ) -> anyhow::Result<(
@@ -96,12 +96,12 @@ pub(crate) async fn preresolve_literals_and_build_universe(
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
-pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a>(
-    ctx: &'c DiceComputations,
+pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a, 'd>(
+    ctx: &'c DiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
     owner_behavior: CqueryOwnerBehavior,
-) -> anyhow::Result<CqueryEvaluator<'c>> {
+) -> anyhow::Result<CqueryEvaluator<'c, 'd>> {
     let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
     let functions = DefaultQueryFunctionsModule::new();
     Ok(CqueryEvaluator {
@@ -114,7 +114,7 @@ pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a>(
 // This will first resolve the universe to configured nodes and then gather all
 // the deps. From there, it resolves the literals to any matching nodes in the universe deps.
 async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
-    dice_query_delegate: &DiceQueryDelegate<'_>,
+    dice_query_delegate: &DiceQueryDelegate<'_, '_>,
     query_literals: Arc<DiceQueryData>,
     literals: &[L],
     universe: &[U],

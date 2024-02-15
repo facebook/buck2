@@ -41,7 +41,12 @@ pub trait BxlDiceComputations {
     // via() below provides a more useful api for consumers.
     fn via_impl<'a: 'b, 'b>(
         &'a mut self,
-        f: Box<dyn FnOnce(&'a mut DiceComputations) -> LocalBoxFuture<'a, anyhow::Result<()>> + 'b>,
+        f: Box<
+            dyn for<'d> FnOnce(
+                    &'a mut DiceComputations<'d>,
+                ) -> LocalBoxFuture<'a, anyhow::Result<()>>
+                + 'b,
+        >,
     ) -> anyhow::Result<()>;
 
     fn global_data(&self) -> &DiceData;
@@ -55,7 +60,8 @@ impl dyn BxlDiceComputations + '_ {
     pub fn via<'a, T: 'a>(
         &'a mut self,
         // The returned future as a 'a lifetime to allow people to capture things in the future with a matching lifetime to self.
-        f: impl FnOnce(&'a mut DiceComputations) -> LocalBoxFuture<'a, anyhow::Result<T>> + 'a,
+        f: impl for<'d> FnOnce(&'a mut DiceComputations<'d>) -> LocalBoxFuture<'a, anyhow::Result<T>>
+        + 'a,
     ) -> anyhow::Result<T> {
         // We can't capture a &mut res here in the closure unfortunately, so we need to do this little dance to get values out.
         let res: Rc<OnceCell<T>> = Rc::new(OnceCell::new());
@@ -71,10 +77,15 @@ impl dyn BxlDiceComputations + '_ {
     }
 }
 
-impl BxlDiceComputations for BxlSafeDiceComputations<'_> {
+impl BxlDiceComputations for BxlSafeDiceComputations<'_, '_> {
     fn via_impl<'a: 'b, 'b>(
         &'a mut self,
-        f: Box<dyn FnOnce(&'a mut DiceComputations) -> LocalBoxFuture<'a, anyhow::Result<()>> + 'b>,
+        f: Box<
+            dyn for<'d> FnOnce(
+                    &'a mut DiceComputations<'d>,
+                ) -> LocalBoxFuture<'a, anyhow::Result<()>>
+                + 'b,
+        >,
     ) -> anyhow::Result<()> {
         let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
 
@@ -106,10 +117,16 @@ impl BxlDiceComputations for BxlSafeDiceComputations<'_> {
     }
 }
 
-pub(crate) struct BxlSafeDiceComputations<'a>(&'a mut DiceComputations, CancellationObserver);
+pub(crate) struct BxlSafeDiceComputations<'a, 'd>(
+    &'a mut DiceComputations<'d>,
+    CancellationObserver,
+);
 
-impl<'a> BxlSafeDiceComputations<'a> {
-    pub(crate) fn new(dice: &'a mut DiceComputations, cancellation: CancellationObserver) -> Self {
+impl<'a, 'd> BxlSafeDiceComputations<'a, 'd> {
+    pub(crate) fn new(
+        dice: &'a mut DiceComputations<'d>,
+        cancellation: CancellationObserver,
+    ) -> Self {
         Self(dice, cancellation)
     }
 }

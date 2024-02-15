@@ -32,23 +32,23 @@ use indexmap::IndexMap;
 use crate::analysis::environment::get_from_template_placeholder_info;
 use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 
-pub(crate) struct AnalysisDiceQueryDelegate<'c> {
-    pub(crate) ctx: &'c DiceComputations,
+pub(crate) struct AnalysisDiceQueryDelegate<'c, 'd> {
+    pub(crate) ctx: &'c DiceComputations<'d>,
 }
 
-impl<'c> AnalysisDiceQueryDelegate<'c> {
-    pub(crate) fn ctx(&self) -> &DiceComputations {
+impl<'d> AnalysisDiceQueryDelegate<'_, 'd> {
+    pub(crate) fn ctx(&self) -> &DiceComputations<'d> {
         self.ctx
     }
 }
 
-pub(crate) struct AnalysisConfiguredGraphQueryDelegate<'a> {
-    pub(crate) dice_query_delegate: Arc<AnalysisDiceQueryDelegate<'a>>,
+pub(crate) struct AnalysisConfiguredGraphQueryDelegate<'a, 'd> {
+    pub(crate) dice_query_delegate: Arc<AnalysisDiceQueryDelegate<'a, 'd>>,
     pub(crate) resolved_literals: HashMap<String, ConfiguredTargetNode>,
 }
 
 #[async_trait]
-impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDelegate<'a> {
+impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDelegate<'_, '_> {
     fn eval_literal(&self, literal: &str) -> anyhow::Result<ConfiguredTargetNode> {
         self.resolved_literals
             .get(literal)

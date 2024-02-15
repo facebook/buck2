@@ -84,7 +84,7 @@ impl DiceTransactionUpdater {
 ///
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
 #[derive(Allocative, Clone, Dupe)]
-pub struct DiceTransaction(pub(crate) DiceTransactionImpl);
+pub struct DiceTransaction(pub(crate) DiceTransactionImpl<'static>);
 
 impl DiceTransaction {
     /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the
@@ -141,7 +141,7 @@ impl DiceEquivalent for DiceEquality {
 }
 
 impl Deref for DiceTransaction {
-    type Target = DiceComputations;
+    type Target = DiceComputations<'static>;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_computations()

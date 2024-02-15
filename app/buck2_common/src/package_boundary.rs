@@ -143,7 +143,7 @@ pub trait HasPackageBoundaryExceptions {
 }
 
 #[async_trait]
-impl HasPackageBoundaryExceptions for DiceComputations {
+impl HasPackageBoundaryExceptions for DiceComputations<'_> {
     async fn get_package_boundary_exceptions(
         &self,
     ) -> buck2_error::Result<Arc<PackageBoundaryExceptions>> {

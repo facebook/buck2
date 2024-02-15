@@ -620,8 +620,8 @@ enum TestDriverTask {
 }
 
 #[derive(Copy, Clone, Dupe)]
-pub(crate) struct TestDriverState<'a, 'e> {
-    ctx: &'a DiceComputations,
+pub(crate) struct TestDriverState<'a, 'e, 'd> {
+    ctx: &'a DiceComputations<'d>,
     label_filtering: &'a Arc<TestLabelFiltering>,
     global_cfg_options: &'a GlobalCfgOptions,
     session: &'a TestSession,
@@ -632,16 +632,16 @@ pub(crate) struct TestDriverState<'a, 'e> {
 }
 
 /// Maintains the state of an ongoing test execution.
-struct TestDriver<'a, 'e> {
-    state: TestDriverState<'a, 'e>,
+struct TestDriver<'a, 'e, 'd> {
+    state: TestDriverState<'a, 'e, 'd>,
     work: FuturesUnordered<BoxFuture<'a, anyhow::Result<Vec<TestDriverTask>>>>,
     labels_configured: HashSet<(ProvidersLabel, bool)>,
     labels_tested: HashSet<ConfiguredProvidersLabel>,
     build_errors: Vec<buck2_error::Error>,
 }
 
-impl<'a, 'e> TestDriver<'a, 'e> {
-    pub(crate) fn new(state: TestDriverState<'a, 'e>) -> Self {
+impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
+    pub(crate) fn new(state: TestDriverState<'a, 'e, 'd>) -> Self {
         Self {
             state,
             work: FuturesUnordered::new(),
@@ -847,7 +847,7 @@ fn spec_to_targets(
 }
 
 async fn test_target(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: ConfiguredProvidersLabel,
     test_executor: Arc<dyn TestExecutor + '_>,
     session: &TestSession,
@@ -906,7 +906,7 @@ fn skip_build_based_on_labels(
 }
 
 async fn build_artifacts(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     providers: &FrozenProviderCollection,
     label_filtering: &TestLabelFiltering,
 ) -> anyhow::Result<()> {

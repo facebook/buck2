@@ -233,7 +233,7 @@ pub trait HasActionExecutor {
 }
 
 #[async_trait]
-impl HasActionExecutor for DiceComputations {
+impl HasActionExecutor for DiceComputations<'_> {
     async fn get_action_executor(
         &self,
         executor_config: &CommandExecutorConfig,

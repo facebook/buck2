@@ -140,7 +140,7 @@ async fn targets_show_outputs(
 }
 
 async fn retrieve_targets_artifacts_from_patterns(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     global_cfg_options: &GlobalCfgOptions,
     parsed_patterns: &[ParsedPattern<ProvidersPatternExtra>],
     cell_resolver: &CellResolver,
@@ -152,7 +152,7 @@ async fn retrieve_targets_artifacts_from_patterns(
 }
 
 async fn retrieve_artifacts_for_targets(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
@@ -182,7 +182,7 @@ async fn retrieve_artifacts_for_targets(
 }
 
 async fn retrieve_artifacts_for_spec(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     package: PackageLabel,
     spec: PackageSpec<ProvidersPatternExtra>,
     global_cfg_options: &GlobalCfgOptions,
@@ -229,7 +229,7 @@ async fn retrieve_artifacts_for_spec(
 }
 
 async fn retrieve_artifacts_for_provider_label(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     providers_label: ProvidersLabel,
     global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<TargetsArtifacts> {

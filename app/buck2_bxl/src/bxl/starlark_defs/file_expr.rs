@@ -82,7 +82,7 @@ fn parse_cell_path_as_file_expr_literal(
 impl<'a> FileExpr<'a> {
     pub(crate) async fn get(
         self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         cell_instance: &CellInstance,
     ) -> anyhow::Result<CellPath> {
         match self {

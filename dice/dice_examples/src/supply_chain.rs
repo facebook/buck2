@@ -276,7 +276,7 @@ fn lookup_company_resource_cost<'a>(
 }
 
 #[async_trait]
-impl Cost for DiceComputations {
+impl Cost for DiceComputations<'_> {
     async fn resource_cost(
         &mut self,
         resource: &Resource,

@@ -88,7 +88,7 @@ enum CompatibilityConstraints {
 }
 
 async fn compute_platform_cfgs(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     node: TargetNodeRef<'_>,
 ) -> anyhow::Result<OrderedMap<TargetLabel, ConfigurationData>> {
     let mut platform_map = OrderedMap::new();
@@ -101,7 +101,7 @@ async fn compute_platform_cfgs(
 }
 
 async fn legacy_execution_platform(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     cfg: &ConfigurationNoExec,
 ) -> ExecutionPlatform {
     ExecutionPlatform::legacy_execution_platform(
@@ -129,7 +129,7 @@ enum PluginDepError {
 }
 
 pub async fn find_execution_platform_by_configuration(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     exec_cfg: &ConfigurationData,
     cfg: &ConfigurationData,
 ) -> buck2_error::Result<ExecutionPlatform> {
@@ -210,7 +210,7 @@ impl ExecutionPlatformConstraints {
 
     async fn toolchain_allows(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> buck2_error::Result<Arc<[ToolchainConstraints]>> {
         // We could merge these constraints together, but the time to do that
         // probably outweighs the benefits given there are likely to only be a few
@@ -224,7 +224,7 @@ impl ExecutionPlatformConstraints {
 
     async fn one(
         self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         node: TargetNodeRef<'_>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         let toolchain_allows = self.toolchain_allows(ctx).await?;
@@ -239,7 +239,7 @@ impl ExecutionPlatformConstraints {
 
     pub async fn one_for_cell(
         self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         cell: CellName,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         let toolchain_allows = self.toolchain_allows(ctx).await?;
@@ -254,7 +254,7 @@ impl ExecutionPlatformConstraints {
 }
 
 async fn execution_platforms_for_toolchain(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target: TargetConfiguredTargetLabel,
 ) -> buck2_error::Result<ToolchainConstraints> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
@@ -325,7 +325,7 @@ async fn execution_platforms_for_toolchain(
 }
 
 pub async fn get_execution_platform_toolchain_dep(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target_label: &TargetConfiguredTargetLabel,
     target_node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<MaybeCompatible<ExecutionPlatformResolution>> {
@@ -371,7 +371,7 @@ pub async fn get_execution_platform_toolchain_dep(
 }
 
 async fn resolve_execution_platform(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     node: TargetNodeRef<'_>,
     resolved_configuration: &ResolvedConfiguration,
     gathered_deps: &GatheredDeps,
@@ -557,7 +557,7 @@ fn check_compatible(
 /// implement. Naively implementing this check on unconfigured nodes doesn't work because it results
 /// in dice cycles when there are cycles in the unconfigured graph.
 async fn check_plugin_deps(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     target_label: &ConfiguredTargetLabel,
     plugin_deps: &PluginLists,
 ) -> anyhow::Result<()> {
@@ -670,7 +670,7 @@ async fn gather_deps(
     target_label: &TargetConfiguredTargetLabel,
     target_node: TargetNodeRef<'_>,
     attr_cfg_ctx: &(dyn AttrConfigurationContext + Sync),
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<(GatheredDeps, ErrorsAndIncompatibilities)> {
     #[derive(Default)]
     struct Traversal {
@@ -790,7 +790,7 @@ async fn gather_deps(
 async fn compute_configured_target_node_no_transition(
     target_label: &ConfiguredTargetLabel,
     target_node: TargetNode,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     let partial_target_label =
         &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
@@ -949,7 +949,7 @@ async fn compute_configured_target_node_no_transition(
 /// Forward node is returned.
 async fn compute_configured_target_node_with_transition(
     key: &ConfiguredTransitionedNodeKey,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     assert_eq!(
         key.forward.unconfigured(),
@@ -973,7 +973,7 @@ async fn compute_configured_target_node_with_transition(
 
 async fn compute_configured_target_node(
     key: &ConfiguredTargetNodeKey,
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     let target_node = ctx
         .get_target_node(key.0.unconfigured())
@@ -1073,7 +1073,7 @@ pub(crate) fn init_configured_target_node_calculation() {
 impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInstance {
     async fn get_configured_target_node(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         #[async_trait]

@@ -136,8 +136,8 @@ impl LiteralParser {
 
 /// A Uquery delegate that resolves TargetNodes with the provided
 /// InterpreterCalculation.
-pub(crate) struct DiceQueryDelegate<'c> {
-    ctx: &'c DiceComputations,
+pub(crate) struct DiceQueryDelegate<'c, 'd> {
+    ctx: &'c DiceComputations<'d>,
     cell_resolver: CellResolver,
     query_data: Arc<DiceQueryData>,
     package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
@@ -186,9 +186,9 @@ impl DiceQueryData {
     }
 }
 
-impl<'c> DiceQueryDelegate<'c> {
+impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
     pub(crate) fn new(
-        ctx: &'c DiceComputations,
+        ctx: &'c DiceComputations<'d>,
         cell_resolver: CellResolver,
         package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
         query_data: Arc<DiceQueryData>,
@@ -201,7 +201,7 @@ impl<'c> DiceQueryDelegate<'c> {
         }
     }
 
-    pub(crate) fn ctx(&self) -> &'c DiceComputations {
+    pub(crate) fn ctx(&self) -> &'c DiceComputations<'d> {
         self.ctx
     }
 
@@ -211,7 +211,7 @@ impl<'c> DiceQueryDelegate<'c> {
 }
 
 #[async_trait]
-impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
+impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     async fn eval_build_file(
         &self,
         package: PackageLabel,
@@ -280,7 +280,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
 }
 
 #[async_trait]
-impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
+impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     fn uquery_delegate(&self) -> &dyn UqueryDelegate {
         self
     }
@@ -334,7 +334,7 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         load_compatible_patterns(
@@ -352,7 +352,7 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let loaded_patterns =
@@ -365,11 +365,11 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
     }
 }
 
-pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a>(
-    ctx: &'c DiceComputations,
+pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
+    ctx: &'c DiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<DiceQueryDelegate<'c>> {
+) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
     let target_alias_resolver = ctx

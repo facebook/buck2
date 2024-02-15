@@ -117,7 +117,7 @@ impl DiceComputationsImpl {
             .into_iter()
             .map(|work| {
                 OwningFuture::new(
-                    DiceComputationsParallel::new(DiceComputations(self.dupe())),
+                    DiceComputationsParallel::new(DiceComputations::new(self.dupe())),
                     work,
                 )
             })
@@ -131,11 +131,11 @@ impl DiceComputationsImpl {
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         (
             OwningFuture::new(
-                DiceComputationsParallel::new(DiceComputations(self.dupe())),
+                DiceComputationsParallel::new(DiceComputations::new(self.dupe())),
                 compute1,
             ),
             OwningFuture::new(
-                DiceComputationsParallel::new(DiceComputations(self.dupe())),
+                DiceComputationsParallel::new(DiceComputations::new(self.dupe())),
                 compute2,
             ),
         )

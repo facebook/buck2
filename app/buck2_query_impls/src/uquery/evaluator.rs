@@ -25,12 +25,12 @@ use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::PreresolvedQueryLiterals;
 use crate::uquery::environment::UqueryEnvironment;
 
-pub(crate) struct UqueryEvaluator<'c> {
-    dice_query_delegate: DiceQueryDelegate<'c>,
+pub(crate) struct UqueryEvaluator<'c, 'd> {
+    dice_query_delegate: DiceQueryDelegate<'c, 'd>,
     functions: DefaultQueryFunctionsModule<UqueryEnvironment<'c>>,
 }
 
-impl UqueryEvaluator<'_> {
+impl UqueryEvaluator<'_, '_> {
     pub(crate) async fn eval_query(
         &self,
         query: &str,
@@ -64,11 +64,11 @@ impl UqueryEvaluator<'_> {
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
-pub(crate) async fn get_uquery_evaluator<'a, 'c: 'a>(
-    ctx: &'c DiceComputations,
+pub(crate) async fn get_uquery_evaluator<'a, 'c: 'a, 'd>(
+    ctx: &'c DiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<UqueryEvaluator<'c>> {
+) -> anyhow::Result<UqueryEvaluator<'c, 'd>> {
     let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
     let functions = DefaultQueryFunctionsModule::new();
 

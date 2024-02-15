@@ -90,7 +90,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         arg: ConfiguredProvidersExprArg<'v>,
         global_cfg_options_override: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
-        dice: &'c DiceComputations,
+        dice: &'c DiceComputations<'_>,
     ) -> anyhow::Result<Self> {
         match arg {
             ConfiguredProvidersExprArg::One(arg) => Ok(ProvidersExpr::Literal(
@@ -106,7 +106,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         arg: ConfiguredProvidersLabelArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
-        dice: &'c DiceComputations,
+        dice: &'c DiceComputations<'_>,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
         match arg {
             ConfiguredProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
@@ -136,7 +136,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         arg: ConfiguredProvidersLabelListArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &'c BxlContextNoDice<'_>,
-        dice: &'c DiceComputations,
+        dice: &'c DiceComputations<'_>,
     ) -> anyhow::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
         match arg {
             ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(

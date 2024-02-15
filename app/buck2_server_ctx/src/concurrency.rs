@@ -248,7 +248,7 @@ pub trait DiceUpdater: Send + Sync {
 
 #[async_trait]
 pub trait DiceDataProvider: Send + Sync + 'static {
-    async fn provide(&self, ctx: &DiceComputations) -> anyhow::Result<UserComputationData>;
+    async fn provide(&self, ctx: &DiceComputations<'_>) -> anyhow::Result<UserComputationData>;
 }
 
 #[derive(Allocative)]
@@ -739,7 +739,10 @@ mod tests {
 
     #[async_trait]
     impl DiceDataProvider for TestDiceDataProvider {
-        async fn provide(&self, _ctx: &DiceComputations) -> anyhow::Result<UserComputationData> {
+        async fn provide(
+            &self,
+            _ctx: &DiceComputations<'_>,
+        ) -> anyhow::Result<UserComputationData> {
             Ok(Default::default())
         }
     }

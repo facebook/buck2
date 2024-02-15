@@ -137,7 +137,10 @@ impl<'v> BxlFilesystem<'v> {
 }
 
 #[async_recursion]
-async fn try_exists<'v>(file_ops: &DiceFileOps<'v>, path: CellPathRef<'v>) -> anyhow::Result<bool> {
+async fn try_exists<'v>(
+    file_ops: &DiceFileOps<'v, '_>,
+    path: CellPathRef<'v>,
+) -> anyhow::Result<bool> {
     match file_ops.read_path_metadata_if_exists(path).await? {
         Some(path) => match PathMetadataOrRedirection::from(path) {
             PathMetadataOrRedirection::PathMetadata(_) => Ok(true),

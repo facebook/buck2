@@ -272,14 +272,14 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
 }
 
 async fn dice_lookup_transitive_set(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     key: TransitiveSetKey,
 ) -> anyhow::Result<DeferredValueReady<DeferredTransitiveSetData>> {
     ctx.compute_deferred_data(&key).await
 }
 
 async fn get_template_info_provider_artifacts(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     configured_label: &ConfiguredTargetLabel,
     template_name: &str,
 ) -> anyhow::Result<Vec<ArtifactGroup>> {
@@ -331,7 +331,7 @@ async fn get_template_info_provider_artifacts(
 }
 
 pub(crate) async fn get_from_template_placeholder_info<'x>(
-    ctx: &'x DiceComputations,
+    ctx: &'x DiceComputations<'_>,
     template_name: &'static str,
     targets: impl IntoIterator<Item = ConfiguredTargetLabel>,
 ) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {

@@ -469,7 +469,7 @@ struct CellConfigLoader {
 impl CellConfigLoader {
     pub async fn cells_and_configs(
         &self,
-        dice_ctx: &DiceComputations,
+        dice_ctx: &DiceComputations<'_>,
     ) -> buck2_error::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
         self.loaded_cell_configs
             .get_or_init(async move {
@@ -530,7 +530,7 @@ struct DiceCommandDataProvider {
 
 #[async_trait]
 impl DiceDataProvider for DiceCommandDataProvider {
-    async fn provide(&self, ctx: &DiceComputations) -> anyhow::Result<UserComputationData> {
+    async fn provide(&self, ctx: &DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
         let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) =
             self.cell_configs_loader.cells_and_configs(ctx).await?;
 
@@ -853,7 +853,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     /// section
     async fn config_metadata(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();

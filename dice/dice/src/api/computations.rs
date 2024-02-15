@@ -37,14 +37,18 @@ use crate::UserCycleDetectorGuard;
 /// owned.
 #[derive(Allocative)]
 #[repr(transparent)]
-pub struct DiceComputations(pub(crate) DiceComputationsImpl);
+pub struct DiceComputations<'a>(pub(crate) DiceComputationsImpl, PhantomData<&'a ()>);
 
 fn _test_computations_sync_send() {
     fn _assert_sync_send<T: Sync + Send>() {}
     _assert_sync_send::<DiceComputations>();
 }
 
-impl DiceComputations {
+impl DiceComputations<'_> {
+    pub(crate) fn new(inner: DiceComputationsImpl) -> Self {
+        Self(inner, PhantomData)
+    }
+
     /// Gets the result of the given computation key.
     /// Record dependencies of the current computation for which this
     /// context is for.
@@ -156,16 +160,16 @@ impl DiceComputations {
 /// introduce an extra lifetime here which forces rust compiler to infer additional bounds on
 /// the `for <'x>` as a `&'x DiceComputationParallel<'a>` cannot live more than `'a`, so using this
 /// type as the argument to the closure forces the correct lifetime bounds to be inferred by rust.
-pub struct DiceComputationsParallel<'a>(pub(crate) DiceComputations, PhantomData<&'a ()>);
+pub struct DiceComputationsParallel<'a>(pub(crate) DiceComputations<'a>);
 
 impl<'a> DiceComputationsParallel<'a> {
-    pub(crate) fn new(ctx: DiceComputations) -> Self {
-        Self(ctx, PhantomData)
+    pub(crate) fn new(ctx: DiceComputations<'a>) -> Self {
+        Self(ctx)
     }
 }
 
 impl<'a> Deref for DiceComputationsParallel<'a> {
-    type Target = DiceComputations;
+    type Target = DiceComputations<'a>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

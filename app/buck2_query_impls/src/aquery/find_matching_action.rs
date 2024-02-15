@@ -53,7 +53,7 @@ fn check_output_path<'v>(
 }
 
 async fn find_matching_action(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     working_dir: &ProjectRelativePath,
     global_cfg_options: &GlobalCfgOptions,
     analysis: &AnalysisResult,

@@ -42,7 +42,7 @@ pub static EVAL_ANALYSIS_QUERY: LateBinding<
 pub trait RuleAnalsysisCalculationImpl: Send + Sync + 'static {
     async fn get_analysis_result(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
 }
@@ -75,7 +75,7 @@ pub trait RuleAnalysisCalculation {
 }
 
 #[async_trait]
-impl RuleAnalysisCalculation for DiceComputations {
+impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_analysis_result(
         &self,
         target: &ConfiguredTargetLabel,

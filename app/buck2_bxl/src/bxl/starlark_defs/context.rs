@@ -255,7 +255,7 @@ pub(crate) struct BxlContextCoreData {
 }
 
 impl BxlContextCoreData {
-    pub(crate) async fn new(key: BxlKey, dice: &mut DiceComputations) -> anyhow::Result<Self> {
+    pub(crate) async fn new(key: BxlKey, dice: &mut DiceComputations<'_>) -> anyhow::Result<Self> {
         let label = key.label();
         let cell_resolver = dice.get_cell_resolver().await?;
         let cell = label.bxl_path.cell();
@@ -304,7 +304,7 @@ impl<'v> BxlContext<'v> {
         heap: &'v Heap,
         core: BxlContextCoreData,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
-        async_ctx: BxlSafeDiceComputations<'v>,
+        async_ctx: BxlSafeDiceComputations<'v, '_>,
         output_sink: RefCell<Box<dyn Write>>,
         error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
@@ -350,7 +350,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn new_dynamic(
         heap: &'v Heap,
         core: BxlContextCoreData,
-        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v>>>,
+        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         dynamic_data: DynamicBxlContextData,
@@ -521,7 +521,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     dynamic_lambda: &'v DynamicLambda,
     deferred_ctx: &'v mut dyn DeferredCtx,
-    dice_ctx: &'v mut DiceComputations,
+    dice_ctx: &'v mut DiceComputations<'_>,
 ) -> anyhow::Result<Vec<ActionKey>> {
     // TODO(wendyy) emit telemetry, support profiler
     let liveness = deferred_ctx.liveness();
@@ -596,7 +596,7 @@ impl BxlEvalContext<'_> {
     fn do_eval(
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Vec<ActionKey>> {
         let env = Module::new();
 

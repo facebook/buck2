@@ -20,7 +20,7 @@ use dice::DiceComputations;
 pub trait ConfiguredTargetCalculationImpl: Send + Sync + 'static {
     async fn get_configured_target(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target: &TargetLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
@@ -62,7 +62,7 @@ pub trait ConfiguredTargetCalculation {
 }
 
 #[async_trait]
-impl ConfiguredTargetCalculation for DiceComputations {
+impl ConfiguredTargetCalculation for DiceComputations<'_> {
     async fn get_configured_target(
         &self,
         target: &TargetLabel,

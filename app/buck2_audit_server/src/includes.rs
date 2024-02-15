@@ -60,7 +60,7 @@ enum AuditIncludesError {
 }
 
 async fn get_transitive_includes(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
     load_result: &EvaluationResult,
 ) -> anyhow::Result<Vec<ImportPath>> {
     // We define a simple graph of LoadedModules to traverse.
@@ -90,12 +90,12 @@ async fn get_transitive_includes(
         }
     }
 
-    struct Lookup<'a> {
-        ctx: &'a DiceComputations,
+    struct Lookup<'a, 'd> {
+        ctx: &'a DiceComputations<'d>,
     }
 
     #[async_trait]
-    impl AsyncNodeLookup<Node> for Lookup<'_> {
+    impl AsyncNodeLookup<Node> for Lookup<'_, '_> {
         async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
             Ok(Node(
                 self.ctx
@@ -139,7 +139,7 @@ async fn get_transitive_includes(
 }
 
 async fn load_and_collect_includes(
-    ctx: &mut DiceComputations,
+    ctx: &mut DiceComputations<'_>,
     path: &CellPath,
 ) -> buck2_error::Result<Vec<ImportPath>> {
     let parent = path

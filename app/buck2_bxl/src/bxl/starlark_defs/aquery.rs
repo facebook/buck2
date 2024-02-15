@@ -140,7 +140,7 @@ enum UnpackActionNodes<'v> {
 // run analysis on them to construct the `ActionQueryNode`s.
 async fn unpack_action_nodes<'v>(
     this: &StarlarkAQueryCtx<'v>,
-    dice: &mut DiceComputations,
+    dice: &mut DiceComputations<'_>,
     expr: UnpackActionNodes<'v>,
 ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
     let aquery_env = get_aquery_env(&this.ctx.data, &this.global_cfg_options_override).await?;

@@ -40,8 +40,8 @@ pub trait HasPackageListingResolver<'c> {
 }
 
 #[async_trait]
-impl<'c> HasPackageListingResolver<'c> for DiceComputations {
-    type PL = DicePackageListingResolver<'c>;
+impl<'c, 'd: 'c> HasPackageListingResolver<'c> for DiceComputations<'d> {
+    type PL = DicePackageListingResolver<'c, 'd>;
     fn get_package_listing_resolver(&'c self) -> Self::PL {
         DicePackageListingResolver(self)
     }
@@ -109,10 +109,10 @@ impl Key for PackageListingKey {
 }
 
 #[derive(Clone, Dupe)]
-pub struct DicePackageListingResolver<'compute>(&'compute DiceComputations);
+pub struct DicePackageListingResolver<'compute, 'dice>(&'compute DiceComputations<'dice>);
 
 #[async_trait]
-impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
+impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
     async fn resolve(&self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
         self.0.compute(&PackageListingKey(package.dupe())).await?
     }

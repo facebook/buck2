@@ -36,7 +36,7 @@ use dupe::OptionDupedExt;
 pub struct CfgConstructorCalculationInstance;
 
 async fn get_cfg_constructor_uncached(
-    ctx: &DiceComputations,
+    ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
     let root_cell = ctx.get_cell_resolver().await?.root_cell();
     let package_file_path =
@@ -50,7 +50,7 @@ async fn get_cfg_constructor_uncached(
 impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
     async fn get_cfg_constructor(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         struct GetCfgConstructorKey;
@@ -81,7 +81,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
 
     async fn eval_cfg_constructor(
         &self,
-        ctx: &DiceComputations,
+        ctx: &DiceComputations<'_>,
         target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,

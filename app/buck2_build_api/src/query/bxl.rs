@@ -32,44 +32,44 @@ use crate::actions::query::ActionQueryNode;
 pub trait BxlCqueryFunctions: Send {
     async fn allpaths(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn somepath(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn owner(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn deps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn rdeps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         universe: &TargetSet<ConfiguredTargetNode>,
         targets: &TargetSet<ConfiguredTargetNode>,
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn testsof(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn testsof_with_default_target_platform(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>>;
 }
@@ -78,38 +78,38 @@ pub trait BxlCqueryFunctions: Send {
 pub trait BxlUqueryFunctions: Send {
     async fn allpaths(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn somepath(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn deps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn rdeps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         universe: &TargetSet<TargetNode>,
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn testsof(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn owner(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
 }
@@ -118,53 +118,53 @@ pub trait BxlUqueryFunctions: Send {
 pub trait BxlAqueryFunctions: Send {
     async fn allpaths(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn somepath(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn deps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn rdeps(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         universe: &TargetSet<ActionQueryNode>,
         targets: &TargetSet<ActionQueryNode>,
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn testsof(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn owner(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn get_target_set(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         configured_labels: Vec<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)>;
     async fn all_outputs(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn all_actions(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
 }
