@@ -290,14 +290,21 @@ def _python_executable_attrs():
         """,
         ),
         "make_py_package": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        # entries for the generated __manifest__ python module
-        "manifest_module_entries": attrs.option(attrs.dict(
-            key = attrs.string(),
-            value = attrs.one_of(
-                attrs.dict(key = attrs.string(), value = attrs.option(attrs.any())),
-                attrs.list(attrs.string()),
+        "manifest_module_entries": attrs.option(
+            attrs.dict(
+                key = attrs.string(),
+                value = attrs.one_of(
+                    attrs.dict(key = attrs.string(), value = attrs.option(attrs.any())),
+                    attrs.list(attrs.string()),
+                ),
             ),
-        ), default = None),
+            default = None,
+            doc = """If present, it should be a `string` -> `entry` mapping that
+            gets generated into a `__manifest__` module in the executable. Top
+            level string keys will be the names of variables in this module (so
+            they must be valid Python identifiers). An `entry` can be a list of
+            `string`s, or a further `string`-keyed dictionary.""",
+        ),
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "par_style": attrs.option(attrs.string(), default = None),
