@@ -103,8 +103,20 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc_typed(StarlarkTargetSet::from(this.target_set.clone())))
     }
 
-    // Looks up valid configured target nodes within the universe. The targets passed in are either string literals,
-    // unconfigured target nodes, or unconfigured target labels.
+    /// The target set of the entire target universe.
+    fn universe_target_set<'v>(
+        this: &'v StarlarkTargetUniverse<'v>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        Ok(StarlarkTargetSet::from(
+            this.target_universe
+                .iter()
+                .map(|node| node.to_owned())
+                .collect::<TargetSet<_>>(),
+        ))
+    }
+
+    /// Looks up valid configured target nodes within the universe. The targets passed in are either string literals,
+    /// unconfigured target nodes, or unconfigured target labels.
     fn lookup<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
         targets: TargetListExprArg<'v>,
