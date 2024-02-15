@@ -32,7 +32,7 @@ impl AuditSubcommand for AuditPreludeCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |_server_ctx, ctx| {
+            .with_dice_ctx(async move |_server_ctx, mut ctx| {
                 let mut stdout = stdout.as_writer();
                 // Print out all the Prelude-like stuff that is loaded into each module
                 let cell_resolver = ctx.get_cell_resolver().await?;
@@ -42,7 +42,7 @@ impl AuditSubcommand for AuditPreludeCommand {
                     "{}",
                     INTERPRETER_CALCULATION_IMPL
                         .get()?
-                        .global_env_for_file_type(&ctx, StarlarkFileType::Buck)
+                        .global_env_for_file_type(&mut ctx, StarlarkFileType::Buck)
                         .await?
                         .describe()
                 )?;

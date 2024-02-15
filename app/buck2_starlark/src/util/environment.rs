@@ -35,7 +35,7 @@ impl Environment {
     pub(crate) async fn new(
         cell: CellName,
         path_type: StarlarkFileType,
-        dice: &DiceTransaction,
+        dice: &mut DiceTransaction,
     ) -> anyhow::Result<Environment> {
         // Find the information from the globals
         let globals = INTERPRETER_CALCULATION_IMPL

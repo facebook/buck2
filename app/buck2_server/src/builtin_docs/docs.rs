@@ -269,7 +269,7 @@ impl Format {
 
 async fn docs(
     server_ctx: &dyn ServerCommandContextTrait,
-    dice_ctx: DiceTransaction,
+    mut dice_ctx: DiceTransaction,
     request: &UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {
     let format = Format::from_proto(request)?;

@@ -197,7 +197,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 
     async fn global_env_for_file_type(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         file_type: StarlarkFileType,
     ) -> anyhow::Result<Globals> {
         Ok(ctx
@@ -209,7 +209,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 
     async fn prelude_import(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Option<PreludePath>> {
         Ok(ctx
             .get_global_interpreter_state()

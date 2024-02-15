@@ -77,7 +77,9 @@ impl<'a> Cache<'a> {
         match self.oracle.get(&(cell, path_type)) {
             Some(g) => Ok(g.dupe()),
             None => {
-                let globals = Environment::new(cell, path_type, self.dice).await?.globals;
+                let globals = Environment::new(cell, path_type, &mut self.dice.clone())
+                    .await?
+                    .globals;
                 self.oracle.insert((cell, path_type), globals.dupe());
                 Ok(globals)
             }

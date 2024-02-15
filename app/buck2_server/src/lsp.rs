@@ -100,9 +100,9 @@ struct DocsCacheManager {
 }
 
 impl DocsCacheManager {
-    async fn new(fs: ProjectRoot, dice_ctx: DiceTransaction) -> anyhow::Result<Self> {
+    async fn new(fs: ProjectRoot, mut dice_ctx: DiceTransaction) -> anyhow::Result<Self> {
         Ok(Self {
-            docs_cache: Mutex::new(Self::new_docs_cache(&fs, &dice_ctx).await?),
+            docs_cache: Mutex::new(Self::new_docs_cache(&fs, &mut dice_ctx).await?),
             fs,
             valid_at: dice_ctx.equality_token(),
         })
@@ -110,7 +110,7 @@ impl DocsCacheManager {
 
     async fn get_cache(
         &self,
-        current_dice_ctx: DiceTransaction,
+        mut current_dice_ctx: DiceTransaction,
     ) -> anyhow::Result<MutexGuard<DocsCache>> {
         let mut docs_cache = self.docs_cache.lock().await;
 
@@ -118,7 +118,7 @@ impl DocsCacheManager {
         match self.is_reusable(&current_dice_ctx) {
             true => (),
             false => {
-                let new_docs_cache = Self::new_docs_cache(fs, &current_dice_ctx).await?;
+                let new_docs_cache = Self::new_docs_cache(fs, &mut current_dice_ctx).await?;
                 *docs_cache = new_docs_cache
             }
         };
@@ -132,7 +132,7 @@ impl DocsCacheManager {
 
     async fn new_docs_cache<'v>(
         fs: &ProjectRoot,
-        dice_ctx: &DiceTransaction,
+        dice_ctx: &mut DiceTransaction,
     ) -> anyhow::Result<DocsCache> {
         fn flatten(docs: Vec<Doc>) -> Vec<Doc> {
             docs.into_iter()

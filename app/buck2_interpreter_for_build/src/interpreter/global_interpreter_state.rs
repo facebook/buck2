@@ -116,12 +116,15 @@ impl GlobalInterpreterState {
 
 #[async_trait]
 pub trait HasGlobalInterpreterState {
-    async fn get_global_interpreter_state(&self) -> anyhow::Result<Arc<GlobalInterpreterState>>;
+    async fn get_global_interpreter_state(&mut self)
+    -> anyhow::Result<Arc<GlobalInterpreterState>>;
 }
 
 #[async_trait]
 impl HasGlobalInterpreterState for DiceComputations<'_> {
-    async fn get_global_interpreter_state(&self) -> anyhow::Result<Arc<GlobalInterpreterState>> {
+    async fn get_global_interpreter_state(
+        &mut self,
+    ) -> anyhow::Result<Arc<GlobalInterpreterState>> {
         #[derive(Clone, Dupe, Allocative)]
         struct GisValue(Arc<GlobalInterpreterState>);
 
@@ -166,6 +169,6 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
             }
         }
 
-        Ok(self.bad_dice().compute(&GisKey()).await??.0)
+        Ok(self.compute(&GisKey()).await??.0)
     }
 }

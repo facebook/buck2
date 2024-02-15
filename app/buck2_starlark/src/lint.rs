@@ -74,7 +74,7 @@ impl<'a> Cache<'a> {
         if let Some(res) = self.cached.get(&(cell, path_type)) {
             return Ok(res.dupe());
         }
-        let env: Environment = Environment::new(cell, path_type, self.dice).await?;
+        let env: Environment = Environment::new(cell, path_type, &mut self.dice.clone()).await?;
         let res = Arc::new(env.get_names(path_type, self.dice).await?);
         self.cached.insert((cell, path_type), res.dupe());
         Ok(res)

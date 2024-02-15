@@ -46,13 +46,13 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
 
     async fn global_env_for_file_type(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         file_type: StarlarkFileType,
     ) -> anyhow::Result<Globals>;
 
     async fn prelude_import(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Option<PreludePath>>;
 }
 
