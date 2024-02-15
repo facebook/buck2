@@ -320,7 +320,8 @@ async fn execution_platforms_for_toolchain(
         }
     }
 
-    ctx.compute(&ExecutionPlatformsForToolchainKey(target))
+    ctx.bad_dice()
+        .compute(&ExecutionPlatformsForToolchainKey(target))
         .await?
 }
 
@@ -1036,6 +1037,7 @@ async fn compute_configured_target_node(
             compute_configured_target_node_no_transition(&key.0, target_node.dupe(), ctx).await
         } else {
             Ok(ctx
+                .bad_dice()
                 .compute(&ConfiguredTransitionedNodeKey {
                     forward: key.0.dupe(),
                     transitioned: configured_target_label,
@@ -1096,7 +1098,8 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
             }
         }
 
-        ctx.compute(&ConfiguredTargetNodeKey(target.dupe()))
+        ctx.bad_dice()
+            .compute(&ConfiguredTargetNodeKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)
     }

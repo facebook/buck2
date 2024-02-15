@@ -166,6 +166,6 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
             }
         }
 
-        Ok(self.compute(&GisKey()).await??.0)
+        Ok(self.bad_dice().compute(&GisKey()).await??.0)
     }
 }

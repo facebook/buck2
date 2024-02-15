@@ -172,6 +172,7 @@ impl HasTargetAliasResolver for DiceComputations<'_> {
         cell_name: CellName,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         Ok(self
+            .bad_dice()
             .compute(&TargetAliasResolverKey { cell_name })
             .await??)
     }

@@ -114,7 +114,8 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
             }
         }
 
-        ctx.compute(&AnalysisKey(target.dupe()))
+        ctx.bad_dice()
+            .compute(&AnalysisKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)
     }

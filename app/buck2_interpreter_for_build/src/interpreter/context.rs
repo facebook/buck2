@@ -39,7 +39,7 @@ pub trait HasInterpreterContext {
 #[async_trait]
 impl HasInterpreterContext for DiceComputations<'_> {
     async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<BuildInterpreterConfiguror>> {
-        Ok(self.compute(&BuildContextKey()).await?.dupe())
+        Ok(self.bad_dice().compute(&BuildContextKey()).await?.dupe())
     }
 }
 

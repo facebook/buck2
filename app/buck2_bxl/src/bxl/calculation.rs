@@ -46,7 +46,8 @@ pub(crate) async fn eval_bxl(
     ctx: &DiceComputations<'_>,
     bxl: BxlKey,
 ) -> anyhow::Result<BxlComputeResult> {
-    ctx.compute(&internal::BxlComputeKey(bxl))
+    ctx.bad_dice()
+        .compute(&internal::BxlComputeKey(bxl))
         .await?
         .map_err(anyhow::Error::from)
 }

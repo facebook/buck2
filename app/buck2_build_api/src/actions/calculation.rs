@@ -103,7 +103,7 @@ async fn build_action_no_redirect(
             .map(|v| async {
                 let resolved = v.resolved_artifact(ctx).await?;
                 anyhow::Ok(
-                    ensure_artifact_group_staged(ctx, resolved.clone())
+                    ensure_artifact_group_staged(&mut ctx.bad_dice(), resolved.clone())
                         .await?
                         .to_group_values(&resolved)?,
                 )
@@ -394,7 +394,8 @@ impl ActionCalculation for DiceComputations<'_> {
         // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
-        self.compute(&BuildKey(action_key))
+        self.bad_dice()
+            .compute(&BuildKey(action_key))
             .map(|v| v?.map_err(anyhow::Error::from))
             .await
     }

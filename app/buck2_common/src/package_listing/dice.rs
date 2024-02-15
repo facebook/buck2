@@ -114,7 +114,10 @@ pub struct DicePackageListingResolver<'compute, 'dice>(&'compute DiceComputation
 #[async_trait]
 impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
     async fn resolve(&self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
-        self.0.compute(&PackageListingKey(package.dupe())).await?
+        self.0
+            .bad_dice()
+            .compute(&PackageListingKey(package.dupe()))
+            .await?
     }
 
     async fn get_enclosing_package(

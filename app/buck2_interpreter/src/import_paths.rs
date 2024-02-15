@@ -120,7 +120,8 @@ impl HasImportPaths for DiceComputations<'_> {
             }
         }
 
-        self.compute(&ImportPathsKey { cell_name })
+        self.bad_dice()
+            .compute(&ImportPathsKey { cell_name })
             .await?
             .map_err(anyhow::Error::from)
     }

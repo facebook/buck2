@@ -124,6 +124,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 
         let file_ops = self.file_ops();
         let configs = self
+            .bad_dice()
             .compute(&InterpreterConfigForCellKey(cell, build_file_cell))
             .await??;
 
@@ -193,6 +194,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
+            .bad_dice()
             .compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
             .map_err(anyhow::Error::from)
@@ -419,6 +421,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
+            .bad_dice()
             .compute(&PackageFileKey(path.clone()))
             .await?
             .map_err(anyhow::Error::from)
@@ -528,6 +531,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
+            .bad_dice()
             .compute(&StarlarkStackSizeChecker)
             .await?
             .map_err(anyhow::Error::from)

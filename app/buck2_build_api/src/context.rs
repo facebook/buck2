@@ -50,7 +50,7 @@ impl InjectedKey for BuildDataKey {
 #[async_trait]
 impl HasBuildContextData for DiceComputations<'_> {
     async fn get_buck_out_path(&self) -> anyhow::Result<BuckOutPathResolver> {
-        let data = self.compute(&BuildDataKey).await?;
+        let data = self.bad_dice().compute(&BuildDataKey).await?;
         Ok(BuckOutPathResolver::new(data.buck_out_path.to_buf()))
     }
 }

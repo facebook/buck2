@@ -210,7 +210,7 @@ async fn smoke() -> anyhow::Result<()> {
         ..Default::default()
     });
 
-    let ctx = ctx.commit().await;
+    let mut ctx = ctx.commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -243,7 +243,7 @@ async fn smoke() -> anyhow::Result<()> {
     data.data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let ctx = dice.updater_with_data(data).commit().await;
+    let mut ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -275,7 +275,7 @@ async fn smoke() -> anyhow::Result<()> {
             ("y".to_owned(), "Y".to_owned()),
         ]),
     });
-    let ctx = dice.updater_with_data(data).commit().await;
+    let mut ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -388,7 +388,7 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
 
     let mut updater = dice.updater();
     updater.changed_to([(BaseKey, 1)])?;
-    let ctx = updater.commit().await;
+    let mut ctx = updater.commit().await;
 
     assert_eq!(ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
     assert!(is_ran.load(Ordering::SeqCst));

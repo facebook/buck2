@@ -76,12 +76,17 @@ pub trait GetStarlarkTypes {
 impl GetStarlarkTypes for DiceComputations<'_> {
     async fn get_disable_starlark_types(&self) -> anyhow::Result<bool> {
         Ok(self
+            .bad_dice()
             .compute(&StarlarkTypesKey)
             .await?
             .disable_starlark_types)
     }
 
     async fn get_unstable_typecheck(&self) -> anyhow::Result<bool> {
-        Ok(self.compute(&StarlarkTypesKey).await?.unstable_typecheck)
+        Ok(self
+            .bad_dice()
+            .compute(&StarlarkTypesKey)
+            .await?
+            .unstable_typecheck)
     }
 }

@@ -75,7 +75,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
     ) -> anyhow::Result<ArtifactGroupValues> {
         // TODO consider if we need to cache this
         let resolved_artifacts = input.resolved_artifact(self).await?;
-        ensure_artifact_group_staged(self, resolved_artifacts.clone())
+        ensure_artifact_group_staged(&mut self.bad_dice(), resolved_artifacts.clone())
             .await?
             .to_group_values(&resolved_artifacts)
     }
@@ -100,7 +100,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
 ///    on many inputs, this allows them to only allocate those large values only after all
 ///    inputs are ready.
 pub(crate) fn ensure_artifact_group_staged<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a mut DiceComputations,
     input: ResolvedArtifactGroup<'a>,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     match input {
@@ -116,7 +116,7 @@ pub(crate) fn ensure_artifact_group_staged<'a>(
 
 /// See [ensure_artifact_group_staged].
 pub(super) fn ensure_base_artifact_staged<'a>(
-    dice: &'a DiceComputations,
+    dice: &'a mut DiceComputations,
     artifact: BaseArtifactKind,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     match artifact {
@@ -129,7 +129,7 @@ pub(super) fn ensure_base_artifact_staged<'a>(
 
 /// See [ensure_artifact_group_staged].
 pub(super) fn ensure_artifact_staged<'a>(
-    dice: &'a DiceComputations,
+    dice: &'a mut DiceComputations,
     artifact: Artifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     match artifact.data() {
@@ -142,7 +142,7 @@ pub(super) fn ensure_artifact_staged<'a>(
 }
 
 fn ensure_build_artifact_staged<'a>(
-    dice: &'a DiceComputations,
+    dice: &'a mut DiceComputations,
     built: BuildArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     ActionCalculation::build_action(dice, built.key.clone()).map(move |action_outputs| {
@@ -159,7 +159,7 @@ fn ensure_build_artifact_staged<'a>(
 }
 
 fn ensure_source_artifact_staged<'a>(
-    dice: &'a DiceComputations,
+    dice: &'a mut DiceComputations,
     source: SourceArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
     async move {
@@ -228,28 +228,28 @@ static_assertions::assert_eq_size!(EnsureArtifactGroupReady, [usize; 3]);
 // TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
 #[allow(unused, clippy::diverging_sub_expression)]
 fn _assert_ensure_artifact_group_future_size() {
-    let ctx: DiceComputations = panic!();
+    let mut ctx: DiceComputations = panic!();
 
     // These first two are the important ones to track and not regress.
     let v = ctx.ensure_artifact_group(panic!());
     let e = [0u8; 128 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
-    let v = ensure_artifact_group_staged(&ctx, panic!());
+    let v = ensure_artifact_group_staged(&mut ctx, panic!());
     let e = [0u8; 704 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     // The rest of these are to help understand how changes are impacting the important ones above. Regressing these
     // is generally okay if the above don't regress.
-    let v = ensure_artifact_staged(&ctx, panic!());
+    let v = ensure_artifact_staged(&mut ctx, panic!());
     let e = [0u8; 640 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
-    let v = ensure_base_artifact_staged(&ctx, panic!());
+    let v = ensure_base_artifact_staged(&mut ctx, panic!());
     let e = [0u8; 512 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
-    let v = ensure_build_artifact_staged(&ctx, panic!());
+    let v = ensure_build_artifact_staged(&mut ctx, panic!());
     let e = [0u8; 512 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
@@ -257,7 +257,7 @@ fn _assert_ensure_artifact_group_future_size() {
     let e = [0u8; 128 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
-    let v = ensure_source_artifact_staged(&ctx, panic!());
+    let v = ensure_source_artifact_staged(&mut ctx, panic!());
     let e = [0u8; 128 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 }
@@ -315,7 +315,10 @@ async fn dir_artifact_value(
         }
     }
 
-    let res = ctx.compute(&DirArtifactValueKey(cell_path)).await??;
+    let res = ctx
+        .bad_dice()
+        .compute(&DirArtifactValueKey(cell_path))
+        .await??;
     Ok(ActionDirectoryEntry::Dir(res))
 }
 
@@ -439,7 +442,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let ensure_futs: FuturesOrdered<_> = sub_inputs
                 .iter()
                 .map(|v: &ResolvedArtifactGroup| async {
-                    ensure_artifact_group_staged(ctx, v.clone()).await
+                    ensure_artifact_group_staged(&mut ctx.bad_dice(), v.clone()).await
                 })
                 .collect();
 

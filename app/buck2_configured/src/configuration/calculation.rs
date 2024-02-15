@@ -106,7 +106,7 @@ async fn get_target_platform_detector(
         }
     }
 
-    ctx.compute(&TargetPlatformDetectorKey).await?
+    ctx.bad_dice().compute(&TargetPlatformDetectorKey).await?
 }
 
 /// Returns the configured [ExecutionPlatforms] or None if `build.execution_platforms` is not configured.
@@ -464,7 +464,8 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             }
         }
 
-        self.compute(&PlatformConfigurationKey(target.dupe()))
+        self.bad_dice()
+            .compute(&PlatformConfigurationKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)
     }
@@ -522,12 +523,13 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 
         let configuration_deps: Vec<TargetLabel> =
             configuration_deps.into_iter().map(|t| t.dupe()).collect();
-        self.compute(&ResolvedConfigurationKey {
-            target_cfg: target_cfg.dupe(),
-            target_cell,
-            configuration_deps,
-        })
-        .await?
+        self.bad_dice()
+            .compute(&ResolvedConfigurationKey {
+                target_cfg: target_cfg.dupe(),
+                target_cell,
+                configuration_deps,
+            })
+            .await?
     }
 
     async fn get_configuration_node(
@@ -586,19 +588,20 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             }
         }
 
-        self.compute(&ConfigurationNodeKey {
-            target_cfg: target_cfg.dupe(),
-            target_cell,
-            cfg_target: cfg_target.dupe(),
-        })
-        .await?
-        .with_context(|| {
-            format!(
-                "Error getting configuration node of `{}` within the `{}` configuration",
-                cfg_target, target_cfg,
-            )
-        })
-        .map_err(buck2_error::Error::from)
+        self.bad_dice()
+            .compute(&ConfigurationNodeKey {
+                target_cfg: target_cfg.dupe(),
+                target_cell,
+                cfg_target: cfg_target.dupe(),
+            })
+            .await?
+            .with_context(|| {
+                format!(
+                    "Error getting configuration node of `{}` within the `{}` configuration",
+                    cfg_target, target_cfg,
+                )
+            })
+            .map_err(buck2_error::Error::from)
     }
 
     async fn get_execution_platforms(&self) -> buck2_error::Result<Option<ExecutionPlatforms>> {
@@ -619,7 +622,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             }
         }
 
-        self.compute(&ExecutionPlatformsKey).await?
+        self.bad_dice().compute(&ExecutionPlatformsKey).await?
     }
 
     async fn resolve_execution_platform_from_constraints(
@@ -658,12 +661,13 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 }
             }
         }
-        self.compute(&ExecutionPlatformResolutionKey(
-            target_node_cell,
-            exec_compatible_with,
-            exec_deps,
-            toolchain_allows,
-        ))
-        .await?
+        self.bad_dice()
+            .compute(&ExecutionPlatformResolutionKey(
+                target_node_cell,
+                exec_compatible_with,
+                exec_deps,
+                toolchain_allows,
+            ))
+            .await?
     }
 }

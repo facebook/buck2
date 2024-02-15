@@ -85,7 +85,7 @@ impl<'d> DiceComputations<'d> {
     /// Record dependencies of the current computation for which this
     /// context is for.
     pub fn compute<'a, K>(
-        &'a self,
+        &'a mut self,
         key: &K,
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where

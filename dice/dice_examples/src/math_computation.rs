@@ -184,7 +184,7 @@ async fn resolve_units<'a>(
 }
 
 async fn lookup_unit(ctx: &DiceComputations<'_>, var: &Var) -> anyhow::Result<Arc<Equation>> {
-    Ok(ctx.compute(&LookupVar(var.clone())).await?)
+    Ok(ctx.bad_dice().compute(&LookupVar(var.clone())).await?)
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]

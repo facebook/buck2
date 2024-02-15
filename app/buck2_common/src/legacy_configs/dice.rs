@@ -354,20 +354,30 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
     }
 
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {
-        self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
-            panic!("Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value")
-        })
+        self.bad_dice()
+            .compute(&LegacyBuckConfigKey)
+            .await?
+            .ok_or_else(|| {
+                panic!(
+                    "Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value"
+                )
+            })
     }
 
     async fn is_legacy_configs_key_set(&self) -> anyhow::Result<bool> {
-        Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
+        Ok(self
+            .bad_dice()
+            .compute(&LegacyBuckConfigKey)
+            .await?
+            .is_some())
     }
 
     async fn get_legacy_config_for_cell(
         &self,
         cell_name: CellName,
     ) -> buck2_error::Result<LegacyBuckConfig> {
-        self.compute(&LegacyBuckConfigForCellKey { cell_name })
+        self.bad_dice()
+            .compute(&LegacyBuckConfigForCellKey { cell_name })
             .await?
     }
 
@@ -378,6 +388,7 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
         property: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
         Ok(self
+            .bad_dice()
             .compute(&LegacyBuckConfigPropertyKey {
                 cell_name,
                 section: section.to_owned(),

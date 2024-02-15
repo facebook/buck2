@@ -287,7 +287,7 @@ impl AnonTargetKey {
             }
         }
 
-        Ok(dice.compute(self).await??)
+        Ok(dice.bad_dice().compute(self).await??)
     }
 
     fn run_analysis<'a>(

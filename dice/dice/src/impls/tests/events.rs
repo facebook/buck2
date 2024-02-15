@@ -106,7 +106,7 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
         let mut updater = dice.updater_with_data(data);
         updater.changed_to(vec![(Injected, 123)])?;
 
-        let transaction = updater.commit().await;
+        let mut transaction = updater.commit().await;
         transaction.compute(&Stage1).await?;
 
         assert_eq!(
@@ -132,7 +132,7 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
         let mut updater = dice.updater_with_data(data);
         updater.changed_to(vec![(Injected, 456)])?;
 
-        let transaction = updater.commit().await;
+        let mut transaction = updater.commit().await;
         transaction.compute(&Stage1).await?;
 
         assert_eq!(

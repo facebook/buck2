@@ -74,7 +74,8 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             }
         }
 
-        ctx.compute(&GetCfgConstructorKey)
+        ctx.bad_dice()
+            .compute(&GetCfgConstructorKey)
             .await?
             .map_err(anyhow::Error::from)
     }
@@ -161,7 +162,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             cli_modifiers: cli_modifiers.dupe(),
             rule_type: rule_type.dupe(),
         };
-        Ok(ctx.compute(&key).await??)
+        Ok(ctx.bad_dice().compute(&key).await??)
     }
 }
 

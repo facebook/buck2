@@ -320,6 +320,9 @@ impl TransitionCalculation for TransitionCalculationImpl {
             attrs,
         };
 
-        ctx.compute(&key).await?.map_err(anyhow::Error::from)
+        ctx.bad_dice()
+            .compute(&key)
+            .await?
+            .map_err(anyhow::Error::from)
     }
 }

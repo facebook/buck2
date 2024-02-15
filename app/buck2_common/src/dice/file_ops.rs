@@ -264,7 +264,7 @@ async fn get_default_file_ops(
         }
     }
 
-    Ok(dice.compute(&FileOpsKey()).await??.0)
+    Ok(dice.bad_dice().compute(&FileOpsKey()).await??.0)
 }
 
 #[derive(Allocative)]
@@ -449,6 +449,7 @@ impl<'c, 'd> FileOps for DiceFileOps<'c, 'd> {
         let file_ops = get_default_file_ops(self.0).await?;
 
         self.0
+            .bad_dice()
             .compute(&ReadFileKey(Arc::new(path)))
             .await?
             .read_if_exists(&*file_ops)
@@ -457,6 +458,7 @@ impl<'c, 'd> FileOps for DiceFileOps<'c, 'd> {
 
     async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
         self.0
+            .bad_dice()
             .compute(&ReadDirKey(path.to_owned()))
             .await?
             .map_err(anyhow::Error::from)
@@ -467,6 +469,7 @@ impl<'c, 'd> FileOps for DiceFileOps<'c, 'd> {
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<RawPathMetadata>> {
         self.0
+            .bad_dice()
             .compute(&PathMetadataKey(path.to_owned()))
             .await?
             .map_err(anyhow::Error::from)

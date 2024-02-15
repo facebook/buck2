@@ -1228,7 +1228,7 @@ mod tests {
                 EventDispatcher::null(),
                 &TestDiceDataProvider,
                 &NoChanges,
-                |dice| async move {
+                |mut dice| async move {
                     let compute = dice.compute(key).fuse();
 
                     let started = async {
@@ -1464,7 +1464,7 @@ mod tests {
                     EventDispatcher::null(),
                     &TestDiceDataProvider,
                     &CtxDifferent,
-                    |dice| async move {
+                    |mut dice| async move {
                         // NOTE: We need to actually compute something for DICE to be not-idle.
                         dice.compute(&K).await.unwrap();
                         tokio::task::yield_now().await;

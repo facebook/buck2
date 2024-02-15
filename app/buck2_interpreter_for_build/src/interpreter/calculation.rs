@@ -121,10 +121,13 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
                 x.is_ok()
             }
         }
-
-        ctx.compute(&InterpreterResultsKey(package.dupe()))
-            .map(|res| res?.map_err(anyhow::Error::from))
-            .boxed()
+        async move {
+            ctx.bad_dice()
+                .compute(&InterpreterResultsKey(package.dupe()))
+                .await?
+                .map_err(anyhow::Error::from)
+        }
+        .boxed()
     }
 }
 

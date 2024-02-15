@@ -269,9 +269,13 @@ fn lookup_company_resource_cost<'a>(
             }
         }
     }
-
-    ctx.compute(&LookupCompanyResourceCost(company.clone(), resource.dupe()))
-        .map(|r| r.map_err(|e| Arc::new(anyhow::anyhow!(e)))?)
+    let key = LookupCompanyResourceCost(company.clone(), resource.dupe());
+    async move {
+        ctx.bad_dice()
+            .compute(&key)
+            .await
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
+    }
 }
 
 #[async_trait]

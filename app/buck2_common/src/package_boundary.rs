@@ -177,7 +177,9 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
             }
         }
 
-        self.compute(&PackageBoundaryExceptionsKey).await?
+        self.bad_dice()
+            .compute(&PackageBoundaryExceptionsKey)
+            .await?
     }
 
     async fn get_package_boundary_exception(
@@ -215,7 +217,8 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
             }
         }
 
-        self.compute(&PackageBoundaryExceptionKey(path.to_owned()))
+        self.bad_dice()
+            .compute(&PackageBoundaryExceptionKey(path.to_owned()))
             .await?
     }
 }

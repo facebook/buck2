@@ -204,7 +204,8 @@ async fn resolve_deferred(
         }
     }
 
-    dice.compute(&DeferredResolve(deferred.dupe()))
+    dice.bad_dice()
+        .compute(&DeferredResolve(deferred.dupe()))
         .await?
         .map_err(anyhow::Error::from)
 }
@@ -362,7 +363,10 @@ async fn compute_deferred(
         }
     }
 
-    Ok(dice.compute(&DeferredCompute(deferred.dupe())).await??)
+    Ok(dice
+        .bad_dice()
+        .compute(&DeferredCompute(deferred.dupe()))
+        .await??)
 }
 
 async fn futures_pair_to_map<K: Eq + Hash, V>(

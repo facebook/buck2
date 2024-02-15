@@ -658,7 +658,7 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
         cycle_detector: Some(Arc::new(AccessCycleDetector)),
         ..Default::default()
     };
-    let ctx = dice.updater_with_data(user_data).commit().await;
+    let mut ctx = dice.updater_with_data(user_data).commit().await;
     Ok(ctx.compute(&AccessCycleGuardKey).await?)
 }
 
