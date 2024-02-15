@@ -18,7 +18,6 @@ use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::ModernComputeCtx;
-use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
@@ -60,15 +59,15 @@ impl AsyncEvaluator {
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
-                let mut new_ctx = DiceComputations(DiceComputationsImpl::Modern(
-                    ModernComputeCtx::Regular(PerComputeCtx::new(
+                let mut new_ctx = DiceComputations(DiceComputationsImpl::Modern(Arc::new(
+                    ModernComputeCtx::new(
                         ParentKey::Some(key), // within this key's compute, this key is the parent
                         self.per_live_version_ctx.dupe(),
                         self.user_data.dupe(),
                         self.dice.dupe(),
                         cycles,
-                    )),
-                ));
+                    ),
+                )));
 
                 let value = key_dyn
                     .compute(&mut new_ctx, &state.cancellation_ctx().into_compatible())
@@ -77,10 +76,9 @@ impl AsyncEvaluator {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")
                     }
-                    DiceComputationsImpl::Modern(new_ctx) => new_ctx
-                        .into_regular()
-                        .expect("created regular above")
-                        .finalize(),
+                    DiceComputationsImpl::Modern(new_ctx) => {
+                        new_ctx.into_owned().expect("just created").finalize()
+                    }
                 };
 
                 let activation = ActivationInfo::new(

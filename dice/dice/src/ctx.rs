@@ -31,10 +31,10 @@ use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
 use crate::ProjectionKey;
 
-#[derive(Allocative, UnpackVariants)]
+#[derive(Allocative, UnpackVariants, Clone, Dupe)]
 pub(crate) enum DiceComputationsImpl {
     Legacy(Arc<DiceComputationsImplLegacy>),
-    Modern(ModernComputeCtx),
+    Modern(Arc<ModernComputeCtx>),
 }
 
 impl DiceComputationsImpl {
@@ -113,24 +113,15 @@ impl DiceComputationsImpl {
             Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
-        match self {
-            DiceComputationsImpl::Legacy(ctx) => {
-                // legacy dice does nothing special
-                computes
-                    .into_iter()
-                    .map(|work| {
-                        OwningFuture::new(
-                            DiceComputationsParallel::new(DiceComputations(
-                                DiceComputationsImpl::Legacy(ctx.dupe()),
-                            )),
-                            work,
-                        )
-                        .left_future()
-                    })
-                    .collect()
-            }
-            DiceComputationsImpl::Modern(ctx) => ctx.compute_many(computes),
-        }
+        computes
+            .into_iter()
+            .map(|work| {
+                OwningFuture::new(
+                    DiceComputationsParallel::new(DiceComputations(self.dupe())),
+                    work,
+                )
+            })
+            .collect()
     }
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
@@ -138,32 +129,16 @@ impl DiceComputationsImpl {
         compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
-        match self {
-            DiceComputationsImpl::Legacy(ctx) => {
-                // legacy dice does nothing special
-                (
-                    OwningFuture::new(
-                        DiceComputationsParallel::new(DiceComputations(
-                            DiceComputationsImpl::Legacy(ctx.dupe()),
-                        )),
-                        compute1,
-                    )
-                    .left_future(),
-                    OwningFuture::new(
-                        DiceComputationsParallel::new(DiceComputations(
-                            DiceComputationsImpl::Legacy(ctx.dupe()),
-                        )),
-                        compute2,
-                    )
-                    .left_future(),
-                )
-            }
-            DiceComputationsImpl::Modern(ctx) => {
-                let (f1, f2) = ctx.compute2(compute1, compute2);
-
-                (f1.right_future(), f2.right_future())
-            }
-        }
+        (
+            OwningFuture::new(
+                DiceComputationsParallel::new(DiceComputations(self.dupe())),
+                compute1,
+            ),
+            OwningFuture::new(
+                DiceComputationsParallel::new(DiceComputations(self.dupe())),
+                compute2,
+            ),
+        )
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

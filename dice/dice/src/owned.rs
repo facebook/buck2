@@ -11,6 +11,9 @@
 //! The reference can only be accessed via a lambda providing an optional access based on whether
 //! the reference is still valid.
 
+// Intend to use this again when parallel computations have correct dep recording.
+#![allow(unused)]
+
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::Weak;
