@@ -26,6 +26,7 @@ GoToolchainInfo = provider(
         "env_go_os": provider_field(typing.Any, default = None),
         "env_go_arm": provider_field(typing.Any, default = None),
         "env_go_root": provider_field(typing.Any, default = None),
+        "env_go_debug": provider_field(dict[str, str], default = {}),
         "external_linker_flags": provider_field(typing.Any, default = None),
         "filter_srcs": provider_field(typing.Any, default = None),
         "go": provider_field(typing.Any, default = None),
@@ -50,7 +51,9 @@ def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_dis
         cmd.add("GOARM={}".format(toolchain.env_go_arm))
     if go_root and toolchain.env_go_root != None:
         cmd.add(cmd_args(toolchain.env_go_root, format = "GOROOT={}"))
-
+    if toolchain.env_go_debug:
+        godebug = ",".join(["{}={}".format(k, v) for k, v in toolchain.env_go_debug.items()])
+        cmd.add("GODEBUG={}".format(godebug))
     if force_disable_cgo:
         cmd.add("CGO_ENABLED=0")
     else:
