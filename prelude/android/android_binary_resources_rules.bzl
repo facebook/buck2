@@ -56,7 +56,7 @@ def get_android_binary_resources_info(
     )
     resource_infos = filtered_resources_output.resource_infos
 
-    android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries)
+    android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries, should_replace_application_id_placeholders = True)
 
     non_proto_format_aapt2_link_info, proto_format_aapt2_link_info = get_aapt2_link(
         ctx,
@@ -428,7 +428,8 @@ def _maybe_package_strings_as_assets(
 def get_manifest(
         ctx: AnalysisContext,
         android_packageable_info: AndroidPackageableInfo,
-        manifest_entries: dict) -> Artifact:
+        manifest_entries: dict,
+        should_replace_application_id_placeholders: bool) -> Artifact:
     robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
     if robolectric_manifest:
         return robolectric_manifest
@@ -456,7 +457,7 @@ def get_manifest(
             manifest_entries.get("placeholders", {}),
         )
 
-    if android_toolchain.set_application_id_to_specified_package:
+    if android_toolchain.set_application_id_to_specified_package and should_replace_application_id_placeholders:
         android_manifest_with_replaced_application_id = ctx.actions.declare_output("android_manifest_with_replaced_application_id/AndroidManifest.xml")
         replace_application_id_placeholders_cmd = cmd_args([
             ctx.attrs._android_toolchain[AndroidToolchainInfo].replace_application_id_placeholders[RunInfo],
