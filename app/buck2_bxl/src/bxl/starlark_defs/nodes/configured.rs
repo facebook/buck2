@@ -523,6 +523,7 @@ impl<'v> StarlarkLazyAttrs<'v> {
 fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     /// Gets a single attribute. Returns an optional `[configured_attr]`.
     ///
+    /// ```text
     /// def _impl_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.attrs_lazy() # cache once
@@ -628,6 +629,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     ///
     /// Gets a single attribute.
     ///
+    /// ```text
     /// def _impl_resolved_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.resolved_attrs_lazy(ctx) # cache once
