@@ -44,11 +44,13 @@ def get_android_binary_resources_info(
         aapt2_min_sdk: [str, None] = None,
         aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
-    unfiltered_resource_infos = [
+
+    # Use reverse topological sort in resource merging to make sure a resource target will overwrite its dependencies.
+    unfiltered_resource_infos = reversed([
         resource_info
-        for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else [])
+        for resource_info in list(android_packageable_info.resource_infos.traverse(ordering = "topological") if android_packageable_info.resource_infos else [])
         if not (resource_infos_to_exclude and resource_infos_to_exclude.contains(resource_info.raw_target))
-    ]
+    ])
     filtered_resources_output = _maybe_filter_resources(
         ctx,
         unfiltered_resource_infos,
