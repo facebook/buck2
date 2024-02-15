@@ -162,7 +162,7 @@ impl Math for DiceComputations<'_> {
 }
 
 async fn resolve_units<'a>(
-    ctx: &DiceComputations<'a>,
+    ctx: &mut DiceComputations<'a>,
     units: &[Unit],
 ) -> Result<Vec<i64>, Arc<anyhow::Error>> {
     let futs = ctx.compute_many(units.iter().map(|unit|

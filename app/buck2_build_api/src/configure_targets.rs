@@ -89,9 +89,11 @@ pub async fn get_maybe_compatible_targets<'a>(
         }
     }
 
-    Ok(futures::future::join_all(ctx.compute_many(by_package_fns))
-        .await
-        .into_iter())
+    Ok(
+        futures::future::join_all(ctx.bad_dice().compute_many(by_package_fns))
+            .await
+            .into_iter(),
+    )
 }
 
 /// Converts target nodes to a set of compatible configured target nodes.

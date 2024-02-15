@@ -161,7 +161,7 @@ impl Setup for DiceTransactionUpdater {
             .unzip();
 
         // get the remote resources => company mapping
-        let state = self.existing_state().await;
+        let mut state = self.existing_state().await;
         let remote_resources = join_all(state
             .compute_many(resources.iter().map(|res| {
                 higher_order_closure! {

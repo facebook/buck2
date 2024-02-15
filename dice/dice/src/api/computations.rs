@@ -126,7 +126,7 @@ impl<'d> DiceComputations<'d> {
     /// Computes all the given tasks in parallel, returning an unordered Stream.
     ///
     /// ```ignore
-    /// let ctx: &'a DiceComputations = ctx();
+    /// let mut ctx: &'a DiceComputations = ctx();
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
     /// ctx.compute_many(keys.into_iter().map(|k|
@@ -142,7 +142,7 @@ impl<'d> DiceComputations<'d> {
     /// ```
     /// The `#![with<'a>]` is required for the closure to capture any non-'static references.
     pub fn compute_many<'a, T: 'a>(
-        &'a self,
+        &'a mut self,
         computes: impl IntoIterator<
             Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         >,
@@ -152,7 +152,7 @@ impl<'d> DiceComputations<'d> {
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
     pub fn compute2<'a, T: 'a, U: 'a>(
-        &'a self,
+        &'a mut self,
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
