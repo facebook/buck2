@@ -397,10 +397,11 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
     // introduce a change
     let mut updater = dice.updater();
     updater.changed_to([(BaseKey, 9999)])?;
-    let ctx = updater.commit().await;
+    let mut ctx = updater.commit().await;
 
     // if we run the sync first
-    let projected = ctx.projection(&ctx.compute_opaque(&BaseKey).await?, &ProjectionEqualKey)?;
+    let derive_from = ctx.compute_opaque(&BaseKey).await?;
+    let projected = ctx.projection(&derive_from, &ProjectionEqualKey)?;
     assert_eq!(projected, 1);
 
     // should not be ran

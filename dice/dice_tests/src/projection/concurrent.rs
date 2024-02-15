@@ -83,7 +83,7 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
 
     let count = Arc::new(AtomicU8::new(0));
 
-    let ctx = dice.updater().commit().await;
+    let mut ctx = dice.updater().commit().await;
 
     let k = ComputeOnce(count.dupe());
 

@@ -52,14 +52,14 @@ impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
 
 impl<'a> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, '_> {
     fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        self.lookup(self.ctx, section, key)
+        self.lookup(&mut self.ctx.bad_dice(), section, key)
     }
 }
 
 impl<'a> LegacyBuckConfigOnDice<'a, '_> {
     pub fn lookup(
         &self,
-        ctx: &DiceComputations,
+        ctx: &mut DiceComputations,
         section: &str,
         property: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
@@ -315,7 +315,9 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
         &'c self,
     ) -> anyhow::Result<LegacyBuckConfigsOnDice<'c, 'd>> {
         let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
-        let cell_names = self.projection(&configs, &LegacyBuckConfigCellNamesKey)?;
+        let cell_names = self
+            .bad_dice()
+            .projection(&configs, &LegacyBuckConfigCellNamesKey)?;
         let mut configs_on_dice = Vec::with_capacity(cell_names.len());
         for cell_name in &*cell_names {
             let config = self

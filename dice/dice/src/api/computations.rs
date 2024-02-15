@@ -109,7 +109,7 @@ impl<'d> DiceComputations<'d> {
     }
 
     pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
-        &'a self,
+        &'a mut self,
         derive_from: &OpaqueValue<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value> {
@@ -117,7 +117,7 @@ impl<'d> DiceComputations<'d> {
     }
 
     pub fn opaque_into_value<'a, K: Key>(
-        &'a self,
+        &'a mut self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
         self.inner().opaque_into_value(derive_from)
