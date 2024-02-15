@@ -160,6 +160,14 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
         is_private = True,
     )
 
+    # maybe peek private includes
+    build_environment = erlang_build.utils.peek_private_includes(
+        ctx,
+        toolchain,
+        build_environment,
+        dependencies,
+    )
+
     # beams
     build_environment = erlang_build.build_steps.generate_beam_artifacts(
         ctx,

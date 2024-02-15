@@ -118,26 +118,22 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # prepare build environment
     pre_build_environment = erlang_build.prepare_build_environment(ctx, primary_toolchain, dependencies)
 
-    new_private_include_dir = pre_build_environment.private_include_dir
-
-    # pre_build_environment.private_includes is immutable, that's how we change that.
-    new_private_includes = {a: b for (a, b) in pre_build_environment.private_includes.items()}
-
-    #Pull private deps from dependencies
-    for dep in dependencies.values():
-        if ErlangAppInfo in dep:
-            if dep[ErlangAppInfo].private_include_dir:
-                new_private_include_dir = new_private_include_dir + dep[ErlangAppInfo].private_include_dir[primary_toolchain_name]
-                new_private_includes.update(dep[ErlangAppInfo].private_includes[primary_toolchain_name])
+    pre_build_environment = erlang_build.utils.peek_private_includes(
+        ctx,
+        primary_toolchain,
+        pre_build_environment,
+        dependencies,
+        force_peek = True,
+    )
 
     # Records are immutable, hence we need to create a new record from the previous one.
     build_environment = BuildEnvironment(
         includes = pre_build_environment.includes,
-        private_includes = new_private_includes,
+        private_includes = pre_build_environment.private_includes,
         beams = pre_build_environment.beams,
         priv_dirs = pre_build_environment.priv_dirs,
         include_dirs = pre_build_environment.include_dirs,
-        private_include_dir = new_private_include_dir,
+        private_include_dir = pre_build_environment.private_include_dir,
         ebin_dirs = pre_build_environment.ebin_dirs,
         deps_files = pre_build_environment.deps_files,
         app_files = pre_build_environment.app_files,

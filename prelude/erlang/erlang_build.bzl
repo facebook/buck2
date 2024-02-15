@@ -264,8 +264,6 @@ def _generate_beam_artifacts(
         for src in src_artifacts
     }
 
-    _check_beam_uniqueness(beam_mapping, build_environment.beams)
-
     # dep files
     beam_deps = _get_deps_files(ctx, toolchain, anchor, src_artifacts, output_mapping)
 
@@ -287,7 +285,7 @@ def _generate_beam_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
-    dep_info_content = to_term_args({paths.basename(artifact): {"dep_file": dep_file, "path": artifact} for artifact, dep_file in updated_build_environment.deps_files.items()})
+    dep_info_content = to_term_args(_build_dep_info_data(updated_build_environment))
     dep_info_file = ctx.actions.write(_dep_info_name(toolchain), dep_info_content)
 
     for erl in src_artifacts:
@@ -295,13 +293,17 @@ def _generate_beam_artifacts(
 
     return updated_build_environment
 
-def _check_beam_uniqueness(
-        local_beams: ModuleArtifactMapping,
-        global_beams: ModuleArtifactMapping) -> None:
-    for module in local_beams:
-        if module in global_beams:
-            fail("duplicated modules found in build: {}".format([module]))
-    return None
+def _build_dep_info_data(build_environment: BuildEnvironment) -> dict[str, dict[str, Artifact | str]]:
+    """build input for dependency finalizer, this implements uniqueness checks for headers and beams"""
+    seen = {}
+    data = {}
+    for artifact, dep_file in build_environment.deps_files.items():
+        if paths.basename(artifact) in seen:
+            fail("conflicting artifacts found in build: {} and {}".format(seen[paths.basename(artifact)], artifact))
+        else:
+            seen[paths.basename(artifact)] = artifact
+            data[paths.basename(artifact)] = {"dep_file": dep_file, "path": artifact}
+    return data
 
 def _generate_chunk_artifacts(
         ctx: AnalysisContext,
@@ -824,6 +826,43 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, *args, **kwargs):
     kwargs["env"] = env
     ctx.actions.run(*args, **kwargs)
 
+def _peek_private_includes(
+        ctx: AnalysisContext,
+        toolchain: Toolchain,
+        build_environment: BuildEnvironment,
+        dependencies: ErlAppDependencies,
+        force_peek: bool = False) -> BuildEnvironment:
+    # get mutable dict for private includes
+    new_private_includes = dict(build_environment.private_includes)
+    new_private_include_dir = list(build_environment.private_include_dir)
+
+    # get private deps from dependencies
+    for dep in dependencies.values():
+        if ErlangAppInfo in dep:
+            if dep[ErlangAppInfo].private_include_dir:
+                new_private_include_dir = new_private_include_dir + dep[ErlangAppInfo].private_include_dir[toolchain.name]
+                new_private_includes.update(dep[ErlangAppInfo].private_includes[toolchain.name])
+    if force_peek or ctx.attrs.peek_private_includes:
+        return BuildEnvironment(
+            private_includes = new_private_includes,
+            private_include_dir = new_private_include_dir,
+            # copied fields
+            includes = build_environment.includes,
+            beams = build_environment.beams,
+            priv_dirs = build_environment.priv_dirs,
+            include_dirs = build_environment.include_dirs,
+            ebin_dirs = build_environment.ebin_dirs,
+            deps_files = build_environment.deps_files,
+            app_files = build_environment.app_files,
+            full_dependencies = build_environment.full_dependencies,
+            app_includes = build_environment.app_includes,
+            app_beams = build_environment.app_beams,
+            app_chunks = build_environment.app_chunks,
+            input_mapping = build_environment.input_mapping,
+        )
+    else:
+        return build_environment
+
 # export
 
 erlang_build = struct(
@@ -844,5 +883,6 @@ erlang_build = struct(
         make_dir_anchor = _make_dir_anchor,
         build_dir = _build_dir,
         run_with_env = _run_with_env,
+        peek_private_includes = _peek_private_includes,
     ),
 )
