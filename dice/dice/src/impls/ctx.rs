@@ -179,7 +179,7 @@ impl ModernComputeCtx {
         K: Key,
     {
         self.compute_opaque(key)
-            .map(|r| r.map(|opaque| opaque.into_value()))
+            .map(|r| r.map(|opaque| self.opaque_into_value(opaque)))
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -199,7 +199,7 @@ impl ModernComputeCtx {
         }
         .map(move |cancellable_result| {
             let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
-                OpaqueValueModern::new(self, dice_key, dice_value.value().dupe())
+                OpaqueValueModern::new(dice_key, dice_value.value().dupe())
             });
 
             cancellable.map_err(|_| DiceError::cancelled())
@@ -248,20 +248,34 @@ impl ModernComputeCtx {
         }
     }
 
-    /// Compute "projection" based on deriving value
-    pub(crate) fn project<K>(
-        &self,
-        key: &K,
-        base_key: DiceKey,
-        base: MaybeValidDiceValue,
-    ) -> DiceResult<K::Value>
-    where
-        K: ProjectionKey,
-    {
+    pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
+        &'a self,
+        derive_from: &OpaqueValueModern<K>,
+        key: &P,
+    ) -> DiceResult<P::Value> {
         match self {
-            ModernComputeCtx::Regular(ctx) => ctx.project(key, base_key, base),
-            ModernComputeCtx::Parallel(ctx) => ctx.project(key, base_key, base),
+            ModernComputeCtx::Regular(ctx) => ctx.projection(
+                key,
+                derive_from.derive_from_key,
+                derive_from.derive_from.dupe(),
+            ),
+            ModernComputeCtx::Parallel(ctx) => ctx.projection(
+                key,
+                derive_from.derive_from_key,
+                derive_from.derive_from.dupe(),
+            ),
         }
+    }
+
+    pub fn opaque_into_value<'a, K: Key>(&'a self, opaque: OpaqueValueModern<K>) -> K::Value {
+        self.dep_trackers()
+            .record(opaque.derive_from_key, opaque.derive_from.validity());
+
+        opaque
+            .derive_from
+            .downcast_maybe_transient::<K::Value>()
+            .expect("type mismatch")
+            .dupe()
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
@@ -472,7 +486,7 @@ impl PerComputeCtx {
     }
 
     /// Compute "projection" based on deriving value
-    pub(crate) fn project<K>(
+    pub(crate) fn projection<K>(
         &self,
         key: &K,
         base_key: DiceKey,
@@ -608,7 +622,7 @@ impl PerParallelComputeCtx {
     }
 
     /// Compute "projection" based on deriving value
-    pub(crate) fn project<K>(
+    pub(crate) fn projection<K>(
         &self,
         key: &K,
         base_key: DiceKey,

@@ -79,10 +79,13 @@ impl Key for FileKey {
         // which is the result of file evaluation.
         // We are testing that file evaluation is not invalidated
         // if unrelated configurations changed.
-        let value = config
-            .projection(&ConfigPropertyKey {
-                key: "x".to_owned(),
-            })
+        let value = ctx
+            .projection(
+                &config,
+                &ConfigPropertyKey {
+                    key: "x".to_owned(),
+                },
+            )
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
         // Record we executed this computation.
         ctx.global_data()
@@ -360,11 +363,11 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             self.0.store(true, Ordering::SeqCst);
-            ctx.compute_opaque(&BaseKey)
-                .await
-                .unwrap()
-                .projection(&ProjectionEqualKey)
-                .unwrap()
+            ctx.projection(
+                &ctx.compute_opaque(&BaseKey).await.unwrap(),
+                &ProjectionEqualKey,
+            )
+            .unwrap()
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -397,10 +400,7 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
     let ctx = updater.commit().await;
 
     // if we run the sync first
-    let projected = ctx
-        .compute_opaque(&BaseKey)
-        .await?
-        .projection(&ProjectionEqualKey)?;
+    let projected = ctx.projection(&ctx.compute_opaque(&BaseKey).await?, &ProjectionEqualKey)?;
     assert_eq!(projected, 1);
 
     // should not be ran

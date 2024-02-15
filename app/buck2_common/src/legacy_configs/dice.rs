@@ -36,25 +36,40 @@ use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
-#[derive(Clone, Dupe, Debug)]
+#[derive(Clone, Dupe)]
 pub struct LegacyBuckConfigOnDice<'a> {
-    config: Arc<OpaqueValue<'a, LegacyBuckConfigForCellKey>>,
+    config: Arc<OpaqueValue<LegacyBuckConfigForCellKey>>,
+    ctx: &'a DiceComputations,
+}
+
+impl std::fmt::Debug for LegacyBuckConfigOnDice<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LegacyBuckConfigOnDice")
+            .field("config", &self.config)
+            .finish()
+    }
 }
 
 impl<'a> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a> {
     fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        self.get(section, key)
+        self.lookup(self.ctx, section, key)
     }
 }
 
 impl<'a> LegacyBuckConfigOnDice<'a> {
-    pub fn get(&self, section: &str, property: &str) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(self
-            .config
-            .projection(&LegacyBuckConfigPropertyProjectionKey {
+    pub fn lookup(
+        &self,
+        ctx: &DiceComputations,
+        section: &str,
+        property: &str,
+    ) -> anyhow::Result<Option<Arc<str>>> {
+        Ok(ctx.projection(
+            &*self.config,
+            &LegacyBuckConfigPropertyProjectionKey {
                 section: section.to_owned(),
                 property: property.to_owned(),
-            })?)
+            },
+        )?)
     }
 }
 
@@ -294,7 +309,7 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
 impl HasLegacyConfigs for DiceComputations {
     async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<LegacyBuckConfigsOnDice> {
         let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
-        let cell_names = configs.projection(&LegacyBuckConfigCellNamesKey)?;
+        let cell_names = self.projection(&configs, &LegacyBuckConfigCellNamesKey)?;
         let mut configs_on_dice = Vec::with_capacity(cell_names.len());
         for cell_name in &*cell_names {
             let config = self
@@ -306,6 +321,7 @@ impl HasLegacyConfigs for DiceComputations {
                 *cell_name,
                 LegacyBuckConfigOnDice {
                     config: Arc::new(config),
+                    ctx: self,
                 },
             ));
         }

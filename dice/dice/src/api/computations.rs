@@ -11,8 +11,11 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::sync::Arc;
 
 use allocative::Allocative;
+use async_trait::async_trait;
+use buck2_futures::cancellation::CancellationContext;
 use futures::future::BoxFuture;
 
 use crate::api::data::DiceData;
@@ -21,6 +24,7 @@ use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::ProjectionKey;
 use crate::UserCycleDetectorGuard;
 
 /// The context for computations to register themselves, and request for additional dependencies.
@@ -61,14 +65,46 @@ impl DiceComputations {
     pub fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<'a, K>>> + 'a
+    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + 'a
     where
         K: Key,
     {
         self.0.compute_opaque(key)
     }
 
-    /// Computes all the given tasks in parallel, returning an unordered Stream
+    pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
+        &'a self,
+        derive_from: &OpaqueValue<K>,
+        projection_key: &P,
+    ) -> DiceResult<P::Value> {
+        self.0.projection(derive_from, projection_key)
+    }
+
+    pub fn opaque_into_value<'a, K: Key>(
+        &'a self,
+        derive_from: OpaqueValue<K>,
+    ) -> DiceResult<K::Value> {
+        self.0.opaque_into_value(derive_from)
+    }
+
+    /// Computes all the given tasks in parallel, returning an unordered Stream.
+    ///
+    /// ```ignore
+    /// let ctx: &'a DiceComputations = ctx();
+    /// let data: String = data();
+    /// let keys : Vec<Key> = keys();
+    /// ctx.compute_many(keys.into_iter().map(|k|
+    ///   higher_order_closure! {
+    ///     #![with<'a>]
+    ///     for <'x> move |dice: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, String> {
+    ///       async move {
+    ///         dice.compute(k).await + data
+    ///       }.boxed()
+    ///     }
+    ///   }
+    /// )).await;
+    /// ```
+    /// The `#![with<'a>]` is required for the closure to capture any non-'static references.
     pub fn compute_many<'a, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
@@ -145,8 +181,31 @@ impl<'a> DerefMut for DiceComputationsParallel<'a> {
 // This assertion assures we don't unknowingly regress the size of this critical future.
 // TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
 #[allow(unused, clippy::diverging_sub_expression)]
-fn _assert_dice_compute_future_sizes<K: Key>() {
+fn _assert_dice_compute_future_sizes() {
     let ctx: DiceComputations = panic!();
+    #[derive(Allocative, Debug, Clone, PartialEq, Eq, Hash)]
+    struct K(u64);
+    impl std::fmt::Display for K {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            panic!()
+        }
+    }
+    #[async_trait]
+    impl Key for K {
+        type Value = Arc<String>;
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            cancellations: &CancellationContext,
+        ) -> Self::Value {
+            panic!()
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            panic!()
+        }
+    }
     let k: K = panic!();
     let v = ctx.compute(&k);
     let e = [0u8; 640 / 8];

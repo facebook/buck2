@@ -11,9 +11,9 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
-use crate::api::error::DiceResult;
 use crate::api::key::Key;
-use crate::api::projection::ProjectionKey;
+use crate::impls::opaque::OpaqueValueModern;
+use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::opaque::OpaqueValueImpl;
 
 /// Computed value which is not directly visible to user.
@@ -22,11 +22,11 @@ use crate::opaque::OpaqueValueImpl;
 /// so projection result is recorded as a dependency
 /// of a computation which requested the opaqued value,
 /// but the opaque value key is not.
-pub struct OpaqueValue<'a, K: Key> {
-    pub(crate) implementation: OpaqueValueImpl<'a, K>,
+pub struct OpaqueValue<K: Key> {
+    pub(crate) implementation: OpaqueValueImpl<K>,
 }
 
-impl<'a, K> Debug for OpaqueValue<'a, K>
+impl<K> Debug for OpaqueValue<K>
 where
     K: Key,
     K::Value: Debug,
@@ -36,15 +36,36 @@ where
     }
 }
 
-impl<'a, K: Key> OpaqueValue<'a, K> {
-    pub(crate) fn new(implementation: OpaqueValueImpl<'a, K>) -> Self {
+impl<K: Key> OpaqueValue<K> {
+    pub(crate) fn new(implementation: OpaqueValueImpl<K>) -> Self {
         Self { implementation }
     }
 
-    pub fn projection<P>(&self, projection_key: &P) -> DiceResult<P::Value>
-    where
-        P: ProjectionKey<DeriveFromKey = K>,
-    {
-        self.implementation.projection(projection_key)
+    pub(crate) fn unpack_legacy(&self) -> Option<&OpaqueValueImplLegacy<K>> {
+        match &self.implementation {
+            OpaqueValueImpl::Legacy(v) => Some(v),
+            OpaqueValueImpl::Modern(_) => None,
+        }
+    }
+
+    pub(crate) fn unpack_modern(&self) -> Option<&OpaqueValueModern<K>> {
+        match &self.implementation {
+            OpaqueValueImpl::Legacy(_) => None,
+            OpaqueValueImpl::Modern(v) => Some(v),
+        }
+    }
+
+    pub(crate) fn into_legacy(self) -> Option<OpaqueValueImplLegacy<K>> {
+        match self.implementation {
+            OpaqueValueImpl::Legacy(v) => Some(v),
+            OpaqueValueImpl::Modern(_) => None,
+        }
+    }
+
+    pub(crate) fn into_modern(self) -> Option<OpaqueValueModern<K>> {
+        match self.implementation {
+            OpaqueValueImpl::Legacy(_) => None,
+            OpaqueValueImpl::Modern(v) => Some(v),
+        }
     }
 }

@@ -59,6 +59,7 @@ use crate::legacy::dice_futures::dice_future::DiceFuture;
 use crate::legacy::dice_futures::dice_task::DiceTask;
 use crate::legacy::dice_futures::future_handle::WeakDiceFutureHandle;
 use crate::legacy::dice_futures::sync_handle::SyncDiceTaskHandle;
+use crate::legacy::incremental::dep_trackers::BothDepTrackers;
 use crate::legacy::incremental::dep_trackers::BothDeps;
 use crate::legacy::incremental::evaluator::Evaluator;
 pub(crate) use crate::legacy::incremental::graph::dependencies::ComputedDependency;
@@ -608,6 +609,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
     /// Synchronously evaluate projection key given previously computed derive from key.
     pub(crate) fn eval_projection(
         self: &Arc<Self>,
+        dep_trackers: &BothDepTrackers,
         k: &ProjectionKeyAsKey<P>,
         derive_from: &OpaqueValueImplLegacy<P::DeriveFromKey>,
         transaction_ctx: &Arc<TransactionCtx>,
@@ -618,10 +620,11 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         let value = node.val().dupe();
 
         // Update dependencies.
-        derive_from
-            .parent_computations
-            .dep_trackers
-            .record::<ProjectionKeyProperties<P>>(transaction_ctx.get_version(), self.dupe(), node);
+        dep_trackers.record::<ProjectionKeyProperties<P>>(
+            transaction_ctx.get_version(),
+            self.dupe(),
+            node,
+        );
 
         value
     }

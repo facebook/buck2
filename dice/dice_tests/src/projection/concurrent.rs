@@ -89,16 +89,16 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
 
     let base = ctx.compute_opaque(&BaseK).await?;
 
-    base.projection(&k)?;
+    ctx.projection(&base, &k)?;
 
     assert_eq!(count.load(Ordering::SeqCst), 1);
-    base.projection(&k)?;
+    ctx.projection(&base, &k)?;
     assert_eq!(count.load(Ordering::SeqCst), 1);
 
     // call base again but technically same key
     let base = ctx.compute_opaque(&BaseK).await?;
 
-    base.projection(&k)?;
+    ctx.projection(&base, &k)?;
     assert_eq!(count.load(Ordering::SeqCst), 1);
 
     Ok(())

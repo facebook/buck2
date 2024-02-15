@@ -29,6 +29,7 @@ use crate::impls::ctx::ModernComputeCtx;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
+use crate::ProjectionKey;
 
 #[derive(Allocative, UnpackVariants)]
 pub(crate) enum DiceComputationsImpl {
@@ -48,10 +49,7 @@ impl DiceComputationsImpl {
         K: Key,
     {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate
-                .compute_opaque(key)
-                .map(|r| r.map(|x| x.into_value()))
-                .left_future(),
+            DiceComputationsImpl::Legacy(delegate) => delegate.compute(key).left_future(),
             DiceComputationsImpl::Modern(delegate) => delegate.compute(key).right_future(),
         }
     }
@@ -63,7 +61,7 @@ impl DiceComputationsImpl {
     pub(crate) fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<'a, K>>> + 'a
+    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + 'a
     where
         K: Key,
     {
@@ -76,6 +74,35 @@ impl DiceComputationsImpl {
                 .compute_opaque(key)
                 .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Modern(x))))
                 .right_future(),
+        }
+    }
+
+    pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
+        &'a self,
+        derive_from: &OpaqueValue<K>,
+        projection_key: &P,
+    ) -> DiceResult<P::Value> {
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => delegate.projection(
+                derive_from.unpack_legacy().expect("engine type mismatch"),
+                projection_key,
+            ),
+            DiceComputationsImpl::Modern(delegate) => delegate.projection(
+                derive_from.unpack_modern().expect("engine type mismatch"),
+                projection_key,
+            ),
+        }
+    }
+
+    pub fn opaque_into_value<'a, K: Key>(
+        &'a self,
+        derive_from: OpaqueValue<K>,
+    ) -> DiceResult<K::Value> {
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => Ok(delegate
+                .opaque_into_value(derive_from.into_legacy().expect("engine type mismatch"))),
+            DiceComputationsImpl::Modern(delegate) => Ok(delegate
+                .opaque_into_value(derive_from.into_modern().expect("engine type mismatch"))),
         }
     }
 

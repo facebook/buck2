@@ -14,13 +14,11 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 
-use crate::api::error::DiceResult;
 use crate::api::key::Key;
-use crate::api::projection::ProjectionKey;
-use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::legacy::incremental::dep_trackers::BothDeps;
 use crate::legacy::incremental::graph::GraphNode;
 use crate::legacy::incremental::IncrementalEngine;
+use crate::versions::VersionNumber;
 use crate::StoragePropertiesForKey;
 
 /// Computed value which is not directly visible to user.
@@ -29,15 +27,14 @@ use crate::StoragePropertiesForKey;
 /// so projection result is recorded as a dependency
 /// of a computation which requested the opaqued value,
 /// but the opaque value key is not.
-pub(crate) struct OpaqueValueImplLegacy<'a, K: Key> {
+pub(crate) struct OpaqueValueImplLegacy<K: Key> {
     /// Computed value.
     pub(crate) value: GraphNode<StoragePropertiesForKey<K>>,
-    /// Computations which requested this value, parent of K.
-    pub(crate) parent_computations: &'a Arc<DiceComputationsImplLegacy>,
+    version: VersionNumber,
     incremental_engine: Arc<IncrementalEngine<StoragePropertiesForKey<K>>>,
 }
 
-impl<'a, K> Debug for OpaqueValueImplLegacy<'a, K>
+impl<K> Debug for OpaqueValueImplLegacy<K>
 where
     K: Key,
     K::Value: Debug,
@@ -50,15 +47,15 @@ where
     }
 }
 
-impl<'a, K: Key> OpaqueValueImplLegacy<'a, K> {
+impl<K: Key> OpaqueValueImplLegacy<K> {
     pub(crate) fn new(
         value: GraphNode<StoragePropertiesForKey<K>>,
-        parent_computations: &'a Arc<DiceComputationsImplLegacy>,
+        version: VersionNumber,
         incremental_engine: Arc<IncrementalEngine<StoragePropertiesForKey<K>>>,
-    ) -> OpaqueValueImplLegacy<'a, K> {
+    ) -> OpaqueValueImplLegacy<K> {
         OpaqueValueImplLegacy {
             value,
-            parent_computations,
+            version,
             incremental_engine,
         }
     }
@@ -68,32 +65,6 @@ impl<'a, K: Key> OpaqueValueImplLegacy<'a, K> {
     }
 
     pub(crate) fn as_both_deps(&self) -> BothDeps {
-        BothDeps::only_one_dep(
-            self.parent_computations.transaction_ctx.get_version(),
-            self.value.dupe(),
-            &self.incremental_engine,
-        )
-    }
-
-    /// Get a value and record parent computation dependency on `K`.
-    pub(crate) fn into_value(self) -> K::Value {
-        let value = self.value.val().dupe();
-
-        // Track dependencies.
-        self.parent_computations.dep_trackers.record(
-            self.parent_computations.transaction_ctx.get_version(),
-            self.incremental_engine,
-            self.value,
-        );
-
-        value
-    }
-
-    pub(crate) fn projection<P>(&self, projection_key: &P) -> DiceResult<P::Value>
-    where
-        P: ProjectionKey<DeriveFromKey = K>,
-    {
-        self.parent_computations
-            .compute_projection_sync(self, projection_key)
+        BothDeps::only_one_dep(self.version, self.value.dupe(), &self.incremental_engine)
     }
 }

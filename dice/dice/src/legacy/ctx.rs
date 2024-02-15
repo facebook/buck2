@@ -186,10 +186,10 @@ impl DiceComputationsImplLegacy {
         (this.dep_trackers.collect_deps(), this.extra)
     }
 
-    pub(crate) fn compute_opaque<'a, K>(
+    pub(crate) fn compute<'a, K>(
         self: &'a Arc<Self>,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<'a, K>>> + 'a
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
         K: Key,
     {
@@ -200,22 +200,52 @@ impl DiceComputationsImplLegacy {
         match extra {
             Ok(extra) => cache
                 .eval_for_opaque(key, &self.transaction_ctx, extra)
-                .map(move |value| Ok(OpaqueValueImplLegacy::new(value, self, cache)))
+                .map(|value| {
+                    // Track dependencies.
+                    let res = value.val().dupe();
+                    self.dep_trackers
+                        .record(self.transaction_ctx.get_version(), cache, value);
+                    Ok(res)
+                })
                 .left_future(),
             Err(e) => futures::future::ready(Err(e)).right_future(),
         }
     }
 
-    pub(crate) fn compute_projection_sync<P>(
+    pub(crate) fn compute_opaque<'a, K>(
+        self: &'a Arc<Self>,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<K>>> + 'a
+    where
+        K: Key,
+    {
+        // This would be simpler with an `async fn/async move {}`, but we create these for every edge in the computation
+        // and many of those may be live at a time, and so we need to take more care and ensure this is fairly small.
+        let cache = self.dice.find_cache::<K>();
+        let extra = self.extra.subrequest::<StoragePropertiesForKey<K>>(key);
+        match extra {
+            Ok(extra) => cache
+                .eval_for_opaque(key, &self.transaction_ctx, extra)
+                .map(move |value| {
+                    Ok(OpaqueValueImplLegacy::new(
+                        value,
+                        self.transaction_ctx.get_version(),
+                        cache.dupe(),
+                    ))
+                })
+                .left_future(),
+            Err(e) => futures::future::ready(Err(e)).right_future(),
+        }
+    }
+
+    pub(crate) fn projection<K: Key, P: ProjectionKey<DeriveFromKey = K>>(
         self: &Arc<Self>,
-        derive_from: &OpaqueValueImplLegacy<P::DeriveFromKey>,
+        derive_from: &OpaqueValueImplLegacy<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value>
     where
         P: ProjectionKey,
     {
-        assert!(Arc::ptr_eq(self, derive_from.parent_computations));
-
         let cache = self.dice.find_projection_cache::<P>();
 
         let projection_key_as_key = ProjectionKeyAsKey {
@@ -228,11 +258,26 @@ impl DiceComputationsImplLegacy {
             .subrequest::<ProjectionKeyProperties<P>>(&projection_key_as_key)?;
 
         Ok(cache.eval_projection(
+            &self.dep_trackers,
             &projection_key_as_key,
             derive_from,
             &self.transaction_ctx,
             &extra,
         ))
+    }
+
+    pub fn opaque_into_value<'a, K: Key>(
+        &'a self,
+        derive_from: OpaqueValueImplLegacy<K>,
+    ) -> K::Value {
+        let cache = self.dice.find_cache::<K>();
+        let value = derive_from.value.val().dupe();
+
+        // Track dependencies.
+        self.dep_trackers
+            .record(self.transaction_ctx.get_version(), cache, derive_from.value);
+
+        value
     }
 
     pub(crate) fn changed<K, I>(&self, changed: I) -> DiceResult<()>
