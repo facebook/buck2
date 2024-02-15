@@ -95,7 +95,7 @@ impl<'v> StarlarkTargetUniverse<'v> {
 /// Target universe in BXL. Used for looking up valid configured targets to use in cquery. This is not needed for uquery.
 #[starlark_module]
 fn target_universe_methods(builder: &mut MethodsBuilder) {
-    // The target set of the target universe.
+    /// The target set of the nodes used to construct the target universe.
     fn target_set<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
         heap: &'v Heap,
