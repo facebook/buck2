@@ -555,6 +555,7 @@ impl LocalExecutor {
                 abspath,
                 FileDigestConfig::build(digest_config.cas_digest_config()),
                 self.blocking_executor.as_ref(),
+                self.artifact_fs.fs().root(),
             )
             .await
             .with_context(|| format!("collecting output {:?}", path))?;

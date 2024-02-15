@@ -20,6 +20,7 @@ use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::RelativePath;
@@ -57,6 +58,7 @@ pub async fn build_entry_from_disk(
     path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
+    project_root: &AbsNormPath,
 ) -> anyhow::Result<(
     Option<ActionDirectoryEntry<ActionDirectoryBuilder>>,
     HashingInfo,
@@ -77,10 +79,10 @@ pub async fn build_entry_from_disk(
             hashing_info = hashing_info.add(file_hashing_info);
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata))
         }
-        FileType::Symlink => DirectoryEntry::Leaf(create_symlink(&path)?),
+        FileType::Symlink => DirectoryEntry::Leaf(create_symlink(&path, project_root)?),
         FileType::Directory => {
             let (dir, dir_hashing_info) =
-                build_dir_from_disk(path, digest_config, blocking_executor).await?;
+                build_dir_from_disk(path, digest_config, blocking_executor, project_root).await?;
             hashing_info = hashing_info.add(dir_hashing_info);
             DirectoryEntry::Dir(dir)
         }
@@ -100,6 +102,7 @@ async fn build_dir_from_disk(
     disk_path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
+    project_root: &AbsNormPath,
 ) -> anyhow::Result<(ActionDirectoryBuilder, HashingInfo)> {
     let mut builder = ActionDirectoryBuilder::empty();
     let mut hashing_info = HashingInfo::default();
@@ -136,12 +139,16 @@ async fn build_dir_from_disk(
             FileType::Symlink => {
                 builder.insert(
                     filename,
-                    DirectoryEntry::Leaf(create_symlink(&child_disk_path)?),
+                    DirectoryEntry::Leaf(create_symlink(&child_disk_path, project_root)?),
                 )?;
             }
             FileType::Directory => {
-                let dir_future =
-                    build_dir_from_disk(child_disk_path, digest_config, blocking_executor);
+                let dir_future = build_dir_from_disk(
+                    child_disk_path,
+                    digest_config,
+                    blocking_executor,
+                    project_root,
+                );
                 directory_names.push(filename);
                 directory_futures.push(dir_future);
             }
@@ -195,7 +202,10 @@ fn build_file_metadata(
     }
 }
 
-fn create_symlink(path: &AbsNormPathBuf) -> anyhow::Result<ActionDirectoryMember> {
+fn create_symlink(
+    path: &AbsNormPathBuf,
+    project_root: &AbsNormPath,
+) -> anyhow::Result<ActionDirectoryMember> {
     let mut symlink_target = fs_util::read_link(path)?;
     if cfg!(windows) && symlink_target.is_relative() {
         let directory_path = path
@@ -205,14 +215,19 @@ fn create_symlink(path: &AbsNormPathBuf) -> anyhow::Result<ActionDirectoryMember
             "failed to get canonical path of {}",
             directory_path.display()
         ))?;
-        let normalized_target = symlink_target
-            .to_str()
-            .context("can't convert path to str")?
-            .replace('\\', "/");
-        let target_abspath =
-            canonical_path.join_normalized(RelativePath::from_path(&normalized_target)?)?;
-        symlink_target =
-            diff_paths(target_abspath, directory_path).context("can't calculate relative path")?;
+        if !canonical_path.starts_with(project_root) {
+            let normalized_target = symlink_target
+                .to_str()
+                .context("can't convert path to str")?
+                .replace('\\', "/");
+            let target_abspath =
+                canonical_path.join_normalized(RelativePath::from_path(&normalized_target)?)?;
+            // Recalculate symlink target if it points from symlinked buck-out to the files inside project root.
+            if target_abspath.starts_with(project_root) {
+                symlink_target = diff_paths(target_abspath, directory_path)
+                    .context("can't calculate relative path")?;
+            }
+        }
     }
     new_symlink(symlink_target)
 }
