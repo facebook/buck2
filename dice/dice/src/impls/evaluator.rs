@@ -72,14 +72,15 @@ impl AsyncEvaluator {
                 let value = key_dyn
                     .compute(&mut new_ctx, &state.cancellation_ctx().into_compatible())
                     .await;
-                let ((deps, dep_validity), evaluation_data, cycles) = match new_ctx.0 {
-                    DiceComputationsImpl::Legacy(_) => {
-                        unreachable!("modern dice created above")
-                    }
-                    DiceComputationsImpl::Modern(new_ctx) => {
-                        new_ctx.into_owned().expect("just created").finalize()
-                    }
-                };
+                let ((deps, dep_validity), evaluation_data, cycles) =
+                    match new_ctx.try_into_inner().expect("new_ctx owns the inner") {
+                        DiceComputationsImpl::Legacy(_) => {
+                            unreachable!("modern dice created above")
+                        }
+                        DiceComputationsImpl::Modern(new_ctx) => {
+                            new_ctx.into_owned().expect("just created").finalize()
+                        }
+                    };
 
                 let activation = ActivationInfo::new(
                     &self.dice.key_index,

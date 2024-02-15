@@ -8,9 +8,6 @@
  */
 
 use std::future::Future;
-use std::marker::PhantomData;
-use std::ops::Deref;
-use std::ops::DerefMut;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -36,17 +33,45 @@ use crate::UserCycleDetectorGuard;
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
 #[derive(Allocative)]
-#[repr(transparent)]
-pub struct DiceComputations<'a>(pub(crate) DiceComputationsImpl, PhantomData<&'a ()>);
+pub struct DiceComputations<'a>(DiceComputationsKind<'a>);
+
+// separate because we don't want the cases to be pub.
+#[derive(Allocative)]
+enum DiceComputationsKind<'a> {
+    // Used by the initial DiceComputations that a key sees (or when created for a transaction).
+    Owned(DiceComputationsImpl),
+
+    // Used for cases where we create a "sub-computations" for the initial computation, like in compute_many or compute2.
+    #[allocative(skip)]
+    Borrowed(&'a DiceComputationsImpl),
+}
 
 fn _test_computations_sync_send() {
     fn _assert_sync_send<T: Sync + Send>() {}
     _assert_sync_send::<DiceComputations>();
 }
 
-impl DiceComputations<'_> {
+impl<'d> DiceComputations<'d> {
+    pub(crate) fn borrowed(inner: &'d DiceComputationsImpl) -> Self {
+        DiceComputations(DiceComputationsKind::Borrowed(inner))
+    }
+
     pub(crate) fn new(inner: DiceComputationsImpl) -> Self {
-        Self(inner, PhantomData)
+        DiceComputations(DiceComputationsKind::Owned(inner))
+    }
+
+    pub(crate) fn inner(&self) -> &DiceComputationsImpl {
+        match &self.0 {
+            DiceComputationsKind::Owned(v) => &v,
+            DiceComputationsKind::Borrowed(v) => v,
+        }
+    }
+
+    pub(crate) fn try_into_inner(self) -> Option<DiceComputationsImpl> {
+        match self.0 {
+            DiceComputationsKind::Owned(v) => Some(v),
+            DiceComputationsKind::Borrowed(_) => None,
+        }
     }
 
     /// Gets the result of the given computation key.
@@ -59,7 +84,7 @@ impl DiceComputations<'_> {
     where
         K: Key,
     {
-        self.0.compute(key)
+        self.inner().compute(key)
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -73,7 +98,7 @@ impl DiceComputations<'_> {
     where
         K: Key,
     {
-        self.0.compute_opaque(key)
+        self.inner().compute_opaque(key)
     }
 
     pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
@@ -81,14 +106,14 @@ impl DiceComputations<'_> {
         derive_from: &OpaqueValue<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value> {
-        self.0.projection(derive_from, projection_key)
+        self.inner().projection(derive_from, projection_key)
     }
 
     pub fn opaque_into_value<'a, K: Key>(
         &'a self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
-        self.0.opaque_into_value(derive_from)
+        self.inner().opaque_into_value(derive_from)
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream.
@@ -100,7 +125,7 @@ impl DiceComputations<'_> {
     /// ctx.compute_many(keys.into_iter().map(|k|
     ///   higher_order_closure! {
     ///     #![with<'a>]
-    ///     for <'x> move |dice: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, String> {
+    ///     for <'x> move |dice: &'x mut DiceComputations<'a>| -> BoxFuture<'x, String> {
     ///       async move {
     ///         dice.compute(k).await + data
     ///       }.boxed()
@@ -112,25 +137,25 @@ impl DiceComputations<'_> {
     pub fn compute_many<'a, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
+            Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
-        self.0.compute_many(computes)
+        self.inner().compute_many(computes)
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
     pub fn compute2<'a, T: 'a, U: 'a>(
         &'a self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
-        self.0.compute2(compute1, compute2)
+        self.inner().compute2(compute1, compute2)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub fn global_data(&self) -> &DiceData {
-        self.0.global_data()
+        self.inner().global_data()
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -138,47 +163,18 @@ impl DiceComputations<'_> {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub fn per_transaction_data(&self) -> &UserComputationData {
-        self.0.per_transaction_data()
+        self.inner().per_transaction_data()
     }
 
     /// Gets the current cycle guard if its set. If it's set but a different type, an error will be returned.
     pub fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
-        self.0.cycle_guard()
+        self.inner().cycle_guard()
     }
 
     /// Store some extra data that the ActivationTracker will receive if / when this key finishes
     /// executing.
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
-        self.0.store_evaluation_data(value)
-    }
-}
-
-/// For a `compute_many` and `compute2` request, the DiceComputations provided to each lambda
-/// is a reference that's only available for some specific lifetime `'x`. This is express as a
-/// higher rank lifetime bound `for <'x>` in rust. However, `for <'x>` bounds do not have constraints
-/// on them so rust infers them to be any lifetime, including 'static, which is wrong. So, we
-/// introduce an extra lifetime here which forces rust compiler to infer additional bounds on
-/// the `for <'x>` as a `&'x DiceComputationParallel<'a>` cannot live more than `'a`, so using this
-/// type as the argument to the closure forces the correct lifetime bounds to be inferred by rust.
-pub struct DiceComputationsParallel<'a>(pub(crate) DiceComputations<'a>);
-
-impl<'a> DiceComputationsParallel<'a> {
-    pub(crate) fn new(ctx: DiceComputations<'a>) -> Self {
-        Self(ctx)
-    }
-}
-
-impl<'a> Deref for DiceComputationsParallel<'a> {
-    type Target = DiceComputations<'a>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'a> DerefMut for DiceComputationsParallel<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.inner().store_evaluation_data(value)
     }
 }
 

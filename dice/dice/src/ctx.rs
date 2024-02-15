@@ -18,7 +18,6 @@ use futures::FutureExt;
 use gazebo::variants::UnpackVariants;
 
 use crate::api::computations::DiceComputations;
-use crate::api::computations::DiceComputationsParallel;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
@@ -110,34 +109,23 @@ impl DiceComputationsImpl {
     pub(crate) fn compute_many<'a, T: 'a>(
         &'a self,
         computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
+            Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
         computes
             .into_iter()
-            .map(|work| {
-                OwningFuture::new(
-                    DiceComputationsParallel::new(DiceComputations::new(self.dupe())),
-                    work,
-                )
-            })
+            .map(|work| OwningFuture::new(DiceComputations::borrowed(self), work))
             .collect()
     }
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
         &'a self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputationsParallel<'a>) -> BoxFuture<'x, U> + Send,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         (
-            OwningFuture::new(
-                DiceComputationsParallel::new(DiceComputations::new(self.dupe())),
-                compute1,
-            ),
-            OwningFuture::new(
-                DiceComputationsParallel::new(DiceComputations::new(self.dupe())),
-                compute2,
-            ),
+            OwningFuture::new(DiceComputations::borrowed(self), compute1),
+            OwningFuture::new(DiceComputations::borrowed(self), compute2),
         )
     }
 

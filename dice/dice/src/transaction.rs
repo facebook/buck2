@@ -26,7 +26,7 @@ pub(crate) enum DiceTransactionImpl<'a> {
 impl Clone for DiceTransactionImpl<'_> {
     fn clone(&self) -> Self {
         match self {
-            DiceTransactionImpl::Legacy(ctx) => match &ctx.0 {
+            DiceTransactionImpl::Legacy(ctx) => match &ctx.inner() {
                 // since 'DiceComputations' should not be clone or dupe, we manually implement
                 // clone and dupe for the 'DiceTransaction'
                 DiceComputationsImpl::Legacy(ctx) => DiceTransactionImpl::Legacy(
@@ -46,16 +46,16 @@ impl Dupe for DiceTransactionImpl<'_> {}
 impl<'a> DiceTransactionImpl<'a> {
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
-            DiceTransactionImpl::Legacy(ctx) => ctx.0.get_version(),
+            DiceTransactionImpl::Legacy(ctx) => ctx.inner().get_version(),
             DiceTransactionImpl::Modern(ctx) => ctx.get_version(),
         }
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
         match self {
-            DiceTransactionImpl::Legacy(delegate) => match delegate.0 {
+            DiceTransactionImpl::Legacy(delegate) => match delegate.inner() {
                 DiceComputationsImpl::Legacy(ctx) => {
-                    DiceTransactionUpdater(DiceTransactionUpdaterImpl::Legacy(ctx))
+                    DiceTransactionUpdater(DiceTransactionUpdaterImpl::Legacy(ctx.dupe()))
                 }
                 DiceComputationsImpl::Modern(_) => {
                     unreachable!("legacy dice")

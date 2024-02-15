@@ -23,7 +23,6 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
-use dice::DiceComputationsParallel;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -68,7 +67,7 @@ pub async fn get_maybe_compatible_targets<'a>(
                     let target_fns: Vec<_> = targets.into_map(|target|
                         higher_order_closure! {
                             #![with<'a>]
-                            for<'x> |ctx: &'x mut DiceComputationsParallel<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
+                            for<'x> |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
                                 async move {
                                     let target = ctx
                                         .get_configured_target(target.label(), global_cfg_options)

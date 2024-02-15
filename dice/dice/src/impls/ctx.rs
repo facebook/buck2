@@ -74,11 +74,11 @@ pub(crate) struct BaseComputeCtx<'a> {
 impl Clone for BaseComputeCtx<'_> {
     fn clone(&self) -> Self {
         Self {
-            data: match &self.data.0 {
+            data: match &self.data.inner() {
                 DiceComputationsImpl::Legacy(_) => {
                     unreachable!("wrong dice")
                 }
-                modern => DiceComputations::new(modern.clone()),
+                modern => DiceComputations::new((*modern).clone()),
             },
             live_version_guard: self.live_version_guard.dupe(),
         }
@@ -109,16 +109,22 @@ impl<'a> BaseComputeCtx<'a> {
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.data.0.get_version()
+        self.data.inner().get_version()
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(match self.data.0 {
-            DiceComputationsImpl::Legacy(_) => unreachable!("modern dice"),
-            DiceComputationsImpl::Modern(delegate) => {
-                DiceTransactionUpdaterImpl::Modern(delegate.into_owned().unwrap().into_updater())
-            }
-        })
+        DiceTransactionUpdater(
+            match self
+                .data
+                .try_into_inner()
+                .expect("base compute ctx should have a DiceComputations::Owned")
+            {
+                DiceComputationsImpl::Legacy(_) => unreachable!("modern dice"),
+                DiceComputationsImpl::Modern(delegate) => DiceTransactionUpdaterImpl::Modern(
+                    delegate.into_owned().unwrap().into_updater(),
+                ),
+            },
+        )
     }
 
     pub(crate) fn as_computations(&self) -> &DiceComputations<'a> {
@@ -134,7 +140,7 @@ impl Deref for BaseComputeCtx<'_> {
     type Target = ModernComputeCtx;
 
     fn deref(&self) -> &Self::Target {
-        match &self.data.0 {
+        match &self.data.inner() {
             DiceComputationsImpl::Legacy(_) => {
                 unreachable!("legacy dice instead of modern")
             }
