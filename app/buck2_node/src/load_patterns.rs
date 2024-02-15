@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::pattern::package_roots::collect_package_roots;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::package::PackageLabel;
@@ -97,15 +97,19 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         }
     }
 
-    let file_ops = ctx.file_ops();
     let cell_resolver = ctx.bad_dice().get_cell_resolver().await?;
 
-    collect_package_roots(&file_ops, &cell_resolver, recursive_packages, |package| {
-        let package = package?;
-        spec.add_package(package.dupe());
-        builder.load_package(package);
-        anyhow::Ok(())
-    })
+    collect_package_roots(
+        &DiceFileOps(ctx),
+        &cell_resolver,
+        recursive_packages,
+        |package| {
+            let package = package?;
+            spec.add_package(package.dupe());
+            builder.load_package(package);
+            anyhow::Ok(())
+        },
+    )
     .await?;
 
     Ok((spec, builder.load_package_futs))

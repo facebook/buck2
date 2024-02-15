@@ -16,7 +16,7 @@ use std::sync::Arc;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_build_api::configure_targets::get_compatible_targets;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
@@ -172,9 +172,8 @@ impl FileHasher for PathsAndContentsHasher {
             Ok(())
         }
 
-        let file_ops = self.dice.file_ops();
         let mut res = Vec::new();
-        hash_item(&file_ops, cell_path.as_ref(), &mut res).await?;
+        hash_item(&DiceFileOps(&self.dice), cell_path.as_ref(), &mut res).await?;
         Ok(res)
     }
 }

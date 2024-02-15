@@ -17,7 +17,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -77,7 +77,7 @@ async fn server_execute_with_dice(
     )
     .await?;
     let resolved_pattern =
-        resolve_target_patterns(&cells, &parsed_patterns, &ctx.file_ops()).await?;
+        resolve_target_patterns(&cells, &parsed_patterns, &DiceFileOps(&ctx)).await?;
 
     let mut futs = FuturesOrdered::new();
     for (package, spec) in resolved_pattern.specs {

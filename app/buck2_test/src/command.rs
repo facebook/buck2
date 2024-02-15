@@ -26,7 +26,7 @@ use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::events::HasEvents;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -303,7 +303,7 @@ async fn test(
     server_ctx.log_target_pattern(&parsed_patterns);
 
     let resolved_pattern =
-        resolve_target_patterns(&cell_resolver, &parsed_patterns, &ctx.file_ops()).await?;
+        resolve_target_patterns(&cell_resolver, &parsed_patterns, &DiceFileOps(&ctx)).await?;
 
     let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,

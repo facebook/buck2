@@ -12,7 +12,6 @@ use async_recursion::async_recursion;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::file_ops::DiceFileOps;
-use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
@@ -170,7 +169,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                 let path = expr.get(dice, this.cell()?).await;
 
                 match path {
-                    Ok(p) => try_exists(&dice.file_ops(), p.as_ref()).await,
+                    Ok(p) => try_exists(&DiceFileOps(dice), p.as_ref()).await,
                     Err(e) => Err(e),
                 }
             }
@@ -201,7 +200,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
                 match path {
                     Ok(path) => {
-                        let read_dir_output = dice.file_ops().read_dir(path.as_ref()).await?;
+                        let read_dir_output = DiceFileOps(dice).read_dir(path.as_ref()).await?;
                         Ok(StarlarkReadDirSet {
                             cell_path: path,
                             included: read_dir_output.included,

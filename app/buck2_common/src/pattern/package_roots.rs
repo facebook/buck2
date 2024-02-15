@@ -27,7 +27,7 @@ use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
 
 use crate::dice::cells::HasCellResolver;
-use crate::dice::file_ops::HasFileOps;
+use crate::dice::file_ops::DiceFileOps;
 use crate::file_ops::FileOps;
 use crate::find_buildfile::find_buildfile;
 
@@ -54,12 +54,12 @@ pub fn find_package_roots_stream<'a>(
         |_cancellations| {
             async move {
                 let cell_resolver = ctx.get_cell_resolver().await?;
-                let file_ops = ctx.file_ops();
                 // ignore because the errors will be sent back via the stream
-                let _ignored = collect_package_roots(&file_ops, &cell_resolver, paths, |res| {
-                    packages_tx.unbounded_send(res)
-                })
-                .await;
+                let _ignored =
+                    collect_package_roots(&DiceFileOps(&ctx), &cell_resolver, paths, |res| {
+                        packages_tx.unbounded_send(res)
+                    })
+                    .await;
 
                 anyhow::Ok(())
             }

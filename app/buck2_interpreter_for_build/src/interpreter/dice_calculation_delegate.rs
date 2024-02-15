@@ -14,7 +14,6 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::dice::file_ops::DiceFileOps;
-use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
@@ -122,7 +121,6 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
             }
         }
 
-        let file_ops = self.file_ops();
         let configs = self
             .bad_dice()
             .compute(&InterpreterConfigForCellKey(cell, build_file_cell))
@@ -131,7 +129,6 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
         Ok(DiceCalculationDelegate {
             build_file_cell,
             ctx: self,
-            fs: file_ops,
             configs,
         })
     }
@@ -141,7 +138,6 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 pub struct DiceCalculationDelegate<'c, 'd> {
     build_file_cell: BuildFileCell,
     ctx: &'c DiceComputations<'d>,
-    fs: DiceFileOps<'c, 'd>,
     configs: Arc<InterpreterForCell>,
 }
 
@@ -209,8 +205,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     }
 
     async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
-        let content =
-            <dyn FileOps>::read_file(&self.fs, starlark_path.path().as_ref().as_ref()).await?;
+        let content = <dyn FileOps>::read_file(
+            &DiceFileOps(self.ctx),
+            starlark_path.path().as_ref().as_ref(),
+        )
+        .await?;
         self.configs.parse(starlark_path, content)
     }
 
@@ -327,7 +326,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         path: &PackageFilePath,
     ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
         // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
-        let dir = self.fs.read_dir(path.dir()).await?;
+        let dir = DiceFileOps(self.ctx).read_dir(path.dir()).await?;
         // Note:
         // * we are using `read_dir` instead of `read_path_metadata` because
         //   * it is an extra IO, and `read_dir` is likely already cached.

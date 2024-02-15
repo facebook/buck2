@@ -331,7 +331,7 @@ impl<T> From<PathMetadata> for PathMetadataOrRedirection<T> {
 }
 
 #[async_trait]
-pub trait FileOps: Allocative + Send + Sync {
+pub trait FileOps: Send + Sync {
     async fn read_file_if_exists(
         &self,
         path: CellPathRef<'async_trait>,

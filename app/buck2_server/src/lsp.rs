@@ -16,7 +16,7 @@ use std::thread;
 
 use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_core::bzl::ImportPath;
@@ -707,7 +707,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
 
                         self.with_dice_ctx(async move |dice_ctx| {
                             match <dyn FileOps>::read_file(
-                                &dice_ctx.file_ops(),
+                                &DiceFileOps(&dice_ctx),
                                 path.borrow().path().as_ref(),
                             )
                             .await

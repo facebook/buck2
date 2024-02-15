@@ -18,7 +18,7 @@ use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -202,7 +202,7 @@ async fn generate_profile(
     )
     .await?;
 
-    let resolved = resolve_target_patterns(&cells, &parsed_patterns, &ctx.file_ops()).await?;
+    let resolved = resolve_target_patterns(&cells, &parsed_patterns, &DiceFileOps(&ctx)).await?;
 
     match action {
         Action::Analysis => {

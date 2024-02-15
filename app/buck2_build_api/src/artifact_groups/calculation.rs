@@ -20,7 +20,7 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::projected_artifact::ProjectedArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
@@ -286,8 +286,10 @@ async fn dir_artifact_value(
             ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
-            let file_ops = ctx.file_ops();
-            let files = file_ops.read_dir(self.0.as_ref().as_ref()).await?.included;
+            let files = DiceFileOps(ctx)
+                .read_dir(self.0.as_ref().as_ref())
+                .await?
+                .included;
 
             let entries = files.iter().map(|x| async {
                 // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
@@ -327,8 +329,7 @@ async fn path_artifact_value(
     ctx: &DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    let file_ops = &ctx.file_ops() as &dyn FileOps;
-    let raw = file_ops
+    let raw = (&DiceFileOps(ctx) as &dyn FileOps)
         .read_path_metadata(cell_path.as_ref().as_ref())
         .await?;
     match PathMetadataOrRedirection::from(raw) {

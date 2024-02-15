@@ -14,7 +14,7 @@ use std::path::Path;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::RawSymlink;
@@ -122,7 +122,6 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         mut ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         let cell_resolver = ctx.get_cell_resolver().await?;
-        let file_ops = ctx.file_ops();
         let project_root = server_ctx.project_root();
         let digest_config = ctx.global_data().get_digest_config();
 
@@ -141,7 +140,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
             writeln!(&mut stderr, "Check file status: {}", path)?;
-            check_file_status(&file_ops, &cell_resolver, &io, &path, &mut result).await?;
+            check_file_status(&DiceFileOps(&ctx), &cell_resolver, &io, &path, &mut result).await?;
         }
         if result.bad != 0 {
             Err(anyhow::anyhow!("Failed with {} mismatches", result.bad))

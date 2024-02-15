@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
@@ -242,8 +242,12 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns =
             patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
-        let file_ops = self.ctx.file_ops();
-        resolve_target_patterns(&self.cell_resolver, &parsed_patterns, &file_ops).await
+        resolve_target_patterns(
+            &self.cell_resolver,
+            &parsed_patterns,
+            &DiceFileOps(self.ctx),
+        )
+        .await
     }
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.

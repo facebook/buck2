@@ -47,18 +47,6 @@ use crate::ignores::all_cells::AllCellIgnores;
 use crate::ignores::all_cells::HasAllCellIgnores;
 use crate::io::IoProvider;
 
-pub trait HasFileOps<'c> {
-    type T: FileOps;
-    fn file_ops(&'c self) -> Self::T;
-}
-
-impl<'c, 'd: 'c> HasFileOps<'c> for DiceComputations<'d> {
-    type T = DiceFileOps<'c, 'd>;
-    fn file_ops(&'c self) -> DiceFileOps<'c, 'd> {
-        DiceFileOps(self)
-    }
-}
-
 // TODO(cjhopman, bobyf): This FileToken can go away once Dice has support for
 // transient values.
 /// This is used as the "result" of a read_file computation so that we don't
@@ -72,8 +60,7 @@ impl FileToken {
     }
 }
 
-#[derive(Clone, Dupe, Allocative)]
-pub struct DiceFileOps<'c, 'd>(#[allocative(skip)] pub &'c DiceComputations<'d>);
+pub struct DiceFileOps<'c, 'd>(pub &'c DiceComputations<'d>);
 
 pub mod keys {
     use std::sync::Arc;
