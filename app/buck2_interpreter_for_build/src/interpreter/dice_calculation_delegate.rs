@@ -555,6 +555,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         let package_boundary_exception = self
             .ctx
+            .bad_dice()
             .get_package_boundary_exception(package.as_cell_path())
             .await?;
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;

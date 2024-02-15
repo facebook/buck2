@@ -133,11 +133,11 @@ impl PackageBoundaryExceptions {
 #[async_trait]
 pub trait HasPackageBoundaryExceptions {
     async fn get_package_boundary_exceptions(
-        &self,
+        &mut self,
     ) -> buck2_error::Result<Arc<PackageBoundaryExceptions>>;
 
     async fn get_package_boundary_exception(
-        &self,
+        &mut self,
         path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<bool>;
 }
@@ -145,7 +145,7 @@ pub trait HasPackageBoundaryExceptions {
 #[async_trait]
 impl HasPackageBoundaryExceptions for DiceComputations<'_> {
     async fn get_package_boundary_exceptions(
-        &self,
+        &mut self,
     ) -> buck2_error::Result<Arc<PackageBoundaryExceptions>> {
         #[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
         #[display(fmt = "{:?}", self)]
@@ -177,13 +177,11 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
             }
         }
 
-        self.bad_dice()
-            .compute(&PackageBoundaryExceptionsKey)
-            .await?
+        self.compute(&PackageBoundaryExceptionsKey).await?
     }
 
     async fn get_package_boundary_exception(
-        &self,
+        &mut self,
         path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<bool> {
         #[derive(Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative)]
@@ -217,8 +215,7 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
             }
         }
 
-        self.bad_dice()
-            .compute(&PackageBoundaryExceptionKey(path.to_owned()))
+        self.compute(&PackageBoundaryExceptionKey(path.to_owned()))
             .await?
     }
 }
