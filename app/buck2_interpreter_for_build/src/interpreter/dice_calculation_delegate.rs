@@ -306,7 +306,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         &self,
         file: &PackageFilePath,
     ) -> anyhow::Result<SuperPackage> {
-        let cell_resolver = self.ctx.get_cell_resolver().await?;
+        let cell_resolver = self.ctx.bad_dice().get_cell_resolver().await?;
         let proj_rel_path = cell_resolver.resolve_path(file.dir())?;
         match proj_rel_path.parent() {
             None => {

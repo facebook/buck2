@@ -348,7 +348,7 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
     async fn get_legacy_root_config_on_dice<'c>(
         &'c self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
-        let cell_resolver = self.get_cell_resolver().await?;
+        let cell_resolver = self.bad_dice().get_cell_resolver().await?;
         self.get_legacy_config_on_dice(cell_resolver.root_cell())
             .await
     }

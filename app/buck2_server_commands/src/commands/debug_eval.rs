@@ -33,11 +33,12 @@ pub(crate) async fn debug_eval_command(
     req: DebugEvalRequest,
 ) -> anyhow::Result<DebugEvalResponse> {
     context
-        .with_dice_ctx(|server_ctx, ctx| async move {
-            let ctx = &ctx;
+        .with_dice_ctx(|server_ctx, mut ctx| async move {
             let cell_resolver = ctx.get_cell_resolver().await?;
             let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
             let mut loads = Vec::new();
+
+            let ctx = &ctx;
             for path in req.paths {
                 let path = AbsPathBuf::new(path)?;
                 let path = fs_util::canonicalize(&path)?;

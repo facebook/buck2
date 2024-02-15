@@ -98,7 +98,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     }
 
     let file_ops = ctx.file_ops();
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.bad_dice().get_cell_resolver().await?;
 
     collect_package_roots(&file_ops, &cell_resolver, recursive_packages, |package| {
         let package = package?;

@@ -122,7 +122,7 @@ impl StarlarkOpaqueSubcommand for StarlarkLintCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, ctx| {
+            .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let fs = ctx.file_ops();
                 let io = ctx.global_data().get_io_provider();

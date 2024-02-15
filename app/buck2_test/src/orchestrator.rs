@@ -857,7 +857,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             } else {
                 supports_re = false;
                 // For compatibility with v1,
-                let cell_resolver = self.dice.get_cell_resolver().await?;
+                let cell_resolver = self.dice.bad_dice().get_cell_resolver().await?;
                 let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
                 cell.path().to_buf()
             };

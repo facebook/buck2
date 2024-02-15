@@ -20,9 +20,9 @@ use dupe::Dupe;
 
 #[async_trait]
 pub trait HasCellResolver {
-    async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver>;
+    async fn get_cell_resolver(&mut self) -> anyhow::Result<CellResolver>;
 
-    async fn is_cell_resolver_key_set(&self) -> anyhow::Result<bool>;
+    async fn is_cell_resolver_key_set(&mut self) -> anyhow::Result<bool>;
 }
 
 pub trait SetCellResolver {
@@ -49,17 +49,14 @@ impl InjectedKey for CellResolverKey {
 
 #[async_trait]
 impl HasCellResolver for DiceComputations<'_> {
-    async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver> {
-        self.bad_dice()
-            .compute(&CellResolverKey)
-            .await?
-            .ok_or_else(|| {
-                panic!("Tried to retrieve CellResolverKey from the graph, but key has None value")
-            })
+    async fn get_cell_resolver(&mut self) -> anyhow::Result<CellResolver> {
+        self.compute(&CellResolverKey).await?.ok_or_else(|| {
+            panic!("Tried to retrieve CellResolverKey from the graph, but key has None value")
+        })
     }
 
-    async fn is_cell_resolver_key_set(&self) -> anyhow::Result<bool> {
-        Ok(self.bad_dice().compute(&CellResolverKey).await?.is_some())
+    async fn is_cell_resolver_key_set(&mut self) -> anyhow::Result<bool> {
+        Ok(self.compute(&CellResolverKey).await?.is_some())
     }
 }
 

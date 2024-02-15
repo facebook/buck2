@@ -124,7 +124,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
         &self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<PackageLabel> {
-        let cell_resolver = self.0.get_cell_resolver().await?;
+        let cell_resolver = self.0.bad_dice().get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
             .get_enclosing_package(path)
@@ -136,7 +136,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
         path: CellPathRef<'async_trait>,
         enclosing_violation_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>> {
-        let cell_resolver = self.0.get_cell_resolver().await?;
+        let cell_resolver = self.0.bad_dice().get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
             .get_enclosing_packages(path, enclosing_violation_path)

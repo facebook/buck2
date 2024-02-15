@@ -56,7 +56,7 @@ pub(crate) trait HasAllCellIgnores {
 #[async_trait]
 impl HasAllCellIgnores for DiceComputations<'_> {
     async fn new_all_cell_ignores(&self) -> anyhow::Result<Arc<AllCellIgnores>> {
-        let cells = self.get_cell_resolver().await?;
+        let cells = self.bad_dice().get_cell_resolver().await?;
         let configs = self.get_legacy_configs_on_dice().await?;
 
         let mut ignores = HashMap::new();

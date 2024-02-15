@@ -119,10 +119,10 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<Self::PartialResult>,
-        ctx: DiceTransaction,
+        mut ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        let file_ops = ctx.file_ops();
         let cell_resolver = ctx.get_cell_resolver().await?;
+        let file_ops = ctx.file_ops();
         let project_root = server_ctx.project_root();
         let digest_config = ctx.global_data().get_digest_config();
 

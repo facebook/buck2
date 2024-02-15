@@ -38,7 +38,7 @@ pub struct CfgConstructorCalculationInstance;
 async fn get_cfg_constructor_uncached(
     ctx: &DiceComputations<'_>,
 ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
-    let root_cell = ctx.get_cell_resolver().await?.root_cell();
+    let root_cell = ctx.bad_dice().get_cell_resolver().await?.root_cell();
     let package_file_path =
         PackageFilePath::for_dir(CellPathRef::new(root_cell, CellRelativePath::empty()));
     // This returns empty super package if `PACKAGE` file does not exist.

@@ -101,7 +101,7 @@ impl AuditSubcommand for AuditConfigCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, ctx| {
+            .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let cwd = server_ctx.working_dir();
                 let cell_resolver = ctx.get_cell_resolver().await?;
 

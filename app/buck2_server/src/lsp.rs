@@ -419,7 +419,7 @@ impl<'a> BuckLspContext<'a> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize_any(abs_path)?;
         let cell_resolver = self
-            .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
         let cell_path = cell_resolver.get_cell_path(&relative_path)?;
 
@@ -445,7 +445,7 @@ impl<'a> BuckLspContext<'a> {
         // to get a ProjectRelativePath. We already guaranteed that things start with a '/'
         // (rooted from `starlark:`, see LspUrl), so just drop it.
         let cell_resolver = self
-            .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
 
         let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
@@ -529,7 +529,7 @@ impl<'a> BuckLspContext<'a> {
         match ForwardRelativePath::new(literal) {
             Ok(package_relative) => {
                 let cell_resolver = self
-                    .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+                    .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
                     .await?;
                 let relative_path =
                     cell_resolver.resolve_path(current_package.join(package_relative).as_ref())?;
@@ -552,7 +552,7 @@ impl<'a> BuckLspContext<'a> {
         literal: &str,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         let cell_resolver = self
-            .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
         match ParsedPattern::<ProvidersPatternExtra>::parsed_opt_absolute(
             literal,
@@ -625,7 +625,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                         let current_import_path = self.import_path(current_file).await?;
                         let borrowed_current_import_path = current_import_path.borrow();
                         let url = self
-                            .with_dice_ctx(async move |dice_ctx| {
+                            .with_dice_ctx(async move |mut dice_ctx| {
                                 let calculator = dice_ctx
                                     .get_interpreter_calculator(
                                         borrowed_current_import_path.cell(),

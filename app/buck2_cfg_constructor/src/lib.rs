@@ -135,7 +135,7 @@ async fn analyze_constraints(
     let res: SmallMap<String, FrozenProviderCollectionValue> =
         try_join_all(SmallSet::from_iter(refs).into_iter().map(
             async move |label_str| -> anyhow::Result<(String, FrozenProviderCollectionValue)> {
-                let cell_resolver = ctx.get_cell_resolver().await?;
+                let cell_resolver = ctx.bad_dice().get_cell_resolver().await?;
 
                 // Ensure all refs are configuration rules
                 let label =

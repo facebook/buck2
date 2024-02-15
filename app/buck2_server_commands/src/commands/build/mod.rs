@@ -274,7 +274,7 @@ async fn build(
 
 async fn process_build_result(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {

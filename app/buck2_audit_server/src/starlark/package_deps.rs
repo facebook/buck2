@@ -30,7 +30,7 @@ pub(crate) async fn server_execute(
     _client_ctx: ClientContext,
 ) -> anyhow::Result<()> {
     server_ctx
-        .with_dice_ctx(async move |server_ctx, dice_ctx| {
+        .with_dice_ctx(async move |server_ctx, mut dice_ctx| {
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
             let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
             let current_cell = BuildFileCell::new(current_cell_path.cell());
