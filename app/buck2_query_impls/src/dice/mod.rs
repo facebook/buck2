@@ -366,7 +366,7 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
 }
 
 pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
-    ctx: &'c DiceComputations<'d>,
+    ctx: &'c mut DiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
 ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {

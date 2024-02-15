@@ -97,7 +97,7 @@ pub(crate) async fn preresolve_literals_and_build_universe(
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
 pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a, 'd>(
-    ctx: &'c DiceComputations<'d>,
+    ctx: &'c mut DiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
     owner_behavior: CqueryOwnerBehavior,

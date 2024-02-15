@@ -31,7 +31,7 @@ pub enum CqueryOwnerBehavior {
 pub trait QueryFrontend: Send + Sync + 'static {
     async fn eval_uquery(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
@@ -40,7 +40,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
 
     async fn eval_cquery(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
         owner_behavior: CqueryOwnerBehavior,
         query: &str,
@@ -51,7 +51,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
 
     async fn eval_aquery(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
@@ -60,7 +60,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
 
     async fn universe_from_literals(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         cwd: &ProjectRelativePath,
         literals: &[String],
         global_cfg_options: GlobalCfgOptions,

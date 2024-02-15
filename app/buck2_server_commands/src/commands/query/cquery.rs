@@ -161,7 +161,7 @@ async fn cquery(
     let query_result = QUERY_FRONTEND
         .get()?
         .eval_cquery(
-            &ctx,
+            &mut ctx,
             server_ctx.working_dir(),
             owner_behavior,
             query,

@@ -132,7 +132,7 @@ async fn uquery(
     let query_result = QUERY_FRONTEND
         .get()?
         .eval_uquery(
-            &ctx,
+            &mut ctx,
             server_ctx.working_dir(),
             query,
             query_args,

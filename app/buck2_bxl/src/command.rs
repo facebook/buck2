@@ -139,7 +139,8 @@ async fn bxl(
         global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
     let bxl_args =
-        match get_bxl_cli_args(cwd, &ctx, &bxl_label, &request.bxl_args, &cell_resolver).await? {
+        match get_bxl_cli_args(cwd, &mut ctx, &bxl_label, &request.bxl_args, &cell_resolver).await?
+        {
             BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
             // Return early if user passed in `--help`
             BxlResolvedCliArgs::Help => {
@@ -214,7 +215,7 @@ async fn bxl(
 
 pub(crate) async fn get_bxl_cli_args(
     cwd: &ProjectRelativePath,
-    ctx: &DiceTransaction,
+    ctx: &mut DiceTransaction,
     bxl_label: &BxlFunctionLabel,
     bxl_args: &Vec<String>,
     cell_resolver: &CellResolver,

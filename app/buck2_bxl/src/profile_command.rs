@@ -87,7 +87,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
 
                         let bxl_args = match get_bxl_cli_args(
                             cwd,
-                            &ctx,
+                            &mut ctx,
                             &bxl_label,
                             &opts.bxl_args,
                             &cell_resolver,

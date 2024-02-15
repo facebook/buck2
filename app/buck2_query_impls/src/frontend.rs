@@ -36,7 +36,7 @@ pub(crate) fn init_query_frontend() {
 impl QueryFrontend for QueryFrontendImpl {
     async fn eval_uquery(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
@@ -49,7 +49,7 @@ impl QueryFrontend for QueryFrontendImpl {
 
     async fn eval_cquery(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
         owner_behavior: CqueryOwnerBehavior,
         query: &str,
@@ -73,7 +73,7 @@ impl QueryFrontend for QueryFrontendImpl {
 
     async fn eval_aquery(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
@@ -86,7 +86,7 @@ impl QueryFrontend for QueryFrontendImpl {
 
     async fn universe_from_literals(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         cwd: &ProjectRelativePath,
         literals: &[String],
         global_cfg_options: GlobalCfgOptions,

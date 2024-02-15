@@ -129,12 +129,12 @@ impl BuckConfigTargetAliasResolver {
 #[async_trait]
 pub trait HasTargetAliasResolver {
     async fn target_alias_resolver_for_cell(
-        &self,
+        &mut self,
         cell_name: CellName,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver>;
 
     async fn target_alias_resolver_for_working_dir(
-        &self,
+        &mut self,
         working_dir: &ProjectRelativePath,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver>;
 }
@@ -168,17 +168,16 @@ impl Key for TargetAliasResolverKey {
 #[async_trait]
 impl HasTargetAliasResolver for DiceComputations<'_> {
     async fn target_alias_resolver_for_cell(
-        &self,
+        &mut self,
         cell_name: CellName,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         Ok(self
-            .bad_dice()
             .compute(&TargetAliasResolverKey { cell_name })
             .await??)
     }
 
     async fn target_alias_resolver_for_working_dir(
-        &self,
+        &mut self,
         working_dir: &ProjectRelativePath,
     ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         let cell_resolver = self.get_cell_resolver().await?;

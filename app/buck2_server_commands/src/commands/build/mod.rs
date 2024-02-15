@@ -233,7 +233,7 @@ async fn build(
         TargetResolutionConfig::Universe(
             QUERY_FRONTEND
                 .get()?
-                .universe_from_literals(&ctx, cwd, &request.target_universe, global_cfg_options)
+                .universe_from_literals(&mut ctx, cwd, &request.target_universe, global_cfg_options)
                 .await?,
         )
     };
