@@ -574,7 +574,7 @@ def generate_startup_function_loader(ctx: AnalysisContext) -> ArgLike:
         startup_functions_list = "\n".join(
             [
                 '"' + startup_function + '",'
-                for _, startup_function in sorted(ctx.attrs.manifest_module_entries["startup_functions"].items())
+                for _, startup_function in sorted(ctx.attrs.manifest_module_entries.get("startup_functions", {}).items())
             ],
         )
 
