@@ -67,8 +67,8 @@ impl Key for GraphSizeKey {
 
 /// Returns the total graph size for all dependencies of a target.
 pub async fn get_configured_graph_size(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     key: &ConfiguredTargetLabel,
 ) -> anyhow::Result<MaybeCompatible<u64>> {
-    Ok(ctx.bad_dice().compute(&GraphSizeKey(key.dupe())).await??)
+    Ok(ctx.compute(&GraphSizeKey(key.dupe())).await??)
 }

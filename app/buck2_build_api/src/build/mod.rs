@@ -462,10 +462,12 @@ async fn build_configured_label_inner<'a>(
 
     if opts.want_configured_graph_size {
         let stream = stream.chain(futures::stream::once(async move {
-            let configured_graph_size =
-                graph_size::get_configured_graph_size(ctx, providers_label.target())
-                    .await
-                    .map_err(|e| e.into());
+            let configured_graph_size = graph_size::get_configured_graph_size(
+                &mut ctx.bad_dice(),
+                providers_label.target(),
+            )
+            .await
+            .map_err(|e| e.into());
 
             ConfiguredBuildEvent {
                 label: providers_label,
