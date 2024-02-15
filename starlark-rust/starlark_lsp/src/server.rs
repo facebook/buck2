@@ -47,7 +47,6 @@ use lsp_types::request::GotoDefinition;
 use lsp_types::request::HoverRequest;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
-use lsp_types::CompletionOptions;
 use lsp_types::CompletionParams;
 use lsp_types::CompletionResponse;
 use lsp_types::DefinitionOptions;
@@ -406,17 +405,6 @@ impl<T: LspContext> Backend<T> {
         ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
             definition_provider,
-            completion_provider: Some(CompletionOptions {
-                trigger_characters: Some(vec![
-                    // e.g. function call
-                    "(".to_owned(),
-                    // e.g. variable assignment
-                    "=".to_owned(),
-                    // e.g. string literal (load path, target name)
-                    "\"".to_owned(),
-                ]),
-                ..Default::default()
-            }),
             hover_provider: Some(HoverProviderCapability::Simple(true)),
             ..ServerCapabilities::default()
         }
