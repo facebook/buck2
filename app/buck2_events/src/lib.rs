@@ -215,19 +215,6 @@ pub struct EventSinkStats {
     pub dropped: u64,
 }
 
-impl EventSinkStats {
-    /// Since there can be one or more sinks (e.g. with [`sink::TeeSink`](???)), we need to aggregate these into
-    /// useful singular values.
-    pub fn aggregate(&self, other: &Self) -> Self {
-        Self {
-            successes: self.successes + other.successes,
-            failures: self.failures + other.failures,
-            buffered: self.buffered + other.buffered,
-            dropped: self.dropped + other.dropped,
-        }
-    }
-}
-
 /// A sink for events, easily plumbable to the guts of systems that intend to produce events consumeable by
 /// higher-level clients. Sending an event is synchronous.
 pub trait EventSink: Send + Sync {
