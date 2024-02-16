@@ -402,14 +402,16 @@ def prepare_cd_exe(
         debug_port: [int, None],
         debug_target: [Label, None],
         extra_jvm_args: list[str],
-        extra_jvm_args_target: [Label, None]) -> tuple:
+        extra_jvm_args_target: list[Label]) -> tuple:
     local_only = False
     jvm_args = ["-XX:-MaxFDLimit"]
 
     if extra_jvm_args_target:
-        if qualified_name == qualified_name_with_subtarget(extra_jvm_args_target):
-            jvm_args = jvm_args + extra_jvm_args
-            local_only = True
+        for target in extra_jvm_args_target:
+            if qualified_name == qualified_name_with_subtarget(target):
+                jvm_args = jvm_args + extra_jvm_args
+                local_only = True
+                break
     else:
         jvm_args = jvm_args + extra_jvm_args
 
