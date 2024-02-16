@@ -22,6 +22,19 @@
 parse_str("") ->
     [];
 parse_str(StrArgs) ->
-    {ok, Tokens, _} = erl_scan:string(StrArgs ++ "."),
-    {ok, Term} = erl_parse:parse_term(Tokens),
-    Term.
+    try
+        {ok, Tokens, _} = erl_scan:string(StrArgs ++ "."),
+        erl_parse:parse_term(Tokens)
+    of
+        {ok, Term} ->
+            Term;
+        {error, Reason} ->
+            error(lists:flatten(io_lib:format("Error parsing StrArgs ~p, Reason: ~p", [StrArgs, Reason])))
+    catch
+        E:R:S ->
+            error(
+                lists:flatten(
+                    io_lib:format("Error parsing StrArgs ~p, error ~p", [StrArgs, erl_error:format_exception(E, R, S)])
+                )
+            )
+    end.
