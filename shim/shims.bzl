@@ -6,7 +6,6 @@
 # of this source tree.
 
 # @lint-ignore FBCODEBZLADDLOADS
-
 _SELECT_TYPE = type(select({"DEFAULT": []}))
 
 def is_select(thing):
@@ -32,6 +31,7 @@ def rust_library(
     # Reset visibility because internal and external paths are different.
     visibility = ["PUBLIC"]
 
+    # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
     native.rust_library(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
@@ -50,6 +50,8 @@ def rust_binary(
         **kwargs):
     _unused = (unittests, allocator, default_strip_mode)  # @unused
     deps = _maybe_select_map(deps, _fix_deps)
+
+    # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
     native.rust_binary(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
@@ -63,6 +65,8 @@ def rust_unittest(
         visibility = ["PUBLIC"],
         **kwargs):
     deps = _maybe_select_map(deps, _fix_deps)
+
+    # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
     native.rust_test(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
@@ -106,6 +110,7 @@ def rust_protobuf_library(
         },
     )
 
+    # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
     native.genrule(
         name = proto_name,
         srcs = protos + [
@@ -124,15 +129,16 @@ def rust_protobuf_library(
             # This is where prost looks for generated .rs files
             "OUT_DIR": "$(location :{})".format(proto_name),
         },
+        test_deps = test_deps,
         deps = [
             "fbsource//third-party/rust:prost",
             "fbsource//third-party/rust:prost-types",
         ] + (deps or []),
-        test_deps = test_deps,
     )
 
     # For python tests only
     for proto in protos:
+        # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
         native.export_file(
             name = proto,
             visibility = ["PUBLIC"],

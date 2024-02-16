@@ -9,6 +9,7 @@ def _lbl(*_args):
     return ""
 
 def _package(_values, overwrite = False):
+    # @lint-ignore BUILDIFIERLINT
     _ = overwrite
 
 ci = struct(

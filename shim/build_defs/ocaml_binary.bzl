@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def python_binary(srcs = [], **kwargs):
-    _unused = srcs  # @unused
+load("//:shims.bzl", _ocaml_binary = "ocaml_binary")
 
-    # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
-    native.python_binary(**kwargs)
+ocaml_binary = _ocaml_binary
