@@ -42,6 +42,7 @@ def erlang_tests_macro(
         resources: list[str] = [],
         property_tests: list[str] = [],
         srcs: list[str] = [],
+        postfix: str | None = None,
         **common_attributes: dict) -> None:
     """
     Generate multiple erlang_test targets based on the `suites` field.
@@ -93,6 +94,9 @@ def erlang_tests_macro(
         if data_target:
             suite_resource = [target for target in target_resources]
             suite_resource.append(data_target)
+
+        if postfix != None:
+            suite_name = "{}_{}".format(suite_name, postfix)
 
         # forward resources and deps fields and generate erlang_test target
         erlang_test_rule(
