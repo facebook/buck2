@@ -34,6 +34,10 @@ export FB_PAR_MAIN_RUNNER_FUNCTION="{main_runner_function}"
 export FB_PAR_RUNTIME_FILES=$BASE_DIR
 : ${{FB_LPAR_INVOKED_NAME:="$0"}}
 export FB_LPAR_INVOKED_NAME
+# This environment variable is immediately unset on startup but will also appear
+# in e.g. `multiprocessing` workers, and so serves as an audit trail back to
+# the originating PAR (and can be read via e.g. `/proc/<pid>/environ`).
+export PAR_INVOKED_NAME_TAG="$FB_LPAR_INVOKED_NAME"
 {ld_preload}
 {env}
 exec {cmd} "$@"

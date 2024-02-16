@@ -19,7 +19,7 @@ from importlib.util import module_from_spec
 lock = threading.Lock()
 
 
-def __patch_spawn(var_names: tuple[str, ...], saved_env: dict[str, str]) -> None:
+def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     std_spawn = mp_util.spawnv_passfds
 
     # pyre-fixme[53]: Captured variable `std_spawn` is not annotated.
@@ -45,14 +45,30 @@ def __patch_spawn(var_names: tuple[str, ...], saved_env: dict[str, str]) -> None
 
 def __clear_env(patch_spawn: bool = True) -> None:
     saved_env = {}
-    darwin_vars = ("DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES")
-    linux_vars = ("LD_LIBRARY_PATH", "LD_PRELOAD")
-    python_vars = ("PYTHONPATH",)
+
+    var_names = [
+        "PYTHONPATH",
+        # We use this env var to tag the process and it's `multiprocessing`
+        # workers.  It's important that we clear it out (so that unrelated sub-
+        # processes don't inherit it), but it can be read via
+        # `/proc/<pid>/environ`.
+        "PAR_INVOKED_NAME_TAG",
+    ]
 
     if sys.platform == "darwin":
-        var_names = darwin_vars + python_vars
+        var_names.extend(
+            [
+                "DYLD_LIBRARY_PATH",
+                "DYLD_INSERT_LIBRARIES",
+            ]
+        )
     else:
-        var_names = linux_vars + python_vars
+        var_names.extend(
+            [
+                "LD_LIBRARY_PATH",
+                "LD_PRELOAD",
+            ]
+        )
 
     # Restore the original value of environment variables that we altered
     # as part of the startup process.

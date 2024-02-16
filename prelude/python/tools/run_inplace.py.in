@@ -154,6 +154,11 @@ for env in ("PYTHONPATH", "LD_LIBRARY_PATH", "LD_PRELOAD",
 path = os.path.join(dirpath, modules_dir)
 os.environ["PYTHONPATH"] = path
 
+# This environment variable is immediately unset on startup but will also appear
+# in e.g. `multiprocessing` workers, and so serves as an audit trail back to
+# the originating PAR (and can be read via e.g. `/proc/<pid>/environ`).
+os.environ["PAR_INVOKED_NAME_TAG"] = sys.argv[0]
+
 if platform.system() == "Windows":
     # exec on Windows is not true exec - there is only 'spawn' ('CreateProcess').
     # However, creating processes unnecessarily is painful, so we only do the spawn
