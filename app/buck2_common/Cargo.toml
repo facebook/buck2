@@ -20,6 +20,7 @@ dirs = { workspace = true }
 futures = { workspace = true }
 globset = { workspace = true }
 hex = { workspace = true }
+higher-order-closure = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 num_enum = { workspace = true }

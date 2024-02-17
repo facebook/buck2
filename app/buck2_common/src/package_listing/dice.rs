@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -24,7 +23,6 @@ use dupe::Dupe;
 use smallvec::SmallVec;
 
 use crate::dice::cells::HasCellResolver;
-use crate::dice::file_ops::DiceFileOps;
 use crate::package_listing::interpreter::InterpreterPackageListingResolver;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
@@ -86,7 +84,7 @@ impl Key for PackageListingKey {
 
         let cell_resolver = ctx.get_cell_resolver().await?;
         let (result, spans) = async_record_root_spans(
-            InterpreterPackageListingResolver::new(cell_resolver, Arc::new(DiceFileOps(ctx)))
+            InterpreterPackageListingResolver::new(cell_resolver, &mut ctx.bad_dice())
                 .resolve(self.0.dupe()),
         )
         .await;
@@ -124,7 +122,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<PackageLabel> {
         let cell_resolver = self.0.bad_dice().get_cell_resolver().await?;
-        InterpreterPackageListingResolver::new(cell_resolver, Arc::new(DiceFileOps(self.0)))
+        InterpreterPackageListingResolver::new(cell_resolver, &mut self.0.bad_dice())
             .get_enclosing_package(path)
             .await
     }
@@ -135,7 +133,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
         enclosing_violation_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>> {
         let cell_resolver = self.0.bad_dice().get_cell_resolver().await?;
-        InterpreterPackageListingResolver::new(cell_resolver, Arc::new(DiceFileOps(self.0)))
+        InterpreterPackageListingResolver::new(cell_resolver, &mut self.0.bad_dice())
             .get_enclosing_packages(path, enclosing_violation_path)
             .await
     }

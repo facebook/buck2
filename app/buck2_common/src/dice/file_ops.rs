@@ -80,7 +80,7 @@ pub mod keys {
 }
 
 async fn get_default_file_ops(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Arc<dyn FileOps>> {
     #[derive(Clone, Dupe, Derivative, Allocative)]
     #[derivative(PartialEq)]
@@ -251,7 +251,7 @@ async fn get_default_file_ops(
         }
     }
 
-    Ok(dice.bad_dice().compute(&FileOpsKey()).await??.0)
+    Ok(dice.compute(&FileOpsKey()).await??.0)
 }
 
 #[derive(Allocative)]
@@ -427,13 +427,13 @@ impl Key for PathMetadataKey {
 }
 
 #[async_trait]
-impl<'c, 'd> FileOps for DiceFileOps<'c, 'd> {
+impl FileOps for DiceFileOps<'_, '_> {
     async fn read_file_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<String>> {
         let path = path.to_owned();
-        let file_ops = get_default_file_ops(self.0).await?;
+        let file_ops = get_default_file_ops(&mut self.0.bad_dice()).await?;
 
         self.0
             .bad_dice()
@@ -463,7 +463,7 @@ impl<'c, 'd> FileOps for DiceFileOps<'c, 'd> {
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-        let file_ops = get_default_file_ops(self.0).await?;
+        let file_ops = get_default_file_ops(&mut self.0.bad_dice()).await?;
         file_ops.is_ignored(path).await
     }
 
