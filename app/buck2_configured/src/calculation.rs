@@ -18,6 +18,8 @@ use buck2_core::target::label::TargetLabel;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
+use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::super_package::SuperPackage;
 use buck2_node::target_calculation::ConfiguredTargetCalculationImpl;
 use buck2_node::target_calculation::CONFIGURED_TARGET_CALCULATION;
 use buck2_util::cycle_detector::CycleDescriptor;
@@ -45,12 +47,15 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         target: &TargetLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
-        let (node, super_package) = ctx
-            .bad_dice()
-            .get_target_node_with_super_package(target)
-            .await?;
+        let (node, super_package) = ctx.get_target_node_with_super_package(target).await?;
 
-        let get_platform_configuration = async || -> buck2_error::Result<ConfigurationData> {
+        async fn get_platform_configuration(
+            ctx: &DiceComputations<'_>,
+            global_cfg_options: &GlobalCfgOptions,
+            target: &TargetLabel,
+            node: &TargetNode,
+            super_package: &SuperPackage,
+        ) -> buck2_error::Result<ConfigurationData> {
             let current_cfg = match global_cfg_options.target_platform.as_ref() {
                 Some(global_target_platform) => {
                     ctx.get_platform_configuration(global_target_platform)
@@ -67,19 +72,29 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                 .eval_cfg_constructor(
                     &mut ctx.bad_dice(),
                     node.as_ref(),
-                    &super_package,
+                    super_package,
                     current_cfg,
                     &global_cfg_options.cli_modifiers,
                     node.rule_type(),
                 )
                 .await?)
-        };
+        }
 
         match node.rule_kind() {
             RuleKind::Configuration => Ok(target.configure(ConfigurationData::unbound())),
-            RuleKind::Normal => Ok(target.configure(get_platform_configuration().await?)),
+            RuleKind::Normal => Ok(target.configure(
+                get_platform_configuration(ctx, global_cfg_options, target, &node, &super_package)
+                    .await?,
+            )),
             RuleKind::Toolchain => {
-                let cfg = get_platform_configuration().await?;
+                let cfg = get_platform_configuration(
+                    ctx,
+                    global_cfg_options,
+                    target,
+                    &node,
+                    &super_package,
+                )
+                .await?;
                 let exec_cfg = get_execution_platform_toolchain_dep(
                     ctx,
                     &TargetConfiguredTargetLabel::new_configure(target, cfg.dupe()),
