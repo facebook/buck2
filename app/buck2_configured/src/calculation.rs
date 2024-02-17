@@ -65,7 +65,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
             Ok(CFG_CONSTRUCTOR_CALCULATION_IMPL
                 .get()?
                 .eval_cfg_constructor(
-                    ctx,
+                    &mut ctx.bad_dice(),
                     node.as_ref(),
                     &super_package,
                     current_cfg,

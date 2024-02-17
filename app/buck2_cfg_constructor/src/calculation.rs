@@ -36,9 +36,9 @@ use dupe::OptionDupedExt;
 pub struct CfgConstructorCalculationInstance;
 
 async fn get_cfg_constructor_uncached(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
-    let root_cell = ctx.bad_dice().get_cell_resolver().await?.root_cell();
+    let root_cell = ctx.get_cell_resolver().await?.root_cell();
     let package_file_path =
         PackageFilePath::for_dir(CellPathRef::new(root_cell, CellRelativePath::empty()));
     // This returns empty super package if `PACKAGE` file does not exist.
@@ -50,7 +50,7 @@ async fn get_cfg_constructor_uncached(
 impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
     async fn get_cfg_constructor(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         struct GetCfgConstructorKey;
@@ -74,15 +74,14 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             }
         }
 
-        ctx.bad_dice()
-            .compute(&GetCfgConstructorKey)
+        ctx.compute(&GetCfgConstructorKey)
             .await?
             .map_err(anyhow::Error::from)
     }
 
     async fn eval_cfg_constructor(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,
@@ -162,7 +161,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             cli_modifiers: cli_modifiers.dupe(),
             rule_type: rule_type.dupe(),
         };
-        Ok(ctx.bad_dice().compute(&key).await??)
+        Ok(ctx.compute(&key).await??)
     }
 }
 
