@@ -112,7 +112,7 @@ fn call_transition_function<'v>(
 }
 
 async fn do_apply_transition(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     attrs: Option<&[Option<CoercedAttr>]>,
     conf: &ConfigurationData,
     transition_id: &TransitionId,
@@ -205,7 +205,7 @@ async fn do_apply_transition(
 pub(crate) trait ApplyTransition {
     /// Resolve `refs` param of transition function.
     async fn fetch_transition_function_reference(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> buck2_error::Result<FrozenProviderCollectionValue>;
 }
@@ -213,11 +213,10 @@ pub(crate) trait ApplyTransition {
 #[async_trait]
 impl ApplyTransition for DiceComputations<'_> {
     async fn fetch_transition_function_reference(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> buck2_error::Result<FrozenProviderCollectionValue> {
         Ok(self
-            .bad_dice()
             .get_configuration_analysis_result(target)
             .await?
             .providers()
@@ -235,7 +234,7 @@ pub(crate) fn init_transition_calculation() {
 impl TransitionCalculation for TransitionCalculationImpl {
     async fn apply_transition(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target_node: TargetNodeRef<'_>,
         cfg: &ConfigurationData,
         transition_id: &TransitionId,
@@ -321,9 +320,6 @@ impl TransitionCalculation for TransitionCalculationImpl {
             attrs,
         };
 
-        ctx.bad_dice()
-            .compute(&key)
-            .await?
-            .map_err(anyhow::Error::from)
+        ctx.compute(&key).await?.map_err(anyhow::Error::from)
     }
 }

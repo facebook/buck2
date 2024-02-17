@@ -792,7 +792,7 @@ async fn gather_deps(
 async fn compute_configured_target_node_no_transition(
     target_label: &ConfiguredTargetLabel,
     target_node: TargetNode,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     let partial_target_label =
         &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
@@ -880,6 +880,8 @@ async fn compute_configured_target_node_no_transition(
     let execution_platform = execution_platform_resolution.cfg();
 
     // We now need to replace the dummy exec config we used above with the real one
+
+    let ctx = &*ctx;
 
     let toolchain_dep_futures = gathered_deps
         .toolchain_deps
