@@ -50,7 +50,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         let (node, super_package) = ctx.get_target_node_with_super_package(target).await?;
 
         async fn get_platform_configuration(
-            ctx: &DiceComputations<'_>,
+            ctx: &mut DiceComputations<'_>,
             global_cfg_options: &GlobalCfgOptions,
             target: &TargetLabel,
             node: &TargetNode,
@@ -70,7 +70,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
             Ok(CFG_CONSTRUCTOR_CALCULATION_IMPL
                 .get()?
                 .eval_cfg_constructor(
-                    &mut ctx.bad_dice(),
+                    ctx,
                     node.as_ref(),
                     super_package,
                     current_cfg,

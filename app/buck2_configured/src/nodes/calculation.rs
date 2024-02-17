@@ -88,7 +88,7 @@ enum CompatibilityConstraints {
 }
 
 async fn compute_platform_cfgs(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     node: TargetNodeRef<'_>,
 ) -> anyhow::Result<OrderedMap<TargetLabel, ConfigurationData>> {
     let mut platform_map = OrderedMap::new();
@@ -129,7 +129,7 @@ enum PluginDepError {
 }
 
 pub async fn find_execution_platform_by_configuration(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     exec_cfg: &ConfigurationData,
     cfg: &ConfigurationData,
 ) -> buck2_error::Result<ExecutionPlatform> {

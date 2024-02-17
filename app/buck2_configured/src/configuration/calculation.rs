@@ -62,7 +62,7 @@ pub enum ConfigurationError {
 }
 
 async fn get_target_platform_detector(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Arc<TargetPlatformDetector>> {
     // This requires a bit of computation so cache it on the graph.
     // TODO(cjhopman): Should we construct this (and similar buckconfig-derived objects) as part of the buck config itself?
@@ -106,7 +106,7 @@ async fn get_target_platform_detector(
         }
     }
 
-    ctx.bad_dice().compute(&TargetPlatformDetectorKey).await?
+    ctx.compute(&TargetPlatformDetectorKey).await?
 }
 
 /// Returns the configured [ExecutionPlatforms] or None if `build.execution_platforms` is not configured.
@@ -226,7 +226,7 @@ async fn check_execution_platform(
 }
 
 async fn get_execution_platforms_enabled(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<ExecutionPlatforms> {
     ctx.get_execution_platforms()
         .await?
@@ -341,24 +341,24 @@ struct ResolvedConfigurationKey {
 #[async_trait]
 pub trait ConfigurationCalculation {
     async fn get_default_platform(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> buck2_error::Result<ConfigurationData>;
 
     async fn get_platform_configuration(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> anyhow::Result<ConfigurationData>;
 
     async fn get_resolved_configuration<'a, T: IntoIterator<Item = &'a TargetLabel> + Send>(
-        &self,
+        &mut self,
         target_cfg: &ConfigurationData,
         target_node_cell: CellName,
         configuration_deps: T,
     ) -> buck2_error::Result<ResolvedConfiguration>;
 
     async fn get_configuration_node(
-        &self,
+        &mut self,
         target_cfg: &ConfigurationData,
         target_cell: CellName,
         cfg_target: &TargetLabel,
@@ -368,7 +368,7 @@ pub trait ConfigurationCalculation {
     /// configured **in the root cell's buckconfig** with key `build.execution_platforms`. If there's no
     /// value configured, it will return `None` which indicates we should fallback to the legacy execution
     /// platform behavior.
-    async fn get_execution_platforms(&self) -> buck2_error::Result<Option<ExecutionPlatforms>>;
+    async fn get_execution_platforms(&mut self) -> buck2_error::Result<Option<ExecutionPlatforms>>;
 
     /// Gets the compatible execution platforms for a give list of compatible_with constraints and execution deps.
     ///
@@ -379,7 +379,7 @@ pub trait ConfigurationCalculation {
     /// those nodes to just have a single dice dep. This approach has the downside that it is less incremental, but
     /// we expect these things to change rarely.
     async fn resolve_execution_platform_from_constraints(
-        &self,
+        &mut self,
         target_node_cell: CellName,
         exec_compatible_with: Arc<[TargetLabel]>,
         exec_deps: Arc<[TargetLabel]>,
@@ -436,7 +436,7 @@ async fn compute_platform_configuration(
 #[async_trait]
 impl ConfigurationCalculation for DiceComputations<'_> {
     async fn get_platform_configuration(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> anyhow::Result<ConfigurationData> {
         #[derive(derive_more::Display, Debug, Eq, Hash, PartialEq, Clone, Allocative)]
@@ -464,14 +464,13 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             }
         }
 
-        self.bad_dice()
-            .compute(&PlatformConfigurationKey(target.dupe()))
+        self.compute(&PlatformConfigurationKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)
     }
 
     async fn get_default_platform(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> buck2_error::Result<ConfigurationData> {
         let detector = get_target_platform_detector(self).await?;
@@ -486,7 +485,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
     }
 
     async fn get_resolved_configuration<'a, T: IntoIterator<Item = &'a TargetLabel> + Send>(
-        &self,
+        &mut self,
         target_cfg: &ConfigurationData,
         target_cell: CellName,
         configuration_deps: T,
@@ -500,9 +499,12 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let config_futures: Vec<_> = self
-                    .configuration_deps
-                    .map(|d| ctx.get_configuration_node(&self.target_cfg, self.target_cell, d));
+                let ctx = &*ctx;
+                let config_futures: Vec<_> = self.configuration_deps.map(|d| async move {
+                    ctx.bad_dice()
+                        .get_configuration_node(&self.target_cfg, self.target_cell, d)
+                        .await
+                });
                 let config_nodes = futures::future::join_all(config_futures).await;
 
                 let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
@@ -523,17 +525,16 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 
         let configuration_deps: Vec<TargetLabel> =
             configuration_deps.into_iter().map(|t| t.dupe()).collect();
-        self.bad_dice()
-            .compute(&ResolvedConfigurationKey {
-                target_cfg: target_cfg.dupe(),
-                target_cell,
-                configuration_deps,
-            })
-            .await?
+        self.compute(&ResolvedConfigurationKey {
+            target_cfg: target_cfg.dupe(),
+            target_cell,
+            configuration_deps,
+        })
+        .await?
     }
 
     async fn get_configuration_node(
-        &self,
+        &mut self,
         target_cfg: &ConfigurationData,
         target_cell: CellName,
         cfg_target: &TargetLabel,
@@ -588,23 +589,22 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             }
         }
 
-        self.bad_dice()
-            .compute(&ConfigurationNodeKey {
-                target_cfg: target_cfg.dupe(),
-                target_cell,
-                cfg_target: cfg_target.dupe(),
-            })
-            .await?
-            .with_context(|| {
-                format!(
-                    "Error getting configuration node of `{}` within the `{}` configuration",
-                    cfg_target, target_cfg,
-                )
-            })
-            .map_err(buck2_error::Error::from)
+        self.compute(&ConfigurationNodeKey {
+            target_cfg: target_cfg.dupe(),
+            target_cell,
+            cfg_target: cfg_target.dupe(),
+        })
+        .await?
+        .with_context(|| {
+            format!(
+                "Error getting configuration node of `{}` within the `{}` configuration",
+                cfg_target, target_cfg,
+            )
+        })
+        .map_err(buck2_error::Error::from)
     }
 
-    async fn get_execution_platforms(&self) -> buck2_error::Result<Option<ExecutionPlatforms>> {
+    async fn get_execution_platforms(&mut self) -> buck2_error::Result<Option<ExecutionPlatforms>> {
         #[async_trait]
         impl Key for ExecutionPlatformsKey {
             type Value = buck2_error::Result<Option<ExecutionPlatforms>>;
@@ -622,11 +622,11 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             }
         }
 
-        self.bad_dice().compute(&ExecutionPlatformsKey).await?
+        self.compute(&ExecutionPlatformsKey).await?
     }
 
     async fn resolve_execution_platform_from_constraints(
-        &self,
+        &mut self,
         target_node_cell: CellName,
         exec_compatible_with: Arc<[TargetLabel]>,
         exec_deps: Arc<[TargetLabel]>,
@@ -661,13 +661,12 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 }
             }
         }
-        self.bad_dice()
-            .compute(&ExecutionPlatformResolutionKey(
-                target_node_cell,
-                exec_compatible_with,
-                exec_deps,
-                toolchain_allows,
-            ))
-            .await?
+        self.compute(&ExecutionPlatformResolutionKey(
+            target_node_cell,
+            exec_compatible_with,
+            exec_deps,
+            toolchain_allows,
+        ))
+        .await?
     }
 }
