@@ -72,7 +72,7 @@ impl ImplicitImportPaths {
 #[async_trait]
 pub trait HasImportPaths {
     async fn import_paths_for_cell(
-        &self,
+        &mut self,
         cell_name: BuildFileCell,
     ) -> anyhow::Result<Arc<ImplicitImportPaths>>;
 }
@@ -80,7 +80,7 @@ pub trait HasImportPaths {
 #[async_trait]
 impl HasImportPaths for DiceComputations<'_> {
     async fn import_paths_for_cell(
-        &self,
+        &mut self,
         cell_name: BuildFileCell,
     ) -> anyhow::Result<Arc<ImplicitImportPaths>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, derive_more::Display, Allocative)]
@@ -120,8 +120,7 @@ impl HasImportPaths for DiceComputations<'_> {
             }
         }
 
-        self.bad_dice()
-            .compute(&ImportPathsKey { cell_name })
+        self.compute(&ImportPathsKey { cell_name })
             .await?
             .map_err(anyhow::Error::from)
     }
