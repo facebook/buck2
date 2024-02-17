@@ -727,6 +727,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             cache_uploader: _,
         } = self
             .dice
+            .clone()
             .get_command_executor_from_dice(executor_config)
             .await?;
         let executor = CommandExecutor::new(
@@ -756,6 +757,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             cache_uploader: _,
         } = self
             .dice
+            .clone()
             .get_command_executor_from_dice(&executor_config)
             .await?;
         let executor = CommandExecutor::new(

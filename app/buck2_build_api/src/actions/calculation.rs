@@ -92,7 +92,7 @@ async fn build_action_impl(
 }
 
 async fn build_action_no_redirect(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     action: Arc<RegisteredAction>,
 ) -> anyhow::Result<ActionOutputs> {
@@ -138,6 +138,7 @@ async fn build_action_no_redirect(
     let now = Instant::now();
     let action = &action;
 
+    let ctx = &*ctx;
     let fut = async move {
         let (execute_result, command_reports) = executor
             .execute(materialized_inputs, action, cancellation)

@@ -58,7 +58,7 @@ impl SetCommandExecutor for UserComputationData {
 #[async_trait]
 pub trait DiceHasCommandExecutor {
     async fn get_command_executor_from_dice(
-        &self,
+        &mut self,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse>;
 }
@@ -66,10 +66,10 @@ pub trait DiceHasCommandExecutor {
 #[async_trait]
 impl DiceHasCommandExecutor for DiceComputations<'_> {
     async fn get_command_executor_from_dice(
-        &self,
+        &mut self,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse> {
-        let artifact_fs = self.bad_dice().get_artifact_fs().await?;
+        let artifact_fs = self.get_artifact_fs().await?;
         let holder = self
             .per_transaction_data()
             .data

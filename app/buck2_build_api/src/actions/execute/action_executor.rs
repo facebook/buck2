@@ -227,7 +227,7 @@ pub trait ActionExecutor: Send + Sync {
 #[async_trait]
 pub trait HasActionExecutor {
     async fn get_action_executor(
-        &self,
+        &mut self,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn ActionExecutor>>;
 }
@@ -235,10 +235,10 @@ pub trait HasActionExecutor {
 #[async_trait]
 impl HasActionExecutor for DiceComputations<'_> {
     async fn get_action_executor(
-        &self,
+        &mut self,
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
-        let artifact_fs = self.bad_dice().get_artifact_fs().await?;
+        let artifact_fs = self.get_artifact_fs().await?;
         let digest_config = self.global_data().get_digest_config();
 
         let CommandExecutorResponse {
