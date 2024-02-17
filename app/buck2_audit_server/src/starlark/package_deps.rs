@@ -43,7 +43,7 @@ pub(crate) async fn server_execute(
 
             let module_deps = INTERPRETER_CALCULATION_IMPL
                 .get()?
-                .get_module_deps(&dice_ctx, package, current_cell)
+                .get_module_deps(&mut dice_ctx, package, current_cell)
                 .await?;
 
             let mut stdout = stdout.as_writer();

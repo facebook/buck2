@@ -26,13 +26,13 @@ use crate::prelude_path::PreludePath;
 pub trait InterpreterCalculationImpl: Send + Sync + 'static {
     async fn get_loaded_module(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule>;
 
     async fn get_module_deps(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<ModuleDeps>;
@@ -40,7 +40,7 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
     /// Return `None` if the PACKAGE file doesn't exist.
     async fn get_package_file_deps(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         package: &PackageFilePath,
     ) -> anyhow::Result<Option<Vec<ImportPath>>>;
 
@@ -62,11 +62,13 @@ pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCal
 #[async_trait]
 pub trait InterpreterCalculation {
     /// Returns the LoadedModule for a given starlark file. This is cached on the dice graph.
-    async fn get_loaded_module(&self, path: StarlarkModulePath<'_>)
-    -> anyhow::Result<LoadedModule>;
+    async fn get_loaded_module(
+        &mut self,
+        path: StarlarkModulePath<'_>,
+    ) -> anyhow::Result<LoadedModule>;
 
     async fn get_loaded_module_from_import_path(
-        &self,
+        &mut self,
         path: &ImportPath,
     ) -> anyhow::Result<LoadedModule> {
         self.get_loaded_module(StarlarkModulePath::LoadFile(path))
@@ -77,7 +79,7 @@ pub trait InterpreterCalculation {
 #[async_trait]
 impl InterpreterCalculation for DiceComputations<'_> {
     async fn get_loaded_module(
-        &self,
+        &mut self,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule> {
         INTERPRETER_CALCULATION_IMPL

@@ -226,7 +226,7 @@ pub async fn get_dep_analysis<'v>(
 }
 
 pub async fn get_rule_spec(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     func: &StarlarkRuleType,
 ) -> anyhow::Result<impl RuleSpec> {
     let module = ctx

@@ -76,6 +76,7 @@ impl Environment {
         path_type: StarlarkFileType,
         dice: &DiceTransaction,
     ) -> anyhow::Result<HashSet<String>> {
+        let mut dice = dice.clone();
         let mut names = HashSet::new();
 
         for x in self.globals.names() {

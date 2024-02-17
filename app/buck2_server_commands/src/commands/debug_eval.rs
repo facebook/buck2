@@ -54,7 +54,8 @@ pub(crate) async fn debug_eval_command(
                 } else {
                     return Err(DebugEvalError::InvalidImportPath(path).into());
                 };
-                loads.push(async move { ctx.get_loaded_module(import_path.borrow()).await });
+                loads
+                    .push(async move { ctx.clone().get_loaded_module(import_path.borrow()).await });
             }
 
             // Catch errors, ignore results.

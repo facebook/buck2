@@ -54,7 +54,7 @@ use crate::target_hash::TargetHashes;
 pub(crate) async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
     stdout: &mut impl Write,
-    dice: DiceTransaction,
+    mut dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
     outputter: &mut Outputter,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
@@ -74,12 +74,13 @@ pub(crate) async fn targets_streaming(
     let imported = Arc::new(Mutex::new(SmallSet::new()));
     let threads = Arc::new(Semaphore::new(threads.unwrap_or(Semaphore::MAX_PERMITS)));
 
-    let mut packages = stream_packages(&dice, parsed_patterns)
+    let cloned_dice = dice.clone();
+    let mut packages = stream_packages(&cloned_dice, parsed_patterns)
         .map(|x| {
             let formatter = formatter.dupe();
             let imported = imported.dupe();
             let threads = threads.dupe();
-            let mut ctx = dice.dupe();
+            let mut ctx = cloned_dice.dupe();
 
             spawn_cancellable(
                 |_cancellation| {
@@ -155,8 +156,8 @@ pub(crate) async fn targets_streaming(
                     }
                     .boxed()
                 },
-                &*dice.per_transaction_data().spawner,
-                dice.per_transaction_data(),
+                &*cloned_dice.per_transaction_data().spawner,
+                cloned_dice.per_transaction_data(),
             )
             .into_drop_cancel()
         })
@@ -198,7 +199,7 @@ pub(crate) async fn targets_streaming(
                 // These aren't cached, but the cost is relatively low (Starlark parsing),
                 // and there aren't many, so we just do it on the main thread.
                 // We ignore errors as these will bubble up as BUCK file errors already.
-                if let Ok(Some(imports)) = package_imports(&dice, &x).await {
+                if let Ok(Some(imports)) = package_imports(&mut dice, &x).await {
                     if needs_separator {
                         formatter.separator(&mut buffer);
                     }
@@ -329,7 +330,7 @@ async fn load_targets(
 
 /// Return `None` if the PACKAGE file doesn't exist
 async fn package_imports(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     path: &PackageFilePath,
 ) -> anyhow::Result<Option<Vec<ImportPath>>> {
     INTERPRETER_CALCULATION_IMPL

@@ -140,7 +140,7 @@ pub(crate) fn init_interpreter_calculation_impl() {
 impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     async fn get_loaded_module(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule> {
         ctx.get_interpreter_calculator(path.cell(), path.build_file_cell())
@@ -151,19 +151,19 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 
     async fn get_module_deps(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<ModuleDeps> {
-        let calc = ctx
-            .get_interpreter_calculator(package.cell_name(), build_file_cell)
-            .await?;
-
-        let build_file_name = DicePackageListingResolver(&mut ctx.bad_dice())
+        let build_file_name = DicePackageListingResolver(ctx)
             .resolve_package_listing(package.dupe())
             .await?
             .buildfile()
             .to_owned();
+
+        let calc = ctx
+            .get_interpreter_calculator(package.cell_name(), build_file_cell)
+            .await?;
 
         let (_module, module_deps) = calc
             .prepare_eval(StarlarkPath::BuildFile(&BuildFilePath::new(
@@ -177,7 +177,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 
     async fn get_package_file_deps(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         package: &PackageFilePath,
     ) -> anyhow::Result<Option<Vec<ImportPath>>> {
         // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.

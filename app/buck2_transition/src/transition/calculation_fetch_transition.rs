@@ -20,7 +20,7 @@ use crate::transition::starlark::FrozenTransition;
 pub(crate) trait FetchTransition {
     /// Fetch transition object by id.
     async fn fetch_transition(
-        &self,
+        &mut self,
         id: &TransitionId,
     ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransition>>;
 }
@@ -34,7 +34,7 @@ enum FetchTransitionError {
 #[async_trait]
 impl FetchTransition for DiceComputations<'_> {
     async fn fetch_transition(
-        &self,
+        &mut self,
         id: &TransitionId,
     ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransition>> {
         let module = self.get_loaded_module_from_import_path(&id.path).await?;

@@ -140,11 +140,16 @@ pub async fn get_prelude_docs(
 ) -> anyhow::Result<Vec<Doc>> {
     let cell_resolver = ctx.bad_dice().get_cell_resolver().await?;
     let prelude_path = prelude_path(&cell_resolver)?;
-    get_docs_from_module(ctx, prelude_path.import_path(), Some(existing_globals)).await
+    get_docs_from_module(
+        &mut ctx.clone(),
+        prelude_path.import_path(),
+        Some(existing_globals),
+    )
+    .await
 }
 
 async fn get_docs_from_module(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     import_path: &ImportPath,
     // If we want to promote `native`, what should we exclude
     promote_native: Option<&HashSet<&str>>,
@@ -301,9 +306,12 @@ async fn docs(
         docs.extend(prelude_docs);
     }
 
+    let dice_ref = &dice_ctx;
     let module_calcs: Vec<_> = lookups
         .iter()
-        .map(|import_path| get_docs_from_module(&dice_ctx, import_path, None))
+        .map(|import_path| async move {
+            get_docs_from_module(&mut dice_ref.clone(), import_path, None).await
+        })
         .collect();
 
     let modules_docs = futures::future::try_join_all(module_calcs).await?;

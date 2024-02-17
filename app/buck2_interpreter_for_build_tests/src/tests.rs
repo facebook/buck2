@@ -119,7 +119,7 @@ async fn test_eval_import() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
 
     let env = ctx
         .get_loaded_module_from_import_path(&ImportPath::testing_new("root//pkg:two.bzl"))
@@ -158,7 +158,7 @@ async fn test_eval_import_with_load() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let env = ctx
         .get_loaded_module_from_import_path(&ImportPath::testing_new("root//pkg:two.bzl"))
         .await
