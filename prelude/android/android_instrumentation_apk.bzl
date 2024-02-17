@@ -34,10 +34,12 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
     # We use the deps that don't have _build_only_native_code = True
     deps = unfiltered_deps_by_platform.values()[0]
 
+    is_self_instrumenting = ctx.attrs.is_self_instrumenting
+
     java_packaging_deps = [
         packaging_dep
         for packaging_dep in get_all_java_packaging_deps(ctx, deps)
-        if packaging_dep.dex and not apk_under_test_info.java_packaging_deps.contains(packaging_dep.label.raw_target())
+        if packaging_dep.dex and (is_self_instrumenting or not apk_under_test_info.java_packaging_deps.contains(packaging_dep.label.raw_target()))
     ]
 
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
@@ -50,8 +52,8 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         use_proto_format = False,
         referenced_resources_lists = [],
         manifest_entries = apk_under_test_info.manifest_entries,
-        resource_infos_to_exclude = apk_under_test_info.resource_infos,
-        r_dot_java_packages_to_exclude = apk_under_test_info.r_dot_java_packages.list(),
+        resource_infos_to_exclude = apk_under_test_info.resource_infos if not is_self_instrumenting else None,
+        r_dot_java_packages_to_exclude = apk_under_test_info.r_dot_java_packages.list() if not is_self_instrumenting else [],
     )
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     java_packaging_deps += [
@@ -96,8 +98,8 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         enhance_ctx,
         android_packageable_info,
         filtered_deps_by_platform,
-        prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs,
-        shared_libraries_to_exclude = apk_under_test_info.shared_libraries,
+        prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs if not is_self_instrumenting else None,
+        shared_libraries_to_exclude = apk_under_test_info.shared_libraries if not is_self_instrumenting else None,
     )
 
     output_apk = build_apk(
