@@ -36,7 +36,9 @@ use buck2_util::truncate::truncate;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::future;
+use futures::future::BoxFuture;
+use futures::future::{self};
+use futures::FutureExt;
 use starlark::collections::SmallSet;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -77,15 +79,18 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         self,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
-        let dice = &*dice;
-        let futs = self.iter().map(|node_or_ref| async {
-            let node_or_ref = node_or_ref;
-            dice.bad_dice()
-                .get_configured_target_node(node_or_ref.node_ref())
-                .await
-        });
-
-        futures::future::join_all(futs).await.into_iter().collect()
+        dice.compute_join(
+            self.iter(),
+            higher_order_closure!{
+                #![with<'y, 'z>]
+                for <'x> |
+                    ctx: &'x mut DiceComputations<'z>,
+                    node_or_ref: TargetExpr<'y, ConfiguredTargetNode>
+                | -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
+                    async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
+                }
+            }
+        ).await.into_iter().collect()
     }
 
     /// Get a single maybe compatible `ConfiguredTargetNode`.
