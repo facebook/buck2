@@ -41,9 +41,10 @@ use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::rule_type::RuleType;
 use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
-use futures::future::try_join_all;
+use futures::future::BoxFuture;
+use futures::FutureExt;
+use higher_order_closure::higher_order_closure;
 use starlark::collections::SmallMap;
-use starlark::collections::SmallSet;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
@@ -129,42 +130,41 @@ async fn eval_pre_constraint_analysis<'v>(
 }
 
 async fn analyze_constraints(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     refs: Vec<String>,
 ) -> anyhow::Result<SmallMap<String, FrozenProviderCollectionValue>> {
-    let res: SmallMap<String, FrozenProviderCollectionValue> =
-        try_join_all(SmallSet::from_iter(refs).into_iter().map(
-            async move |label_str| -> anyhow::Result<(String, FrozenProviderCollectionValue)> {
-                let cell_resolver = ctx.bad_dice().get_cell_resolver().await?;
+    let cell_resolver = &ctx.get_cell_resolver().await?;
+    let res = ctx.try_compute_join(
+        refs,
+        higher_order_closure!{
+            #![with<'y>]
+            for<'x> |ctx: &'x mut DiceComputations<'y>, label_str: String| -> BoxFuture<'x, anyhow::Result<(String, FrozenProviderCollectionValue)>> {
+                async move {
+                    // Ensure all refs are configuration rules
+                    let label = TargetLabel::parse(&label_str, cell_resolver.root_cell(), cell_resolver)?;
 
-                // Ensure all refs are configuration rules
-                let label =
-                    TargetLabel::parse(&label_str, cell_resolver.root_cell(), &cell_resolver)?;
-
-                if ctx.bad_dice().get_target_node(&label).await?.rule_kind()
-                    == RuleKind::Configuration
-                {
-                    Ok((
-                        label_str,
-                        ctx.bad_dice()
-                            .get_configuration_analysis_result(&label)
-                            .await?
-                            .provider_collection,
-                    ))
-                } else {
-                    Err(
-                        CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
+                    if ctx.get_target_node(&label).await?.rule_kind()
+                        == RuleKind::Configuration
+                    {
+                        Ok((
                             label_str,
+                            ctx.get_configuration_analysis_result(&label)
+                                .await?
+                                .provider_collection,
+                        ))
+                    } else {
+                        Err(
+                            CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
+                                label_str,
+                            )
+                            .into(),
                         )
-                        .into(),
-                    )
-                }
-            },
-        ))
-        .await?
-        .into_iter()
-        .collect();
-    Ok(res)
+                    }
+                }.boxed()
+            }
+        }
+    ).await?;
+    Ok(res.into_iter().collect())
 }
 
 async fn eval_post_constraint_analysis<'v>(
@@ -212,7 +212,7 @@ async fn eval_post_constraint_analysis<'v>(
 
 async fn eval_underlying(
     cfg_constructor: &CfgConstructor,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
@@ -269,7 +269,7 @@ impl CfgConstructorImpl for CfgConstructor {
         let fut = async move {
             eval_underlying(
                 self,
-                ctx,
+                &mut ctx.bad_dice(),
                 cfg,
                 package_cfg_modifiers,
                 target_cfg_modifiers,
