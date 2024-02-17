@@ -236,7 +236,7 @@ impl AnonTargetDependents {
 
     pub(crate) async fn get_analysis_results<'v>(
         &'v self,
-        dice: &'v DiceComputations<'_>,
+        dice: &DiceComputations<'_>,
     ) -> anyhow::Result<AnonTargetDependentAnalysisResults<'v>> {
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
             dice,
@@ -259,9 +259,12 @@ impl AnonTargetDependents {
             self.promise_artifacts
                 .iter()
                 .map(async move |promise_artifact_attr| {
-                    get_artifact_from_anon_target_analysis(&promise_artifact_attr.id, dice)
-                        .await
-                        .map(|artifact| (promise_artifact_attr, artifact))
+                    get_artifact_from_anon_target_analysis(
+                        &promise_artifact_attr.id,
+                        &mut dice.bad_dice(),
+                    )
+                    .await
+                    .map(|artifact| (promise_artifact_attr, artifact))
                 })
                 .collect::<FuturesUnordered<_>>(),
         )

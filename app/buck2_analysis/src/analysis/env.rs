@@ -183,14 +183,14 @@ struct AnalysisEnv<'a> {
 }
 
 pub(crate) async fn run_analysis<'a>(
-    dice: &DiceComputations<'_>,
+    dice: &'a mut DiceComputations<'_>,
     label: &ConfiguredTargetLabel,
     results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     rule_spec: &'a dyn RuleSpec,
-    node: ConfiguredTargetNodeRef<'_>,
-    profile_mode: &StarlarkProfileModeOrInstrumentation,
+    node: ConfiguredTargetNodeRef<'a>,
+    profile_mode: &'a StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<AnalysisResult> {
     let analysis_env =
         AnalysisEnv::new(label, results, query_results, execution_platform, rule_spec)?;
@@ -225,20 +225,22 @@ pub fn get_deps_from_analysis_results<'v>(
         .collect::<anyhow::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
 }
 
-fn run_analysis_with_env<'a>(
-    dice: &'a DiceComputations<'_>,
+fn run_analysis_with_env<'a, 'd: 'a>(
+    dice: &'a mut DiceComputations<'d>,
     analysis_env: AnalysisEnv<'a>,
     node: ConfiguredTargetNodeRef<'a>,
     profile_mode: &'a StarlarkProfileModeOrInstrumentation,
 ) -> impl Future<Output = anyhow::Result<AnalysisResult>> + Send + 'a {
+    let dice = &*dice;
     let fut = async move {
-        run_analysis_with_env_underlying(dice, analysis_env, node, profile_mode).await
+        run_analysis_with_env_underlying(&mut dice.bad_dice(), analysis_env, node, profile_mode)
+            .await
     };
     unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
 }
 
 async fn run_analysis_with_env_underlying(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     analysis_env: AnalysisEnv<'_>,
     node: ConfiguredTargetNodeRef<'_>,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
@@ -274,7 +276,7 @@ async fn run_analysis_with_env_underlying(
         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
     };
 
-    let (mut eval, ctx, list_res) = with_starlark_eval_provider(
+    let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
         dice,
         &mut profiler,
         format!("analysis:{}", node.label()),
@@ -311,7 +313,7 @@ async fn run_analysis_with_env_underlying(
             // turn requires those permits). We will actually re-enter a provider scope in the
             // run_promises call when we get back to resolving the promises (and running the starlark
             // Promise::map() lambdas).
-            Ok((eval, ctx, list_res))
+            Ok((dice, eval, ctx, list_res))
         },
     )
     .await?;

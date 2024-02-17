@@ -69,7 +69,7 @@ impl ArtifactGroup {
             ArtifactGroup::Promise(p) => match p.get() {
                 Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
                 None => {
-                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(p, ctx).await?;
+                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(p, &mut ctx.bad_dice()).await?;
                     ResolvedArtifactGroup::Artifact(artifact)
                 }
             },

@@ -72,8 +72,12 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             }
         }
 
-        let values =
-            future::try_join_all(targets.iter().map(|target| target.resolve(dice))).await?;
+        let values = future::try_join_all(
+            targets
+                .iter()
+                .map(|target| async move { target.resolve(&mut dice.bad_dice()).await }),
+        )
+        .await?;
         with_starlark_eval_provider(
             dice,
             &mut StarlarkProfilerOrInstrumentation::disabled(),

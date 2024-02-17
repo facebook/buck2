@@ -268,7 +268,7 @@ impl AnonTargetKey {
 
     pub(crate) async fn resolve(
         &self,
-        dice: &DiceComputations<'_>,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<AnalysisResult> {
         #[async_trait]
         impl Key for AnonTargetKey {
@@ -287,20 +287,21 @@ impl AnonTargetKey {
             }
         }
 
-        Ok(dice.bad_dice().compute(self).await??)
+        Ok(dice.compute(self).await??)
     }
 
     fn run_analysis<'a>(
         &'a self,
-        dice: &'a DiceComputations<'_>,
+        dice: &'a mut DiceComputations<'_>,
     ) -> impl Future<Output = anyhow::Result<AnalysisResult>> + Send + 'a {
-        let fut = async move { self.run_analysis_impl(dice).await };
+        let dice = &*dice;
+        let fut = async move { self.run_analysis_impl(&mut dice.bad_dice()).await };
         unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
     }
 
     async fn run_analysis_impl(
         &self,
-        dice: &DiceComputations<'_>,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
@@ -327,7 +328,7 @@ impl AnonTargetKey {
                 rule: self.0.rule_type().to_string(),
             },
             async move {
-                let (mut eval, ctx, list_res) = with_starlark_eval_provider(
+                let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
                     dice,
                     &mut StarlarkProfilerOrInstrumentation::disabled(),
                     format!("anon_analysis:{}", self),
@@ -384,7 +385,7 @@ impl AnonTargetKey {
                         ));
 
                         let list_res = rule_impl.invoke(&mut eval, ctx)?;
-                        Ok((eval, ctx, list_res))
+                        Ok((dice, eval, ctx, list_res))
                     },
                 )
                 .await?;
@@ -579,7 +580,7 @@ pub(crate) fn init_get_promised_artifact() {
 
 pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
     promise_id: &'v PromiseArtifactId,
-    ctx: &'v DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<Artifact> {
     let owner = promise_id.owner();
     let analysis_result = match owner {

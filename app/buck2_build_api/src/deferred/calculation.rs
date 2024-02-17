@@ -103,7 +103,7 @@ impl DeferredCalculation for DiceComputations<'_> {
 
 pub static EVAL_ANON_TARGET: LateBinding<
     for<'c> fn(
-        &'c DiceComputations,
+        &'c mut DiceComputations,
         Arc<dyn BaseDeferredKeyDyn>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<AnalysisResult>> + Send + 'c>>,
 > = LateBinding::new("EVAL_ANON_TARGET");
@@ -111,7 +111,7 @@ pub static EVAL_ANON_TARGET: LateBinding<
 pub static GET_PROMISED_ARTIFACT: LateBinding<
     for<'c> fn(
         &'c PromiseArtifact,
-        &'c DiceComputations,
+        &'c mut DiceComputations,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Artifact>> + Send + 'c>>,
 > = LateBinding::new("GET_PROMISED_ARTIFACT");
 
