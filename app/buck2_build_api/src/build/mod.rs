@@ -542,7 +542,11 @@ pub async fn materialize_artifact_group(
                         }
                     }
 
-                    Some(ctx.try_materialize_requested_artifact(artifact, *force))
+                    Some(async move {
+                        ctx.bad_dice()
+                            .try_materialize_requested_artifact(artifact, *force)
+                            .await
+                    })
                 }
                 BaseArtifactKind::Source(..) => None,
             }

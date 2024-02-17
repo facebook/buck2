@@ -27,12 +27,12 @@ use crate::build_signals::HasBuildSignals;
 
 #[async_trait]
 pub trait ArtifactMaterializer {
-    async fn materialize(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf>;
+    async fn materialize(&mut self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf>;
 
     /// called to materialized the final set of requested artifacts for the build of a target.
     /// This method will render events in superconsole
     async fn try_materialize_requested_artifact(
-        &self,
+        &mut self,
         artifact: &BuildArtifact,
         required: bool,
     ) -> anyhow::Result<()>;
@@ -40,21 +40,21 @@ pub trait ArtifactMaterializer {
 
 #[async_trait]
 impl ArtifactMaterializer for DiceComputations<'_> {
-    async fn materialize(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
+    async fn materialize(&mut self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
         let materializer = self.per_transaction_data().get_materializer();
-        let artifact_fs = self.bad_dice().get_artifact_fs().await?;
+        let artifact_fs = self.get_artifact_fs().await?;
         let path = artifact.resolve_path(&artifact_fs)?;
         materializer.ensure_materialized(vec![path.clone()]).await?;
         Ok(path)
     }
 
     async fn try_materialize_requested_artifact(
-        &self,
+        &mut self,
         artifact: &BuildArtifact,
         required: bool,
     ) -> anyhow::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
-        let artifact_fs = self.bad_dice().get_artifact_fs().await?;
+        let artifact_fs = self.get_artifact_fs().await?;
         let path = artifact_fs.resolve_build(artifact.get_path());
 
         let start_event = buck2_data::MaterializeRequestedArtifactStart {
