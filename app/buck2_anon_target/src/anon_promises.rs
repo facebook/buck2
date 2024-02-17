@@ -10,12 +10,15 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
+use dice::higher_order_closure;
 use dice::DiceComputations;
 use either::Either;
-use futures::future;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
 use starlark::values::Trace;
@@ -51,7 +54,7 @@ impl<'v> AnonPromises<'v> {
 impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
     async fn run_promises(
         self: Box<Self>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         eval: &mut Evaluator<'v, '_>,
         description: String,
     ) -> anyhow::Result<()> {
@@ -72,12 +75,16 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             }
         }
 
-        let values = future::try_join_all(
-            targets
-                .iter()
-                .map(|target| async move { target.resolve(&mut dice.bad_dice()).await }),
-        )
-        .await?;
+        let values = dice.try_compute_join(
+            targets.iter(),
+            higher_order_closure!{
+                #![with<'y, 'z>]
+                for <'x> |ctx: &'x mut DiceComputations<'y>, target: &'z AnonTargetKey| -> BoxFuture<'x, anyhow::Result<AnalysisResult>> {
+                    async move { target.resolve(ctx).await }.boxed()
+                }
+            }
+        ).await?;
+
         with_starlark_eval_provider(
             dice,
             &mut StarlarkProfilerOrInstrumentation::disabled(),

@@ -15,7 +15,7 @@ use starlark::eval::Evaluator;
 pub trait AnonPromisesDyn<'v>: 'v {
     async fn run_promises(
         self: Box<Self>,
-        dice: &DiceComputations,
+        dice: &mut DiceComputations,
         eval: &mut Evaluator<'v, '_>,
         description: String,
     ) -> anyhow::Result<()>;
