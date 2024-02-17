@@ -14,6 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use futures::future::BoxFuture;
+use higher_order_closure::higher_order_closure;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -148,6 +149,42 @@ impl<'d> DiceComputations<'d> {
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
         self.inner().compute_many(computes)
+    }
+
+    /// Maps the items into computation futures and joins on them.
+    ///
+    /// ```ignore
+    /// let mut ctx: &'a DiceComputations = ctx();
+    /// let data: String = data();
+    /// let keys : Vec<Key> = keys();
+    /// ctx.compute_join(
+    ///   keys.into_iter(),
+    ///   higher_order_closure! {
+    ///     #![with<'y>] // required to capture non-'static references
+    ///     for <'x> move |dice: &'x mut DiceComputations<'y>, k: Key| -> BoxFuture<'x, String> {
+    ///       async move {
+    ///         dice.compute(k).await + data
+    ///       }.boxed()
+    ///     }
+    ///   }
+    /// ).await
+    /// ````
+    pub fn compute_join<'a, T: Send, R: 'a>(
+        &'a mut self,
+        items: impl IntoIterator<Item = T>,
+        mapper: (
+            impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, R> + Send + Sync + Copy
+        ),
+    ) -> impl Future<Output = Vec<R>> + 'a {
+        let futs = self.compute_many(items.into_iter().map(move |v| {
+            higher_order_closure! {
+                #![with<'a, R>]
+                for <'x> move |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, R> {
+                    mapper(ctx, v)
+                }
+            }
+        }));
+        futures::future::join_all(futs)
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
