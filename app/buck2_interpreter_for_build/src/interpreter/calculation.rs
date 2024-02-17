@@ -15,7 +15,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::package_listing::dice::HasPackageListingResolver;
+use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -162,7 +162,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .get_interpreter_calculator(package.cell_name(), build_file_cell)
             .await?;
 
-        let build_file_name = ctx
+        let build_file_name = DicePackageListingResolver(&mut ctx.bad_dice())
             .resolve_package_listing(package.dupe())
             .await?
             .buildfile()
@@ -227,7 +227,9 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
         ctx: &DiceComputations<'_>,
         package: PackageLabel,
     ) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>> {
-        let listing = ctx.resolve_package_listing(package.dupe()).await?;
+        let listing = DicePackageListingResolver(&mut ctx.bad_dice())
+            .resolve_package_listing(package.dupe())
+            .await?;
         let super_package = ctx
             .get_interpreter_calculator(
                 package.cell_name(),

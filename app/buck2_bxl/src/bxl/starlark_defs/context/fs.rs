@@ -14,7 +14,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadataOrRedirection;
-use buck2_common::package_listing::dice::HasPackageListingResolver;
+use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::cells::cell_path::CellPath;
@@ -290,7 +290,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
                     let package_label = match target_hint {
                         NoneOr::None => {
-                            dice.get_package_listing_resolver()
+                            DicePackageListingResolver(dice)
                                 .get_enclosing_package(file_path_as_cell_path.as_ref())
                                 .await
                         }

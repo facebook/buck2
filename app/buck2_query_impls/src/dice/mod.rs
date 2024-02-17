@@ -18,7 +18,7 @@ use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
-use buck2_common::package_listing::dice::HasPackageListingResolver;
+use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -252,22 +252,20 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.
     async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>> {
-        let package_listing_resolver = self.ctx.get_package_listing_resolver();
-
         // Without package boundary violations, there is only 1 owning package for a path.
         // However, with package boundary violations, all parent packages of the enclosing package can also be owners.
         if let Some(enclosing_violation_path) = self
             .package_boundary_exceptions
             .get_package_boundary_exception_path(path)
         {
-            return Ok(package_listing_resolver
+            return Ok(DicePackageListingResolver(&mut self.ctx.bad_dice())
                 .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
                 .await?
                 .into_iter()
                 .collect());
         }
 
-        let package = package_listing_resolver
+        let package = DicePackageListingResolver(&mut self.ctx.bad_dice())
             .get_enclosing_package(path.as_ref())
             .await?;
         Ok(vec![package])

@@ -18,7 +18,7 @@ use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileOps;
-use buck2_common::package_listing::dice::HasPackageListingResolver;
+use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPathRef;
@@ -562,8 +562,8 @@ impl<'a> BuckLspContext<'a> {
         ) {
             Ok(ParsedPattern::Target(package, target, _)) => {
                 let res = self
-                    .with_dice_ctx(async move |dice_ctx| {
-                        Ok(dice_ctx
+                    .with_dice_ctx(async move |mut dice_ctx| {
+                        Ok(DicePackageListingResolver(&mut dice_ctx)
                             .resolve_package_listing(package.dupe())
                             .await
                             .and_then(|listing| {

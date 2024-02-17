@@ -41,7 +41,7 @@ enum PackageListingError {
 
 #[async_trait]
 impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
-    async fn resolve(&self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
+    async fn resolve(&mut self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
         Ok(self
             .gather_package_listing(package.dupe())
             .await
@@ -49,7 +49,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
     }
 
     async fn get_enclosing_package(
-        &self,
+        &mut self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<PackageLabel> {
         let cell_instance = self.cell_resolver.get(path.cell())?;
@@ -70,7 +70,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
     }
 
     async fn get_enclosing_packages(
-        &self,
+        &mut self,
         path: CellPathRef<'async_trait>,
         enclosing_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>> {

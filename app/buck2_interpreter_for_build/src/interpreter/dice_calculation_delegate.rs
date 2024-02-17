@@ -18,7 +18,7 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
-use buck2_common::package_listing::dice::HasPackageListingResolver;
+use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -455,7 +455,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 path: package.as_cell_path().to_string(),
             },
             async {
-                let result = self.ctx.resolve_package_listing(package.dupe()).await;
+                let result = DicePackageListingResolver(&mut self.ctx.bad_dice())
+                    .resolve_package_listing(package.dupe())
+                    .await;
                 (
                     result,
                     buck2_data::LoadPackageEnd {

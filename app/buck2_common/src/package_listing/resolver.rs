@@ -15,15 +15,15 @@ use crate::package_listing::listing::PackageListing;
 
 #[async_trait]
 pub trait PackageListingResolver: Send + Sync {
-    async fn resolve(&self, package: PackageLabel) -> buck2_error::Result<PackageListing>;
+    async fn resolve(&mut self, package: PackageLabel) -> buck2_error::Result<PackageListing>;
 
     async fn get_enclosing_package(
-        &self,
+        &mut self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<PackageLabel>;
 
     async fn get_enclosing_packages(
-        &self,
+        &mut self,
         path: CellPathRef<'async_trait>,
         enclosing_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>>;
