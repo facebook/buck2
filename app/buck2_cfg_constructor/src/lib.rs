@@ -258,7 +258,7 @@ async fn eval_underlying(
 impl CfgConstructorImpl for CfgConstructor {
     fn eval<'a>(
         &'a self,
-        ctx: &'a DiceComputations,
+        ctx: &'a mut DiceComputations,
         cfg: &'a ConfigurationData,
         package_cfg_modifiers: Option<&'a MetadataValue>,
         target_cfg_modifiers: Option<&'a MetadataValue>,
@@ -269,7 +269,7 @@ impl CfgConstructorImpl for CfgConstructor {
         let fut = async move {
             eval_underlying(
                 self,
-                &mut ctx.bad_dice(),
+                ctx,
                 cfg,
                 package_cfg_modifiers,
                 target_cfg_modifiers,

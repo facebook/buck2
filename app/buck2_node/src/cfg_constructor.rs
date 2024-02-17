@@ -30,7 +30,7 @@ use crate::super_package::SuperPackage;
 pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
     fn eval<'a>(
         &'a self,
-        ctx: &'a DiceComputations,
+        ctx: &'a mut DiceComputations,
         cfg: &'a ConfigurationData,
         package_cfg_modifiers: Option<&'a MetadataValue>,
         target_cfg_modifiers: Option<&'a MetadataValue>,
