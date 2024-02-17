@@ -132,7 +132,7 @@ impl<'d> DiceComputations<'d> {
     /// let keys : Vec<Key> = keys();
     /// let futs = ctx.compute_many(keys.into_iter().map(|k|
     ///   higher_order_closure! {
-    ///     #![with<'y>] // required to capture non-'static references
+    ///     #![with<'y>]
     ///     for <'x> move |dice: &'x mut DiceComputations<'y>| -> BoxFuture<'x, String> {
     ///       async move {
     ///         dice.compute(k).await + data
@@ -142,6 +142,9 @@ impl<'d> DiceComputations<'d> {
     /// ));
     /// futures::future::join_all(futs).await
     /// ```
+    /// The `#![with<'y>]` allows capturing non-'static references. It causes the 'y lifetime to be
+    /// inferred rather than higher order, which then constrains the `'x` by whatever it is inferred
+    /// to.
     pub fn compute_many<'a, T: 'a>(
         &'a mut self,
         computes: impl IntoIterator<
@@ -158,10 +161,10 @@ impl<'d> DiceComputations<'d> {
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
     /// ctx.compute_join(
-    ///   keys.into_iter(),
+    ///   keys.iter(),
     ///   higher_order_closure! {
-    ///     #![with<'y>] // required to capture non-'static references
-    ///     for <'x> move |dice: &'x mut DiceComputations<'y>, k: Key| -> BoxFuture<'x, String> {
+    ///     #![with<'y, 'z>]
+    ///     for <'x> move |dice: &'x mut DiceComputations<'y>, k: &'z Key| -> BoxFuture<'x, String> {
     ///       async move {
     ///         dice.compute(k).await + data
     ///       }.boxed()
@@ -169,6 +172,11 @@ impl<'d> DiceComputations<'d> {
     ///   }
     /// ).await
     /// ````
+    /// The `#![with<'y>]` allows capturing non-'static references. It causes the 'y lifetime to be
+    /// inferred rather than higher order, which then constrains the `'x` by whatever it is inferred
+    /// to.
+    ///
+    /// Other lifetimes that appear in the signature can also enable inference like above with 'z.
     pub fn compute_join<'a, T: Send, R: 'a>(
         &'a mut self,
         items: impl IntoIterator<Item = T>,
