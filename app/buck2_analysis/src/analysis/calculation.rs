@@ -206,8 +206,9 @@ async fn resolve_queries_impl(
 
 pub async fn get_dep_analysis<'v>(
     configured_node: ConfiguredTargetNodeRef<'v>,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
+    let ctx = &*ctx;
     keep_going::try_join_all(
         ctx,
         configured_node
