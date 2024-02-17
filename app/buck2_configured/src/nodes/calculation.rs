@@ -62,6 +62,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use futures::FutureExt;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -880,36 +881,56 @@ async fn compute_configured_target_node_no_transition(
 
     // We now need to replace the dummy exec config we used above with the real one
 
-    let ctx = &*ctx;
+    let execution_platform = &execution_platform;
+    let toolchain_deps = &gathered_deps.toolchain_deps;
+    let exec_deps = &gathered_deps.exec_deps;
 
-    let toolchain_dep_futures = gathered_deps
-        .toolchain_deps
-        .iter()
-        .map(|v| v.with_exec_cfg(execution_platform.cfg().dupe()))
-        .map(|v| async move { ctx.bad_dice().get_configured_target_node(&v).await });
+    let mut bad_ctx = ctx.bad_dice();
 
-    let exec_dep_futures = gathered_deps
-        .exec_deps
-        .iter()
-        .map(|(v, check_visibility)| {
-            (
-                v.target()
-                    .unconfigured()
-                    .configure_pair(execution_platform.cfg_pair().dupe()),
-                check_visibility,
-            )
-        })
-        .map(|(v, check_visibility)| async move {
-            (
-                ctx.bad_dice().get_configured_target_node(&v).await,
-                check_visibility,
-            )
-        });
-
-    let fut = futures::future::join(
-        futures::future::join_all(toolchain_dep_futures),
-        futures::future::join_all(exec_dep_futures),
-    );
+    let fut = {
+        let (a, b) = bad_ctx.compute2(
+            move |ctx| {
+                async move {
+                    ctx.compute_join(
+                        toolchain_deps,
+                        |ctx, target: &TargetConfiguredTargetLabel| {
+                            async move {
+                                ctx.get_configured_target_node(
+                                    &target.with_exec_cfg(execution_platform.cfg().dupe()),
+                                )
+                                .await
+                            }
+                            .boxed()
+                        },
+                    )
+                    .await
+                }
+                .boxed()
+            },
+            |ctx| {
+                async move {
+                    ctx.compute_join(exec_deps, |ctx, (target, check_visibility)| {
+                        async move {
+                            (
+                                ctx.get_configured_target_node(
+                                    &target
+                                        .target()
+                                        .unconfigured()
+                                        .configure_pair(execution_platform.cfg_pair().dupe()),
+                                )
+                                .await,
+                                *check_visibility,
+                            )
+                        }
+                        .boxed()
+                    })
+                    .await
+                }
+                .boxed()
+            },
+        );
+        futures::future::join(a, b)
+    };
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
         ConfiguredGraphCycleDescriptor::guard_this(ctx, fut).await??;
 
@@ -928,7 +949,7 @@ async fn compute_configured_target_node_no_transition(
         errors_and_incompats.unpack_dep_into(
             partial_target_label,
             dep,
-            *check_visibility,
+            check_visibility,
             &mut exec_deps,
         );
     }
