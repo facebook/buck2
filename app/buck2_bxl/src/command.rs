@@ -168,7 +168,7 @@ async fn bxl(
     let BxlComputeResult {
         bxl_result,
         materializations,
-    } = match eval_bxl(&ctx, bxl_key.clone()).await {
+    } = match eval_bxl(&mut ctx, bxl_key.clone()).await {
         Ok(result) => result,
         Err(e) => {
             // `buck2_error::Error` has more reliable downcasting

@@ -31,7 +31,7 @@ struct BxlCalculationImpl;
 impl BxlCalculationDyn for BxlCalculationImpl {
     async fn eval_bxl(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         bxl: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<BxlComputeResult> {
         eval_bxl(ctx, BxlKey::from_base_deferred_key_dyn_impl_err(bxl)?).await
@@ -43,11 +43,10 @@ pub(crate) fn init_bxl_calculation_impl() {
 }
 
 pub(crate) async fn eval_bxl(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     bxl: BxlKey,
 ) -> anyhow::Result<BxlComputeResult> {
-    ctx.bad_dice()
-        .compute(&internal::BxlComputeKey(bxl))
+    ctx.compute(&internal::BxlComputeKey(bxl))
         .await?
         .map_err(anyhow::Error::from)
 }
