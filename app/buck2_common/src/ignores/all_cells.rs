@@ -50,20 +50,21 @@ impl AllCellIgnores {
 
 #[async_trait]
 pub(crate) trait HasAllCellIgnores {
-    async fn new_all_cell_ignores(&self) -> anyhow::Result<Arc<AllCellIgnores>>;
+    async fn new_all_cell_ignores(&mut self) -> anyhow::Result<Arc<AllCellIgnores>>;
 }
 
 #[async_trait]
 impl HasAllCellIgnores for DiceComputations<'_> {
-    async fn new_all_cell_ignores(&self) -> anyhow::Result<Arc<AllCellIgnores>> {
-        let cells = self.bad_dice().get_cell_resolver().await?;
+    async fn new_all_cell_ignores(&mut self) -> anyhow::Result<Arc<AllCellIgnores>> {
+        let cells = self.get_cell_resolver().await?;
         let configs = self.get_legacy_configs_on_dice().await?;
 
         let mut ignores = HashMap::new();
 
         for (cell_name, instance) in cells.cells() {
             let config = configs.get(cell_name).unwrap();
-            let ignore_spec = config.lookup(&mut self.bad_dice(), "project", "ignore")?;
+            let ignore_spec =
+                config.lookup(&mut self.bad_dice(/* configs */), "project", "ignore")?;
             let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
 
             let cell_ignores = FileIgnores::new_for_interpreter(
