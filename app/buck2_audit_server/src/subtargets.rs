@@ -81,14 +81,10 @@ async fn server_execute_with_dice(
 
     let mut futs = FuturesOrdered::new();
     for (package, spec) in resolved_pattern.specs {
-        let ctx = &ctx;
         let targets = match spec {
             buck2_core::pattern::PackageSpec::Targets(targets) => targets,
             buck2_core::pattern::PackageSpec::All => {
-                let interpreter_results = ctx
-                    .bad_dice()
-                    .get_interpreter_results(package.dupe())
-                    .await?;
+                let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                 interpreter_results
                     .targets()
                     .keys()
@@ -107,15 +103,15 @@ async fn server_execute_with_dice(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .bad_dice()
                 .get_configured_provider_label(&label, &global_cfg_options)
                 .await?;
 
             // `.push` is deprecated in newer `futures`,
             // but we did not updated vendored `futures` yet.
+            let mut ctx = ctx.clone();
             #[allow(deprecated)]
             futs.push(async move {
-                let result = ctx.bad_dice().get_providers(&providers_label).await;
+                let result = ctx.get_providers(&providers_label).await;
                 (providers_label, result)
             });
         }
