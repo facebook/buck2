@@ -71,7 +71,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
     ags: &[ArtifactGroup],
     abs: bool,
     mut visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<()> {
     // If there's a case where a tset projection returns a projection, we want to make sure
     // we are not reprocessing the nested projection over again. Since we are using
@@ -93,7 +93,6 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
             }
             ResolvedArtifactGroup::TransitiveSetProjection(t) => {
                 let set = ctx
-                    .bad_dice()
                     .compute_deferred_data(&t.key)
                     .await
                     .context("Failed to compute deferred for transitive set projection key")?;
@@ -137,7 +136,7 @@ impl<'v> EnsuredArtifactGroup<'v> {
     pub(crate) async fn visit_artifact_path_without_associated_deduped(
         &self,
         visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<()> {
         visit_artifact_path_without_associated_deduped(self.inner(), self.abs, visitor, ctx).await
     }
