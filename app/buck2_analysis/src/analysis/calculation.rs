@@ -41,13 +41,16 @@ use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use dice::higher_order_closure;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use futures::future::BoxFuture;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 use futures::StreamExt;
 use smallvec::SmallVec;
 use starlark::eval::ProfileMode;
@@ -121,7 +124,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
 }
 
 pub async fn resolve_queries(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let mut queries = configured_node.queries().peekable();
@@ -145,50 +148,56 @@ pub async fn resolve_queries(
 }
 
 async fn resolve_queries_impl(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
-    let query_results = futures::future::try_join_all(queries.into_iter().map(
-        |(query, resolved_literals_labels)| {
-            let deps = &deps;
-            async move {
-                let mut resolved_literals =
-                    HashMap::with_capacity(resolved_literals_labels.0.len());
-                for (literal, label) in resolved_literals_labels.0 {
-                    let node = deps.get(label.target()).ok_or_else(|| {
-                        AnalysisCalculationError::LiteralNotFoundInDeps(literal.clone())
-                    })?;
-                    resolved_literals.insert(literal, node.dupe());
-                }
+    let query_results = ctx.try_compute_join(
+        queries,
+        higher_order_closure! {
+            #![with<'y>]
+            for <'x> |
+                    ctx: &'x mut DiceComputations<'y>,
+                    (query, resolved_literals_labels): (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)
+            | -> BoxFuture<'x, anyhow::Result<(String, Arc<AnalysisQueryResult>)>> {
+                let deps = &deps;
+                async move {
+                    let mut resolved_literals =
+                        HashMap::with_capacity(resolved_literals_labels.0.len());
+                    for (literal, label) in resolved_literals_labels.0 {
+                        let node = deps.get(label.target()).ok_or_else(|| {
+                            AnalysisCalculationError::LiteralNotFoundInDeps(literal.clone())
+                        })?;
+                        resolved_literals.insert(literal, node.dupe());
+                    }
 
-                let result = (EVAL_ANALYSIS_QUERY.get()?)(ctx, &query, resolved_literals).await?;
+                    let result = (EVAL_ANALYSIS_QUERY.get()?)(ctx, &query, resolved_literals).await?;
 
-                // analysis for all the deps in the query result should already have been run since they must
-                // be in our dependency graph, and so we don't worry about parallelizing these lookups.
-                let mut query_results = Vec::new();
-                for node in result.iter() {
-                    let label = node.label();
-                    query_results.push((
-                        label.dupe(),
-                        ctx.bad_dice()
-                            .get_analysis_result(label)
-                            .await?
-                            .require_compatible()?
-                            .provider_collection,
+                    // analysis for all the deps in the query result should already have been run since they must
+                    // be in our dependency graph, and so we don't worry about parallelizing these lookups.
+                    let mut query_results = Vec::new();
+                    for node in result.iter() {
+                        let label = node.label();
+                        query_results.push((
+                            label.dupe(),
+                            ctx.get_analysis_result(label)
+                                .await?
+                                .require_compatible()?
+                                .provider_collection,
+                        ))
+                    }
+
+                    anyhow::Ok((
+                        query.to_owned(),
+                        Arc::new(AnalysisQueryResult {
+                            result: query_results,
+                        }),
                     ))
-                }
-
-                anyhow::Ok((
-                    query.to_owned(),
-                    Arc::new(AnalysisQueryResult {
-                        result: query_results,
-                    }),
-                ))
+                }.boxed()
             }
-        },
-    ))
+        }
+    )
     .await?;
 
     let query_results: HashMap<_, _> = query_results.into_iter().collect();
