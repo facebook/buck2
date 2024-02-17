@@ -205,25 +205,24 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub(crate) async fn get(
         self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
-        let mut set = TargetSet::new();
-        let futs = self.iter().map(|node_or_ref| async {
-            let node_or_ref = node_or_ref;
-            node_or_ref.get_from_dice(ctx).await
-        });
-
-        for node in futures::future::join_all(futs).await {
-            set.insert(node?);
-        }
-
+        let set = ctx.try_compute_join(
+            self.iter(),
+            higher_order_closure!{
+                #![with<'a, 'y>]
+                for <'x> |ctx: &'x mut DiceComputations<'a>, node_or_ref: TargetExpr<'y, TargetNode>| -> BoxFuture<'x, anyhow::Result<TargetNode>> {
+                    async move { node_or_ref.get_from_dice(ctx).await } .boxed()
+                }
+            }
+        ).await?.into_iter().collect();
         Ok(Cow::Owned(set))
     }
 
     /// Get a single `TargetNode`
     pub(crate) async fn get_one(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Option<TargetNode>> {
         Ok(match &self {
             Self::One(node_or_ref) => Some(node_or_ref.get_from_dice(ctx).await?),

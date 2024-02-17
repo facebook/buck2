@@ -33,11 +33,11 @@ impl<'v, Node: QueryTarget> TargetExpr<'v, Node> {
 impl<'v> TargetExpr<'v, TargetNode> {
     pub(crate) async fn get_from_dice(
         &self,
-        dice: &DiceComputations<'_>,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetNode> {
         match self {
             TargetExpr::Node(node) => Ok(node.dupe()),
-            TargetExpr::Label(label) => dice.bad_dice().get_target_node(label).await,
+            TargetExpr::Label(label) => dice.get_target_node(label).await,
         }
     }
 }
