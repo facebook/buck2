@@ -33,10 +33,12 @@ use buck2_error::Context;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::FutureExt;
+use higher_order_closure::higher_order_closure;
 
 use crate::commands::targets::fmt::JsonWriter;
 use crate::json::QuotedJson;
@@ -106,7 +108,7 @@ impl ResolveAliasFormatter for LinesWriter {
 }
 
 pub(crate) async fn targets_resolve_aliases(
-    dice: DiceTransaction,
+    mut dice: DiceTransaction,
     request: &TargetsRequest,
     parsed_target_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
 ) -> anyhow::Result<TargetsResponse> {
@@ -129,23 +131,26 @@ pub(crate) async fn targets_resolve_aliases(
         .map(|(package, _name)| package.dupe())
         .collect::<HashSet<_>>();
 
-    let packages = packages
+    let packages: HashMap<_, _> = dice
+        .compute_join(
+            packages,
+            higher_order_closure! {
+                #![with<'y>]
+                for <'x> |ctx: &'x mut DiceComputations<'y>, package: PackageLabel| -> BoxFuture<'x, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> {
+                    async move {
+                        (
+                            package.dupe(),
+                            ctx.get_interpreter_results(package.dupe())
+                                .await
+                                .map_err(buck2_error::Error::from),
+                        )
+                    }.boxed()
+                }
+            },
+        )
+        .await
         .into_iter()
-        .map(|package| {
-            let dice = &dice;
-            async move {
-                (
-                    package.dupe(),
-                    dice.bad_dice()
-                        .get_interpreter_results(package.dupe())
-                        .await
-                        .map_err(buck2_error::Error::from),
-                )
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<HashMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>>>()
-        .await;
+        .collect();
 
     let mut buffer = String::new();
 
