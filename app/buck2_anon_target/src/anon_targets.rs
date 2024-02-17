@@ -81,7 +81,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use futures::Future;
+use futures::future::BoxFuture;
 use futures::FutureExt;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
@@ -293,10 +293,9 @@ impl AnonTargetKey {
     fn run_analysis<'a>(
         &'a self,
         dice: &'a mut DiceComputations<'_>,
-    ) -> impl Future<Output = anyhow::Result<AnalysisResult>> + Send + 'a {
-        let dice = &*dice;
-        let fut = async move { self.run_analysis_impl(&mut dice.bad_dice()).await };
-        unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
+    ) -> BoxFuture<'a, anyhow::Result<AnalysisResult>> {
+        let fut = async move { self.run_analysis_impl(dice).await };
+        Box::pin(unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) })
     }
 
     async fn run_analysis_impl(
