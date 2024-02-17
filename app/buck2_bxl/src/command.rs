@@ -163,12 +163,10 @@ async fn bxl(
         global_cfg_options,
     );
 
-    let ctx = &ctx;
-
     let BxlComputeResult {
         bxl_result,
         materializations,
-    } = match eval_bxl(ctx, bxl_key.clone()).await {
+    } = match eval_bxl(&ctx, bxl_key.clone()).await {
         Ok(result) => result,
         Err(e) => {
             // `buck2_error::Error` has more reliable downcasting
@@ -190,14 +188,14 @@ async fn bxl(
     let labeled_configured_build_results = filter_bxl_build_results(build_results);
     let configured_build_results = labeled_configured_build_results.values();
     let build_result = ensure_artifacts(
-        ctx,
+        &ctx,
         &materialization_context,
         configured_build_results,
         bxl_result.get_artifacts_opt(),
     )
     .await;
-    copy_output(stdout, ctx, bxl_result.get_output_loc()).await?;
-    copy_output(server_ctx.stderr()?, ctx, bxl_result.get_error_loc()).await?;
+    copy_output(stdout, &mut ctx, bxl_result.get_output_loc()).await?;
+    copy_output(server_ctx.stderr()?, &mut ctx, bxl_result.get_error_loc()).await?;
 
     let errors = match build_result {
         Ok(_) => vec![],
@@ -242,7 +240,7 @@ pub(crate) async fn get_bxl_cli_args(
 
 async fn copy_output<W: Write>(
     mut output: W,
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     output_loc: &BuckOutPath,
 ) -> anyhow::Result<()> {
     let loc = dice.global_data().get_io_provider().project_root().resolve(

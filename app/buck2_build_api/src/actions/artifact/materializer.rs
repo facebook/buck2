@@ -42,7 +42,7 @@ pub trait ArtifactMaterializer {
 impl ArtifactMaterializer for DiceComputations<'_> {
     async fn materialize(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
         let materializer = self.per_transaction_data().get_materializer();
-        let artifact_fs = self.get_artifact_fs().await?;
+        let artifact_fs = self.bad_dice().get_artifact_fs().await?;
         let path = artifact.resolve_path(&artifact_fs)?;
         materializer.ensure_materialized(vec![path.clone()]).await?;
         Ok(path)
@@ -54,7 +54,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
         required: bool,
     ) -> anyhow::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
-        let artifact_fs = self.get_artifact_fs().await?;
+        let artifact_fs = self.bad_dice().get_artifact_fs().await?;
         let path = artifact_fs.resolve_build(artifact.get_path());
 
         let start_event = buck2_data::MaterializeRequestedArtifactStart {

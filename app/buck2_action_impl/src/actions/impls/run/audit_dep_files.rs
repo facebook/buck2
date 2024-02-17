@@ -47,7 +47,7 @@ async fn audit_dep_files(
     let dep_files = read_dep_files(
         state.has_signatures(),
         state.declared_dep_files(),
-        &ctx.get_artifact_fs().await?,
+        &ctx.clone().get_artifact_fs().await?,
         ctx.per_transaction_data().get_materializer().as_ref(),
     )
     .await

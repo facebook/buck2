@@ -116,7 +116,7 @@ pub enum InstallError {
 
 async fn get_installer_log_directory(
     server_ctx: &dyn ServerCommandContextTrait,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<AbsNormPathBuf> {
     let out_path = ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.project_root();
@@ -254,7 +254,7 @@ async fn install(
         }
     }
 
-    let install_log_dir = &get_installer_log_directory(server_ctx, &ctx).await?;
+    let install_log_dir = &get_installer_log_directory(server_ctx, &mut ctx).await?;
 
     let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
     for (installer_label, install_info_vector) in &installer_to_files_map {
@@ -359,7 +359,7 @@ async fn handle_install_request<'a>(
         .await?;
 
         let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
-        let artifact_fs = ctx.get_artifact_fs().await?;
+        let artifact_fs = ctx.bad_dice().get_artifact_fs().await?;
 
         for (install_id, install_files) in install_files_slice {
             send_install_info(client.clone(), install_id, install_files, &artifact_fs).await?;

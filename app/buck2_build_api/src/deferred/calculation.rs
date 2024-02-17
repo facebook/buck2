@@ -333,7 +333,7 @@ async fn compute_deferred(
 
                 artifact_futs.and_then(move |_| async move {
                     let materializer = ctx.per_transaction_data().get_materializer();
-                    let artifact_fs = ctx.get_artifact_fs().await?;
+                    let artifact_fs = ctx.bad_dice().get_artifact_fs().await?;
 
                     let fut = materialized_artifacts
                         .iter()

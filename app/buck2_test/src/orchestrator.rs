@@ -218,7 +218,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.get_artifact_fs().await?;
+        let fs = self.dice.bad_dice().get_artifact_fs().await?;
 
         let test_info = self.get_test_info(&test_target).await?;
         let test_executor = self
@@ -438,7 +438,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.get_artifact_fs().await?;
+        let fs = self.dice.bad_dice().get_artifact_fs().await?;
 
         let test_info = self.get_test_info(&test_target).await?;
         // Tests are not run, so there is no executor override.

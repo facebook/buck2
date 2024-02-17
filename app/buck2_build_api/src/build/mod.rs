@@ -288,7 +288,7 @@ async fn build_configured_label_inner<'a>(
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
 ) -> anyhow::Result<BoxStream<'a, ConfiguredBuildEvent>> {
-    let artifact_fs = ctx.get_artifact_fs().await?;
+    let artifact_fs = ctx.bad_dice().get_artifact_fs().await?;
 
     let (outputs, run_args, target_rule_type_name) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.

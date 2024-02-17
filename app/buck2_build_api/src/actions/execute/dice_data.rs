@@ -69,7 +69,7 @@ impl DiceHasCommandExecutor for DiceComputations<'_> {
         &self,
         config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse> {
-        let artifact_fs = self.get_artifact_fs().await?;
+        let artifact_fs = self.bad_dice().get_artifact_fs().await?;
         let holder = self
             .per_transaction_data()
             .data
