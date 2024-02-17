@@ -57,6 +57,8 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use dupe::IterDupedExt;
+use futures::future::BoxFuture;
 use futures::FutureExt;
 use itertools::Itertools;
 
@@ -292,49 +294,40 @@ async fn ensure_artifacts_inner(
     target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: &[ArtifactGroup],
 ) -> Result<(), Vec<buck2_error::Error>> {
-    let mut futs = vec![];
+    let mut artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
+    let mut errors = Vec::new();
 
-    let ctx = &*ctx;
-    target_results.into_iter().for_each(|res| {
-        for res in &res.outputs {
-            match res {
+    for res in target_results {
+        for output in &res.outputs {
+            match output {
                 Ok(artifacts) => {
                     for (artifact, _value) in artifacts.values.iter() {
-                        futs.push(
-                            async {
-                                materialize_artifact_group(
-                                    &mut ctx.bad_dice(),
-                                    &ArtifactGroup::Artifact(artifact.dupe()),
-                                    materialization_ctx,
-                                )
-                                .await?;
-                                Ok(())
-                            }
-                            .boxed(),
-                        )
+                        artifacts_to_materialize.push(ArtifactGroup::Artifact(artifact.dupe()))
                     }
                 }
-                Err(e) => futs.push(futures::future::ready(Err(e.dupe())).boxed()),
+                Err(e) => errors.push(e.dupe()),
             }
         }
-    });
+    }
 
-    artifacts.iter().for_each(|a| {
-        futs.push(
-            async move {
-                materialize_artifact_group(&mut ctx.bad_dice(), a, materialization_ctx).await?;
-                Ok(())
+    let materialize_errors = ctx.compute_join(
+        artifacts_to_materialize,
+        dice::higher_order_closure!{
+            #![with<'y>]
+            for <'x> |ctx: &'x mut DiceComputations<'y>, artifact: ArtifactGroup| -> BoxFuture<'x, buck2_error::Result<()>> {
+                async move {
+                    materialize_artifact_group(ctx, &artifact, materialization_ctx).await?;
+                    Ok(())
+                }.boxed()
             }
-            .boxed(),
-        );
-    });
-
-    let res = futures::future::join_all(futs)
-        .await
-        .into_iter()
-        .filter_map(|res| res.err())
-        .collect::<Vec<_>>();
-    if res.is_empty() { Ok(()) } else { Err(res) }
+        }
+    ).await;
+    errors.extend(materialize_errors.into_iter().filter_map(|v| v.err()));
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]
