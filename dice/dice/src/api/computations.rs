@@ -123,24 +123,24 @@ impl<'d> DiceComputations<'d> {
         self.inner().opaque_into_value(derive_from)
     }
 
-    /// Computes all the given tasks in parallel, returning an unordered Stream.
+    /// Creates computation Futures for all the given tasks.
     ///
     /// ```ignore
     /// let mut ctx: &'a DiceComputations = ctx();
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
-    /// ctx.compute_many(keys.into_iter().map(|k|
+    /// let futs = ctx.compute_many(keys.into_iter().map(|k|
     ///   higher_order_closure! {
-    ///     #![with<'a>]
-    ///     for <'x> move |dice: &'x mut DiceComputations<'a>| -> BoxFuture<'x, String> {
+    ///     #![with<'y>] // required to capture non-'static references
+    ///     for <'x> move |dice: &'x mut DiceComputations<'y>| -> BoxFuture<'x, String> {
     ///       async move {
     ///         dice.compute(k).await + data
     ///       }.boxed()
     ///     }
     ///   }
-    /// )).await;
+    /// ));
+    /// futures::future::join_all(futs).await
     /// ```
-    /// The `#![with<'a>]` is required for the closure to capture any non-'static references.
     pub fn compute_many<'a, T: 'a>(
         &'a mut self,
         computes: impl IntoIterator<
