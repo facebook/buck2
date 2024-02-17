@@ -25,13 +25,12 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use futures::future;
+use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
@@ -433,18 +432,22 @@ async fn build_configured_label_inner<'a>(
         .map({
             |(index, (output, provider_type))| {
                 let materialization_context = materialization_context.dupe();
-                materialize_artifact_group_owned(ctx, output, materialization_context).map(
-                    move |res| {
-                        let res =
-                            res.map_err(buck2_error::Error::from)
-                                .map(|values| ProviderArtifacts {
-                                    values,
-                                    provider_type,
-                                });
-
-                        (index, res)
-                    },
-                )
+                async move {
+                    let res = match materialize_artifact_group_owned(
+                        &mut ctx.bad_dice(),
+                        output,
+                        materialization_context,
+                    )
+                    .await
+                    {
+                        Ok(values) => Ok(ProviderArtifacts {
+                            values,
+                            provider_type,
+                        }),
+                        Err(e) => Err(buck2_error::Error::from(e)),
+                    };
+                    (index, res)
+                }
             }
         })
         .collect::<FuturesUnordered<_>>()
@@ -488,7 +491,7 @@ async fn build_configured_label_inner<'a>(
     }
 }
 pub async fn materialize_artifact_group_owned(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     artifact_group: ArtifactGroup,
     materialization_context: MaterializationContext,
 ) -> anyhow::Result<ArtifactGroupValues> {
@@ -520,39 +523,35 @@ impl Debug for ProviderArtifacts {
 }
 
 pub async fn materialize_artifact_group(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     materialization_context: &MaterializationContext,
 ) -> anyhow::Result<ArtifactGroupValues> {
     let values = ctx.ensure_artifact_group(artifact_group).await?;
 
     if let MaterializationContext::Materialize { map, force } = materialization_context {
-        future::try_join_all(values.iter().filter_map(|(artifact, _value)| {
-            match artifact.as_parts().0 {
-                BaseArtifactKind::Build(artifact) => {
-                    match map.entry(artifact.dupe()) {
-                        Entry::Vacant(v) => {
-                            // Ensure we won't request this artifact elsewhere, and proceed to request
-                            // it.
-                            v.insert(());
-                        }
-                        Entry::Occupied(..) => {
-                            // We've already requested this artifact, no use requesting it again.
-                            return None;
-                        }
-                    }
-
-                    Some(async move {
-                        ctx.bad_dice()
-                            .try_materialize_requested_artifact(artifact, *force)
-                            .await
-                    })
+        let mut artifacts_to_materialize = Vec::new();
+        for (artifact, _value) in values.iter() {
+            if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
+                if map.insert(artifact.dupe(), ()).is_some() {
+                    // We've already requested this artifact, no use requesting it again.
+                    continue;
                 }
-                BaseArtifactKind::Source(..) => None,
+                artifacts_to_materialize.push(artifact);
             }
-        }))
-        .await
-        .context("Failed to materialize artifacts")?;
+        }
+
+        ctx.try_compute_join(
+            artifacts_to_materialize,
+            dice::higher_order_closure!{
+                #![with<'y, 'z>]
+                for <'x> |ctx: &'x mut DiceComputations<'y>, artifact: &'z BuildArtifact| -> BoxFuture<'x, anyhow::Result<()>> {
+                    async move {
+                        ctx.try_materialize_requested_artifact(artifact, *force).await
+                    }.boxed()
+                }
+            }
+        ).await.context("Failed to materialize artifacts")?;
     }
 
     Ok(values)

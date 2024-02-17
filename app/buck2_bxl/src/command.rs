@@ -188,7 +188,7 @@ async fn bxl(
     let labeled_configured_build_results = filter_bxl_build_results(build_results);
     let configured_build_results = labeled_configured_build_results.values();
     let build_result = ensure_artifacts(
-        &ctx,
+        &mut ctx,
         &materialization_context,
         configured_build_results,
         bxl_result.get_artifacts_opt(),
@@ -265,7 +265,7 @@ async fn copy_output<W: Write>(
 }
 
 async fn ensure_artifacts(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     materialization_ctx: &MaterializationContext,
     target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: Option<&Vec<ArtifactGroup>>,
@@ -287,13 +287,14 @@ async fn ensure_artifacts(
 }
 
 async fn ensure_artifacts_inner(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     materialization_ctx: &MaterializationContext,
     target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: &[ArtifactGroup],
 ) -> Result<(), Vec<buck2_error::Error>> {
     let mut futs = vec![];
 
+    let ctx = &*ctx;
     target_results.into_iter().for_each(|res| {
         for res in &res.outputs {
             match res {
@@ -302,7 +303,7 @@ async fn ensure_artifacts_inner(
                         futs.push(
                             async {
                                 materialize_artifact_group(
-                                    ctx,
+                                    &mut ctx.bad_dice(),
                                     &ArtifactGroup::Artifact(artifact.dupe()),
                                     materialization_ctx,
                                 )
@@ -321,7 +322,7 @@ async fn ensure_artifacts_inner(
     artifacts.iter().for_each(|a| {
         futs.push(
             async move {
-                materialize_artifact_group(ctx, a, materialization_ctx).await?;
+                materialize_artifact_group(&mut ctx.bad_dice(), a, materialization_ctx).await?;
                 Ok(())
             }
             .boxed(),

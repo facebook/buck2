@@ -478,7 +478,7 @@ async fn build_launch_installer<'a>(
         let ctx = &*ctx;
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
         try_join_all(inputs.into_iter().map(|input| async move {
-            materialize_artifact_group(ctx, &input, materializations)
+            materialize_artifact_group(&mut ctx.bad_dice(), &input, materializations)
                 .await
                 .map(|value| (input, value))
         }))
@@ -534,7 +534,8 @@ async fn build_files(
     try_join_all(file_outputs.into_iter().map(
         |(install_id, name, artifact, tx_clone)| async move {
             let artifact_values =
-                materialize_artifact_group(ctx, &artifact, materializations).await?;
+                materialize_artifact_group(&mut ctx.bad_dice(), &artifact, materializations)
+                    .await?;
             for (artifact, artifact_value) in artifact_values.iter() {
                 let file_result = FileResult {
                     install_id: (*install_id).to_owned(),
