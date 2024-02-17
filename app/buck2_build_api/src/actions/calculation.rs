@@ -61,13 +61,14 @@ use crate::starlark::values::UnpackValue;
 
 #[async_trait]
 pub trait ActionCalculation {
-    async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>>;
+    async fn get_action(&mut self, action_key: &ActionKey)
+    -> anyhow::Result<Arc<RegisteredAction>>;
     async fn build_action(&self, action_key: ActionKey) -> anyhow::Result<ActionOutputs>;
     async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
 }
 
 async fn build_action_impl(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     key: &ActionKey,
 ) -> anyhow::Result<ActionOutputs> {
@@ -382,7 +383,10 @@ pub struct BuildKeyActivationData {
 /// build_action/build_artifact at least).
 #[async_trait]
 impl ActionCalculation for DiceComputations<'_> {
-    async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>> {
+    async fn get_action(
+        &mut self,
+        action_key: &ActionKey,
+    ) -> anyhow::Result<Arc<RegisteredAction>> {
         // TODO add async/deferred stuff
         self.compute_deferred_data(action_key.deferred_data())
             .await

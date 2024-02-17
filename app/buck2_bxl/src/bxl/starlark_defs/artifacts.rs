@@ -93,6 +93,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
             }
             ResolvedArtifactGroup::TransitiveSetProjection(t) => {
                 let set = ctx
+                    .bad_dice()
                     .compute_deferred_data(&t.key)
                     .await
                     .context("Failed to compute deferred for transitive set projection key")?;

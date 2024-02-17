@@ -118,7 +118,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
     let mut dice_data = UserComputationData::new();
     set_fallback_executor_config(&mut dice_data.data, CommandExecutorConfig::testing_local());
 
-    let dice = dice.build(dice_data)?.commit().await;
+    let mut dice = dice.build(dice_data)?.commit().await;
     let deferred_result = dice.compute_deferred_data(&data0).await?;
     assert_eq!(*deferred_result, 1);
     assert_eq!(executed0.load(Ordering::SeqCst), true);
@@ -212,7 +212,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
     let mut dice_data = UserComputationData::new();
     set_fallback_executor_config(&mut dice_data.data, CommandExecutorConfig::testing_local());
 
-    let dice = dice.build(dice_data)?.commit().await;
+    let mut dice = dice.build(dice_data)?.commit().await;
     let deferred_result = dice.compute_deferred_data(&data).await?;
     assert_eq!(*deferred_result, 8);
     assert_eq!(executed.load(Ordering::SeqCst), true);

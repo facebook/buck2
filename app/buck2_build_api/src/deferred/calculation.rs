@@ -75,7 +75,7 @@ pub struct DeferredCompute(pub DeferredKey);
 pub trait DeferredCalculation {
     /// Computes and returns the evaluated value of an 'DeferredData'
     async fn compute_deferred_data<T: Send + Sync + 'static>(
-        &self,
+        &mut self,
         data: &DeferredData<T>,
     ) -> anyhow::Result<DeferredValueReady<T>>;
 }
@@ -83,11 +83,11 @@ pub trait DeferredCalculation {
 #[async_trait]
 impl DeferredCalculation for DiceComputations<'_> {
     async fn compute_deferred_data<T: Send + Sync + 'static>(
-        &self,
+        &mut self,
         data: &DeferredData<T>,
     ) -> anyhow::Result<DeferredValueReady<T>> {
         if data.deferred_key().id().is_trivial() {
-            let deferred = lookup_deferred(&mut self.bad_dice(), data.deferred_key()).await?;
+            let deferred = lookup_deferred(self, data.deferred_key()).await?;
             let deferred = deferred
                 .get()?
                 .as_trivial()

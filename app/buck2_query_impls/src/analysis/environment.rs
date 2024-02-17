@@ -272,7 +272,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
 }
 
 async fn dice_lookup_transitive_set(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     key: TransitiveSetKey,
 ) -> anyhow::Result<DeferredValueReady<DeferredTransitiveSetData>> {
     ctx.compute_deferred_data(&key).await
@@ -397,7 +397,9 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
             ResolvedArtifactGroup::TransitiveSetProjection(tset_key) => {
                 // We've encountered a "top-level" tset node that we haven't yet seen (as either a top-level or intermediate node, doesn't matter).
                 if seen.insert(tset_key.dupe()) {
-                    let tset_value = dice_lookup_transitive_set(ctx, tset_key.key.dupe()).await?;
+                    let tset_value =
+                        dice_lookup_transitive_set(&mut ctx.bad_dice(), tset_key.key.dupe())
+                            .await?;
 
                     // Now we can traverse this tset from that node. This is a different traversal than our top-level one as we will
                     // be accessing tset internals directly and so we can actually traverse the starlark objects without going back through

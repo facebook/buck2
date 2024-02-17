@@ -234,7 +234,7 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
         deferred_resolve,
         registered_action.dupe(),
     );
-    let dice_computations = dice_builder
+    let mut dice_computations = dice_builder
         .build(UserComputationData::new())?
         .commit()
         .await;

@@ -188,7 +188,7 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
         .map(|key| {
             let key = key.dupe();
             let node_cache = node_cache.dupe();
-            get_tset_node(node_cache, ctx, key)
+            async move { get_tset_node(node_cache, &mut ctx.bad_dice(), key).await }
         })
         .collect();
 
@@ -200,7 +200,7 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
 
 fn compute_tset_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations<'_>,
+    ctx: &'c mut DiceComputations<'_>,
     key: TransitiveSetProjectionKey,
 ) -> BoxFuture<'c, buck2_error::Result<SetProjectionInputs>> {
     async move {
@@ -227,7 +227,7 @@ fn compute_tset_node<'c>(
 
 async fn get_tset_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations<'_>,
+    ctx: &'c mut DiceComputations<'_>,
     key: TransitiveSetProjectionKey,
 ) -> anyhow::Result<SetProjectionInputs> {
     let copied_node_cache = node_cache.dupe();
@@ -241,7 +241,7 @@ async fn get_tset_node<'c>(
 
 fn compute_action_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations<'_>,
+    ctx: &'c mut DiceComputations<'_>,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
 ) -> BoxFuture<'c, buck2_error::Result<ActionQueryNode>> {
@@ -255,7 +255,7 @@ fn compute_action_node<'c>(
 
 async fn get_action_node<'c>(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c DiceComputations<'_>,
+    ctx: &'c mut DiceComputations<'_>,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
 ) -> anyhow::Result<ActionQueryNode> {
@@ -291,7 +291,7 @@ impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
     pub(crate) async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         get_action_node(
             self.query_data.nodes_cache.dupe(),
-            self.base_delegate.ctx(),
+            &mut self.base_delegate.ctx().bad_dice(),
             key.dupe(),
             self.query_data.artifact_fs.dupe(),
         )
@@ -365,7 +365,7 @@ async fn get_target_set_from_analysis_inner(
             result.insert(
                 get_action_node(
                     query_data.nodes_cache.dupe(),
-                    dice,
+                    &mut dice.bad_dice(),
                     action_key.dupe(),
                     query_data.artifact_fs.dupe(),
                 )
