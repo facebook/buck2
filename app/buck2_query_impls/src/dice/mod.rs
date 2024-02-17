@@ -366,8 +366,12 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
         ctx: &DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
-        let loaded_patterns =
-            load_patterns(ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
+        let loaded_patterns = load_patterns(
+            &mut ctx.bad_dice(),
+            parsed_patterns,
+            MissingTargetBehavior::Fail,
+        )
+        .await?;
         let mut target_set = TargetSet::new();
         for (_package, results) in loaded_patterns.into_iter() {
             target_set.extend(results?.into_values());

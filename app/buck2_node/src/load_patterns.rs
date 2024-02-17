@@ -44,7 +44,7 @@ enum BuildErrors {
 }
 
 async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
-    ctx: &'c DiceComputations<'_>,
+    ctx: &'c mut DiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> anyhow::Result<(
     ResolvedPattern<T>,
@@ -52,6 +52,8 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 )> {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();
+
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
     struct Builder<'c, 'd> {
         ctx: &'c DiceComputations<'d>,
@@ -74,7 +76,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 
             // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
             self.load_package_futs.push(
-                OwningFuture::new(self.ctx.bad_dice(), |ctx| {
+                OwningFuture::new(self.ctx.bad_dice(/* streaming */), |ctx| {
                     ctx.get_interpreter_results(package.dupe())
                         .map(|res| (package, res))
                         .boxed()
@@ -99,8 +101,6 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
             }
         }
     }
-
-    let cell_resolver = ctx.bad_dice().get_cell_resolver().await?;
 
     collect_package_roots(
         &DiceFileOps(ctx),
@@ -265,7 +265,7 @@ fn apply_spec<T: PatternType>(
 }
 
 pub async fn load_patterns<T: PatternType>(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
     skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<LoadedPatterns<T>> {

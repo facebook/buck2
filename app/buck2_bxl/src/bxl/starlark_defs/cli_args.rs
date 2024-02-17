@@ -597,8 +597,12 @@ impl CliArgType {
                         x,
                         &ctx.cell_resolver,
                     )?;
-                    let loaded =
-                        load_patterns(ctx.dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+                    let loaded = load_patterns(
+                        &mut ctx.dice.clone(),
+                        vec![pattern],
+                        MissingTargetBehavior::Fail,
+                    )
+                    .await?;
                     Some(CliArgValue::List(
                         loaded
                             .iter_loaded_targets()
@@ -614,8 +618,12 @@ impl CliArgType {
                         x,
                         &ctx.cell_resolver,
                     )?;
-                    let loaded =
-                        load_patterns(ctx.dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+                    let loaded = load_patterns(
+                        &mut ctx.dice.clone(),
+                        vec![pattern],
+                        MissingTargetBehavior::Fail,
+                    )
+                    .await?;
 
                     Some(CliArgValue::List(
                         loaded

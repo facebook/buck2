@@ -77,7 +77,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     }
                 }
 
-                let loaded_patterns = load_patterns(&ctx, target_patterns, MissingTargetBehavior::Fail).await?;
+                let loaded_patterns = load_patterns(&mut ctx, target_patterns, MissingTargetBehavior::Fail).await?;
                 let global_cfg_options = global_cfg_options_from_client_context(
                     &client_ctx,
                     server_ctx,

@@ -83,14 +83,14 @@ impl TargetHashOptions {
 
 pub(crate) async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
-    dice: DiceTransaction,
+    mut dice: DiceTransaction,
     formatter: &dyn TargetFormatter,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     global_cfg_options: &GlobalCfgOptions,
     hash_options: TargetHashOptions,
     keep_going: bool,
 ) -> anyhow::Result<TargetsResponse> {
-    let results = load_patterns(&dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
+    let results = load_patterns(&mut dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
 
     let target_hashes = match hash_options.graph_type {
         TargetHashGraphType::Configured => Some(

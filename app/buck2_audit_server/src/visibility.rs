@@ -115,7 +115,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
                 .await?;
 
                 let parsed_target_patterns =
-                    load_patterns(&ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
+                    load_patterns(&mut ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
 
                 let mut nodes = TargetSet::<TargetNode>::new();
                 for (_package, result) in parsed_target_patterns.iter() {
