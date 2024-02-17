@@ -48,7 +48,7 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 
 async fn generate_profile_analysis(
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
@@ -68,12 +68,12 @@ async fn generate_profile_analysis(
 
     match profile_mode {
         StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => {
-            profile_analysis(&ctx, &configured_target, profile_mode)
+            profile_analysis(&mut ctx, &configured_target, profile_mode)
                 .await
                 .context("Analysis failed")
         }
         StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
-            profile_analysis_recursively(&ctx, &configured_target)
+            profile_analysis_recursively(&mut ctx, &configured_target)
                 .await
                 .context("Recursive profile analysis failed")
                 .map(Arc::new)

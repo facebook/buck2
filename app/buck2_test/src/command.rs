@@ -745,7 +745,11 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
                 .get_configured_provider_label(&label, state.global_cfg_options)
                 .await?;
 
-            let node = state.ctx.get_configured_target_node(label.target()).await?;
+            let node = state
+                .ctx
+                .bad_dice()
+                .get_configured_target_node(label.target())
+                .await?;
 
             let node = match node {
                 MaybeCompatible::Incompatible(reason) => {

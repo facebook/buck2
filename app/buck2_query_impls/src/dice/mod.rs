@@ -295,7 +295,11 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
             .ctx
             .get_configured_target(target, self.query_data.global_cfg_options())
             .await?;
-        Ok(self.ctx.get_configured_target_node(&target).await?)
+        Ok(self
+            .ctx
+            .bad_dice()
+            .get_configured_target_node(&target)
+            .await?)
     }
 
     async fn get_node_for_configured_target(
@@ -304,6 +308,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ConfiguredTargetNode> {
         Ok(self
             .ctx
+            .bad_dice()
             .get_configured_target_node(target)
             .await?
             .require_compatible()?)
@@ -314,7 +319,10 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
         target: &TargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self.ctx.get_default_configured_target(target).await?;
-        self.ctx.get_configured_target_node(&target).await
+        self.ctx
+            .bad_dice()
+            .get_configured_target_node(&target)
+            .await
     }
 
     async fn get_configured_target(
@@ -322,6 +330,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         self.ctx
+            .bad_dice()
             .get_configured_target(target, self.query_data.global_cfg_options())
             .await
     }

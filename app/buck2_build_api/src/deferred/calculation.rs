@@ -235,11 +235,16 @@ async fn compute_deferred(
             let deferreds_futs = FuturesUnordered::new();
             let mut materialized_artifacts = Vec::new();
 
+            let ctx_ref = &ctx;
             deferred.inputs().iter().for_each(|input| match input {
-                DeferredInput::ConfiguredTarget(target) => target_node_futs.push(
-                    ctx.get_configured_target_node(target)
-                        .map(|res| anyhow::Ok((target.dupe(), res?.require_compatible()?))),
-                ),
+                DeferredInput::ConfiguredTarget(target) => target_node_futs.push(async move {
+                    let res = ctx_ref
+                        .bad_dice()
+                        .get_configured_target_node(target)
+                        .await?
+                        .require_compatible()?;
+                    Ok((target.dupe(), res))
+                }),
                 DeferredInput::Deferred(deferred_key) => deferreds_futs.push(
                     resolve_deferred(ctx, deferred_key)
                         .map(|res| anyhow::Ok((deferred_key.dupe(), res?))),

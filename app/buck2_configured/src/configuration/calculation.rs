@@ -155,7 +155,7 @@ async fn get_execution_platforms(
 /// Check if a particular execution platform is compatible with the constraints or not.
 /// Return either Ok/Ok if it is, or a reason if not.
 async fn check_execution_platform(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &[TargetLabel],
@@ -234,7 +234,7 @@ async fn get_execution_platforms_enabled(
 }
 
 async fn resolve_execution_platform_from_constraints(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target_node_cell: CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &[TargetLabel],

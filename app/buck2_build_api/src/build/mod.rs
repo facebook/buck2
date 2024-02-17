@@ -378,6 +378,7 @@ async fn build_configured_label_inner<'a>(
         }
 
         let target_rule_type_name: String = ctx
+            .bad_dice()
             .get_configured_target_node(providers_label.target())
             .await?
             .require_compatible()?

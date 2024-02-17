@@ -33,6 +33,7 @@ pub struct ConfiguredTargetNodeLookup<'c, 'd>(pub &'c DiceComputations<'d>);
 impl AsyncNodeLookup<ConfiguredTargetNode> for ConfiguredTargetNodeLookup<'_, '_> {
     async fn get(&self, label: &ConfiguredTargetLabel) -> anyhow::Result<ConfiguredTargetNode> {
         self.0
+            .bad_dice()
             .get_configured_target_node(label)
             .await?
             .require_compatible()

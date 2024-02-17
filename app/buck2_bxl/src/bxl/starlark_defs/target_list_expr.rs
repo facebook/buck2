@@ -77,9 +77,11 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         self,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
+        let dice = &*dice;
         let futs = self.iter().map(|node_or_ref| async {
             let node_or_ref = node_or_ref;
-            dice.get_configured_target_node(node_or_ref.node_ref())
+            dice.bad_dice()
+                .get_configured_target_node(node_or_ref.node_ref())
                 .await
         });
 

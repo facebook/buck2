@@ -797,6 +797,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         // since this will get cached in DICE.
         let node = self
             .dice
+            .bad_dice()
             .get_configured_target_node(test_target.target())
             .await?
             .require_compatible()?;

@@ -26,7 +26,6 @@ use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
-use futures::FutureExt;
 use indexmap::IndexMap;
 
 use crate::analysis::environment::get_from_template_placeholder_info;
@@ -80,10 +79,14 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
+                let ctx_ref = &*ctx;
                 let (targets, label_to_artifact) = futures::future::try_join(
-                    futures::future::try_join_all(self.targets.iter().map(|target| {
-                        ctx.get_configured_target_node(target)
-                            .map(|res| res?.require_compatible())
+                    futures::future::try_join_all(self.targets.iter().map(|target| async move {
+                        ctx_ref
+                            .bad_dice()
+                            .get_configured_target_node(target)
+                            .await?
+                            .require_compatible()
                     })),
                     get_from_template_placeholder_info(
                         ctx,

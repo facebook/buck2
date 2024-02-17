@@ -227,7 +227,7 @@ pub async fn get_rule_spec(
 }
 
 async fn get_analysis_result(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
@@ -237,7 +237,7 @@ async fn get_analysis_result(
 }
 
 async fn get_analysis_result_inner(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
@@ -255,7 +255,7 @@ async fn get_analysis_result_inner(
 
     let now = Instant::now();
 
-    let (res, spans) = async_record_root_spans(async move {
+    let (res, spans) = async_record_root_spans(async {
         let func = configured_node.rule_type();
         match func {
             RuleType::Starlark(func) => {
@@ -354,7 +354,7 @@ enum ProfileAnalysisError {
 /// Run get_analysis_result but discard the results (public outside the `analysis` module, unlike
 /// get_analysis_result)
 pub async fn profile_analysis(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
     profile_mode: &ProfileMode,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
@@ -394,7 +394,7 @@ fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode>
 }
 
 pub async fn profile_analysis_recursively(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
     // Self check.
@@ -413,9 +413,10 @@ pub async fn profile_analysis_recursively(
 
     let all_deps = all_deps(node);
 
+    let ctx_ref = &*ctx;
     let mut futures = all_deps
         .iter()
-        .map(|node| async move { ctx.bad_dice().get_analysis_result(node.label()).await })
+        .map(|node| async move { ctx_ref.bad_dice().get_analysis_result(node.label()).await })
         .collect::<FuturesOrdered<_>>();
 
     let mut profile_datas: Vec<Arc<StarlarkProfileDataAndStats>> = Vec::new();

@@ -20,7 +20,7 @@ pub trait ConfiguredTargetNodeCalculationImpl: Send + Sync + 'static {
     /// Returns the ConfiguredTargetNode corresponding to a ConfiguredTargetLabel.
     async fn get_configured_target_node(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
@@ -33,7 +33,7 @@ pub static CONFIGURED_TARGET_NODE_CALCULATION: LateBinding<
 pub trait ConfiguredTargetNodeCalculation {
     /// Returns the ConfiguredTargetNode corresponding to a ConfiguredTargetLabel.
     async fn get_configured_target_node(
-        &self,
+        &mut self,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
@@ -41,7 +41,7 @@ pub trait ConfiguredTargetNodeCalculation {
 #[async_trait]
 impl ConfiguredTargetNodeCalculation for DiceComputations<'_> {
     async fn get_configured_target_node(
-        &self,
+        &mut self,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         CONFIGURED_TARGET_NODE_CALCULATION

@@ -725,10 +725,11 @@ async fn gather_deps(
         configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
     }
 
-    let dep_futures = traversal
-        .deps
-        .iter()
-        .map(|v| ctx.get_configured_target_node(v.0.target()));
+    let dep_futures = traversal.deps.iter().map(|v| async move {
+        ctx.bad_dice()
+            .get_configured_target_node(v.0.target())
+            .await
+    });
     let dep_results =
         ConfiguredGraphCycleDescriptor::guard_this(ctx, futures::future::join_all(dep_futures))
             .await??;
@@ -879,11 +880,12 @@ async fn compute_configured_target_node_no_transition(
     let execution_platform = execution_platform_resolution.cfg();
 
     // We now need to replace the dummy exec config we used above with the real one
+
     let toolchain_dep_futures = gathered_deps
         .toolchain_deps
         .iter()
         .map(|v| v.with_exec_cfg(execution_platform.cfg().dupe()))
-        .map(|v| async move { ctx.get_configured_target_node(&v).await });
+        .map(|v| async move { ctx.bad_dice().get_configured_target_node(&v).await });
 
     let exec_dep_futures = gathered_deps
         .exec_deps
@@ -897,7 +899,10 @@ async fn compute_configured_target_node_no_transition(
             )
         })
         .map(|(v, check_visibility)| async move {
-            (ctx.get_configured_target_node(&v).await, check_visibility)
+            (
+                ctx.bad_dice().get_configured_target_node(&v).await,
+                check_visibility,
+            )
         });
 
     let fut = futures::future::join(
@@ -950,7 +955,7 @@ async fn compute_configured_target_node_no_transition(
 /// Forward node is returned.
 async fn compute_configured_target_node_with_transition(
     key: &ConfiguredTransitionedNodeKey,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     assert_eq!(
         key.forward.unconfigured(),
@@ -974,7 +979,7 @@ async fn compute_configured_target_node_with_transition(
 
 async fn compute_configured_target_node(
     key: &ConfiguredTargetNodeKey,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
     let target_node = ctx
         .get_target_node(key.0.unconfigured())
@@ -1037,7 +1042,6 @@ async fn compute_configured_target_node(
             compute_configured_target_node_no_transition(&key.0, target_node.dupe(), ctx).await
         } else {
             Ok(ctx
-                .bad_dice()
                 .compute(&ConfiguredTransitionedNodeKey {
                     forward: key.0.dupe(),
                     transitioned: configured_target_label,
@@ -1075,7 +1079,7 @@ pub(crate) fn init_configured_target_node_calculation() {
 impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInstance {
     async fn get_configured_target_node(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         #[async_trait]
@@ -1098,8 +1102,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
             }
         }
 
-        ctx.bad_dice()
-            .compute(&ConfiguredTargetNodeKey(target.dupe()))
+        ctx.compute(&ConfiguredTargetNodeKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)
     }
