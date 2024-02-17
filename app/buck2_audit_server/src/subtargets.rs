@@ -85,7 +85,10 @@ async fn server_execute_with_dice(
         let targets = match spec {
             buck2_core::pattern::PackageSpec::Targets(targets) => targets,
             buck2_core::pattern::PackageSpec::All => {
-                let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
+                let interpreter_results = ctx
+                    .bad_dice()
+                    .get_interpreter_results(package.dupe())
+                    .await?;
                 interpreter_results
                     .targets()
                     .keys()

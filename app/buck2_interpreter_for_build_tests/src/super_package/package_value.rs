@@ -178,7 +178,7 @@ async fn test_overwrite_package_value_with_flag() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let result = ctx
         .get_interpreter_results(PackageLabel::testing_parse("root//foo"))
         .await

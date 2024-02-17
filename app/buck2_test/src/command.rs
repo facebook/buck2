@@ -709,7 +709,11 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
 
         self.work.push(
             async move {
-                let res = state.ctx.get_interpreter_results(package.dupe()).await?;
+                let res = state
+                    .ctx
+                    .bad_dice()
+                    .get_interpreter_results(package.dupe())
+                    .await?;
                 let SpecTargets { labels, skippable } = spec_to_targets(
                     spec,
                     res,

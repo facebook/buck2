@@ -79,7 +79,7 @@ pub(crate) async fn targets_streaming(
             let formatter = formatter.dupe();
             let imported = imported.dupe();
             let threads = threads.dupe();
-            let ctx = dice.dupe();
+            let mut ctx = dice.dupe();
 
             spawn_cancellable(
                 |_cancellation| {
@@ -95,7 +95,8 @@ pub(crate) async fn targets_streaming(
                             let targets = {
                                 // This bit of code is the heavy CPU stuff, so guard it with the threads
                                 let _permit = threads.acquire().await.unwrap();
-                                load_targets(&ctx, package.dupe(), spec, cached, keep_going).await
+                                load_targets(&mut ctx, package.dupe(), spec, cached, keep_going)
+                                    .await
                             };
                             let mut show_err = |err| {
                                 res.stats.add_error(err);
@@ -277,7 +278,7 @@ enum TargetsError {
 
 /// Load the targets from a package. If `keep_going` is specified then it may return a `Some` error in the triple.
 async fn load_targets(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
     cached: bool,

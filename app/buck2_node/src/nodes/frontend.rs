@@ -28,7 +28,7 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
     /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
     async fn get_interpreter_results_uncached(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> buck2_error::Result<Arc<EvaluationResult>>;
 
@@ -36,7 +36,7 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
     /// of `TargetNode`s of interpreting that build file.
     fn get_interpreter_results<'a>(
         &self,
-        ctx: &'a DiceComputations,
+        ctx: &'a mut DiceComputations,
         package: PackageLabel,
     ) -> BoxFuture<'a, anyhow::Result<Arc<EvaluationResult>>>;
 }
@@ -48,14 +48,14 @@ pub static TARGET_GRAPH_CALCULATION_IMPL: LateBinding<&'static dyn TargetGraphCa
 pub trait TargetGraphCalculation {
     /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
     async fn get_interpreter_results_uncached(
-        &self,
+        &mut self,
         package: PackageLabel,
     ) -> buck2_error::Result<Arc<EvaluationResult>>;
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
     fn get_interpreter_results(
-        &self,
+        &mut self,
         package: PackageLabel,
     ) -> BoxFuture<'_, anyhow::Result<Arc<EvaluationResult>>>;
 
@@ -63,13 +63,13 @@ pub trait TargetGraphCalculation {
     /// results for the the label's package, and so this is just a utility for accessing that, it
     /// isn't separately cached.
     fn get_target_node<'a>(
-        &'a self,
+        &'a mut self,
         target: &'a TargetLabel,
     ) -> BoxFuture<'a, anyhow::Result<TargetNode>>;
 
     /// For a TargetLabel, returns the TargetNode and its SuperPackage from PACKAGE files.
     fn get_target_node_with_super_package<'a>(
-        &'a self,
+        &'a mut self,
         target: &'a TargetLabel,
     ) -> BoxFuture<'a, anyhow::Result<(TargetNode, SuperPackage)>>;
 }
@@ -77,7 +77,7 @@ pub trait TargetGraphCalculation {
 #[async_trait]
 impl TargetGraphCalculation for DiceComputations<'_> {
     async fn get_interpreter_results_uncached(
-        &self,
+        &mut self,
         package: PackageLabel,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
         TARGET_GRAPH_CALCULATION_IMPL
@@ -87,7 +87,7 @@ impl TargetGraphCalculation for DiceComputations<'_> {
     }
 
     fn get_interpreter_results(
-        &self,
+        &mut self,
         package: PackageLabel,
     ) -> BoxFuture<'_, anyhow::Result<Arc<EvaluationResult>>> {
         TARGET_GRAPH_CALCULATION_IMPL
@@ -97,7 +97,7 @@ impl TargetGraphCalculation for DiceComputations<'_> {
     }
 
     fn get_target_node<'a>(
-        &'a self,
+        &'a mut self,
         target: &'a TargetLabel,
     ) -> BoxFuture<'a, anyhow::Result<TargetNode>> {
         self.get_target_node_with_super_package(target)
@@ -106,7 +106,7 @@ impl TargetGraphCalculation for DiceComputations<'_> {
     }
 
     fn get_target_node_with_super_package<'a>(
-        &'a self,
+        &'a mut self,
         target: &'a TargetLabel,
     ) -> BoxFuture<'a, anyhow::Result<(TargetNode, SuperPackage)>> {
         TARGET_GRAPH_CALCULATION_IMPL

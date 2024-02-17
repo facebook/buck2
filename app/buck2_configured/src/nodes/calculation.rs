@@ -558,7 +558,7 @@ fn check_compatible(
 /// implement. Naively implementing this check on unconfigured nodes doesn't work because it results
 /// in dice cycles when there are cycles in the unconfigured graph.
 async fn check_plugin_deps(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target_label: &ConfiguredTargetLabel,
     plugin_deps: &PluginLists,
 ) -> anyhow::Result<()> {

@@ -162,7 +162,10 @@ async fn retrieve_artifacts_for_targets(
         .map(|(package, spec)| {
             async move {
                 {
-                    let res = ctx.get_interpreter_results(package.dupe()).await?;
+                    let res = ctx
+                        .bad_dice()
+                        .get_interpreter_results(package.dupe())
+                        .await?;
                     retrieve_artifacts_for_spec(ctx, package.dupe(), spec, global_cfg_options, res)
                         .await
                 }

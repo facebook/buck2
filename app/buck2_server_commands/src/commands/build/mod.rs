@@ -551,7 +551,7 @@ async fn build_targets_for_spec<'a>(
         PackageSpec::All => true,
     };
 
-    let res = match ctx.get_interpreter_results(package.dupe()).await {
+    let res = match ctx.bad_dice().get_interpreter_results(package.dupe()).await {
         Ok(res) => res,
         Err(e) => {
             let e: buck2_error::Error = e.into();

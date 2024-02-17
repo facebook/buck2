@@ -44,7 +44,7 @@ simple(name = "a")
 "#,
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
 
     let a = ctx
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
@@ -87,7 +87,7 @@ simple(name = "a")
 "#,
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
 
     let a = ctx
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
@@ -129,7 +129,7 @@ simple(name = "a")
 "#,
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
 
     let a = ctx
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))

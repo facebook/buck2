@@ -23,7 +23,7 @@ pub struct TargetNodeLookup<'c, 'd>(pub &'c DiceComputations<'d>);
 #[async_trait]
 impl AsyncNodeLookup<TargetNode> for TargetNodeLookup<'_, '_> {
     async fn get(&self, label: &TargetLabel) -> anyhow::Result<TargetNode> {
-        Ok(self.0.get_target_node(label).await?)
+        Ok(self.0.bad_dice().get_target_node(label).await?)
     }
 }
 

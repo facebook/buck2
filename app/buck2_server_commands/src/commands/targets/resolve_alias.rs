@@ -136,7 +136,8 @@ pub(crate) async fn targets_resolve_aliases(
             async move {
                 (
                     package.dupe(),
-                    dice.get_interpreter_results(package.dupe())
+                    dice.bad_dice()
+                        .get_interpreter_results(package.dupe())
                         .await
                         .map_err(buck2_error::Error::from),
                 )

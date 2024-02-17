@@ -233,7 +233,7 @@ async fn test_eval_build_file() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
 
     let package = PackageLabel::testing_parse("root//pkg");
     let eval_result = ctx.get_interpreter_results(package.dupe()).await.unwrap();

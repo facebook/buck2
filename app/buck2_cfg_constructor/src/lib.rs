@@ -141,7 +141,9 @@ async fn analyze_constraints(
                 let label =
                     TargetLabel::parse(&label_str, cell_resolver.root_cell(), &cell_resolver)?;
 
-                if ctx.get_target_node(&label).await?.rule_kind() == RuleKind::Configuration {
+                if ctx.bad_dice().get_target_node(&label).await?.rule_kind()
+                    == RuleKind::Configuration
+                {
                     Ok((
                         label_str,
                         ctx.bad_dice()

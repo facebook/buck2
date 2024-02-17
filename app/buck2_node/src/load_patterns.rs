@@ -20,6 +20,7 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::console_message;
+use buck2_futures::owning_future::OwningFuture;
 use dice::DiceComputations;
 use dupe::Dupe;
 use fnv::FnvBuildHasher;
@@ -73,10 +74,12 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 
             // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
             self.load_package_futs.push(
-                self.ctx
-                    .get_interpreter_results(package.dupe())
-                    .map(|res| (package, res))
-                    .boxed(),
+                OwningFuture::new(self.ctx.bad_dice(), |ctx| {
+                    ctx.get_interpreter_results(package.dupe())
+                        .map(|res| (package, res))
+                        .boxed()
+                })
+                .boxed(),
             )
         }
     }

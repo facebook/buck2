@@ -216,7 +216,7 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         &self,
         package: PackageLabel,
     ) -> anyhow::Result<Arc<EvaluationResult>> {
-        self.ctx.get_interpreter_results(package).await
+        self.ctx.bad_dice().get_interpreter_results(package).await
     }
 
     async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>> {

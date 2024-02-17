@@ -67,7 +67,7 @@ pub(crate) fn init_target_graph_calculation_impl() {
 impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
     async fn get_interpreter_results_uncached(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
         let interpreter = ctx
@@ -86,7 +86,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
 
     fn get_interpreter_results<'a>(
         &self,
-        ctx: &'a DiceComputations,
+        ctx: &'a mut DiceComputations,
         package: PackageLabel,
     ) -> BoxFuture<'a, anyhow::Result<Arc<EvaluationResult>>> {
         #[async_trait]
@@ -121,13 +121,10 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
                 x.is_ok()
             }
         }
-        async move {
-            ctx.bad_dice()
-                .compute(&InterpreterResultsKey(package.dupe()))
-                .await?
-                .map_err(anyhow::Error::from)
-        }
-        .boxed()
+
+        ctx.compute(&InterpreterResultsKey(package.dupe()))
+            .map(|v| v?.map_err(anyhow::Error::from))
+            .boxed()
     }
 }
 
