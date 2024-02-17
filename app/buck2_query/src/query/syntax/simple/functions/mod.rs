@@ -391,12 +391,31 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     // These three functions are intentionally implemented as errors. They are only available within the context
     // of a deps functions 3rd parameter expr. When used in that context, the QueryFunctions will be augmented to
     // have non-erroring implementations.
+
+    /// A filter function that can be used in the query expression of `deps` query function.
+    /// Filters the output of deps function for the immediate dependencies of the given targets. Output is equivalent to `deps(<targets>, 1)`.
+    ///
+    /// Example:
+    /// `buck2 cquery "deps('//foo:bar', 1, first_order_deps())"`` is equivalent to `buck2 cquery "deps('//foo:bar', 1)"`
     async fn first_order_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("first_order_deps"))
     }
+
+    /// A filter function that can be used in the query expression of `deps` query function.
+    /// Filters the output of deps function for target dependencies. This excludes any execution dependencies (build time dependencies)
+    /// like compiler used as a part of the build.
+    ///
+    /// Example:
+    /// `buck2 cquery "deps('//foo:bar', 1, target_deps())"``
     async fn target_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("target_deps"))
     }
+
+    /// A filter function that can be used in the query expression of `deps` query function.
+    /// Filters the output of deps function for execution dependencies (build time dependencies), ex. compiler used as a part of the build.
+    ///
+    /// Example:
+    /// `buck2 cquery "deps('//foo:bar', 1, exec_deps())"``
     async fn exec_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("exec_deps"))
     }
