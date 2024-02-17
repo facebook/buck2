@@ -101,7 +101,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
 
 pub struct InterpreterPackageListingResolver<'c, 'd> {
     cell_resolver: CellResolver,
-    ctx: &'c DiceComputations<'d>,
+    ctx: &'c mut DiceComputations<'d>,
 }
 
 impl<'c, 'd> InterpreterPackageListingResolver<'c, 'd> {
@@ -114,10 +114,10 @@ impl<'c, 'd> InterpreterPackageListingResolver<'c, 'd> {
     }
 
     pub async fn gather_package_listing<'a>(
-        &self,
+        &mut self,
         root: PackageLabel,
     ) -> anyhow::Result<PackageListing> {
-        gather_package_listing_impl(&mut self.ctx.bad_dice(), &self.cell_resolver, root).await
+        gather_package_listing_impl(self.ctx, &self.cell_resolver, root).await
     }
 }
 
