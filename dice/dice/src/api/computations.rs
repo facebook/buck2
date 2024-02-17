@@ -195,6 +195,29 @@ impl<'d> DiceComputations<'d> {
         futures::future::join_all(futs)
     }
 
+    /// Maps the items into computations futures and then returns a future which represents either a
+    /// collection of the results or an error.
+    pub fn try_compute_join<'a, T: Send, R: 'a, E: 'a>(
+        &'a mut self,
+        items: impl IntoIterator<Item = T>,
+        mapper: (
+            impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
+            + Send
+            + Sync
+            + Copy
+        ),
+    ) -> impl Future<Output = Result<Vec<R>, E>> + 'a {
+        let futs = self.compute_many(items.into_iter().map(move |v| {
+            higher_order_closure! {
+                #![with<'a, R, E>]
+                for <'x> move |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, Result<R, E>> {
+                    mapper(ctx, v)
+                }
+            }
+        }));
+        futures::future::try_join_all(futs)
+    }
+
     /// Computes all the given tasks in parallel, returning an unordered Stream
     pub fn compute2<'a, T: 'a, U: 'a>(
         &'a mut self,
