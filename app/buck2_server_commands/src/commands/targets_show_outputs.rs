@@ -218,8 +218,9 @@ async fn retrieve_artifacts_for_spec(
 
     let mut futs: FuturesUnordered<_> = todo_targets
         .into_iter()
-        .map(|(providers_label, cfg_flags)| {
-            retrieve_artifacts_for_provider_label(ctx, providers_label, cfg_flags)
+        .map(|(providers_label, cfg_flags)| async move {
+            retrieve_artifacts_for_provider_label(&mut ctx.bad_dice(), providers_label, cfg_flags)
+                .await
         })
         .collect();
 
@@ -232,7 +233,7 @@ async fn retrieve_artifacts_for_spec(
 }
 
 async fn retrieve_artifacts_for_provider_label(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     providers_label: ProvidersLabel,
     global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<TargetsArtifacts> {

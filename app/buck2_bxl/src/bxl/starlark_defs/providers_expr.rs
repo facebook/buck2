@@ -126,7 +126,8 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
-                dice.get_configured_provider_label(&label, global_cfg_options_override)
+                dice.bad_dice()
+                    .get_configured_provider_label(&label, global_cfg_options_override)
                     .await
             }
         }
@@ -142,11 +143,12 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
                 future::try_join_all(s.0.iter().map(|node| async {
                     let providers_label = ProvidersLabel::default_for(node.label().dupe());
-                    dice.get_configured_provider_label(
-                        &providers_label,
-                        global_cfg_options_override,
-                    )
-                    .await
+                    dice.bad_dice()
+                        .get_configured_provider_label(
+                            &providers_label,
+                            global_cfg_options_override,
+                        )
+                        .await
                 }))
                 .await?,
             )),

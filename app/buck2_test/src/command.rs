@@ -746,6 +746,7 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
         let fut = async move {
             let label = state
                 .ctx
+                .bad_dice()
                 .get_configured_provider_label(&label, state.global_cfg_options)
                 .await?;
 

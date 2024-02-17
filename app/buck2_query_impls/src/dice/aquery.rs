@@ -403,6 +403,7 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                 ParsedPattern::Target(package, target_name, providers) => {
                     let label = providers.into_providers_label(package, target_name.as_ref());
                     let configured_label = dice
+                        .bad_dice()
                         .get_configured_provider_label(
                             &label,
                             self.delegate_query_data.global_cfg_options(),

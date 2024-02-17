@@ -210,7 +210,7 @@ impl ExecutionPlatformConstraints {
 
     async fn toolchain_allows(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Arc<[ToolchainConstraints]>> {
         // We could merge these constraints together, but the time to do that
         // probably outweighs the benefits given there are likely to only be a few
@@ -224,7 +224,7 @@ impl ExecutionPlatformConstraints {
 
     async fn one(
         self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         node: TargetNodeRef<'_>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         let toolchain_allows = self.toolchain_allows(ctx).await?;
@@ -239,7 +239,7 @@ impl ExecutionPlatformConstraints {
 
     pub async fn one_for_cell(
         self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         cell: CellName,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         let toolchain_allows = self.toolchain_allows(ctx).await?;
@@ -254,7 +254,7 @@ impl ExecutionPlatformConstraints {
 }
 
 async fn execution_platforms_for_toolchain(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: TargetConfiguredTargetLabel,
 ) -> buck2_error::Result<ToolchainConstraints> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
@@ -320,13 +320,12 @@ async fn execution_platforms_for_toolchain(
         }
     }
 
-    ctx.bad_dice()
-        .compute(&ExecutionPlatformsForToolchainKey(target))
+    ctx.compute(&ExecutionPlatformsForToolchainKey(target))
         .await?
 }
 
 pub async fn get_execution_platform_toolchain_dep(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target_label: &TargetConfiguredTargetLabel,
     target_node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<MaybeCompatible<ExecutionPlatformResolution>> {
@@ -372,7 +371,7 @@ pub async fn get_execution_platform_toolchain_dep(
 }
 
 async fn resolve_execution_platform(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     node: TargetNodeRef<'_>,
     resolved_configuration: &ResolvedConfiguration,
     gathered_deps: &GatheredDeps,

@@ -20,7 +20,7 @@ use dice::DiceComputations;
 pub trait ConfiguredTargetCalculationImpl: Send + Sync + 'static {
     async fn get_configured_target(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target: &TargetLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
@@ -44,19 +44,19 @@ pub trait ConfiguredTargetCalculation {
     /// a mix of the global Configuration, the target's `default_target_platform` and
     /// (potentially) self-transitions on that node.
     async fn get_configured_target(
-        &self,
+        &mut self,
         target: &TargetLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
 
     async fn get_configured_provider_label(
-        &self,
+        &mut self,
         target: &ProvidersLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredProvidersLabel>;
 
     async fn get_default_configured_target(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
 }
@@ -64,7 +64,7 @@ pub trait ConfiguredTargetCalculation {
 #[async_trait]
 impl ConfiguredTargetCalculation for DiceComputations<'_> {
     async fn get_configured_target(
-        &self,
+        &mut self,
         target: &TargetLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
@@ -75,7 +75,7 @@ impl ConfiguredTargetCalculation for DiceComputations<'_> {
     }
 
     async fn get_configured_provider_label(
-        &self,
+        &mut self,
         target: &ProvidersLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
@@ -90,7 +90,7 @@ impl ConfiguredTargetCalculation for DiceComputations<'_> {
     }
 
     async fn get_default_configured_target(
-        &self,
+        &mut self,
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         CONFIGURED_TARGET_CALCULATION

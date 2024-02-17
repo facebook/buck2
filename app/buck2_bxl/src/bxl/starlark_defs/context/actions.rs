@@ -69,7 +69,7 @@ enum BxlActionsError {
 
 #[allow(unused)]
 pub(crate) async fn resolve_bxl_execution_platform(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cell: CellName,
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,

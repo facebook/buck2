@@ -293,6 +293,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self
             .ctx
+            .bad_dice()
             .get_configured_target(target, self.query_data.global_cfg_options())
             .await?;
         Ok(self
@@ -318,7 +319,11 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
         &self,
         target: &TargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        let target = self.ctx.get_default_configured_target(target).await?;
+        let target = self
+            .ctx
+            .bad_dice()
+            .get_default_configured_target(target)
+            .await?;
         self.ctx
             .bad_dice()
             .get_configured_target_node(&target)

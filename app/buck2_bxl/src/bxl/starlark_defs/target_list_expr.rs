@@ -449,7 +449,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                             global_cfg_options,
                         )?;
                         anyhow::Ok(TargetExpr::Label(Cow::Owned(
-                            dice.get_configured_target(node.label(), global_cfg_options)
+                            dice.bad_dice()
+                                .get_configured_target(node.label(), global_cfg_options)
                                 .await?,
                         )))
                     }))

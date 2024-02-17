@@ -41,7 +41,7 @@ pub(crate) fn init_configured_target_calculation() {
 impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
     async fn get_configured_target(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         target: &TargetLabel,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel> {

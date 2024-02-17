@@ -643,6 +643,7 @@ async fn build_target<'a>(
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
+        .bad_dice()
         .get_configured_provider_label(&providers_label, &spec.global_cfg_options)
         .await
     {
