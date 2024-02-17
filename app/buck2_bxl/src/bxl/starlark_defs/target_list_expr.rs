@@ -36,7 +36,6 @@ use buck2_util::truncate::truncate;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::future::BoxFuture;
 use futures::future::{self};
 use futures::FutureExt;
 use starlark::collections::SmallSet;
@@ -79,18 +78,12 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         self,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
-        dice.compute_join(
-            self.iter(),
-            higher_order_closure!{
-                #![with<'y, 'z>]
-                for <'x> |
-                    ctx: &'x mut DiceComputations<'z>,
-                    node_or_ref: TargetExpr<'y, ConfiguredTargetNode>
-                | -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
-                    async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
-                }
-            }
-        ).await.into_iter().collect()
+        dice.compute_join(self.iter(), |ctx, node_or_ref| {
+            async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
+        })
+        .await
+        .into_iter()
+        .collect()
     }
 
     /// Get a single maybe compatible `ConfiguredTargetNode`.
@@ -207,15 +200,13 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         self,
         ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
-        let set = ctx.try_compute_join(
-            self.iter(),
-            higher_order_closure!{
-                #![with<'a, 'y>]
-                for <'x> |ctx: &'x mut DiceComputations<'a>, node_or_ref: TargetExpr<'y, TargetNode>| -> BoxFuture<'x, anyhow::Result<TargetNode>> {
-                    async move { node_or_ref.get_from_dice(ctx).await } .boxed()
-                }
-            }
-        ).await?.into_iter().collect();
+        let set = ctx
+            .try_compute_join(self.iter(), |ctx, node_or_ref| {
+                async move { node_or_ref.get_from_dice(ctx).await }.boxed()
+            })
+            .await?
+            .into_iter()
+            .collect();
         Ok(Cow::Owned(set))
     }
 

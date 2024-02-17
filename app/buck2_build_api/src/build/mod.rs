@@ -30,7 +30,6 @@ use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
@@ -541,17 +540,15 @@ pub async fn materialize_artifact_group(
             }
         }
 
-        ctx.try_compute_join(
-            artifacts_to_materialize,
-            dice::higher_order_closure!{
-                #![with<'y, 'z>]
-                for <'x> |ctx: &'x mut DiceComputations<'y>, artifact: &'z BuildArtifact| -> BoxFuture<'x, anyhow::Result<()>> {
-                    async move {
-                        ctx.try_materialize_requested_artifact(artifact, *force).await
-                    }.boxed()
-                }
+        ctx.try_compute_join(artifacts_to_materialize, |ctx, artifact| {
+            async move {
+                ctx.try_materialize_requested_artifact(artifact, *force)
+                    .await
             }
-        ).await.context("Failed to materialize artifacts")?;
+            .boxed()
+        })
+        .await
+        .context("Failed to materialize artifacts")?;
     }
 
     Ok(values)

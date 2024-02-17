@@ -58,7 +58,6 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::future::BoxFuture;
 use futures::FutureExt;
 use itertools::Itertools;
 
@@ -310,18 +309,15 @@ async fn ensure_artifacts_inner(
         }
     }
 
-    let materialize_errors = ctx.compute_join(
-        artifacts_to_materialize,
-        dice::higher_order_closure!{
-            #![with<'y>]
-            for <'x> |ctx: &'x mut DiceComputations<'y>, artifact: ArtifactGroup| -> BoxFuture<'x, buck2_error::Result<()>> {
-                async move {
-                    materialize_artifact_group(ctx, &artifact, materialization_ctx).await?;
-                    Ok(())
-                }.boxed()
+    let materialize_errors = ctx
+        .compute_join(artifacts_to_materialize, |ctx, artifact| {
+            async move {
+                materialize_artifact_group(ctx, &artifact, materialization_ctx).await?;
+                Ok(())
             }
-        }
-    ).await;
+            .boxed()
+        })
+        .await;
     errors.extend(materialize_errors.into_iter().filter_map(|v| v.err()));
     if errors.is_empty() {
         Ok(())

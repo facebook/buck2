@@ -16,7 +16,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
 use buck2_error::Context;
 use buck2_core::cells::name::CellName;
-use futures::{future::BoxFuture, FutureExt};
+use futures::FutureExt;
 use starlark_map::unordered_map::UnorderedMap;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
@@ -37,7 +37,7 @@ use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
 use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use derive_more::Display;
-use dice::{higher_order_closure, DiceComputations};
+use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use buck2_futures::cancellation::CancellationContext;
@@ -499,17 +499,15 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let config_nodes = ctx.compute_join(
-                    self.configuration_deps.iter(),
-                    higher_order_closure! {
-                        #![with<'y, 'z>]
-                        for <'x> |ctx: &'x mut DiceComputations<'y>, d: &'z TargetLabel| -> BoxFuture<'x, buck2_error::Result<ConfigurationNode>> {
-                            async move {
-                                ctx.get_configuration_node(&self.target_cfg, self.target_cell, d).await
-                            }.boxed()
+                let config_nodes = ctx
+                    .compute_join(self.configuration_deps.iter(), |ctx, d| {
+                        async move {
+                            ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
+                                .await
                         }
-                    }
-                ).await;
+                        .boxed()
+                    })
+                    .await;
 
                 let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
                 for node in config_nodes {

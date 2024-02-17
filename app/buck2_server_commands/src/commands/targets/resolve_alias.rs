@@ -20,25 +20,19 @@ enum ResolveAliasError {
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write;
-use std::sync::Arc;
 
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
-use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::Context;
 use buck2_node::nodes::attributes::PACKAGE;
-use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
-use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
-use higher_order_closure::higher_order_closure;
 
 use crate::commands::targets::fmt::JsonWriter;
 use crate::json::QuotedJson;
@@ -132,22 +126,17 @@ pub(crate) async fn targets_resolve_aliases(
         .collect::<HashSet<_>>();
 
     let packages: HashMap<_, _> = dice
-        .compute_join(
-            packages,
-            higher_order_closure! {
-                #![with<'y>]
-                for <'x> |ctx: &'x mut DiceComputations<'y>, package: PackageLabel| -> BoxFuture<'x, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> {
-                    async move {
-                        (
-                            package.dupe(),
-                            ctx.get_interpreter_results(package.dupe())
-                                .await
-                                .map_err(buck2_error::Error::from),
-                        )
-                    }.boxed()
-                }
-            },
-        )
+        .compute_join(packages, |ctx: &mut _, package| {
+            async move {
+                (
+                    package.dupe(),
+                    ctx.get_interpreter_results(package.dupe())
+                        .await
+                        .map_err(buck2_error::Error::from),
+                )
+            }
+            .boxed()
+        })
         .await
         .into_iter()
         .collect();

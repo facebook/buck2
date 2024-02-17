@@ -41,13 +41,11 @@ use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use dice::higher_order_closure;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::future::BoxFuture;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
@@ -153,14 +151,14 @@ async fn resolve_queries_impl(
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
-    let query_results = ctx.try_compute_join(
-        queries,
-        higher_order_closure! {
-            #![with<'y>]
-            for <'x> |
-                    ctx: &'x mut DiceComputations<'y>,
-                    (query, resolved_literals_labels): (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)
-            | -> BoxFuture<'x, anyhow::Result<(String, Arc<AnalysisQueryResult>)>> {
+    let query_results = ctx
+        .try_compute_join(
+            queries,
+            |ctx,
+             (query, resolved_literals_labels): (
+                String,
+                ResolvedQueryLiterals<ConfiguredProvidersLabel>,
+            )| {
                 let deps = &deps;
                 async move {
                     let mut resolved_literals =
@@ -172,7 +170,8 @@ async fn resolve_queries_impl(
                         resolved_literals.insert(literal, node.dupe());
                     }
 
-                    let result = (EVAL_ANALYSIS_QUERY.get()?)(ctx, &query, resolved_literals).await?;
+                    let result =
+                        (EVAL_ANALYSIS_QUERY.get()?)(ctx, &query, resolved_literals).await?;
 
                     // analysis for all the deps in the query result should already have been run since they must
                     // be in our dependency graph, and so we don't worry about parallelizing these lookups.
@@ -194,11 +193,11 @@ async fn resolve_queries_impl(
                             result: query_results,
                         }),
                     ))
-                }.boxed()
-            }
-        }
-    )
-    .await?;
+                }
+                .boxed()
+            },
+        )
+        .await?;
 
     let query_results: HashMap<_, _> = query_results.into_iter().collect();
     Ok(query_results)

@@ -41,9 +41,7 @@ use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::rule_type::RuleType;
 use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
-use futures::future::BoxFuture;
 use futures::FutureExt;
-use higher_order_closure::higher_order_closure;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -134,36 +132,32 @@ async fn analyze_constraints(
     refs: Vec<String>,
 ) -> anyhow::Result<SmallMap<String, FrozenProviderCollectionValue>> {
     let cell_resolver = &ctx.get_cell_resolver().await?;
-    let res = ctx.try_compute_join(
-        refs,
-        higher_order_closure!{
-            #![with<'y>]
-            for<'x> |ctx: &'x mut DiceComputations<'y>, label_str: String| -> BoxFuture<'x, anyhow::Result<(String, FrozenProviderCollectionValue)>> {
-                async move {
-                    // Ensure all refs are configuration rules
-                    let label = TargetLabel::parse(&label_str, cell_resolver.root_cell(), cell_resolver)?;
+    let res = ctx
+        .try_compute_join(refs, |ctx, label_str| {
+            async move {
+                // Ensure all refs are configuration rules
+                let label =
+                    TargetLabel::parse(&label_str, cell_resolver.root_cell(), cell_resolver)?;
 
-                    if ctx.get_target_node(&label).await?.rule_kind()
-                        == RuleKind::Configuration
-                    {
-                        Ok((
+                if ctx.get_target_node(&label).await?.rule_kind() == RuleKind::Configuration {
+                    Ok((
+                        label_str,
+                        ctx.get_configuration_analysis_result(&label)
+                            .await?
+                            .provider_collection,
+                    ))
+                } else {
+                    Err::<_, anyhow::Error>(
+                        CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
                             label_str,
-                            ctx.get_configuration_analysis_result(&label)
-                                .await?
-                                .provider_collection,
-                        ))
-                    } else {
-                        Err(
-                            CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
-                                label_str,
-                            )
-                            .into(),
                         )
-                    }
-                }.boxed()
+                        .into(),
+                    )
+                }
             }
-        }
-    ).await?;
+            .boxed()
+        })
+        .await?;
     Ok(res.into_iter().collect())
 }
 
