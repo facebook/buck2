@@ -15,13 +15,17 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::io::BufWriter;
 use std::sync::Arc;
 
+use anyhow::Context as _;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
@@ -143,6 +147,13 @@ struct BuildReportError {
 enum EntryLabel {
     #[derivative(Debug = "transparent")]
     Target(TargetLabel),
+}
+
+pub struct BuildReportOpts {
+    pub print_unconfigured_section: bool,
+    pub unstable_include_other_outputs: bool,
+    pub unstable_include_failures_build_report: bool,
+    pub unstable_build_report_filename: String,
 }
 
 pub struct BuildReportCollector<'a> {
@@ -498,4 +509,43 @@ fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
             format!("#{}", f)
         }
     }
+}
+
+pub fn generate_build_report(
+    opts: BuildReportOpts,
+    artifact_fs: &ArtifactFs,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    trace_id: &TraceId,
+    configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
+    other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+) -> Result<String, buck2_error::Error> {
+    let build_report = BuildReportCollector::convert(
+        trace_id,
+        artifact_fs,
+        project_root,
+        opts.print_unconfigured_section,
+        opts.unstable_include_other_outputs,
+        opts.unstable_include_failures_build_report,
+        configured,
+        other_errors,
+    );
+
+    let mut serialized_build_report = None;
+
+    if !opts.unstable_build_report_filename.is_empty() {
+        let file = fs_util::create_file(
+            project_root
+                .resolve(cwd)
+                .as_abs_path()
+                .join(opts.unstable_build_report_filename),
+        )
+        .context("Error writing build report")?;
+        let mut file = BufWriter::new(file);
+        serde_json::to_writer_pretty(&mut file, &build_report)?
+    } else {
+        serialized_build_report = Some(serde_json::to_string(&build_report)?);
+    };
+
+    Ok(serialized_build_report.unwrap_or_default())
 }

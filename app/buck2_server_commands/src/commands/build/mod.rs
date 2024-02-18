@@ -21,7 +21,8 @@ use buck2_artifact::artifact::artifact_dump::FileInfo;
 use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
-use buck2_build_api::build::build_report::BuildReportCollector;
+use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::build_report::BuildReportOpts;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
@@ -46,7 +47,6 @@ use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::fs_util;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -296,29 +296,39 @@ async fn process_build_result(
         &build_result,
     );
 
-    let build_report = if build_opts.unstable_print_build_report {
-        Some(BuildReportCollector::convert(
-            server_ctx.events().trace_id(),
+    let serialized_build_report = if build_opts.unstable_print_build_report {
+        let esto = &build_opts.unstable_build_report_filename;
+        let build_report_opts = BuildReportOpts {
+            print_unconfigured_section: ctx
+                .parse_legacy_config_property(
+                    cell_resolver.root_cell(),
+                    "build_report",
+                    "print_unconfigured_section",
+                )
+                .await?
+                .unwrap_or(true),
+            unstable_include_other_outputs: ctx
+                .parse_legacy_config_property(
+                    cell_resolver.root_cell(),
+                    "build_report",
+                    "unstable_include_other_outputs",
+                )
+                .await?
+                .unwrap_or(false),
+            unstable_include_failures_build_report: build_opts
+                .unstable_include_failures_build_report,
+            unstable_build_report_filename: esto.clone(),
+        };
+
+        Some(generate_build_report(
+            build_report_opts,
             &artifact_fs,
-            server_ctx.project_root(),
-            ctx.parse_legacy_config_property(
-                cell_resolver.root_cell(),
-                "build_report",
-                "print_unconfigured_section",
-            )
-            .await?
-            .unwrap_or(true),
-            ctx.parse_legacy_config_property(
-                cell_resolver.root_cell(),
-                "build_report",
-                "unstable_include_other_outputs",
-            )
-            .await?
-            .unwrap_or(false),
-            build_opts.unstable_include_failures_build_report,
+            fs,
+            cwd,
+            server_ctx.events().trace_id(),
             &build_result.configured,
             &build_result.other_errors,
-        ))
+        )?)
     } else {
         None
     };
@@ -365,22 +375,6 @@ async fn process_build_result(
             (res, buck2_data::CreateOutputSymlinksEnd { created })
         })
         .await?;
-    }
-
-    let mut serialized_build_report = None;
-    if let Some(report) = build_report {
-        if !build_opts.unstable_build_report_filename.is_empty() {
-            let file = fs_util::create_file(
-                fs.resolve(cwd)
-                    .as_abs_path()
-                    .join(&build_opts.unstable_build_report_filename),
-            )
-            .context("Error writing build report")?;
-            let mut file = BufWriter::new(file);
-            serde_json::to_writer_pretty(&mut file, &report)?
-        } else {
-            serialized_build_report = Some(serde_json::to_string(&report)?);
-        };
     }
 
     let build_targets = result_reports.build_targets;
