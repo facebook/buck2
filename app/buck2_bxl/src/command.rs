@@ -16,6 +16,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::build_report::BuildReportOpts;
 use buck2_build_api::build::materialize_artifact_group;
 use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
@@ -206,6 +208,38 @@ async fn bxl(
             .unique_by(|e| e.message.clone())
             .collect(),
     };
+
+    let bxl_opts = request
+        .build_opts
+        .as_ref()
+        .expect("should have build options");
+    // TODO(lmvasquezg) Pipe this so it prints to stdout when passing --build-report=-
+    let _serialized_build_report = if bxl_opts.unstable_print_build_report {
+        let artifact_fs = ctx.get_artifact_fs().await?;
+        let build_report_opts = BuildReportOpts {
+            // These are all deprecated for `buck2 build`, so don't need to support them
+            print_unconfigured_section: false,
+            unstable_include_other_outputs: false,
+            unstable_include_failures_build_report: false,
+            unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
+        };
+
+        Some(generate_build_report(
+            build_report_opts,
+            &artifact_fs,
+            server_ctx.project_root(),
+            cwd,
+            server_ctx.events().trace_id(),
+            &labeled_configured_build_results
+                .iter()
+                .map(|(k, v)| (k.to_owned(), Some(v.to_owned())))
+                .collect::<BTreeMap<_, _>>(),
+            &BTreeMap::default(),
+        )?)
+    } else {
+        None
+    };
+
     Ok(BxlResponse {
         project_root,
         errors,
