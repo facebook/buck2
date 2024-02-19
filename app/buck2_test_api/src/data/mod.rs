@@ -219,9 +219,49 @@ pub struct ExecuteRequest2 {
     pub required_local_resources: RequiredLocalResources,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct RemoteObject {
+#[derive(Debug, Clone)]
+#[derive(Derivative)]
+#[derivative(PartialEq)]
+pub struct RemoteFile {
     pub digest: CasDigest,
+    #[derivative(PartialEq = "ignore")]
+    pub name: String,
+}
+
+/// [`RemoteDir`] carries information about the whole tree.
+#[derive(Debug, Clone)]
+#[derive(Derivative)]
+#[derivative(PartialEq)]
+pub struct RemoteDir {
+    // Digest carries all the necessary information about the contents of the
+    // directory tree. Enough for equality checks (hence the ignores on the
+    // other fields).
+    pub digest: CasDigest,
+    #[derivative(PartialEq = "ignore")]
+    pub name: String,
+    #[derivative(PartialEq = "ignore")]
+    pub children: Vec<RemoteObject>,
+}
+
+/// Files and directories stored remotely in CAS.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RemoteObject {
+    File(RemoteFile),
+    Dir(RemoteDir),
+}
+
+impl RemoteObject {
+    pub fn file(name: String, digest: CasDigest) -> Self {
+        Self::File(RemoteFile { name, digest })
+    }
+
+    pub fn dir(name: String, digest: CasDigest, children: Vec<RemoteObject>) -> Self {
+        Self::Dir(RemoteDir {
+            name,
+            digest,
+            children,
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

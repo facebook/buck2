@@ -107,7 +107,6 @@ use buck2_test_api::data::ExecutorConfigOverride;
 use buck2_test_api::data::ExternalRunnerSpecValue;
 use buck2_test_api::data::Output;
 use buck2_test_api::data::PrepareForLocalExecutionResult;
-use buck2_test_api::data::RemoteObject;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::protocol::TestOrchestrator;
@@ -314,11 +313,14 @@ impl<'a> BuckTestOrchestrator<'a> {
                 .map_or(false, |x| x.supports_remote);
 
             let declared_output = DeclaredOutput {
-                name: output_name,
+                name: output_name.clone(),
                 supports_remote,
             };
-            let digest = artifact.digest();
-            let output = match (supports_remote, execution_kind.as_ref(), digest) {
+            let output = match (
+                supports_remote,
+                execution_kind.as_ref(),
+                translations::convert_artifact(output_name.to_string(), artifact),
+            ) {
                 // This condition checks that a downstream consumer supports
                 // remote outputs AND the output is actually in CAS.
                 //
@@ -326,15 +328,8 @@ impl<'a> BuckTestOrchestrator<'a> {
                 // in CAS other than checking that the command was executed on
                 // RE? Alternatively, when we make buck upload local testing
                 // artifacts to CAS, we can remove this condition altogether.
-                (true, Some(CommandExecutionKind::Remote { .. }), Some(digest)) => {
-                    let hash = format!("{}", digest.raw_digest());
-                    let output_digest = buck2_test_api::data::CasDigest {
-                        hash,
-                        size_bytes: digest.size() as i64,
-                    };
-                    Output::RemoteObject(RemoteObject {
-                        digest: output_digest,
-                    })
+                (true, Some(CommandExecutionKind::Remote { .. }), Some(remote_object)) => {
+                    Output::RemoteObject(remote_object)
                 }
                 _ => {
                     paths_to_materialize.push(project_relative_path.clone());

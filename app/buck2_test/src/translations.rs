@@ -10,14 +10,20 @@
 //! Translation between buck core data and the test spec data types
 
 use anyhow::Context;
+use buck2_common::file_ops::FileDigest;
 use buck2_core::cells::CellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_data::ToProtoMessage;
+use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_test_api::data::ConfiguredTarget;
+use buck2_test_api::data::RemoteObject;
 
 use crate::session::TestSession;
 
-pub fn build_configured_target_handle(
+pub(crate) fn build_configured_target_handle(
     target: ConfiguredProvidersLabel,
     session: &TestSession,
     cell_resolver: &CellResolver,
@@ -41,7 +47,7 @@ pub fn build_configured_target_handle(
     })
 }
 
-pub fn convert_test_result(
+pub(crate) fn convert_test_result(
     test_result: buck2_test_api::data::TestResult,
     session: &TestSession,
 ) -> anyhow::Result<buck2_data::TestResult> {
@@ -64,4 +70,49 @@ pub fn convert_test_result(
         details,
         target_label: Some(test_target.target().as_proto()),
     })
+}
+
+/// Convert a named [`ArtifactValue`] into a test API's [`RemoteObject`].
+///
+/// Note that artifact trees containing symlinks currently can't be converted.
+/// Test outputs are unlikely to contain symlinks, and if they do, we'd rather
+/// fall back to materializing them on disk.
+pub(crate) fn convert_artifact(name: String, artifact: ArtifactValue) -> Option<RemoteObject> {
+    // deps represent artifacts that symlinks depend on. Bail when present.
+    if artifact.deps().is_some() {
+        return None;
+    }
+
+    convert_directory_entry(name, artifact.entry())
+}
+
+fn convert_digest(digest: &FileDigest) -> buck2_test_api::data::CasDigest {
+    let hash = format!("{}", digest.raw_digest());
+    buck2_test_api::data::CasDigest {
+        hash,
+        size_bytes: digest.size() as i64,
+    }
+}
+
+fn convert_directory_entry(
+    name: String,
+    entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+) -> Option<RemoteObject> {
+    match entry {
+        ActionDirectoryEntry::Leaf(
+            ActionDirectoryMember::Symlink(..) | ActionDirectoryMember::ExternalSymlink(..),
+        ) => None,
+        ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
+            Some(RemoteObject::file(name, convert_digest(f.digest.data())))
+        }
+        ActionDirectoryEntry::Dir(dir) => {
+            let children = dir
+                .entries()
+                .into_iter()
+                .map(|(name, entry)| convert_directory_entry(name.to_string(), entry))
+                .collect::<Option<Vec<_>>>()?;
+            let digest = convert_digest(dir.fingerprint().data());
+            Some(RemoteObject::dir(name, digest, children))
+        }
+    }
 }

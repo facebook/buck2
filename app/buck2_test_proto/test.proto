@@ -247,8 +247,23 @@ message CasDigest {
   int64 size_bytes = 2;
 }
 
+// TODO(arr): consider using remote_execution.proto later on. The API surface
+// there is larger but consolidation may be worth it.
+message RemoteFileNode {
+  string name = 1;
+}
+
+message RemoteDirNode {
+  string name = 1;
+  repeated RemoteObject children = 2;
+}
+
 message RemoteObject {
   CasDigest digest = 1;
+  oneof node {
+    RemoteFileNode file = 2;
+    RemoteDirNode dir = 3;
+  }
 }
 
 message Output {
