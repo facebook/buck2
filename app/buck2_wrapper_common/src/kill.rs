@@ -30,10 +30,7 @@ pub fn kill(pid: Pid) -> anyhow::Result<Option<KilledProcessHandle>> {
 }
 
 pub struct KilledProcessHandle {
-    #[cfg(windows)]
-    handle: imp::WindowsKilledProcessHandle,
-    #[cfg(unix)]
-    handle: imp::UnixKilledProcessHandle,
+    handle: imp::KilledProcessHandleImpl,
 }
 
 impl KilledProcessHandle {

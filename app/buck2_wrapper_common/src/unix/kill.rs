@@ -24,21 +24,21 @@ pub(crate) fn process_exists(pid: Pid) -> anyhow::Result<bool> {
     }
 }
 
-pub(crate) fn kill(pid: Pid) -> anyhow::Result<Option<UnixKilledProcessHandle>> {
+pub(crate) fn kill(pid: Pid) -> anyhow::Result<Option<KilledProcessHandleImpl>> {
     let pid_nix = pid.to_nix()?;
 
     match nix::sys::signal::kill(pid_nix, Signal::SIGKILL) {
-        Ok(()) => Ok(Some(UnixKilledProcessHandle { pid })),
+        Ok(()) => Ok(Some(KilledProcessHandleImpl { pid })),
         Err(nix::errno::Errno::ESRCH) => Ok(None),
         Err(e) => Err(e).with_context(|| format!("Failed to kill pid {}", pid)),
     }
 }
 
-pub(crate) struct UnixKilledProcessHandle {
+pub(crate) struct KilledProcessHandleImpl {
     pid: Pid,
 }
 
-impl UnixKilledProcessHandle {
+impl KilledProcessHandleImpl {
     pub(crate) fn has_exited(&self) -> anyhow::Result<bool> {
         Ok(!process_exists(self.pid)?)
     }
