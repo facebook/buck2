@@ -158,14 +158,16 @@ mod os_specific {
     use std::time::Duration;
 
     use buck2_wrapper_common::pid::Pid;
+    use buck2_wrapper_common::winapi_process::WinapiProcessHandle;
     use sysinfo::PidExt;
     use sysinfo::Process;
     use sysinfo::ProcessExt;
 
     pub(super) fn process_creation_time(process: &Process) -> Option<Duration> {
-        buck2_wrapper_common::kill::os_specific::process_creation_time(
-            Pid::from_u32(process.pid().as_u32()).ok()?,
-        )
+        let pid = Pid::from_u32(process.pid().as_u32()).ok()?;
+        let proc_handle = WinapiProcessHandle::open_for_info(pid)?;
+        // Returns process creation time with 100 ns precision.
+        proc_handle.process_creation_time().ok()
     }
 }
 

@@ -26,14 +26,14 @@ use crate::pid::Pid;
 use crate::winapi_handle::WinapiHandle;
 
 /// `HANDLE` which points to a process.
-pub(crate) struct WinapiProcessHandle {
+pub struct WinapiProcessHandle {
     handle: WinapiHandle,
     pid: Pid,
 }
 
 impl WinapiProcessHandle {
     /// Open a process handle to query. `None` if process doesn't exist.
-    pub(crate) fn open_for_info(pid: Pid) -> Option<WinapiProcessHandle> {
+    pub fn open_for_info(pid: Pid) -> Option<WinapiProcessHandle> {
         WinapiProcessHandle::open_impl(pid, PROCESS_QUERY_INFORMATION)
     }
 
@@ -74,7 +74,7 @@ impl WinapiProcessHandle {
         }
     }
 
-    pub(crate) fn process_creation_time(&self) -> anyhow::Result<Duration> {
+    pub fn process_creation_time(&self) -> anyhow::Result<Duration> {
         let mut creation_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut exit_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut kernel_time: FILETIME = unsafe { std::mem::zeroed() };

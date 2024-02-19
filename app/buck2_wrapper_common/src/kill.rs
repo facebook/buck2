@@ -104,8 +104,6 @@ mod os_specific {
 
 #[cfg(windows)]
 pub mod os_specific {
-    use std::time::Duration;
-
     use crate::kill::get_sysinfo_status;
     use crate::pid::Pid;
     use crate::winapi_process::WinapiProcessHandle;
@@ -140,12 +138,6 @@ pub mod os_specific {
             // Maybe there is a better way to get this via the handle, but for now this'll do.
             get_sysinfo_status(self.handle.pid())
         }
-    }
-
-    /// Returns process creation time with 100 ns precision.
-    pub fn process_creation_time(pid: Pid) -> Option<Duration> {
-        let proc_handle = WinapiProcessHandle::open_for_info(pid)?;
-        proc_handle.process_creation_time().ok()
     }
 }
 
