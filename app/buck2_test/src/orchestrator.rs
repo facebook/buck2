@@ -62,6 +62,7 @@ use buck2_data::ToProtoMessage;
 use buck2_error::Context;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
@@ -106,6 +107,7 @@ use buck2_test_api::data::ExecutorConfigOverride;
 use buck2_test_api::data::ExternalRunnerSpecValue;
 use buck2_test_api::data::Output;
 use buck2_test_api::data::PrepareForLocalExecutionResult;
+use buck2_test_api::data::RemoteObject;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::protocol::TestOrchestrator;
@@ -230,7 +232,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 &test_info,
                 cmd,
                 env,
-                pre_create_dirs,
+                pre_create_dirs.clone(),
                 &test_executor.executor_fs(),
             )
             .await?;
@@ -299,18 +301,49 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         self.require_alive().await?;
 
-        let (outputs, paths_to_materialize) = outputs
-            .into_iter()
-            .map(|test_path| {
-                let project_path = fs.buck_out_path_resolver().resolve_test(&test_path);
-                let abs_path = fs.fs().resolve(&project_path);
-                let declared_output = DeclaredOutput {
-                    name: test_path.into_path(),
-                    supports_remote: false,
-                };
-                ((declared_output, Output::LocalPath(abs_path)), project_path)
-            })
-            .unzip();
+        let mut output_map = HashMap::new();
+        let mut paths_to_materialize = vec![];
+
+        for (test_path, artifact) in outputs {
+            let project_relative_path = fs.buck_out_path_resolver().resolve_test(&test_path);
+            let output_name = test_path.into_path();
+            // It's OK to search iteratively here because there will be few entries in `pre_create_dirs`
+            let supports_remote = pre_create_dirs
+                .iter()
+                .find(|&x| x.name == output_name)
+                .map_or(false, |x| x.supports_remote);
+
+            let declared_output = DeclaredOutput {
+                name: output_name,
+                supports_remote,
+            };
+            let digest = artifact.digest();
+            let output = match (supports_remote, execution_kind.as_ref(), digest) {
+                // This condition checks that a downstream consumer supports
+                // remote outputs AND the output is actually in CAS.
+                //
+                // TODO(arr): is there a better way to check that the output is
+                // in CAS other than checking that the command was executed on
+                // RE? Alternatively, when we make buck upload local testing
+                // artifacts to CAS, we can remove this condition altogether.
+                (true, Some(CommandExecutionKind::Remote { .. }), Some(digest)) => {
+                    let hash = format!("{}", digest.raw_digest());
+                    let output_digest = buck2_test_api::data::CasDigest {
+                        hash,
+                        size_bytes: digest.size() as i64,
+                    };
+                    Output::RemoteObject(RemoteObject {
+                        digest: output_digest,
+                    })
+                }
+                _ => {
+                    paths_to_materialize.push(project_relative_path.clone());
+                    let abs_path = fs.fs().resolve(&project_relative_path);
+                    Output::LocalPath(abs_path)
+                }
+            };
+            output_map.insert(declared_output, output);
+        }
 
         // Request materialization in case this ran on RE. Eventually Tpx should be able to
         // understand remote outputs but currently we don't have this.
@@ -325,7 +358,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             status,
             stdout,
             stderr,
-            outputs,
+            outputs: output_map,
             start_time: timing.start_time,
             execution_time: timing.execution_time,
             execution_details: ExecutionDetails {
@@ -521,7 +554,7 @@ struct ExecuteData {
     pub status: ExecutionStatus,
     pub timing: CommandExecutionMetadata,
     pub execution_kind: Option<CommandExecutionKind>,
-    pub outputs: Vec<BuckOutTestPath>,
+    pub outputs: Vec<(BuckOutTestPath, ArtifactValue)>,
 }
 
 impl<'b> BuckTestOrchestrator<'b> {
@@ -649,8 +682,8 @@ impl<'b> BuckTestOrchestrator<'b> {
         };
 
         let outputs = outputs
-            .into_keys()
-            .filter_map(|output| Some(output.into_test_path()?.0))
+            .into_iter()
+            .filter_map(|(output, artifact)| Some((output.into_test_path()?.0, artifact)))
             .collect();
 
         let std_streams = std_streams
