@@ -9,4 +9,4 @@
 
 pub(super) mod kill;
 pub mod winapi_handle;
-pub mod winapi_process;
+pub(crate) mod winapi_process;

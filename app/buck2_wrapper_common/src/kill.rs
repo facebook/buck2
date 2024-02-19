@@ -9,11 +9,19 @@
 
 //! Cross-platform process killing.
 
+use std::time::Duration;
+
+use sysinfo::Process;
+
 use crate::pid::Pid;
 #[cfg(unix)]
 use crate::unix::kill as imp;
 #[cfg(windows)]
 use crate::win::kill as imp;
+
+pub fn process_creation_time(process: &Process) -> Option<Duration> {
+    imp::process_creation_time(process)
+}
 
 pub fn process_exists(pid: Pid) -> anyhow::Result<bool> {
     imp::process_exists(pid)

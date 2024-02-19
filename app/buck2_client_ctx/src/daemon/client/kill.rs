@@ -139,38 +139,6 @@ async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyh
     Err(KillError::DidNotDie(pid, timestamp_after_kill.elapsed(), status).into())
 }
 
-#[cfg(unix)]
-mod os_specific {
-
-    use std::time::Duration;
-
-    use sysinfo::Process;
-    use sysinfo::ProcessExt;
-
-    pub(super) fn process_creation_time(process: &Process) -> Option<Duration> {
-        // Returns process creation time with 1 second precision.
-        Some(Duration::from_secs(process.start_time()))
-    }
-}
-
-#[cfg(windows)]
-mod os_specific {
-    use std::time::Duration;
-
-    use buck2_wrapper_common::pid::Pid;
-    use buck2_wrapper_common::win::winapi_process::WinapiProcessHandle;
-    use sysinfo::PidExt;
-    use sysinfo::Process;
-    use sysinfo::ProcessExt;
-
-    pub(super) fn process_creation_time(process: &Process) -> Option<Duration> {
-        let pid = Pid::from_u32(process.pid().as_u32()).ok()?;
-        let proc_handle = WinapiProcessHandle::open_for_info(pid)?;
-        // Returns process creation time with 100 ns precision.
-        proc_handle.process_creation_time().ok()
-    }
-}
-
 fn get_callers_for_kill() -> Vec<String> {
     /// Add a process to our parts and return its parent PID.
     fn push_process(
@@ -187,7 +155,7 @@ fn get_callers_for_kill() -> Vec<String> {
         let parent_pid = proc.parent()?;
         system.refresh_process_specifics(parent_pid, ProcessRefreshKind::new());
         let parent_proc = system.process(parent_pid)?;
-        let parent_creation_time = os_specific::process_creation_time(parent_proc)?;
+        let parent_creation_time = kill::process_creation_time(parent_proc)?;
         if parent_creation_time <= creation_time {
             Some((parent_pid, parent_creation_time))
         } else {
@@ -202,7 +170,7 @@ fn get_callers_for_kill() -> Vec<String> {
     system.refresh_process_specifics(pid, ProcessRefreshKind::new());
     let mut curr = system
         .process(pid)
-        .and_then(|proc| Some((pid, os_specific::process_creation_time(proc)?)));
+        .and_then(|proc| Some((pid, kill::process_creation_time(proc)?)));
     while let Some((pid, creation_time)) = curr {
         curr = push_process(pid, creation_time, &mut system, &mut process_tree);
     }

@@ -7,11 +7,20 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use anyhow::Context;
 use nix::sys::signal::Signal;
+use sysinfo::Process;
+use sysinfo::ProcessExt;
 
 use crate::kill::get_sysinfo_status;
 use crate::pid::Pid;
+
+pub(crate) fn process_creation_time(process: &Process) -> Option<Duration> {
+    // Returns process creation time with 1 second precision.
+    Some(Duration::from_secs(process.start_time()))
+}
 
 pub(crate) fn process_exists(pid: Pid) -> anyhow::Result<bool> {
     let pid = pid.to_nix()?;
