@@ -286,7 +286,14 @@ impl<'a> BuckTestOrchestrator<'a> {
             )
             .await?;
 
-        let (stdout, stderr, status, timing, execution_kind, outputs) = self
+        let ExecuteData {
+            stdout,
+            stderr,
+            status,
+            timing,
+            execution_kind,
+            outputs,
+        } = self
             .execute_request(&test_target, metadata, &test_executor, execution_request)
             .await?;
 
@@ -508,6 +515,15 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     }
 }
 
+struct ExecuteData {
+    pub stdout: ExecutionStream,
+    pub stderr: ExecutionStream,
+    pub status: ExecutionStatus,
+    pub timing: CommandExecutionMetadata,
+    pub execution_kind: Option<CommandExecutionKind>,
+    pub outputs: Vec<BuckOutTestPath>,
+}
+
 impl<'b> BuckTestOrchestrator<'b> {
     fn executor_preference(&self, test_supports_re: bool) -> anyhow::Result<ExecutorPreference> {
         let mut executor_preference = ExecutorPreference::Default;
@@ -533,17 +549,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         metadata: DisplayMetadata,
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
-    ) -> Result<
-        (
-            ExecutionStream,
-            ExecutionStream,
-            ExecutionStatus,
-            CommandExecutionMetadata,
-            Option<CommandExecutionKind>,
-            Vec<BuckOutTestPath>,
-        ),
-        ExecuteError,
-    > {
+    ) -> Result<ExecuteData, ExecuteError> {
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             self.events.dupe(),
@@ -655,51 +661,51 @@ impl<'b> BuckTestOrchestrator<'b> {
         let stderr = ExecutionStream::Inline(std_streams.stderr);
 
         Ok(match status {
-            CommandExecutionStatus::Success { execution_kind } => (
+            CommandExecutionStatus::Success { execution_kind } => ExecuteData {
                 stdout,
                 stderr,
-                ExecutionStatus::Finished {
+                status: ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(0),
                 },
                 timing,
-                Some(execution_kind),
+                execution_kind: Some(execution_kind),
                 outputs,
-            ),
-            CommandExecutionStatus::Failure { execution_kind } => (
+            },
+            CommandExecutionStatus::Failure { execution_kind } => ExecuteData {
                 stdout,
                 stderr,
-                ExecutionStatus::Finished {
+                status: ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(1),
                 },
                 timing,
-                Some(execution_kind),
+                execution_kind: Some(execution_kind),
                 outputs,
-            ),
+            },
             CommandExecutionStatus::TimedOut {
                 duration,
                 execution_kind,
-            } => (
+            } => ExecuteData {
                 stdout,
                 stderr,
-                ExecutionStatus::TimedOut { duration },
+                status: ExecutionStatus::TimedOut { duration },
                 timing,
-                Some(execution_kind),
+                execution_kind: Some(execution_kind),
                 outputs,
-            ),
+            },
             CommandExecutionStatus::Error {
                 stage: _,
                 error,
                 execution_kind,
-            } => (
-                ExecutionStream::Inline(Default::default()),
-                ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
-                ExecutionStatus::Finished {
+            } => ExecuteData {
+                stdout: ExecutionStream::Inline(Default::default()),
+                stderr: ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
+                status: ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(1),
                 },
                 timing,
                 execution_kind,
                 outputs,
-            ),
+            },
             CommandExecutionStatus::Cancelled => {
                 return Err(ExecuteError::Cancelled(Cancelled));
             }
