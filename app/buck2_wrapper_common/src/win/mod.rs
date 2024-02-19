@@ -8,4 +8,5 @@
  */
 
 pub(super) mod kill;
+pub mod winapi_handle;
 pub mod winapi_process;

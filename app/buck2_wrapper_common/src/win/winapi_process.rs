@@ -23,7 +23,7 @@ use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
 use winapi::um::winnt::PROCESS_TERMINATE;
 
 use crate::pid::Pid;
-use crate::winapi_handle::WinapiHandle;
+use crate::win::winapi_handle::WinapiHandle;
 
 /// `HANDLE` which points to a process.
 pub struct WinapiProcessHandle {

@@ -10,7 +10,7 @@
 use std::io;
 use std::ptr;
 
-use buck2_wrapper_common::winapi_handle::WinapiHandle;
+use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
 use winapi::shared::minwindef::FALSE;
 use winapi::um::jobapi2;
 use winapi::um::winnt::HANDLE;

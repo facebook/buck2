@@ -38,7 +38,6 @@ pub mod pid;
 mod unix;
 #[cfg(windows)]
 pub mod win;
-pub mod winapi_handle;
 
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";

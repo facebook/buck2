@@ -18,7 +18,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 
     use anyhow::Context;
     use buck2_core::sandcastle::is_sandcastle;
-    use buck2_wrapper_common::winapi_handle::WinapiHandle;
+    use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
     use winapi::ctypes::c_void;
     use winapi::shared::minwindef::DWORD;
     use winapi::um::processthreadsapi::GetCurrentProcess;
