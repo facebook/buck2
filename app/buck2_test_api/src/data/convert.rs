@@ -34,6 +34,7 @@ use crate::data::ExecutorConfigOverride;
 use crate::data::ExternalRunnerSpec;
 use crate::data::ExternalRunnerSpecValue;
 use crate::data::Output;
+use crate::data::RemoteObject;
 use crate::data::TestExecutable;
 use crate::data::TestResult;
 use crate::data::TestStatus;
@@ -569,6 +570,26 @@ impl TryInto<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
     }
 }
 
+impl TryInto<buck2_test_proto::RemoteObject> for RemoteObject {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<buck2_test_proto::RemoteObject, Self::Error> {
+        Ok(buck2_test_proto::RemoteObject {
+            digest: Some(self.digest),
+        })
+    }
+}
+
+impl TryFrom<buck2_test_proto::RemoteObject> for RemoteObject {
+    type Error = anyhow::Error;
+
+    fn try_from(value: buck2_test_proto::RemoteObject) -> Result<Self, Self::Error> {
+        Ok(Self {
+            digest: value.digest.context("missing digest")?,
+        })
+    }
+}
+
 impl TryInto<buck2_test_proto::Output> for Output {
     type Error = anyhow::Error;
 
@@ -579,6 +600,7 @@ impl TryInto<buck2_test_proto::Output> for Output {
             Self::LocalPath(value) => {
                 Value::LocalPath(value.to_str().context("Invalid local path")?.to_owned())
             }
+            Self::RemoteObject(value) => Value::RemoteObject(value.try_into()?),
         };
 
         Ok(buck2_test_proto::Output { value: Some(value) })
@@ -595,6 +617,7 @@ impl TryFrom<buck2_test_proto::Output> for Output {
             Value::LocalPath(value) => {
                 Self::LocalPath(value.try_into().context("Invalid local path value.")?)
             }
+            Value::RemoteObject(value) => Self::RemoteObject(value.try_into()?),
         })
     }
 }

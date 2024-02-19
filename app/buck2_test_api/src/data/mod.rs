@@ -21,6 +21,7 @@ use std::time::SystemTime;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+pub use buck2_test_proto::CasDigest;
 pub use buck2_test_proto::ExecutionDetails;
 use derivative::Derivative;
 use derive_more::From;
@@ -219,8 +220,14 @@ pub struct ExecuteRequest2 {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RemoteObject {
+    pub digest: CasDigest,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Output {
     LocalPath(AbsNormPathBuf),
+    RemoteObject(RemoteObject),
 }
 
 #[derive(Clone, Debug, PartialEq)]

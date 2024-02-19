@@ -236,9 +236,27 @@ message DeclaredOutput {
   bool supports_remote = 2;
 }
 
+// Copy of Digest from Remote Execution API:
+// https://github.com/facebook/buck2/blob/main/remote_execution/oss/re_grpc_proto/proto/build/bazel/remote/execution/v2/remote_execution.proto#L936-L943
+message CasDigest {
+  // The hash. In the case of SHA-256, it will always be a lowercase hex string
+  // exactly 64 characters long.
+  string hash = 1;
+
+  // The size of the blob, in bytes.
+  int64 size_bytes = 2;
+}
+
+message RemoteObject {
+  CasDigest digest = 1;
+}
+
 message Output {
+  // TODO(arr): replace this oneof with just it's fields when we start uploading
+  // results of local executions to CAS
   oneof value {
     string local_path = 1;
+    RemoteObject remote_object = 2;
   }
 }
 
