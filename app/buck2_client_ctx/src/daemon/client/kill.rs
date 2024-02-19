@@ -158,7 +158,7 @@ mod os_specific {
     use std::time::Duration;
 
     use buck2_wrapper_common::pid::Pid;
-    use buck2_wrapper_common::winapi_process::WinapiProcessHandle;
+    use buck2_wrapper_common::win::winapi_process::WinapiProcessHandle;
     use sysinfo::PidExt;
     use sysinfo::Process;
     use sysinfo::ProcessExt;

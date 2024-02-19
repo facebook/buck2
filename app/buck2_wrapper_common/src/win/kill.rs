@@ -9,7 +9,7 @@
 
 use crate::kill::get_sysinfo_status;
 use crate::pid::Pid;
-use crate::winapi_process::WinapiProcessHandle;
+use crate::win::winapi_process::WinapiProcessHandle;
 
 pub(crate) fn process_exists(pid: Pid) -> anyhow::Result<bool> {
     Ok(WinapiProcessHandle::open_for_info(pid).is_some())
