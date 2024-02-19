@@ -34,6 +34,10 @@ pub mod invocation_id;
 pub mod is_buck2;
 pub mod kill;
 pub mod pid;
+#[cfg(unix)]
+mod unix;
+#[cfg(windows)]
+mod win;
 pub mod winapi_handle;
 pub mod winapi_process;
 
