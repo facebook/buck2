@@ -63,7 +63,7 @@ impl StreamingCommand for HeapDumpCommand {
                 Consider using this command to upload heap profile to Scuba:\n\
                 stackstoscuba --heap {} --heap_pid {}\n",
                 path.to_str()?,
-                process_info.pid(),
+                process_info.pid()?,
             )?;
         } else {
             buck2_client_ctx::eprintln!("Heap dump written to `{}`", path.to_str()?)?;

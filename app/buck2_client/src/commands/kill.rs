@@ -18,7 +18,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_wrapper_common::pid::Pid;
 
 /// Kill the buck daemon.
 ///
@@ -105,7 +104,7 @@ pub async fn kill_command_impl(
             // process if both the PID and the port exist.
             buck2_client_ctx::eprintln!("killing unresponsive buckd server")?;
             process.hard_kill().await?;
-            Some(Pid::from_i64(process.pid())?)
+            Some(process.pid()?)
         }
     };
 

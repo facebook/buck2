@@ -930,8 +930,8 @@ impl<'a> BuckdProcessInfo<'a> {
         kill::hard_kill(&self.info).await
     }
 
-    pub fn pid(&self) -> i64 {
-        self.info.pid
+    pub fn pid(&self) -> anyhow::Result<Pid> {
+        Pid::from_i64(self.info.pid)
     }
 }
 

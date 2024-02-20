@@ -19,7 +19,7 @@ pub async fn upload_thread_dump(
     manifold: &ManifoldClient,
     manifold_id: &String,
 ) -> anyhow::Result<String> {
-    let buckd_pid = buckd.as_ref().map_err(|e| e.clone())?.pid();
+    let buckd_pid = buckd.as_ref().map_err(|e| e.clone())?.pid()?;
     let command = async_background_command("lldb")
         .arg("-p")
         .arg(buckd_pid.to_string())
