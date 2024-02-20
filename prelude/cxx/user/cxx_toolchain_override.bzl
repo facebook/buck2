@@ -75,7 +75,6 @@ def _cxx_toolchain_override(ctx):
     # linker flags should be changed as well.
     pdb_expected = linker_type == "windows" and pdb_expected
     shlib_interfaces = ShlibInterfacesMode(ctx.attrs.shared_library_interface_mode) if ctx.attrs.shared_library_interface_mode else None
-    sanitizer_runtime_dir = ctx.attrs.sanitizer_runtime_dir[DefaultInfo].default_outputs[0] if ctx.attrs.sanitizer_runtime_dir else None
     sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]) if ctx.attrs.sanitizer_runtime_files != None else None
     linker_info = LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
@@ -100,7 +99,6 @@ def _cxx_toolchain_override(ctx):
         requires_objects = base_linker_info.requires_objects,
         supports_distributed_thinlto = base_linker_info.supports_distributed_thinlto,
         independent_shlib_interface_linker_flags = base_linker_info.independent_shlib_interface_linker_flags,
-        sanitizer_runtime_dir = value_or(sanitizer_runtime_dir, base_linker_info.sanitizer_runtime_dir),
         sanitizer_runtime_enabled = value_or(ctx.attrs.sanitizer_runtime_enabled, base_linker_info.sanitizer_runtime_enabled),
         sanitizer_runtime_files = value_or(sanitizer_runtime_files, base_linker_info.sanitizer_runtime_files),
         shared_dep_runtime_ld_flags = [],
@@ -211,7 +209,6 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "platform_name": attrs.option(attrs.string(), default = None),
         "produce_interface_from_stub_shared_library": attrs.option(attrs.bool(), default = None),
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
-        "sanitizer_runtime_dir": attrs.option(attrs.dep(), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "sanitizer_runtime_enabled": attrs.bool(default = False),
         "sanitizer_runtime_files": attrs.option(attrs.set(attrs.dep(), sorted = True, default = []), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "shared_library_interface_mode": attrs.option(attrs.enum(ShlibInterfacesMode.values()), default = None),

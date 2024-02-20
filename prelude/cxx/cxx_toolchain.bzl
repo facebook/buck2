@@ -95,7 +95,6 @@ def cxx_toolchain_impl(ctx):
         independent_shlib_interface_linker_flags = ctx.attrs.shared_library_interface_flags,
         requires_archives = value_or(ctx.attrs.requires_archives, True),
         requires_objects = value_or(ctx.attrs.requires_objects, False),
-        sanitizer_runtime_dir = ctx.attrs.sanitizer_runtime_dir[DefaultInfo].default_outputs[0] if ctx.attrs.sanitizer_runtime_dir else None,
         sanitizer_runtime_enabled = ctx.attrs.sanitizer_runtime_enabled,
         sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]),
         supports_distributed_thinlto = ctx.attrs.supports_distributed_thinlto,
@@ -197,7 +196,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "public_headers_symlinks_enabled": attrs.bool(default = True),
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "requires_objects": attrs.bool(default = False),
-        "sanitizer_runtime_dir": attrs.option(attrs.dep(), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "sanitizer_runtime_enabled": attrs.bool(default = False),
         "sanitizer_runtime_files": attrs.set(attrs.dep(), sorted = True, default = []),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "shared_library_interface_mode": attrs.enum(ShlibInterfacesMode.values(), default = "disabled"),
