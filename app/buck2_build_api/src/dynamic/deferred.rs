@@ -11,6 +11,7 @@ use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -35,8 +36,8 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
-use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTypedComplex;
 
@@ -292,16 +293,13 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let mut outputs = SmallMap::with_capacity(dynamic_lambda.outputs.len());
     let mut declared_outputs = IndexSet::with_capacity(dynamic_lambda.outputs.len());
 
-    let data = TupleRef::from_value(
-        dynamic_lambda
-            .attributes_lambda
-            .owned_value(env.frozen_heap()),
-    )
-    .unwrap();
-    assert_eq!(data.len(), 3);
-    let attributes = data.content()[0];
-    let plugins = ValueTypedComplex::new(data.content()[1]).unwrap();
-    let lambda = data.content()[2];
+    let (attributes, plugins, lambda) =
+        <(Value, ValueTypedComplex<AnalysisPlugins>, Value)>::unpack_value_err(
+            dynamic_lambda
+                .attributes_lambda
+                .owned_value(env.frozen_heap()),
+        )
+        .context("Expecting tuple of 3 elements (internal error)")?;
 
     let execution_platform = {
         match &dynamic_lambda.owner {
