@@ -19,6 +19,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
+use anyhow::Context;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
@@ -28,6 +29,9 @@ use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -143,6 +147,18 @@ where
         tracer.trace(&mut self.0);
         // If type of value changed, dereference will produce the wrong object type.
         debug_assert!(Self::new(self.0).is_some());
+    }
+}
+
+impl<'v, T> Freeze for ValueTypedComplex<'v, T>
+where
+    T: ComplexValue<'v>,
+    T::Frozen: StarlarkValue<'static>,
+{
+    type Frozen = FrozenValueTyped<'static, T::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        FrozenValueTyped::new(self.0.freeze(freezer)?).context("Incorrect type")
     }
 }
 
