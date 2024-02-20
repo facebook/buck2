@@ -89,7 +89,7 @@ pub struct DynamicLambda {
     /// Things I produce
     outputs: Vec<BuildArtifact>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
-    attributes_lambda: OwnedFrozenValue,
+    attributes_lambda: Option<OwnedFrozenValue>,
 }
 
 impl DynamicLambda {
@@ -117,12 +117,13 @@ impl DynamicLambda {
             dynamic: depends,
             inputs,
             outputs,
-            attributes_lambda: Default::default(),
+            attributes_lambda: None,
         }
     }
 
     pub(crate) fn bind(&mut self, attributes_lambda: OwnedFrozenValue) {
-        self.attributes_lambda = attributes_lambda;
+        // TODO(nga): check not set twice.
+        self.attributes_lambda = Some(attributes_lambda);
     }
 }
 
@@ -298,6 +299,8 @@ pub fn dynamic_lambda_ctx_data<'v>(
         <(Value, ValueTypedComplex<AnalysisPlugins>, StarlarkCallable)>::unpack_value_err(
             dynamic_lambda
                 .attributes_lambda
+                .as_ref()
+                .context("attributes_lambda not set (internal error)")?
                 .owned_value(env.frozen_heap()),
         )
         .context("Expecting tuple of 3 elements (internal error)")?;
