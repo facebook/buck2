@@ -119,3 +119,28 @@ impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) 
         ))
     }
 }
+
+impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>, T3: UnpackValue<'v>> UnpackValue<'v>
+    for (T1, T2, T3)
+{
+    fn expected() -> String {
+        format!(
+            "tuple ({}, {}, {})",
+            T1::expected(),
+            T2::expected(),
+            T3::expected()
+        )
+    }
+
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        let t = Tuple::from_value(value)?;
+        if t.len() != 3 {
+            return None;
+        }
+        Some((
+            T1::unpack_value(t.content()[0])?,
+            T2::unpack_value(t.content()[1])?,
+            T3::unpack_value(t.content()[2])?,
+        ))
+    }
+}
