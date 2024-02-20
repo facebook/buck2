@@ -47,6 +47,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "DlopenableLibraryInfo",
     "LinkableGraph",
+    "SharedOnlyLibraryInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -355,6 +356,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.platform_header_dirs,
     )
     preferred_linkage = _prebuilt_linkage(ctx)
+    if preferred_linkage == Linkage("shared"):
+        providers.append(SharedOnlyLibraryInfo())
 
     # Prepare the stripped static lib.
     static_lib_stripped = None

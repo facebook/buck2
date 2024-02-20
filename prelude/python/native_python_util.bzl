@@ -12,13 +12,12 @@ load(
     "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
-    "MergedLinkInfo",
     "ObjectsLinkable",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
     "DlopenableLibraryInfo",
-    "LinkableRootInfo",
+    "SharedOnlyLibraryInfo",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -65,17 +64,14 @@ def merge_cxx_extension_info(
             dlopen_deps[dep.label] = linkable(dep)
             continue
 
-        # Try to detect prebuilt, shared-only libraries.
-        # TODO(agallagher): We need a more general way to support this, which
-        # should *just* use `preferred_linkage` (and so it supports non-prebuilt
-        # libs too), but this will require hoisting the rules first-order deps
-        # up the tree as `dlopen_deps` so that we link them properly.
-        if MergedLinkInfo in dep and LinkableRootInfo not in dep:
+        if SharedOnlyLibraryInfo in dep:
             shared_only_libs[dep.label] = linkable(dep)
 
     for dep in deps:
         cxx_extension_info = dep.get(CxxExtensionLinkInfo)
         if cxx_extension_info == None:
+            if SharedOnlyLibraryInfo in dep:
+                shared_only_libs[dep.label] = linkable(dep)
             continue
         linkable_provider_children.append(cxx_extension_info.linkable_providers)
         artifacts.update(cxx_extension_info.artifacts)
