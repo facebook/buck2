@@ -34,6 +34,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
 
@@ -65,7 +66,7 @@ impl AllocFrozenValue for TypingCallable {
 
 /// Marker for a callable value. Can be used in function signatures
 /// for better documentation and type checking.
-#[derive(Debug, Copy, Clone, Dupe)]
+#[derive(Debug, Copy, Clone, Dupe, Trace)]
 pub struct StarlarkCallable<'v>(pub Value<'v>);
 
 impl<'v> StarlarkTypeRepr for StarlarkCallable<'v> {
