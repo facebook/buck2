@@ -40,14 +40,16 @@ atomic = "0.5.1"
 backtrace = "0.3.51"
 base64 = "0.13.0"
 bincode = "1.3.3"
+bitflags = "2.4"
 blake3 = { version = "1.3.1", features = [ "default", "digest", "rayon", "std", "traits-preview" ] }
-bumpalo = "=3.11.1"
+bstr = { version = "1.4.0", features = ["serde", "std", "unicode"] }
+bumpalo = { version = "3.14.0", features = ["allocator_api", "collections"] }
 byteorder = "1.4.3"
 bytes = "1.0"
 bytesize = "1.1.0"
 chrono = "0.4.28"
 clap = { package = "clap", version = "4.0.7", features = ["derive", "env"] }
-clap-3 = { package = "clap", version = "3.2.24", features = ["derive", "env"] }
+clap-3 = { package = "clap", version = "3.2.24", features = ["derive", "env", "regex", "unicode", "wrap_help"] }
 common-path = "1.0.0"
 compact_str = "0.6.1"
 constant_time_eq = "0.2.4"
@@ -97,7 +99,7 @@ hyper-timeout = "0.4"
 hyper-unix-connector = "0.2"
 indent_write = "2.2.0"
 indenter = "0.3.3"
-indexmap = { version = "1.9.1", features = ["serde-1"] }
+indexmap = { version = "1.9.1", features = ["arbitrary", "rayon", "serde-1"] }
 indoc = "1.0.3"
 inferno = { version = "0.11.11", default-features = false }
 internment = { version = "0.7", features = ["arc"] }
@@ -117,6 +119,7 @@ lsp-server = "0.7.2"
 lsp-types = "0.94.1"
 maplit = "1.0.2"
 mappable-rc = { version = "0.1.1", features = ["std"] }
+md-5 = "0.10"
 memchr = "2.4.1"
 memmap2 = "0.5.0"
 memoffset = "0.6.4"
@@ -139,7 +142,7 @@ perf-event-open-sys = "4.0"
 pin-project = "0.4.29"
 plist = "0.5"
 pretty_assertions = "1.2.1"
-proc-macro2 = "1.0"
+proc-macro2 = { version = "1.0.70", features = ["span-locations"] }
 prost = "0.11.9"
 prost-build = "0.11.9"
 prost-derive = "0.11.9"
@@ -155,6 +158,7 @@ regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
 ring = "=0.17.5" # Upgrading this is possible, but a pain, so we don't want to pick up every new minor version
 rusqlite = { version = "0.29.0", features = ["bundled"] }
+rustc-hash = "1.1.0"
 rustls = "0.21.0"
 rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
@@ -166,6 +170,7 @@ serde_json = "1.0.48"
 sha1 = "0.10"
 sha2 = "0.10"
 shlex = "1.3"
+similar = { version = "2.2.0", features = ["inline"] }
 siphasher = "0.3.3"
 slab = "0.4.7"
 slog = "2.7.0"
@@ -174,6 +179,8 @@ static_assertions = "1.1.0"
 strsim = "0.10.0"
 structopt = "0.3.23"
 syn = { version = "2", features = ["extra-traits", "full", "visit"] }
+syn1 = { package = "syn", version = "1.0.109", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+synstructure = "0.12"
 sync_wrapper = "0.1.0"
 sys-info = "0.9.1"
 sysinfo = "0.26.8"

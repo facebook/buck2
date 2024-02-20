@@ -6,4 +6,5 @@
 # of this source tree.
 
 def export_file(visibility = ["PUBLIC"], **kwargs):
+    # @lint-ignore BUCKLINT: avoid "native is forbidden in fbcode"
     native.export_file(visibility = visibility, **kwargs)
