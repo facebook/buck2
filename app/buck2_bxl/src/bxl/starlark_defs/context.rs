@@ -624,7 +624,7 @@ impl BxlEvalContext<'_> {
             let ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_dynamic_ctx)).unwrap();
 
             eval.eval_function(
-                dynamic_lambda_ctx_data.lambda,
+                dynamic_lambda_ctx_data.lambda.0,
                 &[
                     ctx.to_value(),
                     dynamic_lambda_ctx_data.artifacts,

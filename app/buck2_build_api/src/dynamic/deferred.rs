@@ -36,6 +36,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -234,7 +235,7 @@ impl Deferred for DynamicLambda {
                 ));
 
                 eval.eval_function(
-                    dynamic_lambda_ctx_data.lambda,
+                    dynamic_lambda_ctx_data.lambda.0,
                     &[
                         ctx.to_value(),
                         dynamic_lambda_ctx_data.artifacts,
@@ -273,7 +274,7 @@ impl Deferred for DynamicLambda {
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
     pub attributes: Value<'v>,
-    pub lambda: Value<'v>,
+    pub lambda: StarlarkCallable<'v>,
     pub outputs: Value<'v>,
     pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
     pub artifacts: Value<'v>,
@@ -294,7 +295,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let mut declared_outputs = IndexSet::with_capacity(dynamic_lambda.outputs.len());
 
     let (attributes, plugins, lambda) =
-        <(Value, ValueTypedComplex<AnalysisPlugins>, Value)>::unpack_value_err(
+        <(Value, ValueTypedComplex<AnalysisPlugins>, StarlarkCallable)>::unpack_value_err(
             dynamic_lambda
                 .attributes_lambda
                 .owned_value(env.frozen_heap()),
