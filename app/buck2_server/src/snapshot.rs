@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_core::io_counters::IoCounterKey;
+use buck2_events::EventSinkStats;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
@@ -148,10 +149,31 @@ impl SnapshotCollector {
 
     fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         if let Some(metrics) = self.daemon.scribe_sink.as_ref().map(|sink| sink.stats()) {
-            snapshot.sink_successes = Some(metrics.successes);
+            let EventSinkStats {
+                successes,
+                failures_invalid_request,
+                failures_unauthorized,
+                failures_rate_limited,
+                failures_pushed_back,
+                failures_enqueue_failed,
+                failures_internal_error,
+                failures_timed_out,
+                failures_unknown,
+                buffered,
+                dropped,
+            } = metrics;
+            snapshot.sink_successes = Some(successes);
             snapshot.sink_failures = Some(metrics.failures());
-            snapshot.sink_buffer_depth = Some(metrics.buffered);
-            snapshot.sink_dropped = Some(metrics.dropped);
+            snapshot.sink_failures_invalid_request = Some(failures_invalid_request);
+            snapshot.sink_failures_unauthorized = Some(failures_unauthorized);
+            snapshot.sink_failures_rate_limited = Some(failures_rate_limited);
+            snapshot.sink_failures_pushed_back = Some(failures_pushed_back);
+            snapshot.sink_failures_enqueue_failed = Some(failures_enqueue_failed);
+            snapshot.sink_failures_internal_error = Some(failures_internal_error);
+            snapshot.sink_failures_timed_out = Some(failures_timed_out);
+            snapshot.sink_failures_unknown = Some(failures_unknown);
+            snapshot.sink_buffer_depth = Some(buffered);
+            snapshot.sink_dropped = Some(dropped);
         }
     }
 

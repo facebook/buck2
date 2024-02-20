@@ -563,6 +563,15 @@ message Snapshot {
   optional uint64 sink_successes = 105;
   // Cumulative count of messages that failed to be emitted.
   optional uint64 sink_failures = 106;
+  // These are only stored in snapshot events, but not written to scuba.
+  optional uint64 sink_failures_invalid_request = 1201;
+  optional uint64 sink_failures_unauthorized = 1202;
+  optional uint64 sink_failures_rate_limited = 1203;
+  optional uint64 sink_failures_pushed_back = 1204;
+  optional uint64 sink_failures_enqueue_failed = 1205;
+  optional uint64 sink_failures_internal_error = 1206;
+  optional uint64 sink_failures_timed_out = 1207;
+  optional uint64 sink_failures_unknown = 1208;
   // Current number of messages queued up to be submitted.
   optional uint64 sink_buffer_depth = 107;
   // Cumulative count of messages that were dropped (i.e. not even processed).
