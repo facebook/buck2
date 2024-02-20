@@ -24,6 +24,7 @@ use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
 
+use crate::cast::transmute;
 use crate::typing::Ty;
 use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -275,6 +276,19 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     pub fn owned_value<'v>(&self, heap: &'v FrozenHeap) -> Value<'v> {
         // Safe because we convert it to a value which is tied to the owning heap
         unsafe { self.owned_frozen_value(heap).to_value() }
+    }
+
+    /// Extract a reference by passing the [`FrozenHeap`] which will promise to keep it alive.
+    ///
+    /// See [`OwnedFrozenValue::owned_frozen_value`].
+    ///
+    /// Not returning `ValueTyped` because of lifetime issues.
+    pub fn owned_as_ref<'v>(&self, heap: &'v FrozenHeap) -> &'v T {
+        // Keep the reference.
+        self.owned_value(heap);
+
+        // SAFETY: we attached the value to the heap, and we return value with a heap lifetime.
+        unsafe { transmute!(&T, &T, self.as_ref()) }
     }
 
     /// Operate on the [`FrozenValue`] stored inside.
