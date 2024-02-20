@@ -14,7 +14,6 @@ blake3 = { workspace = true }
 chrono = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
-higher-order-closure = { workspace = true }
 indent_write = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
