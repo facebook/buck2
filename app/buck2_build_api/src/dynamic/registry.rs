@@ -77,7 +77,7 @@ impl DynamicRegistry {
                 .get(id)?
                 .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
 
-            data.bind(fv);
+            data.bind(fv)?;
             registry.bind(key, data);
         }
         Ok(())

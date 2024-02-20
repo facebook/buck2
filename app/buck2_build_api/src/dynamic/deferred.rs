@@ -121,9 +121,12 @@ impl DynamicLambda {
         }
     }
 
-    pub(crate) fn bind(&mut self, attributes_lambda: OwnedFrozenValue) {
-        // TODO(nga): check not set twice.
+    pub(crate) fn bind(&mut self, attributes_lambda: OwnedFrozenValue) -> anyhow::Result<()> {
+        if self.attributes_lambda.is_some() {
+            return Err(DynamicLambdaError::AttributesLambdaAlreadySet.into());
+        }
         self.attributes_lambda = Some(attributes_lambda);
+        Ok(())
     }
 }
 
@@ -177,6 +180,8 @@ impl Deferred for DynamicAction {
 enum DynamicLambdaError {
     #[error("dynamic_output and anon_target cannot be used together (yet)")]
     AnonTargetIncompatible,
+    #[error("`attributes_lambda` field already set (internal error)")]
+    AttributesLambdaAlreadySet,
 }
 
 impl provider::Provider for DynamicLambda {
