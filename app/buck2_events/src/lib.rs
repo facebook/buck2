@@ -207,12 +207,45 @@ pub enum Event {
 pub struct EventSinkStats {
     /// Count of number of successful messages (e.g. those that have been processed by their downstream destination).
     pub successes: u64,
-    /// Count of messages that failed to be submitted and will not be retried.
-    pub failures: u64,
+    // Count of messages that failed to be submitted and will not be retried.
+    pub failures_invalid_request: u64,
+    pub failures_unauthorized: u64,
+    pub failures_rate_limited: u64,
+    pub failures_pushed_back: u64,
+    pub failures_enqueue_failed: u64,
+    pub failures_internal_error: u64,
+    pub failures_timed_out: u64,
+    pub failures_unknown: u64,
     /// How many messages are currently buffered by this sink.
     pub buffered: u64,
     /// How many messages were not even enqueued by this sink.
     pub dropped: u64,
+}
+
+impl EventSinkStats {
+    pub fn failures(&self) -> u64 {
+        let EventSinkStats {
+            successes: _,
+            failures_invalid_request,
+            failures_unauthorized,
+            failures_rate_limited,
+            failures_pushed_back,
+            failures_enqueue_failed,
+            failures_internal_error,
+            failures_timed_out,
+            failures_unknown,
+            buffered: _,
+            dropped: _,
+        } = self;
+        *failures_invalid_request
+            + *failures_unauthorized
+            + *failures_rate_limited
+            + *failures_pushed_back
+            + *failures_enqueue_failed
+            + *failures_internal_error
+            + *failures_timed_out
+            + *failures_unknown
+    }
 }
 
 /// A sink for events, easily plumbable to the guts of systems that intend to produce events consumeable by

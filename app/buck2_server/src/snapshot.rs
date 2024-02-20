@@ -149,7 +149,7 @@ impl SnapshotCollector {
     fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         if let Some(metrics) = self.daemon.scribe_sink.as_ref().map(|sink| sink.stats()) {
             snapshot.sink_successes = Some(metrics.successes);
-            snapshot.sink_failures = Some(metrics.failures);
+            snapshot.sink_failures = Some(metrics.failures());
             snapshot.sink_buffer_depth = Some(metrics.buffered);
             snapshot.sink_dropped = Some(metrics.dropped);
         }

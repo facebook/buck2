@@ -180,7 +180,14 @@ mod fbcode {
             let counters = self.client.export_counters();
             EventSinkStats {
                 successes: counters.successes,
-                failures: counters.failures(),
+                failures_invalid_request: counters.failures_invalid_request,
+                failures_unauthorized: counters.failures_unauthorized,
+                failures_rate_limited: counters.failures_rate_limited,
+                failures_pushed_back: counters.failures_pushed_back,
+                failures_enqueue_failed: counters.failures_enqueue_failed,
+                failures_internal_error: counters.failures_internal_error,
+                failures_timed_out: counters.failures_timed_out,
+                failures_unknown: counters.failures_unknown,
                 buffered: counters.queue_depth,
                 dropped: counters.dropped,
             }
