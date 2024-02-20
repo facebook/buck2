@@ -25,6 +25,7 @@
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 #![cfg_attr(rust_nightly, feature(portable_simd))]
 #![cfg_attr(rust_nightly, feature(cfg_version))]
+#![cfg_attr(rust_nightly, allow(internal_features))]
 
 mod hash_value;
 mod hashed;

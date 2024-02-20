@@ -313,7 +313,7 @@ async fn compute_deferred(
     impl DeferredCompute {
         fn create_materializer_futs<'a>(
             &'a self,
-            materialized_artifacts: &'a Vec<ArtifactGroup>,
+            materialized_artifacts: &'a [ArtifactGroup],
             ctx: &'a DiceComputations,
             span: &'a Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
         ) -> impl Future<Output = anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>>> + 'a

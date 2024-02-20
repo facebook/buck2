@@ -25,7 +25,7 @@ pub struct Graph {
 
 impl Graph {
     #[inline]
-    pub fn iter_vertices(&self) -> impl Iterator<Item = VertexId> + DoubleEndedIterator {
+    pub fn iter_vertices(&self) -> impl DoubleEndedIterator<Item = VertexId> {
         self.vertices.keys()
     }
 

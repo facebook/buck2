@@ -10,7 +10,7 @@
 #![feature(error_generic_member_access)]
 #![feature(let_chains)]
 #![feature(trait_alias)]
-#![feature(trait_upcasting)]
+#![cfg_attr(fbcode_build, feature(trait_upcasting))]
 
 mod any;
 pub mod classify;

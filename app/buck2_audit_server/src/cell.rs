@@ -66,7 +66,7 @@ impl AuditSubcommand for AuditCellCommand {
 }
 
 pub(crate) fn audit_cell(
-    aliases_to_resolve: &Vec<String>,
+    aliases_to_resolve: &[String],
     aliases: bool,
     cells: &CellResolver,
     cwd: &ProjectRelativePath,

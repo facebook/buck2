@@ -393,6 +393,7 @@
 // Features we use
 #![allow(stable_features)]
 #![allow(unknown_lints)] // for clippy::tuple_array_conversions
+#![cfg_attr(rust_nightly, allow(internal_features))]
 #![cfg_attr(rust_nightly, feature(const_type_id))]
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 #![cfg_attr(rust_nightly, feature(cfg_sanitize))]
