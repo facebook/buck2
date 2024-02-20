@@ -28,6 +28,7 @@ use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
+use buck2_wrapper_common::kill::process_exists;
 use buck2_wrapper_common::pid::Pid;
 use dupe::Dupe;
 use futures::future::try_join3;
@@ -672,6 +673,7 @@ fn explain_failed_to_connect_reason(reason: buck2_data::DaemonWasStartedReason) 
         DaemonWasStartedReason::TimeoutCalculationError => "Timeout calculation error",
         DaemonWasStartedReason::NoBuckdInfo => "No buckd.info",
         DaemonWasStartedReason::CouldNotLoadBuckdInfo => "Could not load buckd.info",
+        DaemonWasStartedReason::NoDaemonProcess => "buck2 daemon is not running",
     }
 }
 
@@ -860,7 +862,19 @@ async fn try_connect_existing(
     };
     match tokio::time::timeout(rem_duration, buckd_info.create_channel()).await {
         Ok(Ok(channel)) => Ok(channel),
-        Ok(Err(_)) => Err(buck2_data::DaemonWasStartedReason::CouldNotConnectToDaemon),
+        Ok(Err(_)) => {
+            let Ok(pid) = buckd_info.pid() else {
+                return Err(buck2_data::DaemonWasStartedReason::CouldNotLoadBuckdInfo);
+            };
+            let buckd_process_exists = process_exists(pid).unwrap_or(true);
+            if !buckd_process_exists {
+                // We don't delete the `buckd.info` file, and if we failed to connect,
+                // the most likely reason is that the daemon process doesn't exist.
+                Err(buck2_data::DaemonWasStartedReason::NoDaemonProcess)
+            } else {
+                Err(buck2_data::DaemonWasStartedReason::CouldNotConnectToDaemon)
+            }
+        }
         Err(e) => {
             let _assert_type: tokio::time::error::Elapsed = e;
             Err(buck2_data::DaemonWasStartedReason::TimedOutConnectingToDaemon)
