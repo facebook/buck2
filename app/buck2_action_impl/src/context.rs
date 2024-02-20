@@ -59,10 +59,10 @@ use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::DictOf;
-use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkIter;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -98,8 +98,6 @@ enum DynamicOutputError {
     EmptyOutput,
     #[error("List of dynamic inputs may not be empty")]
     EmptyDynamic,
-    #[error("Final argument must be a function, got `{0}`")]
-    NotAFunction(String),
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -1017,14 +1015,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] dynamic: UnpackListOrTuple<StarlarkArtifact>,
         #[starlark(require = named)] inputs: UnpackListOrTuple<StarlarkArtifact>,
         #[starlark(require = named)] outputs: UnpackListOrTuple<StarlarkOutputOrDeclaredArtifact>,
-        #[starlark(require = named)] f: Value<'v>,
+        #[starlark(require = named)] f: StarlarkCallable<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
-        let lambda_type = f.get_type();
-        if lambda_type != FUNCTION_TYPE {
-            return Err(DynamicOutputError::NotAFunction(lambda_type.to_owned()).into());
-        }
         if dynamic.items.is_empty() {
             return Err(DynamicOutputError::EmptyDynamic.into());
         }
