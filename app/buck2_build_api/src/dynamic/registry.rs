@@ -75,7 +75,9 @@ impl DynamicRegistry {
 
             let fv = analysis_value_fetcher
                 .get(id)?
-                .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
+                .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?
+                .downcast_anyhow()
+                .context("Incorrect type (internal error)")?;
 
             data.bind(fv)?;
             registry.bind(key, data);

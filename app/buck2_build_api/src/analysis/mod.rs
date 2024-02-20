@@ -25,6 +25,7 @@ pub mod anon_promises_dyn;
 // TODO(@wendyy) move into `buck2_interpreter_for_build`
 pub mod anon_targets_registry;
 pub mod calculation;
+pub mod dynamic_lambda_params;
 pub mod registry;
 
 use allocative::Allocative;

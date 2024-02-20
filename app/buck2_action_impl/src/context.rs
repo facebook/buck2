@@ -13,6 +13,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::validate_json;
+use buck2_build_api::analysis::dynamic_lambda_params::DynamicLambdaParams;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
@@ -1032,7 +1033,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         let outputs = outputs.items.iter().map(|x| x.0.artifact()).collect();
 
         // Registration
-        let attributes_plugins_lambda = heap.alloc((this.attributes, this.plugins, f));
+        let attributes_plugins_lambda = heap.alloc_complex(DynamicLambdaParams {
+            attributes: this.attributes,
+            plugins: this.plugins,
+            lambda: f,
+        });
         let mut this = this.state();
         this.register_dynamic_output(dynamic, inputs, outputs, attributes_plugins_lambda)?;
         Ok(NoneType)

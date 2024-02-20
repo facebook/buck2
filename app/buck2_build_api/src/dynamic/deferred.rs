@@ -37,13 +37,15 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::OwnedFrozenValue;
+use starlark::values::FrozenValueTyped;
+use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTypedComplex;
 
 use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
+use crate::analysis::dynamic_lambda_params::FrozenDynamicLambdaParams;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::Deferred;
@@ -58,6 +60,7 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifactValue;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
+use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 
 /// The artifacts that are returned are dynamic actions, which depend on the `DynamicLambda`
 /// to get their real `RegisteredAction`.
@@ -89,7 +92,7 @@ pub struct DynamicLambda {
     /// Things I produce
     outputs: Vec<BuildArtifact>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
-    attributes_lambda: Option<OwnedFrozenValue>,
+    attributes_lambda: Option<OwnedFrozenValueTyped<FrozenDynamicLambdaParams>>,
 }
 
 impl DynamicLambda {
@@ -121,7 +124,10 @@ impl DynamicLambda {
         }
     }
 
-    pub(crate) fn bind(&mut self, attributes_lambda: OwnedFrozenValue) -> anyhow::Result<()> {
+    pub(crate) fn bind(
+        &mut self,
+        attributes_lambda: OwnedFrozenValueTyped<FrozenDynamicLambdaParams>,
+    ) -> anyhow::Result<()> {
         if self.attributes_lambda.is_some() {
             return Err(DynamicLambdaError::AttributesLambdaAlreadySet.into());
         }
@@ -300,15 +306,21 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let mut outputs = SmallMap::with_capacity(dynamic_lambda.outputs.len());
     let mut declared_outputs = IndexSet::with_capacity(dynamic_lambda.outputs.len());
 
-    let (attributes, plugins, lambda) =
-        <(Value, ValueTypedComplex<AnalysisPlugins>, StarlarkCallable)>::unpack_value_err(
-            dynamic_lambda
-                .attributes_lambda
-                .as_ref()
-                .context("attributes_lambda not set (internal error)")?
-                .owned_value(env.frozen_heap()),
-        )
-        .context("Expecting tuple of 3 elements (internal error)")?;
+    let attributes_lambda = dynamic_lambda
+        .attributes_lambda
+        .as_ref()
+        .context("attributes_lambda not set (internal error)")?
+        .owned_as_ref(env.frozen_heap());
+    let FrozenDynamicLambdaParams {
+        attributes,
+        plugins,
+        lambda,
+    } = attributes_lambda;
+
+    let plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins> = *plugins;
+    let plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>> =
+        ValueTypedComplex::new(plugins.to_value())
+            .context("incorrect plugins type (internal error)")?;
 
     let execution_platform = {
         match &dynamic_lambda.owner {
@@ -373,8 +385,9 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let outputs = Dict::new(outputs);
 
     Ok(DynamicLambdaCtxData {
-        attributes,
-        lambda,
+        attributes: attributes.to_value(),
+        lambda: StarlarkCallable::unpack_value_err(lambda.to_value())
+            .context("incorrect lambda type (internal error)")?,
         plugins,
         outputs: heap.alloc(outputs),
         artifacts: heap.alloc(artifacts),
