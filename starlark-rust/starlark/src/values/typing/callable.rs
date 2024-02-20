@@ -66,7 +66,7 @@ impl AllocFrozenValue for TypingCallable {
 
 /// Marker for a callable value. Can be used in function signatures
 /// for better documentation and type checking.
-#[derive(Debug, Copy, Clone, Dupe, Trace)]
+#[derive(Debug, Copy, Clone, Dupe, Trace, Allocative)]
 pub struct StarlarkCallable<'v>(pub Value<'v>);
 
 impl<'v> StarlarkTypeRepr for StarlarkCallable<'v> {
