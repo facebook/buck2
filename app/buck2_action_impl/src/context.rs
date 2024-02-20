@@ -666,7 +666,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
         >,
         #[starlark(require = named, default = false)] unique_input_inodes: bool,
-        #[starlark(require = named)] error_handler: Option<Value<'v>>,
+        #[starlark(require = named)] error_handler: Option<StarlarkCallable<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {

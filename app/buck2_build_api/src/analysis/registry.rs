@@ -30,6 +30,7 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
@@ -206,7 +207,7 @@ impl<'v> AnalysisRegistry<'v> {
         outputs: IndexSet<OutputArtifact>,
         action: A,
         associated_value: Option<Value<'v>>,
-        error_handler: Option<Value<'v>>,
+        error_handler: Option<StarlarkCallable<'v>>,
     ) -> anyhow::Result<()> {
         let id = self
             .actions
@@ -350,7 +351,7 @@ impl<'v> ArtifactDeclaration<'v> {
 #[derive(Debug, Allocative)]
 struct AnalysisValueStorage<'v> {
     values: HashMap<DeferredId, Value<'v>>,
-    error_handlers: HashMap<DeferredId, Value<'v>>,
+    error_handlers: HashMap<DeferredId, StarlarkCallable<'v>>,
 }
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
@@ -388,7 +389,7 @@ impl<'v> AnalysisValueStorage<'v> {
 
         for (id, v) in self.error_handlers.iter() {
             let starlark_key = format!("$error_handler_for_action_key_{}", id);
-            module.set(&starlark_key, *v);
+            module.set(&starlark_key, v.0);
         }
     }
 
@@ -398,7 +399,7 @@ impl<'v> AnalysisValueStorage<'v> {
     }
 
     /// Add a error handler value to the internal hash map that maps ids -> error handlers
-    fn set_error_handler(&mut self, id: DeferredId, value: Value<'v>) {
+    fn set_error_handler(&mut self, id: DeferredId, value: StarlarkCallable<'v>) {
         self.error_handlers.insert(id, value);
     }
 }
