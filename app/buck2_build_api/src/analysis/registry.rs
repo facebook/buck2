@@ -356,8 +356,17 @@ struct AnalysisValueStorage<'v> {
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
-        for v in self.values.values_mut() {
-            tracer.trace(v)
+        let AnalysisValueStorage {
+            values,
+            error_handlers,
+        } = self;
+        for (k, v) in values.iter_mut() {
+            tracer.trace_static(k);
+            v.trace(tracer);
+        }
+        for (k, v) in error_handlers.iter_mut() {
+            tracer.trace_static(k);
+            v.trace(tracer);
         }
     }
 }
