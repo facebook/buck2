@@ -29,8 +29,10 @@ use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
+use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -80,6 +82,12 @@ impl<'v> UnpackValue<'v> for StarlarkCallable<'v> {
         } else {
             None
         }
+    }
+}
+
+impl<'v> AllocValue<'v> for StarlarkCallable<'v> {
+    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+        self.0
     }
 }
 
