@@ -37,3 +37,20 @@ constraint_value(
     constraint_setting = ":compile_shared",
     visibility = ["PUBLIC"],
 )
+
+constraint_setting(
+    name = "race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "race_false",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "race_true",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)

@@ -26,6 +26,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         get_filtered_srcs(ctx, ctx.attrs.srcs),
         deps = ctx.attrs.deps,
         compile_flags = ctx.attrs.compiler_flags,
+        race = ctx.attrs.race,
     )
     (bin, runtime_files, external_debug_info) = link(
         ctx,
@@ -34,6 +35,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         linker_flags = ctx.attrs.linker_flags,
         link_mode = ctx.attrs.link_mode,
+        race = ctx.attrs.race,
     )
 
     # runtime_files are all the artifacts that must be present in order for this

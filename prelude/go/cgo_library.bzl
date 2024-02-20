@@ -157,7 +157,7 @@ def _cgo(
 
     return go_srcs, c_headers, c_srcs
 
-def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, coverage_mode: GoCoverageMode, shared: bool = False) -> (Artifact, cmd_args):
+def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, coverage_mode: GoCoverageMode, shared: bool, race: bool) -> (Artifact, cmd_args):
     cov_res = cover_srcs(ctx, pkg_name, coverage_mode, srcs, shared)
     srcs = cov_res.srcs
     coverage_vars = cov_res.variables
@@ -168,6 +168,7 @@ def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, 
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         coverage_mode = coverage_mode,
         shared = shared,
+        race = race,
     )
     return (coverage_pkg, coverage_vars)
 
@@ -237,15 +238,19 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.go_srcs:
         all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs))
 
+    shared = ctx.attrs._compile_shared
+    race = ctx.attrs._race
+
     # Build Go library.
     compiled_pkg = compile(
         ctx,
         pkg_name,
         all_srcs,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-        shared = ctx.attrs._compile_shared,
+        shared = shared,
+        race = race,
     )
-    pkg_with_coverage = {mode: _compile_with_coverage(ctx, pkg_name, all_srcs, mode) for mode in GoCoverageMode}
+    pkg_with_coverage = {mode: _compile_with_coverage(ctx, pkg_name, all_srcs, mode, shared, race = race) for mode in GoCoverageMode}
     pkgs = {
         pkg_name: GoPkg(
             cgo = True,

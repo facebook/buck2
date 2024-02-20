@@ -48,6 +48,33 @@ def _compile_shared_transition(platform, refs, _):
         configuration = new_cfg,
     )
 
+def _race_transition(platform, refs, attrs):
+    constraints = platform.configuration.constraints
+
+    # Cancel transition if the value already set
+    # to enable using configuration modifiers for overiding this option
+    race_setting = refs.race_false[ConstraintValueInfo].setting
+    if race_setting.label in constraints:
+        return platform
+
+    if attrs.race == True:
+        race_ref = refs.race_true
+    else:
+        race_ref = refs.race_false
+
+    race_value = race_ref[ConstraintValueInfo]
+    constraints[race_value.setting.label] = race_value
+
+    new_cfg = ConfigurationInfo(
+        constraints = constraints,
+        values = platform.configuration.values,
+    )
+
+    return PlatformInfo(
+        label = platform.label,
+        configuration = new_cfg,
+    )
+
 def _chain_transitions(transitions):
     def tr(platform, refs, attrs):
         for t in transitions:
@@ -57,36 +84,42 @@ def _chain_transitions(transitions):
     return tr
 
 go_binary_transition = transition(
-    impl = _chain_transitions([_cgo_enabled_transition, _compile_shared_transition]),
+    impl = _chain_transitions([_cgo_enabled_transition, _compile_shared_transition, _race_transition]),
     refs = {
         "cgo_enabled_auto": "prelude//go/constraints:cgo_enabled_auto",
         "cgo_enabled_false": "prelude//go/constraints:cgo_enabled_false",
         "cgo_enabled_true": "prelude//go/constraints:cgo_enabled_true",
         "compile_shared_value": "prelude//go/constraints:compile_shared_false",
+        "race_false": "prelude//go/constraints:race_false",
+        "race_true": "prelude//go/constraints:race_true",
     },
-    attrs = ["cgo_enabled"],
+    attrs = ["cgo_enabled", "race"],
 )
 
 go_test_transition = transition(
-    impl = _chain_transitions([_cgo_enabled_transition, _compile_shared_transition]),
+    impl = _chain_transitions([_cgo_enabled_transition, _compile_shared_transition, _race_transition]),
     refs = {
         "cgo_enabled_auto": "prelude//go/constraints:cgo_enabled_auto",
         "cgo_enabled_false": "prelude//go/constraints:cgo_enabled_false",
         "cgo_enabled_true": "prelude//go/constraints:cgo_enabled_true",
         "compile_shared_value": "prelude//go/constraints:compile_shared_false",
+        "race_false": "prelude//go/constraints:race_false",
+        "race_true": "prelude//go/constraints:race_true",
     },
-    attrs = ["cgo_enabled"],
+    attrs = ["cgo_enabled", "race"],
 )
 
 go_exported_library_transition = transition(
-    impl = _chain_transitions([_cgo_enabled_transition, _compile_shared_transition]),
+    impl = _chain_transitions([_cgo_enabled_transition, _compile_shared_transition, _race_transition]),
     refs = {
         "cgo_enabled_auto": "prelude//go/constraints:cgo_enabled_auto",
         "cgo_enabled_false": "prelude//go/constraints:cgo_enabled_false",
         "cgo_enabled_true": "prelude//go/constraints:cgo_enabled_true",
         "compile_shared_value": "prelude//go/constraints:compile_shared_true",
+        "race_false": "prelude//go/constraints:race_false",
+        "race_true": "prelude//go/constraints:race_true",
     },
-    attrs = ["cgo_enabled"],
+    attrs = ["cgo_enabled", "race"],
 )
 
 cgo_enabled_attr = attrs.default_only(attrs.option(attrs.bool(), default = select({
@@ -100,4 +133,10 @@ compile_shared_attr = attrs.default_only(attrs.bool(default = select({
     "DEFAULT": False,
     "prelude//go/constraints:compile_shared_false": False,
     "prelude//go/constraints:compile_shared_true": True,
+})))
+
+race_attr = attrs.default_only(attrs.bool(default = select({
+    "DEFAULT": False,
+    "prelude//go/constraints:race_false": False,
+    "prelude//go/constraints:race_true": True,
 })))

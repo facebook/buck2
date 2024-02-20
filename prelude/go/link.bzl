@@ -114,6 +114,7 @@ def link(
         linker_flags: list[typing.Any] = [],
         external_linker_flags: list[typing.Any] = [],
         shared: bool = False,
+        race: bool = False,
         coverage_mode: [GoCoverageMode, None] = None):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
@@ -133,6 +134,9 @@ def link(
     cmd.add("-o", output.as_output())
     cmd.add("-buildmode=" + _build_mode_param(build_mode))
     cmd.add("-buildid=")  # Setting to a static buildid helps make the binary reproducible.
+
+    if race:
+        cmd.add("-race")
 
     # Add inherited Go pkgs to library search path.
     all_pkgs = merge_pkgs([

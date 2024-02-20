@@ -26,7 +26,7 @@ load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go/transitions:defs.bzl", "cgo_enabled_attr", "compile_shared_attr", "go_binary_transition", "go_exported_library_transition", "go_test_transition")
+load("@prelude//go/transitions:defs.bzl", "cgo_enabled_attr", "compile_shared_attr", "go_binary_transition", "go_exported_library_transition", "go_test_transition", "race_attr")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
@@ -385,6 +385,7 @@ inlined_extra_attributes = {
         "_exec_os_type": buck.exec_os_type_arg(),
         "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
+        "_race": race_attr,
     },
     # csharp
     "csharp_library": {
@@ -444,12 +445,14 @@ inlined_extra_attributes = {
         "_compile_shared": compile_shared_attr,
         "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
+        "_race": race_attr,
     },
     "go_stdlib": {
         "_cgo_enabled": cgo_enabled_attr,
         "_compile_shared": compile_shared_attr,
         "_exec_os_type": buck.exec_os_type_arg(),
         "_go_toolchain": toolchains_common.go(),
+        "_race": race_attr,
     },
     "go_test": {
         "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),

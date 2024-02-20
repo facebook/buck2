@@ -98,6 +98,7 @@ def _compile_cmd(
         deps: list[Dependency] = [],
         flags: list[str] = [],
         shared: bool = False,
+        race: bool = False,
         coverage_mode: [GoCoverageMode, None] = None) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
@@ -113,6 +114,9 @@ def _compile_cmd(
     # Add shared/static flags.
     if shared:
         cmd.add("-shared")
+
+    if race:
+        cmd.add("-race")
 
     # Add Go pkgs inherited from deps to compiler search path.
     all_pkgs = merge_pkgs([
@@ -135,6 +139,7 @@ def compile(
         compile_flags: list[str] = [],
         assemble_flags: list[str] = [],
         shared: bool = False,
+        race: bool = False,
         coverage_mode: [GoCoverageMode, None] = None) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     root = _out_root(shared, coverage_mode)
@@ -143,7 +148,7 @@ def compile(
     cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add(go_toolchain.compile_wrapper[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(_compile_cmd(ctx, root, pkg_name, pkgs, deps, compile_flags, shared = shared, coverage_mode = coverage_mode), format = "--compiler={}"))
+    cmd.add(cmd_args(_compile_cmd(ctx, root, pkg_name, pkgs, deps, compile_flags, shared = shared, race = race, coverage_mode = coverage_mode), format = "--compiler={}"))
     cmd.add(cmd_args(_assemble_cmd(ctx, pkg_name, assemble_flags, shared = shared), format = "--assembler={}"))
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
     if ctx.attrs.embedcfg:

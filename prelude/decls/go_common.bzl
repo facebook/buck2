@@ -132,6 +132,13 @@ def _cgo_enabled_arg():
 """),
     }
 
+def _race_arg():
+    return {
+        "race": attrs.bool(default = False, doc = """
+    If true, enable data race detection.
+"""),
+    }
+
 go_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -145,4 +152,5 @@ go_common = struct(
     external_linker_flags_arg = _external_linker_flags_arg,
     embedcfg_arg = _embedcfg_arg,
     cgo_enabled_arg = _cgo_enabled_arg,
+    race_arg = _race_arg,
 )

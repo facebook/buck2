@@ -25,6 +25,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps,
         compile_flags = ctx.attrs.compiler_flags,
         shared = True,
+        race = ctx.attrs.race,
     )
     (bin, runtime_files, _external_debug_info) = link(
         ctx,
@@ -35,6 +36,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         linker_flags = ctx.attrs.linker_flags,
         external_linker_flags = ctx.attrs.external_linker_flags,
         shared = True,
+        race = ctx.attrs.race,
     )
     return [
         DefaultInfo(

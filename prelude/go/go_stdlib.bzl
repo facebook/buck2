@@ -52,6 +52,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args(["-gcflags=", cmd_args(compiler_flags, delimiter = " ")], delimiter = "") if compiler_flags else [],
         cmd_args(["-ldflags=", cmd_args(linker_flags, delimiter = " ")], delimiter = "") if linker_flags else [],
         ["-tags", ",".join(tags)] if tags else [],
+        ["-race"] if ctx.attrs._race else [],
         "std",
     ])
 
