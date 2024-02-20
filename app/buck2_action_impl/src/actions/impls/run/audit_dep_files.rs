@@ -42,7 +42,8 @@ async fn audit_dep_files(
 ) -> anyhow::Result<()> {
     let key = DepFilesKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
 
-    let state = get_dep_files(&key).context("Failed to find dep files")?;
+    let state = get_dep_files(&key)
+        .with_context(|| format!("Failed to find dep files for key `{}`", key))?;
 
     let dep_files = read_dep_files(
         state.has_signatures(),
