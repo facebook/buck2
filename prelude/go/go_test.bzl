@@ -96,14 +96,14 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         pkgs = pkgs,
         compile_flags = ctx.attrs.compiler_flags,
         coverage_mode = coverage_mode,
-        race = ctx.attrs.race,
+        race = ctx.attrs._race,
     )
 
     # Generate a main function which runs the tests and build that into another
     # package.
     gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, srcs)
     pkgs[pkg_name] = tests
-    main = compile(ctx, "main", cmd_args(gen_main), pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs.race)
+    main = compile(ctx, "main", cmd_args(gen_main), pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race)
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(
@@ -115,7 +115,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         linker_flags = ctx.attrs.linker_flags,
         shared = False,
         coverage_mode = coverage_mode,
-        race = ctx.attrs.race,
+        race = ctx.attrs._race,
     )
 
     run_cmd = cmd_args(bin).hidden(runtime_files, external_debug_info)
