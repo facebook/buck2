@@ -89,6 +89,13 @@ impl BaseDeferredKey {
         }
     }
 
+    pub fn configured_label(&self) -> Option<ConfiguredTargetLabel> {
+        match self {
+            BaseDeferredKey::TargetLabel(label) => Some(label.dupe()),
+            BaseDeferredKey::AnonTarget(t) | BaseDeferredKey::BxlLabel(t) => t.configured_label(),
+        }
+    }
+
     pub fn make_hashed_path(
         &self,
         base: &ProjectRelativePath,

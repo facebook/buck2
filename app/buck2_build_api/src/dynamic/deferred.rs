@@ -220,27 +220,15 @@ impl Deferred for DynamicLambda {
                 let mut eval = Evaluator::new(&env);
                 eval.set_print_handler(&print);
                 let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
+                let starlark_target_label = self.owner.configured_label().map(|target| {
+                    heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                        ConfiguredProvidersLabel::new(target, ProvidersName::Default),
+                    ))
+                });
                 let ctx = heap.alloc_typed(AnalysisContext::new(
                     heap,
                     dynamic_lambda_ctx_data.attributes,
-                    match &self.owner {
-                        BaseDeferredKey::TargetLabel(target) => Some(heap.alloc_typed(
-                            StarlarkConfiguredProvidersLabel::new(ConfiguredProvidersLabel::new(
-                                target.dupe(),
-                                ProvidersName::Default,
-                            )),
-                        )),
-                        BaseDeferredKey::BxlLabel(target) | BaseDeferredKey::AnonTarget(target) => {
-                            target.configured_label().map(|configured_target_label| {
-                                heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
-                                    ConfiguredProvidersLabel::new(
-                                        configured_target_label,
-                                        ProvidersName::Default,
-                                    ),
-                                ))
-                            })
-                        }
-                    },
+                    starlark_target_label,
                     dynamic_lambda_ctx_data.plugins,
                     dynamic_lambda_ctx_data.registry,
                     dynamic_lambda_ctx_data.digest_config,
