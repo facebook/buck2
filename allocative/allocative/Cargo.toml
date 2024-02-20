@@ -6,10 +6,10 @@ edition = "2021"
 license = { workspace = true }
 name = "allocative"
 repository = "https://github.com/facebookexperimental/allocative"
-version = "0.3.2"
+version = "0.3.3"
 
 [dependencies]
-allocative_derive = { path = "../allocative_derive", version = "=0.3.2" }
+allocative_derive = { path = "../allocative_derive", version = "=0.3.3" }
 
 ctor = { workspace = true }
 
