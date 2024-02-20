@@ -66,6 +66,8 @@ pub(crate) struct Context {
     pub(crate) print_non_none: bool,
     pub(crate) prelude: Vec<FrozenModule>,
     pub(crate) module: Option<Module>,
+    pub(crate) dialect: Dialect,
+    pub(crate) globals: Globals,
     pub(crate) builtin_docs: HashMap<LspUrl, String>,
     pub(crate) builtin_symbols: HashMap<String, LspUrl>,
 }
@@ -97,16 +99,17 @@ impl Context {
         print_non_none: bool,
         prelude: &[PathBuf],
         module: bool,
+        dialect: Dialect,
+        globals: Globals,
     ) -> anyhow::Result<Self> {
-        let globals = globals();
         let prelude: Vec<_> = prelude
             .iter()
             .map(|x| {
                 let env = Module::new();
                 {
                     let mut eval = Evaluator::new(&env);
-                    let module = AstModule::parse_file(x, &dialect())
-                        .map_err(starlark::Error::into_anyhow)?;
+                    let module =
+                        AstModule::parse_file(x, &dialect).map_err(starlark::Error::into_anyhow)?;
                     eval.eval_module(module, &globals)
                         .map_err(starlark::Error::into_anyhow)?;
                 }
@@ -136,6 +139,8 @@ impl Context {
             print_non_none,
             prelude,
             module,
+            dialect,
+            globals,
             builtin_docs,
             builtin_symbols,
         })
@@ -205,7 +210,7 @@ impl Context {
         let file = "expression";
         Self::err(
             file,
-            AstModule::parse(file, content, &dialect())
+            AstModule::parse(file, content, &self.dialect)
                 .map(|module| self.go(file, module))
                 .map_err(Into::into),
         )
@@ -228,7 +233,7 @@ impl Context {
     ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
         Self::err(
             filename,
-            AstModule::parse(filename, content, &dialect())
+            AstModule::parse(filename, content, &self.dialect)
                 .map(|module| self.go(filename, module))
                 .map_err(Into::into),
         )
@@ -245,10 +250,9 @@ impl Context {
         };
         let mut eval = Evaluator::new(module);
         eval.enable_terminal_breakpoint_console();
-        let globals = globals();
         Self::err(
             file,
-            eval.eval_module(ast, &globals)
+            eval.eval_module(ast, &self.globals)
                 .map(|v| {
                     if self.print_non_none && !v.is_none() {
                         println!("{}", v);
@@ -375,12 +379,4 @@ impl LspContext for Context {
     fn get_environment(&self, _uri: &LspUrl) -> DocModule {
         DocModule::default()
     }
-}
-
-pub(crate) fn globals() -> Globals {
-    Globals::extended_internal()
-}
-
-pub(crate) fn dialect() -> Dialect {
-    Dialect::Extended
 }

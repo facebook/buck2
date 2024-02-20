@@ -43,6 +43,7 @@ use starlark::environment::Globals;
 use starlark::errors::EvalMessage;
 use starlark::errors::EvalSeverity;
 use starlark::read_line::ReadLine;
+use starlark::syntax::Dialect;
 use walkdir::WalkDir;
 
 use crate::eval::ContextMode;
@@ -127,6 +128,13 @@ struct Args {
     evaluate: Vec<String>,
 
     #[arg(
+        long = "dialect",
+        help = "Dialect to use for features and globals.",
+        default_value = "extended"
+    )]
+    dialect: ArgsDialect,
+
+    #[arg(
         id = "files",
         value_name = "FILE",
         help = "Files to evaluate.",
@@ -146,6 +154,12 @@ enum ArgsDoc {
     Lsp,
     Markdown,
     Code,
+}
+
+#[derive(ValueEnum, Copy, Clone, Dupe, Debug, PartialEq, Eq)]
+enum ArgsDialect {
+    Standard,
+    Extended,
 }
 
 // Treat directories as things to recursively walk for .<extension> files,
@@ -256,8 +270,14 @@ fn main() -> anyhow::Result<()> {
 
     let args = argfile::expand_args(argfile::parse_fromfile, argfile::PREFIX)?;
     let args: Args = Args::parse_from(args);
+
+    let (dialect, globals) = match args.dialect {
+        ArgsDialect::Standard => (Dialect::Standard, Globals::standard()),
+        ArgsDialect::Extended => (Dialect::Extended, Globals::extended_internal()),
+    };
+
     if args.dap {
-        dap::server();
+        dap::server(dialect, globals);
     } else {
         let is_interactive = args.evaluate.is_empty() && args.files.is_empty();
 
@@ -271,7 +291,14 @@ fn main() -> anyhow::Result<()> {
         // TODO: Remove this when extracting the Bazel binary to its own
         // repository, after the LspContext interface stabilizes.
         if args.bazel {
-            bazel::main(args.lsp, print_non_none, is_interactive, &prelude)?;
+            bazel::main(
+                args.lsp,
+                print_non_none,
+                is_interactive,
+                &prelude,
+                dialect,
+                globals,
+            )?;
             return Ok(());
         }
 
@@ -284,6 +311,8 @@ fn main() -> anyhow::Result<()> {
             print_non_none,
             &prelude,
             is_interactive,
+            dialect,
+            globals,
         )?;
 
         if args.lsp {

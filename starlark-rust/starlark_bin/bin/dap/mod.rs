@@ -32,12 +32,11 @@ use starlark::debug::resolve_breakpoints;
 use starlark::debug::DapAdapter;
 use starlark::debug::DapAdapterClient;
 use starlark::debug::DapAdapterEvalHook;
+use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
-
-use crate::eval::dialect;
-use crate::eval::globals;
+use starlark::syntax::Dialect;
 
 mod library;
 
@@ -47,6 +46,8 @@ struct Backend {
     eval_wrapper: Mutex<Option<Box<dyn DapAdapterEvalHook>>>,
     client: Client,
     file: Mutex<Option<String>>,
+    dialect: Dialect,
+    globals: Globals,
 }
 
 impl DapAdapterClient for Client {
@@ -62,26 +63,20 @@ impl DapAdapterClient for Client {
     }
 }
 
-fn get_ast(source: &str) -> anyhow::Result<Arc<AstModule>> {
-    Ok(Arc::new(
-        AstModule::parse_file(Path::new(source), &dialect())
-            .map_err(starlark::Error::into_anyhow)?,
-    ))
-}
-
 impl Backend {
     fn execute(&self, path: &str) {
         let client = self.client.dupe();
         let client2 = self.client.dupe();
         let wrapper = self.eval_wrapper.lock().unwrap().take().unwrap();
         let path = PathBuf::from(path);
+        let dialect = self.dialect.clone();
+        let globals = self.globals.dupe();
 
         let go = move || -> anyhow::Result<String> {
             client.log(&format!("EVALUATION PREPARE: {}", path.display()));
             let ast =
-                AstModule::parse_file(&path, &dialect()).map_err(starlark::Error::into_anyhow)?;
+                AstModule::parse_file(&path, &dialect).map_err(starlark::Error::into_anyhow)?;
             let module = Module::new();
-            let globals = globals();
             let mut eval = Evaluator::new(&module);
             wrapper.add_dap_hooks(&mut eval);
 
@@ -116,6 +111,13 @@ impl Backend {
             client2.event_terminated(None);
         });
     }
+
+    fn get_ast(&self, source: &str) -> anyhow::Result<Arc<AstModule>> {
+        Ok(Arc::new(
+            AstModule::parse_file(Path::new(source), &self.dialect)
+                .map_err(starlark::Error::into_anyhow)?,
+        ))
+    }
 }
 
 impl DebugServer for Backend {
@@ -129,7 +131,7 @@ impl DebugServer for Backend {
         x: SetBreakpointsArguments,
     ) -> anyhow::Result<SetBreakpointsResponseBody> {
         let source = x.source.path.as_ref().unwrap();
-        let resolved = resolve_breakpoints(&x, &*get_ast(source)?)?;
+        let resolved = resolve_breakpoints(&x, &*self.get_ast(source)?)?;
         self.adapter.set_breakpoints(source, &resolved)?;
         Ok(resolved.to_response())
     }
@@ -221,7 +223,7 @@ impl DebugServer for Backend {
     }
 }
 
-pub(crate) fn server() {
+pub(crate) fn server(dialect: Dialect, globals: Globals) {
     DapService::run(|client| {
         let (adapter, wrapper) = prepare_dap_adapter(Box::new(client.dupe()));
         Backend {
@@ -229,6 +231,8 @@ pub(crate) fn server() {
             eval_wrapper: Mutex::new(Some(Box::new(wrapper))),
             client,
             file: Default::default(),
+            dialect,
+            globals,
         }
     })
 }
