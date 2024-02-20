@@ -203,6 +203,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Uses Apple's codesign command which might not be in RE
     "uses_codesign",
+
+    # Uses jf which is not on RE
+    "uses_jf",
 ]}
 
 def genrule_labels_require_local(labels):
