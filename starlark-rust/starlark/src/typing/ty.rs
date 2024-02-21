@@ -222,7 +222,8 @@ impl Ty {
         Ty::basic(TyBasic::Any)
     }
 
-    pub(crate) const fn never() -> Self {
+    /// Never type: can hold no value.
+    pub const fn never() -> Self {
         Ty {
             alternatives: SmallArcVec1::empty(),
         }
