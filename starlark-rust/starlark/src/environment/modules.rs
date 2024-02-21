@@ -67,6 +67,8 @@ use crate::values::Value;
 enum ModuleError {
     #[error("Retained memory profiling is not enabled")]
     RetainedMemoryProfileNotEnabled,
+    #[error("Extra value already set to a value of type `{}`", .0)]
+    ExtraValueAlreadySet(&'static str),
 }
 
 /// The result of freezing a [`Module`], making it and its contained values immutable.
@@ -543,6 +545,15 @@ impl Module {
         // Cast lifetime.
         let v = unsafe { transmute!(Value, Value, v) };
         self.extra_value.set(Some(v));
+    }
+
+    /// Set extra value, but fail if it's already set.
+    pub fn set_extra_value_no_overwrite<'v>(&'v self, v: Value<'v>) -> anyhow::Result<()> {
+        if let Some(existing) = self.extra_value() {
+            return Err(ModuleError::ExtraValueAlreadySet(existing.get_type()).into());
+        }
+        self.set_extra_value(v);
+        Ok(())
     }
 
     /// Field that can be used for any purpose you want.
