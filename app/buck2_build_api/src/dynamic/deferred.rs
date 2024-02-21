@@ -36,7 +36,6 @@ use starlark::values::dict::Dict;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTypedComplex;
 
@@ -366,8 +365,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     Ok(DynamicLambdaCtxData {
         attributes: attributes.to_value(),
-        lambda: StarlarkCallable::unpack_value_err(lambda.to_value())
-            .context("incorrect lambda type (internal error)")?,
+        lambda: lambda.to_callable(),
         plugins,
         outputs: heap.alloc(outputs),
         artifacts: heap.alloc(artifacts),

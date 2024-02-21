@@ -11,6 +11,7 @@ use allocative::Allocative;
 use starlark::any::ProvidesStaticType;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
+use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -51,7 +52,7 @@ pub struct DynamicLambdaParams<'v> {
 pub struct FrozenDynamicLambdaParams {
     pub(crate) attributes: FrozenValue,
     pub(crate) plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins>,
-    pub(crate) lambda: FrozenValue,
+    pub(crate) lambda: FrozenStarlarkCallable,
 }
 
 #[starlark_value(type = "AttributesPluginLambda")]
@@ -69,7 +70,7 @@ impl<'v> Freeze for DynamicLambdaParams<'v> {
         Ok(FrozenDynamicLambdaParams {
             attributes: self.attributes.get().freeze(freezer)?,
             plugins: self.plugins.freeze(freezer)?,
-            lambda: self.lambda.0.freeze(freezer)?,
+            lambda: self.lambda.freeze(freezer)?,
         })
     }
 }
