@@ -129,9 +129,6 @@ LinkableGraph = provider(fields = {
 # dynamically, at runtime (e.g. via `dlopen`).
 DlopenableLibraryInfo = provider(fields = {})
 
-# Used to tag a rule as providing only a shared native library that may be loaded at runtime
-SharedOnlyLibraryInfo = provider(fields = {})
-
 def _get_required_outputs_for_linkage(linkage: Linkage) -> list[LibOutputStyle]:
     if linkage == Linkage("shared"):
         return [LibOutputStyle("shared_lib")]

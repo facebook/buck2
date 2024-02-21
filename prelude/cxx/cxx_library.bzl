@@ -87,7 +87,6 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "DlopenableLibraryInfo",
     "LinkableRootInfo",
-    "SharedOnlyLibraryInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -380,10 +379,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     sub_targets = {}
     providers = []
-
-    # Mark the library as shared only if preferred linkage is set
-    if preferred_linkage == Linkage("shared"):
-        providers.append(SharedOnlyLibraryInfo())
 
     if len(ctx.attrs.tests) > 0 and impl_params.generate_providers.preprocessor_for_tests:
         providers.append(
