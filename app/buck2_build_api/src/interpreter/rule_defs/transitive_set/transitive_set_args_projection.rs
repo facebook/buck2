@@ -24,6 +24,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -38,6 +39,7 @@ use starlark::values::ValueOf;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -101,6 +103,10 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
             List(&'v [Value<'v>]),
         }
         impl<'v> CommandLineArgLike for Impl<'v> {
+            fn register_me(&self) {
+                // No need because this is not proper implementation.
+            }
+
             fn add_to_command_line(
                 &self,
                 cli: &mut dyn CommandLineBuilder,
@@ -204,6 +210,10 @@ where
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen<V> {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(TransitiveSetArgsProjection::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         builder: &mut dyn CommandLineBuilder,

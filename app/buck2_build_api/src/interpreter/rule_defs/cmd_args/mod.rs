@@ -9,6 +9,7 @@
 
 pub mod arg_builder;
 mod builder;
+pub mod command_line_arg_like_type;
 mod options;
 pub(crate) mod regex;
 pub(crate) mod shlex_quote;

@@ -27,10 +27,13 @@ use buck2_interpreter::types::project_root::ProjectRoot as StarlarkProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
+use starlark::typing::Ty;
 use starlark::values::string::StarlarkStr;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 
 pub trait CommandLineArtifactVisitor {
@@ -85,6 +88,9 @@ pub trait WriteToFileMacroVisitor {
 ///
 /// Certain operations on `CommandLineBuilder` can fail, so propagate those upward
 pub trait CommandLineArgLike {
+    /// Call `command_line_arg_like_impl!` to register the type with the interpreter typechecker.
+    fn register_me(&self);
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -109,6 +115,10 @@ unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn CommandLineArgLike {
 }
 
 impl CommandLineArgLike for &str {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(Ty::string());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -131,6 +141,10 @@ impl CommandLineArgLike for &str {
 }
 
 impl CommandLineArgLike for StarlarkStr {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(StarlarkStr::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -153,6 +167,10 @@ impl CommandLineArgLike for StarlarkStr {
 }
 
 impl CommandLineArgLike for StarlarkTargetLabel {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(StarlarkTargetLabel::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -175,6 +193,10 @@ impl CommandLineArgLike for StarlarkTargetLabel {
 }
 
 impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(StarlarkConfiguredProvidersLabel::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -197,6 +219,10 @@ impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
 }
 
 impl CommandLineArgLike for CellRoot {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(CellRoot::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -219,6 +245,10 @@ impl CommandLineArgLike for CellRoot {
 }
 
 impl CommandLineArgLike for StarlarkProjectRoot {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(StarlarkProjectRoot::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,

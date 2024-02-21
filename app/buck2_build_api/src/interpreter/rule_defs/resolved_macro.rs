@@ -22,6 +22,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
 use starlark::values::FrozenRef;
 use starlark::values::NoSerialize;
@@ -33,6 +34,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -217,6 +219,10 @@ impl ResolvedStringWithMacros {
 }
 
 impl CommandLineArgLike for ResolvedStringWithMacros {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(ResolvedStringWithMacros::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cmdline_builder: &mut dyn CommandLineBuilder,

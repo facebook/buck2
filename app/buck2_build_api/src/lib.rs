@@ -12,6 +12,7 @@
 #![feature(iter_order_by)]
 #![feature(try_blocks)]
 #![feature(once_cell_try)]
+#![feature(used_with_arg)]
 
 #[macro_use]
 extern crate starlark;

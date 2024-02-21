@@ -12,12 +12,14 @@ use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::project_root::ProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use dupe::Dupe;
 use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_ty;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
@@ -26,18 +28,12 @@ pub struct ValueAsCommandLineLike<'v>(pub &'v dyn CommandLineArgLike);
 
 impl<'v> StarlarkTypeRepr for ValueAsCommandLineLike<'v> {
     fn starlark_type_repr() -> Ty {
-        Ty::any()
+        command_line_arg_like_ty().dupe()
     }
 }
 
 impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
     fn expected() -> String {
-        // TODO(nga): implement one of two solutions to this.
-        //   1. Listing all the types in repr, but that is somewhat hard to implement,
-        //   because types live in at least two crates
-        //   including `buck2_action_impl` which is not a dependency of `buck2_build_api`.
-        //   But if we do, that'd help with documentation and type checking.
-        //   2. Implement abstract starlark type for command line like.
         "a value implementing CommandLineArgLike (str, Artifact, RunInfo, etc)".to_owned()
     }
 

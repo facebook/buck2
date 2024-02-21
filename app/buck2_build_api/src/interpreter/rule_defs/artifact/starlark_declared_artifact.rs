@@ -31,6 +31,7 @@ use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
 use starlark::values::list::ListOf;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -52,6 +53,7 @@ use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -157,6 +159,10 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
 }
 
 impl CommandLineArgLike for StarlarkDeclaredArtifact {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(StarlarkDeclaredArtifact::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         _cli: &mut dyn CommandLineBuilder,

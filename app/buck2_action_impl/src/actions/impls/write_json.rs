@@ -29,6 +29,7 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::command_line_arg_like_impl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -48,6 +49,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::starlark_complex_value;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -266,6 +268,10 @@ where
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(WriteJsonCommandLineArg::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         builder: &mut dyn CommandLineBuilder,

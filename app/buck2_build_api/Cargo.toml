@@ -22,6 +22,7 @@ indexmap = { workspace = true }
 internment = { workspace = true }
 inventory = { workspace = true }
 itertools = { workspace = true }
+linkme = { workspace = true }
 once_cell = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }

@@ -61,6 +61,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsRef;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsTrait;
@@ -181,6 +182,10 @@ impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
 }
 
 impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -457,6 +462,10 @@ impl<'v> AllocValue<'v> for StarlarkCmdArgs<'v> {
 }
 
 impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
@@ -482,6 +491,10 @@ impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
 }
 
 impl CommandLineArgLike for FrozenStarlarkCmdArgs {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(FrozenStarlarkCmdArgs::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,

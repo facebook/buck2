@@ -16,12 +16,14 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -56,6 +58,10 @@ fn run_info_creator(globals: &mut GlobalsBuilder) {
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(RunInfo::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,

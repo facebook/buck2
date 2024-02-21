@@ -13,6 +13,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::typing::Ty;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -22,6 +23,7 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueLike;
 
 use super::TaggedValueGen;
+use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -71,6 +73,10 @@ where
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
+    fn register_me(&self) {
+        command_line_arg_like_impl!(TaggedCommandLine::starlark_type_repr());
+    }
+
     fn add_to_command_line(
         &self,
         cli: &mut dyn CommandLineBuilder,
