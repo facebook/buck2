@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:buck2_compatibility.bzl", "check_buck2_compatibility")
+load("@prelude//:buck2_compatibility.bzl", "BUCK2_COMPATIBILITY_ATTRIB_NAME", "BUCK2_COMPATIBILITY_ATTRIB_TYPE", "check_buck2_compatibility")
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 load("@prelude//decls/common.bzl", "prelude_rule")
 load("@prelude//is_full_meta_repo.bzl", "is_full_meta_repo")
@@ -36,6 +36,9 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
         for toolchain_attr in ("_apple_toolchain", "_cxx_toolchain", "_go_toolchain"):
             if toolchain_attr in attributes:
                 fat_platform_compatible = False
+
+    #Add buck2_compatibility attribute to all rules
+    extra_attrs[BUCK2_COMPATIBILITY_ATTRIB_NAME] = BUCK2_COMPATIBILITY_ATTRIB_TYPE
 
     # Fat platforms is an idea specific to our toolchains, so doesn't apply to
     # open source. Ideally this restriction would be done at the toolchain level.
