@@ -30,6 +30,8 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
+use crate::values::Freeze;
+use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -89,6 +91,37 @@ impl<'v> UnpackValue<'v> for StarlarkCallable<'v> {
 impl<'v> AllocValue<'v> for StarlarkCallable<'v> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
         self.0
+    }
+}
+
+/// Marker for a callable value.
+#[derive(Debug, Copy, Clone, Dupe, Trace, Allocative)]
+pub struct FrozenStarlarkCallable(pub FrozenValue);
+
+impl StarlarkTypeRepr for FrozenStarlarkCallable {
+    fn starlark_type_repr() -> Ty {
+        StarlarkCallable::starlark_type_repr()
+    }
+}
+
+impl AllocFrozenValue for FrozenStarlarkCallable {
+    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
+        self.0
+    }
+}
+
+impl<'v> Freeze for StarlarkCallable<'v> {
+    type Frozen = FrozenStarlarkCallable;
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        Ok(FrozenStarlarkCallable(self.0.freeze(freezer)?))
+    }
+}
+
+impl FrozenStarlarkCallable {
+    /// Convert to `Value`-version.
+    #[inline]
+    pub fn to_callable<'v>(self) -> StarlarkCallable<'v> {
+        StarlarkCallable(self.0.to_value())
     }
 }
 
