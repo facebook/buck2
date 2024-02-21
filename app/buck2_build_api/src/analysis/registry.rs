@@ -33,6 +33,7 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::starlark_value;
+use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
@@ -390,7 +391,7 @@ pub(crate) struct AnalysisValueStorage<'v> {
 #[display(fmt = "{:?}", "self")]
 pub(crate) struct FrozenAnalysisValueStorage {
     values: SmallMap<DeferredId, FrozenValue>,
-    error_handlers: SmallMap<DeferredId, FrozenValue>,
+    error_handlers: SmallMap<DeferredId, FrozenStarlarkCallable>,
 }
 
 impl<'v> AllocValue<'v> for AnalysisValueStorage<'v> {
@@ -432,7 +433,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .collect::<anyhow::Result<_>>()?,
             error_handlers: error_handlers
                 .into_iter()
-                .map(|(k, v)| Ok((k, v.0.freeze(freezer)?)))
+                .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
                 .collect::<anyhow::Result<_>>()?,
         })
     }
@@ -523,6 +524,6 @@ impl AnalysisValueFetcher {
         let Some(value) = storage.error_handlers.get(&id) else {
             return Ok(None);
         };
-        unsafe { Ok(Some(OwnedFrozenValue::new(heap_ref.dupe(), *value))) }
+        unsafe { Ok(Some(OwnedFrozenValue::new(heap_ref.dupe(), value.0))) }
     }
 }
