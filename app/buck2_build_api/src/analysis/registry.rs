@@ -22,27 +22,40 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::Context;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenHeapRef;
+use starlark::values::FrozenValue;
 use starlark::values::Heap;
+use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark_map::small_map::SmallMap;
 
 use crate::actions::registry::ActionsRegistry;
 use crate::actions::UnregisteredAction;
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
+use crate::analysis::extra_v::AnalysisExtraValue;
+use crate::analysis::extra_v::FrozenAnalysisExtraValue;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
@@ -54,6 +67,12 @@ use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+
+#[derive(Debug, buck2_error::Error)]
+enum RegistryError {
+    #[error("analysis_value_storage is already set (internal error)")]
+    AnalysisValueStorageAlreadySet,
+}
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
@@ -300,7 +319,7 @@ impl<'v> AnalysisRegistry<'v> {
             short_path_assertions: _,
         } = self;
 
-        analysis_value_storage.write_to_module(env);
+        analysis_value_storage.write_to_module(env)?;
         Ok(move |env: Module| {
             let frozen_env = env.freeze()?;
             let analysis_value_fetcher = AnalysisValueFetcher {
@@ -348,10 +367,36 @@ impl<'v> ArtifactDeclaration<'v> {
 ///
 /// At the end of impl function execution, `write_to_module` should be called to ensure
 /// that the values are written the top level of the `Module`.
-#[derive(Debug, Allocative)]
-struct AnalysisValueStorage<'v> {
-    values: HashMap<DeferredId, Value<'v>>,
-    error_handlers: HashMap<DeferredId, StarlarkCallable<'v>>,
+#[derive(
+    Debug,
+    Allocative,
+    derive_more::Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
+#[display(fmt = "{:?}", "self")]
+pub(crate) struct AnalysisValueStorage<'v> {
+    values: SmallMap<DeferredId, Value<'v>>,
+    error_handlers: SmallMap<DeferredId, StarlarkCallable<'v>>,
+}
+
+#[derive(
+    Debug,
+    Allocative,
+    derive_more::Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
+#[display(fmt = "{:?}", "self")]
+pub(crate) struct FrozenAnalysisValueStorage {
+    values: SmallMap<DeferredId, FrozenValue>,
+    error_handlers: SmallMap<DeferredId, FrozenValue>,
+}
+
+impl<'v> AllocValue<'v> for AnalysisValueStorage<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex(self)
+    }
 }
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
@@ -371,6 +416,36 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
     }
 }
 
+impl<'v> Freeze for AnalysisValueStorage<'v> {
+    type Frozen = FrozenAnalysisValueStorage;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        let AnalysisValueStorage {
+            values,
+            error_handlers,
+        } = self;
+
+        Ok(FrozenAnalysisValueStorage {
+            values: values
+                .into_iter()
+                .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
+                .collect::<anyhow::Result<_>>()?,
+            error_handlers: error_handlers
+                .into_iter()
+                .map(|(k, v)| Ok((k, v.0.freeze(freezer)?)))
+                .collect::<anyhow::Result<_>>()?,
+        })
+    }
+}
+
+#[starlark_value(type = "AnalysisValueStorage")]
+impl<'v> StarlarkValue<'v> for AnalysisValueStorage<'v> {}
+
+#[starlark_value(type = "AnalysisValueStorage")]
+impl<'v> StarlarkValue<'v> for FrozenAnalysisValueStorage {
+    type Canonical = AnalysisValueStorage<'v>;
+}
+
 /// Simple fetcher that fetches the values written in `AnalysisValueStorage::write_to_module`
 ///
 /// These values are pulled from the `FrozenModule` that results from `env.freeze()`.
@@ -384,22 +459,21 @@ pub struct AnalysisValueFetcher {
 impl<'v> AnalysisValueStorage<'v> {
     fn new() -> Self {
         Self {
-            values: HashMap::new(),
-            error_handlers: HashMap::new(),
+            values: SmallMap::new(),
+            error_handlers: SmallMap::new(),
         }
     }
 
-    /// Write all of the values to `module` using an internal name
-    fn write_to_module(&self, module: &'v Module) {
-        for (id, v) in self.values.iter() {
-            let starlark_key = format!("$action_key_{}", id);
-            module.set(&starlark_key, *v);
+    /// Write self to `module` extra value.
+    fn write_to_module(self, module: &'v Module) -> anyhow::Result<()> {
+        let extra_v = AnalysisExtraValue::get_or_init(module)?;
+        let res = extra_v
+            .analysis_value_storage
+            .set(module.heap().alloc_typed(self));
+        if res.is_err() {
+            return Err(RegistryError::AnalysisValueStorageAlreadySet.into());
         }
-
-        for (id, v) in self.error_handlers.iter() {
-            let starlark_key = format!("$error_handler_for_action_key_{}", id);
-            module.set(&starlark_key, v.0);
-        }
+        Ok(())
     }
 
     /// Add a value to the internal hash map that maps ids -> values
@@ -414,17 +488,28 @@ impl<'v> AnalysisValueStorage<'v> {
 }
 
 impl AnalysisValueFetcher {
-    /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
-    pub(crate) fn get(&self, id: DeferredId) -> anyhow::Result<Option<OwnedFrozenValue>> {
+    fn extra_value(&self) -> anyhow::Result<Option<(&FrozenAnalysisValueStorage, &FrozenHeapRef)>> {
         match &self.frozen_module {
             None => Ok(None),
             Some(module) => {
-                let starlark_key = format!("$action_key_{}", id);
-                // This return `Err` is the symbol is private.
-                // It is never private, but error is better than panic.
-                module.get_option(&starlark_key)
+                let analysis_extra_value = FrozenAnalysisExtraValue::get(module)?
+                    .analysis_value_storage
+                    .context("analysis_value_storage not set (internal error)")?
+                    .as_ref();
+                Ok(Some((analysis_extra_value, module.frozen_heap())))
             }
         }
+    }
+
+    /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
+    pub(crate) fn get(&self, id: DeferredId) -> anyhow::Result<Option<OwnedFrozenValue>> {
+        let Some((storage, heap_ref)) = self.extra_value()? else {
+            return Ok(None);
+        };
+        let Some(value) = storage.values.get(&id) else {
+            return Ok(None);
+        };
+        unsafe { Ok(Some(OwnedFrozenValue::new(heap_ref.dupe(), *value))) }
     }
 
     /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
@@ -432,14 +517,12 @@ impl AnalysisValueFetcher {
         &self,
         id: DeferredId,
     ) -> anyhow::Result<Option<OwnedFrozenValue>> {
-        match &self.frozen_module {
-            None => Ok(None),
-            Some(module) => {
-                let starlark_key = format!("$error_handler_for_action_key_{}", id);
-                // This return `Err` is the symbol is private.
-                // It is never private, but error is better than panic.
-                module.get_option(&starlark_key)
-            }
-        }
+        let Some((storage, heap_ref)) = self.extra_value()? else {
+            return Ok(None);
+        };
+        let Some(value) = storage.error_handlers.get(&id) else {
+            return Ok(None);
+        };
+        unsafe { Ok(Some(OwnedFrozenValue::new(heap_ref.dupe(), *value))) }
     }
 }
