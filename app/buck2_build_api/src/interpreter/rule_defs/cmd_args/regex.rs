@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_interpreter::types::regex::BuckStarlarkRegex;
 use dupe::Dupe;
 use serde::Serialize;
@@ -62,10 +61,9 @@ impl<'v> Freeze for CmdArgsRegex<'v> {
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(match self {
             Self::Str(s) => FrozenCmdArgsRegex::Str(s.freeze(freezer)?),
-            Self::Regex(r) => FrozenCmdArgsRegex::Regex(
-                FrozenValueTyped::new(r.to_value().freeze(freezer)?)
-                    .context("frozen to the wrong type (internal error)")?,
-            ),
+            Self::Regex(r) => {
+                FrozenCmdArgsRegex::Regex(FrozenValueTyped::new_err(r.to_value().freeze(freezer)?)?)
+            }
         })
     }
 }

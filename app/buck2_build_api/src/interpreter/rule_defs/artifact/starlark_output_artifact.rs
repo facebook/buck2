@@ -124,7 +124,7 @@ impl<'v> StarlarkOutputArtifact<'v> {
 
 impl FrozenStarlarkOutputArtifact {
     pub(crate) fn inner(&self) -> FrozenValueTyped<StarlarkArtifact> {
-        FrozenValueTyped::new(self.declared_artifact).unwrap()
+        FrozenValueTyped::new_err(self.declared_artifact).unwrap()
     }
 
     pub fn artifact(&self) -> OutputArtifact {

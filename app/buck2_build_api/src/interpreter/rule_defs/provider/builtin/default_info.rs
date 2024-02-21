@@ -168,7 +168,7 @@ impl FrozenDefaultInfo {
             .context("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
-                FrozenValueTyped::new(v).context(
+                FrozenValueTyped::new_err(v).context(
                     "Values inside of a frozen provider should be frozen provider collection",
                 )
             })

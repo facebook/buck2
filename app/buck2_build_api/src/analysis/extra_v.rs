@@ -80,15 +80,13 @@ impl<'v> Freeze for AnalysisExtraValue<'v> {
             provider_collection
                 .into_inner()
                 .try_map(|provider_collection| {
-                    FrozenValueTyped::new(provider_collection.to_value().freeze(freezer)?)
-                        .context("provider collection froze to wrong type (internal error)")
+                    FrozenValueTyped::new_err(provider_collection.to_value().freeze(freezer)?)
                 })?;
         let analysis_value_storage =
             analysis_value_storage
                 .into_inner()
                 .try_map(|analysis_value_storage| {
-                    FrozenValueTyped::new(analysis_value_storage.to_value().freeze(freezer)?)
-                        .context("analysis value storage froze to wrong type (internal error)")
+                    FrozenValueTyped::new_err(analysis_value_storage.to_value().freeze(freezer)?)
                 })?;
         Ok(FrozenAnalysisExtraValue {
             provider_collection,
