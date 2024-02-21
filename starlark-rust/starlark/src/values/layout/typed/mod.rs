@@ -224,6 +224,13 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         Some(FrozenValueTyped(value, marker::PhantomData))
     }
 
+    /// Downcast.
+    #[inline]
+    pub fn new_err(value: FrozenValue) -> anyhow::Result<FrozenValueTyped<'v, T>> {
+        value.downcast_ref_err::<T>()?;
+        Ok(FrozenValueTyped(value, marker::PhantomData))
+    }
+
     #[inline]
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
         repr: &'v AValueRepr<A>,
