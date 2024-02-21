@@ -12,6 +12,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_build_api::analysis::extra_v::AnalysisExtraValue;
+use buck2_build_api::analysis::extra_v::FrozenAnalysisExtraValue;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::deferred::types::DeferredTable;
@@ -59,6 +61,8 @@ enum AnalysisError {
     MissingQuery(String),
     #[error("required dependency `{0}` was not found")]
     MissingDep(ConfiguredProvidersLabel),
+    #[error("provider_collection already set (internal error)")]
+    ProviderCollectionAlreadySet,
 }
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
@@ -318,8 +322,15 @@ async fn run_analysis_with_env_underlying(
 
     // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
     let res_typed = ProviderCollection::try_from_value(list_res)?;
-    let res = env.heap().alloc(res_typed);
-    env.set_extra_value_no_overwrite(res)?;
+    {
+        let extra_v = AnalysisExtraValue::get_or_init(&env)?;
+        if extra_v.provider_collection.get().is_some() {
+            return Err(AnalysisError::ProviderCollectionAlreadySet.into());
+        }
+        extra_v
+            .provider_collection
+            .get_or_init(|| env.heap().alloc_typed(res_typed));
+    }
 
     // Pull the ctx object back out, and steal ctx.action's state back
     let analysis_registry = ctx.take_state();
@@ -332,11 +343,13 @@ async fn run_analysis_with_env_underlying(
 
     let profile_data = profiler_opt.map(|p| p.finish()).transpose()?.map(Arc::new);
 
-    let res = frozen_env
-        .owned_extra_value()
-        .context("extra_value not set (internal error)")?;
-    let provider_collection = FrozenProviderCollectionValue::try_from_value(res)
-        .expect("just created this, this shouldn't happen");
+    let extra_v = FrozenAnalysisExtraValue::get(&frozen_env)?;
+    let provider_collection = extra_v.try_map(|extra_v| {
+        extra_v
+            .provider_collection
+            .context("provider_collection must be set (internal error)")
+    })?;
+    let provider_collection = FrozenProviderCollectionValue::from_value(provider_collection);
 
     // this could look nicer if we had the entire analysis be a deferred
     let deferred = DeferredTable::new(deferreds.take_result()?);
