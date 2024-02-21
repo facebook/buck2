@@ -9,6 +9,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle")
+load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleType")
 load(":apple_info_plist.bzl", "process_info_plist")
 
 def apple_xcuitest_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
@@ -27,7 +28,17 @@ def apple_xcuitest_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         swift_stdlib_args = None,
     )
 
-    return [DefaultInfo(default_output = output_bundle)]
+    return [
+        DefaultInfo(default_output = output_bundle),
+        AppleBundleInfo(
+            bundle = output_bundle,
+            bundle_type = AppleBundleType("default"),
+            binary_name = ctx.attrs.name,
+            contains_watchapp = False,
+            # The test runner binary does not contain Swift
+            skip_copying_swift_stdlib = True,
+        ),
+    ]
 
 def _get_uitest_bundle(ctx: AnalysisContext) -> AppleBundlePart:
     return AppleBundlePart(
