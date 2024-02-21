@@ -346,6 +346,7 @@ message CommonBuildOptions {
   bool unstable_print_build_report = 4242000;
   string unstable_build_report_filename = 4242003;
   bool unstable_include_failures_build_report = 4242004;
+  bool unstable_include_package_project_relative_paths = 4242005;
 }
 
 message BuildRequest {

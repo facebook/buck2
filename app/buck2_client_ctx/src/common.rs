@@ -354,21 +354,31 @@ impl CommonBuildConfigurationOptions {
 pub struct BuildReportOption {
     /// Fill out the failures in build report as it was done by default in buck1.
     fill_out_failures: bool,
+
+    /// Include package relative paths in the output.
+    include_package_project_relative_paths: bool,
 }
 
 impl FromStr for BuildReportOption {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fill_out_failures = false;
+        let mut include_package_project_relative_paths = false;
+
         if s.to_lowercase() == "fill-out-failures" {
             fill_out_failures = true;
+        } else if s.to_lowercase() == "package-project-relative-paths" {
+            include_package_project_relative_paths = true;
         } else {
             warn!(
-                "Incorrect syntax for build report option. Got: `{}` but expected `fill-out-failures`",
+                "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths`",
                 s.to_owned()
             )
         }
-        Ok(BuildReportOption { fill_out_failures })
+        Ok(BuildReportOption {
+            fill_out_failures,
+            include_package_project_relative_paths,
+        })
     }
 }
 
@@ -383,11 +393,19 @@ pub struct CommonBuildOptions {
     #[clap(long = "build-report", value_name = "PATH")]
     build_report: Option<String>,
 
+    /// Comma separated list of build report options.
+    ///
+    /// The following options are supported:
+    ///
+    /// `fill-out-failures`:
+    /// fill out failures the same way Buck1 would.
+    ///
+    /// `package-project-relative-paths`:
+    /// emit the project-relative path of packages for the targets that were built.
     #[clap(
         long = "build-report-options",
         requires = "build-report",
-        value_delimiter = ',',
-        help = "Comma separated list of build report options (currently only supports a single option: fill-out-failures)."
+        value_delimiter = ','
     )]
     build_report_options: Vec<BuildReportOption>,
 
@@ -502,6 +520,10 @@ impl CommonBuildOptions {
             .build_report_options
             .iter()
             .any(|option| option.fill_out_failures);
+        let unstable_include_package_project_relative_paths = self
+            .build_report_options
+            .iter()
+            .any(|option| option.include_package_project_relative_paths);
         let concurrency = self
             .num_threads
             .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
@@ -533,6 +555,7 @@ impl CommonBuildOptions {
             skip_incompatible_targets: self.skip_incompatible_targets,
             materialize_failed_inputs: self.materialize_failed_inputs,
             unstable_include_failures_build_report,
+            unstable_include_package_project_relative_paths,
         }
     }
 }

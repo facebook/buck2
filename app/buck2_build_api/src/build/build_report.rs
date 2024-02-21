@@ -19,6 +19,7 @@ use std::io::BufWriter;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -126,6 +127,10 @@ struct BuildReportEntry {
     /// Errors that could not be associated with a particular configured version of the target,
     /// typically because they happened before configuration.
     errors: Vec<BuildReportError>,
+
+    /// The path to the package where this target is defined, relative to the project root.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    package_project_relative_path: Option<ProjectRelativePathBuf>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -153,11 +158,13 @@ pub struct BuildReportOpts {
     pub print_unconfigured_section: bool,
     pub unstable_include_other_outputs: bool,
     pub unstable_include_failures_build_report: bool,
+    pub unstable_include_package_project_relative_paths: bool,
     pub unstable_build_report_filename: String,
 }
 
 pub struct BuildReportCollector<'a> {
     artifact_fs: &'a ArtifactFs,
+    cell_resolver: &'a CellResolver,
     overall_success: bool,
     include_unconfigured_section: bool,
     include_other_outputs: bool,
@@ -166,21 +173,25 @@ pub struct BuildReportCollector<'a> {
     strings: BTreeMap<String, String>,
     failures: HashMap<EntryLabel, String>,
     include_failures: bool,
+    include_package_project_relative_paths: bool,
 }
 
 impl<'a> BuildReportCollector<'a> {
     pub fn convert(
         trace_id: &TraceId,
         artifact_fs: &'a ArtifactFs,
+        cell_resolver: &'a CellResolver,
         project_root: &ProjectRoot,
         include_unconfigured_section: bool,
         include_other_outputs: bool,
         include_failures: bool,
+        include_package_project_relative_paths: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     ) -> BuildReport {
         let mut this: BuildReportCollector<'_> = Self {
             artifact_fs,
+            cell_resolver,
             overall_success: true,
             include_unconfigured_section,
             include_other_outputs,
@@ -189,6 +200,7 @@ impl<'a> BuildReportCollector<'a> {
             strings: BTreeMap::default(),
             failures: HashMap::default(),
             include_failures,
+            include_package_project_relative_paths,
         };
         let mut entries = HashMap::new();
 
@@ -257,6 +269,16 @@ impl<'a> BuildReportCollector<'a> {
         >,
         errors: &[buck2_error::Error],
     ) -> BuildReportEntry {
+        // NOTE: if we're actually building a thing, then the package path must exist, but be
+        // conservative and don't crash the overall processing if that happens.
+        let package_project_relative_path = if self.include_package_project_relative_paths {
+            self.cell_resolver
+                .resolve_path(target.pkg().as_cell_path())
+                .ok()
+        } else {
+            None
+        };
+
         let mut unconfigured_report = if self.include_unconfigured_section {
             Some(MaybeConfiguredBuildReportEntry::default())
         } else {
@@ -311,6 +333,7 @@ impl<'a> BuildReportCollector<'a> {
             compatible: unconfigured_report,
             configured: configured_reports,
             errors,
+            package_project_relative_path,
         }
     }
 
@@ -514,6 +537,7 @@ fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
 pub fn generate_build_report(
     opts: BuildReportOpts,
     artifact_fs: &ArtifactFs,
+    cell_resolver: &CellResolver,
     project_root: &ProjectRoot,
     cwd: &ProjectRelativePath,
     trace_id: &TraceId,
@@ -523,10 +547,12 @@ pub fn generate_build_report(
     let build_report = BuildReportCollector::convert(
         trace_id,
         artifact_fs,
+        cell_resolver,
         project_root,
         opts.print_unconfigured_section,
         opts.unstable_include_other_outputs,
         opts.unstable_include_failures_build_report,
+        opts.unstable_include_package_project_relative_paths,
         configured,
         other_errors,
     );

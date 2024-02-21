@@ -70,6 +70,10 @@ BuildReportEntry {
     # the way you might expect.
     success: "FAIL" | "SUCCESS,
     outputs: dict[str, list[Path]],
+
+    # The path to the package containing this target, relative to the project
+    # root. This is the source code location for this target.
+    package_project_relative_path: Optional[str]
 }
 
 ConfiguredBuildReportEntry {

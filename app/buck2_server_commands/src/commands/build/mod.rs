@@ -317,12 +317,15 @@ async fn process_build_result(
                 .unwrap_or(false),
             unstable_include_failures_build_report: build_opts
                 .unstable_include_failures_build_report,
+            unstable_include_package_project_relative_paths: build_opts
+                .unstable_include_package_project_relative_paths,
             unstable_build_report_filename: esto.clone(),
         };
 
         Some(generate_build_report(
             build_report_opts,
             &artifact_fs,
+            &cell_resolver,
             fs,
             cwd,
             server_ctx.events().trace_id(),

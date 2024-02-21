@@ -221,12 +221,14 @@ async fn bxl(
             print_unconfigured_section: false,
             unstable_include_other_outputs: false,
             unstable_include_failures_build_report: false,
+            unstable_include_package_project_relative_paths: false,
             unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
         };
 
         Some(generate_build_report(
             build_report_opts,
             &artifact_fs,
+            &cell_resolver,
             server_ctx.project_root(),
             cwd,
             server_ctx.events().trace_id(),
