@@ -173,9 +173,8 @@ mod tests {
         let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
         "foo".add_to_command_line(&mut cli, &mut ctx)?;
-        "bar".to_owned().add_to_command_line(&mut cli, &mut ctx)?;
 
-        assert_eq!(&["foo".to_owned(), "bar".to_owned()], cli.as_slice());
+        assert_eq!(&["foo".to_owned()], cli.as_slice());
         Ok(())
     }
 

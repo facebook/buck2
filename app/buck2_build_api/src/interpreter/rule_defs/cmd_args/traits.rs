@@ -152,28 +152,6 @@ impl CommandLineArgLike for StarlarkStr {
     }
 }
 
-impl CommandLineArgLike for String {
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        _context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
-        cli.push_arg(self.clone());
-        Ok(())
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        false
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
 impl CommandLineArgLike for StarlarkTargetLabel {
     fn add_to_command_line(
         &self,

@@ -1216,7 +1216,7 @@ impl<'a> Execute2RequestExpander<'a> {
 
             match content {
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::Verbatim(v)) => {
-                    v.add_to_command_line(&mut cli, ctx)?;
+                    v.as_str().add_to_command_line(&mut cli, ctx)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                     let arg = cli_args_for_interpolation
