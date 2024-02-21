@@ -44,7 +44,7 @@ enum ExtraValueError {
     Trace
 )]
 #[display(fmt = "{:?}", "self")]
-pub(crate) struct ExtraValue<'v> {
+pub(crate) struct InterpreterExtraValue<'v> {
     /// Set when evaluating `PACKAGE` files.
     pub(crate) package_extra: OnceCell<PackageFileExtra<'v>>,
 }
@@ -64,14 +64,14 @@ pub(crate) struct FrozenExtraValue {
 // TODO(nga): this does not need to be fully starlark_value,
 // but we don't have lighter machinery for that.
 #[starlark_value(type = "ExtraValue")]
-impl<'v> StarlarkValue<'v> for ExtraValue<'v> {}
+impl<'v> StarlarkValue<'v> for InterpreterExtraValue<'v> {}
 
 #[starlark_value(type = "ExtraValue")]
 impl<'v> StarlarkValue<'v> for FrozenExtraValue {
     type Canonical = FrozenExtraValue;
 }
 
-impl<'v> Freeze for ExtraValue<'v> {
+impl<'v> Freeze for InterpreterExtraValue<'v> {
     type Frozen = FrozenExtraValue;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
@@ -85,8 +85,8 @@ impl<'v> Freeze for ExtraValue<'v> {
     }
 }
 
-impl<'v> ExtraValue<'v> {
-    pub(crate) fn get(module: &'v Module) -> anyhow::Result<&'v ExtraValue<'v>> {
+impl<'v> InterpreterExtraValue<'v> {
+    pub(crate) fn get(module: &'v Module) -> anyhow::Result<&'v InterpreterExtraValue<'v>> {
         Ok(module
             .extra_value()
             .ok_or(ExtraValueError::Missing)?

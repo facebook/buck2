@@ -58,7 +58,7 @@ use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
-use crate::interpreter::extra_value::ExtraValue;
+use crate::interpreter::extra_value::InterpreterExtraValue;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
@@ -311,7 +311,9 @@ impl InterpreterForCell {
             }
         }
 
-        env.set_extra_value_no_overwrite(env.heap().alloc_complex(ExtraValue::default()))?;
+        env.set_extra_value_no_overwrite(
+            env.heap().alloc_complex(InterpreterExtraValue::default()),
+        )?;
 
         Ok(env)
     }
@@ -602,7 +604,11 @@ impl InterpreterForCell {
             .additional;
 
         let extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>> =
-            if ExtraValue::get(&env)?.package_extra.get().is_some() {
+            if InterpreterExtraValue::get(&env)?
+                .package_extra
+                .get()
+                .is_some()
+            {
                 // Only freeze if there's something to freeze, otherwise we will needlessly freeze
                 // globals. TODO(nga): add API to only freeze extra.
                 let env = env.freeze()?;

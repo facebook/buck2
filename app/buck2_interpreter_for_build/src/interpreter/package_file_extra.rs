@@ -32,8 +32,8 @@ use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::interpreter::extra_value::ExtraValue;
 use crate::interpreter::extra_value::FrozenExtraValue;
+use crate::interpreter::extra_value::InterpreterExtraValue;
 use crate::super_package::package_value::FrozenStarlarkPackageValue;
 use crate::super_package::package_value::StarlarkPackageValue;
 
@@ -123,7 +123,7 @@ impl<'v> Freeze for PackageFileExtra<'v> {
 
 impl<'v> PackageFileExtra<'v> {
     pub fn get_or_init(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<&'v PackageFileExtra<'v>> {
-        Ok(ExtraValue::get(eval.module())?
+        Ok(InterpreterExtraValue::get(eval.module())?
             .package_extra
             .get_or_init(Default::default))
     }
