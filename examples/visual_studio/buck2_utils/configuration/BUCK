@@ -1,0 +1,16 @@
+constraint_setting(
+    name = "configuration",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "debug",
+    constraint_setting = ":configuration",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "release",
+    constraint_setting = ":configuration",
+    visibility = ["PUBLIC"],
+)

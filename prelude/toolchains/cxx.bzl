@@ -67,7 +67,6 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         shared_library_name_default_prefix = ""
         shared_library_name_format = "{}.dll"
         shared_library_versioned_name_format = "{}.dll"
-        additional_linker_flags = ["msvcrt.lib"]
         pic_behavior = PicBehavior("not_supported")
     elif ctx.attrs.linker == "g++" or ctx.attrs.cxx_compiler == "g++":
         pass

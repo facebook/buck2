@@ -1,0 +1,140 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//:paths.bzl", "paths")
+
+def group_by_category(actions):
+    groups = {}
+    for a in actions:
+        category = a.attrs.category.value()
+        if category in groups:
+            groups[category].append(a)
+        else:
+            groups[category] = [a]
+    return groups
+
+def create_compilation_database_entry(directory, buildfile_folder, argsfiles, action):
+    # the "cmd" attribute looks like a list.  For example, it might be something like:
+    #   cmd = [cl.exe, -c, foo.cpp]
+    # but in reality this is quite literally the string "[cl.exe, -c, foo.cpp]".  We need
+    # it as an actual list, so we have to employ this unfortunate hack of stripping the brackets,
+    # splitting on comma operator, and then stripping spaces from each entry to make an actual
+    # list.  Hopefully this doesn't fail in any weird edge cases, but it seems to be the best we
+    # can do until buck2 upstream actually stores a Starlark list as the value of this attribute.
+    cmd = action.attrs.cmd.value()
+    cmd = cmd.strip("[]").split(",")
+    cmd = list(map(lambda x: x.strip(), cmd))
+
+    compiler = cmd[0].replace(".bat", ".exe")
+
+    # Find the argsfile.  On Windows it might contain backslashes, so convert those to forward
+    # slashes.  Hopefully we don't have any filenames with actual backslashes in them.  Then
+    # strip off the directory name so we just have the filename of the argsfile.
+    argsfile = filter(lambda x: x.startswith("@"), cmd)[0][1:]
+    identifier = paths.basename(argsfile.replace("\\", "/"))
+
+    # Get the path of the source file relative to the project root by appending the identifier
+    # to the directory of the BUCK file.
+    project_rel_path = paths.join(buildfile_folder, action.attrs.identifier.value())
+
+    # Using the previously computed list of argfiles referenced by this target, find the one
+    # that this particular action references.
+    arguments = []
+    if identifier in argsfiles:
+        arguments = argsfiles[identifier]
+
+    # Now build the compilation database entry
+    entry = {
+        "arguments": [compiler] + arguments,
+        "directory": directory,
+        "file": project_rel_path,
+    }
+    return entry
+
+def gen_compilation_database_impl(ctx):
+    # Generate compilation database for all targets unless user requests a more narrow set
+    target_filter = ctx.cli_args.targets or "..."
+    targets = ctx.configured_targets(target_filter, target_platform = ctx.cli_args.platform)
+    aquery = ctx.aquery()
+
+    entries = {}
+    for target in targets:
+        target_actions = list(aquery.all_actions(target.label))
+
+        # The individual compilation actions only identify the source files relative to where
+        # the BUCK file is.  So to build a path relative to the root of the project, we need
+        # to get the BUCK file path and append the source file path to it.
+        buildfile_path = ctx.fs.project_rel_path(target.buildfile_path)
+        buildfile_folder = paths.dirname(buildfile_path)
+
+        # In order to generate a compilation database entry for a file, we need this target
+        # to satisfy two conditions:
+        #    1. It has compilations
+        #    2. It writes an argsfile.
+        #
+        # The second requirement is necessary because the argsfile is where buck2 includes
+        # important command line arguments such as preprocessor definitions and include
+        # paths.  If both conditions are not satisfied, we should skip this target because
+        # either it doesn't have source files anyway, or we don't understand how to write
+        # compilation database entries for them.
+        actions_by_category = group_by_category(target_actions)
+
+        if not "write" in actions_by_category:
+            continue
+        if not "cxx_compile" in actions_by_category:
+            continue
+
+        argsfiles = {}
+
+        # There are lots of kinds of "write" actions, but we are interested specifically in argsfile
+        # write actions.  This is because the source file compilation actions will reference them,
+        # so for each source file we need to map it back to the argsfile that its command line references
+        # so we can write those arguments to the compilation database entry.  Build this mapping here.
+        for write_action in actions_by_category["write"]:
+            identifier = write_action.attrs.identifier.value()
+            if identifier.endswith(".argsfile"):
+                # The content of the argsfile is a newline separated list.  We need a Starlark list.  So
+                # split on newline.
+                arguments = write_action.attrs.contents.value()
+                arguments = arguments.split("\n")
+
+                # For whatever reason, there are a lot of unnecessary quotes and double slashes.  Probably
+                # something to do with the nature of the tools requiring shell-escaped values.  Since we're
+                # storing this in a JSON array and the tool that processes the compilation database does its
+                # own escaping of these values, we can undo all of this.  Convert double backslash to
+                # single forward slash, and remove quotes at the beginning and end of entries.
+                arguments = list(map(lambda x: x.strip('"').replace("\\\\", "/"), arguments))
+                argsfiles[identifier] = arguments
+
+        # Now walk each compilation action and generate a compilation database entry for it.
+        for action in actions_by_category["cxx_compile"]:
+            entry = create_compilation_database_entry(ctx.cli_args.directory, buildfile_folder, argsfiles, action)
+            is_pic = entry["file"].endswith(" (pic)")
+            file_name = entry["file"].removesuffix(" (pic)")
+            entry["file"] = file_name
+            entry["is_pic"] = is_pic
+            existing_entry = entries.get(file_name)
+            if existing_entry == None or existing_entry["is_pic"]:
+                entries[file_name] = entry
+
+    for entry in entries.values():
+        entry.pop("is_pic")
+
+    actions = ctx.bxl_actions(target_platform = ctx.cli_args.platform).actions
+    db_artifact = actions.write_json("compile_commands.json", entries.values())
+    db_artifact_ensured = ctx.output.ensure(db_artifact)
+
+    ctx.output.print(db_artifact_ensured)
+
+gen_compilation_database = bxl_main(
+    impl = gen_compilation_database_impl,
+    cli_args = {
+        "directory": cli_args.string(),
+        "platform": cli_args.option(cli_args.target_label()),
+        "targets": cli_args.option(cli_args.target_expr()),
+    },
+)
