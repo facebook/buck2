@@ -52,9 +52,7 @@ use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternData;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
@@ -362,18 +360,10 @@ impl AnonTargetKey {
                             exec_resolution,
                         )?;
 
-                        let ctx = env.heap().alloc_typed(AnalysisContext::new(
+                        let ctx = env.heap().alloc_typed(AnalysisContext::prepare(
                             eval.heap(),
                             attributes,
-                            Some(
-                                eval.heap()
-                                    .alloc_typed(StarlarkConfiguredProvidersLabel::new(
-                                        ConfiguredProvidersLabel::new(
-                                            self.0.configured_label(),
-                                            ProvidersName::Default,
-                                        ),
-                                    )),
-                            ),
+                            Some(self.0.configured_label()),
                             // FIXME(JakobDegen): There should probably be a way to pass plugins
                             // into anon targets
                             eval.heap()

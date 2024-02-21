@@ -23,7 +23,6 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderColle
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
@@ -34,7 +33,6 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
@@ -284,18 +282,10 @@ async fn run_analysis_with_env_underlying(
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&print);
 
-            let ctx = env.heap().alloc_typed(AnalysisContext::new(
+            let ctx = env.heap().alloc_typed(AnalysisContext::prepare(
                 eval.heap(),
                 attributes,
-                Some(
-                    eval.heap()
-                        .alloc_typed(StarlarkConfiguredProvidersLabel::new(
-                            ConfiguredProvidersLabel::new(
-                                analysis_env.label,
-                                ProvidersName::Default,
-                            ),
-                        )),
-                ),
+                Some(analysis_env.label),
                 plugins.into(),
                 registry,
                 dice.global_data().get_digest_config(),

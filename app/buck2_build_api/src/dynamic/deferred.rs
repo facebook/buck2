@@ -20,13 +20,10 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
-use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -220,15 +217,10 @@ impl Deferred for DynamicLambda {
                 let mut eval = Evaluator::new(&env);
                 eval.set_print_handler(&print);
                 let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
-                let starlark_target_label = self.owner.configured_label().map(|target| {
-                    heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
-                        ConfiguredProvidersLabel::new(target, ProvidersName::Default),
-                    ))
-                });
-                let ctx = heap.alloc_typed(AnalysisContext::new(
+                let ctx = heap.alloc_typed(AnalysisContext::prepare(
                     heap,
                     dynamic_lambda_ctx_data.attributes,
-                    starlark_target_label,
+                    self.owner.configured_label(),
                     dynamic_lambda_ctx_data.plugins,
                     dynamic_lambda_ctx_data.registry,
                     dynamic_lambda_ctx_data.digest_config,

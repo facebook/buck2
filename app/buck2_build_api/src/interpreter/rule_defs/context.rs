@@ -14,6 +14,9 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
@@ -191,7 +194,7 @@ impl<'v> Display for AnalysisContext<'v> {
 
 impl<'v> AnalysisContext<'v> {
     /// The context that is provided to users' UDR implementation functions. Comprised of things like attribute values, actions, etc
-    pub fn new(
+    fn new(
         heap: &'v Heap,
         attrs: Value<'v>,
         label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
@@ -212,6 +215,23 @@ impl<'v> AnalysisContext<'v> {
             label,
             plugins,
         }
+    }
+
+    pub fn prepare(
+        heap: &'v Heap,
+        attrs: Value<'v>,
+        label: Option<ConfiguredTargetLabel>,
+        plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
+        registry: AnalysisRegistry<'v>,
+        digest_config: DigestConfig,
+    ) -> Self {
+        let label = label.map(|label| {
+            heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
+                ConfiguredProvidersLabel::new(label, ProvidersName::Default),
+            ))
+        });
+
+        Self::new(heap, attrs, label, plugins, registry, digest_config)
     }
 
     pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {

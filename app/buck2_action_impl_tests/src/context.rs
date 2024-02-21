@@ -14,11 +14,8 @@ use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
@@ -75,15 +72,10 @@ fn run_ctx_test(
         .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
         .into();
 
-    let ctx = eval.heap().alloc(AnalysisContext::new(
+    let ctx = eval.heap().alloc(AnalysisContext::prepare(
         eval.heap(),
         attributes,
-        Some(
-            eval.heap()
-                .alloc_typed(StarlarkConfiguredProvidersLabel::new(
-                    ConfiguredProvidersLabel::new(label, ProvidersName::Default),
-                )),
-        ),
+        Some(label),
         plugins,
         registry,
         DigestConfig::testing_default(),
