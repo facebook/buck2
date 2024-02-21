@@ -17,8 +17,10 @@ def _typing_arg():
         "py_version_for_type_checking": attrs.option(attrs.string(), default = None, doc = """
     This option will force the type checker to perform checking under a specific version of Python interpreter.
 """),
-        "typing": attrs.bool(default = True, doc = """
-    Determines whether to perform type checking on the given target. Default is True.
+        # NOTE(grievejia): Setting default to True here may have non-trivial impact on build memory
+        # usage (see S395002)
+        "typing": attrs.bool(default = False, doc = """
+    Determines whether to perform type checking on the given target. Default is False.
 """),
     }
 
