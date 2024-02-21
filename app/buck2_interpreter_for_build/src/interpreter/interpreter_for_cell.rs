@@ -311,7 +311,7 @@ impl InterpreterForCell {
             }
         }
 
-        env.set_extra_value(env.heap().alloc_complex(ExtraValue::default()));
+        env.set_extra_value_no_overwrite(env.heap().alloc_complex(ExtraValue::default()))?;
 
         Ok(env)
     }

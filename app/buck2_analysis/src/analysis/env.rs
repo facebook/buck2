@@ -319,7 +319,7 @@ async fn run_analysis_with_env_underlying(
     // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     let res = env.heap().alloc(res_typed);
-    env.set_extra_value(res);
+    env.set_extra_value_no_overwrite(res)?;
 
     // Pull the ctx object back out, and steal ctx.action's state back
     let analysis_registry = ctx.take_state();
