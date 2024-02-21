@@ -13,7 +13,7 @@ import zipfile
 
 
 def main(argv):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument(
         "--output", "-o", type=argparse.FileType("w"), default=sys.stdin
     )

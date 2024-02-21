@@ -78,8 +78,9 @@ def create_class_to_source_map_from_jar(
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
     cmd.add("-o", output.as_output())
     cmd.add(jar)
-    for src in srcs:
-        cmd.add(cmd_args(src))
+    inputs_file = actions.write("class_to_srcs_map_argsfile.txt", srcs)
+    cmd.add(cmd_args(inputs_file, format = "@{}"))
+    cmd.hidden(srcs)
     actions.run(cmd, category = "class_to_srcs_map")
     return output
 
