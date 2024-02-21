@@ -20,9 +20,11 @@ use starlark::values::FrozenValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 
 fn serialize_as_display<V: Display, S>(v: &V, s: S) -> Result<S::Ok, S::Error>
 where
@@ -60,15 +62,29 @@ impl<'v> Freeze for CommandLineArg<'v> {
 }
 
 impl<'v> CommandLineArg<'v> {
+    pub fn from_cmd_args(cmd_args: ValueTyped<'v, StarlarkCmdArgs<'v>>) -> Self {
+        let _no_check_needed: &dyn CommandLineArgLike = cmd_args.as_ref();
+        CommandLineArg(cmd_args.to_value())
+    }
+
+    pub fn from_value(value: Value<'v>) -> Option<Self> {
+        ValueAsCommandLineLike::unpack_value(value)?;
+        Some(Self(value))
+    }
+
     pub(crate) fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
         ValueAsCommandLineLike::unpack_value_err(value)?;
         Ok(Self(value))
     }
 
-    pub(crate) fn as_command_line_arg(self) -> &'v dyn CommandLineArgLike {
+    pub fn as_command_line_arg(self) -> &'v dyn CommandLineArgLike {
         ValueAsCommandLineLike::unpack_value_err(self.0)
             .expect("checked type in constructor")
             .0
+    }
+
+    pub fn to_value(self) -> Value<'v> {
+        self.0
     }
 }
 

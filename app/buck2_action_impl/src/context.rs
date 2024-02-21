@@ -22,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -408,15 +409,20 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
         let (content_cli, written_macro_count, mut associated_artifacts) =
-            if let Some(content_arg) = ValueAsCommandLineLike::unpack_value(content) {
-                let count = count_write_to_file_macros(allow_args, content_arg.0)?;
-                let cli_inputs = get_cli_inputs(with_inputs, content_arg.0)?;
+            if let Some(content) = CommandLineArg::from_value(content) {
+                let content_arg = content.as_command_line_arg();
+                let count = count_write_to_file_macros(allow_args, content_arg)?;
+                let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
                 (content, count, cli_inputs)
             } else {
                 let cli = StarlarkCmdArgs::try_from_value(content)?;
                 let count = count_write_to_file_macros(allow_args, &cli)?;
                 let cli_inputs = get_cli_inputs(with_inputs, &cli)?;
-                (eval.heap().alloc(cli), count, cli_inputs)
+                (
+                    CommandLineArg::from_cmd_args(eval.heap().alloc_typed(cli)),
+                    count,
+                    cli_inputs,
+                )
             };
 
         let written_macro_files = if written_macro_count > 0 {
@@ -450,7 +456,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
                 indexset![],
                 written_macro_files.iter().map(|a| a.as_output()).collect(),
                 action,
-                Some(eval.heap().alloc(content_cli)),
+                Some(content_cli.to_value()),
                 None,
             )?;
 
@@ -479,7 +485,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             indexset![],
             indexset![output_artifact],
             action,
-            Some(content_cli),
+            Some(content_cli.to_value()),
             None,
         )?;
 
