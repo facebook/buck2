@@ -443,12 +443,18 @@ def prepare_final_jar(
         output: [Artifact, None],
         output_paths: OutputPaths,
         additional_compiled_srcs: [Artifact, None],
-        jar_builder: RunInfo) -> Artifact:
+        jar_builder: RunInfo,
+        jar_postprocessor: [RunInfo, None]) -> Artifact:
     if not additional_compiled_srcs:
+        output_jar = output_paths.jar
         if output:
             actions.copy_file(output.as_output(), output_paths.jar)
-            return output
-        return output_paths.jar
+            output_jar = output
+
+        if jar_postprocessor:
+            return post_process_jar(actions, jar_postprocessor, output_jar, actions_identifier)
+        else:
+            return output_jar
 
     merged_jar = output
     if not merged_jar:
@@ -466,7 +472,11 @@ def prepare_final_jar(
         category = "merge_additional_srcs",
         identifier = actions_identifier,
     )
-    return merged_jar
+
+    if jar_postprocessor:
+        return post_process_jar(actions, jar_postprocessor, merged_jar, actions_identifier)
+    else:
+        return merged_jar
 
 def generate_abi_jars(
         actions: AnalysisActions,
@@ -556,3 +566,20 @@ def generate_abi_jars(
                 classpath_abi_dir = class_abi_output_dir
 
     return class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir
+
+def post_process_jar(
+        actions: AnalysisActions,
+        jar_postprocessor: RunInfo,
+        original_jar: Artifact,
+        actions_identifier: [str, None]) -> Artifact:
+    post_processed_output = actions.declare_output("post_processed_{}".format(original_jar.short_path))
+    processor_cmd_args = cmd_args(
+        jar_postprocessor,
+        original_jar,
+        post_processed_output.as_output(),
+    )
+
+    identifier = actions_identifier if actions_identifier else ""
+    actions.run(processor_cmd_args, category = "post_processed{}".format(identifier))
+
+    return post_processed_output

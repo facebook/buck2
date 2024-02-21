@@ -76,7 +76,8 @@ def create_jar_artifact_kotlincd(
         extra_kotlinc_arguments: list[str],
         k2: bool,
         is_creating_subtarget: bool = False,
-        optional_dirs: list[OutputArtifact] = []) -> JavaCompileOutputs:
+        optional_dirs: list[OutputArtifact] = [],
+        jar_postprocessor: [RunInfo, None] = None) -> JavaCompileOutputs:
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -356,6 +357,7 @@ def create_jar_artifact_kotlincd(
         output_paths = output_paths,
         additional_compiled_srcs = None,
         jar_builder = java_toolchain.jar_builder,
+        jar_postprocessor = jar_postprocessor,
     )
 
     if not is_creating_subtarget:

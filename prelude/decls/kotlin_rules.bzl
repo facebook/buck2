@@ -181,6 +181,7 @@ kotlin_library = prelude_rule(
             "extra_non_source_only_abi_kotlinc_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "javac": attrs.option(attrs.source(), default = None),
+            "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),

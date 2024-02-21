@@ -305,7 +305,17 @@ def create_jar_artifact_javacd(
         path_to_class_hashes_out,
         is_creating_subtarget,
     )
-    final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
+    jar_postprocessor = ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None
+    final_jar = prepare_final_jar(
+        actions = actions,
+        actions_identifier = actions_identifier,
+        output = output,
+        output_paths = output_paths,
+        additional_compiled_srcs = additional_compiled_srcs,
+        jar_builder = java_toolchain.jar_builder,
+        jar_postprocessor = jar_postprocessor,
+    )
+
     if not is_creating_subtarget:
         class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
             actions,
