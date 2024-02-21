@@ -156,7 +156,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     fn label<'v>(
         this: &Dependency,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkConfiguredProvidersLabel>> {
-        Ok(ValueTyped::new(this.label).unwrap())
+        Ok(ValueTyped::new_err(this.label).unwrap())
     }
 
     // TODO(nga): should return provider collection.

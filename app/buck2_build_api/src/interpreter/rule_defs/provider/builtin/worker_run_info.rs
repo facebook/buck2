@@ -64,6 +64,6 @@ impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
     }
 
     pub fn exe(&self) -> ValueTyped<'v, StarlarkCmdArgs<'v>> {
-        ValueTyped::new(self.exe.to_value()).expect("validated at construction")
+        ValueTyped::new_err(self.exe.to_value()).expect("validated at construction")
     }
 }

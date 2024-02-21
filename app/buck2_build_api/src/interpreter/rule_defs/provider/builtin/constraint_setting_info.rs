@@ -39,7 +39,7 @@ pub(crate) struct ConstraintSettingInfoGen<V> {
 
 impl<'v, V: ValueLike<'v>> ConstraintSettingInfoGen<V> {
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkTargetLabel> {
-        ValueTyped::new(self.label.to_value()).expect("validated at construction")
+        ValueTyped::new_err(self.label.to_value()).expect("validated at construction")
     }
 }
 

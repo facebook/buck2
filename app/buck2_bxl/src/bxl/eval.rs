@@ -194,7 +194,7 @@ impl BxlInnerEvaluator {
                 digest_config,
             )?;
 
-            let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
+            let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_ctx))?;
 
             let result = tokio::task::block_in_place(|| {
                 with_dispatcher(dispatcher.clone(), || {

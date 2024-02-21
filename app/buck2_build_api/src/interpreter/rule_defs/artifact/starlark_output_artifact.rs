@@ -114,7 +114,7 @@ impl<'v> StarlarkOutputArtifact<'v> {
     }
 
     pub(crate) fn inner(&self) -> ValueTyped<'v, StarlarkDeclaredArtifact> {
-        ValueTyped::new(self.declared_artifact).unwrap()
+        ValueTyped::new_err(self.declared_artifact).unwrap()
     }
 
     pub fn artifact(&self) -> OutputArtifact {
