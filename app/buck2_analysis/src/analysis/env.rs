@@ -282,14 +282,14 @@ async fn run_analysis_with_env_underlying(
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&print);
 
-            let ctx = env.heap().alloc_typed(AnalysisContext::prepare(
+            let ctx = AnalysisContext::prepare(
                 eval.heap(),
                 attributes,
                 Some(analysis_env.label),
                 plugins.into(),
                 registry,
                 dice.global_data().get_digest_config(),
-            ));
+            );
 
             let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;
 

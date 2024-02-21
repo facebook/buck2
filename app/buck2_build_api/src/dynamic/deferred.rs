@@ -217,14 +217,14 @@ impl Deferred for DynamicLambda {
                 let mut eval = Evaluator::new(&env);
                 eval.set_print_handler(&print);
                 let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
-                let ctx = heap.alloc_typed(AnalysisContext::prepare(
+                let ctx = AnalysisContext::prepare(
                     heap,
                     dynamic_lambda_ctx_data.attributes,
                     self.owner.configured_label(),
                     dynamic_lambda_ctx_data.plugins,
                     dynamic_lambda_ctx_data.registry,
                     dynamic_lambda_ctx_data.digest_config,
-                ));
+                );
 
                 eval.eval_function(
                     dynamic_lambda_ctx_data.lambda.0,

@@ -360,7 +360,7 @@ impl AnonTargetKey {
                             exec_resolution,
                         )?;
 
-                        let ctx = env.heap().alloc_typed(AnalysisContext::prepare(
+                        let ctx = AnalysisContext::prepare(
                             eval.heap(),
                             attributes,
                             Some(self.0.configured_label()),
@@ -371,7 +371,7 @@ impl AnonTargetKey {
                                 .into(),
                             registry,
                             dice.global_data().get_digest_config(),
-                        ));
+                        );
 
                         let list_res = rule_impl.invoke(&mut eval, ctx)?;
                         Ok((dice, eval, ctx, list_res))

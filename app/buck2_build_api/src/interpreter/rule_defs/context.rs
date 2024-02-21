@@ -224,14 +224,15 @@ impl<'v> AnalysisContext<'v> {
         plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
-    ) -> Self {
+    ) -> ValueTyped<'v, AnalysisContext<'v>> {
         let label = label.map(|label| {
             heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
                 ConfiguredProvidersLabel::new(label, ProvidersName::Default),
             ))
         });
 
-        Self::new(heap, attrs, label, plugins, registry, digest_config)
+        let analysis_context = Self::new(heap, attrs, label, plugins, registry, digest_config);
+        heap.alloc_typed(analysis_context)
     }
 
     pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {
