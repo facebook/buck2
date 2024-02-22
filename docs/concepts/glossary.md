@@ -131,6 +131,14 @@ Instances of Buck2 share a [daemon](#daemon) if and only if their isolation
 directory is identical. The isolation directory also influences the output paths
 provided by Buck2.
 
+#### Modifiers
+
+It's a modification of a constraint from the existing
+[configuration](#configuration) to obtain a new configuration. They provide a
+unified way to specify build settings on a [project](#project),
+[target](#target), and command line level. It is intended to replace target
+platforms and most use cases of [.buckconfigs](#buckconfig).
+
 #### Package
 
 A directory that contains a Buck2 [BUCK file](#buck-file) and all source files
