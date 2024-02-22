@@ -82,6 +82,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         use_proto_format = use_proto_format,
         referenced_resources_lists = referenced_resources_lists,
         manifest_entries = ctx.attrs.manifest_entries,
+        generate_strings_and_ids_separately = should_pre_dex,
         aapt2_preferred_density = ctx.attrs.aapt2_preferred_density,
     )
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
