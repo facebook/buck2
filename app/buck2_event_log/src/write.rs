@@ -386,7 +386,8 @@ async fn start_persist_event_log_subprocess(
     command
         .args(["debug", "persist-event-logs"])
         .args(["--manifold-name", manifold_name])
-        .args(["--local-path".as_ref(), path.path.as_os_str()]);
+        .args(["--local-path".as_ref(), path.path.as_os_str()])
+        .args(["--trace-id", &trace_id.to_string()]);
     if !should_upload_log()? {
         command.arg("--no-upload");
     };

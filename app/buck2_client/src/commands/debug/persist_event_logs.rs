@@ -64,12 +64,18 @@ pub struct PersistEventLogsCommand {
     no_upload: bool,
     #[clap(long, help = "Allow vpnless")]
     allow_vpnless: bool,
+    #[clap(
+        long,
+        help = "UUID of invocation that called this subcommand for logging purposes"
+    )]
+    trace_id: TraceId,
 }
 
 impl PersistEventLogsCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
         let sink = create_scribe_sink(&ctx)?;
+        let trace_id = self.trace_id.clone();
         ctx.with_runtime(async move |mut ctx| {
             let mut stdin = io::BufReader::new(ctx.stdin());
             let allow_vpnless = self.allow_vpnless;
@@ -90,7 +96,7 @@ impl PersistEventLogsCommand {
                 allow_vpnless,
                 metadata: buck2_events::metadata::collect(),
             };
-            dispatch_event_to_scribe(sink.as_ref(), &ctx.trace_id, event_to_send).await;
+            dispatch_event_to_scribe(sink.as_ref(), &trace_id, event_to_send).await;
         });
         ExitResult::success()
     }
