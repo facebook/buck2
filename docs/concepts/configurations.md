@@ -3,6 +3,8 @@ id: configurations
 title: Configurations
 ---
 
+For rule authors see also: [Configurations](../rule_authors/configurations.md)
+
 When building a target, buck always builds it in a particular "configuration."
 The configuration typically includes information like the target os, target
 arch, sanitizers, opt level, etc. One way to understand the effect that a
