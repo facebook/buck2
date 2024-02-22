@@ -13,6 +13,7 @@ load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
+ANDROID_EMULATOR_ABI_LABEL_PREFIX = "tpx-re-config::"
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
 DEFAULT_ANDROID_PLATFORM = "android-emulator"
 DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE = "instrumentation-tests"
@@ -80,6 +81,14 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         ],
     )
 
+    remote_execution_properties = {
+        "platform": _compute_emulator_platform(ctx.attrs.labels or []),
+        "subplatform": _compute_emulator_subplatform(ctx.attrs.labels or []),
+    }
+    re_emulator_abi = _compute_emulator_abi(ctx.attrs.labels or [])
+    if re_emulator_abi != None:
+        remote_execution_properties["abi"] = re_emulator_abi
+
     test_info = ExternalRunnerTestInfo(
         type = "android_instrumentation",
         command = cmd,
@@ -92,10 +101,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
             "android-emulator": CommandExecutorConfig(
                 local_enabled = android_toolchain.instrumentation_test_can_run_locally,
                 remote_enabled = True,
-                remote_execution_properties = {
-                    "platform": _compute_emulator_platform(ctx.attrs.labels or []),
-                    "subplatform": _compute_emulator_subplatform(ctx.attrs.labels or []),
-                },
+                remote_execution_properties = remote_execution_properties,
                 remote_execution_use_case = _compute_re_use_case(ctx.attrs.labels or []),
             ),
             "static-listing": CommandExecutorConfig(
@@ -117,6 +123,14 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     return inject_test_run_info(ctx, test_info) + [
         DefaultInfo(),
     ] + classmap_source_info
+
+def _compute_emulator_abi(labels: list[str]):
+    emulator_abi_labels = [label for label in labels if label.startswith(ANDROID_EMULATOR_ABI_LABEL_PREFIX)]
+    expect(len(emulator_abi_labels) <= 1, "multiple '{}' labels were found:[{}], there must be only one!".format(ANDROID_EMULATOR_ABI_LABEL_PREFIX, ", ".join(emulator_abi_labels)))
+    if len(emulator_abi_labels) == 0:
+        return None
+    else:  # len(emulator_abi_labels) == 1:
+        return emulator_abi_labels[0].replace(ANDROID_EMULATOR_ABI_LABEL_PREFIX, "")
 
 # replicating the logic in https://fburl.com/code/1fqowxu4 to match buck1's behavior
 def _compute_emulator_subplatform(labels: list[str]) -> str:
