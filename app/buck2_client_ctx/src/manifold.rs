@@ -48,13 +48,13 @@ impl Default for Ttl {
 
 #[derive(Debug, Error)]
 enum HttpWriteError {
-    #[error("Error performing write request")]
+    #[error(transparent)]
     Client(#[from] HttpError),
 }
 
 #[derive(Debug, Error)]
 enum HttpAppendError {
-    #[error("Error performing append request")]
+    #[error(transparent)]
     Client(#[from] HttpError),
 }
 
