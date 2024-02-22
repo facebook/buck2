@@ -240,6 +240,12 @@ arguments to commands such as `buck2 build` and `buck2 uquery`. They can also be
 used in the [visibility](#visibility) argument of a [rule](#rule). For more
 information, see [Target pattern](./target_pattern.md).
 
+#### Target platform
+
+Represents the [platform](#platform) that the final output is built for residing
+and executing. If buck2 is a chef, and the output is the meal, the target
+platform would be the people that eat the meal.
+
 #### Target universe
 
 A set of configured targets and their transitive deps. In the context of cquery
