@@ -136,8 +136,9 @@ provided by Buck2.
 It's a modification of a constraint from the existing
 [configuration](#configuration) to obtain a new configuration. They provide a
 unified way to specify build settings on a [project](#project),
-[target](#target), and command line level. It is intended to replace target
-platforms and most use cases of [.buckconfigs](#buckconfig).
+[target](#target), and command line level. It is intended to replace
+[target platforms](#target-platform) and most use cases of
+[.buckconfigs](#buckconfig).
 
 #### Package
 
