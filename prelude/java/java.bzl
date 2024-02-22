@@ -64,7 +64,7 @@ extra_attributes = {
     },
     "java_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
+        "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
@@ -78,7 +78,7 @@ extra_attributes = {
     },
     "java_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
+        "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "test_class_names_file": attrs.option(attrs.source(), default = None),
         "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
