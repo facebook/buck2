@@ -38,6 +38,7 @@ def main():
     stdout = subprocess.run(args.cmd, capture_output=True, text=True).stdout
 
     with open(args.out, "w") as f:
+        # not using json output until https://github.com/rust-lang/rust/issues/117291 is fixed
         # stdout looks like...
         # +--------+------------+------------+------------+------------+
         # | File   | Documented | Percentage |   Examples | Percentage |
