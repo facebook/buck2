@@ -20,6 +20,7 @@ load(
     "parse_build_target_pattern",
 )
 load("@prelude//utils:lazy.bzl", "lazy")
+load("@prelude//utils:set.bzl", "set")
 
 _SelectionCriteria = record(
     include_build_target_patterns = field(list[BuildTargetPattern], []),
@@ -33,6 +34,7 @@ AppleSelectiveDebuggingInfo = provider(
     fields = {
         "scrub_binary": provider_field(typing.Callable),
         "filter": provider_field(typing.Callable),
+        "scrub_selected_debug_paths_file": provider_field(typing.Callable),
     },
 )
 
@@ -72,10 +74,10 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     scrubber = ctx.attrs._apple_tools[AppleToolsInfo].selective_debugging_scrubber
 
+    targets_json_file = ctx.attrs.targets_json_file or ctx.actions.write_json("targets.json", {"targets": []})
     cmd = cmd_args(scrubber)
     if json_type == _SelectiveDebuggingJsonType("targets"):
         # If a targets json file is not provided, write an empty json file:
-        targets_json_file = ctx.attrs.targets_json_file or ctx.actions.write_json("targets_json.txt", {"targets": []})
         cmd.add("--targets-file")
         cmd.add(targets_json_file)
     elif json_type == _SelectiveDebuggingJsonType("spec"):
@@ -97,6 +99,35 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         exclude_build_target_patterns = exclude_build_target_patterns,
         exclude_regular_expressions = exclude_regular_expressions,
     )
+
+    def scrub_selected_debug_paths_file(inner_ctx: AnalysisContext, package_names: list[str], output_name: str) -> Artifact:
+        # In the event that _SelectiveDebuggingJsonType was "spec", we expect that `package_names`
+        # was already filtered as part of scrubbing the binary in the apple_bundle.
+        #
+        # See `_maybe_scrub_binary()` in apple_bundle.bzl
+        if json_type != _SelectiveDebuggingJsonType("targets"):
+            return inner_ctx.actions.write(output_name, sorted(set(package_names).list()))
+
+        def scrub_selected_debug_paths_action(dynamic_ctx: AnalysisContext, artifacts, outputs):
+            packages = [
+                # "cell//path/to/some/thing:target" -> "path/to/some/thing"
+                target.split("//")[1].split(":")[0]
+                for target in artifacts[targets_json_file].read_json()["targets"]
+            ]
+            dynamic_ctx.actions.write(
+                outputs.values()[0],
+                sorted(set(filter(lambda p: p in packages, package_names)).list()),
+            )
+
+        output = inner_ctx.actions.declare_output(output_name)
+        inner_ctx.actions.dynamic_output(
+            dynamic = [targets_json_file],
+            inputs = [],
+            outputs = [output],
+            f = scrub_selected_debug_paths_action,
+        )
+
+        return output
 
     def scrub_binary(inner_ctx, executable: Artifact, executable_link_execution_preference: LinkExecutionPreference, adhoc_codesign_tool: [RunInfo, None]) -> Artifact:
         inner_cmd = cmd_args(cmd)
@@ -155,6 +186,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         AppleSelectiveDebuggingInfo(
             scrub_binary = scrub_binary,
             filter = filter_debug_info,
+            scrub_selected_debug_paths_file = scrub_selected_debug_paths_file,
         ),
         LinkExecutionPreferenceDeterminatorInfo(preference_for_links = preference_for_links),
     ]

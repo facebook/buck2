@@ -266,12 +266,18 @@ def _get_all_agg_debug_info(ctx: AnalysisContext, binary_output: AppleBundleBina
         all_debug_infos = all_debug_infos + [binary_debuggable_info]
     return get_aggregated_debug_info(ctx, all_debug_infos)
 
+def _maybe_scrub_selected_debug_paths_file(ctx: AnalysisContext, package_names: list[str]) -> Artifact:
+    if not ctx.attrs.selective_debugging:
+        return ctx.actions.write(SELECTED_DEBUG_PATH_FILE_NAME, sorted(set(package_names).list()))
+
+    selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
+    return selective_debugging_info.scrub_selected_debug_paths_file(ctx, package_names, SELECTED_DEBUG_PATH_FILE_NAME)
+
 def _get_selected_debug_targets_part(ctx: AnalysisContext, agg_debug_info: AggregatedAppleDebugInfo) -> [AppleBundlePart, None]:
     # Only app bundle need this, and this file is searched by FBReport at the bundle root
     if ctx.attrs.extension == "app" and agg_debug_info.debug_info.filtered_map:
         package_names = [label.package for label in agg_debug_info.debug_info.filtered_map.keys()]
-        package_names = set(package_names).list()
-        output = ctx.actions.write(SELECTED_DEBUG_PATH_FILE_NAME, package_names)
+        output = _maybe_scrub_selected_debug_paths_file(ctx, package_names)
         return AppleBundlePart(source = output, destination = AppleBundleDestination("bundleroot"), new_name = SELECTED_DEBUG_PATH_FILE_NAME)
     else:
         return None
