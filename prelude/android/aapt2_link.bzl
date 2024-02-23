@@ -48,8 +48,13 @@ def get_aapt2_link(
         aapt2_command.add(["--proguard", proguard_config.as_output()])
 
         # We don't need the R.java output, but aapt2 won't output R.txt unless we also request R.java.
-        r_dot_java = ctx.actions.declare_output("{}/init-rjava".format(identifier), dir = True)
+        # A drawback of this is that the directory structure for the R.java output is deep, resulting
+        # in long path issues on Windows. The structure is <path to target>/<identifier>/unused-rjava/<package>/R.java
+        # We can declare a custom dummy package to drastically shorten <package>, which is sketchy, but effective
+        r_dot_java = ctx.actions.declare_output("{}/unused-rjava".format(identifier), dir = True)
         aapt2_command.add(["--java", r_dot_java.as_output()])
+        aapt2_command.add(["--custom-package", "dummy.package"])
+
         r_dot_txt = ctx.actions.declare_output("{}/R.txt".format(identifier))
         aapt2_command.add(["--output-text-symbols", r_dot_txt.as_output()])
 
