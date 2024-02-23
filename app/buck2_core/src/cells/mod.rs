@@ -645,6 +645,13 @@ impl CellsAggregator {
             .or_insert_with(CellAggregatorInfo::default)
     }
 
+    pub fn has_name(&self, cell_path: &CellRootPath) -> bool {
+        match self.cell_infos.get(cell_path) {
+            None => false,
+            Some(info) => info.name.is_some(),
+        }
+    }
+
     /// Adds a cell configuration entry
     pub fn add_cell_entry(
         &mut self,

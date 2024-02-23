@@ -305,12 +305,7 @@ impl BuckConfigBasedCells {
 
             let repositories = config.get_section("repositories");
             if let Some(repositories) = repositories {
-                let mut seen_dot = false;
                 for (alias, alias_path) in repositories.iter() {
-                    if alias_path.as_str() == "." {
-                        seen_dot = true;
-                    }
-
                     let alias_path = CellRootPathBuf::new(path
                         .join_normalized(RelativePath::new(alias_path.as_str()))
                         .with_context(|| {
@@ -328,12 +323,12 @@ impl BuckConfigBasedCells {
                     cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
                     work.push(alias_path);
                 }
+            }
 
-                if is_root && !seen_dot {
+            if is_root {
+                if !cells_aggregator.has_name(&path) {
                     return Err(CellsError::MissingRootCellName.into());
                 }
-            } else if is_root {
-                return Err(CellsError::MissingRootCellName.into());
             }
 
             if let Some(aliases) = config.get_section("repository_aliases") {
