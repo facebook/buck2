@@ -74,6 +74,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     coverage_vars = {}
     pkgs = {}
     if ctx.attrs.coverage_mode != None:
+        if ctx.attrs._race and ctx.attrs.coverage_mode != "atomic":
+            fail("`coverage_mode` must be `atomic` when `race=True`")
         coverage_mode = GoCoverageMode(ctx.attrs.coverage_mode)
         cov_res = cover_srcs(ctx, pkg_name, coverage_mode, srcs, False)
         srcs = cov_res.srcs
