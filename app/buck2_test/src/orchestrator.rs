@@ -926,7 +926,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         }
 
         Ok(ExpandedTestExecutable {
-            cwd: cwd.project_relative_path().to_buf(),
+            cwd: cwd.as_project_relative_path().to_buf(),
             cmd: expanded_cmd,
             env: expanded_env,
             inputs,

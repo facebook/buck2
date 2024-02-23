@@ -214,7 +214,7 @@ impl BuckConfigBasedCells {
                         let buckconfig_path = ForwardRelativePath::new(file)?;
                         buckconfig_paths.push(MainConfigFile {
                             path: project_fs
-                                .resolve(&path.project_relative_path().join(buckconfig_path)),
+                                .resolve(&path.as_project_relative_path().join(buckconfig_path)),
                             owned_by_project: true,
                         });
                     }
@@ -222,7 +222,7 @@ impl BuckConfigBasedCells {
                     BuckConfigFile::ProjectRelativeFolder(folder) => {
                         let buckconfig_folder_path = ForwardRelativePath::new(folder)?;
                         let buckconfig_folder_abs_path = project_fs
-                            .resolve(&path.project_relative_path().join(buckconfig_folder_path));
+                            .resolve(&path.as_project_relative_path().join(buckconfig_folder_path));
                         push_all_files_from_a_directory(
                             &mut buckconfig_paths,
                             &buckconfig_folder_abs_path,
@@ -366,7 +366,9 @@ impl BuckConfigBasedCells {
         let cell_resolver = cells_aggregator.make_cell_resolver()?;
         let configs_by_name = buckconfigs
             .into_iter()
-            .map(|(path, config)| Ok((cell_resolver.find(path.project_relative_path())?, config)))
+            .map(|(path, config)| {
+                Ok((cell_resolver.find(path.as_project_relative_path())?, config))
+            })
             .collect::<anyhow::Result<_>>()?;
 
         Ok(Self {

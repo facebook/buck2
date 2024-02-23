@@ -95,7 +95,7 @@ async fn get_default_file_ops(
     impl DiceFileOpsDelegate {
         fn resolve(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
             let cell_root = self.resolve_cell_root(path.cell())?;
-            Ok(cell_root.project_relative_path().join(path.path()))
+            Ok(cell_root.as_project_relative_path().join(path.path()))
         }
 
         fn resolve_cell_root(&self, cell: CellName) -> anyhow::Result<CellRootPathBuf> {
