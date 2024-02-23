@@ -5,35 +5,21 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
-    "create_manifest_for_source_map",
 )
 load(":python.bzl", "PythonLibraryManifestsTSet")
 
 DEFAULT_PY_VERSION = "3.10"
-
-def create_typeshed_manifest_info(
-        ctx: AnalysisContext,
-        typeshed_deps: list[Dependency]) -> ManifestInfo:
-    # NOTE(grievejia): This assumes that if multiple typeshed targets offer
-    # the same stub file, the target that comes later wins.
-    srcs = {
-        artifact.short_path: artifact
-        for typeshed_dep in typeshed_deps
-        for artifact in typeshed_dep[ArtifactGroupInfo].artifacts
-    }
-    return create_manifest_for_source_map(ctx, "typeshed", srcs)
 
 def create_per_target_type_check(
         ctx: AnalysisContext,
         executable: RunInfo,
         srcs: ManifestInfo | None,
         deps: list[PythonLibraryInfo],
-        typeshed_stubs: list[Dependency],
+        typeshed: ManifestInfo | None,
         py_version: str | None,
         typing_enabled: bool) -> DefaultInfo:
     output_file_name = "type_check_result.json"
@@ -56,10 +42,9 @@ def create_per_target_type_check(
         cmd.hidden(dep_manifest_tset.project_as_args("source_type_artifacts"))
 
         # Typeshed artifacts
-        if len(typeshed_stubs) > 0:
-            typeshed_manifest_info = create_typeshed_manifest_info(ctx, typeshed_stubs)
-            cmd.hidden([a for a, _ in typeshed_manifest_info.artifacts])
-            typeshed_manifest = typeshed_manifest_info.manifest
+        if typeshed != None:
+            cmd.hidden([a for a, _ in typeshed.artifacts])
+            typeshed_manifest = typeshed.manifest
         else:
             typeshed_manifest = None
 

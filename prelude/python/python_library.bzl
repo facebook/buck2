@@ -321,7 +321,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 type_checker,
                 src_type_manifest,
                 deps,
-                typeshed_stubs = python_toolchain.typeshed_stubs,
+                typeshed = python_toolchain.typeshed_stubs,
                 py_version = ctx.attrs.py_version_for_type_checking,
                 typing_enabled = ctx.attrs.typing,
             ),

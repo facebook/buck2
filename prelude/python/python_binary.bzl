@@ -411,7 +411,7 @@ def python_executable(
                     type_checker,
                     src_manifest,
                     python_deps,
-                    typeshed_stubs = python_toolchain.typeshed_stubs,
+                    typeshed = python_toolchain.typeshed_stubs,
                     py_version = ctx.attrs.py_version_for_type_checking,
                     typing_enabled = ctx.attrs.typing,
                 ),
