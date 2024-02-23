@@ -74,9 +74,11 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     scrubber = ctx.attrs._apple_tools[AppleToolsInfo].selective_debugging_scrubber
 
-    targets_json_file = ctx.attrs.targets_json_file or ctx.actions.write_json("targets.json", {"targets": []})
+    targets_json_file = None
     cmd = cmd_args(scrubber)
     if json_type == _SelectiveDebuggingJsonType("targets"):
+        targets_json_file = ctx.attrs.targets_json_file or ctx.actions.write_json("targets.json", {"targets": []})
+
         # If a targets json file is not provided, write an empty json file:
         cmd.add("--targets-file")
         cmd.add(targets_json_file)
