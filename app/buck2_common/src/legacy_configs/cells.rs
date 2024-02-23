@@ -345,7 +345,7 @@ impl BuckConfigBasedCells {
                         alias.clone(),
                         destination,
                     )?;
-                    if path.as_str() == "" {
+                    if is_root {
                         root_aliases.insert(alias, alias_path.clone());
                     }
                 }
