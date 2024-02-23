@@ -47,10 +47,10 @@ RDotJavaInfo = record(
 )
 
 AndroidBinaryNativeLibsInfo = record(
-    apk_under_test_prebuilt_native_library_dirs = list[PrebuiltNativeLibraryDir],
+    prebuilt_native_library_dirs = list[PrebuiltNativeLibraryDir],
     # Indicates which shared lib producing targets are included in the binary. Used by instrumentation tests
     # to exclude those from the test apk.
-    apk_under_test_shared_libraries = list[TargetLabel],
+    shared_libraries = list[TargetLabel],
     exopackage_info = ["ExopackageNativeInfo", None],
     root_module_native_lib_assets = list[Artifact],
     non_root_module_native_lib_assets = list[Artifact],

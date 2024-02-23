@@ -121,8 +121,8 @@ def get_android_binary_native_library_info(
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
         return AndroidBinaryNativeLibsInfo(
-            apk_under_test_prebuilt_native_library_dirs = [],
-            apk_under_test_shared_libraries = [],
+            prebuilt_native_library_dirs = [],
+            shared_libraries = [],
             native_libs_for_primary_apk = [],
             exopackage_info = None,
             root_module_native_lib_assets = [],
@@ -370,8 +370,8 @@ def get_android_binary_native_library_info(
 
     native_libs_for_primary_apk, exopackage_info = _get_exopackage_info(ctx, native_libs_always_in_primary_apk, native_libs, native_libs_metadata)
     return AndroidBinaryNativeLibsInfo(
-        apk_under_test_prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
-        apk_under_test_shared_libraries = included_shared_lib_targets,
+        prebuilt_native_library_dirs = all_prebuilt_native_library_dirs,
+        shared_libraries = included_shared_lib_targets,
         native_libs_for_primary_apk = native_libs_for_primary_apk,
         exopackage_info = exopackage_info,
         root_module_native_lib_assets = [native_lib_assets_for_primary_apk, stripped_native_linkable_assets_for_primary_apk, root_module_metadata_assets, root_module_compressed_lib_assets],
