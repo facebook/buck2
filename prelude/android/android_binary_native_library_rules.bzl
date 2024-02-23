@@ -288,6 +288,17 @@ def get_android_binary_native_library_info(
             )
             debug_data_json = ctx.actions.write_json("native_merge_debug.json", merged_linkables.debug_info, pretty = True)
             native_library_merge_debug_outputs["native_merge_debug.json"] = debug_data_json
+
+            shared_object_targets = {}
+            for _, merged_libs in merged_linkables.shared_libs_by_platform.items():
+                for soname, lib in merged_libs.items():
+                    shared_object_targets[soname] = [str(target.raw_target()) for target in lib.primary_constituents]
+            shared_object_targets_lines = ""
+            for soname, targets in shared_object_targets.items():
+                shared_object_targets_lines += soname + " " + " ".join(targets) + "\n"
+            shared_object_targets_txt = ctx.actions.write("shared_object_targets.txt", shared_object_targets_lines)
+            native_library_merge_debug_outputs["shared_object_targets.txt"] = shared_object_targets_txt
+
             if mergemap_gencode_jar:
                 merged_library_map = write_merged_library_map(ctx, merged_linkables)
                 mergemap_gencode = run_mergemap_codegen(ctx, merged_library_map)
@@ -731,6 +742,7 @@ MergedSharedLibrary = record(
     # this only includes solib constituents that are included in the android merge map
     solib_constituents = list[str],
     is_actually_merged = bool,
+    primary_constituents = list[Label],
 )
 
 # Output of the linkables merge process, the list of shared libs for each platform and
@@ -1077,6 +1089,7 @@ def _get_merged_linkables(
                         apk_module = group_data.apk_module,
                         solib_constituents = [],
                         is_actually_merged = False,
+                        primary_constituents = [target],
                     )
                     continue
 
@@ -1173,6 +1186,7 @@ def _get_merged_linkables(
                 apk_module = group_data.apk_module,
                 solib_constituents = solib_constituents,
                 is_actually_merged = is_actually_merged,
+                primary_constituents = group_data.constituents,
             )
 
             debug_info.group_debug.setdefault(
