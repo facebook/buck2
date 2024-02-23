@@ -92,7 +92,7 @@ def make_importcfg(
     final_importcfg = ctx.actions.declare_output(root, "{}.final.importcfg".format(pkg_name))
     ctx.actions.run(
         [
-            go_toolchain.concat_files,
+            go_toolchain.concat_files[RunInfo],
             "--output",
             final_importcfg.as_output(),
             stdlib.importcfg,

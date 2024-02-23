@@ -42,7 +42,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd.add([
         "GODEBUG={}".format("installgoroot=all"),
         "CGO_ENABLED={}".format("1" if cgo_enabled else "0"),
-        go_toolchain.go_wrapper,
+        go_toolchain.go_wrapper[RunInfo],
         go_toolchain.go,
         go_wrapper_args,
         "install",
@@ -61,7 +61,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     importcfg = ctx.actions.declare_output("stdlib.importcfg")
     ctx.actions.run(
         [
-            go_toolchain.gen_stdlib_importcfg,
+            go_toolchain.gen_stdlib_importcfg[RunInfo],
             "--stdlib",
             stdlib_pkgdir,
             "--output",

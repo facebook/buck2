@@ -1,10 +1,6 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-#
-# This source code is licensed under both the MIT license found in the
-# LICENSE-MIT file in the root directory of this source tree and the Apache
-# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-# of this source tree.
-
+load("@prelude//http_archive/exec_deps.bzl", "HttpArchiveExecDeps")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//decls/common.bzl", "buck")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 
 def _system_go_toolchain_impl(ctx):
@@ -34,6 +30,7 @@ def _system_go_toolchain_impl(ctx):
             cgo = get_go_tool("cgo"),
             cgo_wrapper = ctx.attrs.cgo_wrapper,
             compile_wrapper = ctx.attrs.compile_wrapper,
+            concat_files = ctx.attrs.concat_files,
             compiler = get_go_tool("compile"),
             cover = get_go_tool("cover"),
             cover_srcs = ctx.attrs.cover_srcs,
@@ -43,10 +40,15 @@ def _system_go_toolchain_impl(ctx):
             env_go_root = go_root,
             external_linker_flags = None,
             filter_srcs = ctx.attrs.filter_srcs,
+            gen_stdlib_importcfg = ctx.attrs.gen_stdlib_importcfg,
             go = go_binary,
+            go_wrapper = ctx.attrs.go_wrapper,
             linker = get_go_tool("link"),
             packer = get_go_tool("pack"),
             tags = [],
+            linker_flags = [],
+            assembler_flags = [],
+            compiler_flags = [],
         ),
     ]
 
@@ -61,8 +63,11 @@ system_go_toolchain = rule(
     attrs = {
         "cgo_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:cgo_wrapper")),
         "compile_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:compile_wrapper")),
+        "concat_files": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:concat_files")),
         "cover_srcs": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:cover_srcs")),
         "filter_srcs": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:filter_srcs")),
+        "gen_stdlib_importcfg": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:gen_stdlib_importcfg")),
+        "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper")),
         "go_root": attrs.string(),
     },
     is_toolchain_rule = True,
