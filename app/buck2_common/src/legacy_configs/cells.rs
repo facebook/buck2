@@ -328,6 +328,14 @@ impl BuckConfigBasedCells {
                 if !cells_aggregator.has_name(&path) {
                     return Err(CellsError::MissingRootCellName.into());
                 }
+            } else {
+                for (alias, alias_path) in &root_aliases {
+                    cells_aggregator.add_cell_entry(
+                        path.clone(),
+                        alias.clone(),
+                        alias_path.clone(),
+                    )?;
+                }
             }
 
             if let Some(aliases) = config.get_section("repository_aliases") {
@@ -353,16 +361,6 @@ impl BuckConfigBasedCells {
             }
 
             buckconfigs.insert(path, config);
-        }
-
-        for cell_path in buckconfigs.keys() {
-            for (alias, alias_path) in &root_aliases {
-                cells_aggregator.add_cell_entry(
-                    cell_path.clone(),
-                    alias.clone(),
-                    alias_path.clone(),
-                )?;
-            }
         }
 
         let cell_resolver = cells_aggregator.make_cell_resolver()?;
