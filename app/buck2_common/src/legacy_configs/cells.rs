@@ -289,17 +289,16 @@ impl BuckConfigBasedCells {
                 .iter()
                 .any(|main_config_file| main_config_file.owned_by_project);
 
-            if !has_project_owned_config {
-                buckconfigs.insert(path, LegacyBuckConfig::empty());
-                continue;
+            let config = if has_project_owned_config {
+                LegacyBuckConfig::parse_with_file_ops_with_includes(
+                    existing_configs.as_slice(),
+                    &mut file_ops,
+                    &processed_config_args,
+                    options.follow_includes,
+                )?
+            } else {
+                LegacyBuckConfig::empty()
             };
-
-            let config = LegacyBuckConfig::parse_with_file_ops_with_includes(
-                existing_configs.as_slice(),
-                &mut file_ops,
-                &processed_config_args,
-                options.follow_includes,
-            )?;
 
             let is_root = path.is_repo_root();
 
