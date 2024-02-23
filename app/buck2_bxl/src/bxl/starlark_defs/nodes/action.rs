@@ -147,12 +147,13 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkActionQueryNode,
         heap: &'v Heap,
     ) -> anyhow::Result<Option<ValueTyped<'v, StarlarkAnalysisResult>>> {
-        Ok(this.0.analysis_opt().map(|a| {
-            heap.alloc_typed(StarlarkAnalysisResult::new(
+        match this.0.analysis_opt() {
+            Some(a) => Ok(Some(heap.alloc_typed(StarlarkAnalysisResult::new(
                 a.analysis_result().clone(),
                 a.target().as_ref().clone(),
-            ))
-        }))
+            )?))),
+            None => Ok(None),
+        }
     }
 
     /// Gets the kind of action query node, either analysis or action kind.

@@ -44,7 +44,7 @@ pub(crate) async fn analysis<'v>(
             }
             MaybeCompatible::Compatible(result) => Ok(Some((
                 label.clone(),
-                StarlarkAnalysisResult::new(result, label.clone()),
+                StarlarkAnalysisResult::new(result, label.clone())?,
             ))),
         }
     }))

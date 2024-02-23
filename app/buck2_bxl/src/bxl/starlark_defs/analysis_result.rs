@@ -37,13 +37,19 @@ use starlark::StarlarkDocs;
 #[display(fmt = "{:?}", self)]
 #[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkAnalysisResult {
+    // Invariant: The subtarget specified on the label is present in the analysis result.
     analysis: AnalysisResult,
     label: ConfiguredProvidersLabel,
 }
 
 impl StarlarkAnalysisResult {
-    pub(crate) fn new(analysis: AnalysisResult, label: ConfiguredProvidersLabel) -> Self {
-        Self { analysis, label }
+    pub(crate) fn new(
+        analysis: AnalysisResult,
+        label: ConfiguredProvidersLabel,
+    ) -> anyhow::Result<Self> {
+        // Check that the specified subtarget actually exists
+        drop(analysis.lookup_inner(&label)?);
+        Ok(Self { analysis, label })
     }
 }
 
