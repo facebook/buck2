@@ -33,13 +33,6 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         compress_resources_dot_arsc = ctx.attrs.resource_compression == "enabled" or ctx.attrs.resource_compression == "enabled_with_strings_as_assets",
     )
 
-    has_native_libs = bool(
-        native_library_info.exopackage_info or
-        native_library_info.native_libs_for_primary_apk or
-        native_library_info.root_module_native_lib_assets or
-        native_library_info.non_root_module_native_lib_assets,
-    )
-
     exopackage_info = ExopackageInfo(
         secondary_dex_info = dex_files_info.secondary_dex_exopackage_info,
         native_library_info = native_library_info.exopackage_info,
@@ -51,6 +44,9 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         outputs = None,
         deps = android_binary_info.deps_by_platform[android_binary_info.primary_platform],
     )
+
+    # We can only be sure that an APK has native libs if it has any shared libraries. Prebuilt native libraries dirs can exist but be empty.
+    definitely_has_native_libs = bool(native_library_info.shared_libraries)
 
     return [
         AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest, materialized_artifacts = android_binary_info.materialized_artifacts),
@@ -66,7 +62,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             shared_libraries = set(native_library_info.shared_libraries),
         ),
         DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info) + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
-        get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info, has_native_libs = has_native_libs),
+        get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info, definitely_has_native_libs = definitely_has_native_libs),
         TemplatePlaceholderInfo(
             keyed_variables = {
                 "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator_for_exec_os(ctx)),
@@ -145,7 +141,7 @@ def get_install_info(
         output_apk: Artifact,
         manifest: Artifact,
         exopackage_info: [ExopackageInfo, None],
-        has_native_libs: bool = True) -> InstallInfo:
+        definitely_has_native_libs: bool = True) -> InstallInfo:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,
@@ -180,7 +176,7 @@ def get_install_info(
     if secondary_dex_exopackage_info or native_library_exopackage_info or resources_info:
         files["exopackage_agent_apk"] = ctx.attrs._android_toolchain[AndroidToolchainInfo].exopackage_agent_apk
 
-    if has_native_libs and hasattr(ctx.attrs, "cpu_filters"):
+    if definitely_has_native_libs and hasattr(ctx.attrs, "cpu_filters"):
         files["cpu_filters"] = ctx.actions.write("cpu_filters.txt", ctx.attrs.cpu_filters)
 
     return InstallInfo(
