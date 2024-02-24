@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
@@ -31,6 +32,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         native_library_info = native_library_info,
         resources_info = resources_info,
         compress_resources_dot_arsc = ctx.attrs.resource_compression == "enabled" or ctx.attrs.resource_compression == "enabled_with_strings_as_assets",
+        validation_deps_outputs = get_validation_deps_outputs(ctx),
     )
 
     exopackage_info = ExopackageInfo(
@@ -80,7 +82,8 @@ def build_apk(
         dex_files_info: DexFilesInfo,
         native_library_info: AndroidBinaryNativeLibsInfo,
         resources_info: AndroidBinaryResourcesInfo,
-        compress_resources_dot_arsc: bool = False) -> Artifact:
+        compress_resources_dot_arsc: bool = False,
+        validation_deps_outputs: [list[Artifact], None] = None) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(label.name))
 
     apk_builder_args = cmd_args([
@@ -98,6 +101,11 @@ def build_apk(
         "--zipalign_tool",
         android_toolchain.zipalign[RunInfo],
     ])
+
+    # The outputs of validation_deps need to be added as hidden arguments
+    # to an action for the validation_deps targets to be built and enforced.
+    if validation_deps_outputs:
+        apk_builder_args.hidden(validation_deps_outputs)
 
     if android_toolchain.package_meta_inf_version_files:
         apk_builder_args.add("--package-meta-inf-version-files")

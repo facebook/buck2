@@ -5,6 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:validation_deps.bzl",
+    "VALIDATION_DEPS_ATTR_NAME",
+)
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
 load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour")
@@ -96,6 +100,7 @@ extra_attributes = {
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": toolchains_common.java_for_android(),
+        VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
     },
     "android_build_config": {
         "_android_toolchain": toolchains_common.android(),
