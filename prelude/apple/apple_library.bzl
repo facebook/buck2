@@ -9,6 +9,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "project_artifacts",
 )
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
@@ -73,7 +74,6 @@ load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
-load(":apple_validation_deps.bzl", "get_apple_validation_deps_outputs")
 load(
     ":debug.bzl",
     "AppleDebuggableInfo",
@@ -218,7 +218,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         relative_args = CPreprocessorArgs(args = [framework_search_paths_flags]),
     )
 
-    validation_deps_outputs = get_apple_validation_deps_outputs(ctx)
+    validation_deps_outputs = get_validation_deps_outputs(ctx)
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),

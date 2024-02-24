@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
@@ -65,7 +66,6 @@ load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
-load(":apple_validation_deps.bzl", "get_apple_validation_deps_outputs")
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
@@ -109,7 +109,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             swift_compile,
         )
 
-        validation_deps_outputs = get_apple_validation_deps_outputs(ctx)
+        validation_deps_outputs = get_validation_deps_outputs(ctx)
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",

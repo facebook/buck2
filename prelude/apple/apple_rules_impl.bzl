@@ -5,6 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:validation_deps.bzl",
+    "VALIDATION_DEPS_ATTR_NAME",
+    "VALIDATION_DEPS_ATTR_TYPE",
+)
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
@@ -26,8 +31,6 @@ load(":apple_resource.bzl", "apple_resource_impl")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
-    "APPLE_VALIDATION_DEPS_ATTR_NAME",
-    "APPLE_VALIDATION_DEPS_ATTR_TYPE",
     "apple_bundle_extra_attrs",
     "apple_dsymutil_attrs",
     "apple_test_extra_attrs",
@@ -94,7 +97,7 @@ def _apple_binary_extra_attrs():
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_stripped_default": attrs.bool(default = False),
-        APPLE_VALIDATION_DEPS_ATTR_NAME: APPLE_VALIDATION_DEPS_ATTR_TYPE,
+        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
     }
     attribs.update(apple_dsymutil_attrs())
     return attribs
@@ -120,7 +123,7 @@ def _apple_library_extra_attrs():
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_stripped_default": attrs.bool(default = False),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
-        APPLE_VALIDATION_DEPS_ATTR_NAME: APPLE_VALIDATION_DEPS_ATTR_TYPE,
+        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
     }
     attribs.update(apple_dsymutil_attrs())
     return attribs
