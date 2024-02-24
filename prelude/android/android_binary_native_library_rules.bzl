@@ -412,11 +412,13 @@ def _get_native_libs_and_assets(
         all_prebuilt_native_library_dirs: list[PrebuiltNativeLibraryDir],
         platform_to_native_linkables: dict[str, dict[str, SharedLibrary]]) -> _NativeLibsAndAssetsInfo:
     is_packaging_native_libs_as_assets_supported = getattr(ctx.attrs, "package_asset_libraries", False)
+    enabled_voltron_non_asset_libs = ctx.attrs._android_toolchain[AndroidToolchainInfo].enabled_voltron_non_asset_libs
 
     prebuilt_native_library_dirs = []
     prebuilt_native_library_dirs_always_in_primary_apk = []
     prebuilt_native_library_dir_assets_for_primary_apk = []
     prebuilt_native_library_dir_module_assets_map = {}
+    prebuilt_native_library_dir_module_libs_map = {}
     for native_lib in all_prebuilt_native_library_dirs:
         native_lib_target = str(native_lib.raw_target)
         module = get_module_from_target(native_lib_target)
@@ -431,6 +433,8 @@ def _get_native_libs_and_assets(
         if not is_root_module(module):
             if native_lib.is_asset:
                 prebuilt_native_library_dir_module_assets_map.setdefault(module, []).append(native_lib)
+            elif enabled_voltron_non_asset_libs:
+                prebuilt_native_library_dir_module_libs_map.setdefault(module, []).append(native_lib)
             else:
                 prebuilt_native_library_dirs.append(native_lib)
         elif native_lib.is_asset and is_packaging_native_libs_as_assets_supported:
@@ -460,13 +464,22 @@ def _get_native_libs_and_assets(
     ) if prebuilt_native_library_dir_assets_for_primary_apk else None
     native_lib_module_assets_map = {}
     for module, native_lib_dir in prebuilt_native_library_dir_module_assets_map.items():
-        native_lib_module_assets_map[module] = [_filter_prebuilt_native_library_dir(
+        native_lib_module_assets_map.setdefault(module, []).append(_filter_prebuilt_native_library_dir(
             ctx,
             native_lib_dir,
             "native_lib_assets_for_module_{}".format(module),
             package_as_assets = True,
             module = module,
-        )]
+        ))
+    if enabled_voltron_non_asset_libs:
+        for module, native_lib_dir in prebuilt_native_library_dir_module_libs_map.items():
+            native_lib_module_assets_map.setdefault(module, []).append(_filter_prebuilt_native_library_dir(
+                ctx,
+                native_lib_dir,
+                "native_lib_libs_for_module_{}".format(module),
+                package_as_assets = False,
+                module = module,
+            ))
 
     stripped_linkables = _get_native_linkables(ctx, platform_to_native_linkables, get_module_from_target, is_packaging_native_libs_as_assets_supported)
     for module, native_linkable_assets in stripped_linkables.linkable_module_assets_map.items():
@@ -564,7 +577,15 @@ def _filter_prebuilt_native_library_dir(
     native_libs_dirs = [native_lib.dir for native_lib in native_libs]
     native_libs_dirs_file = ctx.actions.write("{}_list.txt".format(identifier), native_libs_dirs)
     base_output_dir = ctx.actions.declare_output(identifier, dir = True)
-    output_dir = base_output_dir.project(_get_native_libs_as_assets_dir(module)) if package_as_assets else base_output_dir
+    if ctx.attrs._android_toolchain[AndroidToolchainInfo].enabled_voltron_non_asset_libs:
+        if module == ROOT_MODULE:
+            output_dir = base_output_dir.project(_get_native_libs_as_assets_dir(module)) if package_as_assets else base_output_dir
+        elif package_as_assets:
+            output_dir = base_output_dir.project(paths.join(_get_native_libs_as_assets_dir(module), "assets"))
+        else:
+            output_dir = base_output_dir.project(paths.join(_get_native_libs_as_assets_dir(module), "lib"))
+    else:
+        output_dir = base_output_dir.project(_get_native_libs_as_assets_dir(module)) if package_as_assets else base_output_dir
     ctx.actions.run(
         cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis).hidden(native_libs_dirs),
         category = "filter_prebuilt_native_library_dir",
