@@ -59,9 +59,19 @@ def build_bundle(
     root_module_asset_directories = native_library_info.root_module_native_lib_assets + dex_files_info.root_module_secondary_dex_dirs
     root_module_asset_directories_file = actions.write("root_module_asset_directories.txt", root_module_asset_directories)
     bundle_builder_args.hidden(root_module_asset_directories)
-    non_root_module_asset_directories = resources_info.module_manifests + native_library_info.non_root_module_native_lib_assets + dex_files_info.non_root_module_secondary_dex_dirs
-    non_root_module_asset_directories_file = actions.write("non_root_module_asset_directories.txt", non_root_module_asset_directories)
-    bundle_builder_args.hidden(non_root_module_asset_directories)
+
+    if android_toolchain.enabled_voltron_non_asset_libs:
+        non_root_module_asset_directories = resources_info.module_manifests + dex_files_info.non_root_module_secondary_dex_dirs
+        non_root_module_asset_directories_file = actions.write("non_root_module_asset_directories.txt", non_root_module_asset_directories)
+        bundle_builder_args.hidden(non_root_module_asset_directories)
+        non_root_module_asset_native_lib_directories = actions.write("non_root_module_asset_native_lib_directories.txt", native_library_info.non_root_module_native_lib_assets)
+        bundle_builder_args.hidden(native_library_info.non_root_module_native_lib_assets)
+    else:
+        non_root_module_asset_directories = resources_info.module_manifests + native_library_info.non_root_module_native_lib_assets + dex_files_info.non_root_module_secondary_dex_dirs
+        non_root_module_asset_directories_file = actions.write("non_root_module_asset_directories.txt", non_root_module_asset_directories)
+        bundle_builder_args.hidden(non_root_module_asset_directories)
+        non_root_module_asset_native_lib_directories = actions.write("non_root_module_asset_native_lib_directories.txt", "")
+
     native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)
     bundle_builder_args.hidden(native_library_info.native_libs_for_primary_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
@@ -75,6 +85,8 @@ def build_bundle(
         root_module_asset_directories_file,
         "--non-root-module-asset-directories-list",
         non_root_module_asset_directories_file,
+        "--non-root-module-asset-native-lib-directories-list",
+        non_root_module_asset_native_lib_directories,
         "--native-libraries-directories-list",
         native_library_directories,
         "--zip-files-list",
