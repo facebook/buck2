@@ -74,7 +74,7 @@ for target in huge_target_list:
 
 ### Simply allocating very big data-structures!
 
-Another reason why Starlark uses a lot of memory could simply be bacause the
+Another reason why Starlark uses a lot of memory could simply be because the
 build file allocates a very big-data structure. For instance, below we allocate
 a list with 1 billion integers!
 

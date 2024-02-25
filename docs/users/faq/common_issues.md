@@ -91,7 +91,7 @@ declare any outputs artifacts, defined as outputs declared in:
 - `cmd_args` in `RunInfo`
 - `cmd_args` inside the `command` in `ExternalRunnerTestInfo`
 
-For example, building a target which is uses a `python_library` rule merely
-groups source files together, and does not generate any output artifacts such as
+For example, building a target which uses a `python_library` rule merely
+groups source files together and does not generate any output artifacts such as
 a python executable. You would need to build a `python_binary` which uses that
 library in order to get an output.
