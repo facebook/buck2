@@ -82,7 +82,7 @@ def _tags_transition(platform, refs, attrs):
     for tag in attrs.tags:
         ref_name = "tag_{}__value".format(tag)
         if not hasattr(refs, ref_name):
-            fail("Add tags to .buckconfig attrubute `go.allowed_tags` to allow using it")
+            fail("Add tag '{}' to .buckconfig attrubute `go.allowed_tags` to allow using it".format(tag))
 
         tag_value = getattr(refs, ref_name)[ConstraintValueInfo]
         constraints[tag_value.setting.label] = tag_value
