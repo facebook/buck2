@@ -139,6 +139,13 @@ def _race_arg():
 """),
     }
 
+def _tags_arg():
+    return {
+        "tags": attrs.list(attrs.string(), default = [], doc = """
+    Build tags to apply to this target and its dependencies.
+"""),
+    }
+
 go_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -153,4 +160,5 @@ go_common = struct(
     embedcfg_arg = _embedcfg_arg,
     cgo_enabled_arg = _cgo_enabled_arg,
     race_arg = _race_arg,
+    tags_arg = _tags_arg,
 )

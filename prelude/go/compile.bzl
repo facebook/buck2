@@ -66,7 +66,7 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = 
     filter_cmd.add(cmd_args(go_toolchain.go, format = "--go={}"))
     if tests:
         filter_cmd.add("--tests")
-    filter_cmd.add(cmd_args(",".join(go_toolchain.tags), format = "--tags={}"))
+    filter_cmd.add(cmd_args(",".join(go_toolchain.tags + ctx.attrs._tags), format = "--tags={}"))
     filter_cmd.add(cmd_args(filtered_srcs.as_output(), format = "--output={}"))
     filter_cmd.add(srcs_dir)
     ctx.actions.run(filter_cmd, category = "go_filter_srcs")

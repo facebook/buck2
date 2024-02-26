@@ -1,3 +1,5 @@
+load(":defs.bzl", "generate_tag_constraints")
+
 constraint_setting(
     name = "cgo_enabled",
     visibility = ["PUBLIC"],
@@ -54,3 +56,5 @@ constraint_value(
     constraint_setting = ":race",
     visibility = ["PUBLIC"],
 )
+
+generate_tag_constraints()

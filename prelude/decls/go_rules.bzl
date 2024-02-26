@@ -186,6 +186,7 @@ go_binary = prelude_rule(
         go_common.embedcfg_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
+        go_common.tags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -272,6 +273,7 @@ go_exported_library = prelude_rule(
         go_common.external_linker_flags_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
+        go_common.tags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -423,6 +425,7 @@ go_test = prelude_rule(
         go_common.embedcfg_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
+        go_common.tags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files that are symlinked into the working directory of the

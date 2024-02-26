@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":tags_helper.bzl", "selects_for_tags", "tag_to_constrant_value")
+
 def _cgo_enabled_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
 
@@ -75,6 +77,26 @@ def _race_transition(platform, refs, attrs):
         configuration = new_cfg,
     )
 
+def _tags_transition(platform, refs, attrs):
+    constraints = platform.configuration.constraints
+    for tag in attrs.tags:
+        ref_name = "tag_{}__value".format(tag)
+        if not hasattr(refs, ref_name):
+            fail("Add tags to .buckconfig attrubute `go.allowed_tags` to allow using it")
+
+        tag_value = getattr(refs, ref_name)[ConstraintValueInfo]
+        constraints[tag_value.setting.label] = tag_value
+
+    new_cfg = ConfigurationInfo(
+        constraints = constraints,
+        values = platform.configuration.values,
+    )
+
+    return PlatformInfo(
+        label = platform.label,
+        configuration = new_cfg,
+    )
+
 def _chain_transitions(transitions):
     def tr(platform, refs, attrs):
         for t in transitions:
@@ -83,7 +105,7 @@ def _chain_transitions(transitions):
 
     return tr
 
-_tansitions = [_cgo_enabled_transition, _compile_shared_transition, _race_transition]
+_tansitions = [_cgo_enabled_transition, _compile_shared_transition, _race_transition, _tags_transition]
 
 _refs = {
     "cgo_enabled_auto": "prelude//go/constraints:cgo_enabled_auto",
@@ -91,9 +113,12 @@ _refs = {
     "cgo_enabled_true": "prelude//go/constraints:cgo_enabled_true",
     "race_false": "prelude//go/constraints:race_false",
     "race_true": "prelude//go/constraints:race_true",
+} | {
+    "tag_{}__value".format(tag): constrant_value
+    for tag, constrant_value in tag_to_constrant_value().items()
 }
 
-_attrs = ["cgo_enabled", "race"]
+_attrs = ["cgo_enabled", "race", "tags"]
 
 go_binary_transition = transition(
     impl = _chain_transitions(_tansitions),
@@ -137,3 +162,5 @@ race_attr = attrs.default_only(attrs.bool(default = select({
     "prelude//go/constraints:race_false": False,
     "prelude//go/constraints:race_true": True,
 })))
+
+tags_attr = attrs.default_only(attrs.list(attrs.string(), default = selects_for_tags()))
