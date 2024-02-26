@@ -42,6 +42,7 @@ load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//lua:cxx_lua_extension.bzl", "cxx_lua_extension_impl")
 load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
 load("@prelude//lua:lua_library.bzl", "lua_library_impl")
+load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
 load("@prelude//ocaml:attrs.bzl", _ocaml_extra_attributes = "ocaml_extra_attributes")
 load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "ocaml_shared_impl", "prebuilt_ocaml_library_impl")
 load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
@@ -214,6 +215,7 @@ extra_implemented_rules = struct(
         _js_implemented_rules,
         _julia_implemented_rules,
         _kotlin_implemented_rules,
+        _matlab_implemented_rules,
         _zip_file_implemented_rules,
     ])
 )
@@ -590,6 +592,7 @@ all_extra_attributes = _merge_dictionaries([
     _js_extra_attributes,
     _julia_extra_attributes,
     _kotlin_extra_attributes,
+    _matlab_extra_attributes,
     _ocaml_extra_attributes,
     _zip_file_extra_attributes,
 ])
