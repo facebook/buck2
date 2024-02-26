@@ -730,6 +730,51 @@ cxx_precompiled_header = prelude_rule(
     ),
 )
 
+windows_resource = prelude_rule(
+    name = "windows_resource",
+    docs = """
+        A `windows_resource()` rule specifies a set of Window's Resource File (.rc) that
+        are compiled into object files.
+
+        The files are compiled into .res files using rc.exe and then compiled into object files
+        using cvtres.exe.
+        They are not part of cxx_library because Microsoft's linker ignores the resources
+        unless they are specified as an object file, meaning including them in a possibly static
+        library is unintuitive.
+    """,
+    examples = """
+        ```
+
+        # A rule that includes a single .rc file and compiles it into an object file.
+        windows_resource(
+          name = 'resources',
+          srcs = [
+            'resources.rc',
+          ],
+        )
+
+        # A rule that links against the above windows_resource rule.
+        cxx_binary(
+          name = 'app',
+          srcs = [
+            "main.cpp",
+          ],
+          deps = [
+            ":resources"
+          ],
+        )
+
+        ```
+    """,
+    further = None,
+    attrs = (
+        cxx_common.srcs_arg() |
+        {
+          "labels": attrs.list(attrs.string(), default = []),
+        }
+    ),
+)
+
 cxx_test = prelude_rule(
     name = "cxx_test",
     docs = """
@@ -1251,6 +1296,7 @@ cxx_rules = struct(
     cxx_genrule = cxx_genrule,
     cxx_library = cxx_library,
     cxx_precompiled_header = cxx_precompiled_header,
+    windows_resource = windows_resource,
     cxx_test = cxx_test,
     cxx_toolchain = cxx_toolchain,
     prebuilt_cxx_library = prebuilt_cxx_library,
