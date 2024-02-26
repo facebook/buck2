@@ -55,6 +55,7 @@ implemented_rules = {
 # Can't load `read_bool` here because it will cause circular load.
 FORCE_SINGLE_CPU = read_root_config("buck2", "android_force_single_cpu") in ("True", "true")
 FORCE_SINGLE_DEFAULT_CPU = read_root_config("buck2", "android_force_single_default_cpu") in ("True", "true")
+DISABLE_STRIPPING = read_root_config("android", "disable_stripping") in ("True", "true")
 
 extra_attributes = {
     "android_aar": {
@@ -67,6 +68,7 @@ extra_attributes = {
         "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "package_asset_libraries": attrs.default_only(attrs.bool(default = True)),
         "resources_root": attrs.option(attrs.string(), default = None),
+        "strip_libraries": attrs.default_only(attrs.bool(default = not DISABLE_STRIPPING)),
         "_android_toolchain": toolchains_common.android(),
         "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
@@ -92,6 +94,7 @@ extra_attributes = {
         "module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
         "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
+        "strip_libraries": attrs.bool(default = not DISABLE_STRIPPING),
         "_android_toolchain": toolchains_common.android(),
         "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
         "_dex_toolchain": toolchains_common.dex(),

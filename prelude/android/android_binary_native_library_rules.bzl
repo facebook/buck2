@@ -611,6 +611,7 @@ def _get_native_linkables(
     stripped_native_linkables_always_in_primary_apk_srcs = {}
     stripped_native_linkable_assets_for_primary_apk_srcs = {}
     stripped_native_linkable_module_assets_srcs = {}
+    strip_libraries = getattr(ctx.attrs, "strip_libraries", True)
 
     cpu_filters = ctx.attrs.cpu_filters
     for platform, native_linkables in platform_to_native_linkables.items():
@@ -621,6 +622,7 @@ def _get_native_linkables(
         for so_name, native_linkable in native_linkables.items():
             native_linkable_target = str(native_linkable.label.raw_target())
             module = get_module_from_target(native_linkable_target)
+            lib = native_linkable.stripped_lib if strip_libraries else native_linkable.lib.output
 
             expect(
                 not native_linkable.for_primary_apk or is_root_module(module),
@@ -636,24 +638,24 @@ def _get_native_linkables(
                 else:
                     native_libs_assets_dir = _get_native_libs_as_assets_dir(module)
                 so_name_path = paths.join(native_libs_assets_dir, abi_directory, so_name)
-                stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = native_linkable.stripped_lib
+                stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = lib
             elif native_linkable.can_be_asset and package_native_libs_as_assets_enabled:
                 if enabled_voltron_non_asset_libs:
                     native_libs_assets_dir = paths.join(_get_native_libs_as_assets_dir(module), "assets")
                 else:
                     native_libs_assets_dir = _get_native_libs_as_assets_dir(module)
                 so_name_path = paths.join(native_libs_assets_dir, abi_directory, so_name)
-                stripped_native_linkable_assets_for_primary_apk_srcs[so_name_path] = native_linkable.stripped_lib
+                stripped_native_linkable_assets_for_primary_apk_srcs[so_name_path] = lib
             elif (enabled_voltron_non_asset_libs and  #  TODO: when cleaning up this code, restructure if statements to be more clear (start with root module, then non-root module cases)
                   not native_linkable.can_be_asset and not is_root_module(module)):
                 so_name_path = paths.join(_get_native_libs_as_assets_dir(module), "lib", abi_directory, so_name)
-                stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = native_linkable.stripped_lib
+                stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = lib
             else:
                 so_name_path = paths.join(abi_directory, so_name)
                 if native_linkable.for_primary_apk:
-                    stripped_native_linkables_always_in_primary_apk_srcs[so_name_path] = native_linkable.stripped_lib
+                    stripped_native_linkables_always_in_primary_apk_srcs[so_name_path] = lib
                 else:
-                    stripped_native_linkables_srcs[so_name_path] = native_linkable.stripped_lib
+                    stripped_native_linkables_srcs[so_name_path] = lib
 
     stripped_native_linkables = ctx.actions.symlinked_dir(
         "stripped_native_linkables",

@@ -264,6 +264,7 @@ android_binary = prelude_rule(
             "secondary_dex_weight_limit": attrs.option(attrs.int(), default = None),
             "skip_crunch_pngs": attrs.option(attrs.bool(), default = None),
             "skip_proguard": attrs.bool(default = False),
+            "strip_libraries": attrs.bool(default = True),
             "trim_resource_ids": attrs.bool(default = False),
             "use_split_dex": attrs.bool(default = False),
             "xz_compression_level": attrs.int(default = 4),
