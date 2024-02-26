@@ -23,9 +23,11 @@ from typing import IO, List, NamedTuple
 class OutputJsonFiles(NamedTuple):
     # We write a Tool instance as JSON into each of these files.
     cl: IO[str]
+    cvtres: IO[str]
     lib: IO[str]
     ml64: IO[str]
     link: IO[str]
+    rc: IO[str]
 
 
 class Tool(NamedTuple):
@@ -35,11 +37,14 @@ class Tool(NamedTuple):
     INCLUDE: List[Path] = []
 
 
-def find_in_path(executable):
+def find_in_path(executable, is_optional):
     which = shutil.which(executable)
     if which is None:
-        print(f"{executable} not found in $PATH", file=sys.stderr)
-        sys.exit(1)
+        if is_optional:
+            return None
+        else:
+            print(f"{executable} not found in $PATH", file=sys.stderr)
+            sys.exit(1)
     return Tool(which)
 
 
@@ -81,6 +86,9 @@ def find_with_vswhere_exe():
         reverse=True,
     )
 
+    vc_exe_names = "cl.exe", "cvtres.exe", "lib.exe", "ml64.exe", "link.exe"
+    ucrt_exe_names = "rc.exe",
+
     for vs_instance in list(vswhere_json):
         installation_path = Path(vs_instance["installationPath"])
 
@@ -99,8 +107,9 @@ def find_with_vswhere_exe():
         lib_path = tools_path / "lib" / "x64"
         include_path = tools_path / "include"
 
-        exe_names = "cl.exe", "lib.exe", "ml64.exe", "link.exe"
-        if not all(bin_path.joinpath(exe).exists() for exe in exe_names):
+        vc_exe_paths = [bin_path.joinpath(exe) for exe in vc_exe_names]
+
+        if not all(exe.exists() for exe in vc_exe_paths):
             continue
 
         PATH = [bin_path]
@@ -109,9 +118,15 @@ def find_with_vswhere_exe():
 
         ucrt, ucrt_version = get_ucrt_dir()
         if ucrt and ucrt_version:
-            PATH.append(ucrt / "bin" / ucrt_version / "x64")
+            ucrt_bin_path = ucrt / "bin" / ucrt_version / "x64"
+            PATH.append(ucrt_bin_path)
             LIB.append(ucrt / "lib" / ucrt_version / "ucrt" / "x64")
             INCLUDE.append(ucrt / "include" / ucrt_version / "ucrt")
+
+            ucrt_exe_paths = [ucrt_bin_path.joinpath(exe) for exe in ucrt_exe_names]
+            ucrt_exe_paths = [exe if exe.exists() else None for exe in ucrt_exe_paths]
+        else:
+            ucrt_exe_paths = [None for exe in ucrt_exe_names]
 
         sdk, sdk_version = get_sdk10_dir()
         if sdk and sdk_version:
@@ -123,12 +138,12 @@ def find_with_vswhere_exe():
             INCLUDE.append(sdk / "include" / sdk_version / "shared")
 
         return [
-            Tool(exe=bin_path / exe, LIB=LIB, PATH=PATH, INCLUDE=INCLUDE)
-            for exe in exe_names
+            Tool(exe=exe, LIB=LIB, PATH=PATH, INCLUDE=INCLUDE)
+            for exe in vc_exe_paths + ucrt_exe_paths
         ]
 
     print(
-        "vswhere.exe did not find a suitable MSVC toolchain containing cl.exe, lib.exe, ml64.exe",
+        "vswhere.exe did not find a suitable MSVC toolchain containing " + ", ".join(vc_exe_names),
         file=sys.stderr,
     )
     sys.exit(1)
@@ -205,24 +220,30 @@ def write_tool_json(out, tool):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cl", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--cvtres", type=argparse.FileType("w"), required=True)
     parser.add_argument("--lib", type=argparse.FileType("w"), required=True)
     parser.add_argument("--ml64", type=argparse.FileType("w"), required=True)
     parser.add_argument("--link", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--rc", type=argparse.FileType("w"), required=True)
     output = OutputJsonFiles(**vars(parser.parse_args()))
 
     # If vcvars has been run, it puts these tools onto $PATH.
     if "VCINSTALLDIR" in os.environ:
-        cl_exe = find_in_path("cl.exe")
-        lib_exe = find_in_path("lib.exe")
-        ml64_exe = find_in_path("ml64.exe")
-        link_exe = find_in_path("link.exe")
+        cl_exe = find_in_path("cl.exe", False)
+        cvtres_exe = find_in_path("cvtres.exe", False)
+        lib_exe = find_in_path("lib.exe", False)
+        ml64_exe = find_in_path("ml64.exe", False)
+        link_exe = find_in_path("link.exe", False)
+        rc_exe = find_in_path("rc.exe", True)
     else:
-        cl_exe, lib_exe, ml64_exe, link_exe = find_with_vswhere_exe()
+        cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe, rc_exe = find_with_vswhere_exe()
 
     write_tool_json(output.cl, cl_exe)
+    write_tool_json(output.cvtres, cvtres_exe)
     write_tool_json(output.lib, lib_exe)
     write_tool_json(output.ml64, ml64_exe)
     write_tool_json(output.link, link_exe)
+    write_tool_json(output.rc, rc_exe)
 
 
 if __name__ == "__main__":

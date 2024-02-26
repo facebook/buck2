@@ -10,6 +10,8 @@ load(
     "BinaryUtilitiesInfo",
     "CCompilerInfo",
     "CxxCompilerInfo",
+    "CvtresCompilerInfo",
+    "RcCompilerInfo",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
     "LinkerInfo",
@@ -34,6 +36,8 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     asm_compiler_type = ctx.attrs.compiler_type
     compiler = ctx.attrs.compiler
     cxx_compiler = ctx.attrs.cxx_compiler
+    cvtres_compiler = ctx.attrs.cvtres_compiler
+    rc_compiler = ctx.attrs.rc_compiler
     linker = ctx.attrs.linker
     linker_type = "gnu"
     pic_behavior = PicBehavior("supported")
@@ -57,6 +61,10 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         if compiler == "cl.exe":
             compiler = msvc_tools.cl_exe
         cxx_compiler = compiler
+        if cvtres_compiler == "cvtres.exe":
+            cvtres_compiler = msvc_tools.cvtres_exe
+        if rc_compiler == "rc.exe":
+            rc_compiler = msvc_tools.rc_exe
         if linker == "link.exe":
             linker = msvc_tools.link_exe
         linker = _windows_linker_wrapper(ctx, linker)
@@ -141,6 +149,18 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 compiler = RunInfo(args = [asm_compiler]),
                 compiler_type = asm_compiler_type,
             ),
+            cvtres_compiler_info = CvtresCompilerInfo(
+                compiler = RunInfo(args = [cvtres_compiler]),
+                preprocessor_flags = [],
+                compiler_flags = ctx.attrs.cvtres_flags,
+                compiler_type = ctx.attrs.compiler_type,
+            ),
+            rc_compiler_info = RcCompilerInfo(
+                compiler = RunInfo(args = [rc_compiler]),
+                preprocessor_flags = [],
+                compiler_flags = ctx.attrs.rc_flags,
+                compiler_type = ctx.attrs.compiler_type,
+            ),
             header_mode = HeaderMode("symlink_tree_only"),
             cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
             pic_behavior = pic_behavior,
@@ -181,6 +201,10 @@ system_cxx_toolchain = rule(
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cxx_compiler": attrs.string(default = "cl.exe" if host_info().os.is_windows else "clang++"),
         "cxx_flags": attrs.list(attrs.string(), default = []),
+        "cvtres_compiler": attrs.string(default = "cvtres.exe"),
+        "cvtres_flags": attrs.list(attrs.string(), default = []),
+        "rc_compiler": attrs.string(default = "rc.exe"),
+        "rc_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.string(default = "shared"),

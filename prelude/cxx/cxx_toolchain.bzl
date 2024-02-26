@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "CvtresCompilerInfo", "RcCompilerInfo", "LinkerInfo", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
@@ -70,6 +70,18 @@ def cxx_toolchain_impl(ctx):
         compiler_flags = cmd_args(ctx.attrs.hip_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.hip_preprocessor_flags),
     ) if ctx.attrs.hip_compiler else None
+    cvtres_info = CvtresCompilerInfo(
+        compiler = ctx.attrs.cvtres_compiler[RunInfo],
+        compiler_type = ctx.attrs.cvtres_compiler_type or ctx.attrs.compiler_type,
+        compiler_flags = cmd_args(ctx.attrs.cvtres_compiler_flags),
+        preprocessor_flags = cmd_args(ctx.attrs.cvtres_preprocessor_flags),
+    ) if ctx.attrs.cvtres_compiler else None
+    rc_info = RcCompilerInfo(
+        compiler = ctx.attrs.rc_compiler[RunInfo],
+        compiler_type = ctx.attrs.rc_compiler_type or ctx.attrs.compiler_type,
+        compiler_flags = cmd_args(ctx.attrs.rc_compiler_flags),
+        preprocessor_flags = cmd_args(ctx.attrs.rc_preprocessor_flags),
+    ) if ctx.attrs.rc_compiler else None
 
     linker_info = LinkerInfo(
         archiver = ctx.attrs.archiver[RunInfo],
@@ -139,6 +151,8 @@ def cxx_toolchain_impl(ctx):
         as_compiler_info = as_info,
         cuda_compiler_info = cuda_info,
         hip_compiler_info = hip_info,
+        cvtres_compiler_info = cvtres_info,
+        rc_compiler_info = rc_info,
         header_mode = _get_header_mode(ctx),
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link else None,
         object_format = CxxObjectFormat(object_format),
@@ -177,6 +191,8 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "cxx_compiler": dep_type(providers = [RunInfo]),
         "generate_linker_maps": attrs.bool(default = False),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "cvtres_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "rc_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
         "linker": dep_type(providers = [RunInfo]),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
