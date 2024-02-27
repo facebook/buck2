@@ -280,15 +280,14 @@ async fn dice_lookup_transitive_set(
 }
 
 async fn get_template_info_provider_artifacts(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     configured_label: &ConfiguredTargetLabel,
     template_name: &str,
 ) -> anyhow::Result<Vec<ArtifactGroup>> {
     let providers_label =
         ConfiguredProvidersLabel::new(configured_label.dupe(), ProvidersName::Default);
 
-    let mut as_mut = ctx.bad_dice();
-    let providers = as_mut.get_providers(&providers_label);
+    let providers = ctx.get_providers(&providers_label);
 
     let mut artifacts = vec![];
 

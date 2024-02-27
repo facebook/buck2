@@ -138,7 +138,7 @@ pub async fn get_prelude_docs(
     ctx: &DiceTransaction,
     existing_globals: &HashSet<&str>,
 ) -> anyhow::Result<Vec<Doc>> {
-    let cell_resolver = ctx.bad_dice().get_cell_resolver().await?;
+    let cell_resolver = ctx.clone().get_cell_resolver().await?;
     let prelude_path = prelude_path(&cell_resolver)?;
     get_docs_from_module(
         &mut ctx.clone(),
