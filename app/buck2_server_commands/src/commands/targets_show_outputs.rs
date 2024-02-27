@@ -45,9 +45,7 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::FutureExt;
-use futures::stream::FuturesUnordered;
 use gazebo::prelude::VecExt;
-use tokio_stream::StreamExt;
 
 struct TargetsArtifacts {
     providers_label: ConfiguredProvidersLabel,
@@ -118,7 +116,7 @@ async fn targets_show_outputs(
     let mut targets_paths = Vec::new();
 
     for targets_artifacts in retrieve_targets_artifacts_from_patterns(
-        &ctx,
+        &mut ctx,
         &global_cfg_options,
         &parsed_patterns,
         &cell_resolver,
@@ -140,7 +138,7 @@ async fn targets_show_outputs(
 }
 
 async fn retrieve_targets_artifacts_from_patterns(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     global_cfg_options: &GlobalCfgOptions,
     parsed_patterns: &[ParsedPattern<ProvidersPatternExtra>],
     cell_resolver: &CellResolver,
@@ -152,40 +150,33 @@ async fn retrieve_targets_artifacts_from_patterns(
 }
 
 async fn retrieve_artifacts_for_targets(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: &GlobalCfgOptions,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
-    let futs: FuturesUnordered<_> = spec
-        .specs
-        .into_iter()
-        .map(|(package, spec)| {
+    let artifacts_for_specs = ctx
+        .try_compute_join(spec.specs, |ctx, (package, spec)| {
             async move {
                 {
-                    let res = ctx
-                        .bad_dice()
-                        .get_interpreter_results(package.dupe())
-                        .await?;
+                    let res = ctx.get_interpreter_results(package.dupe()).await?;
                     retrieve_artifacts_for_spec(ctx, package.dupe(), spec, global_cfg_options, res)
                         .await
                 }
             }
             .boxed()
         })
-        .collect();
-
-    futures::pin_mut!(futs);
+        .await?;
 
     let mut results = Vec::new();
-    while let Some(mut targets_artifacts) = futs.try_next().await? {
-        results.append(&mut targets_artifacts);
+    for artifacts in artifacts_for_specs {
+        results.extend(artifacts);
     }
 
     Ok(results)
 }
 
 async fn retrieve_artifacts_for_spec(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     package: PackageLabel,
     spec: PackageSpec<ProvidersPatternExtra>,
     global_cfg_options: &GlobalCfgOptions,
@@ -216,19 +207,10 @@ async fn retrieve_artifacts_for_spec(
         }
     };
 
-    let mut futs: FuturesUnordered<_> = todo_targets
-        .into_iter()
-        .map(|(providers_label, cfg_flags)| async move {
-            retrieve_artifacts_for_provider_label(&mut ctx.bad_dice(), providers_label, cfg_flags)
-                .await
-        })
-        .collect();
-
-    let mut outputs = Vec::new();
-    while let Some(targets_artifacts) = futs.next().await {
-        outputs.push(targets_artifacts?);
-    }
-
+    let outputs = ctx.try_compute_join(todo_targets, |ctx, (providers_label, cfg_flags)| {
+        async move { retrieve_artifacts_for_provider_label(ctx, providers_label, cfg_flags).await }
+            .boxed()
+    }).await?;
     Ok(outputs)
 }
 
@@ -242,7 +224,6 @@ async fn retrieve_artifacts_for_provider_label(
         .await?;
 
     let providers = ctx
-        .bad_dice()
         .get_providers(&providers_label)
         .await?
         .require_compatible()?;
