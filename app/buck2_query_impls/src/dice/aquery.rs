@@ -163,7 +163,11 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
 ) -> anyhow::Result<Vec<ActionInput>> {
     let resolved_artifact_futs: FuturesOrdered<_> = inputs
         .into_iter()
-        .map(|input| async { input.resolved_artifact(&mut ctx.bad_dice()).await })
+        .map(|input| async {
+            input
+                .resolved_artifact(&mut ctx.bad_dice(/* keep_going */))
+                .await
+        })
         .collect();
 
     let resolved_artifacts: Vec<_> =
@@ -270,7 +274,8 @@ impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
     pub(crate) async fn new(
         base_delegate: DiceQueryDelegate<'c, 'd>,
     ) -> anyhow::Result<DiceAqueryDelegate<'c, 'd>> {
-        let artifact_fs = Arc::new(base_delegate.ctx().bad_dice().get_artifact_fs().await?);
+        let artifact_fs =
+            Arc::new(base_delegate.ctx().bad_dice(/* query */).get_artifact_fs().await?);
         let query_data = Arc::new(AqueryData {
             artifact_fs,
             delegate_query_data: base_delegate.query_data().dupe(),
@@ -289,7 +294,7 @@ impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
     pub(crate) async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
         get_action_node(
             self.query_data.nodes_cache.dupe(),
-            &mut self.base_delegate.ctx().bad_dice(),
+            &mut self.base_delegate.ctx().bad_dice(/* query */),
             key.dupe(),
             self.query_data.artifact_fs.dupe(),
         )
@@ -316,7 +321,7 @@ impl<'c, 'd> AqueryDelegate for DiceAqueryDelegate<'c, 'd> {
         artifacts: &[ArtifactGroup],
     ) -> anyhow::Result<Vec<ActionQueryNode>> {
         let inputs = convert_inputs(
-            &mut self.base_delegate.ctx().bad_dice(),
+            &mut self.base_delegate.ctx().bad_dice(/* query */),
             self.query_data.nodes_cache.dupe(),
             artifacts,
         )
@@ -363,7 +368,7 @@ async fn get_target_set_from_analysis_inner(
             result.insert(
                 get_action_node(
                     query_data.nodes_cache.dupe(),
-                    &mut dice.bad_dice(),
+                    &mut dice.bad_dice(/* query */),
                     action_key.dupe(),
                     query_data.artifact_fs.dupe(),
                 )
@@ -401,7 +406,7 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                 ParsedPattern::Target(package, target_name, providers) => {
                     let label = providers.into_providers_label(package, target_name.as_ref());
                     let configured_label = dice
-                        .bad_dice()
+                        .bad_dice(/* query */)
                         .get_configured_provider_label(
                             &label,
                             self.delegate_query_data.global_cfg_options(),
@@ -409,7 +414,7 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                         .await?;
 
                     match dice
-                        .bad_dice()
+                        .bad_dice(/* query */)
                         .get_analysis_result(configured_label.target())
                         .await?
                     {

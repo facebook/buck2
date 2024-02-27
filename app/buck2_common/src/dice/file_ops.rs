@@ -433,10 +433,10 @@ impl FileOps for DiceFileOps<'_, '_> {
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<String>> {
         let path = path.to_owned();
-        let file_ops = get_default_file_ops(&mut self.0.bad_dice()).await?;
+        let file_ops = get_default_file_ops(&mut self.0.bad_dice(/* fileops */)).await?;
 
         self.0
-            .bad_dice()
+            .bad_dice(/* fileops */)
             .compute(&ReadFileKey(Arc::new(path)))
             .await?
             .read_if_exists(&*file_ops)
@@ -445,7 +445,7 @@ impl FileOps for DiceFileOps<'_, '_> {
 
     async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
         self.0
-            .bad_dice()
+            .bad_dice(/* fileops */)
             .compute(&ReadDirKey(path.to_owned()))
             .await?
             .map_err(anyhow::Error::from)
@@ -456,14 +456,14 @@ impl FileOps for DiceFileOps<'_, '_> {
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<RawPathMetadata>> {
         self.0
-            .bad_dice()
+            .bad_dice(/* fileops */)
             .compute(&PathMetadataKey(path.to_owned()))
             .await?
             .map_err(anyhow::Error::from)
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-        let file_ops = get_default_file_ops(&mut self.0.bad_dice()).await?;
+        let file_ops = get_default_file_ops(&mut self.0.bad_dice(/* fileops */)).await?;
         file_ops.is_ignored(path).await
     }
 

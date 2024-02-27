@@ -711,7 +711,7 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
             async move {
                 let res = state
                     .ctx
-                    .bad_dice()
+                    .bad_dice(/* test_driver */)
                     .get_interpreter_results(package.dupe())
                     .await?;
                 let SpecTargets { labels, skippable } = spec_to_targets(
@@ -746,13 +746,13 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
         let fut = async move {
             let label = state
                 .ctx
-                .bad_dice()
+                .bad_dice(/* test_driver */)
                 .get_configured_provider_label(&label, state.global_cfg_options)
                 .await?;
 
             let node = state
                 .ctx
-                .bad_dice()
+                .bad_dice(/* test_driver */)
                 .get_configured_target_node(label.target())
                 .await?;
 
@@ -802,7 +802,7 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
         let state = self.state;
         let fut = async move {
             test_target(
-                &mut state.ctx.bad_dice(),
+                &mut state.ctx.bad_dice(/* test_driver */),
                 label,
                 state.test_executor.dupe(),
                 state.session,

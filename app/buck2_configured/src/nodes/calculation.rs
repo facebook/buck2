@@ -726,7 +726,7 @@ async fn gather_deps(
     }
 
     let dep_futures = traversal.deps.iter().map(|v| async move {
-        ctx.bad_dice()
+        ctx.bad_dice(/* cycles */)
             .get_configured_target_node(v.0.target())
             .await
     });
@@ -885,7 +885,7 @@ async fn compute_configured_target_node_no_transition(
     let toolchain_deps = &gathered_deps.toolchain_deps;
     let exec_deps = &gathered_deps.exec_deps;
 
-    let mut bad_ctx = ctx.bad_dice();
+    let mut bad_ctx = ctx.bad_dice(/* cycles */);
 
     let fut = {
         let (a, b) = bad_ctx.compute2(

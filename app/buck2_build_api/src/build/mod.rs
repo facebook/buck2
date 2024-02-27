@@ -286,12 +286,12 @@ async fn build_configured_label_inner<'a>(
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
 ) -> anyhow::Result<BoxStream<'a, ConfiguredBuildEvent>> {
-    let artifact_fs = ctx.bad_dice().get_artifact_fs().await?;
+    let artifact_fs = ctx.bad_dice(/* build stream */).get_artifact_fs().await?;
 
     let (outputs, run_args, target_rule_type_name) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
         let providers = match ctx
-            .bad_dice()
+            .bad_dice(/* build stream */)
             .get_providers(providers_label.as_ref())
             .await?
         {
@@ -376,7 +376,7 @@ async fn build_configured_label_inner<'a>(
         }
 
         let target_rule_type_name: String = ctx
-            .bad_dice()
+            .bad_dice(/* build stream */)
             .get_configured_target_node(providers_label.target())
             .await?
             .require_compatible()?
@@ -388,13 +388,14 @@ async fn build_configured_label_inner<'a>(
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-        let resolved_artifact_futs: FuturesOrdered<_> =
-            outputs
-                .iter()
-                .map(|(output, _type)| async move {
-                    output.resolved_artifact(&mut ctx.bad_dice()).await
-                })
-                .collect();
+        let resolved_artifact_futs: FuturesOrdered<_> = outputs
+            .iter()
+            .map(|(output, _type)| async move {
+                output
+                    .resolved_artifact(&mut ctx.bad_dice(/* keep_going */))
+                    .await
+            })
+            .collect();
 
         let resolved_artifacts: Vec<_> =
             tokio::task::unconstrained(keep_going::try_join_all(ctx, resolved_artifact_futs))
@@ -436,7 +437,7 @@ async fn build_configured_label_inner<'a>(
                 let materialization_context = materialization_context.dupe();
                 async move {
                     let res = match materialize_artifact_group_owned(
-                        &mut ctx.bad_dice(),
+                        &mut ctx.bad_dice(/* build stream */),
                         output,
                         materialization_context,
                     )
@@ -473,7 +474,7 @@ async fn build_configured_label_inner<'a>(
     if opts.want_configured_graph_size {
         let stream = stream.chain(futures::stream::once(async move {
             let configured_graph_size = graph_size::get_configured_graph_size(
-                &mut ctx.bad_dice(),
+                &mut ctx.bad_dice(/* build stream */),
                 providers_label.target(),
             )
             .await

@@ -132,7 +132,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
         let targets = self
             .dice_query_delegate
             .ctx()
-            .bad_dice()
+            .bad_dice(/* query */)
             .compute(&TemplatePlaceholderInfoQueryKey {
                 template_name,
                 targets: Arc::new(targets),

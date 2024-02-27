@@ -52,7 +52,7 @@ impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
 
 impl<'a> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, '_> {
     fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        self.lookup(&mut self.ctx.bad_dice(), section, key)
+        self.lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
     }
 }
 
@@ -316,7 +316,7 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
     ) -> anyhow::Result<LegacyBuckConfigsOnDice<'c, 'd>> {
         let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
         let cell_names = self
-            .bad_dice()
+            .bad_dice(/* configs */)
             .projection(&configs, &LegacyBuckConfigCellNamesKey)?;
         let mut configs_on_dice = Vec::with_capacity(cell_names.len());
         for cell_name in &*cell_names {
@@ -348,13 +348,13 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
     async fn get_legacy_root_config_on_dice<'c>(
         &'c self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
-        let cell_resolver = self.bad_dice().get_cell_resolver().await?;
+        let cell_resolver = self.bad_dice(/* configs */).get_cell_resolver().await?;
         self.get_legacy_config_on_dice(cell_resolver.root_cell())
             .await
     }
 
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {
-        self.bad_dice()
+        self.bad_dice(/* configs */)
             .compute(&LegacyBuckConfigKey)
             .await?
             .ok_or_else(|| {
@@ -366,7 +366,7 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
 
     async fn is_legacy_configs_key_set(&self) -> anyhow::Result<bool> {
         Ok(self
-            .bad_dice()
+            .bad_dice(/* configs */)
             .compute(&LegacyBuckConfigKey)
             .await?
             .is_some())
@@ -376,7 +376,7 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
         &self,
         cell_name: CellName,
     ) -> buck2_error::Result<LegacyBuckConfig> {
-        self.bad_dice()
+        self.bad_dice(/* configs */)
             .compute(&LegacyBuckConfigForCellKey { cell_name })
             .await?
     }
@@ -388,7 +388,7 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
         property: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
         Ok(self
-            .bad_dice()
+            .bad_dice(/* configs */)
             .compute(&LegacyBuckConfigPropertyKey {
                 cell_name,
                 section: section.to_owned(),

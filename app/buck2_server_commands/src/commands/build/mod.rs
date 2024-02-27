@@ -548,7 +548,7 @@ async fn build_targets_for_spec<'a>(
         PackageSpec::All => true,
     };
 
-    let res = match ctx.bad_dice().get_interpreter_results(package.dupe()).await {
+    let res = match ctx.bad_dice(/* build stream */).get_interpreter_results(package.dupe()).await {
         Ok(res) => res,
         Err(e) => {
             let e: buck2_error::Error = e.into();
@@ -640,7 +640,7 @@ async fn build_target<'a>(
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
-        .bad_dice()
+        .bad_dice(/* build stream */)
         .get_configured_provider_label(&providers_label, &spec.global_cfg_options)
         .await
     {

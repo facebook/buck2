@@ -245,7 +245,7 @@ impl AnonTargetDependents {
                 .iter()
                 .map(async move |dep| {
                     let res = dice
-                        .bad_dice()
+                        .bad_dice(/* keep_going */)
                         .get_analysis_result(dep)
                         .await
                         .and_then(|v| v.require_compatible());
@@ -262,7 +262,7 @@ impl AnonTargetDependents {
                 .map(async move |promise_artifact_attr| {
                     get_artifact_from_anon_target_analysis(
                         &promise_artifact_attr.id,
-                        &mut dice.bad_dice(),
+                        &mut dice.bad_dice(/* keep_going */),
                     )
                     .await
                     .map(|artifact| (promise_artifact_attr, artifact))

@@ -429,7 +429,10 @@ impl Key for EnsureTransitiveSetProjectionKey {
             .get_projection_sub_inputs(self.0.projection)?;
         let sub_inputs_futs: FuturesOrdered<_> = projection_sub_inputs
             .iter()
-            .map(|a| async { a.resolved_artifact(&mut ctx.bad_dice()).await })
+            .map(|a| async {
+                a.resolved_artifact(&mut ctx.bad_dice(/* keep_going */))
+                    .await
+            })
             .collect();
 
         let sub_inputs: Vec<_> =
@@ -443,7 +446,8 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let ensure_futs: FuturesOrdered<_> = sub_inputs
                 .iter()
                 .map(|v: &ResolvedArtifactGroup| async {
-                    ensure_artifact_group_staged(&mut ctx.bad_dice(), v.clone()).await
+                    ensure_artifact_group_staged(&mut ctx.bad_dice(/* keep_going */), v.clone())
+                        .await
                 })
                 .collect();
 

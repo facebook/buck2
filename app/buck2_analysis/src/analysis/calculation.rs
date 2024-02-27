@@ -212,7 +212,7 @@ pub async fn get_dep_analysis<'v>(
             .deps()
             .map(async move |dep| {
                 let res = ctx
-                    .bad_dice()
+                    .bad_dice(/* keep_going */)
                     .get_analysis_result(dep.label())
                     .await
                     .and_then(|v| v.require_compatible());

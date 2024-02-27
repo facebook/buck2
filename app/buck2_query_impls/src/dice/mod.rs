@@ -216,14 +216,14 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         &self,
         package: PackageLabel,
     ) -> anyhow::Result<Arc<EvaluationResult>> {
-        self.ctx.bad_dice().get_interpreter_results(package).await
+        self.ctx.bad_dice(/* query */).get_interpreter_results(package).await
     }
 
     async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>> {
         //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
         let module = self
             .ctx
-            .bad_dice()
+            .bad_dice(/* query */)
             .get_loaded_module_from_import_path(path)
             .await?;
         Ok(module.imports().cloned().collect())
@@ -262,14 +262,16 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
             .package_boundary_exceptions
             .get_package_boundary_exception_path(path)
         {
-            return Ok(DicePackageListingResolver(&mut self.ctx.bad_dice())
-                .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
-                .await?
-                .into_iter()
-                .collect());
+            return Ok(
+                DicePackageListingResolver(&mut self.ctx.bad_dice(/* query */))
+                    .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
+                    .await?
+                    .into_iter()
+                    .collect(),
+            );
         }
 
-        let package = DicePackageListingResolver(&mut self.ctx.bad_dice())
+        let package = DicePackageListingResolver(&mut self.ctx.bad_dice(/* query */))
             .get_enclosing_package(path.as_ref())
             .await?;
         Ok(vec![package])
@@ -297,12 +299,12 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self
             .ctx
-            .bad_dice()
+            .bad_dice(/* query */)
             .get_configured_target(target, self.query_data.global_cfg_options())
             .await?;
         Ok(self
             .ctx
-            .bad_dice()
+            .bad_dice(/* query */)
             .get_configured_target_node(&target)
             .await?)
     }
@@ -313,7 +315,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ConfiguredTargetNode> {
         Ok(self
             .ctx
-            .bad_dice()
+            .bad_dice(/* query */)
             .get_configured_target_node(target)
             .await?
             .require_compatible()?)
@@ -325,11 +327,11 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self
             .ctx
-            .bad_dice()
+            .bad_dice(/* query */)
             .get_default_configured_target(target)
             .await?;
         self.ctx
-            .bad_dice()
+            .bad_dice(/* query */)
             .get_configured_target_node(&target)
             .await
     }
@@ -339,7 +341,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         self.ctx
-            .bad_dice()
+            .bad_dice(/* query */)
             .get_configured_target(target, self.query_data.global_cfg_options())
             .await
     }
@@ -358,7 +360,7 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         load_compatible_patterns(
-            &mut ctx.bad_dice(),
+            &mut ctx.bad_dice(/* query */),
             parsed_patterns,
             &self.global_cfg_options,
             MissingTargetBehavior::Fail,
@@ -376,7 +378,7 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let loaded_patterns = load_patterns(
-            &mut ctx.bad_dice(),
+            &mut ctx.bad_dice(/* query */),
             parsed_patterns,
             MissingTargetBehavior::Fail,
         )

@@ -71,7 +71,8 @@ impl<D: CycleAdapterDescriptor> CycleGuard<D::Error> for D {
                     // want to make sure that dice doesn't cache this node. To do that, we add a dep on our
                     // PoisonedDueToDetectedCycle key. We shouldn't hit a dice error, but we know we're already
                     // returning an error so just ignore it.
-                    let _unused = ctx.bad_dice().compute(&PoisonedDueToDetectedCycleKey).await;
+                    let _unused =
+                        ctx.bad_dice(/* cycles */).compute(&PoisonedDueToDetectedCycleKey).await;
                     v
                 }
             },

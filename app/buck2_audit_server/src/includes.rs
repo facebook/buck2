@@ -99,7 +99,7 @@ async fn get_transitive_includes(
         async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
             Ok(Node(
                 self.ctx
-                    .bad_dice()
+                    .bad_dice(/* query */)
                     .get_loaded_module(StarlarkModulePath::LoadFile(&label.0))
                     .await?,
             ))

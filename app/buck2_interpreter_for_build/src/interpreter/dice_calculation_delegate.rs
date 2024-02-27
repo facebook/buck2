@@ -122,7 +122,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
         }
 
         let configs = self
-            .bad_dice()
+            .bad_dice(/* configs */)
             .compute(&InterpreterConfigForCellKey(cell, build_file_cell))
             .await??;
 
@@ -190,7 +190,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
-            .bad_dice()
+            .bad_dice(/* configs */)
             .compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
             .map_err(anyhow::Error::from)
@@ -305,7 +305,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         &self,
         file: &PackageFilePath,
     ) -> anyhow::Result<SuperPackage> {
-        let cell_resolver = self.ctx.bad_dice().get_cell_resolver().await?;
+        let cell_resolver = self.ctx.bad_dice(/* configs */).get_cell_resolver().await?;
         let proj_rel_path = cell_resolver.resolve_path(file.dir())?;
         match proj_rel_path.parent() {
             None => {
@@ -420,7 +420,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
-            .bad_dice()
+            .bad_dice(/* configs */)
             .compute(&PackageFileKey(path.clone()))
             .await?
             .map_err(anyhow::Error::from)
@@ -455,7 +455,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 path: package.as_cell_path().to_string(),
             },
             async {
-                let result = DicePackageListingResolver(&mut self.ctx.bad_dice())
+                let result = DicePackageListingResolver(&mut self.ctx.bad_dice(/* configs */))
                     .resolve_package_listing(package.dupe())
                     .await;
                 (
@@ -532,7 +532,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
-            .bad_dice()
+            .bad_dice(/* configs */)
             .compute(&StarlarkStackSizeChecker)
             .await?
             .map_err(anyhow::Error::from)
@@ -556,7 +556,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         let package_boundary_exception = self
             .ctx
-            .bad_dice()
+            .bad_dice(/* configs */)
             .get_package_boundary_exception(package.as_cell_path())
             .await?;
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
