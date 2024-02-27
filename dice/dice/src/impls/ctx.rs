@@ -307,7 +307,7 @@ impl ModernComputeCtx {
         self.ctx_data.store_evaluation_data(value)
     }
 
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         self.ctx_data.cycle_guard()
     }
 }
@@ -427,7 +427,7 @@ impl CoreCtx {
         Ok(())
     }
 
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         self.cycles.cycle_guard()
     }
 }

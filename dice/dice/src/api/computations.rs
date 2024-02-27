@@ -273,7 +273,7 @@ impl<'d> DiceComputations<'d> {
     }
 
     /// Gets the current cycle guard if its set. If it's set but a different type, an error will be returned.
-    pub fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+    pub fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         self.inner().cycle_guard()
     }
 

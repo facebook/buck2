@@ -55,7 +55,7 @@ pub(crate) enum KeyComputingUserCycleDetectorData {
     Detecting {
         k_erased: DiceKeyErased,
         k: DiceKey,
-        guard: Box<dyn UserCycleDetectorGuard>,
+        guard: Arc<dyn UserCycleDetectorGuard>,
         detector: Arc<dyn UserCycleDetector>,
     },
     Untracked,
@@ -73,12 +73,12 @@ impl KeyComputingUserCycleDetectorData {
         UserCycleDetectorData(())
     }
 
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         match self {
             KeyComputingUserCycleDetectorData::Detecting { guard, .. } => {
-                match guard.as_any().downcast_ref() {
-                    Some(guard) => Ok(Some(guard)),
-                    None => Err(DiceError(Arc::new(
+                match guard.dupe().as_any_arc().downcast::<T>() {
+                    Ok(guard) => Ok(Some(guard)),
+                    Err(_) => Err(DiceError(Arc::new(
                         DiceErrorImpl::UnexpectedCycleGuardType {
                             expected_type_name: std::any::type_name::<T>().to_owned(),
                             actual_type_name: guard.type_name().to_owned(),

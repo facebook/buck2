@@ -52,7 +52,7 @@ pub(crate) struct ComputationData {
     cycle_detector: Option<Box<CycleDetector>>,
     // TODO(bobyf): this seems a natural place to gather some stats about the compute too
     #[allocative(skip)]
-    pub(crate) user_cycle_detector_guard: Option<Box<dyn UserCycleDetectorGuard>>,
+    pub(crate) user_cycle_detector_guard: Option<Arc<dyn UserCycleDetectorGuard>>,
     /// Store extra data from provided by the key's evaluation, which will be passed to the
     /// user_data's ActivationTracker when the key evaluation finishes.
     #[allocative(skip)]
@@ -384,12 +384,12 @@ impl DiceComputationsImplLegacy {
         &self.extra.user_data
     }
 
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         match &self.extra.user_cycle_detector_guard {
             None => Ok(None),
-            Some(guard) => match guard.as_any().downcast_ref() {
-                Some(guard) => Ok(Some(guard)),
-                None => Err(DiceError(Arc::new(
+            Some(guard) => match guard.dupe().as_any_arc().downcast() {
+                Ok(guard) => Ok(Some(guard)),
+                Err(_) => Err(DiceError(Arc::new(
                     DiceErrorImpl::UnexpectedCycleGuardType {
                         expected_type_name: std::any::type_name::<T>().to_owned(),
                         actual_type_name: guard.type_name().to_owned(),

@@ -44,7 +44,7 @@ pub struct UserComputationData {
 /// A UserCycleDetector can be used for custom cycle detection in the DICE computation.
 pub trait UserCycleDetector: Send + Sync + 'static {
     /// Called by DICE when it starts computing a key. `key` will be a user Key type (and so user can reliably downcast it to known types).
-    fn start_computing_key(&self, key: &dyn Any) -> Option<Box<dyn UserCycleDetectorGuard>>;
+    fn start_computing_key(&self, key: &dyn Any) -> Option<Arc<dyn UserCycleDetectorGuard>>;
 
     /// Called by DICE when the key finished computing.
     fn finished_computing_key(&self, key: &dyn Any);
@@ -52,15 +52,22 @@ pub trait UserCycleDetector: Send + Sync + 'static {
 
 /// A UserCycleDetectorGuard is used to track the currently computing key. User code can access this through
 /// ComputationData::cycle_guard() (and then downcast it with as_any to potentially access custom cycle behavior).
-pub trait UserCycleDetectorGuard: Send + Sync + 'static {
+pub trait UserCycleDetectorGuard: AsAnyArc + Send + Sync + 'static {
     /// Called by dice when a dependency edge is encountered.
     fn add_edge(&self, key: &dyn Any);
 
-    /// This is used to allow user code to get at the concrete guard instance.
-    fn as_any(&self) -> &dyn Any;
-
     /// Used in error messages.
     fn type_name(&self) -> &'static str;
+}
+
+pub trait AsAnyArc {
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+}
+
+impl<T: Send + Sync + 'static> AsAnyArc for T {
+    fn as_any_arc(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
+        self
+    }
 }
 
 #[derive(Allocative)]

@@ -166,7 +166,7 @@ impl DiceComputationsImpl {
         }
     }
 
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.cycle_guard(),
             DiceComputationsImpl::Modern(delegate) => delegate.cycle_guard(),

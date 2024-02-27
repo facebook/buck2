@@ -9,6 +9,7 @@
 
 use std::any::Any;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -127,10 +128,10 @@ impl<D: CycleAdapterDescriptor> CycleDescriptor for CycleDetectorAdapter<D> {
 }
 
 impl<D: CycleAdapterDescriptor> UserCycleDetector for CycleDetectorAdapter<D> {
-    fn start_computing_key(&self, key: &dyn Any) -> Option<Box<dyn UserCycleDetectorGuard>> {
+    fn start_computing_key(&self, key: &dyn Any) -> Option<Arc<dyn UserCycleDetectorGuard>> {
         match D::to_key(key) {
             None => None,
-            Some(v) => Some(Box::new(CycleAdapterGuard {
+            Some(v) => Some(Arc::new(CycleAdapterGuard {
                 guard: self.inner.start(v),
             })),
         }
@@ -155,10 +156,6 @@ impl<D: CycleAdapterDescriptor> UserCycleDetectorGuard for CycleAdapterGuard<D> 
         }
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn type_name(&self) -> &'static str {
         std::any::type_name::<Self>()
     }
@@ -168,7 +165,7 @@ impl<D: CycleAdapterDescriptor> UserCycleDetectorGuard for CycleAdapterGuard<D> 
 pub struct PairDiceCycleDetector<A: UserCycleDetector, B: UserCycleDetector>(pub A, pub B);
 
 impl<A: UserCycleDetector, B: UserCycleDetector> UserCycleDetector for PairDiceCycleDetector<A, B> {
-    fn start_computing_key(&self, key: &dyn Any) -> Option<Box<dyn UserCycleDetectorGuard>> {
+    fn start_computing_key(&self, key: &dyn Any) -> Option<Arc<dyn UserCycleDetectorGuard>> {
         // Right now, only one of the inner detectors is allowed to claim a key. We could feasibly change that, but it's a bit trickier.
         if let Some(v) = self.0.start_computing_key(key) {
             return Some(v);
@@ -191,6 +188,7 @@ mod tests {
     use std::fmt::Debug;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
     use dice::UserCycleDetector;
     use dice::UserCycleDetectorGuard;
@@ -203,10 +201,6 @@ mod tests {
 
         impl UserCycleDetectorGuard for TestingGuard {
             fn add_edge(&self, _key: &dyn Any) {
-                unreachable!("testing")
-            }
-
-            fn as_any(&self) -> &dyn Any {
                 unreachable!("testing")
             }
 
@@ -225,9 +219,9 @@ mod tests {
             fn start_computing_key(
                 &self,
                 _key: &dyn Any,
-            ) -> Option<Box<dyn UserCycleDetectorGuard>> {
+            ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
                 self.got_start.store(true, Ordering::SeqCst);
-                Some(Box::new(TestingGuard))
+                Some(Arc::new(TestingGuard))
             }
 
             fn finished_computing_key(&self, _key: &dyn Any) {
@@ -245,7 +239,7 @@ mod tests {
             fn start_computing_key(
                 &self,
                 _key: &dyn Any,
-            ) -> Option<Box<dyn UserCycleDetectorGuard>> {
+            ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
                 panic!("shouldn't be called")
             }
 

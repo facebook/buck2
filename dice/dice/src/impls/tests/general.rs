@@ -372,13 +372,13 @@ impl UserCycleDetector for CycleDetector {
     fn start_computing_key(
         &self,
         key: &dyn std::any::Any,
-    ) -> Option<Box<dyn UserCycleDetectorGuard>> {
+    ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
         let f = key.downcast_ref::<Fib>().unwrap();
         self.events
             .lock()
             .unwrap()
             .push(CycleDetectorEvents::Start(*f));
-        Some(Box::new(CycleDetectorGuard {
+        Some(Arc::new(CycleDetectorGuard {
             key: *f,
             events: self.events.dupe(),
         }))
@@ -400,10 +400,6 @@ impl UserCycleDetectorGuard for CycleDetectorGuard {
             .lock()
             .unwrap()
             .push(CycleDetectorEvents::Edge(self.key, *f))
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
     }
 
     fn type_name(&self) -> &'static str {
@@ -635,8 +631,8 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
         fn start_computing_key(
             &self,
             _key: &dyn std::any::Any,
-        ) -> Option<Box<dyn UserCycleDetectorGuard>> {
-            Some(Box::new(AccessCycleDetectorGuard))
+        ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
+            Some(Arc::new(AccessCycleDetectorGuard))
         }
 
         fn finished_computing_key(&self, _key: &dyn std::any::Any) {}
@@ -644,10 +640,6 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
 
     impl UserCycleDetectorGuard for AccessCycleDetectorGuard {
         fn add_edge(&self, _key: &dyn std::any::Any) {}
-
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
 
         fn type_name(&self) -> &'static str {
             std::any::type_name::<Self>()
