@@ -235,8 +235,8 @@ test_part(Config, Suite, Test, Path) ->
     InitResult =
         case safe_call(wrap_ct_hook(init_per_testcase, Path, fun Suite:init_per_testcase/2), [Config]) of
             {error, not_exported} -> Config;
-            {skipped, Reason} -> {error, {skip, init_per_testcase, Reason}};
-            {failed, InitErrReason} -> {error, {skip, init_per_testcase, InitErrReason}};
+            {skip, Reason} -> {error, {skip, init_per_testcase, Reason}};
+            {fail, InitErrReason} -> {error, {skip, init_per_testcase, InitErrReason}};
             {error, InitErrReason} -> {error, {skip, init_per_testcase, InitErrReason}};
             InitOutConfig -> InitOutConfig
         end,
@@ -328,10 +328,10 @@ do_part_safe(Id, Fun, Config, TimeTrap) ->
                 end,
             {name, FunName} = erlang:fun_info(Fun, name),
             try Fun(Config) of
-                {skipped, Reason} ->
+                {skip, Reason} ->
                     ?LOG_DEBUG("got skip for ~p because of: ~p", [Id, Reason]),
                     ParentPid ! {RspRef, {skip, {FunName, Id}, Reason}};
-                {failed, Reason} ->
+                {fail, Reason} ->
                     ?LOG_DEBUG("got fail for ~p because of: ~p", [Id, Reason]),
                     ParentPid ! {RspRef, {fail, {FunName, Id}, Reason}};
                 {skip_and_save, Reason, _} ->

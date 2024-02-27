@@ -198,9 +198,9 @@ wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
                     end,
                 case call_if_exists_with_fallback_store_state(Hook, pre(Part), PathArg ++ [ConfigArg0], ok) of
                     {skip, SkipReason} ->
-                        {skipped, SkipReason};
+                        {skip, SkipReason};
                     {fail, FailReason} ->
-                        {failed, FailReason};
+                        {fail, FailReason};
                     HookCallbackResult ->
                         ConfigArg1 =
                             case is_list(HookCallbackResult) of
@@ -219,12 +219,12 @@ wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
                                             {tc_status, {skipped, SkipReason}}
                                             | lists:keydelete(tc_status, 1, ConfigArg1)
                                         ],
-                                        {skipped, SkipReason}
+                                        {skip, SkipReason}
                                     };
                                 {fail, FailReason} ->
                                     {
                                         [{tc_status, {failed, FailReason}} | lists:keydelete(tc_status, 1, ConfigArg1)],
-                                        {failed, FailReason}
+                                        {fail, FailReason}
                                     };
                                 OkResult ->
                                     ConfigArg2 =
@@ -256,15 +256,10 @@ wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
         [Suite | _] = PathArg,
         Result =
             try WrappedWithPreAndPost(PathArg, ConfigArg) of
-                Skip = {skipped, _Reason} ->
-                    Skip;
-                Fail = {failed, _Reason} ->
-                    Fail;
-                %% if we don't have a hook setup, we still need to do the conversion from skip/fail to skipped/failed
                 {skip, SkipReason} ->
-                    {skipped, SkipReason};
+                    {skip, SkipReason};
                 {fail, FailReason} ->
-                    {failed, FailReason};
+                    {fail, FailReason};
                 MaybeConfig ->
                     case init_or_end(Part) of
                         'end' ->
@@ -279,7 +274,7 @@ wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
                             end
                     end
             catch
-                Class:Reason:Stacktrace -> {failed, {'EXIT', {{Class, Reason}, Stacktrace}}}
+                Class:Reason:Stacktrace -> {fail, {'EXIT', {{Class, Reason}, Stacktrace}}}
             end,
         handle_post_result(HooksInInstallationOrder, build_test_name(Part, PathArg), Suite, Result)
     end.
@@ -287,42 +282,42 @@ wrap_init_end(Part, Fun, #{hooks := HooksInInstallationOrder}) ->
 handle_post_result(Hooks, TestName, Suite, Result) ->
     ReverseHooks = lists:reverse(Hooks),
     case Result of
-        SkipResult = {skipped, _} ->
+        {skip, SkipReason} ->
             [
                 call_if_exists_with_fallback_store_state(
-                    Hook, on_tc_skip, [Suite, TestName, SkipResult], ok
+                    Hook, on_tc_skip, [Suite, TestName, {tc_user_skip, SkipReason}], ok
                 )
              || Hook <- ReverseHooks
             ],
-            SkipResult;
-        FailResult = {failed, _} ->
+            {skip, SkipReason};
+        {fail, FailReason} ->
             [
                 call_if_exists_with_fallback_store_state(
-                    Hook, on_tc_fail, [Suite, TestName, FailResult], ok
+                    Hook, on_tc_fail, [Suite, TestName, FailReason], ok
                 )
              || Hook <- ReverseHooks
             ],
-            FailResult;
+            {fail, FailReason};
         {ok, Config} ->
             case lists:keyfind(tc_status, 1, Config) of
                 false ->
                     Config;
-                {tc_status, SkipResult = {skipped, _}} ->
+                {tc_status, {skipped, SkipReason}} ->
                     [
                         call_if_exists_with_fallback_store_state(
-                            Hook, on_tc_skip, [Suite, TestName, SkipResult], ok
+                            Hook, on_tc_skip, [Suite, TestName, {tc_user_skip, SkipReason}], ok
                         )
                      || Hook <- ReverseHooks
                     ],
-                    SkipResult;
-                {tc_status, FailResult = {failed, _}} ->
+                    {skip, SkipReason};
+                {tc_status, {failed, FailReason}} ->
                     [
                         call_if_exists_with_fallback_store_state(
-                            Hook, on_tc_fail, [Suite, TestName, FailResult], ok
+                            Hook, on_tc_fail, [Suite, TestName, FailReason], ok
                         )
                      || Hook <- ReverseHooks
                     ],
-                    FailResult
+                    {fail, FailReason}
             end
     end.
 
