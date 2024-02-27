@@ -191,9 +191,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         starlark_file: StarlarkPath<'_>,
     ) -> anyhow::Result<(AstModule, ModuleDeps)> {
         let ParseData(ast, imports) = self.parse_file(starlark_file).await??;
-        let mut bad_dice = self.ctx.bad_dice(/* cycles */);
-        let fut = Self::eval_deps(&mut bad_dice, &imports);
-        let deps = LoadCycleDescriptor::guard_this(self.ctx, fut).await???;
+        let deps = CycleGuard::<LoadCycleDescriptor>::new(self.ctx)?
+            .guard_this(Self::eval_deps(&mut self.ctx.bad_dice(), &imports))
+            .await
+            .into_result(&mut self.ctx.bad_dice())
+            .await???;
         Ok((ast, deps))
     }
 

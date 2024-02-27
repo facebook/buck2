@@ -725,13 +725,13 @@ async fn gather_deps(
         configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
     }
 
-    let dep_futures = traversal.deps.iter().map(|v| {
-        let mut bad_dice = ctx.bad_dice(/* cycles */);
-        async move { bad_dice.get_configured_target_node(v.0.target()).await }
-    });
-    let dep_results =
-        ConfiguredGraphCycleDescriptor::guard_this(ctx, futures::future::join_all(dep_futures))
-            .await??;
+    let dep_results = CycleGuard::<ConfiguredGraphCycleDescriptor>::new(ctx)?
+        .guard_this(ctx.compute_join(traversal.deps.iter(), |ctx, v| {
+            async move { ctx.get_configured_target_node(v.0.target()).await }.boxed()
+        }))
+        .await
+        .into_result(ctx)
+        .await??;
 
     let mut plugin_lists = traversal.plugin_lists;
     let mut deps = Vec::new();
@@ -884,7 +884,6 @@ async fn compute_configured_target_node_no_transition(
     let toolchain_deps = &gathered_deps.toolchain_deps;
     let exec_deps = &gathered_deps.exec_deps;
 
-    let mut bad_ctx = ctx.bad_dice(/* cycles */);
     let get_toolchain_deps = DiceComputations::declare_closure(move |ctx| {
         async move {
             ctx.compute_join(
@@ -926,12 +925,15 @@ async fn compute_configured_target_node_no_transition(
         .boxed()
     });
 
-    let fut = {
-        let (a, b) = bad_ctx.compute2(get_toolchain_deps, get_exec_deps);
-        futures::future::join(a, b)
-    };
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
-        ConfiguredGraphCycleDescriptor::guard_this(ctx, fut).await??;
+        CycleGuard::<ConfiguredGraphCycleDescriptor>::new(&ctx)?
+            .guard_this({
+                let (a, b) = ctx.compute2(get_toolchain_deps, get_exec_deps);
+                futures::future::join(a, b)
+            })
+            .await
+            .into_result(ctx)
+            .await??;
 
     let mut deps = gathered_deps.deps;
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());

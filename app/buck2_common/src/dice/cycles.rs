@@ -39,17 +39,36 @@ pub struct CycleDetectorAdapter<D: CycleAdapterDescriptor> {
     inner: LazyCycleDetector<D>,
 }
 
-#[async_trait]
-pub trait CycleGuard<E> {
-    async fn guard_this<R: Send, Fut: Future<Output = R> + Send>(
-        ctx: &DiceComputations<'_>,
-        fut: Fut,
-    ) -> anyhow::Result<Result<R, E>>;
+pub struct CycleGuardResult<R, E>(anyhow::Result<Result<R, E>>);
+
+impl<R, E> CycleGuardResult<R, E> {
+    /// Converts the result from GuardThis into an anyhow::Result.
+    ///
+    /// This is a separate function to get the borrowing of the &mut DiceComputations, (which in
+    /// guard_this will have been borrowed by the passed in future).
+    pub async fn into_result(self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<Result<R, E>> {
+        match &self.0 {
+            Ok(Ok(_)) => {}
+            _ => {
+                // The cycle detector either hit an error or it detected a cycle. In either case, we
+                // want to make sure that dice doesn't cache this node. To do that, we add a dep on our
+                // PoisonedDueToDetectedCycle key. We shouldn't hit a dice error, but we know we're already
+                // returning an error so just ignore it.
+                let _unused = ctx.compute(&PoisonedDueToDetectedCycleKey).await;
+            }
+        }
+        self.0
+    }
 }
 
-#[async_trait]
-impl<D: CycleAdapterDescriptor> CycleGuard<D::Error> for D {
-    /// Use this to wrap futures waiting on dependencies where you want to detect cycles. All dice keys involved
+pub struct CycleGuard<D: CycleAdapterDescriptor>(Option<Arc<CycleAdapterGuard<D>>>);
+
+impl<D: CycleAdapterDescriptor> CycleGuard<D> {
+    pub fn new(ctx: &DiceComputations<'_>) -> anyhow::Result<Self> {
+        Ok(Self(ctx.cycle_guard()?))
+    }
+
+    /// Use this to wrap a computation waiting on dependencies where you want to detect cycles. All dice keys involved
     /// in the cycle must be supported by the CycleAdapterDescriptor implementation. If the cycle is FooKey(1) ->
     /// BarKey(a) -> FooKey(1) and the descriptor only support FooKey, the cycle won't be detected.
     ///
@@ -60,25 +79,19 @@ impl<D: CycleAdapterDescriptor> CycleGuard<D::Error> for D {
     ///
     /// It's probably the case that the keys in the cycle should treat the cycle error case as invalid (in the sense
     /// of Dice Key::validity()).
-    async fn guard_this<R: Send, Fut: Future<Output = R> + Send>(
-        ctx: &DiceComputations<'_>,
+    pub async fn guard_this<R: Send, Fut: Future<Output = R> + Send>(
+        &self,
         fut: Fut,
-    ) -> anyhow::Result<Result<R, D::Error>> {
-        match ctx.cycle_guard::<CycleAdapterGuard<D>>()? {
-            Some(v) => match v.guard.guard_this(fut).await {
-                Ok(Ok(v)) => Ok(Ok(v)),
-                v => {
-                    // The cycle detector either hit an error or it detected a cycle. In either case, we
-                    // want to make sure that dice doesn't cache this node. To do that, we add a dep on our
-                    // PoisonedDueToDetectedCycle key. We shouldn't hit a dice error, but we know we're already
-                    // returning an error so just ignore it.
-                    let _unused =
-                        ctx.bad_dice(/* cycles */).compute(&PoisonedDueToDetectedCycleKey).await;
-                    v
-                }
-            },
-            None => Ok(Ok(fut.await)),
-        }
+    ) -> CycleGuardResult<R, D::Error> {
+        #[allow(clippy::redundant_closure_call)]
+        let res: anyhow::Result<Result<R, D::Error>> = (|| async move {
+            match &self.0 {
+                Some(v) => v.guard.guard_this(fut).await,
+                None => Ok(Ok(fut.await)),
+            }
+        })()
+        .await;
+        CycleGuardResult(res)
     }
 }
 
