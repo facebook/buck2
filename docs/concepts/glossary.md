@@ -179,6 +179,11 @@ from this rule is available to other rules that depend on it (see
 [dependency](#dependency)). For more information, see
 [Providers](https://buck2.build/docs/rule_authors/writing_rules/#providers).
 
+#### Platform
+
+A named set of [constraints](#constraint), defining a specific runtime
+environment. E.g. `cpu=x86_64, os=windows`
+
 #### Remote execution (RE)
 
 Distributed execution of [actions](#action) on remote workers. It can speed up
