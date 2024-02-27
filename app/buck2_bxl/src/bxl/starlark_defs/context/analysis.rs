@@ -13,6 +13,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dice::DiceComputations;
 use either::Either;
+use futures::FutureExt;
 use gazebo::prelude::*;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
@@ -20,41 +21,48 @@ use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 pub(crate) async fn analysis<'v>(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     ctx: &BxlContextNoDice<'v>,
     expr: ProvidersExpr<ConfiguredProvidersLabel>,
     skip_incompatible: bool,
 ) -> anyhow::Result<
     Either<Option<StarlarkAnalysisResult>, Vec<(ConfiguredProvidersLabel, StarlarkAnalysisResult)>>,
 > {
-    let analysis = futures::future::join_all(expr.labels().map(async move |label| {
-        let maybe_result = dice.bad_dice().get_analysis_result(label.target()).await?;
-
-        match maybe_result {
-            MaybeCompatible::Incompatible(reason) => {
-                if skip_incompatible {
-                    ctx.print_to_error_stream(IncompatiblePlatformReason::skipping_message(
-                        &reason,
-                        label.target(),
-                    ))?;
-                    Ok(None)
-                } else {
-                    Err(reason.to_err())
-                }
+    let analysis = dice
+        .compute_join(expr.labels(), |dice, label| {
+            async move {
+                let maybe_result = dice.get_analysis_result(label.target()).await?;
+                anyhow::Ok((label, maybe_result))
             }
-            MaybeCompatible::Compatible(result) => Ok(Some((
-                label.clone(),
-                StarlarkAnalysisResult::new(result, label.clone())?,
-            ))),
-        }
-    }))
-    .await
-    .into_iter()
-    .filter_map(|r| match r {
-        Ok(r) => r.map(Ok),
-        Err(e) => Some(Err(e)),
-    })
-    .collect::<anyhow::Result<Vec<_>>>()?;
+            .boxed()
+        })
+        .await
+        .into_iter()
+        .map(|res| {
+            let (label, maybe_result) = res?;
+            match maybe_result {
+                MaybeCompatible::Incompatible(reason) => {
+                    if skip_incompatible {
+                        ctx.print_to_error_stream(IncompatiblePlatformReason::skipping_message(
+                            &reason,
+                            label.target(),
+                        ))?;
+                        Ok(None)
+                    } else {
+                        Err(reason.to_err())
+                    }
+                }
+                MaybeCompatible::Compatible(result) => Ok(Some((
+                    label.clone(),
+                    StarlarkAnalysisResult::new(result, label.clone())?,
+                ))),
+            }
+        })
+        .filter_map(|r| match r {
+            Ok(r) => r.map(Ok),
+            Err(e) => Some(Err(e)),
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
 
     match expr {
         ProvidersExpr::Literal(_) => {
