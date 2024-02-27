@@ -36,7 +36,6 @@ use buck2_util::truncate::truncate;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::future::{self};
 use futures::FutureExt;
 use starlark::collections::SmallSet;
 use starlark::values::list::UnpackList;
@@ -433,18 +432,21 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             }
             ConfiguredTargetListArg::TargetSet(s) => {
                 return Ok(TargetListExpr::Iterable(
-                    future::try_join_all(s.0.iter().map(|node| async {
-                        Self::check_allow_unconfigured(
-                            allow_unconfigured,
-                            &node.label().to_string(),
-                            global_cfg_options,
-                        )?;
-                        anyhow::Ok(TargetExpr::Label(Cow::Owned(
-                            dice.bad_dice()
-                                .get_configured_target(node.label(), global_cfg_options)
-                                .await?,
-                        )))
-                    }))
+                    dice.try_compute_join(s.0.iter(), |dice, node| {
+                        async move {
+                            Self::check_allow_unconfigured(
+                                allow_unconfigured,
+                                &node.label().to_string(),
+                                global_cfg_options,
+                            )?;
+
+                            anyhow::Ok(TargetExpr::Label(Cow::Owned(
+                                dice.get_configured_target(node.label(), global_cfg_options)
+                                    .await?,
+                            )))
+                        }
+                        .boxed()
+                    })
                     .await?,
                 ));
             }
