@@ -162,7 +162,8 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
             }
             blk.push(0);
 
-            Ok((blk.as_mut_ptr() as *mut c_void, blk.into_boxed_slice()))
+            let mut blk = blk.into_boxed_slice();
+            Ok((blk.as_mut_ptr() as *mut c_void, blk))
         }
     }
 
