@@ -135,6 +135,8 @@ pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
         LibraryExtension::Map,
         LibraryExtension::Partial,
         LibraryExtension::Pprint,
+        LibraryExtension::Pstr,
+        LibraryExtension::Prepr,
         LibraryExtension::Print,
         LibraryExtension::RecordType,
         LibraryExtension::StructType,
