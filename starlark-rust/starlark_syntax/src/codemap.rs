@@ -125,6 +125,14 @@ impl Span {
     pub fn contains(self, pos: Pos) -> bool {
         self.begin <= pos && pos <= self.end
     }
+
+    /// Determines whether a `span` intersects with this span.
+    pub fn intersects(self, span: Span) -> bool {
+        self.contains(span.begin)
+            || self.contains(span.end)
+            || span.contains(self.begin)
+            || span.contains(self.end)
+    }
 }
 
 /// Associate a Span with a value of arbitrary type (e.g. an AST node).
@@ -805,6 +813,75 @@ mod tests {
         assert!(span.contains(ResolvedPos { line: 4, column: 5 }));
         assert!(!span.contains(ResolvedPos { line: 4, column: 6 }));
         assert!(!span.contains(ResolvedPos { line: 5, column: 0 }));
+    }
+
+    #[test]
+    fn test_span_intersects() {
+        let span = Span {
+            begin: Pos(2),
+            end: Pos(4),
+        };
+        // s: |---|
+        // o:      |---|
+        assert!(!span.intersects(Span {
+            begin: Pos(5),
+            end: Pos(7),
+        }));
+
+        // s: |---|
+        // o:     |---|
+        assert!(span.intersects(Span {
+            begin: Pos(4),
+            end: Pos(6),
+        }));
+
+        // s: |---|
+        // o:    |---|
+        assert!(span.intersects(Span {
+            begin: Pos(3),
+            end: Pos(5),
+        }));
+
+        // s: |---|
+        // o: |---|
+        assert!(span.intersects(Span {
+            begin: Pos(2),
+            end: Pos(4),
+        }));
+
+        // s:   |---|
+        // o: |---|
+        assert!(span.intersects(Span {
+            begin: Pos(1),
+            end: Pos(3),
+        }));
+
+        // s:     |---|
+        // o: |---|
+        assert!(span.intersects(Span {
+            begin: Pos(0),
+            end: Pos(2),
+        }));
+
+        // s:     |---|
+        // o: |--|
+        assert!(!span.intersects(Span {
+            begin: Pos(0),
+            end: Pos(1),
+        }));
+
+        let large_span = Span {
+            begin: Pos(2),
+            end: Pos(8),
+        };
+
+        // s:  |-------|
+        // o:    |---|
+        assert!(large_span.intersects(span));
+
+        // s:    |---|
+        // o:  |-------|
+        assert!(span.intersects(large_span));
     }
 
     #[test]
