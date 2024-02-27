@@ -20,8 +20,11 @@ def _run_entry_point(ctx: bxl.Context) -> None:
     output = ctx.output.ensure_multiple(build_result)
 
     ctx.output.print_json({
-        label.raw_target(): [artifact.rel_path() for artifact in artifacts]
-        for label, artifacts in output.items()
+        "artifacts": {
+            label.raw_target(): [artifact.rel_path() for artifact in artifacts]
+            for label, artifacts in output.items()
+        },
+        "root": ctx.root(),
     })
 
 run = bxl_main(
