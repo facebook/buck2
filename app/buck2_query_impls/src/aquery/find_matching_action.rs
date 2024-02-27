@@ -53,15 +53,14 @@ fn check_output_path<'v>(
 }
 
 async fn find_matching_action(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     working_dir: &ProjectRelativePath,
     global_cfg_options: &GlobalCfgOptions,
     analysis: &AnalysisResult,
     path_after_target_name: ForwardRelativePathBuf,
 ) -> anyhow::Result<Option<ActionQueryNode>> {
-    let mut bad_dice = ctx.bad_dice();
     let dice_aquery_delegate =
-        get_dice_aquery_delegate(&mut bad_dice, working_dir, global_cfg_options.dupe()).await?;
+        get_dice_aquery_delegate(ctx, working_dir, global_cfg_options.dupe()).await?;
 
     for entry in analysis.iter_deferreds() {
         match provider::request_value::<ProvideOutputs>(entry.as_complex()) {

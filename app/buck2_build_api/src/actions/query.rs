@@ -416,7 +416,7 @@ pub fn iter_action_inputs<'a>(
 
 pub static FIND_MATCHING_ACTION: LateBinding<
     for<'c> fn(
-        &'c DiceComputations,
+        &'c mut DiceComputations,
         // Working dir.
         &'c ProjectRelativePath,
         // target cfg info (target platform, cli modifiers)
