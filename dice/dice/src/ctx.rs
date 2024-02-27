@@ -129,6 +129,23 @@ impl DiceComputationsImpl {
         )
     }
 
+    pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+    ) -> (
+        impl Future<Output = T> + 'a,
+        impl Future<Output = U> + 'a,
+        impl Future<Output = V> + 'a,
+    ) {
+        (
+            OwningFuture::new(DiceComputations::borrowed(self), compute1),
+            OwningFuture::new(DiceComputations::borrowed(self), compute2),
+            OwningFuture::new(DiceComputations::borrowed(self), compute3),
+        )
+    }
+
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {

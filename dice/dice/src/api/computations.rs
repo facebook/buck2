@@ -219,6 +219,22 @@ impl<'d> DiceComputations<'d> {
         self.inner().compute2(compute1, compute2)
     }
 
+    /// Computes all the given tasks in parallel, returning an unordered Stream.
+    ///
+    /// If the closures are defined out of the compute3 call, you need to use declare_closure() to get the right lifetimes.
+    pub fn compute3<'a, T: 'a, U: 'a, V: 'a>(
+        &'a mut self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+    ) -> (
+        impl Future<Output = T> + 'a,
+        impl Future<Output = U> + 'a,
+        impl Future<Output = V> + 'a,
+    ) {
+        self.inner().compute3(compute1, compute2, compute3)
+    }
+
     /// Used to declare a higher order closure for compute_join and try_compute_join.
     ///
     /// We need to use BoxFuture here to express that the future captures the 'x lifetime.
