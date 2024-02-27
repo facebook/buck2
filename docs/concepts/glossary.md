@@ -99,6 +99,13 @@ involved in building targets. The same target may appear in multiple different
 configurations (when printed, the configuration is after the target in
 parentheses).
 
+#### Constraint
+
+A constraint represents a property that may differ across different
+[target](#target) or build contexts, such as CPU architecture, the version of a
+system-installed compiler, optimzation level, which version of a particular
+library to use, etc.
+
 #### Daemon
 
 The Daemon process lives between invocations and is designed to allow for cache
