@@ -63,8 +63,8 @@ use crate::starlark::values::UnpackValue;
 pub trait ActionCalculation {
     async fn get_action(&mut self, action_key: &ActionKey)
     -> anyhow::Result<Arc<RegisteredAction>>;
-    async fn build_action(&self, action_key: ActionKey) -> anyhow::Result<ActionOutputs>;
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
+    async fn build_action(&mut self, action_key: ActionKey) -> anyhow::Result<ActionOutputs>;
+    async fn build_artifact(&mut self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
 }
 
 async fn build_action_impl(
@@ -395,17 +395,16 @@ impl ActionCalculation for DiceComputations<'_> {
             .with_context(|| format!("for action key `{}`", action_key))
     }
 
-    async fn build_action(&self, action_key: ActionKey) -> anyhow::Result<ActionOutputs> {
+    async fn build_action(&mut self, action_key: ActionKey) -> anyhow::Result<ActionOutputs> {
         // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
-        self.bad_dice()
-            .compute(&BuildKey(action_key))
+        self.compute(&BuildKey(action_key))
             .map(|v| v?.map_err(anyhow::Error::from))
             .await
     }
 
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
+    async fn build_artifact(&mut self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
         self.build_action(artifact.key().clone()).await
     }
 }

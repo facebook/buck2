@@ -265,7 +265,7 @@ async fn test_build_action() -> anyhow::Result<()> {
     );
 
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
-    let dice_computations = make_default_dice_state(
+    let mut dice_computations = make_default_dice_state(
         dry_run_tracker.dupe(),
         &temp_fs,
         vec![{
@@ -315,7 +315,7 @@ async fn test_build_artifact() -> anyhow::Result<()> {
     );
 
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
-    let dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
+    let mut dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
         let registered_action = registered_action.dupe();
         vec![Box::new(move |builder| {
             mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)

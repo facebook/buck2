@@ -252,7 +252,7 @@ fn _assert_ensure_artifact_group_future_size() {
     let e = [0u8; 512 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
-    let v = ActionCalculation::build_action(&ctx, panic!());
+    let v = ActionCalculation::build_action(&mut ctx, panic!());
     let e = [0u8; 128 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
