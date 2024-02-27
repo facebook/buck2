@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::future::Future;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -41,6 +40,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use buck2_node::rule_type::StarlarkRuleType;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::Future;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -227,16 +227,19 @@ pub fn get_deps_from_analysis_results<'v>(
         .collect::<anyhow::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
 }
 
+// Used to express that the impl Future below captures multiple named lifetimes.
+// See https://github.com/rust-lang/rust/issues/34511#issuecomment-373423999 for more details.
+trait Captures<'x> {}
+impl<'x, T: ?Sized> Captures<'x> for T {}
+
 fn run_analysis_with_env<'a, 'd: 'a>(
     dice: &'a mut DiceComputations<'d>,
     analysis_env: AnalysisEnv<'a>,
     node: ConfiguredTargetNodeRef<'a>,
     profile_mode: &'a StarlarkProfileModeOrInstrumentation,
-) -> impl Future<Output = anyhow::Result<AnalysisResult>> + Send + 'a {
-    let dice = &*dice;
+) -> impl Future<Output = anyhow::Result<AnalysisResult>> + 'a + Captures<'d> {
     let fut = async move {
-        run_analysis_with_env_underlying(&mut dice.bad_dice(), analysis_env, node, profile_mode)
-            .await
+        run_analysis_with_env_underlying(dice, analysis_env, node, profile_mode).await
     };
     unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
 }
