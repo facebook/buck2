@@ -217,11 +217,16 @@ impl<'a> WriteEventLog<'a> {
                         }
                     }
 
-                    writer
-                        .file
-                        .write_all(&self.buf)
-                        .await
-                        .context("Failed to write event")?;
+                    match writer.file.write_all(&self.buf).await {
+                        Ok(_) => (),
+                        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                            // The subprocess exited with some kind of error. That is logged separately, so
+                            // here we just ignore it.
+                        }
+                        Err(e) => {
+                            return Err(anyhow::Error::from(e).context("Failed to write event"));
+                        }
+                    }
 
                     if self.buf.len() > 1_000_000 {
                         // Make sure we don't keep too much memory if encountered one large event.
@@ -513,9 +518,19 @@ impl<'a> WriteEventLog<'a> {
         };
 
         for writer in writers {
-            writer.file.flush().await.with_context(|| {
-                format!("Error flushing log file at {}", writer.path.path.display())
-            })?;
+            match writer.file.flush().await {
+                Ok(_) => (),
+                Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                    // The subprocess exited with some kind of error. That is logged separately, so
+                    // here we just ignore it.
+                }
+                Err(e) => {
+                    return Err(anyhow::Error::from(e).context(format!(
+                        "Error flushing log file at {}",
+                        writer.path.path.display()
+                    )));
+                }
+            }
         }
 
         Ok(())
