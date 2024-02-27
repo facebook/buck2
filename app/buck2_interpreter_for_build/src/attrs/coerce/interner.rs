@@ -18,13 +18,13 @@ use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use hashbrown::raw::RawTable;
-use twox_hash::XxHash64;
+use starlark_map::StarlarkHasher;
 
 /// An interner specific to our AttrCoercionContext used for interning different kinds of attributes.
 /// Things specific about this interner:
 /// - Requires interned values to be Dupe, so that you can intern both Arc<...> and specific Arc types like ArcStr.
 /// - Interner is not static, so it's not required to take up memory for the entire duration of the program.
-pub(crate) struct AttrCoercionInterner<T: Dupe + Hash + Eq, H = XxHash64> {
+pub(crate) struct AttrCoercionInterner<T: Dupe + Hash + Eq, H = StarlarkHasher> {
     /// We use `RawTable` where because `HashMap` API
     /// requires either computing hash twice (for get, then for insert) or
     /// allocating a key to perform a query using `entry` API.
