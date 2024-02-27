@@ -46,10 +46,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
-use futures::StreamExt;
 use smallvec::SmallVec;
 use starlark::eval::ProfileMode;
 
@@ -422,20 +420,20 @@ pub async fn profile_analysis_recursively(
 
     let all_deps = all_deps(node);
 
-    let ctx_ref = &*ctx;
-    let mut futures = all_deps
-        .iter()
-        .map(|node| async move { ctx_ref.bad_dice().get_analysis_result(node.label()).await })
-        .collect::<FuturesOrdered<_>>();
-
-    let mut profile_datas: Vec<Arc<StarlarkProfileDataAndStats>> = Vec::new();
-    while let Some(result) = futures.next().await {
-        profile_datas.push(
-            result?.require_compatible()?.profile_data.context(
-                "profile_data not set after finished profiling analysis (internal error)",
-            )?,
-        );
-    }
+    let profile_datas = ctx
+        .try_compute_join(all_deps.iter(), |ctx, node| {
+            async move {
+                let result = ctx
+                    .get_analysis_result(node.label())
+                    .await?
+                    .require_compatible()?;
+                result.profile_data.context(
+                    "profile_data not set after finished profiling analysis (internal error)",
+                )
+            }
+            .boxed()
+        })
+        .await?;
 
     StarlarkProfileDataAndStats::merge(profile_datas.iter().map(|x| &**x))
 }
