@@ -28,6 +28,7 @@ use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
 use crate::values::tuple::UnpackTuple;
 use crate::values::typing::iter::StarlarkIter;
+use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
@@ -157,6 +158,42 @@ pub fn pprint(builder: &mut GlobalsBuilder) {
     }
 }
 
+fn pretty_repr<'v>(a: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<StringValue<'v>> {
+    use std::fmt::Write;
+
+    let mut s = eval.string_pool.alloc();
+    write!(s, "{:#}", a).unwrap();
+    let r = eval.heap().alloc_str(&s);
+    eval.string_pool.release(s);
+    Ok(r)
+}
+
+#[starlark_module]
+pub fn pstr(builder: &mut GlobalsBuilder) {
+    /// Like `str`, but produces more verbose pretty-printed output
+    fn pstr<'v>(
+        #[starlark(require = pos)] a: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StringValue<'v>> {
+        if let Some(a) = StringValue::new(a) {
+            return Ok(a);
+        }
+
+        pretty_repr(a, eval)
+    }
+}
+
+#[starlark_module]
+pub fn prepr(builder: &mut GlobalsBuilder) {
+    /// Like `repr`, but produces more verbose pretty-printed output
+    fn prepr<'v>(
+        #[starlark(require = pos)] a: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StringValue<'v>> {
+        pretty_repr(a, eval)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
@@ -238,5 +275,35 @@ assert_eq(["11",8], map(double, ["1",4]))
         a.set_print_handler(&print_handler);
         a.pass("print('hw')");
         assert_eq!("hw", s_copy.borrow().as_str());
+    }
+
+    #[test]
+    fn test_pstr() {
+        assert::pass(
+            r#"
+assert_eq(pstr([]), "[]")
+assert_eq(pstr([1,2,[]]), """[
+  1,
+  2,
+  []
+]""")
+assert_eq(pstr("abcd"), "abcd")
+"#,
+        );
+    }
+
+    #[test]
+    fn test_prepr() {
+        assert::pass(
+            r#"
+assert_eq(prepr([]), "[]")
+assert_eq(prepr([1,2,[]]), """[
+  1,
+  2,
+  []
+]""")
+assert_eq(prepr("abcd"), "\"abcd\"")
+"#,
+        );
     }
 }

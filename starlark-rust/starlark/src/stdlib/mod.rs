@@ -75,6 +75,10 @@ pub enum LibraryExtension {
     Print,
     /// Add a function `pprint(x)` which pretty-prints to stderr.
     Pprint,
+    /// Add a function `pstr` which is a pretty-printed version of `str`.
+    Pstr,
+    /// Add a function `prepr` which is a pretty-printed version of `repr`.
+    Prepr,
     /// Add a function `breakpoint()` which will drop into a console-module evaluation prompt.
     Breakpoint,
     /// Add a function `json()` which will generate JSON for a module.
@@ -97,8 +101,8 @@ impl LibraryExtension {
     pub(crate) fn all() -> &'static [Self] {
         use LibraryExtension::*;
         &[
-            StructType, RecordType, EnumType, Map, Filter, Partial, Debug, Print, Pprint,
-            Breakpoint, Json, Typing, Internal, CallStack,
+            StructType, RecordType, EnumType, Map, Filter, Partial, Debug, Print, Pprint, Pstr,
+            Prepr, Breakpoint, Json, Typing, Internal, CallStack,
         ]
     }
 
@@ -115,6 +119,8 @@ impl LibraryExtension {
             Debug => extra::debug(builder),
             Print => extra::print(builder),
             Pprint => extra::pprint(builder),
+            Pstr => extra::pstr(builder),
+            Prepr => extra::prepr(builder),
             Breakpoint => breakpoint::global(builder),
             Json => json::json(builder),
             Typing => typing::globals::register_typing(builder),
