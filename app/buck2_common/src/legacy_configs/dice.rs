@@ -30,7 +30,6 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::view::LegacyBuckConfigView;
-use crate::legacy_configs::view::LegacyBuckConfigsView;
 use crate::legacy_configs::ConfigError;
 use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
@@ -78,32 +77,18 @@ pub struct LegacyBuckConfigsOnDice<'a, 'd> {
     configs: SortedMap<CellName, LegacyBuckConfigOnDice<'a, 'd>>,
 }
 
+impl LegacyBuckConfigsOnDice<'_, '_> {
+    pub fn cell_names(&self) -> Vec<CellName> {
+        self.configs.keys().copied().collect()
+    }
+}
+
 impl<'a, 'd> LegacyBuckConfigsOnDice<'a, 'd> {
     pub fn get(&self, cell_name: CellName) -> anyhow::Result<LegacyBuckConfigOnDice<'a, 'd>> {
         self.configs
             .get(&cell_name)
             .duped()
             .ok_or_else(|| ConfigError::UnknownCell(cell_name.to_owned()).into())
-    }
-}
-
-impl<'a, 'd> LegacyBuckConfigsView for LegacyBuckConfigsOnDice<'a, 'd> {
-    fn get<'x>(&'x self, cell_name: CellName) -> anyhow::Result<&'x dyn LegacyBuckConfigView> {
-        let config = self
-            .configs
-            .get(&cell_name)
-            .ok_or_else(|| anyhow::Error::from(ConfigError::UnknownCell(cell_name.to_owned())))?;
-        Ok(config)
-    }
-
-    fn iter<'x>(
-        &'x self,
-    ) -> Box<dyn Iterator<Item = (CellName, &'x dyn LegacyBuckConfigView)> + 'x> {
-        Box::new(
-            self.configs
-                .iter()
-                .map(|(cell_name, config)| (*cell_name, config as &dyn LegacyBuckConfigView)),
-        )
     }
 }
 

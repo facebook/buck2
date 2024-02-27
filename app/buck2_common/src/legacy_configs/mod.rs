@@ -46,7 +46,6 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::view::LegacyBuckConfigView;
-use crate::legacy_configs::view::LegacyBuckConfigsView;
 use crate::target_aliases::BuckConfigTargetAliasResolver;
 
 #[derive(buck2_error::Error, Debug)]
@@ -166,21 +165,6 @@ impl LegacyBuckConfig {
 impl LegacyBuckConfigView for LegacyBuckConfig {
     fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
         Ok(self.get(section, key).map(|v| v.to_owned().into()))
-    }
-}
-
-impl LegacyBuckConfigsView for LegacyBuckConfigs {
-    fn get(&self, cell_name: CellName) -> anyhow::Result<&dyn LegacyBuckConfigView> {
-        Ok(self.get(cell_name)?)
-    }
-
-    fn iter<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = (CellName, &'a dyn LegacyBuckConfigView)> + 'a> {
-        Box::new(
-            self.iter()
-                .map(|(cell, config)| (cell, config as &dyn LegacyBuckConfigView)),
-        )
     }
 }
 

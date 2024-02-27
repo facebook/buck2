@@ -11,8 +11,6 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use buck2_core::cells::name::CellName;
-
 use crate::legacy_configs::LegacyBuckConfig;
 
 /// Buckconfig trait.
@@ -33,12 +31,4 @@ impl dyn LegacyBuckConfigView + '_ {
             .map(|s| LegacyBuckConfig::parse_impl(section, key, &s))
             .transpose()
     }
-}
-
-/// All cell buckconfigs traits.
-pub trait LegacyBuckConfigsView {
-    fn get<'a>(&'a self, cell_name: CellName) -> anyhow::Result<&'a dyn LegacyBuckConfigView>;
-    fn iter<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = (CellName, &'a dyn LegacyBuckConfigView)> + 'a>;
 }
