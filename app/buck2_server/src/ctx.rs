@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::BufWriter;
 use std::marker::PhantomData;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -469,13 +468,13 @@ struct CellConfigLoader {
 impl CellConfigLoader {
     pub async fn cells_and_configs(
         &self,
-        dice_ctx: &DiceComputations<'_>,
+        dice_ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
         self.loaded_cell_configs
             .get_or_init(async move {
                 if self.reuse_current_config {
                     // If there is a previous command and --reuse-current-config is set, then the old config is used, ignoring any overrides.
-                    if dice_ctx.bad_dice().is_cell_resolver_key_set().await?
+                    if dice_ctx.is_cell_resolver_key_set().await?
                         && dice_ctx.is_legacy_configs_key_set().await?
                     {
                         if !self.config_overrides.is_empty() {
@@ -485,7 +484,7 @@ impl CellConfigLoader {
                             );
                         }
                         return buck2_error::Ok((
-                            dice_ctx.bad_dice().get_cell_resolver().await?,
+                            dice_ctx.get_cell_resolver().await?,
                             dice_ctx.get_legacy_configs().await?,
                             HashSet::new(),
                         ));
@@ -530,7 +529,7 @@ struct DiceCommandDataProvider {
 
 #[async_trait]
 impl DiceDataProvider for DiceCommandDataProvider {
-    async fn provide(&self, ctx: &DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
+    async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
         let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) =
             self.cell_configs_loader.cells_and_configs(ctx).await?;
 
@@ -696,7 +695,7 @@ impl DiceUpdater for DiceCommandUpdater {
     ) -> anyhow::Result<DiceTransactionUpdater> {
         let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) = self
             .cell_config_loader
-            .cells_and_configs(ctx.existing_state().await.deref())
+            .cells_and_configs(&mut ctx.existing_state().await.clone())
             .await?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
@@ -853,7 +852,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     /// section
     async fn config_metadata(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();

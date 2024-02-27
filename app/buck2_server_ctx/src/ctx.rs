@@ -62,7 +62,7 @@ pub trait ServerCommandContextTrait: Send + Sync {
 
     async fn config_metadata(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<HashMap<String, String>>;
 
     fn log_target_pattern(
@@ -145,11 +145,11 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             self.events().dupe(),
                             &*data,
                             &*setup,
-                            |dice| async move {
+                            |mut dice| async move {
                                 let events = self.events().dupe();
 
                                 let request_metadata = self.request_metadata().await?;
-                                let config_metadata = self.config_metadata(&dice).await?;
+                                let config_metadata = self.config_metadata(&mut dice).await?;
 
                                 events
                                     .span_async(

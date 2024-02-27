@@ -15,7 +15,6 @@
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -248,7 +247,7 @@ pub trait DiceUpdater: Send + Sync {
 
 #[async_trait]
 pub trait DiceDataProvider: Send + Sync + 'static {
-    async fn provide(&self, ctx: &DiceComputations<'_>) -> anyhow::Result<UserComputationData>;
+    async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData>;
 }
 
 #[derive(Allocative)]
@@ -440,7 +439,7 @@ impl ConcurrencyHandler {
                     let transaction = async {
                         let updater = self.dice.updater();
                         let mut user_data = user_data
-                            .provide(updater.existing_state().await.deref())
+                            .provide(&mut updater.existing_state().await.clone())
                             .await?;
 
                         let transaction = updates.update(updater, &mut user_data).await?;
@@ -741,7 +740,7 @@ mod tests {
     impl DiceDataProvider for TestDiceDataProvider {
         async fn provide(
             &self,
-            _ctx: &DiceComputations<'_>,
+            _ctx: &mut DiceComputations<'_>,
         ) -> anyhow::Result<UserComputationData> {
             Ok(Default::default())
         }
