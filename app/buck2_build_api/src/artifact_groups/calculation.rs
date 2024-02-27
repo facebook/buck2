@@ -40,7 +40,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use futures::future;
 use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
@@ -75,7 +74,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
     ) -> anyhow::Result<ArtifactGroupValues> {
         // TODO consider if we need to cache this
         let resolved_artifacts = input.resolved_artifact(self).await?;
-        ensure_artifact_group_staged(&mut self.bad_dice(), resolved_artifacts.clone())
+        ensure_artifact_group_staged(self, resolved_artifacts.clone())
             .await?
             .to_group_values(&resolved_artifacts)
     }
@@ -263,7 +262,7 @@ fn _assert_ensure_artifact_group_future_size() {
 }
 
 async fn dir_artifact_value(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     // We keep running into this performance footgun where a large directory is declared
@@ -291,16 +290,20 @@ async fn dir_artifact_value(
                 .await?
                 .included;
 
-            let entries = files.iter().map(|x| async {
-                // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
-                // Instead, this should be 1 key for the entire top-level directory since there's almost
-                // no chance of getting cache hit with a sub-directory.
-                let value =
-                    path_artifact_value(ctx, Arc::new(self.0.as_ref().join(&x.file_name))).await?;
-                anyhow::Ok((x.file_name.clone(), value))
-            });
-
-            let entries = future::try_join_all(entries).await?;
+            let entries = ctx
+                .try_compute_join(files.iter(), |ctx, x| {
+                    async move {
+                        // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
+                        // Instead, this should be 1 key for the entire top-level directory since there's almost
+                        // no chance of getting cache hit with a sub-directory.
+                        let value =
+                            path_artifact_value(ctx, Arc::new(self.0.as_ref().join(&x.file_name)))
+                                .await?;
+                        anyhow::Ok((x.file_name.clone(), value))
+                    }
+                    .boxed()
+                })
+                .await?;
             let entries = entries.into_iter().collect();
 
             let digest_config = ctx.global_data().get_digest_config();
@@ -317,16 +320,13 @@ async fn dir_artifact_value(
         }
     }
 
-    let res = ctx
-        .bad_dice()
-        .compute(&DirArtifactValueKey(cell_path))
-        .await??;
+    let res = ctx.compute(&DirArtifactValueKey(cell_path)).await??;
     Ok(ActionDirectoryEntry::Dir(res))
 }
 
 #[async_recursion]
 async fn path_artifact_value(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     let raw = (&DiceFileOps(ctx) as &dyn FileOps)
