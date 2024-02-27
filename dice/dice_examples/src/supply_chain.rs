@@ -20,7 +20,6 @@
 //! The cost of a resource is the sum of each item cost + a company specific flat fee.
 
 use std::collections::HashMap;
-use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -209,11 +208,11 @@ pub trait CostUpdater {
     ) -> anyhow::Result<()>;
 }
 
-fn lookup_company_resource_cost<'a>(
-    ctx: &'a DiceComputations,
+async fn lookup_company_resource_cost(
+    ctx: &mut DiceComputations<'_>,
     company: &LookupCompany,
     resource: &Resource,
-) -> impl Future<Output = Result<Option<u16>, Arc<anyhow::Error>>> + 'a {
+) -> Result<Option<u16>, Arc<anyhow::Error>> {
     #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
     struct LookupCompanyResourceCost(LookupCompany, Resource);
@@ -267,12 +266,10 @@ fn lookup_company_resource_cost<'a>(
         }
     }
     let key = LookupCompanyResourceCost(company.clone(), resource.dupe());
-    async move {
-        ctx.bad_dice()
-            .compute(&key)
-            .await
-            .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
-    }
+
+    ctx.compute(&key)
+        .await
+        .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
 }
 
 #[async_trait]
