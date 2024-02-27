@@ -40,8 +40,6 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
-use futures::StreamExt;
-use futures::TryFutureExt;
 use futures::TryStreamExt;
 use once_cell::sync::Lazy;
 
@@ -177,7 +175,7 @@ async fn lookup_deferred(
 /// Fully resolve the deferred, including any deferreds it might have return when attempting
 /// to calculate it.
 async fn resolve_deferred(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     deferred: &DeferredKey,
 ) -> anyhow::Result<DeferredValueAnyReady> {
     #[async_trait]
@@ -204,8 +202,7 @@ async fn resolve_deferred(
         }
     }
 
-    dice.bad_dice()
-        .compute(&DeferredResolve(deferred.dupe()))
+    dice.compute(&DeferredResolve(deferred.dupe()))
         .await?
         .map_err(anyhow::Error::from)
 }
@@ -213,7 +210,7 @@ async fn resolve_deferred(
 /// Computes and returns the untyped deferred at the given key. This does not fully resolve
 /// the deferred as another deferred may be returned.
 async fn compute_deferred(
-    dice: &DiceComputations<'_>,
+    dice: &mut DiceComputations<'_>,
     deferred: &DeferredKey,
 ) -> anyhow::Result<DeferredResult> {
     #[async_trait]
@@ -231,39 +228,65 @@ async fn compute_deferred(
             // We'll create the Span lazily when materialization hits it.
             let span = Lazy::new(|| deferred.span().map(create_span));
 
-            let target_node_futs = FuturesUnordered::new();
-            let deferreds_futs = FuturesUnordered::new();
+            let mut target_deps = Vec::new();
+            let mut deferred_deps = Vec::new();
             let mut materialized_artifacts = Vec::new();
 
-            let ctx_ref = &ctx;
-            deferred.inputs().iter().for_each(|input| match input {
-                DeferredInput::ConfiguredTarget(target) => target_node_futs.push(async move {
-                    let res = ctx_ref
-                        .bad_dice()
-                        .get_configured_target_node(target)
-                        .await?
-                        .require_compatible()?;
-                    Ok((target.dupe(), res))
-                }),
-                DeferredInput::Deferred(deferred_key) => deferreds_futs.push(
-                    resolve_deferred(ctx, deferred_key)
-                        .map(|res| anyhow::Ok((deferred_key.dupe(), res?))),
-                ),
-                DeferredInput::MaterializedArtifact(artifact) => {
-                    materialized_artifacts.push(ArtifactGroup::Artifact(artifact.dupe()));
+            for input in deferred.inputs().iter() {
+                match input {
+                    DeferredInput::ConfiguredTarget(target) => target_deps.push(target),
+                    DeferredInput::Deferred(deferred_key) => deferred_deps.push(deferred_key),
+                    DeferredInput::MaterializedArtifact(artifact) => {
+                        materialized_artifacts.push(ArtifactGroup::Artifact(artifact.dupe()))
+                    }
                 }
-            });
-
-            let materialized_artifacts_fut =
-                self.create_materializer_futs(&materialized_artifacts, ctx, &span);
+            }
 
             // TODO(nga): do we need to compute artifacts?
-            let (targets, deferreds, materialized_artifacts) = futures::future::join3(
-                futures_pair_to_map(target_node_futs),
-                futures_pair_to_map(deferreds_futs),
-                materialized_artifacts_fut,
-            )
-            .await;
+            let (targets, deferreds, materialized_artifacts) = {
+                // don't move span
+                let span = &span;
+                let (target_node_futs, deferreds_futs, materialized_artifacts_fut) = ctx.compute3(
+                    |ctx| {
+                        async move {
+                            ctx.try_compute_join(target_deps, |ctx, target| {
+                                async move {
+                                    let res = ctx
+                                        .get_configured_target_node(target)
+                                        .await?
+                                        .require_compatible()?;
+                                    anyhow::Ok((target.dupe(), res))
+                                }
+                                .boxed()
+                            })
+                            .await
+                        }
+                        .boxed()
+                    },
+                    |ctx| {
+                        async move {
+                            ctx.try_compute_join(deferred_deps, |ctx, deferred_key| {
+                                async move {
+                                    let res = resolve_deferred(ctx, deferred_key).await?;
+                                    anyhow::Ok((deferred_key.dupe(), res))
+                                }
+                                .boxed()
+                            })
+                            .await
+                        }
+                        .boxed()
+                    },
+                    |ctx| {
+                        async move {
+                            self.create_materializer_futs(&materialized_artifacts, ctx, span)
+                                .await
+                        }
+                        .boxed()
+                    },
+                );
+                futures::future::join3(target_node_futs, deferreds_futs, materialized_artifacts_fut)
+                    .await
+            };
 
             let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(self.0.dupe())));
 
@@ -272,8 +295,8 @@ async fn compute_deferred(
                     async move {
                         let mut deferred_ctx = ResolveDeferredCtx::new(
                             self.0.dupe(),
-                            targets?,
-                            deferreds?,
+                            targets?.into_iter().collect(),
+                            deferreds?.into_iter().collect(),
                             materialized_artifacts?,
                             &mut registry,
                             ctx.global_data().get_io_provider().project_root().dupe(),
@@ -311,81 +334,58 @@ async fn compute_deferred(
     }
 
     impl DeferredCompute {
-        fn create_materializer_futs<'a>(
-            &'a self,
-            materialized_artifacts: &'a [ArtifactGroup],
-            ctx: &'a DiceComputations,
-            span: &'a Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
-        ) -> impl Future<Output = anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>>> + 'a
-        {
+        async fn create_materializer_futs(
+            &self,
+            materialized_artifacts: &[ArtifactGroup],
+            ctx: &mut DiceComputations<'_>,
+            span: &Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
+        ) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
             if materialized_artifacts.is_empty() {
-                return async move { Ok(HashMap::new()) }.left_future();
+                return Ok(HashMap::new());
             }
             // This is a bit suboptimal: we wait for all artifacts to be ready in order to
             // materialize any of them. However that is how we execute *all* local actions so in
             // the grand scheme of things that's probably not a huge deal.
-            let materialized_artifacts_fut = {
-                let artifact_futs = futures::future::try_join_all(
-                    materialized_artifacts
-                        .iter()
-                        .map(|artifact| ctx.ensure_artifact_group(artifact)),
-                );
 
-                artifact_futs.and_then(move |_| async move {
-                    let materializer = ctx.per_transaction_data().get_materializer();
-                    let artifact_fs = ctx.bad_dice().get_artifact_fs().await?;
+            futures::future::try_join_all(
+                materialized_artifacts
+                    .iter()
+                    .map(|artifact| ctx.ensure_artifact_group(artifact)),
+            )
+            .await?;
 
-                    let fut = materialized_artifacts
-                        .iter()
-                        .map(|artifact| async {
-                            let artifact = artifact
-                                .unpack_artifact()
-                                .expect("we only put Artifacts into this list")
-                                .dupe();
-                            let path = artifact.resolve_path(&artifact_fs)?;
-                            materializer.ensure_materialized(vec![path.clone()]).await?;
+            let materializer = ctx.per_transaction_data().get_materializer();
+            let artifact_fs = ctx.get_artifact_fs().await?;
 
-                            anyhow::Ok((artifact, path))
-                        })
-                        .collect::<FuturesUnordered<_>>()
-                        .try_collect::<HashMap<_, _>>();
+            let fut = materialized_artifacts
+                .iter()
+                .map(|artifact| async {
+                    let artifact = artifact
+                        .unpack_artifact()
+                        .expect("we only put Artifacts into this list")
+                        .dupe();
+                    let path = artifact.resolve_path(&artifact_fs)?;
+                    materializer.ensure_materialized(vec![path.clone()]).await?;
 
-                    match span.as_ref() {
-                        Some(span) => {
-                            span.create_child(buck2_data::DeferredPreparationStageStart {
-                                stage: Some(buck2_data::MaterializedArtifacts {}.into()),
-                            })
-                            .wrap_future(
-                                fut.map(|r| (r, buck2_data::DeferredPreparationStageEnd {})),
-                            )
-                            .await
-                        }
-                        None => fut.await,
-                    }
+                    anyhow::Ok((artifact, path))
                 })
-            };
-            materialized_artifacts_fut.right_future()
+                .collect::<FuturesUnordered<_>>()
+                .try_collect::<HashMap<_, _>>();
+
+            match span.as_ref() {
+                Some(span) => {
+                    span.create_child(buck2_data::DeferredPreparationStageStart {
+                        stage: Some(buck2_data::MaterializedArtifacts {}.into()),
+                    })
+                    .wrap_future(fut.map(|r| (r, buck2_data::DeferredPreparationStageEnd {})))
+                    .await
+                }
+                None => fut.await,
+            }
         }
     }
 
-    Ok(dice
-        .bad_dice()
-        .compute(&DeferredCompute(deferred.dupe()))
-        .await??)
-}
-
-async fn futures_pair_to_map<K: Eq + Hash, V>(
-    mut futs: FuturesUnordered<impl Future<Output = anyhow::Result<(K, V)>>>,
-) -> anyhow::Result<HashMap<K, V>> {
-    let mut res = HashMap::with_capacity(futs.len());
-    while let Some(p) = futs.next().await {
-        // terminate immediately once a fail occurs
-        // TODO support keep going?
-
-        let (key, value) = p?;
-        res.insert(key, value);
-    }
-    Ok(res)
+    Ok(dice.compute(&DeferredCompute(deferred.dupe())).await??)
 }
 
 /// Represents an Analysis or Deferred result. Technically, we can treat analysis as a 'Deferred'
