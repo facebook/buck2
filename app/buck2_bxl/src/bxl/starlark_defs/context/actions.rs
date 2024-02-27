@@ -34,6 +34,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
@@ -138,29 +139,6 @@ pub(crate) async fn resolve_bxl_execution_platform(
     })
 }
 
-pub(crate) async fn get_dependency_for_label<'v>(
-    configured: ConfiguredProvidersLabel,
-    ctx: &DiceComputations<'_>,
-    module: &'v Module,
-) -> anyhow::Result<Dependency<'v>> {
-    let analysis_result = ctx
-        .bad_dice()
-        .get_analysis_result(configured.target())
-        .await?
-        .require_compatible()?;
-
-    let v = analysis_result.lookup_inner(&configured)?;
-
-    let dependency = Dependency::new(
-        module.heap(),
-        configured,
-        v.value().owned_value(module.frozen_heap()),
-        None,
-    );
-
-    Ok(dependency)
-}
-
 pub(crate) struct BxlExecutionResolution {
     pub(crate) resolved_execution: ExecutionPlatformResolution,
     pub(crate) exec_deps_configured: Vec<ConfiguredProvidersLabel>,
@@ -216,7 +194,7 @@ impl<'v> BxlActions<'v> {
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
         eval: &mut Evaluator<'v, '_>,
-        ctx: &'c DiceComputations<'_>,
+        ctx: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
         let toolchains = alloc_deps(toolchains, eval, ctx).await?;
@@ -231,26 +209,44 @@ impl<'v> BxlActions<'v> {
 async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
     eval: &mut Evaluator<'v, '_>,
-    ctx: &'c DiceComputations<'_>,
+    ctx: &'c mut DiceComputations<'_>,
 ) -> anyhow::Result<ValueOfUnchecked<'v, DictRef<'v>>> {
-    let deps: Vec<_> = deps
+    let analysis_results: Vec<_> = ctx
+        .try_compute_join(deps, |ctx, target| {
+            async move {
+                let res = ctx
+                    .get_analysis_result(target.target())
+                    .await?
+                    .require_compatible()?;
+                anyhow::Ok((target, res))
+            }
+            .boxed()
+        })
+        .await?;
+
+    let deps: SmallMap<_, _> = analysis_results
         .into_iter()
-        .map(|k| async {
-            let unconfigured = k.unconfigured();
-            let dep = get_dependency_for_label(k, ctx, eval.module()).await?;
+        .map(|(configured, analysis_result)| {
+            let v = analysis_result.lookup_inner(&configured)?;
+
+            let starlark_label = StarlarkProvidersLabel::new(configured.unconfigured());
+            let dependency = Dependency::new(
+                eval.heap(),
+                configured,
+                v.value().owned_value(eval.frozen_heap()),
+                None,
+            );
+
             anyhow::Ok((
                 eval.heap()
-                    .alloc(StarlarkProvidersLabel::new(unconfigured))
+                    .alloc(starlark_label)
                     .get_hashed()
                     .map_err(BuckStarlarkError::new)?,
-                eval.heap().alloc(dep),
+                eval.heap().alloc(dependency),
             ))
         })
-        .collect();
-    let deps: SmallMap<_, _> = futures::future::try_join_all(deps)
-        .await?
-        .into_iter()
-        .collect();
+        .collect::<Result<_, _>>()?;
+
     let deps = eval.heap().alloc(Dict::new(deps));
 
     ValueOfUnchecked::new_checked(deps)
