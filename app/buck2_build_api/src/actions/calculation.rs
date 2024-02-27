@@ -102,7 +102,7 @@ async fn build_action_no_redirect(
         let ensure_futs: FuturesOrdered<_> = inputs
             .iter()
             .map(|v| async {
-                let resolved = v.resolved_artifact(ctx).await?;
+                let resolved = v.resolved_artifact(&mut ctx.bad_dice()).await?;
                 anyhow::Ok(
                     ensure_artifact_group_staged(&mut ctx.bad_dice(), resolved.clone())
                         .await?

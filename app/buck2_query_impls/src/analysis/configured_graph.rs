@@ -89,7 +89,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                             .require_compatible()
                     })),
                     get_from_template_placeholder_info(
-                        ctx,
+                        &mut ctx_ref.bad_dice(),
                         self.template_name,
                         self.targets.iter().duped(),
                     ),

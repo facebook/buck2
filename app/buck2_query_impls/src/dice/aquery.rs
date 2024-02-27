@@ -42,7 +42,6 @@ use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use futures::stream::FuturesOrdered;
-use futures::StreamExt;
 use gazebo::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
@@ -158,13 +157,13 @@ pub(crate) struct AqueryData {
 // artifact side of it holds a starlark ref. That would allow someone with an ArtifactGroup to synchronously
 // traverse the tset graph rather than needing to asynchronously resolve a TransitiveSetKey.
 async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
-    ctx: &'c DiceComputations<'_>,
+    ctx: &'c mut DiceComputations<'_>,
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
     let resolved_artifact_futs: FuturesOrdered<_> = inputs
         .into_iter()
-        .map(|input| async { input.resolved_artifact(ctx).await })
+        .map(|input| async { input.resolved_artifact(&mut ctx.bad_dice()).await })
         .collect();
 
     let resolved_artifacts: Vec<_> =
@@ -183,17 +182,16 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     );
     let mut deps =
         artifacts.into_map(|a| ActionInput::ActionKey(ActionQueryNodeRef::Action(a.dupe())));
-    let mut projection_deps: FuturesOrdered<_> = projections
-        .into_iter()
-        .map(|key| {
+    let projection_deps = ctx
+        .try_compute_join(projections, |ctx, key| {
             let key = key.dupe();
             let node_cache = node_cache.dupe();
-            async move { get_tset_node(node_cache, &mut ctx.bad_dice(), key).await }
+            async move { get_tset_node(node_cache, ctx, key).await }.boxed()
         })
-        .collect();
+        .await?;
 
-    while let Some(node) = tokio::task::unconstrained(projection_deps.next()).await {
-        deps.push(ActionInput::IndirectInputs(node?));
+    for node in projection_deps {
+        deps.push(ActionInput::IndirectInputs(node));
     }
     Ok(deps)
 }
@@ -318,7 +316,7 @@ impl<'c, 'd> AqueryDelegate for DiceAqueryDelegate<'c, 'd> {
         artifacts: &[ArtifactGroup],
     ) -> anyhow::Result<Vec<ActionQueryNode>> {
         let inputs = convert_inputs(
-            self.base_delegate.ctx(),
+            &mut self.base_delegate.ctx().bad_dice(),
             self.query_data.nodes_cache.dupe(),
             artifacts,
         )

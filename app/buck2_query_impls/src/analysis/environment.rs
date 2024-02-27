@@ -63,6 +63,7 @@ use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use futures::FutureExt;
 use indexmap::IndexMap;
 use starlark::values::UnpackValue;
 
@@ -332,7 +333,7 @@ async fn get_template_info_provider_artifacts(
 }
 
 pub(crate) async fn get_from_template_placeholder_info<'x>(
-    ctx: &'x DiceComputations<'_>,
+    ctx: &'x mut DiceComputations<'_>,
     template_name: &'static str,
     targets: impl IntoIterator<Item = ConfiguredTargetLabel>,
 ) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
@@ -355,15 +356,20 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
     // This will contain the ArtifactGroups we encounter during our traversal (so only artifacts and top-level tset nodes).
     // Artifacts are put here to keep them in the correct order in the output, tsets are top-level tset nodes that we need
     // to traverse.
-    let artifacts = futures::future::try_join_all(targets.into_iter().map(|target| async move {
-        let artifacts = get_template_info_provider_artifacts(ctx, &target, template_name).await?;
-        anyhow::Ok(
-            artifacts
-                .into_iter()
-                .map(move |artifact| (target.dupe(), artifact)),
-        )
-    }))
-    .await?;
+    let artifacts = ctx
+        .try_compute_join(targets, |ctx, target| {
+            async move {
+                let artifacts =
+                    get_template_info_provider_artifacts(ctx, &target, template_name).await?;
+                anyhow::Ok(
+                    artifacts
+                        .into_iter()
+                        .map(move |artifact| (target.dupe(), artifact)),
+                )
+            }
+            .boxed()
+        })
+        .await?;
     let mut artifacts: VecDeque<_> = artifacts.into_iter().flatten().collect();
 
     // This will contain the TransitiveSetProjectionKey we encounter as top-level nodes and we will also put in TransitiveSetProjectionKey

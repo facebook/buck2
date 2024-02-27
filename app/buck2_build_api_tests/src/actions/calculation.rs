@@ -362,7 +362,7 @@ async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
     );
 
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
-    let dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
+    let mut dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
         let registered_action = registered_action.dupe();
         vec![Box::new(move |builder| {
             mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
@@ -411,7 +411,7 @@ async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
     let dice_builder = DiceBuilder::new().set_data(|data| {
         data.set_digest_config(DigestConfig::testing_default());
     });
-    let dice_computations = dice_builder
+    let mut dice_computations = dice_builder
         .mock_and_return(
             FileOpsKey(),
             Ok(FileOpsValue(Arc::new(
@@ -464,7 +464,7 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
     let dice_builder = DiceBuilder::new().set_data(|data| {
         data.set_digest_config(DigestConfig::testing_default());
     });
-    let dice_computations = dice_builder
+    let mut dice_computations = dice_builder
         .mock_and_return(
             FileOpsKey(),
             Ok(FileOpsValue(Arc::new(TestFileOps::new_with_symlinks(

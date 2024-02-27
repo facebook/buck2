@@ -347,11 +347,9 @@ async fn compute_deferred(
             // materialize any of them. However that is how we execute *all* local actions so in
             // the grand scheme of things that's probably not a huge deal.
 
-            futures::future::try_join_all(
-                materialized_artifacts
-                    .iter()
-                    .map(|artifact| ctx.ensure_artifact_group(artifact)),
-            )
+            ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
+                ctx.ensure_artifact_group(artifact).boxed()
+            })
             .await?;
 
             let materializer = ctx.per_transaction_data().get_materializer();

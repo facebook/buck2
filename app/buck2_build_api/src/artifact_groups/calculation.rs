@@ -61,7 +61,7 @@ use crate::keep_going;
 pub trait ArtifactGroupCalculation {
     /// Makes an 'Artifact' available to be accessed
     async fn ensure_artifact_group(
-        &self,
+        &mut self,
         input: &ArtifactGroup,
     ) -> anyhow::Result<ArtifactGroupValues>;
 }
@@ -70,7 +70,7 @@ pub trait ArtifactGroupCalculation {
 impl ArtifactGroupCalculation for DiceComputations<'_> {
     /// makes the 'Artifact' available to be accessed
     async fn ensure_artifact_group(
-        &self,
+        &mut self,
         input: &ArtifactGroup,
     ) -> anyhow::Result<ArtifactGroupValues> {
         // TODO consider if we need to cache this
@@ -429,7 +429,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             .get_projection_sub_inputs(self.0.projection)?;
         let sub_inputs_futs: FuturesOrdered<_> = projection_sub_inputs
             .iter()
-            .map(|a| async { a.resolved_artifact(ctx).await })
+            .map(|a| async { a.resolved_artifact(&mut ctx.bad_dice()).await })
             .collect();
 
         let sub_inputs: Vec<_> =

@@ -23,6 +23,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use indexmap::IndexMap;
 
@@ -65,16 +66,16 @@ impl AuditSubcommand for AuditClasspathCommand {
                 // Json prints a map of targets to list of classpaths while default prints
                 // classpaths for all targets.
                 if self.json {
-                    let target_to_artifacts =
-                        futures::future::try_join_all(targets.into_iter().map(|target| {
-                            let ctx = &ctx;
+                    let target_to_artifacts = ctx
+                        .try_compute_join(targets.into_iter(), |ctx, target| {
                             async move {
                                 let label = target.label().dupe();
                                 let label_to_artifact =
                                     (CLASSPATH_FOR_TARGETS.get()?)(ctx, vec![label.dupe()]).await?;
                                 anyhow::Ok((label, label_to_artifact))
                             }
-                        }))
+                            .boxed()
+                        })
                         .await?;
                     let target_to_classpaths: anyhow::Result<IndexMap<_, _>> = target_to_artifacts
                         .into_iter()
@@ -100,7 +101,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                     )?;
                 } else {
                     let label_to_artifact = (CLASSPATH_FOR_TARGETS.get()?)(
-                        &ctx,
+                        &mut ctx,
                         targets.into_iter().map(|t| t.label().dupe()).collect(),
                     )
                     .await?;

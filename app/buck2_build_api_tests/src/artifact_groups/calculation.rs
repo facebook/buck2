@@ -159,7 +159,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
     let mut dice = dice_builder.build(extra)?;
     dice.set_cell_resolver(cell_resolver)?;
     dice.set_buck_out_path(None)?;
-    let dice = dice.commit().await;
+    let mut dice = dice.commit().await;
 
     let result = dice
         .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(

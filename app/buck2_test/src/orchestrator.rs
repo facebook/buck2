@@ -954,7 +954,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             // hence we don't actually need to spawn these in parallel
             // TODO (T102328660): Does CommandExecutionRequest need this artifact?
             inputs.push(CommandExecutionInput::Artifact(Box::new(
-                self.dice.ensure_artifact_group(input).await?,
+                self.dice.clone().ensure_artifact_group(input).await?,
             )));
         }
 
@@ -1046,7 +1046,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         let futs = context
             .input_artifacts
             .iter()
-            .map(|group| self.dice.ensure_artifact_group(group));
+            .map(|group| async move { self.dice.clone().ensure_artifact_group(group).await });
         let inputs = futures::future::try_join_all(futs).await?;
         let inputs = inputs
             .into_iter()

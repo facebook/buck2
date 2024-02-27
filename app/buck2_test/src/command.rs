@@ -802,7 +802,7 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
         let state = self.state;
         let fut = async move {
             test_target(
-                state.ctx,
+                &mut state.ctx.bad_dice(),
                 label,
                 state.test_executor.dupe(),
                 state.session,
@@ -856,7 +856,7 @@ fn spec_to_targets(
 }
 
 async fn test_target(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     target: ConfiguredProvidersLabel,
     test_executor: Arc<dyn TestExecutor + '_>,
     session: &TestSession,
@@ -867,11 +867,7 @@ async fn test_target(
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
     // in v1: https://fb.workplace.com/groups/buckeng/posts/8520953297953210
-    let frozen_providers = ctx
-        .bad_dice()
-        .get_providers(&target)
-        .await?
-        .require_compatible()?;
+    let frozen_providers = ctx.get_providers(&target).await?.require_compatible()?;
     let providers = frozen_providers.provider_collection();
     build_artifacts(ctx, providers, &label_filtering).await?;
 
@@ -919,7 +915,7 @@ fn skip_build_based_on_labels(
 }
 
 async fn build_artifacts(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     providers: &FrozenProviderCollection,
     label_filtering: &TestLabelFiltering,
 ) -> anyhow::Result<()> {
@@ -944,11 +940,9 @@ async fn build_artifacts(
     }
     let artifacts_to_build = get_artifacts_to_build(label_filtering, providers)?;
     // build the test target first
-    future::try_join_all(
-        artifacts_to_build
-            .iter()
-            .map(|input| ctx.ensure_artifact_group(input)),
-    )
+    ctx.try_compute_join(artifacts_to_build.iter(), |ctx, input| {
+        ctx.ensure_artifact_group(input).boxed()
+    })
     .await?;
     Ok(())
 }

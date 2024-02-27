@@ -388,10 +388,13 @@ async fn build_configured_label_inner<'a>(
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-        let resolved_artifact_futs: FuturesOrdered<_> = outputs
-            .iter()
-            .map(|(output, _type)| async move { output.resolved_artifact(ctx).await })
-            .collect();
+        let resolved_artifact_futs: FuturesOrdered<_> =
+            outputs
+                .iter()
+                .map(|(output, _type)| async move {
+                    output.resolved_artifact(&mut ctx.bad_dice()).await
+                })
+                .collect();
 
         let resolved_artifacts: Vec<_> =
             tokio::task::unconstrained(keep_going::try_join_all(ctx, resolved_artifact_futs))

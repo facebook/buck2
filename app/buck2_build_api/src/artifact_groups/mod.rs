@@ -59,7 +59,7 @@ impl ArtifactGroup {
     /// the analysis results of the owning anon target's analysis.
     pub async fn resolved_artifact(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<ResolvedArtifactGroup> {
         Ok(match self {
             ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
@@ -69,7 +69,7 @@ impl ArtifactGroup {
             ArtifactGroup::Promise(p) => match p.get() {
                 Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
                 None => {
-                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(p, &mut ctx.bad_dice()).await?;
+                    let artifact = (GET_PROMISED_ARTIFACT.get()?)(p, ctx).await?;
                     ResolvedArtifactGroup::Artifact(artifact)
                 }
             },

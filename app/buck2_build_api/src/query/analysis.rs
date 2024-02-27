@@ -19,7 +19,7 @@ use indexmap::IndexMap;
 /// Used by `audit classpath`.
 pub static CLASSPATH_FOR_TARGETS: LateBinding<
     for<'c> fn(
-        &'c DiceComputations,
+        &'c mut DiceComputations,
         Vec<ConfiguredTargetLabel>,
     ) -> Pin<
         Box<
