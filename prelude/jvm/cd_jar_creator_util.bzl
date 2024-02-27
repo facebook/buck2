@@ -452,7 +452,7 @@ def prepare_final_jar(
             output_jar = output
 
         if jar_postprocessor:
-            return post_process_jar(actions, jar_postprocessor, output_jar, actions_identifier)
+            return postprocess_jar(actions, jar_postprocessor, output_jar, actions_identifier)
         else:
             return output_jar
 
@@ -474,7 +474,7 @@ def prepare_final_jar(
     )
 
     if jar_postprocessor:
-        return post_process_jar(actions, jar_postprocessor, merged_jar, actions_identifier)
+        return postprocess_jar(actions, jar_postprocessor, merged_jar, actions_identifier)
     else:
         return merged_jar
 
@@ -567,19 +567,19 @@ def generate_abi_jars(
 
     return class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir
 
-def post_process_jar(
+def postprocess_jar(
         actions: AnalysisActions,
         jar_postprocessor: RunInfo,
         original_jar: Artifact,
         actions_identifier: [str, None]) -> Artifact:
-    post_processed_output = actions.declare_output("post_processed_{}".format(original_jar.short_path))
+    postprocessed_output = actions.declare_output("postprocessed_{}".format(original_jar.short_path))
     processor_cmd_args = cmd_args(
         jar_postprocessor,
         original_jar,
-        post_processed_output.as_output(),
+        postprocessed_output.as_output(),
     )
 
     identifier = actions_identifier if actions_identifier else ""
-    actions.run(processor_cmd_args, category = "post_processed{}".format(identifier))
+    actions.run(processor_cmd_args, category = "postprocessed{}".format(identifier))
 
-    return post_processed_output
+    return postprocessed_output
