@@ -258,7 +258,6 @@ async fn install(
 
     let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
     for (installer_label, install_info_vector) in &installer_to_files_map {
-        let ctx = &ctx;
         let installer_run_args = &request.installer_run_args;
 
         let mut install_files_vector: Vec<(&String, SmallMap<_, _>)> = Vec::new();
@@ -267,21 +266,25 @@ async fn install(
             install_files_vector.push((install_id, install_files));
         }
 
-        let handle_install_request_future = async move {
-            handle_install_request(
-                ctx,
-                materializations,
-                install_log_dir,
-                &install_files_vector,
-                installer_label,
-                installer_run_args,
-                request.installer_debug,
-            )
-            .await
-        };
+        let handle_install_request_future = DiceComputations::declare_closure(move |ctx| {
+            async move {
+                handle_install_request(
+                    ctx,
+                    materializations,
+                    install_log_dir,
+                    &install_files_vector,
+                    installer_label,
+                    installer_run_args,
+                    request.installer_debug,
+                )
+                .await
+            }
+            .boxed()
+        });
         install_requests.push(handle_install_request_future);
     }
 
+    let install_requests = ctx.compute_many(install_requests);
     try_join_all(install_requests)
         .await
         .context("Interaction with installer failed.")?;
@@ -310,7 +313,7 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 }
 
 async fn handle_install_request<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a mut DiceComputations<'_>,
     materializations: &'a MaterializationContext,
     install_log_dir: &AbsNormPathBuf,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
@@ -319,67 +322,77 @@ async fn handle_install_request<'a>(
     installer_debug: bool,
 ) -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
-    let build_files = async move {
-        build_files(ctx, materializations, install_files_slice, files_tx).await?;
-        anyhow::Ok(())
-    };
-    let build_installer_and_connect = async move {
-        // FIXME: The random unused tcp port might be available when get_random_tcp_port() is called,
-        // but when the installer tries to bind on it, someone else might bind on it.
-        // TODO: choose unused tcp port on installer side.
-        // The way communication may happen:
-        // 1. buck2 passes a temp file for a tcp port output.
-        // 2. installer app choose unused tcp port and writes it into the passed file.
-        // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
-        let tcp_port = get_random_tcp_port()?;
+    let (build_files, build_installer_and_connect) = ctx.compute2(
+        |ctx| {
+            async move {
+                build_files(ctx, materializations, install_files_slice, files_tx).await?;
+                anyhow::Ok(())
+            }
+            .boxed()
+        },
+        |ctx| {
+            async move {
+                // FIXME: The random unused tcp port might be available when get_random_tcp_port() is called,
+                // but when the installer tries to bind on it, someone else might bind on it.
+                // TODO: choose unused tcp port on installer side.
+                // The way communication may happen:
+                // 1. buck2 passes a temp file for a tcp port output.
+                // 2. installer app choose unused tcp port and writes it into the passed file.
+                // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
+                let tcp_port = get_random_tcp_port()?;
 
-        let installer_log_filename = format!(
-            "{}/installer_{}_{}.log",
-            install_log_dir,
-            get_timestamp_as_string()?,
-            calculate_hash(&installer_label.target().name())
-        );
+                let installer_log_filename = format!(
+                    "{}/installer_{}_{}.log",
+                    install_log_dir,
+                    get_timestamp_as_string()?,
+                    calculate_hash(&installer_label.target().name())
+                );
 
-        let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
+                let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
 
-        installer_run_args.extend(vec![
-            "--tcp-port".to_owned(),
-            tcp_port.to_string(),
-            "--log-path".to_owned(),
-            installer_log_filename.to_owned(),
-        ]);
-
-        build_launch_installer(
-            &mut ctx.bad_dice(),
-            materializations,
-            installer_label,
-            &installer_run_args,
-            installer_debug,
-        )
-        .await?;
-
-        let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
-        let artifact_fs = ctx.bad_dice().get_artifact_fs().await?;
-
-        for (install_id, install_files) in install_files_slice {
-            send_install_info(client.clone(), install_id, install_files, &artifact_fs).await?;
-        }
-
-        let send_files_result = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
-            .map(anyhow::Ok)
-            .try_for_each_concurrent(None, |file| {
-                send_file(
-                    file,
-                    &artifact_fs,
-                    client.clone(),
+                installer_run_args.extend(vec![
+                    "--tcp-port".to_owned(),
+                    tcp_port.to_string(),
+                    "--log-path".to_owned(),
                     installer_log_filename.to_owned(),
+                ]);
+
+                build_launch_installer(
+                    ctx,
+                    materializations,
+                    installer_label,
+                    &installer_run_args,
+                    installer_debug,
                 )
-            })
-            .await;
-        send_shutdown_command(client.clone()).await?;
-        send_files_result.context("Failed to send artifacts to installer")?;
-        anyhow::Ok(())
-    };
+                .await?;
+
+                let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
+                let artifact_fs = ctx.get_artifact_fs().await?;
+
+                for (install_id, install_files) in install_files_slice {
+                    send_install_info(client.clone(), install_id, install_files, &artifact_fs)
+                        .await?;
+                }
+
+                let send_files_result =
+                    tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
+                        .map(anyhow::Ok)
+                        .try_for_each_concurrent(None, |file| {
+                            send_file(
+                                file,
+                                &artifact_fs,
+                                client.clone(),
+                                installer_log_filename.to_owned(),
+                            )
+                        })
+                        .await;
+                send_shutdown_command(client.clone()).await?;
+                send_files_result.context("Failed to send artifacts to installer")?;
+                anyhow::Ok(())
+            }
+            .boxed()
+        },
+    );
     try_join(build_installer_and_connect, build_files).await?;
     anyhow::Ok(())
 }
@@ -475,13 +488,15 @@ async fn build_launch_installer<'a>(
             installer_run_info.add_to_command_line(&mut run_args, &mut ctx)?;
             (artifact_visitor.inputs, run_args)
         };
-        let ctx = &*ctx;
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
-        try_join_all(inputs.into_iter().map(|input| async move {
-            materialize_artifact_group(&mut ctx.bad_dice(), &input, materializations)
-                .await
-                .map(|value| (input, value))
-        }))
+        ctx.try_compute_join(inputs, |ctx, input| {
+            async move {
+                materialize_artifact_group(ctx, &input, materializations)
+                    .await
+                    .map(|value| (input, value))
+            }
+            .boxed()
+        })
         .await
         .context("Failed to build installer")?;
         background_command(&run_args[0])
@@ -514,7 +529,7 @@ pub struct FileResult {
 }
 
 async fn build_files(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     materializations: &MaterializationContext,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
@@ -531,23 +546,26 @@ async fn build_files(
         }
     }
 
-    try_join_all(file_outputs.into_iter().map(
-        |(install_id, name, artifact, tx_clone)| async move {
-            let artifact_values =
-                materialize_artifact_group(&mut ctx.bad_dice(), &artifact, materializations)
-                    .await?;
-            for (artifact, artifact_value) in artifact_values.iter() {
-                let file_result = FileResult {
-                    install_id: (*install_id).to_owned(),
-                    name: (*name).to_owned(),
-                    artifact: artifact.to_owned(),
-                    artifact_value: artifact_value.to_owned(),
-                };
-                tx_clone.send(file_result)?;
+    ctx.try_compute_join(
+        file_outputs,
+        |ctx, (install_id, name, artifact, tx_clone)| {
+            async move {
+                let artifact_values =
+                    materialize_artifact_group(ctx, &artifact, materializations).await?;
+                for (artifact, artifact_value) in artifact_values.iter() {
+                    let file_result = FileResult {
+                        install_id: (*install_id).to_owned(),
+                        name: (*name).to_owned(),
+                        artifact: artifact.to_owned(),
+                        artifact_value: artifact_value.to_owned(),
+                    };
+                    tx_clone.send(file_result)?;
+                }
+                anyhow::Ok(())
             }
-            anyhow::Ok(())
+            .boxed()
         },
-    ))
+    )
     .await?;
     Ok(())
 }
