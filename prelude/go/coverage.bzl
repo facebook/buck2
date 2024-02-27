@@ -33,7 +33,7 @@ def cover_srcs(ctx: AnalysisContext, pkg_name: str, mode: GoCoverageMode, srcs: 
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cmd = cmd_args()
-    cmd.add(go_toolchain.cover_srcs[RunInfo])
+    cmd.add(go_toolchain.cover_srcs)
     cmd.add("--cover", go_toolchain.cover)
     cmd.add("--coverage-mode", mode.value)
     cmd.add("--coverage-var-argsfile", out_coverage_vars_argsfile.as_output())

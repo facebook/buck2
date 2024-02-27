@@ -96,7 +96,7 @@ def _cgo(
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
     cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
-    cmd.add(go_toolchain.cgo_wrapper[RunInfo])
+    cmd.add(go_toolchain.cgo_wrapper)
 
     args = cmd_args()
     args.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))

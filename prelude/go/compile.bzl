@@ -62,7 +62,7 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = 
         {src.short_path: src for src in srcs},
     )
     filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = True, force_disable_cgo = force_disable_cgo)
-    filter_cmd.add(go_toolchain.filter_srcs[RunInfo])
+    filter_cmd.add(go_toolchain.filter_srcs)
     filter_cmd.add(cmd_args(go_toolchain.go, format = "--go={}"))
     if tests:
         filter_cmd.add("--tests")
@@ -146,7 +146,7 @@ def compile(
     output = ctx.actions.declare_output(root, paths.basename(pkg_name) + ".a")
 
     cmd = get_toolchain_cmd_args(go_toolchain)
-    cmd.add(go_toolchain.compile_wrapper[RunInfo])
+    cmd.add(go_toolchain.compile_wrapper)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(_compile_cmd(ctx, root, pkg_name, pkgs, deps, compile_flags, shared = shared, race = race, coverage_mode = coverage_mode), format = "--compiler={}"))
     cmd.add(cmd_args(_assemble_cmd(ctx, pkg_name, assemble_flags, shared = shared), format = "--assembler={}"))
