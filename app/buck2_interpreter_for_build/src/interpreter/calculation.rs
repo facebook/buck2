@@ -221,10 +221,10 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
 impl PackageValuesCalculation for PackageValuesCalculationInstance {
     async fn package_values(
         &self,
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>> {
-        let listing = DicePackageListingResolver(&mut ctx.bad_dice())
+        let listing = DicePackageListingResolver(ctx)
             .resolve_package_listing(package.dupe())
             .await?;
         let super_package = ctx

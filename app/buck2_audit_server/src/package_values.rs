@@ -21,8 +21,8 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::SliceExt;
-use gazebo::prelude::VecExt;
 use starlark_map::small_map::SmallMap;
 
 use crate::AuditSubcommand;
@@ -52,19 +52,22 @@ impl AuditSubcommand for PackageValuesCommand {
                     .packages
                     .try_map(|package| parse_package(package.dupe(), cell_alias_resolver))?;
 
-                let package_values_by_package = packages.into_map(|package| async {
-                    let package_values = PACKAGE_VALUES_CALCULATION
-                        .get()?
-                        .package_values(&dice_ctx, package.dupe())
-                        .await?;
-                    anyhow::Ok((package, package_values))
-                });
+                let package_values_by_package = dice_ctx
+                    .try_compute_join(packages, |ctx, package| {
+                        async move {
+                            let package_values = PACKAGE_VALUES_CALCULATION
+                                .get()?
+                                .package_values(ctx, package.dupe())
+                                .await?;
+                            anyhow::Ok((package, package_values))
+                        }
+                        .boxed()
+                    })
+                    .await?;
                 let package_values_by_package: SmallMap<
                     PackageLabel,
                     SmallMap<MetadataKey, serde_json::Value>,
-                > = SmallMap::from_iter(
-                    futures::future::try_join_all(package_values_by_package).await?,
-                );
+                > = package_values_by_package.into_iter().collect();
 
                 let mut stdout = stdout.as_writer();
                 serde_json::to_writer_pretty(&mut stdout, &package_values_by_package)?;
