@@ -111,7 +111,7 @@ async fn get_local_resource_info<'v>(
     target: &'v ConfiguredProvidersLabel,
 ) -> anyhow::Result<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)> {
     let providers = dice
-        .bad_dice()
+        .clone()
         .get_providers(target)
         .await?
         .require_compatible()?;

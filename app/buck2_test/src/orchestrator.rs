@@ -219,7 +219,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.bad_dice().get_artifact_fs().await?;
+        let fs = self.dice.clone().get_artifact_fs().await?;
 
         let test_info = self.get_test_info(&test_target).await?;
         let test_executor = self
@@ -473,7 +473,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.bad_dice().get_artifact_fs().await?;
+        let fs = self.dice.clone().get_artifact_fs().await?;
 
         let test_info = self.get_test_info(&test_target).await?;
         // Tests are not run, so there is no executor override.
@@ -811,7 +811,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     ) -> anyhow::Result<FrozenRef<'static, FrozenExternalRunnerTestInfo>> {
         let providers = self
             .dice
-            .bad_dice()
+            .clone()
             .get_providers(test_target)
             .await?
             .require_compatible()?;
@@ -833,7 +833,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         // since this will get cached in DICE.
         let node = self
             .dice
-            .bad_dice()
+            .clone()
             .get_configured_target_node(test_target.target())
             .await?
             .require_compatible()?;
@@ -894,7 +894,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             } else {
                 supports_re = false;
                 // For compatibility with v1,
-                let cell_resolver = self.dice.bad_dice().get_cell_resolver().await?;
+                let cell_resolver = self.dice.clone().get_cell_resolver().await?;
                 let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
                 cell.path().to_buf()
             };
