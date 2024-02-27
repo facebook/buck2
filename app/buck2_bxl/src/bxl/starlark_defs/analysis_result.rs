@@ -7,11 +7,12 @@
  * of this source tree.
  */
 
+use std::fmt;
+
 use allocative::Allocative;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -26,20 +27,26 @@ use starlark::values::StarlarkValue;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
-#[derive(
-    ProvidesStaticType,
-    Debug,
-    Display,
-    NoSerialize,
-    StarlarkDocs,
-    Allocative
-)]
-#[display(fmt = "{:?}", self)]
+#[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]
 #[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkAnalysisResult {
     // Invariant: The subtarget specified on the label is present in the analysis result.
     analysis: AnalysisResult,
     label: ConfiguredProvidersLabel,
+}
+
+impl fmt::Display for StarlarkAnalysisResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "AnalysisResult(")?;
+        fmt::Display::fmt(
+            self.analysis
+                .lookup_inner(&self.label)
+                .unwrap()
+                .provider_collection(),
+            f,
+        )?;
+        write!(f, ")")
+    }
 }
 
 impl StarlarkAnalysisResult {
