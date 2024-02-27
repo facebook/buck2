@@ -886,49 +886,49 @@ async fn compute_configured_target_node_no_transition(
     let exec_deps = &gathered_deps.exec_deps;
 
     let mut bad_ctx = ctx.bad_dice(/* cycles */);
+    let get_toolchain_deps = DiceComputations::declare_closure(move |ctx| {
+        async move {
+            ctx.compute_join(
+                toolchain_deps,
+                |ctx, target: &TargetConfiguredTargetLabel| {
+                    async move {
+                        ctx.get_configured_target_node(
+                            &target.with_exec_cfg(execution_platform.cfg().dupe()),
+                        )
+                        .await
+                    }
+                    .boxed()
+                },
+            )
+            .await
+        }
+        .boxed()
+    });
+
+    let get_exec_deps = DiceComputations::declare_closure(|ctx| {
+        async move {
+            ctx.compute_join(exec_deps, |ctx, (target, check_visibility)| {
+                async move {
+                    (
+                        ctx.get_configured_target_node(
+                            &target
+                                .target()
+                                .unconfigured()
+                                .configure_pair(execution_platform.cfg_pair().dupe()),
+                        )
+                        .await,
+                        *check_visibility,
+                    )
+                }
+                .boxed()
+            })
+            .await
+        }
+        .boxed()
+    });
 
     let fut = {
-        let (a, b) = bad_ctx.compute2(
-            move |ctx| {
-                async move {
-                    ctx.compute_join(
-                        toolchain_deps,
-                        |ctx, target: &TargetConfiguredTargetLabel| {
-                            async move {
-                                ctx.get_configured_target_node(
-                                    &target.with_exec_cfg(execution_platform.cfg().dupe()),
-                                )
-                                .await
-                            }
-                            .boxed()
-                        },
-                    )
-                    .await
-                }
-                .boxed()
-            },
-            |ctx| {
-                async move {
-                    ctx.compute_join(exec_deps, |ctx, (target, check_visibility)| {
-                        async move {
-                            (
-                                ctx.get_configured_target_node(
-                                    &target
-                                        .target()
-                                        .unconfigured()
-                                        .configure_pair(execution_platform.cfg_pair().dupe()),
-                                )
-                                .await,
-                                *check_visibility,
-                            )
-                        }
-                        .boxed()
-                    })
-                    .await
-                }
-                .boxed()
-            },
-        );
+        let (a, b) = bad_ctx.compute2(get_toolchain_deps, get_exec_deps);
         futures::future::join(a, b)
     };
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
