@@ -46,6 +46,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::future;
+use futures::FutureExt;
 use indoc::indoc;
 use starlark::codemap::FileSpan;
 use starlark::environment::Globals;
@@ -159,29 +160,29 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     }
 
     async fn eval_deps(
-        &self,
+        ctx: &mut DiceComputations<'_>,
         modules: &[(Option<FileSpan>, OwnedStarlarkModulePath)],
     ) -> anyhow::Result<ModuleDeps> {
         Ok(ModuleDeps(
-            futures::future::join_all(modules.iter().map(|(span, import)| async move {
-                self.ctx
-                    .bad_dice()
-                    .get_loaded_module(import.borrow())
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "From load at {}",
-                            span.as_ref()
-                                .map_or("implicit location".to_owned(), |file_span| file_span
-                                    .resolve()
-                                    .begin_file_line()
-                                    .to_string())
-                        )
-                    })
-            }))
-            .await
-            .into_iter()
-            .collect::<anyhow::Result<_>>()?,
+            ctx.try_compute_join(modules, |ctx, (span, import)| {
+                async move {
+                    ctx.bad_dice()
+                        .get_loaded_module(import.borrow())
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "From load at {}",
+                                span.as_ref()
+                                    .map_or("implicit location".to_owned(), |file_span| file_span
+                                        .resolve()
+                                        .begin_file_line()
+                                        .to_string())
+                            )
+                        })
+                }
+                .boxed()
+            })
+            .await?,
         ))
     }
 
@@ -190,7 +191,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         starlark_file: StarlarkPath<'_>,
     ) -> anyhow::Result<(AstModule, ModuleDeps)> {
         let ParseData(ast, imports) = self.parse_file(starlark_file).await??;
-        let fut = self.eval_deps(&imports);
+        let mut bad_dice = self.ctx.bad_dice(/* cycles */);
+        let fut = Self::eval_deps(&mut bad_dice, &imports);
         let deps = LoadCycleDescriptor::guard_this(self.ctx, fut).await???;
         Ok((ast, deps))
     }
