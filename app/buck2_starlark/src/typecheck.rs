@@ -111,8 +111,8 @@ impl<'a> Cache<'a> {
             .await?
             .with_context(|| format!("File not found: `{path_str}`"))?;
 
-        let interp = self
-            .dice
+        let mut dice = self.dice.clone();
+        let interp = dice
             .get_interpreter_calculator(path_ref.cell(), path_ref.build_file_cell())
             .await?;
 

@@ -671,7 +671,7 @@ async fn gather_deps(
     target_label: &TargetConfiguredTargetLabel,
     target_node: TargetNodeRef<'_>,
     attr_cfg_ctx: &(dyn AttrConfigurationContext + Sync),
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<(GatheredDeps, ErrorsAndIncompatibilities)> {
     #[derive(Default)]
     struct Traversal {
@@ -725,10 +725,9 @@ async fn gather_deps(
         configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
     }
 
-    let dep_futures = traversal.deps.iter().map(|v| async move {
-        ctx.bad_dice(/* cycles */)
-            .get_configured_target_node(v.0.target())
-            .await
+    let dep_futures = traversal.deps.iter().map(|v| {
+        let mut bad_dice = ctx.bad_dice(/* cycles */);
+        async move { bad_dice.get_configured_target_node(v.0.target()).await }
     });
     let dep_results =
         ConfiguredGraphCycleDescriptor::guard_this(ctx, futures::future::join_all(dep_futures))

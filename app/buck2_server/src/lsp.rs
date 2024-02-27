@@ -206,6 +206,7 @@ impl DocsCache {
         };
 
         let bfc = BuildFileCell::new(cell_resolver.root_cell());
+        let mut dice_ctx = dice_ctx.clone();
         let calculator = dice_ctx
             .get_interpreter_calculator(cell_resolver.root_cell(), bfc)
             .await?;
@@ -493,7 +494,7 @@ impl<'a> BuckLspContext<'a> {
             .into()),
         }?;
 
-        self.with_dice_ctx(|dice_ctx| async move {
+        self.with_dice_ctx(|mut dice_ctx| async move {
             let calculator = dice_ctx
                 .get_interpreter_calculator(
                     import_path.borrow().cell(),

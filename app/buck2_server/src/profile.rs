@@ -95,6 +95,7 @@ async fn generate_profile_loading(
         PackageSpec::All => {}
     }
 
+    let mut ctx = ctx.clone();
     let calculation = ctx
         .get_interpreter_calculator(package.cell_name(), BuildFileCell::new(package.cell_name()))
         .await?;

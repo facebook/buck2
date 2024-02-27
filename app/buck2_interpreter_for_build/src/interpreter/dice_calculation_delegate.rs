@@ -53,7 +53,7 @@ use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
 use crate::interpreter::cycles::LoadCycleDescriptor;
-use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
+use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseData;
@@ -77,7 +77,7 @@ pub trait HasCalculationDelegate<'c, 'd> {
     /// This function only accepts cell names, but it is created
     /// per evaluated file (build file or `.bzl`).
     async fn get_interpreter_calculator(
-        &'c self,
+        &'c mut self,
         cell: CellName,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<DiceCalculationDelegate<'c, 'd>>;
@@ -86,7 +86,7 @@ pub trait HasCalculationDelegate<'c, 'd> {
 #[async_trait]
 impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
     async fn get_interpreter_calculator(
-        &'c self,
+        &'c mut self,
         cell: CellName,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<DiceCalculationDelegate<'c, 'd>> {
@@ -134,10 +134,9 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
     }
 }
 
-#[derive(Clone)]
 pub struct DiceCalculationDelegate<'c, 'd> {
     build_file_cell: BuildFileCell,
-    ctx: &'c DiceComputations<'d>,
+    ctx: &'c mut DiceComputations<'d>,
     configs: Arc<InterpreterForCell>,
 }
 
@@ -195,9 +194,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             .await?
             .map_err(anyhow::Error::from)
     }
-
     async fn get_legacy_buck_config_for_starlark(
-        &self,
+        &'c self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
         self.ctx
             .get_legacy_config_on_dice(self.build_file_cell.name())
@@ -272,7 +270,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
 
         with_starlark_eval_provider(
-            self.ctx,
+            &mut self.ctx.bad_dice(),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", &starlark_file),
             move |provider, _| {
@@ -362,7 +360,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
         let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
         with_starlark_eval_provider(
-            self.ctx,
+            &mut self.ctx.bad_dice(),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", path),
             move |provider, _| {
@@ -568,7 +566,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             module_id: module_id.clone(),
         };
         with_starlark_eval_provider(
-            self.ctx,
+            &mut self.ctx.bad_dice(),
             profiler_instrumentation,
             format!("load_buildfile:{}", &package),
             move |provider, _| {

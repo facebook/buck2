@@ -53,7 +53,7 @@ async fn test_package_value_same_dir_package_file() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
@@ -100,7 +100,7 @@ async fn test_package_value_parent_dir_package_file() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
@@ -136,7 +136,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
     fs.write_file("foo/PACKAGE", "write_package_value('aaa.bbb', 'ccc')");
     fs.write_file("foo/BUCK", "");
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
@@ -221,7 +221,7 @@ async fn test_read_parent_package_value() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
@@ -286,7 +286,7 @@ async fn test_read_parent_package_value_from_bzl() {
         ),
     );
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
@@ -322,7 +322,7 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
     fs.write_file("foo/PACKAGE", "read_package_value('aaa.bbb')");
     fs.write_file("foo/BUCK", "");
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
@@ -366,7 +366,7 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
     );
     fs.write_file("foo/BUCK", "");
 
-    let ctx = calculation(&fs).await;
+    let mut ctx = calculation(&fs).await;
     let interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await

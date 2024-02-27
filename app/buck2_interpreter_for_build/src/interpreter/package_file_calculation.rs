@@ -16,12 +16,12 @@ use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 
 #[async_trait]
 pub trait EvalPackageFile {
-    async fn eval_package_file(&self, path: &PackageFilePath) -> anyhow::Result<SuperPackage>;
+    async fn eval_package_file(&mut self, path: &PackageFilePath) -> anyhow::Result<SuperPackage>;
 }
 
 #[async_trait]
 impl EvalPackageFile for DiceComputations<'_> {
-    async fn eval_package_file(&self, path: &PackageFilePath) -> anyhow::Result<SuperPackage> {
+    async fn eval_package_file(&mut self, path: &PackageFilePath) -> anyhow::Result<SuperPackage> {
         self.get_interpreter_calculator(path.cell(), path.build_file_cell())
             .await?
             .eval_package_file(path)
