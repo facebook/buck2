@@ -12,9 +12,6 @@
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 
-#[macro_use]
-extern crate higher_order_closure;
-
 use std::sync::Once;
 
 pub(crate) mod bxl;

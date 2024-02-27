@@ -7,8 +7,5 @@
  * of this source tree.
  */
 
-#[macro_use]
-extern crate higher_order_closure;
-
 pub mod math_computation;
 pub mod supply_chain;

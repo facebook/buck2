@@ -14,7 +14,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use futures::future::BoxFuture;
-use higher_order_closure::higher_order_closure;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -131,20 +130,16 @@ impl<'d> DiceComputations<'d> {
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
     /// let futs = ctx.compute_many(keys.into_iter().map(|k|
-    ///   higher_order_closure! {
-    ///     #![with<'y>]
-    ///     for <'x> move |dice: &'x mut DiceComputations<'y>| -> BoxFuture<'x, String> {
+    ///   DiceComputations::declare_closure(
+    ///     |dice: &mut DiceComputations| -> BoxFuture<String> {
     ///       async move {
     ///         dice.compute(k).await + data
     ///       }.boxed()
     ///     }
-    ///   }
+    ///   )
     /// ));
-    /// futures::future::join_all(futs).await
+    /// futures::future::join_all(futs).await;
     /// ```
-    /// The `#![with<'y>]` allows capturing non-'static references. It causes the 'y lifetime to be
-    /// inferred rather than higher order, which then constrains the `'x` by whatever it is inferred
-    /// to.
     pub fn compute_many<'a, T: 'a>(
         &'a mut self,
         computes: impl IntoIterator<
@@ -160,23 +155,24 @@ impl<'d> DiceComputations<'d> {
     /// let mut ctx: &'a DiceComputations = ctx();
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
-    /// ctx.compute_join(
-    ///   keys.iter(),
-    ///   higher_order_closure! {
-    ///     #![with<'y, 'z>]
-    ///     for <'x> move |dice: &'x mut DiceComputations<'y>, k: &'z Key| -> BoxFuture<'x, String> {
-    ///       async move {
-    ///         dice.compute(k).await + data
-    ///       }.boxed()
+    /// // When defined inplance, there's no need to use a declare helper.
+    /// ctx.compute_join(keys, |dice: &mut DiceComputations, k: &Key| {
+    ///     async move {
+    ///       dice.compute(k).await + data
+    ///     }
+    ///   }).await;
+    ///
+    /// // If the closure is going to be declared outside the compute_many itself, you need to use
+    /// // declare_join_closure for it to get the right lifetime bounds.
+    /// let compute_one = DiceComputations::declare_join_closure(
+    ///   |dice: &mut DiceComputations, k: &Key| {
+    ///     async move {
+    ///       dice.compute(k).await + data
     ///     }
     ///   }
-    /// ).await
+    /// );
+    /// ctx.compute_join(keys, compute_one).await;
     /// ````
-    /// The `#![with<'y>]` allows capturing non-'static references. It causes the 'y lifetime to be
-    /// inferred rather than higher order, which then constrains the `'x` by whatever it is inferred
-    /// to.
-    ///
-    /// Other lifetimes that appear in the signature can also enable inference like above with 'z.
     pub fn compute_join<'a, T: Send, R: 'a>(
         &'a mut self,
         items: impl IntoIterator<Item = T>,
@@ -185,12 +181,9 @@ impl<'d> DiceComputations<'d> {
         ),
     ) -> impl Future<Output = Vec<R>> + 'a {
         let futs = self.compute_many(items.into_iter().map(move |v| {
-            higher_order_closure! {
-                #![with<'a, R>]
-                for <'x> move |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, R> {
-                    mapper(ctx, v)
-                }
-            }
+            DiceComputations::declare_closure(move |ctx: &mut DiceComputations| -> BoxFuture<R> {
+                mapper(ctx, v)
+            })
         }));
         futures::future::join_all(futs)
     }
@@ -208,23 +201,45 @@ impl<'d> DiceComputations<'d> {
         ),
     ) -> impl Future<Output = Result<Vec<R>, E>> + 'a {
         let futs = self.compute_many(items.into_iter().map(move |v| {
-            higher_order_closure! {
-                #![with<'a, R, E>]
-                for <'x> move |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, Result<R, E>> {
-                    mapper(ctx, v)
-                }
-            }
+            DiceComputations::declare_closure(
+                move |ctx: &mut DiceComputations| -> BoxFuture<Result<R, E>> { mapper(ctx, v) },
+            )
         }));
         futures::future::try_join_all(futs)
     }
 
-    /// Computes all the given tasks in parallel, returning an unordered Stream
+    /// Computes all the given tasks in parallel, returning an unordered Stream.
+    ///
+    /// If the closures are defined out of the compute2 call, you need to use declare_closure() to get the right lifetimes.
     pub fn compute2<'a, T: 'a, U: 'a>(
         &'a mut self,
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         self.inner().compute2(compute1, compute2)
+    }
+
+    /// Used to declare a higher order closure for compute_join and try_compute_join.
+    ///
+    /// We need to use BoxFuture here to express that the future captures the 'x lifetime.
+    pub fn declare_join_closure<'a, T, R, Closure>(closure: Closure) -> Closure
+    where
+        Closure: for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, R>
+            + Send
+            + Sync
+            + Copy,
+    {
+        closure
+    }
+
+    /// Used to declare a higher order closure for compute2 and compute_many.
+    ///
+    /// We need to use BoxFuture here to express that the future captures the 'x lifetime.
+    pub fn declare_closure<'a, R, Closure>(closure: Closure) -> Closure
+    where
+        Closure: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, R>,
+    {
+        closure
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

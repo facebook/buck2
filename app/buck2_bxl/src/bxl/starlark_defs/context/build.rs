@@ -220,8 +220,7 @@ pub(crate) fn build<'v>(
                     .compute_many(build_spec.labels().unique().map(|target| {
                         let target = target.clone();
                         let materializations = materializations.dupe();
-                        higher_order_closure! {
-                            for <'x> move |dice: &'x mut DiceComputations<'_>| -> BoxFuture<'x, Vec<ConfiguredBuildEvent>> {
+                        DiceComputations::declare_closure(|dice: &mut DiceComputations<'_>| -> BoxFuture<Vec<ConfiguredBuildEvent>> {
                                 async move {
                                     build_configured_label(
                                         dice,
@@ -240,7 +239,7 @@ pub(crate) fn build<'v>(
                                     ).await
                                 }.then(|stream| stream.collect::<Vec<_>>()).boxed()
                             }
-                        }
+                        )
                     }))
                     .into_iter().collect::<FuturesUnordered<_>>().map(|v| v.into_iter().map(futures::future::ready).collect::<FuturesUnordered<_>>()).flatten();
 

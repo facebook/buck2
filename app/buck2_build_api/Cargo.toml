@@ -17,7 +17,6 @@ derive_more = { workspace = true }
 either = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }
-higher-order-closure = { workspace = true }
 indexmap = { workspace = true }
 internment = { workspace = true }
 inventory = { workspace = true }

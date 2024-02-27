@@ -21,7 +21,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use higher_order_closure::higher_order_closure;
 use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
@@ -208,17 +207,26 @@ impl Directory {
         subdirs: Vec<PackageRelativePathBuf>,
     ) -> BoxFuture<'a, anyhow::Result<(Vec<Directory>, Vec<ArcS<PackageRelativePath>>)>> {
         async move {
-            let futs = ctx.compute_many(subdirs.into_iter().map(|path|
-            higher_order_closure! {
-                #![with<'a>]
-                for <'x> |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, anyhow::Result<(PackageRelativePathBuf, Option<Directory>)>> {
-                    async move {
-                        let res = Directory::gather(ctx, buildfile_candidates, root, &path, false).await?;
-                        Ok((path, res))
-                    }.boxed()
-                }
-            }
-            ));
+            let futs = ctx.compute_many(subdirs.into_iter().map(|path| {
+                DiceComputations::declare_closure(
+                        |ctx: &mut DiceComputations| -> BoxFuture<
+                            anyhow::Result<(PackageRelativePathBuf, Option<Directory>)>,
+                        > {
+                            async move {
+                                let res = Directory::gather(
+                                    ctx,
+                                    buildfile_candidates,
+                                    root,
+                                    &path,
+                                    false,
+                                )
+                                .await?;
+                                Ok((path, res))
+                            }
+                            .boxed()
+                        },
+                    )
+            }));
 
             let mut subdirs = Vec::new();
             let mut subpackages = Vec::new();
@@ -231,7 +239,8 @@ impl Directory {
                 }
             }
             Ok((subdirs, subpackages))
-        }.boxed()
+        }
+        .boxed()
     }
 
     fn collect_into(

@@ -46,15 +46,14 @@ async fn resolve_units<'a>(
 ) -> anyhow::Result<Vec<bool>> {
     let futs = ctx.compute_many(units.iter().map(|unit| {
         let state = state.dupe();
-        higher_order_closure! {
-            #![with<'a>]
-            for<'x> move |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, Result<bool, anyhow::Error>> {
+        DiceComputations::declare_closure(
+            move |ctx: &mut DiceComputations| -> BoxFuture<Result<bool, anyhow::Error>> {
                 match unit {
                     Unit::Variable(var) => ctx.eval(state, *var).boxed(),
                     Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
                 }
-            }
-        }
+            },
+        )
     }));
     future::join_all(futs).await.into_iter().collect()
 }

@@ -14,7 +14,6 @@ derive_more = "0.99.3"
 dupe = { workspace = true }
 futures = "0.3"
 gazebo = { workspace = true }
-higher-order-closure = { workspace = true }
 ref-cast = "1.0.0"
 
 dice = { path = "../dice" }

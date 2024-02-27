@@ -24,7 +24,6 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
 use gazebo::prelude::VecExt;
 use starlark_map::small_set::SmallSet;
@@ -64,18 +63,17 @@ pub async fn get_maybe_compatible_targets<'a>(
         match result {
             Ok(targets) => {
                 by_package_fns.extend({
-                    let target_fns: Vec<_> = targets.into_map(|target|
-                        higher_order_closure! {
-                            #![with<'a>]
-                            for<'x> |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>> {
-                                async move {
-                                    let target = ctx
-                                        .get_configured_target(target.label(), global_cfg_options)
-                                        .await?;
-                                    anyhow::Ok(ctx.get_configured_target_node(&target).await?)
-                                }.boxed()
+                    let target_fns: Vec<_> = targets.into_map(|target| {
+                        DiceComputations::declare_closure(|ctx| {
+                            async move {
+                                let target = ctx
+                                    .get_configured_target(target.label(), global_cfg_options)
+                                    .await?;
+                                anyhow::Ok(ctx.get_configured_target_node(&target).await?)
                             }
-                        });
+                            .boxed()
+                        })
+                    });
 
                     target_fns
                 });

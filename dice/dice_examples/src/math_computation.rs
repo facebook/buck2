@@ -165,17 +165,16 @@ async fn resolve_units<'a>(
     ctx: &mut DiceComputations<'a>,
     units: &[Unit],
 ) -> Result<Vec<i64>, Arc<anyhow::Error>> {
-    let futs = ctx.compute_many(units.iter().map(|unit|
-        higher_order_closure! {
-            #![with<'a>]
-            for<'x> move |ctx: &'x mut DiceComputations<'a>| -> BoxFuture<'x, Result<i64, Arc<anyhow::Error>>> {
+    let futs = ctx.compute_many(units.iter().map(|unit| {
+        DiceComputations::declare_closure(
+            move |ctx: &mut DiceComputations| -> BoxFuture<Result<i64, Arc<anyhow::Error>>> {
                 match unit {
                     Unit::Var(var) => ctx.eval(var.clone()).boxed(),
                     Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
                 }
-            }
-        }
-    ));
+            },
+        )
+    }));
 
     future::join_all(futs)
         .await

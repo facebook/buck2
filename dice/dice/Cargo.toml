@@ -19,7 +19,6 @@ dupe = { workspace = true }
 fnv = "1.0"
 futures = "0.3"
 gazebo = { workspace = true }
-higher-order-closure = { workspace = true }
 indexmap = { version = "1.9.1", features = ["serde-1"] }
 itertools = "0.10.0"
 lock_free_hashtable = { workspace = true }

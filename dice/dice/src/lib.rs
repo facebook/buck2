@@ -206,7 +206,6 @@ pub(crate) use fnv::FnvHashMap as HashMap;
 pub(crate) use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
 use futures::FutureExt;
-pub use higher_order_closure::higher_order_closure; // required for any of the parallel compute apis, easier for users if we expose it
 use legacy::dice_futures::future_handle::WeakDiceFutureHandle;
 use legacy::incremental::graph::GraphNode;
 use legacy::incremental::transaction_ctx::TransactionCtx;
