@@ -25,7 +25,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::future;
+use futures::FutureExt;
 use itertools::Either;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -90,7 +90,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         arg: ConfiguredProvidersExprArg<'v>,
         global_cfg_options_override: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
-        dice: &'c DiceComputations<'_>,
+        dice: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<Self> {
         match arg {
             ConfiguredProvidersExprArg::One(arg) => Ok(ProvidersExpr::Literal(
@@ -106,7 +106,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         arg: ConfiguredProvidersLabelArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
-        dice: &'c DiceComputations<'_>,
+        dice: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
         match arg {
             ConfiguredProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
@@ -126,8 +126,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
-                dice.bad_dice()
-                    .get_configured_provider_label(&label, global_cfg_options_override)
+                dice.get_configured_provider_label(&label, global_cfg_options_override)
                     .await
             }
         }
@@ -137,19 +136,21 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         arg: ConfiguredProvidersLabelListArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &'c BxlContextNoDice<'_>,
-        dice: &'c DiceComputations<'_>,
+        dice: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
         match arg {
             ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
-                future::try_join_all(s.0.iter().map(|node| async {
-                    let providers_label = ProvidersLabel::default_for(node.label().dupe());
-                    dice.bad_dice()
-                        .get_configured_provider_label(
+                dice.try_compute_join(s.0.iter(), |dice, node| {
+                    async move {
+                        let providers_label = ProvidersLabel::default_for(node.label().dupe());
+                        dice.get_configured_provider_label(
                             &providers_label,
                             global_cfg_options_override,
                         )
                         .await
-                }))
+                    }
+                    .boxed()
+                })
                 .await?,
             )),
             ConfiguredProvidersLabelListArg::StarlarkConfiguredTargetSet(s) => {
