@@ -28,6 +28,7 @@ use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
+use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::StarlarkPath;
@@ -50,6 +51,7 @@ use smallvec::SmallVec;
 use starlark::environment::Globals;
 use starlark_map::small_map::SmallMap;
 
+use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 
@@ -141,12 +143,44 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     async fn get_loaded_module(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: StarlarkModulePath<'_>,
+        starlark_path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule> {
-        ctx.get_interpreter_calculator(path.cell(), path.build_file_cell())
+        #[async_trait]
+        impl Key for EvalImportKey {
+            type Value = buck2_error::Result<LoadedModule>;
+            async fn compute(
+                &self,
+                ctx: &mut DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
+                let starlark_path = self.0.borrow();
+                // We cannot just use the inner default delegate's eval_import
+                // because that wouldn't delegate back to us for inner eval_import calls.
+                Ok(ctx
+                    .get_interpreter_calculator(
+                        starlark_path.cell(),
+                        starlark_path.build_file_cell(),
+                    )
+                    .await?
+                    .eval_module_uncached(starlark_path)
+                    .await?)
+            }
+
+            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+                // While it is technically possible to compare the modules
+                // at least for simple modules (like modules defining only string constants),
+                // practically it is too hard to make it work correctly for every case.
+                false
+            }
+
+            fn validity(x: &Self::Value) -> bool {
+                x.is_ok()
+            }
+        }
+
+        ctx.compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
-            .eval_module(path)
-            .await
+            .map_err(anyhow::Error::from)
     }
 
     async fn get_module_deps(

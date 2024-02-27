@@ -33,6 +33,7 @@ use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::import_paths::HasImportPaths;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
@@ -53,7 +54,6 @@ use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
 use crate::interpreter::cycles::LoadCycleDescriptor;
-use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseData;
@@ -141,59 +141,6 @@ pub struct DiceCalculationDelegate<'c, 'd> {
 }
 
 impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
-    /// InterpreterCalculation invokes eval_import recursively. To support
-    /// an embedder caching the result of that, the InterpreterCalculation will
-    /// call into the delegate instead of calling itself directly.
-    ///
-    /// The delegate implementation should have roughly the same behavior as
-    /// just forwarding directly back to the calculation.
-    ///
-    /// ```ignore
-    /// async fn eval_module(...) -> ... { calculation.eval_module(...).await }
-    /// ```
-    pub async fn eval_module(
-        &self,
-        starlark_path: StarlarkModulePath<'_>,
-    ) -> anyhow::Result<LoadedModule> {
-        #[async_trait]
-        impl Key for EvalImportKey {
-            type Value = buck2_error::Result<LoadedModule>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                let starlark_path = self.0.borrow();
-                // We cannot just use the inner default delegate's eval_import
-                // because that wouldn't delegate back to us for inner eval_import calls.
-                Ok(ctx
-                    .get_interpreter_calculator(
-                        starlark_path.cell(),
-                        starlark_path.build_file_cell(),
-                    )
-                    .await?
-                    .eval_module_uncached(starlark_path)
-                    .await?)
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                // While it is technically possible to compare the modules
-                // at least for simple modules (like modules defining only string constants),
-                // practically it is too hard to make it work correctly for every case.
-                false
-            }
-
-            fn validity(x: &Self::Value) -> bool {
-                x.is_ok()
-            }
-        }
-
-        self.ctx
-            .bad_dice(/* configs */)
-            .compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
-            .await?
-            .map_err(anyhow::Error::from)
-    }
     async fn get_legacy_buck_config_for_starlark(
         &'c self,
     ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
@@ -217,16 +164,20 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     ) -> anyhow::Result<ModuleDeps> {
         Ok(ModuleDeps(
             futures::future::join_all(modules.iter().map(|(span, import)| async move {
-                self.eval_module(import.borrow()).await.with_context(|| {
-                    format!(
-                        "From load at {}",
-                        span.as_ref()
-                            .map_or("implicit location".to_owned(), |file_span| file_span
-                                .resolve()
-                                .begin_file_line()
-                                .to_string())
-                    )
-                })
+                self.ctx
+                    .bad_dice()
+                    .get_loaded_module(import.borrow())
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "From load at {}",
+                            span.as_ref()
+                                .map_or("implicit location".to_owned(), |file_span| file_span
+                                    .resolve()
+                                    .begin_file_line()
+                                    .to_string())
+                        )
+                    })
             }))
             .await
             .into_iter()
