@@ -35,7 +35,7 @@ LinkerInfo = provider(
         # GiBs of object files (which can also lead to RE errors/timesouts etc).
         "link_libraries_locally": provider_field(typing.Any, default = None),
         "link_style": provider_field(typing.Any, default = None),  # LinkStyle
-        "link_weight": provider_field(typing.Any, default = None),  # int
+        "link_weight": provider_field(int, default = 1),  # int
         "link_ordering": provider_field(typing.Any, default = None),  # LinkOrdering
         "linker": provider_field(typing.Any, default = None),
         "linker_flags": provider_field(typing.Any, default = None),
