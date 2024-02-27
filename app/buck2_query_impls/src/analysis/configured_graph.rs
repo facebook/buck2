@@ -26,6 +26,7 @@ use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
+use futures::FutureExt;
 use indexmap::IndexMap;
 
 use crate::analysis::environment::get_from_template_placeholder_info;
@@ -79,22 +80,36 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let ctx_ref = &*ctx;
-                let (targets, label_to_artifact) = futures::future::try_join(
-                    futures::future::try_join_all(self.targets.iter().map(|target| async move {
-                        ctx_ref
-                            .bad_dice()
-                            .get_configured_target_node(target)
-                            .await?
-                            .require_compatible()
-                    })),
-                    get_from_template_placeholder_info(
-                        &mut ctx_ref.bad_dice(),
-                        self.template_name,
-                        self.targets.iter().duped(),
-                    ),
-                )
-                .await?;
+                let (targets, label_to_artifact) = {
+                    let (a, b) = ctx.compute2(
+                        |ctx| {
+                            async move {
+                                ctx.try_compute_join(self.targets.iter(), |ctx, target| {
+                                    async move {
+                                        ctx.get_configured_target_node(target)
+                                            .await?
+                                            .require_compatible()
+                                    }
+                                    .boxed()
+                                })
+                                .await
+                            }
+                            .boxed()
+                        },
+                        |ctx| {
+                            async move {
+                                get_from_template_placeholder_info(
+                                    ctx,
+                                    self.template_name,
+                                    self.targets.iter().duped(),
+                                )
+                                .await
+                            }
+                            .boxed()
+                        },
+                    );
+                    futures::future::try_join(a, b).await?
+                };
 
                 let targets: TargetSet<_> = targets
                     .into_iter()
