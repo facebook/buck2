@@ -130,4 +130,20 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn rule_type(this: &StarlarkTargetNode) -> anyhow::Result<String> {
         Ok(this.0.rule_type().to_string())
     }
+
+    /// Gets the targets' corresponding rule's kind which is one of
+    ///  - normal (with no special properties)
+    ///  - configured (usable in a configuration context)
+    ///  - toolchain (only usable as a toolchain dep)
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_rule_kind(ctx):
+    ///     target_node = ctx.uquery().owner('path/to/file')[0]
+    ///     ctx.output.print(target_node.rule_kind)
+    /// ```
+    #[starlark(attribute)]
+    fn rule_kind(this: &StarlarkTargetNode) -> anyhow::Result<String> {
+        Ok(this.0.rule_kind().to_string())
+    }
 }

@@ -300,6 +300,22 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(this.0.rule_type().to_string())
     }
 
+    /// Gets the targets' corresponding rule's kind which is one of
+    ///  - normal (with no special properties)
+    ///  - configured (usable in a configuration context)
+    ///  - toolchain (only usable as a toolchain dep)
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_rule_kind(ctx):
+    ///     node = ctx.configured_targets("my_cell//bin:the_binary")
+    ///     ctx.output.print(node.rule_kind)
+    /// ```
+    #[starlark(attribute)]
+    fn rule_kind(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<String> {
+        Ok(this.0.rule_kind().to_string())
+    }
+
     /// Returns a List of all the sources used by this node.
     ///
     /// Sample usage:

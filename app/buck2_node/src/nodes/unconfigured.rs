@@ -21,6 +21,7 @@ use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
+use derive_more::Display;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::string::StringLiteral;
@@ -80,13 +81,16 @@ impl Deref for TargetNode {
 }
 
 /// The kind of the rule, denoting where it can be used and how.
-#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Display, Copy, Clone, Dupe, Eq, PartialEq, Hash, Allocative)]
 pub enum RuleKind {
     /// A normal rule with no special properties.
+    #[display(fmt = "normal")]
     Normal,
     /// A configuration rule, meaning it is usable in a configuration context.
+    #[display(fmt = "configuration")]
     Configuration,
     /// A toolchain rule, meaning it is only usable as a toolchain dep.
+    #[display(fmt = "toolchain")]
     Toolchain,
 }
 
