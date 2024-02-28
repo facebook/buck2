@@ -203,7 +203,7 @@ def get_android_binary_native_library_info(
         native_library_merge_input_file = ctx.actions.write_json("mergemap.input", {
             "linkable_graphs_by_platform": encode_linkable_graph_for_mergemap(flattened_linkable_graphs_by_platform),
             "native_library_merge_sequence": ctx.attrs.native_library_merge_sequence,
-            "native_library_merge_sequence_blocklist": ctx.attrs.native_library_merge_sequence_blocklist,
+            "native_library_merge_sequence_blocklist": ctx.attrs.native_library_merge_sequence_blocklist or [],
         })
         mergemap_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mergemap_tool)
         mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
