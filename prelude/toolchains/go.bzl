@@ -1,6 +1,3 @@
-load("@prelude//http_archive/exec_deps.bzl", "HttpArchiveExecDeps")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load("@prelude//decls/common.bzl", "buck")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 
 def _system_go_toolchain_impl(ctx):
