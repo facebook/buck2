@@ -9,6 +9,7 @@
 
 #![feature(error_generic_member_access)]
 #![cfg(test)]
+#![allow(clippy::bool_assert_comparison)]
 
 mod actions;
 mod analysis;
