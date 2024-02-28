@@ -127,11 +127,9 @@ impl Span {
     }
 
     /// Determines whether a `span` intersects with this span.
+    /// End of range is inclusive.
     pub fn intersects(self, span: Span) -> bool {
-        self.contains(span.begin)
-            || self.contains(span.end)
-            || span.contains(self.begin)
-            || span.contains(self.end)
+        self.contains(span.begin) || self.contains(span.end) || span.contains(self.begin)
     }
 }
 
