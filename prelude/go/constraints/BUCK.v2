@@ -57,4 +57,27 @@ constraint_value(
     visibility = ["PUBLIC"],
 )
 
+constraint_setting(
+    name = "coverage_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "coverage_mode_set",
+    constraint_setting = ":coverage_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "coverage_mode_count",
+    constraint_setting = ":coverage_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "coverage_mode_atomic",
+    constraint_setting = ":coverage_mode",
+    visibility = ["PUBLIC"],
+)
+
 generate_tag_constraints()

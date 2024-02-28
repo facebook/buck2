@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load(":tags_helper.bzl", "selects_for_tags", "tag_to_constrant_value")
 
 def _cgo_enabled_transition(platform, refs, attrs):
@@ -77,6 +78,39 @@ def _race_transition(platform, refs, attrs):
         configuration = new_cfg,
     )
 
+def _coverage_mode_transition(platform, refs, attrs):
+    constraints = platform.configuration.constraints
+
+    # Cancel transition if the value already set
+    # to enable using configuration modifiers for overiding this option
+    coverage_mode_setting = refs.coverage_mode_set[ConstraintValueInfo].setting
+    if coverage_mode_setting.label in constraints:
+        return platform
+
+    if attrs.coverage_mode == None:
+        return platform
+    elif attrs.coverage_mode == "set":
+        coverage_mode_ref = refs.coverage_mode_set
+    elif attrs.coverage_mode == "count":
+        coverage_mode_ref = refs.coverage_mode_count
+    elif attrs.coverage_mode == "atomic":
+        coverage_mode_ref = refs.coverage_mode_atomic
+    else:
+        fail("`coverage_mode` can be either: 'set', 'count', 'atomic' or None, got: {}".format(attrs.coverage_mode))
+
+    coverage_mode_value = coverage_mode_ref[ConstraintValueInfo]
+    constraints[coverage_mode_value.setting.label] = coverage_mode_value
+
+    new_cfg = ConfigurationInfo(
+        constraints = constraints,
+        values = platform.configuration.values,
+    )
+
+    return PlatformInfo(
+        label = platform.label,
+        configuration = new_cfg,
+    )
+
 def _tags_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
     for tag in attrs.tags:
@@ -129,11 +163,14 @@ go_binary_transition = transition(
 )
 
 go_test_transition = transition(
-    impl = _chain_transitions(_tansitions),
+    impl = _chain_transitions(_tansitions + [_coverage_mode_transition]),
     refs = _refs | {
         "compile_shared_value": "prelude//go/constraints:compile_shared_false",
+        "coverage_mode_atomic": "prelude//go/constraints:coverage_mode_atomic",
+        "coverage_mode_count": "prelude//go/constraints:coverage_mode_count",
+        "coverage_mode_set": "prelude//go/constraints:coverage_mode_set",
     },
-    attrs = _attrs,
+    attrs = _attrs + ["coverage_mode"],
 )
 
 go_exported_library_transition = transition(
@@ -161,6 +198,13 @@ race_attr = attrs.default_only(attrs.bool(default = select({
     "DEFAULT": False,
     "prelude//go/constraints:race_false": False,
     "prelude//go/constraints:race_true": True,
+})))
+
+coverage_mode_attr = attrs.default_only(attrs.option(attrs.enum(GoCoverageMode.values()), default = select({
+    "DEFAULT": None,
+    "prelude//go/constraints:coverage_mode_atomic": "atomic",
+    "prelude//go/constraints:coverage_mode_count": "count",
+    "prelude//go/constraints:coverage_mode_set": "set",
 })))
 
 tags_attr = attrs.default_only(attrs.list(attrs.string(), default = selects_for_tags()))

@@ -26,7 +26,7 @@ load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go/transitions:defs.bzl", "cgo_enabled_attr", "compile_shared_attr", "go_binary_transition", "go_exported_library_transition", "go_test_transition", "race_attr", "tags_attr")
+load("@prelude//go/transitions:defs.bzl", "cgo_enabled_attr", "compile_shared_attr", "coverage_mode_attr", "go_binary_transition", "go_exported_library_transition", "go_test_transition", "race_attr", "tags_attr")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
@@ -383,6 +383,7 @@ inlined_extra_attributes = {
     "cgo_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_compile_shared": compile_shared_attr,
+        "_coverage_mode": coverage_mode_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
@@ -450,6 +451,7 @@ inlined_extra_attributes = {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_cgo_enabled": cgo_enabled_attr,
         "_compile_shared": compile_shared_attr,
+        "_coverage_mode": coverage_mode_attr,
         "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
         "_race": race_attr,
@@ -467,6 +469,7 @@ inlined_extra_attributes = {
         "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "_coverage_mode": coverage_mode_attr,
         "_exec_os_type": buck.exec_os_type_arg(),
         "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
