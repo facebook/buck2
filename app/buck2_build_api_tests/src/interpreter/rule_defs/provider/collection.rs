@@ -122,7 +122,7 @@ fn provider_collection_fails_to_construct_on_bad_data() -> buck2_error::Result<(
     expect_error(
         tester.run_starlark_bzl_test(missing_default_info),
         missing_default_info,
-        "did not receive a DefaultInfo",
+        "did not receive a `DefaultInfo`",
     );
     Ok(())
 }

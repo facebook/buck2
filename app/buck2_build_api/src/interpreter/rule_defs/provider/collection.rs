@@ -74,13 +74,13 @@ enum ProviderCollectionError {
     CollectionNotAList { repr: String },
     #[error("expected a Provider object, got {repr}")]
     CollectionElementNotAProvider { repr: String },
-    #[error("provider of type {provider_name} specified twice ({original_repr} and {new_repr})")]
+    #[error("provider of type `{provider_name}` specified twice ({original_repr} and {new_repr})")]
     CollectionSpecifiedProviderTwice {
         provider_name: String,
         original_repr: String,
         new_repr: String,
     },
-    #[error("collection {repr} did not receive a DefaultInfo provider")]
+    #[error("collection {repr} did not receive a `DefaultInfo` provider")]
     CollectionMissingDefaultInfo { repr: String },
     #[error(
         "requested sub target named `{0}` of target `{1}` is not available. Available subtargets are: `{2:?}`"
