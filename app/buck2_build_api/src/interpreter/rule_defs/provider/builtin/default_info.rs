@@ -30,6 +30,7 @@ use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
+use starlark::values::Heap;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -157,6 +158,19 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+impl<'v> DefaultInfo<'v> {
+    pub fn empty(heap: &'v Heap) -> Self {
+        let default_outputs = heap.alloc(AllocList::EMPTY);
+        let other_outputs = heap.alloc(AllocList::EMPTY);
+        let sub_targets = heap.alloc(Dict::default());
+        DefaultInfo {
+            sub_targets,
+            default_outputs,
+            other_outputs,
+        }
+    }
 }
 
 impl FrozenDefaultInfo {
@@ -393,16 +407,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
-        let default_info_creator = || {
-            let default_outputs = heap.alloc(AllocList::EMPTY);
-            let other_outputs = heap.alloc(AllocList::EMPTY);
-            let sub_targets = heap.alloc(Dict::default());
-            heap.alloc(DefaultInfo {
-                sub_targets,
-                default_outputs,
-                other_outputs,
-            })
-        };
+        let default_info_creator = || heap.alloc(DefaultInfo::empty(heap));
 
         // support both list and singular options for now until we migrate all the rules.
         let valid_default_outputs = if !default_outputs.is_none() {
