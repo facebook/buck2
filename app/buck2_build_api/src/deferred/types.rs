@@ -1317,7 +1317,7 @@ mod tests {
         let _reserved = registry.reserve::<FakeDeferred<()>>();
         let _reserved1 = registry.reserve::<FakeDeferred<()>>();
 
-        assert_eq!(registry.take_result().is_err(), true);
+        assert!(registry.take_result().is_err());
     }
 
     #[test]
