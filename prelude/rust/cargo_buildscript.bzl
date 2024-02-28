@@ -116,6 +116,10 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     env["RUST_BACKTRACE"] = "1"
     env["TARGET"] = toolchain_info.rustc_target_triple
 
+    # \037 == \x1f == the magic delimiter specified in the environment variable
+    # reference above.
+    env["CARGO_ENCODED_RUSTFLAGS"] = cmd_args(toolchain_info.rustc_flags, delimiter = "\037")
+
     host_triple = targets.exec_triple(ctx)
     if host_triple:
         env["HOST"] = host_triple
