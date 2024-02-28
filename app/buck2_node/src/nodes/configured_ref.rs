@@ -65,7 +65,7 @@ impl std::fmt::Display for ConfiguredGraphNodeRef {
 
 impl PartialOrd for ConfiguredGraphNodeRef {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.label().partial_cmp(other.label())
+        Some(self.cmp(other))
     }
 }
 
