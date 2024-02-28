@@ -308,7 +308,7 @@ impl ProviderCodegen {
                         "=",
                         [
                             #((stringify!(#field_names), &self.#field_names)),*
-                        ].into_iter()
+                        ]
                     )
                 }
             }
