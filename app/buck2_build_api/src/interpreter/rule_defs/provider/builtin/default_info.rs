@@ -407,7 +407,6 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
-        let default_info_creator = || heap.alloc(DefaultInfo::empty(heap));
 
         // support both list and singular options for now until we migrate all the rules.
         let valid_default_outputs = if !default_outputs.is_none() {
@@ -463,8 +462,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         let valid_sub_targets = sub_targets
             .into_iter()
             .map(|(k, v)| {
-                let as_provider_collection =
-                    ProviderCollection::try_from_value_subtarget(v, default_info_creator)?;
+                let as_provider_collection = ProviderCollection::try_from_value_subtarget(v, heap)?;
                 Ok((
                     heap.alloc_str(&k).get_hashed_value(),
                     heap.alloc(as_provider_collection),

@@ -91,10 +91,6 @@ enum ProviderCollectionError {
     )]
     UnknownFlavors { target: String, flavor: String },
     #[error(
-        "provider value that should have been `DefaultInfo` was not. It was `{repr}`. This is an internal error."
-    )]
-    ValueIsNotDefaultInfo { repr: String },
-    #[error(
         "provider collection operation {0} parameter type must be a provider type \
         but not and instance of provider (for example, `RunInfo` or user defined provider type), \
         got `{1}`"
@@ -220,23 +216,18 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     ///  - `value` is not a list
     ///  - Two instances of the same provider are provided
     ///
-    /// `default_info_creator` is only invoked if `DefaultInfo` was not in the collection.
     /// Should only be used for subtargets, where an empty `DefaultInfo` can be inferred.
     pub fn try_from_value_subtarget(
         value: Value<'v>,
-        default_info_creator: impl FnOnce() -> Value<'v>,
+        heap: &'v Heap,
     ) -> anyhow::Result<ProviderCollection<'v>> {
         let mut providers = Self::try_from_value_impl(value)?;
 
         if !providers.contains_key(DefaultInfoCallable::provider_id()) {
-            let di_value = default_info_creator();
-            if DefaultInfo::from_value(di_value).is_none() {
-                return Err(ProviderCollectionError::ValueIsNotDefaultInfo {
-                    repr: di_value.to_repr(),
-                }
-                .into());
-            }
-            providers.insert(DefaultInfoCallable::provider_id().dupe(), di_value);
+            providers.insert(
+                DefaultInfoCallable::provider_id().dupe(),
+                heap.alloc(DefaultInfo::empty(heap)),
+            );
         }
         Ok(ProviderCollection::<'v> { providers })
     }
