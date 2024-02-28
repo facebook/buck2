@@ -49,7 +49,7 @@ load(
     "map_idx",
 )
 load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
-load(":coverage.bzl", "GoCoverageMode", "cover_srcs")
+load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
@@ -157,21 +157,6 @@ def _cgo(
 
     return go_srcs, c_headers, c_srcs
 
-def _compile_with_coverage(ctx: AnalysisContext, pkg_name: str, srcs: cmd_args, coverage_mode: GoCoverageMode, shared: bool, race: bool) -> (Artifact, cmd_args):
-    cov_res = cover_srcs(ctx, pkg_name, coverage_mode, srcs, shared)
-    srcs = cov_res.srcs
-    coverage_vars = cov_res.variables
-    coverage_pkg = compile(
-        ctx,
-        pkg_name,
-        srcs = srcs,
-        deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-        coverage_mode = coverage_mode,
-        shared = shared,
-        race = race,
-    )
-    return (coverage_pkg, coverage_vars)
-
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
 
@@ -240,6 +225,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     shared = ctx.attrs._compile_shared
     race = ctx.attrs._race
+    coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
     # Build Go library.
     compiled_pkg = compile(
@@ -249,14 +235,18 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         shared = shared,
         race = race,
+        coverage_mode = coverage_mode,
     )
-    pkg_with_coverage = {mode: _compile_with_coverage(ctx, pkg_name, all_srcs, mode, shared, race = race) for mode in GoCoverageMode}
+
+    # Temporarily hack, it seems like we can update record, so create new one
+    compiled_pkg = GoPkg(
+        cgo = True,
+        pkg = compiled_pkg.pkg,
+        coverage_vars = compiled_pkg.coverage_vars,
+    )
+
     pkgs = {
-        pkg_name: GoPkg(
-            cgo = True,
-            pkg = compiled_pkg,
-            pkg_with_coverage = pkg_with_coverage,
-        ),
+        pkg_name: compiled_pkg,
     }
 
     # We need to keep pre-processed cgo source files,
@@ -264,7 +254,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # to work with cgo. And when nearly every FB service client is cgo,
     # we need to support it well.
     return [
-        DefaultInfo(default_output = compiled_pkg, other_outputs = go_srcs),
+        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = go_srcs),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),

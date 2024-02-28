@@ -10,7 +10,7 @@ load("@prelude//:paths.bzl", "paths")
 # @unused this comment is to make the linter happy.  The linter thinks
 # GoCoverageMode is unused despite it being used in the function signature of
 # multiple functions.
-load(":coverage.bzl", "GoCoverageMode")
+load(":coverage.bzl", "GoCoverageMode", "cover_srcs")
 load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
@@ -98,8 +98,7 @@ def _compile_cmd(
         deps: list[Dependency] = [],
         flags: list[str] = [],
         shared: bool = False,
-        race: bool = False,
-        coverage_mode: [GoCoverageMode, None] = None) -> cmd_args:
+        race: bool = False) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     cmd = cmd_args()
@@ -121,7 +120,7 @@ def _compile_cmd(
     # Add Go pkgs inherited from deps to compiler search path.
     all_pkgs = merge_pkgs([
         pkgs,
-        pkg_artifacts(get_inherited_compile_pkgs(deps), coverage_mode = coverage_mode),
+        pkg_artifacts(get_inherited_compile_pkgs(deps)),
     ])
 
     importcfg = make_importcfg(ctx, root, pkg_name, all_pkgs, with_importmap = True)
@@ -140,7 +139,7 @@ def compile(
         assemble_flags: list[str] = [],
         shared: bool = False,
         race: bool = False,
-        coverage_mode: [GoCoverageMode, None] = None) -> Artifact:
+        coverage_mode: GoCoverageMode | None = None) -> GoPkg:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     root = _out_root(shared, coverage_mode)
     output = ctx.actions.declare_output(root, paths.basename(pkg_name) + ".a")
@@ -148,13 +147,22 @@ def compile(
     cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add(go_toolchain.compile_wrapper)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(_compile_cmd(ctx, root, pkg_name, pkgs, deps, compile_flags, shared = shared, race = race, coverage_mode = coverage_mode), format = "--compiler={}"))
+    cmd.add(cmd_args(_compile_cmd(ctx, root, pkg_name, pkgs, deps, compile_flags, shared = shared, race = race), format = "--compiler={}"))
     cmd.add(cmd_args(_assemble_cmd(ctx, pkg_name, assemble_flags, shared = shared), format = "--assembler={}"))
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
     if ctx.attrs.embedcfg:
         cmd.add(cmd_args(ctx.attrs.embedcfg, format = "--embedcfg={}"))
 
     argsfile = ctx.actions.declare_output(root, pkg_name + ".go.argsfile")
+
+    coverage_vars = None
+    if coverage_mode != None:
+        if race and coverage_mode != GoCoverageMode("atomic"):
+            fail("`coverage_mode` must be `atomic` when `race=True`")
+        cov_res = cover_srcs(ctx, pkg_name, coverage_mode, srcs, shared)
+        srcs = cov_res.srcs
+        coverage_vars = cov_res.variables
+
     srcs_args = cmd_args(srcs)
     ctx.actions.write(argsfile.as_output(), srcs_args, allow_args = True)
 
@@ -168,4 +176,4 @@ def compile(
 
     ctx.actions.run(cmd, category = "go_compile", identifier = identifier)
 
-    return output
+    return GoPkg(pkg = output, coverage_vars = coverage_vars)

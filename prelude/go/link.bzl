@@ -29,11 +29,6 @@ load(
     "@prelude//utils:utils.bzl",
     "map_idx",
 )
-
-# @unused this comment is to make the linter happy.  The linter thinks
-# GoCoverageMode is unused despite it being used in the function signature of
-# link.
-load(":coverage.bzl", "GoCoverageMode")
 load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
@@ -114,8 +109,7 @@ def link(
         linker_flags: list[typing.Any] = [],
         external_linker_flags: list[typing.Any] = [],
         shared: bool = False,
-        race: bool = False,
-        coverage_mode: [GoCoverageMode, None] = None):
+        race: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"
@@ -141,7 +135,7 @@ def link(
     # Add inherited Go pkgs to library search path.
     all_pkgs = merge_pkgs([
         pkgs,
-        pkg_artifacts(get_inherited_link_pkgs(deps), coverage_mode = coverage_mode),
+        pkg_artifacts(get_inherited_link_pkgs(deps)),
     ])
 
     importcfg = make_importcfg(ctx, "", "", all_pkgs, with_importmap = False)

@@ -7,12 +7,11 @@
 
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
-load(":coverage.bzl", "GoCoverageMode")
 
 GoPkg = record(
     cgo = field(bool, default = False),
     pkg = field(Artifact),
-    pkg_with_coverage = field(dict[GoCoverageMode, (Artifact, cmd_args)]),
+    coverage_vars = field(cmd_args | None, default = None),
 )
 
 GoStdlib = provider(
@@ -44,26 +43,12 @@ def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
 
     return all_pkgs
 
-def pkg_artifact(pkg: GoPkg, coverage_mode: [GoCoverageMode, None]) -> Artifact:
-    if coverage_mode:
-        artifact = pkg.pkg_with_coverage
-        return artifact[coverage_mode][0]
-    return pkg.pkg
-
-def pkg_coverage_vars(name: str, pkg: GoPkg, coverage_mode: [GoCoverageMode, None]) -> [cmd_args, None]:
-    if coverage_mode:
-        artifact = pkg.pkg_with_coverage
-        if coverage_mode not in artifact:
-            fail("coverage variables don't exist for {}".format(name))
-        return artifact[coverage_mode][1]
-    fail("coverage variables were requested but coverage_mode is None")
-
-def pkg_artifacts(pkgs: dict[str, GoPkg], coverage_mode: [GoCoverageMode, None] = None) -> dict[str, Artifact]:
+def pkg_artifacts(pkgs: dict[str, GoPkg]) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """
     return {
-        name: pkg_artifact(pkg, coverage_mode)
+        name: pkg.pkg
         for name, pkg in pkgs.items()
     }
 
