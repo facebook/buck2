@@ -138,7 +138,7 @@ def link(
         pkg_artifacts(get_inherited_link_pkgs(deps)),
     ])
 
-    importcfg = make_importcfg(ctx, "", "", all_pkgs, with_importmap = False)
+    importcfg = make_importcfg(ctx, "", all_pkgs, with_importmap = False)
 
     cmd.add("-importcfg", importcfg)
 

@@ -36,14 +36,6 @@ GoTestInfo = provider(
     },
 )
 
-def _out_root(shared: bool = False, coverage_mode: [GoCoverageMode, None] = None):
-    path = "static"
-    if shared:
-        path = "shared"
-    if coverage_mode:
-        path += "__coverage_" + coverage_mode.value + "__"
-    return path
-
 def get_inherited_compile_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
@@ -92,7 +84,6 @@ def _assemble_cmd(
 
 def _compile_cmd(
         ctx: AnalysisContext,
-        root: str,
         pkg_name: str,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
@@ -123,7 +114,7 @@ def _compile_cmd(
         pkg_artifacts(get_inherited_compile_pkgs(deps)),
     ])
 
-    importcfg = make_importcfg(ctx, root, pkg_name, all_pkgs, with_importmap = True)
+    importcfg = make_importcfg(ctx, pkg_name, all_pkgs, with_importmap = True)
 
     cmd.add("-importcfg", importcfg)
 
@@ -141,19 +132,18 @@ def compile(
         race: bool = False,
         coverage_mode: GoCoverageMode | None = None) -> GoPkg:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    root = _out_root(shared, coverage_mode)
-    output = ctx.actions.declare_output(root, paths.basename(pkg_name) + ".a")
+    output = ctx.actions.declare_output(paths.basename(pkg_name) + ".a")
 
     cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add(go_toolchain.compile_wrapper)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(_compile_cmd(ctx, root, pkg_name, pkgs, deps, compile_flags, shared = shared, race = race), format = "--compiler={}"))
+    cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, pkgs, deps, compile_flags, shared = shared, race = race), format = "--compiler={}"))
     cmd.add(cmd_args(_assemble_cmd(ctx, pkg_name, assemble_flags, shared = shared), format = "--assembler={}"))
     cmd.add(cmd_args(go_toolchain.packer, format = "--packer={}"))
     if ctx.attrs.embedcfg:
         cmd.add(cmd_args(ctx.attrs.embedcfg, format = "--embedcfg={}"))
 
-    argsfile = ctx.actions.declare_output(root, pkg_name + ".go.argsfile")
+    argsfile = ctx.actions.declare_output(pkg_name + ".go.argsfile")
 
     coverage_vars = None
     if coverage_mode != None:

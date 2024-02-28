@@ -54,7 +54,6 @@ def pkg_artifacts(pkgs: dict[str, GoPkg]) -> dict[str, Artifact]:
 
 def make_importcfg(
         ctx: AnalysisContext,
-        root: str,
         pkg_name: str,
         own_pkgs: dict[str, typing.Any],
         with_importmap: bool) -> cmd_args:
@@ -71,10 +70,10 @@ def make_importcfg(
             real_name_ = name_.removeprefix("third-party-source/go/")
             content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
 
-    own_importcfg = ctx.actions.declare_output(root, "{}.importcfg".format(pkg_name))
+    own_importcfg = ctx.actions.declare_output("{}.importcfg".format(pkg_name))
     ctx.actions.write(own_importcfg, content)
 
-    final_importcfg = ctx.actions.declare_output(root, "{}.final.importcfg".format(pkg_name))
+    final_importcfg = ctx.actions.declare_output("{}.final.importcfg".format(pkg_name))
     ctx.actions.run(
         [
             go_toolchain.concat_files,
@@ -84,7 +83,7 @@ def make_importcfg(
             own_importcfg,
         ],
         category = "concat_importcfgs",
-        identifier = "{}/{}".format(root, pkg_name),
+        identifier = pkg_name,
     )
 
     return cmd_args(final_importcfg).hidden(stdlib.pkgdir).hidden(own_pkgs.values())
