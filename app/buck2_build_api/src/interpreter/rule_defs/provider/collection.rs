@@ -214,14 +214,15 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
         Ok(ProviderCollection::<'v> { providers })
     }
 
-    /// Takes a value, e.g. a return from a `rule()` implementation function, and builds a `ProviderCollection` from it.
+    /// Takes a value, e.g. a value passed to `DefaultInfo(subtargets)`, and builds a `ProviderCollection` from it.
     ///
     /// An error is returned if:
     ///  - `value` is not a list
     ///  - Two instances of the same provider are provided
     ///
-    /// `default_info_creator` is only invoked if `DefaultInfo` was not in the collection
-    pub fn try_from_value_with_default_info(
+    /// `default_info_creator` is only invoked if `DefaultInfo` was not in the collection.
+    /// Should only be used for subtargets, where an empty `DefaultInfo` can be inferred.
+    pub fn try_from_value_subtarget(
         value: Value<'v>,
         default_info_creator: impl FnOnce() -> Value<'v>,
     ) -> anyhow::Result<ProviderCollection<'v>> {

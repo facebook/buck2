@@ -459,7 +459,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             .into_iter()
             .map(|(k, v)| {
                 let as_provider_collection =
-                    ProviderCollection::try_from_value_with_default_info(v, default_info_creator)?;
+                    ProviderCollection::try_from_value_subtarget(v, default_info_creator)?;
                 Ok((
                     heap.alloc_str(&k).get_hashed_value(),
                     heap.alloc(as_provider_collection),
