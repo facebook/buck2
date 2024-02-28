@@ -9,6 +9,7 @@
 
 #![feature(error_generic_member_access)]
 #![feature(box_patterns)]
+#![allow(clippy::len_without_is_empty)]
 
 pub mod attrs;
 pub mod call_stack;
