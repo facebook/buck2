@@ -42,6 +42,7 @@ use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
@@ -65,6 +66,7 @@ pub async fn download_action_results<'a>(
     re_use_case: RemoteExecutorUseCase,
     digest_config: DigestConfig,
     manager: CommandExecutionManager,
+    identity: &ReActionIdentity<'_>,
     stage: buck2_data::executor_stage_start::Stage,
     paths: &CommandExecutionPaths,
     requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
@@ -111,6 +113,7 @@ pub async fn download_action_results<'a>(
 
     let download = downloader.download(
         manager,
+        identity,
         stage,
         paths,
         requested_outputs,
@@ -181,6 +184,7 @@ impl CasDownloader<'_> {
     async fn download<'a>(
         &self,
         manager: CommandExecutionManager,
+        identity: &ReActionIdentity<'_>,
         stage: buck2_data::executor_stage_start::Stage,
         paths: &CommandExecutionPaths,
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
@@ -197,7 +201,7 @@ impl CasDownloader<'_> {
         let manager = manager.with_execution_kind(output_spec.execution_kind(details.clone()));
         executor_stage_async(stage, async {
             let artifacts = self
-                .extract_artifacts(paths, requested_outputs, output_spec)
+                .extract_artifacts(identity, paths, requested_outputs, output_spec)
                 .await;
 
             let artifacts = match artifacts {
@@ -264,6 +268,7 @@ impl CasDownloader<'_> {
 
     async fn extract_artifacts<'a>(
         &self,
+        identity: &ReActionIdentity<'_>,
         paths: &CommandExecutionPaths,
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
@@ -301,6 +306,7 @@ impl CasDownloader<'_> {
         let trees = self
             .re_client
             .download_typed_blobs::<RE::Tree>(
+                Some(identity),
                 output_spec
                     .output_directories()
                     .map(|x| x.tree_digest.clone()),
