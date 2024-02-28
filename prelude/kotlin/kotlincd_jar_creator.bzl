@@ -146,7 +146,7 @@ def create_jar_artifact_kotlincd(
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
     # external javac does not support used classes
-    track_class_usage = javac_tool == None
+    track_class_usage = javac_tool == None and kotlin_toolchain.track_class_usage_plugin != None
 
     def encode_library_command(
             output_paths: OutputPaths,
