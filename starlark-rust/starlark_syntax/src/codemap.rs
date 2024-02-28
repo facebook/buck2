@@ -30,6 +30,7 @@ use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::ops::Sub;
 use std::ptr;
 use std::sync::Arc;
 
@@ -59,6 +60,13 @@ impl Add<u32> for Pos {
     type Output = Pos;
     fn add(self, other: u32) -> Pos {
         Pos(self.0 + other)
+    }
+}
+
+impl Sub<u32> for Pos {
+    type Output = Pos;
+    fn sub(self, other: u32) -> Pos {
+        Pos(self.0 - other)
     }
 }
 

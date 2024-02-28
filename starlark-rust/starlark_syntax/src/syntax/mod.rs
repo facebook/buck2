@@ -28,6 +28,7 @@ pub mod def;
 #[cfg(test)]
 mod grammar_tests;
 pub mod grammar_util;
+mod lint_suppressions;
 pub mod module;
 pub mod parser;
 pub mod payload_map;
