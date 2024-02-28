@@ -20,7 +20,7 @@ use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dupe::Dupe;
-use fnv::FnvHasher;
+use fxhash::FxHasher;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
@@ -391,7 +391,7 @@ impl ProjectionWithBase {
     }
 
     fn hash(&self) -> u64 {
-        let mut hasher = FnvHasher::default();
+        let mut hasher = FxHasher::default();
 
         self.base.hash(&mut hasher);
         self.proj.hash().hash(&mut hasher);
@@ -429,7 +429,7 @@ impl<'a> ProjectionWithBaseRef<'a> {
     }
 
     fn hash(&self) -> u64 {
-        let mut hasher = FnvHasher::default();
+        let mut hasher = FxHasher::default();
 
         self.base.hash(&mut hasher);
         self.proj.hash().hash(&mut hasher);

@@ -12,10 +12,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem;
 
-use fnv::FnvHasher;
+use fxhash::FxHasher;
 
 pub(crate) fn key_hash<K: Hash + 'static>(key: &K) -> u64 {
-    let mut hasher = FnvHasher::default();
+    let mut hasher = FxHasher::default();
     if mem::size_of::<K>() == 0 {
         // Hashing `TypeId` unconditionally measurably slows down hashing.
         TypeId::of::<K>().hash(&mut hasher);

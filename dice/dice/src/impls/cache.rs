@@ -15,7 +15,7 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use dashmap::DashMap;
 use dupe::Dupe;
-use fnv::FnvBuildHasher;
+use fxhash::FxBuildHasher;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 use crate::arc::Arc;
@@ -27,7 +27,7 @@ use crate::impls::value::DiceComputedValue;
 struct Data {
     completed: ShardedLockFreeRawTable<Arc<DiceCompletedTask>, 64>,
     /// Completed tasks lazily moved into `completed` from this map.
-    storage: DashMap<DiceKey, DiceTask, FnvBuildHasher>,
+    storage: DashMap<DiceKey, DiceTask, FxBuildHasher>,
     is_cancelled: AtomicBool,
 }
 
@@ -45,8 +45,8 @@ struct DiceCompletedTask {
 /// Reference to the task in the cache.
 pub(crate) enum DiceTaskRef<'a> {
     Computed(DiceComputedValue),
-    Occupied(dashmap::mapref::entry::OccupiedEntry<'a, DiceKey, DiceTask, FnvBuildHasher>),
-    Vacant(dashmap::mapref::entry::VacantEntry<'a, DiceKey, DiceTask, FnvBuildHasher>),
+    Occupied(dashmap::mapref::entry::OccupiedEntry<'a, DiceKey, DiceTask, FxBuildHasher>),
+    Vacant(dashmap::mapref::entry::VacantEntry<'a, DiceKey, DiceTask, FxBuildHasher>),
     TransactionCancelled,
 }
 
