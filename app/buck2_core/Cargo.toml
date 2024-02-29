@@ -16,7 +16,6 @@ derive_more = { workspace = true }
 dunce = { workspace = true }
 either = { workspace = true }
 equivalent = { workspace = true }
-fnv = { workspace = true }
 futures = { workspace = true }
 hostname = { workspace = true }
 indent_write = { workspace = true }

@@ -21,9 +21,9 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::console_message;
 use buck2_futures::owning_future::OwningFuture;
+use buck2_util::hash::BuckHasherBuilder;
 use dice::DiceComputations;
 use dupe::Dupe;
-use fnv::FnvBuildHasher;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
@@ -57,7 +57,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 
     struct Builder<'c, 'd> {
         ctx: &'c DiceComputations<'d>,
-        already_loading: HashSet<PackageLabel, FnvBuildHasher>,
+        already_loading: HashSet<PackageLabel, BuckHasherBuilder>,
         load_package_futs:
             FuturesUnordered<BoxFuture<'c, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)>>,
     }

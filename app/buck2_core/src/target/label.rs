@@ -16,8 +16,8 @@ use std::str;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
+use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
-use fnv::FnvHasher;
 use serde::Serialize;
 use serde::Serializer;
 use triomphe::ThinArc;
@@ -97,7 +97,7 @@ impl TargetLabel {
 
         // Hash should be stable because it is used to generate the configuration hash.
         let key = &(pkg.dupe(), &name);
-        let mut hasher = FnvHasher::default();
+        let mut hasher = BuckHasher::default();
         key.hash(&mut hasher);
         let hash = hasher.finish() as u32;
 

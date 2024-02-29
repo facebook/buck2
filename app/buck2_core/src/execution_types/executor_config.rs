@@ -15,6 +15,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -49,7 +50,7 @@ pub struct RemoteExecutorUseCase(Intern<String>);
 
 impl RemoteExecutorUseCase {
     pub fn new(use_case: String) -> Self {
-        static USE_CASE_INTERNER: Interner<String> = Interner::new();
+        static USE_CASE_INTERNER: Interner<String, BuckHasher> = Interner::new();
         Self(USE_CASE_INTERNER.intern(use_case))
     }
 

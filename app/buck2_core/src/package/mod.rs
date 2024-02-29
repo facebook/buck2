@@ -44,10 +44,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use equivalent::Equivalent;
-use fnv::FnvHasher;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
@@ -112,7 +112,7 @@ impl<'a> Equivalent<PackageLabelData> for PackageLabelDataRef<'a> {
     }
 }
 
-static INTERNER: Interner<PackageLabelData, FnvHasher> = Interner::new();
+static INTERNER: Interner<PackageLabelData, BuckHasher> = Interner::new();
 
 impl PackageLabel {
     #[inline]

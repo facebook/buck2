@@ -14,6 +14,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
+use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use once_cell::sync::Lazy;
@@ -85,7 +86,7 @@ impl<'a> Equivalent<HashedConfigurationPlatform> for ConfigurationHashRef<'a> {
     }
 }
 
-static INTERNER: Interner<HashedConfigurationPlatform> = Interner::new();
+static INTERNER: Interner<HashedConfigurationPlatform, BuckHasher> = Interner::new();
 
 impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.
@@ -423,10 +424,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(configuration.output_hash().as_str(), "fd698fb05d52efbc");
+        assert_eq!(configuration.output_hash().as_str(), "7978e19328f9f229");
         assert_eq!(
             configuration.to_string(),
-            "cfg_for//:testing_exec#fd698fb05d52efbc"
+            "cfg_for//:testing_exec#7978e19328f9f229"
         );
 
         Ok(())
@@ -452,12 +453,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            "cfg_for//:testing_exec#fd698fb05d52efbc",
+            "cfg_for//:testing_exec#7978e19328f9f229",
             configuration.to_string()
         );
 
         let looked_up = ConfigurationData::lookup_bound(
-            BoundConfigurationId::parse("cfg_for//:testing_exec#fd698fb05d52efbc").unwrap(),
+            BoundConfigurationId::parse("cfg_for//:testing_exec#7978e19328f9f229").unwrap(),
         )
         .unwrap();
         assert_eq!(configuration, looked_up);

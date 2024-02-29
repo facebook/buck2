@@ -15,6 +15,7 @@ pub mod arc_str;
 pub mod cleanup_ctx;
 pub mod commas;
 pub mod cycle_detector;
+pub mod hash;
 pub mod indent;
 pub mod late_binding;
 pub mod process;

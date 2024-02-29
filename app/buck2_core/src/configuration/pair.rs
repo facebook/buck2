@@ -8,8 +8,8 @@
  */
 
 use allocative::Allocative;
+use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
-use fnv::FnvHasher;
 use once_cell::sync::Lazy;
 use static_interner::Intern;
 use static_interner::Interner;
@@ -34,7 +34,7 @@ struct ConfigurationPairData {
 #[derive(Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub struct Configuration(Intern<ConfigurationPairData>);
 
-static INTERNER: Interner<ConfigurationPairData, FnvHasher> = Interner::new();
+static INTERNER: Interner<ConfigurationPairData, BuckHasher> = Interner::new();
 
 impl Configuration {
     #[inline]

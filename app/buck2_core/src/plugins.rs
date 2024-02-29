@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 
 use allocative::Allocative;
+use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
@@ -43,7 +44,7 @@ impl<'a> From<&'a PluginKindInner> for PluginKindInner {
 )]
 pub struct PluginKind(Intern<PluginKindInner>);
 
-static PLUGIN_KIND_INTERNER: Interner<PluginKindInner> = Interner::new();
+static PLUGIN_KIND_INTERNER: Interner<PluginKindInner, BuckHasher> = Interner::new();
 
 impl PluginKind {
     /// Creates a new `PluginKind` instance.
@@ -80,7 +81,7 @@ enum PluginKindSetUnpacked {
 static_assertions::assert_eq_size!(PluginKindSet, usize);
 static_assertions::assert_eq_size!(PluginKindSetUnpacked, [usize; 2]);
 
-static PLUGIN_KIND_SET_INTERNER: Interner<Vec<(PluginKind, bool)>> = Interner::new();
+static PLUGIN_KIND_SET_INTERNER: Interner<Vec<(PluginKind, bool)>, BuckHasher> = Interner::new();
 
 impl PluginKindSet {
     pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);

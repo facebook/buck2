@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 use allocative::Allocative;
+use buck2_util::hash::BuckHasherBuilder;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dupe::Clone_;
@@ -27,7 +28,7 @@ pub struct DashMapDirectoryInterner<L, H>
 where
     H: DirectoryDigest,
 {
-    inner: Arc<DashMap<H, Weak<SharedDirectoryInner<L, H>>>>,
+    inner: Arc<DashMap<H, Weak<SharedDirectoryInner<L, H>>, BuckHasherBuilder>>,
 }
 
 impl<L, H> DashMapDirectoryInterner<L, H>
@@ -36,7 +37,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(DashMap::new()),
+            inner: Arc::new(DashMap::with_hasher(BuckHasherBuilder)),
         }
     }
 
