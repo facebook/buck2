@@ -46,6 +46,6 @@ rust_library(
     }),
     test_env = {
         "MINIPERF": "$(exe_target :buck2_miniperf)",
-        "THREE_BILLION_INSTRUCTIONS": "$(exe_target //buck2/shed/three_billion_instructions:three_billion_instructions)",
+        "THREE_BILLION_INSTRUCTIONS": "$(exe_target //buck2/shed/three_billion_instructions:three_billion_instructions-bin)",
     },
 )

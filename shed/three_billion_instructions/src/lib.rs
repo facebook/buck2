@@ -8,28 +8,28 @@
  */
 
 /// Run 3B instructions.
-fn main() {
+pub fn three_billion_instructions() {
     let mut x = 1_000_000_000u64;
 
     #[cfg(target_arch = "x86_64")]
     unsafe {
         std::arch::asm!(
-            "2:",
-            "sub {0:r}, 1",
-            "cmp {0:r}, 0",
-            "jne 2b",
-            inout(reg) x,
+        "2:",
+        "sub {0:r}, 1",
+        "cmp {0:r}, 0",
+        "jne 2b",
+        inout(reg) x,
         );
     }
 
     #[cfg(target_arch = "aarch64")]
     unsafe {
         std::arch::asm!(
-            "2:",
-            "sub {0:x}, {0:x}, 1",
-            "cmp {0:x}, 0",
-            "bne 2b",
-            inout(reg) x,
+        "2:",
+        "sub {0:x}, {0:x}, 1",
+        "cmp {0:x}, 0",
+        "bne 2b",
+        inout(reg) x,
         );
     }
 

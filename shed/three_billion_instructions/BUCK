@@ -1,11 +1,21 @@
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
-rust_binary(
+rust_library(
     name = "three_billion_instructions",
     srcs = glob(
         ["src/**/*.rs"],
     ),
+)
+
+rust_binary(
+    name = "three_billion_instructions-bin",
+    srcs = ["bin/three_billion_instructions.rs"],
+    crate_root = "bin/three_billion_instructions.rs",
+    deps = [
+        ":three_billion_instructions",
+    ],
 )
