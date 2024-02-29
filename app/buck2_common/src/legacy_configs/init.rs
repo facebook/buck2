@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::str::FromStr;
 use std::time::Duration;
 
 use allocative::Allocative;
@@ -97,6 +98,72 @@ impl HttpConfig {
     }
 }
 
+#[derive(
+    Allocative,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+pub struct ResourceControlConfig {
+    /// A config to determine if the resource control should be activated or not.
+    /// The corresponding buckconfig is `buck2_resource_control.status` that can take
+    /// one of `{off | if_available | required}`.
+    status: ResourceControlStatus,
+    /// A memory threshold that buck2 daemon and workers are allowed to allocate. The units
+    /// like `M` and `G` may be used (e.g. 64G,) or also `%` is accepted in this field (e.g. 90%.)
+    /// The behavior when the combined amount of memory usage of the daemon and workers exceeds this
+    /// is that all the processes are killed by OOMKiller.
+    /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
+    memory_max: Option<String>,
+}
+
+#[derive(
+    Allocative,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+enum ResourceControlStatus {
+    #[default]
+    /// The resource is not controlled or limited.
+    Off,
+    /// The resource is controlled by `systemd` if it's available on the system, otherwise off.
+    IfAvailable,
+    /// The resource is controlled by `systemd`. If it is not available on the system,
+    /// buck2 errors it out and the command returns with an error exit code.
+    Required,
+}
+
+impl FromStr for ResourceControlStatus {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "off" => Ok(Self::Off),
+            "if_available" => Ok(Self::IfAvailable),
+            "required" => Ok(Self::Required),
+            _ => Err(anyhow::anyhow!("Invalid resource control status: `{}`", s)),
+        }
+    }
+}
+
+impl ResourceControlConfig {
+    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        let status = config
+            .parse("buck2_resource_control", "status")?
+            .unwrap_or(ResourceControlStatus::Off);
+        let memory_max = config.parse("buck2_resource_control", "memory_max")?;
+        Ok(Self { status, memory_max })
+    }
+}
+
 /// Configurations that are used at startup by the daemon. Those are actually read by the client,
 /// and passed on to the daemon.
 ///
@@ -117,6 +184,7 @@ pub struct DaemonStartupConfig {
     pub paranoid: bool,
     pub materializations: Option<String>,
     pub http: HttpConfig,
+    pub resource_control: ResourceControlConfig,
 }
 
 impl DaemonStartupConfig {
@@ -142,6 +210,7 @@ impl DaemonStartupConfig {
                 .get("buck2", "materializations")
                 .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
+            resource_control: ResourceControlConfig::from_config(config)?,
         })
     }
 
@@ -163,6 +232,7 @@ impl DaemonStartupConfig {
             paranoid: false,
             materializations: None,
             http: HttpConfig::default(),
+            resource_control: ResourceControlConfig::default(),
         }
     }
 }
