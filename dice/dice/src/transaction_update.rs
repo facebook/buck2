@@ -123,7 +123,10 @@ impl DiceTransactionUpdaterImpl {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
                 let map = ctx.unstable_take();
                 // Destructors can be slow, so we do this in a separate thread.
-                thread::spawn(|| drop(map));
+                thread::Builder::new()
+                    .name("dice-legacy-take-drop".to_owned())
+                    .spawn(|| drop(map))
+                    .expect("failed to spawn thread");
 
                 DiceTransactionUpdaterImpl::Legacy(ctx)
             }

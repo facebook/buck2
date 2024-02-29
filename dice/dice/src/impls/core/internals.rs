@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::thread;
+
 use gazebo::prelude::SliceExt;
 
 use crate::api::storage_type::StorageType;
@@ -129,7 +131,10 @@ impl CoreState {
         // Do the actual drop on a different thread because we may have to drop a lot of stuff
         // here.
         let map = std::mem::take(&mut self.graph.last_n);
-        std::thread::spawn(move || drop(map));
+        thread::Builder::new()
+            .name("dice-drop-everything".to_owned())
+            .spawn(move || drop(map))
+            .expect("failed to spawn thread");
     }
 
     pub(super) fn metrics(&self) -> Metrics {
