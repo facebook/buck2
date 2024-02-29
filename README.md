@@ -114,7 +114,7 @@ rough edges right now &mdash; several features are missing or in progress, some
 toolchains from Buck1 are missing, and you'll probably have to fiddle with
 things more than necessary to get it nice and polished.
 
-Please provide feedback by submitting [issues and questions!](/issues)
+Please provide feedback by submitting [issues and questions!](https://github.com/facebook/buck2/issues)
 
 ## Installing Buck2
 
