@@ -34,6 +34,7 @@ def _system_go_toolchain_impl(ctx):
             cgo = get_go_tool("cgo"),
             cgo_wrapper = ctx.attrs.cgo_wrapper,
             compile_wrapper = ctx.attrs.compile_wrapper,
+            concat_files = ctx.attrs.concat_files,
             compiler = get_go_tool("compile"),
             cover = get_go_tool("cover"),
             cover_srcs = ctx.attrs.cover_srcs,
@@ -43,10 +44,15 @@ def _system_go_toolchain_impl(ctx):
             env_go_root = go_root,
             external_linker_flags = None,
             filter_srcs = ctx.attrs.filter_srcs,
+            gen_stdlib_importcfg = ctx.attrs.gen_stdlib_importcfg,
             go = go_binary,
+            go_wrapper = ctx.attrs.go_wrapper,
             linker = get_go_tool("link"),
             packer = get_go_tool("pack"),
             tags = [],
+            linker_flags = [],
+            assembler_flags = [],
+            compiler_flags = [],
         ),
     ]
 
@@ -61,9 +67,12 @@ system_go_toolchain = rule(
     attrs = {
         "cgo_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:cgo_wrapper")),
         "compile_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:compile_wrapper")),
+        "concat_files": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:concat_files")),
         "cover_srcs": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:cover_srcs")),
         "filter_srcs": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:filter_srcs")),
+        "gen_stdlib_importcfg": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:gen_stdlib_importcfg")),
         "go_root": attrs.string(),
+        "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper")),
     },
     is_toolchain_rule = True,
 )
