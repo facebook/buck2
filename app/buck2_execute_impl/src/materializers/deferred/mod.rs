@@ -148,6 +148,7 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
 
     stats: Arc<DeferredMaterializerStats>,
 
+    /// Logs verbose events about materializer to the event log when enabled.
     verbose_materializer_log: bool,
 }
 
@@ -307,7 +308,6 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     cancellations: &'static CancellationContext<'static>,
     stats: Arc<DeferredMaterializerStats>,
     access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
-    #[allow(dead_code)]
     verbose_materializer_log: bool,
 }
 
@@ -1248,6 +1248,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             }
             // Entry point for `declare_{copy|cas}` calls
             MaterializerCommand::Declare(path, value, method, event_dispatcher) => {
+                self.maybe_log_command(&event_dispatcher, || {
+                    buck2_data::materializer_command::Data::Declare(
+                        buck2_data::materializer_command::Declare {
+                            path: path.to_string(),
+                        },
+                    )
+                });
+
                 self.declare(&path, value, method);
 
                 if self.subscriptions.should_materialize_eagerly(&path) {
@@ -1285,6 +1293,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             }
             // Entry point for `ensure_materialized` calls
             MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
+                self.maybe_log_command(&event_dispatcher, || {
+                    buck2_data::materializer_command::Data::Ensure(
+                        buck2_data::materializer_command::Ensure {
+                            paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+                        },
+                    )
+                });
+
                 fut_sender
                     .send(self.materialize_many_artifacts(paths, event_dispatcher))
                     .ok();
@@ -1907,6 +1923,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 // NOTE: This can happen if a path got invalidated while it was being materialized.
                 tracing::debug!("materialization_finished but path is vacant!")
             }
+        }
+    }
+
+    fn maybe_log_command<F>(&self, event_dispatcher: &EventDispatcher, f: F)
+    where
+        F: FnOnce() -> buck2_data::materializer_command::Data,
+    {
+        if self.verbose_materializer_log {
+            let data = Some(f());
+            event_dispatcher.instant_event(buck2_data::MaterializerCommand { data });
         }
     }
 }

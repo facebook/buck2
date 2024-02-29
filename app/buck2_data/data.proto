@@ -256,6 +256,8 @@ message InstantEvent {
     ActionError action_error = 34;
 
     ConsoleWarning console_warning = 35;
+
+    MaterializerCommand materializer_command = 36;
   }
 }
 
@@ -2122,4 +2124,24 @@ message ReleaseLocalResourcesEnd {}
 
 message RestartConfiguration {
   bool enable_restarter = 1;
+}
+
+// Events capturing commands to the deferred materializer.
+// Currently only enabled with `-c buck2.verbose_materializer_event_log=true`.
+// Events are reported by the command processor, so they are logged
+// when they are processed by the materializer, not when they are sent
+// to the materializer
+message MaterializerCommand {
+  message Declare {
+    string path = 1;
+  }
+
+  message Ensure {
+    repeated string paths = 1;
+  }
+
+  oneof data {
+    Declare declare = 1;
+    Ensure ensure = 2;
+  }
 }
