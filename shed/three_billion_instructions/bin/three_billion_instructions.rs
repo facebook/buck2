@@ -10,6 +10,6 @@
 use three_billion_instructions::three_billion_instructions;
 
 /// Run 3B instructions.
-fn main() {
-    three_billion_instructions();
+fn main() -> Result<(), three_billion_instructions::Error> {
+    three_billion_instructions()
 }

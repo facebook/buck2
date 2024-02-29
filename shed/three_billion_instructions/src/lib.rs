@@ -7,8 +7,13 @@
  * of this source tree.
  */
 
+#[derive(thiserror::Error, Debug)]
+#[error("Unsupported architecture")]
+pub struct Error(());
+
 /// Run 3B instructions.
-pub fn three_billion_instructions() {
+pub fn three_billion_instructions() -> Result<(), Error> {
+    #[allow(unused_mut)]
     let mut x = 1_000_000_000u64;
 
     #[cfg(target_arch = "x86_64")]
@@ -33,5 +38,10 @@ pub fn three_billion_instructions() {
         );
     }
 
+    if !cfg!(any(target_arch = "x86_64", target_arch = "aarch64")) {
+        return Err(Error(()));
+    }
+
     assert_eq!(x, 0);
+    Ok(())
 }
