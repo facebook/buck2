@@ -80,4 +80,6 @@ enum ErrorTag {
   SERVER_JEMALLOC_ASSERT = 15;
   // The reason for server failure is unknown.
   SERVER_STDERR_UNKNOWN = 19;
+  // Internal error in buck2. This is a bug.
+  INTERNAL_ERROR = 21;
 }

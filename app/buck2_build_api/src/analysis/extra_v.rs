@@ -10,7 +10,7 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::Context;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
@@ -110,7 +110,7 @@ impl<'v> AnalysisExtraValue<'v> {
         module.set_extra_value_no_overwrite(
             module.heap().alloc_complex(AnalysisExtraValue::default()),
         )?;
-        Self::get(module)?.context("extra_value must be set (internal error)")
+        Self::get(module)?.internal_error("extra_value must be set")
     }
 }
 
@@ -120,7 +120,7 @@ impl FrozenAnalysisExtraValue {
     ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenAnalysisExtraValue>> {
         module
             .owned_extra_value()
-            .context("extra_value not set (internal error)")?
+            .internal_error("extra_value not set")?
             .downcast_anyhow()
     }
 }

@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_build_api::analysis::extra_v::AnalysisExtraValue;
 use buck2_build_api::analysis::extra_v::FrozenAnalysisExtraValue;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -26,6 +25,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::Context;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
@@ -350,7 +350,7 @@ async fn run_analysis_with_env_underlying(
     let provider_collection = extra_v.try_map(|extra_v| {
         extra_v
             .provider_collection
-            .context("provider_collection must be set (internal error)")
+            .internal_error("provider_collection must be set")
     })?;
     let provider_collection = FrozenProviderCollectionValue::from_value(provider_collection);
 
@@ -389,7 +389,7 @@ pub fn get_user_defined_rule_spec(
                 let rule_callable = rule_callable.owned_value(eval.frozen_heap());
                 let rule_callable = rule_callable
                     .unpack_frozen()
-                    .context("Must be frozen (internal error)")?;
+                    .internal_error("Must be frozen")?;
 
                 (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
             };
@@ -411,7 +411,7 @@ pub fn get_user_defined_rule_spec(
                 let rule_callable = rule_callable.owned_value(eval.frozen_heap());
                 let rule_callable = rule_callable
                     .unpack_frozen()
-                    .context("Must be frozen (internal error)")?;
+                    .internal_error("Must be frozen")?;
 
                 (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?
             };

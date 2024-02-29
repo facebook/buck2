@@ -12,7 +12,6 @@ use std::fmt::Display;
 use std::ops::ControlFlow;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
@@ -38,6 +37,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::Wor
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::Context;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -179,8 +179,7 @@ impl UnregisteredAction for UnregisteredRunAction {
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        let starlark_values =
-            starlark_data.context("module data to be present (internal error)")?;
+        let starlark_values = starlark_data.internal_error("module data to be present")?;
         let run_action = RunAction::new(*self, starlark_values, outputs, error_handler)?;
         Ok(Box::new(run_action))
     }

@@ -11,7 +11,7 @@ use std::fmt;
 use std::iter;
 
 use allocative::Allocative;
-use anyhow::Context as _;
+use buck2_error::Context;
 use buck2_interpreter::error::BuckStarlarkError;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -213,7 +213,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
     pub(crate) fn definition(
         &self,
     ) -> anyhow::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
-        ValueTypedComplex::unpack_value_err(self.definition.to_value()).context("(internal error)")
+        ValueTypedComplex::unpack_value_err(self.definition.to_value())
+            .internal_error("Must be a TransitiveSetDefinition")
     }
 }
 

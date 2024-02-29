@@ -14,7 +14,6 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_cli_proto::build_request::Materializations;
@@ -22,6 +21,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::Context;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -129,9 +129,9 @@ impl BuildTargetResult {
                     let is_err = output.is_err();
 
                     res.get_mut(label.as_ref())
-                        .with_context(|| format!("BuildEventVariant::Output before BuildEventVariant::Prepared for {} (internal error)", label))?
+                        .with_internal_error(|| format!("BuildEventVariant::Output before BuildEventVariant::Prepared for {}", label))?
                         .as_mut()
-                        .with_context(|| format!("BuildEventVariant::Output for a skipped target: `{}` (internal error)", label))?
+                        .with_internal_error(|| format!("BuildEventVariant::Output for a skipped target: `{}`", label))?
                         .outputs
                         .push((index, output));
 
@@ -143,9 +143,9 @@ impl BuildTargetResult {
                     configured_graph_size,
                 } => {
                     res.get_mut(label.as_ref())
-                        .with_context(|| format!("BuildEventVariant::GraphSize before BuildEventVariant::Prepared for {} (internal error)", label))?
+                        .with_internal_error(|| format!("BuildEventVariant::GraphSize before BuildEventVariant::Prepared for {}", label))?
                         .as_mut()
-                        .with_context(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}` (internal error)", label))?
+                        .with_internal_error(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}`", label))?
                         .configured_graph_size = Some(configured_graph_size);
                 }
                 ConfiguredBuildEventVariant::Error { err } => {

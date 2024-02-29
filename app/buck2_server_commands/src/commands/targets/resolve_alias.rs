@@ -144,7 +144,7 @@ pub(crate) async fn targets_resolve_aliases(
     let mut buffer = String::new();
 
     let output_format = OutputFormat::from_i32(request.output_format)
-        .context("Invalid value of `output_format` (internal error)")?;
+        .internal_error("Invalid value of `output_format`")?;
 
     let json_writer;
 

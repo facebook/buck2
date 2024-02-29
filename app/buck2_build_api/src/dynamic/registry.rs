@@ -8,12 +8,12 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_error::Context;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
@@ -77,7 +77,7 @@ impl DynamicRegistry {
                 .get(id)?
                 .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?
                 .downcast_anyhow()
-                .context("Incorrect type (internal error)")?;
+                .internal_error("Incorrect type")?;
 
             data.bind(fv)?;
             registry.bind(key, data);

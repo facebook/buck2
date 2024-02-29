@@ -416,7 +416,7 @@ pub(crate) fn create_formatter(
     other: &targets_request::Other,
 ) -> anyhow::Result<Arc<dyn TargetFormatter>> {
     let output_format = OutputFormat::from_i32(request.output_format)
-        .context("Invalid value of `output_format` (internal error)")?;
+        .internal_error("Invalid value of `output_format`")?;
 
     let target_call_stacks = request.client_context()?.target_call_stacks;
 

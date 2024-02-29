@@ -9,7 +9,6 @@
 
 use std::io::Write;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -21,6 +20,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_error::Context;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
@@ -144,9 +144,7 @@ async fn cquery(
     } else {
         Some(target_universe)
     };
-    let client_ctx = context
-        .as_ref()
-        .context("No client context (internal error)")?;
+    let client_ctx = context.as_ref().internal_error("No client context")?;
 
     let target_call_stacks = client_ctx.target_call_stacks;
 

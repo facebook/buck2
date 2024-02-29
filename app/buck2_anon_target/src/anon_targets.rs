@@ -13,7 +13,6 @@ use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::get_rule_spec;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
@@ -56,6 +55,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::Context;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -143,7 +143,7 @@ impl AnonTargetKey {
             key.into_any()
                 .downcast()
                 .ok()
-                .context("Expecting AnonTarget (internal error)")?,
+                .internal_error("Expecting AnonTarget")?,
         ))
     }
 
@@ -613,7 +613,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         let registry: &mut AnonTargetsRegistry = registry
             .as_any_mut()
             .downcast_mut::<AnonTargetsRegistry>()
-            .context("AnonTargetsRegistryDyn is not an AnonTargetsRegistry (internal error)")?;
+            .internal_error("AnonTargetsRegistryDyn is not an AnonTargetsRegistry")?;
         unsafe {
             // It is hard or impossible to express this safely with the borrow checker.
             // Has something to do with 'v being invariant.

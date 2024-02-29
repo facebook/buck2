@@ -14,8 +14,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
-use anyhow::Context;
 use arc_swap::ArcSwapOption;
+use buck2_error::Context;
 use starlark_map::small_set::SmallSet;
 
 use crate::env::macros::buck2_env;
@@ -126,7 +126,7 @@ fn hard_error_config() -> anyhow::Result<Arc<HardErrorConfig>> {
     HARD_ERROR_CONFIG
         .config
         .load_full()
-        .context("Just stored a value (internal error)")
+        .internal_error("Just stored a value")
 }
 
 pub fn reload_hard_error_config(var_value: &str) -> anyhow::Result<()> {

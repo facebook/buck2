@@ -15,7 +15,6 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
@@ -24,6 +23,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::soft_error;
+use buck2_error::Context;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::error::BuckStarlarkError;
@@ -297,9 +297,9 @@ impl InterpreterForCell {
             let prelude_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(prelude_import.import_path()))
-                .with_context(|| {
+                .with_internal_error(|| {
                     format!(
-                        "Should've had an env for the prelude import `{}` (internal error)",
+                        "Should've had an env for the prelude import `{}`",
                         prelude_import,
                     )
                 })?;
@@ -346,11 +346,8 @@ impl InterpreterForCell {
             let root_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(&root_import))
-                .with_context(|| {
-                    format!(
-                        "Should've had an env for the root import `{}` (internal error)",
-                        root_import,
-                    )
+                .with_internal_error(|| {
+                    format!("Should've had an env for the root import `{}`", root_import,)
                 })?
                 .env();
             env.import_public_symbols(root_env);

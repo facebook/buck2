@@ -381,9 +381,9 @@ pub async fn profile_analysis(
     .await?
     .require_compatible()?
     .profile_data
-    .with_context(|| {
+    .with_internal_error(|| {
         format!(
-            "profile_data not set after finished profiling analysis for `{}` (internal error)",
+            "profile_data not set after finished profiling analysis for `{}`",
             target
         )
     })
@@ -427,9 +427,9 @@ pub async fn profile_analysis_recursively(
                     .get_analysis_result(node.label())
                     .await?
                     .require_compatible()?;
-                result.profile_data.context(
-                    "profile_data not set after finished profiling analysis (internal error)",
-                )
+                result
+                    .profile_data
+                    .internal_error("profile_data not set after finished profiling analysis")
             }
             .boxed()
         })

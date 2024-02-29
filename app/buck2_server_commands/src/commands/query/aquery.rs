@@ -9,11 +9,11 @@
 
 use std::io::Write;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_error::Context;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -104,9 +104,7 @@ async fn aquery(
         ..
     } = request;
 
-    let client_ctx = context
-        .as_ref()
-        .context("No client context (internal error)")?;
+    let client_ctx = context.as_ref().internal_error("No client context")?;
     let global_cfg_options =
         global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 

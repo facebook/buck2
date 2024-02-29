@@ -38,7 +38,7 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
         let node = self
             .visited
             .remove(last)
-            .with_context(|| format!("missing node {} (internal error)", last))?;
+            .with_internal_error(|| format!("missing node {}", last))?;
         if node.node.is_some() {
             return Err(anyhow::anyhow!("duplicate node {} (internal error)", last));
         }
@@ -47,10 +47,10 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
             let node = self
                 .visited
                 .remove(&key)
-                .with_context(|| format!("missing node {} (internal error)", key))?;
+                .with_internal_error(|| format!("missing node {}", key))?;
             item(
                 node.node
-                    .with_context(|| format!("missing node {} (internal error)", key))?,
+                    .with_internal_error(|| format!("missing node {}", key))?,
             );
             parent_key = node.parent;
         }
@@ -145,7 +145,7 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                     &mut visited
                         .visited
                         .get_mut(&key)
-                        .with_context(|| format!("missing node {} (internal error)", key))?
+                        .with_internal_error(|| format!("missing node {}", key))?
                         .node,
                     Some(node),
                 );

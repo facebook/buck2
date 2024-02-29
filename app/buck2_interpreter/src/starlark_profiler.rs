@@ -12,7 +12,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::Context;
 use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
@@ -123,18 +123,14 @@ impl StarlarkProfiler {
     pub fn finish(self) -> anyhow::Result<StarlarkProfileDataAndStats> {
         Ok(StarlarkProfileDataAndStats {
             profile_mode: self.profile_mode,
-            initialized_at: self
-                .initialized_at
-                .context("did not initialize (internal error)")?,
-            finalized_at: self
-                .finalized_at
-                .context("did not finalize (internal error)")?,
+            initialized_at: self.initialized_at.internal_error("did not initialize")?,
+            finalized_at: self.finalized_at.internal_error("did not finalize")?,
             total_retained_bytes: self
                 .total_retained_bytes
-                .context("did not visit heap (internal error)")?,
+                .internal_error("did not visit heap")?,
             profile_data: self
                 .profile_data
-                .context("profile_data not initialized (internal error)")?,
+                .internal_error("profile_data not initialized")?,
         })
     }
 

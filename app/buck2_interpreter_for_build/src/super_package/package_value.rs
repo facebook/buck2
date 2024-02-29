@@ -12,7 +12,7 @@ use std::io;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::Context;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
@@ -52,7 +52,7 @@ impl SuperPackageValuesImpl {
         values
             .as_any()
             .downcast_ref::<SuperPackageValuesImpl>()
-            .context("Expecting SuperPackageValuesImpl (internal error)")
+            .internal_error("Expecting SuperPackageValuesImpl")
     }
 
     pub(crate) fn merge(
@@ -151,7 +151,7 @@ impl OwnedFrozenStarlarkPackageValue {
         self.0
             .value()
             .to_json_value()
-            .context("Not valid JSON, should have been validated at construction (internal error)")
+            .internal_error("Not valid JSON, should have been validated at construction")
     }
 
     pub(crate) fn owned_frozen_value(&self) -> &OwnedFrozenValue {

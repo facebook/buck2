@@ -42,6 +42,20 @@ pub trait Context<T>: Sealed {
     fn tag(self, tag: crate::ErrorTag) -> anyhow::Result<T> {
         self.context(ContextValue::Tags(smallvec![tag]))
     }
+
+    #[track_caller]
+    fn internal_error(self, message: &str) -> anyhow::Result<T> {
+        self.with_internal_error(|| message.to_owned())
+    }
+
+    #[track_caller]
+    fn with_internal_error<F>(self, f: F) -> anyhow::Result<T>
+    where
+        F: FnOnce() -> String,
+    {
+        self.with_context(|| format!("{} (internal error)", f()))
+            .tag(crate::ErrorTag::InternalError)
+    }
 }
 pub trait Sealed: Sized {}
 

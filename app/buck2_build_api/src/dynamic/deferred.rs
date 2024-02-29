@@ -11,7 +11,6 @@ use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -20,6 +19,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_error::Context;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::error::BuckStarlarkError;
@@ -288,7 +288,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let attributes_lambda = dynamic_lambda
         .attributes_lambda
         .as_ref()
-        .context("attributes_lambda not set (internal error)")?
+        .internal_error("attributes_lambda not set")?
         .owned_as_ref(env.frozen_heap());
     let FrozenDynamicLambdaParams {
         attributes,
@@ -298,8 +298,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     let plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins> = *plugins;
     let plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>> =
-        ValueTypedComplex::new(plugins.to_value())
-            .context("incorrect plugins type (internal error)")?;
+        ValueTypedComplex::new(plugins.to_value()).internal_error("incorrect plugins type")?;
 
     let execution_platform = {
         match &dynamic_lambda.owner {

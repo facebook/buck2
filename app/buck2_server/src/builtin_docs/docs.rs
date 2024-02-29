@@ -12,7 +12,6 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::unstable_docs_request;
 use buck2_cli_proto::UnstableDocsRequest;
@@ -23,6 +22,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_error::Context;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
@@ -320,9 +320,11 @@ async fn docs(
     let json_output = match format {
         Format::Json => Some(serde_json::to_string(&docs)?),
         Format::Markdown => {
-            let path = AbsPath::new(Path::new(request.markdown_output_path.as_ref().context(
-                "`markdown_output_path` must be set when requesting markdown (internal error)",
-            )?))?;
+            let path = AbsPath::new(Path::new(
+                request.markdown_output_path.as_ref().internal_error(
+                    "`markdown_output_path` must be set when requesting markdown",
+                )?,
+            ))?;
             let starlark_subdir = Path::new(&request.markdown_starlark_subdir);
             let native_subdir = Path::new(&request.markdown_native_subdir);
             generate_markdown_files(path, starlark_subdir, native_subdir, docs)?;

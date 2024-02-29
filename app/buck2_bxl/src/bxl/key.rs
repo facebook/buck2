@@ -14,7 +14,6 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
@@ -26,6 +25,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
+use buck2_error::Context;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
@@ -88,7 +88,7 @@ impl BxlKey {
     ) -> anyhow::Result<Self> {
         BxlDynamicKey::from_base_deferred_key_dyn_impl(key)
             .map(|k| BxlKey(k.0.key.dupe()))
-            .context("Not BxlKey (internal error)")
+            .internal_error("Not BxlKey")
     }
 
     pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
@@ -158,7 +158,7 @@ impl BxlDynamicKey {
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
         key: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<Self> {
-        Self::from_base_deferred_key_dyn_impl(key).context("Not BxlDynamicKey (internal error)")
+        Self::from_base_deferred_key_dyn_impl(key).internal_error("Not BxlDynamicKey")
     }
 }
 
