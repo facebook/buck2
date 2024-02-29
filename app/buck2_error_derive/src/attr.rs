@@ -81,9 +81,6 @@ impl Parse for MacroOption {
         } else if name == "infra" {
             let ident = syn::Ident::new("Infra", name.span());
             Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
-        } else if name == "category" {
-            let _eq: Token![=] = input.parse()?;
-            Ok(MacroOption::Category(input.parse()?))
         } else if name == "typ" {
             let _eq: Token![=] = input.parse()?;
             Ok(MacroOption::Typ(input.parse()?))

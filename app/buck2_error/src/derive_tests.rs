@@ -134,59 +134,13 @@ fn test_enum_with_type_option() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
-#[buck2(category = User)]
+#[buck2(user)]
 struct ErrorWithSpelledOutCategory;
 
 #[test]
 fn test_error_with_spelled_out_category() {
     let e: crate::Error = ErrorWithSpelledOutCategory.into();
     assert_eq!(e.get_category(), Some(crate::Category::User));
-}
-
-impl ComputedOptionsError {
-    fn compute_category(&self) -> Option<crate::Category> {
-        match self {
-            ComputedOptionsError::A => Some(crate::Category::User),
-            ComputedOptionsError::B(_) => Some(crate::Category::Infra),
-        }
-    }
-}
-
-fn compute_type_a() -> Option<crate::ErrorType> {
-    Some(crate::ErrorType::Watchman)
-}
-
-fn compute_typ_b(val: bool) -> Option<crate::ErrorType> {
-    if val {
-        None
-    } else {
-        Some(crate::ErrorType::DaemonIsBusy)
-    }
-}
-
-#[derive(buck2_error_derive::Error, Debug)]
-#[error("Unused")]
-#[buck2(category = ComputedOptionsError::compute_category(self))]
-enum ComputedOptionsError {
-    #[buck2(typ = compute_type_a())]
-    A,
-    #[buck2(typ = compute_typ_b(*_0))]
-    B(bool),
-}
-
-#[test]
-fn test_computed_options() {
-    let e: crate::Error = ComputedOptionsError::A.into();
-    assert_eq!(e.get_category(), Some(crate::Category::User));
-    assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
-
-    let e: crate::Error = ComputedOptionsError::B(false).into();
-    assert_eq!(e.get_category(), Some(crate::Category::Infra));
-    assert_eq!(e.get_error_type(), Some(crate::ErrorType::DaemonIsBusy));
-
-    let e: crate::Error = ComputedOptionsError::B(true).into();
-    assert_eq!(e.get_category(), Some(crate::Category::Infra));
-    assert_eq!(e.get_error_type(), None);
 }
 
 #[test]
