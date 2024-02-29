@@ -51,6 +51,10 @@ enum ErrorTag {
   STARLARK_STACK_OVERFLOW = 102;
   WATCHMAN_TIMEOUT = 2;
   HTTP = 3;
+  // Client error (4xx).
+  HTTP_CLIENT = 301;
+  // Server error (5xx).
+  HTTP_SERVER = 302;
   // gRPC protocol error between client and server from the client side.
   // - Protocol error (e.g. malformed frame, or too large frame)
   // - Transport error (e.g. connection closed)

@@ -34,11 +34,11 @@ fn http_error_label(status: StatusCode) -> &'static str {
     }
 }
 
-fn category_from_status(status: StatusCode) -> Option<buck2_error::Category> {
+fn tag_from_status(status: StatusCode) -> Option<buck2_error::ErrorTag> {
     if status.is_server_error() {
-        Some(buck2_error::Category::Infra)
+        Some(buck2_error::ErrorTag::HttpServer)
     } else if status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND {
-        Some(buck2_error::Category::User)
+        Some(buck2_error::ErrorTag::HttpClient)
     } else {
         None
     }
@@ -63,7 +63,7 @@ pub enum HttpError {
         source: hyper::Error,
     },
     #[error("HTTP {} Error ({status}) when querying URI: {uri}. Response text: {text}", http_error_label(*.status))]
-    #[buck2(category = category_from_status(*status))]
+    #[buck2(tag = tag_from_status(*status))]
     Status {
         status: StatusCode,
         uri: String,
