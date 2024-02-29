@@ -286,6 +286,7 @@ mod state_machine {
                 cancellations: CancellationContext::testing(),
                 stats: Arc::new(DeferredMaterializerStats::default()),
                 access_times_buffer: Default::default(),
+                verbose_materializer_log: true,
             },
             command_receiver,
         )

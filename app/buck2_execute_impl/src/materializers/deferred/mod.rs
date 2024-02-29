@@ -147,6 +147,8 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     materializer_state_info: buck2_data::MaterializerStateInfo,
 
     stats: Arc<DeferredMaterializerStats>,
+
+    verbose_materializer_log: bool,
 }
 
 pub type DeferredMaterializer = DeferredMaterializerAccessor<DefaultIoHandler>;
@@ -174,6 +176,7 @@ pub struct DeferredMaterializerConfigs {
     pub defer_write_actions: bool,
     pub ttl_refresh: TtlRefreshConfiguration,
     pub update_access_times: AccessTimesUpdates,
+    pub verbose_materializer_log: bool,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -304,6 +307,8 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     cancellations: &'static CancellationContext<'static>,
     stats: Arc<DeferredMaterializerStats>,
     access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
+    #[allow(dead_code)]
+    verbose_materializer_log: bool,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -1022,6 +1027,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 cancellations,
                 stats,
                 access_times_buffer,
+                verbose_materializer_log: configs.verbose_materializer_log,
             }
         };
 
@@ -1054,6 +1060,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             io,
             materializer_state_info,
             stats,
+            verbose_materializer_log: configs.verbose_materializer_log,
         })
     }
 }

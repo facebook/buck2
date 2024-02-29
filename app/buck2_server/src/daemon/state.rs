@@ -333,6 +333,10 @@ impl DaemonState {
                     root_config.get("buck2", "update_access_times"),
                 )?;
 
+                let verbose_materializer_log = root_config
+                    .parse("buck2", "verbose_materializer_event_log")?
+                    .unwrap_or(false);
+
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         materializations,
@@ -345,6 +349,7 @@ impl DaemonState {
                         enabled: ttl_refresh_enabled,
                     },
                     update_access_times,
+                    verbose_materializer_log,
                 }
             };
 
