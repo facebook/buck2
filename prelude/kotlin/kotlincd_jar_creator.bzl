@@ -62,6 +62,7 @@ def create_jar_artifact_kotlincd(
         resources_root: [str, None],
         annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: [PluginParams, None],
+        manifest_file: [Artifact, None],
         source_level: int,
         target_level: int,
         deps: list[Dependency],
@@ -169,6 +170,7 @@ def create_jar_artifact_kotlincd(
             resources_map,
             annotation_processor_properties = annotation_processor_properties,
             plugin_params = plugin_params,
+            manifest_file = manifest_file,
             extra_arguments = cmd_args(extra_arguments),
             source_only_abi_compiling_deps = [],
             track_class_usage = track_class_usage,
@@ -212,11 +214,12 @@ def create_jar_artifact_kotlincd(
             resources_map,
             annotation_processor_properties,
             plugin_params,
+            manifest_file,
             cmd_args(extra_arguments),
             source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             track_class_usage = True,
         )
-        abi_params = encode_jar_params(remove_classes, output_paths)
+        abi_params = encode_jar_params(remove_classes, output_paths, manifest_file)
         abi_command = struct(
             kotlinExtraParams = kotlin_extra_params,
             baseJarCommand = base_jar_command,

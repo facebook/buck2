@@ -84,9 +84,6 @@ def create_jar_artifact_javacd(
     actions = ctx.actions
     resources_map = get_resources_map(java_toolchain, label.package, resources, resources_root)
 
-    # TODO(cjhopman): Handle manifest file.
-    _ = manifest_file  # buildifier: disable=unused-variable
-
     bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
@@ -132,6 +129,7 @@ def create_jar_artifact_javacd(
             resources_map,
             annotation_processor_properties,
             plugin_params,
+            manifest_file,
             extra_arguments,
             source_only_abi_compiling_deps = [],
             track_class_usage = track_class_usage,
@@ -171,11 +169,12 @@ def create_jar_artifact_javacd(
             resources_map,
             annotation_processor_properties,
             plugin_params,
+            manifest_file,
             extra_arguments,
             source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             track_class_usage = track_class_usage,
         )
-        abi_params = encode_jar_params(remove_classes, output_paths)
+        abi_params = encode_jar_params(remove_classes, output_paths, manifest_file)
 
         abi_command = struct(
             baseJarCommand = base_jar_command,

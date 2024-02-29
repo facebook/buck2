@@ -158,13 +158,14 @@ def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetTyp
         libraryTargetFullyQualifiedName = base_qualified_name(label),
     )
 
-def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths) -> struct:
+def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths, manifest_file: [Artifact, None]) -> struct:
     return struct(
         jarPath = output_paths.jar.as_output(),
         removeEntryPredicate = struct(
             patterns = remove_classes,
         ),
         entriesToJar = [output_paths.classes.as_output()],
+        manifestFile = manifest_file,
         duplicatesLogLevel = "FINE",
     )
 
@@ -288,10 +289,11 @@ def encode_base_jar_command(
         resources_map: dict[str, Artifact],
         annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: [PluginParams, None],
+        manifest_file: [Artifact, None],
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool) -> struct:
-    library_jar_params = encode_jar_params(remove_classes, output_paths)
+    library_jar_params = encode_jar_params(remove_classes, output_paths, manifest_file)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
         compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in source_only_abi_compiling_deps])

@@ -356,6 +356,7 @@ def build_kotlin_library(
                 "kotlin_compiler_plugins": ctx.attrs.kotlin_compiler_plugins,
                 "kotlin_toolchain": kotlin_toolchain,
                 "label": ctx.label,
+                "manifest_file": ctx.attrs.manifest_file,
                 "remove_classes": ctx.attrs.remove_classes,
                 "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,
                 "resources": ctx.attrs.resources,
