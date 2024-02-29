@@ -224,7 +224,9 @@ impl BuckConfigBasedCells {
 
             let is_root = path.is_repo_root();
 
-            let repositories = config.get_section("repositories");
+            let repositories = config
+                .get_section("repositories")
+                .or_else(|| config.get_section("cells"));
             if let Some(repositories) = repositories {
                 for (alias, alias_path) in repositories.iter() {
                     let alias_path = CellRootPathBuf::new(path
@@ -260,7 +262,10 @@ impl BuckConfigBasedCells {
                 }
             }
 
-            if let Some(aliases) = config.get_section("repository_aliases") {
+            if let Some(aliases) = config
+                .get_section("repository_aliases")
+                .or_else(|| config.get_section("cell_aliases"))
+            {
                 for (alias, destination) in aliases.iter() {
                     let alias = NonEmptyCellAlias::new(alias.to_owned())?;
                     let destination = NonEmptyCellAlias::new(destination.as_str().to_owned())?;
@@ -844,6 +849,50 @@ mod tests {
         assert_config_value(other_config, "apple", "key3", "othervalue4");
         // local override new section
         assert_config_value(other_config, "orange", "key", "othervalue3");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cell_config_section_name() -> anyhow::Result<()> {
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            "/.buckconfig",
+            indoc!(
+                r#"
+                            [cells]
+                                root = .
+                                other = other/
+                            [cell_aliases]
+                                other_alias = other
+                        "#
+            ),
+        )])?;
+
+        let project_fs = create_project_filesystem();
+        let resolver = BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut file_ops,
+            &[],
+            ProjectRelativePath::empty(),
+        )?
+        .cell_resolver;
+
+        let root = resolver.get(CellName::testing_new("root")).unwrap();
+
+        assert_eq!(
+            root.cell_alias_resolver()
+                .resolve("other")
+                .unwrap()
+                .as_str(),
+            "other"
+        );
+        assert_eq!(
+            root.cell_alias_resolver()
+                .resolve("other_alias")
+                .unwrap()
+                .as_str(),
+            "other"
+        );
 
         Ok(())
     }
