@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
-use std::process::Command;
 use std::sync::OnceLock;
 
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -106,8 +105,10 @@ pub fn is_available() -> anyhow::Result<()> {
     }
 
     let unavailable_reason = AVAILABILITY.get_or_init(|| -> Option<SystemdNotAvailableReason> {
-        // patternlint-disable-next-line buck2-no-command-new
-        match Command::new("systemctl").arg("--version").output() {
+        match process::background_command("systemctl")
+            .arg("--version")
+            .output()
+        {
             Ok(output) => {
                 if output.status.success() {
                     match validate_systemd_version(&output.stdout) {
