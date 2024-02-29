@@ -16,6 +16,7 @@ CONSTRAINT_SETTING_ORDER = [
     "ovr_config//os/constraints:os",
     "ovr_config//cpu/constraints:cpu",
     "ovr_config//build_mode/constraints:lto",
+    "prelude//go/constraints:race",
 ]
 
 def get_constraint_setting_order(refs: dict[str, ProviderCollection]) -> list[TargetLabel]:
