@@ -5,7 +5,7 @@ documentation = "https://docs.rs/starlark_derive"
 edition = "2021"
 license = "Apache-2.0"
 name = "starlark_derive"
-repository = "https://github.com/facebookexperimental/starlark-rust"
+repository = "https://github.com/facebook/starlark-rust"
 version = "0.12.0"
 
 [lib]

@@ -52,7 +52,7 @@ your team.
   new languages.
 - [Build APIs](api/build/globals) - documentation for the APIs available when
   writing rules.
-- [Starlark Types](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md) -
+- [Starlark Types](https://github.com/facebook/starlark-rust/blob/main/docs/types.md) -
   rules are written in Starlark (which is approximately Python), but our version
   adds types.
 

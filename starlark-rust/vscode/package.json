@@ -9,7 +9,7 @@
     "version": "1.0.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/facebookexperimental/starlark-rust"
+        "url": "https://github.com/facebook/starlark-rust"
     },
     "publisher": "facebook",
     "categories": [],

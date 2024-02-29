@@ -158,7 +158,7 @@ In many cases, it becomes apparent you need the transitive closure of all
 libraries (for example, the libraries and everything they depend upon), in which
 case, the standard pattern is to move to a provider of a list of `record` (see
 the
-[types.md](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md)
+[types.md](https://github.com/facebook/starlark-rust/blob/main/docs/types.md)
 document in GitHub) and the `flatten/dedupe` functions, defining it as:
 
 ```python

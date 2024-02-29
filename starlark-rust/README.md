@@ -1,14 +1,14 @@
 # Starlark in Rust
 
 [![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
-[![GitHub link](https://img.shields.io/badge/GitHub-facebookexperimental%2Fstarlark--rust-blue.svg)](https://github.com/facebookexperimental/starlark-rust)
+[![GitHub link](https://img.shields.io/badge/GitHub-facebook%2Fstarlark--rust-blue.svg)](https://github.com/facebook/starlark-rust)
 [![crates.io version](https://img.shields.io/crates/v/starlark.svg)](https://crates.io/crates/starlark)
 [![docs.rs availability](https://img.shields.io/docsrs/starlark?label=docs.rs)](https://docs.rs/starlark/)
-[![Build status](https://img.shields.io/github/actions/workflow/status/facebookexperimental/starlark-rust/ci.yml?branch=main)](https://github.com/facebookexperimental/starlark-rust/actions)
+[![Build status](https://img.shields.io/github/actions/workflow/status/facebook/starlark-rust/ci.yml?branch=main)](https://github.com/facebook/starlark-rust/actions)
 
 There are several copies of this repo on GitHub,
-[facebookexperimental/starlark-rust](https://github.com/facebookexperimental/starlark-rust)
-is the canonical one.
+[facebook/starlark-rust](https://github.com/facebook/starlark-rust) is the
+canonical one.
 
 This project provides a Rust implementation of the
 [Starlark language](https://github.com/bazelbuild/starlark/blob/master/spec.md).
@@ -114,16 +114,15 @@ In this section we outline where we don't comply with the
 - We have plenty of extensions, e.g. type annotations, recursion, top-level
   `for`.
 - We don't yet support later additions to Starlark, such as
-  [bytes](https://github.com/facebookexperimental/starlark-rust/issues/4).
+  [bytes](https://github.com/facebook/starlark-rust/issues/4).
 - In some cases creating circular data structures may lead to stack overflows.
 
 ## Making a release
 
-1. Check the
-   [GitHub Actions](https://github.com/facebookexperimental/starlark-rust/actions)
+1. Check the [GitHub Actions](https://github.com/facebook/starlark-rust/actions)
    are green.
 2. Update `CHANGELOG.md` with the changes since the last release.
-   [This link](https://github.com/facebookexperimental/starlark-rust/compare/v0.4.0...main)
+   [This link](https://github.com/facebook/starlark-rust/compare/v0.4.0...main)
    can help (update to compare against the last release).
 3. Update the version numbers of the two `Cargo.toml` files. Bump them by 0.0.1
    if there are no incompatible changes, or 0.1.0 if there are. Bump the
@@ -133,8 +132,8 @@ In this section we outline where we don't comply with the
 5. Run `cargo publish --allow-dirty --dry-run`, then without the `--dry-run`, in
    each of the component directories in the [order above](#components).
 6. Create a
-   [GitHub release](https://github.com/facebookexperimental/starlark-rust/releases/new)
-   with `v0.X.Y`, using the `starlark` version as the name.
+   [GitHub release](https://github.com/facebook/starlark-rust/releases/new) with
+   `v0.X.Y`, using the `starlark` version as the name.
 
 ## License
 

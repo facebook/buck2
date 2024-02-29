@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//! A [Starlark interpreter in Rust](https://github.com/facebookexperimental/starlark-rust).
+//! A [Starlark interpreter in Rust](https://github.com/facebook/starlark-rust).
 //! Starlark is a deterministic version of Python, with [a specification](https://github.com/bazelbuild/starlark/blob/master/spec.md),
 //! used by (amongst others) the [Buck](https://buck.build) and [Bazel](https://bazel.build) build systems.
 //!

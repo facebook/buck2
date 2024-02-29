@@ -955,7 +955,7 @@ f()
 
 #[test]
 fn test_joe() {
-    // Based on discussions at https://github.com/facebookexperimental/starlark-rust/issues/22
+    // Based on discussions at https://github.com/facebook/starlark-rust/issues/22
     let code = r#"
 def animal(id):
     return {

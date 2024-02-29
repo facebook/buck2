@@ -222,7 +222,7 @@ There are many reasons why Meta has chosen Starlark, as detailed in
 article.
 
 The Buck2 project maintains and uses an open source
-[Starlark interpreter in Rust](https://github.com/facebookexperimental/starlark-rust).
+[Starlark interpreter in Rust](https://github.com/facebook/starlark-rust).
 
 #### Subtarget
 
