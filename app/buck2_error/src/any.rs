@@ -231,7 +231,7 @@ mod tests {
                     crate::ErrorTag::StarlarkFail,
                     crate::ErrorTag::WatchmanTimeout,
                 ],
-                category: Some(crate::Category::User),
+                category: Some(crate::Category::Infra),
             });
         }
     }
@@ -242,7 +242,7 @@ mod tests {
             FullMetadataError.into(),
             crate::Error::new(FullMetadataError),
         ] {
-            assert_eq!(e.get_category(), Some(crate::Category::User));
+            assert_eq!(e.get_category(), Some(crate::Category::Infra));
             assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
             assert_eq!(
                 e.source_location(),
@@ -263,7 +263,7 @@ mod tests {
         let e: anyhow::Error = FullMetadataError.into();
         let e = e.context("anyhow");
         let e: crate::Error = e.into();
-        assert_eq!(e.get_category(), Some(crate::Category::User));
+        assert_eq!(e.get_category(), Some(crate::Category::Infra));
         assert!(format!("{:?}", e).contains("anyhow"));
     }
 
@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn test_metadata_through_wrapper() {
         let e: crate::Error = WrapperError(FullMetadataError).into();
-        assert_eq!(e.get_category(), Some(crate::Category::User));
+        assert_eq!(e.get_category(), Some(crate::Category::Infra));
         assert!(format!("{:?}", e).contains("wrapper"));
     }
 

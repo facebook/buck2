@@ -11,7 +11,10 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
+use either::Either;
+
 use crate::classify::best_tag;
+use crate::classify::error_tag_category;
 use crate::context_value::ContextValue;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
@@ -158,10 +161,15 @@ impl Error {
 
     pub fn get_category(&self) -> Option<Category> {
         let mut out = None;
-        for cat in self.iter_context().filter_map(|kind| match kind {
-            ContextValue::Category(cat) => Some(*cat),
-            _ => None,
-        }) {
+        // TODO(nga): remove categories marking and only rely on tags.
+        let context_categories = self.iter_context().flat_map(|kind| match kind {
+            ContextValue::Category(cat) => Either::Left(Some(*cat).into_iter()),
+            ContextValue::Tags(tags) => {
+                Either::Right(tags.iter().copied().filter_map(error_tag_category))
+            }
+            _ => Either::Left(None.into_iter()),
+        });
+        for cat in context_categories {
             // It's an infra error if it was ever marked as an infra error
             match cat {
                 Category::Infra => return Some(cat),

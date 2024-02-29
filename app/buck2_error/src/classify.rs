@@ -9,6 +9,8 @@
 
 use buck2_data::error::ErrorTag;
 
+use crate::Category;
+
 /// When there's no tag, but we want to put something in Scuba, we use this.
 pub const ERROR_TAG_UNCLASSIFIED: &str = "UNCLASSIFIED";
 
@@ -36,6 +38,28 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::ServerStderrUnknown => line!(),
         ErrorTag::ServerStderrEmpty => line!(),
         ErrorTag::UnusedDefaultTag => line!(),
+    }
+}
+
+/// Some tags are known to be either infrastructure or user errors.
+pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Category> {
+    match tag {
+        ErrorTag::ServerJemallocAssert => Some(Category::Infra),
+        ErrorTag::ServerStackOverflow => Some(Category::Infra),
+        ErrorTag::ServerPanicked => Some(Category::Infra),
+        ErrorTag::ServerSegv => Some(Category::Infra),
+        ErrorTag::DaemonConnect => None,
+        ErrorTag::GrpcResponseMessageTooLarge => Some(Category::Infra),
+        ErrorTag::ClientGrpc => Some(Category::Infra),
+        ErrorTag::StarlarkFail => Some(Category::User),
+        ErrorTag::StarlarkStackOverflow => Some(Category::User),
+        ErrorTag::Visibility => Some(Category::User),
+        ErrorTag::Analysis => Some(Category::User),
+        ErrorTag::WatchmanTimeout => Some(Category::Infra),
+        ErrorTag::Http => None,
+        ErrorTag::ServerStderrUnknown => None,
+        ErrorTag::ServerStderrEmpty => None,
+        ErrorTag::UnusedDefaultTag => None,
     }
 }
 
