@@ -7,10 +7,15 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
 use std::process::Command;
 use std::sync::OnceLock;
+
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_util::process;
 
 const SYSTEMD_MIN_VERSION: u32 = 253;
 static AVAILABILITY: OnceLock<Option<SystemdNotAvailableReason>> = OnceLock::new();
@@ -31,6 +36,47 @@ enum SystemdNotAvailableReason {
     SystemctlCommandNotFound,
     #[error("Resource control with systemd is only supported on Linux.")]
     UnsupportedPlatform,
+}
+
+pub struct SystemdRunner {
+    unit_name: String,
+    working_directory: AbsNormPathBuf,
+    collect: bool,
+    properties: HashMap<String, String>,
+}
+
+impl SystemdRunner {
+    pub fn new(
+        unit_name: String,
+        working_directory: AbsNormPathBuf,
+        collect: bool,
+        properties: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            unit_name,
+            working_directory,
+            collect,
+            properties,
+        }
+    }
+
+    pub fn background_command_linux<S: AsRef<OsStr>>(&self, program: S) -> std::process::Command {
+        let mut cmd = process::background_command("systemd-run");
+        cmd.arg("--user")
+            .arg("--scope")
+            .arg("--quiet")
+            .arg(format!("--working-directory={}", self.working_directory))
+            .arg(format!("--unit={}", self.unit_name));
+        if self.collect {
+            cmd.arg("--collect");
+        }
+        for (key, value) in self.properties.iter() {
+            cmd.arg(format!("--property={}={}", key, value));
+        }
+
+        cmd.arg(program);
+        cmd
+    }
 }
 
 fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {
@@ -143,5 +189,73 @@ mod tests {
                 .unwrap(),
             SystemdNotAvailableReason::UnsupportedPlatform
         ));
+    }
+
+    #[test]
+    fn test_systemd_runner_background_command_normal() {
+        let prefix = if cfg!(windows) { "C:" } else { "" };
+        let mut properties = HashMap::new();
+        properties.insert("test_k0".to_owned(), "test_v0".to_owned());
+        properties.insert("test_k1".to_owned(), "test_v1".to_owned());
+        let runner = SystemdRunner::new(
+            "test_unit".to_owned(),
+            AbsNormPathBuf::from(format!("{}/test/path", prefix)).unwrap(),
+            true,
+            properties,
+        );
+        let cmd = runner.background_command_linux("test_prog");
+
+        assert_eq!(cmd.get_program(), "systemd-run");
+        assert!(
+            *cmd.get_args().collect::<Vec<&OsStr>>()
+                == [
+                    "--user",
+                    "--scope",
+                    "--quiet",
+                    format!("--working-directory={}/test/path", prefix).as_str(),
+                    "--unit=test_unit",
+                    "--collect",
+                    "--property=test_k0=test_v0",
+                    "--property=test_k1=test_v1",
+                    "test_prog"
+                ]
+                || *cmd.get_args().collect::<Vec<&OsStr>>()
+                    == [
+                        "--user",
+                        "--scope",
+                        "--quiet",
+                        format!("--working-directory={}/test/path", prefix).as_str(),
+                        "--unit=test_unit",
+                        "--collect",
+                        "--property=test_k1=test_v1",
+                        "--property=test_k0=test_v0",
+                        "test_prog"
+                    ]
+        );
+    }
+
+    #[test]
+    fn test_systemd_runner_background_command_no_property_scope() {
+        let prefix = if cfg!(windows) { "C:" } else { "" };
+        let runner = SystemdRunner::new(
+            "test_unit".to_owned(),
+            AbsNormPathBuf::from(format!("{}/test/path", prefix)).unwrap(),
+            false,
+            HashMap::new(),
+        );
+        let cmd = runner.background_command_linux("test_prog");
+
+        assert_eq!(cmd.get_program(), "systemd-run");
+        assert!(
+            *cmd.get_args().collect::<Vec<&OsStr>>()
+                == [
+                    "--user",
+                    "--scope",
+                    "--quiet",
+                    format!("--working-directory={}/test/path", prefix).as_str(),
+                    "--unit=test_unit",
+                    "test_prog"
+                ]
+        );
     }
 }
