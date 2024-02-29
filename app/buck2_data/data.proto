@@ -2140,8 +2140,13 @@ message MaterializerCommand {
     repeated string paths = 1;
   }
 
+  message InvalidateFilePaths {
+    repeated string paths = 1;
+  }
+
   oneof data {
     Declare declare = 1;
     Ensure ensure = 2;
+    InvalidateFilePaths invalidate_file_paths = 3;
   }
 }

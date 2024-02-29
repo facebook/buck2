@@ -400,7 +400,11 @@ enum MaterializerCommand<T: 'static> {
     /// Declares that given paths are no longer eligible to be materialized by this materializer.
     /// This typically should reflect a change made to the underlying filesystem, either because
     /// the file was created, or because it was removed..
-    InvalidateFilePaths(Vec<ProjectRelativePathBuf>, oneshot::Sender<CleaningFuture>),
+    InvalidateFilePaths(
+        Vec<ProjectRelativePathBuf>,
+        oneshot::Sender<CleaningFuture>,
+        EventDispatcher,
+    ),
 
     /// Takes a list of artifact paths, and materializes all artifacts in the
     /// list that have been declared but not yet been materialized. When the
@@ -437,7 +441,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::MatchArtifacts(paths, _) => {
                 write!(f, "MatchArtifacts({:?})", paths)
             }
-            MaterializerCommand::InvalidateFilePaths(paths, _) => {
+            MaterializerCommand::InvalidateFilePaths(paths, ..) => {
                 write!(f, "InvalidateFilePaths({:?})", paths)
             }
             MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({:?}, _)", paths,),
@@ -869,7 +873,11 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         let (sender, recv) = oneshot::channel();
 
         self.command_sender
-            .send(MaterializerCommand::InvalidateFilePaths(paths, sender))?;
+            .send(MaterializerCommand::InvalidateFilePaths(
+                paths,
+                sender,
+                get_dispatcher(),
+            ))?;
 
         // Wait on future to finish before invalidation can continue.
         let invalidate_fut = recv.await?;
@@ -1268,11 +1276,18 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .all(|(path, value)| self.match_artifact(path, value));
                 sender.send(all_matches).ok();
             }
-            MaterializerCommand::InvalidateFilePaths(paths, sender) => {
+            MaterializerCommand::InvalidateFilePaths(paths, sender, event_dispatcher) => {
                 tracing::trace!(
                     paths = ?paths,
                     "invalidate paths",
                 );
+                self.maybe_log_command(&event_dispatcher, || {
+                    buck2_data::materializer_command::Data::InvalidateFilePaths(
+                        buck2_data::materializer_command::InvalidateFilePaths {
+                            paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+                        },
+                    )
+                });
 
                 let existing_futs = self
                     .tree
