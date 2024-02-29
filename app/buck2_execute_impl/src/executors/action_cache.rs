@@ -102,7 +102,6 @@ async fn query_action_cache_and_download_result(
     )
     .await;
 
-    let identity = None; //TODO: implement this
     if upload_all_actions {
         match re_client
             .upload(
@@ -112,7 +111,6 @@ async fn query_action_cache_and_download_result(
                 ProjectRelativePath::empty(),
                 request.paths().input_directory(),
                 re_use_case,
-                identity,
                 digest_config,
             )
             .await
@@ -164,11 +162,16 @@ async fn query_action_cache_and_download_result(
             }
         };
 
-    let identity = ReActionIdentity::new(
-        command.target,
-        re_action_key.as_deref(),
-        command.request.paths(),
-    );
+    let action_key = if log_action_keys {
+        let identity = ReActionIdentity::new(
+            command.target,
+            re_action_key.as_deref(),
+            command.request.paths(),
+        );
+        Some(identity.action_key)
+    } else {
+        None
+    };
 
     let res = download_action_results(
         request,
@@ -177,14 +180,9 @@ async fn query_action_cache_and_download_result(
         re_use_case,
         digest_config,
         manager,
-        &identity,
         buck2_data::CacheHit {
             action_digest: digest.to_string(),
-            action_key: if log_action_keys {
-                Some(identity.action_key.clone())
-            } else {
-                None
-            },
+            action_key,
         }
         .into(),
         request.paths(),

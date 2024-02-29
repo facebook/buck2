@@ -263,7 +263,7 @@ pub async fn re_directory_to_re_tree(
             })
             .collect();
         let mut retrieved = client
-            .download_typed_blobs::<RE::Directory>(None, digests, use_case)
+            .download_typed_blobs::<RE::Directory>(digests, use_case)
             .await?;
         frontier = retrieved
             .iter()

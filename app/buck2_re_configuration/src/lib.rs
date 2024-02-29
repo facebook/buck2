@@ -206,8 +206,6 @@ pub struct Buck2OssReConfiguration {
     pub capabilities: Option<bool>,
     /// The instance name to use in requests.
     pub instance_name: Option<String>,
-    /// Use the Meta version of the request metadata
-    pub use_fbcode_metadata: bool,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -261,9 +259,6 @@ impl Buck2OssReConfiguration {
                 .unwrap_or_default(), // Empty list is as good None.
             capabilities: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "capabilities")?,
             instance_name: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "instance_name")?,
-            use_fbcode_metadata: legacy_config
-                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "use_fbcode_metadata")?
-                .unwrap_or(true),
         })
     }
 }
