@@ -298,7 +298,7 @@ impl StreamingCommand for TestCommand {
             Some(OutputDestinationArg::Stream) => {
                 console.print_error(&response.executor_stderr)?;
             }
-            _ => {}
+            None => {}
         }
 
         let exit_result = if !build_errors.is_empty() {
