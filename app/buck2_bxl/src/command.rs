@@ -150,6 +150,7 @@ async fn bxl(
                 return Ok(BxlResponse {
                     project_root,
                     errors: Vec::new(),
+                    serialized_build_report: None,
                 });
             }
         };
@@ -214,7 +215,7 @@ async fn bxl(
         .as_ref()
         .expect("should have build options");
     // TODO(lmvasquezg) Pipe this so it prints to stdout when passing --build-report=-
-    let _serialized_build_report = if bxl_opts.unstable_print_build_report {
+    let serialized_build_report = if bxl_opts.unstable_print_build_report {
         let artifact_fs = ctx.get_artifact_fs().await?;
         let build_report_opts = BuildReportOpts {
             // These are all deprecated for `buck2 build`, so don't need to support them
@@ -245,6 +246,7 @@ async fn bxl(
     Ok(BxlResponse {
         project_root,
         errors,
+        serialized_build_report,
     })
 }
 
