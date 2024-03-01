@@ -48,6 +48,7 @@ use crate::execute::blobs::ActionBlobs;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
+use crate::re::action_identity::ReActionIdentity;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 
 #[derive(Clone, Debug, Default)]
@@ -64,6 +65,7 @@ impl Uploader {
         input_dir: &'a ActionImmutableDirectory,
         blobs: &'a ActionBlobs,
         use_case: &RemoteExecutorUseCase,
+        identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<(
         Vec<InlinedBlobWithDigest>,
@@ -105,7 +107,7 @@ impl Uploader {
                 ..Default::default()
             };
             client
-                .get_digests_ttl(use_case.metadata(), request)
+                .get_digests_ttl(use_case.metadata(identity), request)
                 .boxed()
                 .await?
                 .digests_with_ttl
@@ -171,10 +173,12 @@ impl Uploader {
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,
         use_case: RemoteExecutorUseCase,
+        identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<UploadStats> {
         let (mut upload_blobs, mut missing_digests) =
-            Self::find_missing(client, input_dir, blobs, &use_case, digest_config).await?;
+            Self::find_missing(client, input_dir, blobs, &use_case, identity, digest_config)
+                .await?;
 
         if upload_blobs.is_empty() && missing_digests.is_empty() {
             return Ok(UploadStats::default());
@@ -352,7 +356,7 @@ impl Uploader {
         let upload_res = if !upload_files.is_empty() || !upload_blobs.is_empty() {
             client
                 .upload(
-                    use_case.metadata(),
+                    use_case.metadata(identity),
                     UploadRequest {
                         files_with_digest: Some(upload_files),
                         inlined_blobs_with_digest: Some(upload_blobs),

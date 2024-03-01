@@ -8,16 +8,41 @@
  */
 
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_events::dispatch::get_dispatcher_opt;
+use remote_execution::ActionHistoryInfo;
+use remote_execution::BuckInfo;
+use remote_execution::HostResourceRequirements;
 use remote_execution::RemoteExecutionMetadata;
 
+use crate::re::action_identity::ReActionIdentity;
+
 pub trait RemoteExecutionMetadataExt {
-    fn metadata(&self) -> RemoteExecutionMetadata;
+    fn metadata(&self, identity: Option<&ReActionIdentity>) -> RemoteExecutionMetadata;
 }
 
 impl RemoteExecutionMetadataExt for RemoteExecutorUseCase {
-    fn metadata(&self) -> RemoteExecutionMetadata {
+    fn metadata(&self, identity: Option<&ReActionIdentity>) -> RemoteExecutionMetadata {
+        let trace_id = match get_dispatcher_opt() {
+            Some(dispatcher) => dispatcher.trace_id().to_string(),
+            // See the FIXME added in D54396421
+            None => String::new(),
+        };
         RemoteExecutionMetadata {
             use_case_id: self.as_str().to_owned(),
+            buck_info: Some(BuckInfo {
+                build_id: trace_id,
+                ..Default::default()
+            }),
+            action_history_info: identity.map(|identity| ActionHistoryInfo {
+                action_key: identity.action_key.clone(),
+                disable_retry_on_oom: false,
+                ..Default::default()
+            }),
+            host_resource_requirements: identity.map(|identity| HostResourceRequirements {
+                affinity_keys: vec![identity.affinity_key.clone()],
+                input_files_bytes: identity.paths.input_files_bytes() as i64,
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }

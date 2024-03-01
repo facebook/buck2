@@ -233,6 +233,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
                     DirectoryKind::Tree => ctx
                         .re_client()
                         .download_typed_blobs::<RE::Tree>(
+                            None,
                             vec![self.inner.digest.to_re()],
                             self.inner.re_use_case,
                         )
@@ -246,6 +247,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
                         let re_client = ctx.re_client();
                         let root_directory = re_client
                             .download_typed_blobs::<RE::Directory>(
+                                None,
                                 vec![self.inner.digest.to_re()],
                                 self.inner.re_use_case,
                             )

@@ -143,6 +143,8 @@ impl Materializer for EdenMaterializer {
                 ProjectRelativePath::empty(),
                 &input_dir,
                 self.re_use_case,
+                // Don't need OSS RE metadata for Eden
+                None,
                 self.digest_config,
             )
             .await?;
