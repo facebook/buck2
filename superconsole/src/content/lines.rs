@@ -286,11 +286,23 @@ impl Lines {
 
     /// Formats and renders all lines to `stdout`.
     /// Notably, this *queues* the lines for rendering.  You must flush the buffer.
-    pub(crate) fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        for line in &self.0 {
+    pub(crate) fn render_from_line(
+        &self,
+        writer: &mut Vec<u8>,
+        start: usize,
+    ) -> anyhow::Result<()> {
+        for line in self.0.iter().skip(start) {
             line.render_with_clear_and_nl(writer)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn lines_equal(&self, other: &Self) -> usize {
+        self.0
+            .iter()
+            .zip(other.0.iter())
+            .take_while(|(l1, l2)| l1 == l2)
+            .count()
     }
 
     /// Returns the maximum line width and the number of lines.

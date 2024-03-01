@@ -232,10 +232,17 @@ impl SuperConsole {
             _ => None,
         };
 
-        Self::clear_canvas_pre(buffer, self.canvas_contents.len())?;
-        self.canvas_contents = Lines::new();
+        // How much of the canvas hasn't changed, so I can avoid overwriting
+        // and thus avoid flickering things like URL's in VS Code terminal.
+        let reuse_prefix = if self.to_emit.is_empty() {
+            self.canvas_contents.lines_equal(&canvas)
+        } else {
+            0
+        };
+
+        Self::clear_canvas_pre(buffer, self.canvas_contents.len() - reuse_prefix)?;
         self.to_emit.render_with_limit(buffer, limit)?;
-        canvas.render(buffer)?;
+        canvas.render_from_line(buffer, reuse_prefix)?;
         Self::clear_canvas_post(buffer)?;
         self.canvas_contents = canvas;
 
@@ -378,6 +385,44 @@ mod tests {
         assert!(frame_contains(&frame, "line 1"));
         assert!(frame_contains(&frame, "line 2"));
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_reuse_buffer() -> anyhow::Result<()> {
+        let mut console = test_console();
+
+        console.render(&Echo(Lines(vec![
+            vec!["http://example.com/ link"].try_into()?,
+            vec!["number 1, special 1"].try_into()?,
+        ])))?;
+        console.render(&Echo(Lines(vec![
+            vec!["http://example.com/ link"].try_into()?,
+            vec!["number 2, special 2"].try_into()?,
+        ])))?;
+        console.emit(Lines(vec![vec!["special 3"].try_into()?]));
+        console.render(&Echo(Lines(vec![
+            vec!["http://example.com/ link"].try_into()?,
+            vec!["number 3"].try_into()?,
+        ])))?;
+        console.render(&Echo(Lines(vec![
+            vec!["http://example.com/ link"].try_into()?,
+            vec!["special 4"].try_into()?,
+            vec!["number 4"].try_into()?,
+        ])))?;
+
+        let frames = &console.test_output()?.frames;
+        assert_eq!(frames.len(), 4);
+        // We expect the URL to be omitted on some frames, because it didn't change.
+        let expect_url = [0, 2];
+        for (i, frame) in frames.iter().enumerate() {
+            assert_eq!(
+                frame_contains(frame, "http://example.com/"),
+                expect_url.contains(&i),
+            );
+            assert!(frame_contains(frame, format!("number {}", i + 1)));
+            assert!(frame_contains(frame, format!("special {}", i + 1)));
+        }
         Ok(())
     }
 }
