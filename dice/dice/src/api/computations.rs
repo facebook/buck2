@@ -123,6 +123,44 @@ impl<'d> DiceComputations<'d> {
         self.inner().opaque_into_value(derive_from)
     }
 
+    /// DiceComputations &mut-based api can make some computations much more complex to express, but without it
+    /// the data dependencies between different compute requests are impossible to track. with_linear_recompute()
+    /// is an escape hatch in the case where we are willing to sacrifice recompute performance for easier expression
+    /// of a computation. It should not be used lightly, it can be difficult to attribute performance regressions to its use.
+    ///
+    /// Withing the with_linear_recompute(), all deps will be recorded as accessed sequentially and so recomputation
+    /// will not trigger them in parallel. This will apply to calls on DiceComputations returned by .ctx() and by the ones received
+    /// in closures from compute_many and friends. It will not apply to the other deps from which the linear recompute was created.
+    ///
+    /// For example:
+    ///
+    /// ```ignore
+    /// let mut ctx = something();
+    /// let keys1 = vec![Key(10), Key(11)];
+    /// let keys2 = vec![Key(20), Key(21)];
+    /// let keys3 = vec![Key(30), Key(31)];
+    /// let keys4 = vec![Key(40), Key(41)]
+    /// ctx.compute_join(keys1, |ctx, key1| ctx.compute(key1).boxed()).await;
+    /// ctx.with_linear_recompute(|mut linear| {
+    ///     linear.ctx().compute_join(keys2, |ctx, key2| async move {
+    ///         ctx.compute2(
+    ///             |ctx| ctx.compute(key2).boxed(),
+    ///             |ctx| ctx.compute_join(keys3, |ctx, key3| ctx.compute(key3).boxed()).boxed()
+    ///         ).await;
+    ///     }.boxed()
+    /// ).await
+    /// ctx.compute_join(keys4, |ctx, key4| ctx.compute(key4).boxed()).await;
+    /// });
+    /// ```
+    ///
+    /// In this example, the recomputation of all of keys2 and keys3 would be done linearly, but keys1 and keys4 would be recomputed in parallel.
+    pub fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
+        &'a mut self,
+        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+    ) -> impl Future<Output = T> + 'a {
+        func(LinearRecomputeDiceComputations(self.bad_dice()))
+    }
+
     /// Creates computation Futures for all the given tasks.
     ///
     /// ```ignore
@@ -281,6 +319,15 @@ impl<'d> DiceComputations<'d> {
     /// executing.
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
         self.inner().store_evaluation_data(value)
+    }
+}
+
+pub struct LinearRecomputeDiceComputations<'a>(DiceComputations<'a>);
+
+impl LinearRecomputeDiceComputations<'_> {
+    pub fn get(&self) -> DiceComputations<'_> {
+        // for now, we don't actually record deps in any detail so we just cheap in the implementation here.
+        self.0.bad_dice()
     }
 }
 
