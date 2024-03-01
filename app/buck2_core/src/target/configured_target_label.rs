@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
-use std::fmt;
+use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::{self};
 use std::hash::Hash;
 use std::str;
 
@@ -27,7 +28,7 @@ use crate::target::name::TargetNameRef;
 /// 'ConfiguredTargetLabel' are 'TargetLabel's with an 'Configuration' attached.
 /// These uniquely map to nodes of the build graph with 'Configuration's
 /// applied.
-#[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub struct ConfiguredTargetLabel {
     pub(crate) target: TargetLabel,
     pub(crate) cfg_pair: Configuration,
@@ -40,6 +41,12 @@ impl Display for ConfiguredTargetLabel {
             write!(f, " ({})", exec_cfg)?;
         }
         Ok(())
+    }
+}
+
+impl Debug for ConfiguredTargetLabel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
