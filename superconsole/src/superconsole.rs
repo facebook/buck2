@@ -155,7 +155,7 @@ impl SuperConsole {
 
     /// Clears the canvas portion of the superconsole.
     pub fn clear(&mut self) -> anyhow::Result<()> {
-        let mut buffer = vec![];
+        let mut buffer = Vec::new();
         self.root.clear(&mut buffer)?;
         self.output.output(buffer)
     }

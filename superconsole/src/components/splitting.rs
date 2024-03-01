@@ -445,7 +445,7 @@ mod tests {
 
         #[test]
         fn test_no_children() {
-            let lines = Split::<Blank>::new(vec![], Direction::Horizontal, SplitKind::Equal)
+            let lines = Split::<Blank>::new(Vec::new(), Direction::Horizontal, SplitKind::Equal)
                 .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
             assert!(lines.is_empty());

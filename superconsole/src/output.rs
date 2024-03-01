@@ -245,7 +245,7 @@ mod tests {
         }
 
         // Likewise, we expect that sending output and finalizing wold fail.
-        assert!(output.output(vec![]).is_err());
+        assert!(output.output(Vec::new()).is_err());
         assert!(Box::new(output).finalize().is_err());
 
         Ok(())
