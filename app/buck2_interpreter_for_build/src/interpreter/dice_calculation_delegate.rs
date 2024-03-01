@@ -546,8 +546,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                     let error = result_with_stats.as_ref().err().map(|e| format!("{:#}", e));
                     let starlark_peak_allocated_bytes = result_with_stats
                         .as_ref()
-                        .map(|rs| rs.starlark_peak_allocated_bytes)
-                        .unwrap_or(0);
+                        .ok()
+                        .map(|rs| rs.starlark_peak_allocated_bytes);
                     let result = result_with_stats.map(|rs| rs.result);
 
                     (
