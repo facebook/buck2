@@ -85,7 +85,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     )
     .unwrap();
 
-    let buckconfigs =
+    let mut buckconfigs =
         LegacyConfigsViewForStarlark::new(LegacyBuckConfig::empty(), LegacyBuckConfig::empty());
     let host_platform = InterpreterHostPlatform::Linux;
     let host_architecture = InterpreterHostArchitecture::X86_64;
@@ -93,7 +93,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let build_ctx = BuildContext::new_for_module(
         env,
         &cell_info,
-        &buckconfigs,
+        &mut buckconfigs,
         &host_info,
         PerFileTypeContext::Bzl(BzlEvalCtx {
             bzl_path: import_path,

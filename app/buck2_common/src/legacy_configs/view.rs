@@ -19,11 +19,11 @@ use crate::legacy_configs::LegacyBuckConfig;
 /// * simple implementation which is backed by a buckconfig object, used in tests
 /// * DICE-backed implementation which records a dependency on buckconfig property in DICE
 pub trait LegacyBuckConfigView: Debug {
-    fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>>;
+    fn get(&mut self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>>;
 }
 
 impl dyn LegacyBuckConfigView + '_ {
-    pub fn parse<T: FromStr>(&self, section: &str, key: &str) -> anyhow::Result<Option<T>>
+    pub fn parse<T: FromStr>(&mut self, section: &str, key: &str) -> anyhow::Result<Option<T>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::ops::Deref;
+use std::ops::DerefMut;
 
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use dice::DiceComputations;
@@ -31,8 +31,8 @@ use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 ///
 /// The provided closure will be invoked and passed an appropriate
 /// StarlarkEvaluatorProvider.
-pub async fn with_starlark_eval_provider<'a, D: Deref<Target = DiceComputations<'a>>, R>(
-    ctx: D,
+pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputations<'a>>, R>(
+    mut ctx: D,
     profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
     description: String,
     closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> anyhow::Result<R>,
@@ -40,7 +40,7 @@ pub async fn with_starlark_eval_provider<'a, D: Deref<Target = DiceComputations<
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
 
     let starlark_max_callstack_size = root_buckconfig
-        .view(&mut ctx.bad_dice(/* configs */))
+        .view(&mut ctx)
         .parse::<usize>("buck2", "starlark_max_callstack_size")?;
 
     let debugger_handle = ctx.get_starlark_debugger_handle();

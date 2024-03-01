@@ -27,19 +27,22 @@ struct BuckConfigEntry {
     value: Option<FrozenStringValue>,
 }
 
-/// Provides access to the buckconfigs required by starlark functions (read_config, read_root_config).
 pub trait BuckConfigsViewForStarlark {
     fn read_current_cell_config(
-        &self,
+        &mut self,
         section: &str,
         key: &str,
     ) -> anyhow::Result<Option<Arc<str>>>;
 
-    fn read_root_cell_config(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>>;
+    fn read_root_cell_config(
+        &mut self,
+        section: &str,
+        key: &str,
+    ) -> anyhow::Result<Option<Arc<str>>>;
 }
 
 struct BuckConfigsInner<'a> {
-    configs_view: &'a (dyn BuckConfigsViewForStarlark + 'a),
+    configs_view: &'a mut (dyn BuckConfigsViewForStarlark + 'a),
     /// Hash map by `(section, key)` pair, so we do one table lookup per request.
     /// So we hash the `key` even if the section does not exist,
     /// but this is practically not an issue, because keys usually come with cached hash.
@@ -80,7 +83,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
     /// Constructor.
     pub(crate) fn new(
         module: &'a Module,
-        configs_view: &'a (dyn BuckConfigsViewForStarlark + 'a),
+        configs_view: &'a mut (dyn BuckConfigsViewForStarlark + 'a),
     ) -> LegacyBuckConfigsForStarlark<'a> {
         LegacyBuckConfigsForStarlark {
             module,
@@ -102,7 +105,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
 
         let mut inner = self.inner.borrow_mut();
         let BuckConfigsInner {
-            ref configs_view,
+            ref mut configs_view,
             ref mut current_cell_cache,
             ref mut root_cell_cache,
         } = inner.deref_mut();
@@ -163,14 +166,14 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
 }
 
 pub(crate) struct ConfigsOnDiceViewForStarlark<'a, 'd> {
-    ctx: &'a DiceComputations<'d>,
+    ctx: &'a mut DiceComputations<'d>,
     buckconfig: OpaqueLegacyBuckConfigOnDice,
     root_buckconfig: OpaqueLegacyBuckConfigOnDice,
 }
 
 impl<'a, 'd> ConfigsOnDiceViewForStarlark<'a, 'd> {
     pub(crate) fn new(
-        ctx: &'a DiceComputations<'d>,
+        ctx: &'a mut DiceComputations<'d>,
         buckconfig: OpaqueLegacyBuckConfigOnDice,
         root_buckconfig: OpaqueLegacyBuckConfigOnDice,
     ) -> Self {
@@ -184,17 +187,19 @@ impl<'a, 'd> ConfigsOnDiceViewForStarlark<'a, 'd> {
 
 impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
     fn read_current_cell_config(
-        &self,
+        &mut self,
         section: &str,
         key: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
-        self.buckconfig
-            .lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
+        self.buckconfig.lookup(self.ctx, section, key)
     }
 
-    fn read_root_cell_config(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        self.root_buckconfig
-            .lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
+    fn read_root_cell_config(
+        &mut self,
+        section: &str,
+        key: &str,
+    ) -> anyhow::Result<Option<Arc<str>>> {
+        self.root_buckconfig.lookup(self.ctx, section, key)
     }
 }
 
@@ -214,7 +219,7 @@ impl LegacyConfigsViewForStarlark {
 
 impl BuckConfigsViewForStarlark for LegacyConfigsViewForStarlark {
     fn read_current_cell_config(
-        &self,
+        &mut self,
         section: &str,
         key: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
@@ -224,7 +229,11 @@ impl BuckConfigsViewForStarlark for LegacyConfigsViewForStarlark {
             .map(|v| v.to_owned().into()))
     }
 
-    fn read_root_cell_config(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
+    fn read_root_cell_config(
+        &mut self,
+        section: &str,
+        key: &str,
+    ) -> anyhow::Result<Option<Arc<str>>> {
         Ok(self
             .root_cell_config
             .get(section, key)

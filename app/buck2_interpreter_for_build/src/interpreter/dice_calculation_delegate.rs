@@ -230,13 +230,13 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", &starlark_file),
             move |provider, ctx| {
-                let buckconfigs =
+                let mut buckconfigs =
                     ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
                 let evaluation = self
                     .configs
                     .eval_module(
                         starlark_file,
-                        &buckconfigs,
+                        &mut buckconfigs,
                         ast,
                         loaded_modules.clone(),
                         provider,
@@ -321,7 +321,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", path),
             move |provider, ctx| {
-                let buckconfigs =
+                let mut buckconfigs =
                     ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
                 self.configs
@@ -329,7 +329,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         path,
                         ast,
                         parent,
-                        &buckconfigs,
+                        &mut buckconfigs,
                         deps.get_loaded_modules(),
                         provider,
                     )
@@ -529,7 +529,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             profiler_instrumentation,
             format!("load_buildfile:{}", &package),
             move |provider, ctx| {
-                let buckconfigs =
+                let mut buckconfigs =
                     ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
                 span(start_event, move || {
@@ -537,7 +537,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         .configs
                         .eval_build_file(
                             &build_file_path,
-                            &buckconfigs,
+                            &mut buckconfigs,
                             listing,
                             super_package,
                             package_boundary_exception,

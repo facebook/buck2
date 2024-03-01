@@ -482,7 +482,7 @@ impl InterpreterForCell {
         self: &Arc<Self>,
         env: &Module,
         ast: AstModule,
-        buckconfigs: &dyn BuckConfigsViewForStarlark,
+        buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
@@ -541,7 +541,7 @@ impl InterpreterForCell {
     pub(crate) fn eval_module(
         self: &Arc<Self>,
         starlark_path: StarlarkModulePath<'_>,
-        buckconfigs: &dyn BuckConfigsViewForStarlark,
+        buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         ast: AstModule,
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
@@ -578,7 +578,7 @@ impl InterpreterForCell {
         package_file_path: &PackageFilePath,
         ast: AstModule,
         parent: SuperPackage,
-        buckconfigs: &dyn BuckConfigsViewForStarlark,
+        buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<SuperPackage> {
@@ -630,7 +630,7 @@ impl InterpreterForCell {
     pub(crate) fn eval_build_file(
         self: &Arc<Self>,
         build_file: &BuildFilePath,
-        buckconfigs: &dyn BuckConfigsViewForStarlark,
+        buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         listing: PackageListing,
         super_package: SuperPackage,
         package_boundary_exception: bool,

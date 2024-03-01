@@ -113,9 +113,8 @@ impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
 }
 
 impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
-    fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        self.config
-            .lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
+    fn get(&mut self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
+        self.config.lookup(self.ctx, section, key)
     }
 }
 

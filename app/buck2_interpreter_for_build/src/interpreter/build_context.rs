@@ -172,7 +172,7 @@ impl<'a> BuildContext<'a> {
     pub(crate) fn new_for_module(
         module: &'a Module,
         cell_info: &'a InterpreterCellInfo,
-        buckconfigs: &'a dyn BuckConfigsViewForStarlark,
+        buckconfigs: &'a mut dyn BuckConfigsViewForStarlark,
         host_info: &'a HostInfo,
         additional: PerFileTypeContext,
         ignore_attrs_for_profiling: bool,
