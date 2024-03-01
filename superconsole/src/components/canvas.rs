@@ -32,6 +32,14 @@ pub(crate) struct Canvas {
 }
 
 impl Canvas {
+    /// Canvas only has a single child.
+    /// It essentially functions as a passthrough - an invisible window which handles sizing and re-drawing correctly.
+    pub(crate) fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
     /// A passthrough method that resizes the Canvas to reflect the size of the root.
     /// Allows dynamic resizing.
     /// Cuts off any lines that are too for long a single row
@@ -46,14 +54,6 @@ impl Canvas {
         output.shrink_lines_to_dimensions(dimensions);
         self.last_lines.set(output.len().try_into()?);
         Ok(output)
-    }
-
-    /// Canvas only has a single child.
-    /// It essentially functions as a passthrough - an invisible window which handles sizing and re-drawing correctly.
-    pub(crate) fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
     }
 
     /// The first half of drawing.  It moves the buffer up to be overwritten and sets the length to 0.
