@@ -11,6 +11,7 @@
 //! operations of converting file content to ASTs and evaluating import and
 //! build files.
 
+use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -247,6 +248,12 @@ impl LoadResolver for InterpreterLoadResolver {
     }
 }
 
+struct EvalResult {
+    additional: PerFileTypeContext,
+    starlark_peak_allocated_byte_limit: OnceCell<Option<u64>>,
+    is_profiling_enabled: bool,
+}
+
 impl InterpreterForCell {
     fn verbose_gc() -> anyhow::Result<bool> {
         match std::env::var_os("BUCK2_STARLARK_VERBOSE_GC") {
@@ -470,17 +477,17 @@ impl InterpreterForCell {
         self.load_resolver(import).resolve_load(import_string, None)
     }
 
-    fn eval<'a>(
-        self: &'a Arc<Self>,
-        env: &'a Module,
+    fn eval(
+        self: &Arc<Self>,
+        env: &Module,
         ast: AstModule,
-        buckconfig: &'a dyn LegacyBuckConfigView,
-        root_buckconfig: &'a dyn LegacyBuckConfigView,
+        buckconfig: &dyn LegacyBuckConfigView,
+        root_buckconfig: &dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
-        eval_provider: &'a mut dyn StarlarkEvaluatorProvider,
+        eval_provider: &mut dyn StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<(BuildContext<'a>, bool)> {
+    ) -> anyhow::Result<EvalResult> {
         let import = extra_context.starlark_path();
         let globals = self
             .global_state
@@ -522,7 +529,11 @@ impl InterpreterForCell {
                 Err(p) => return Err(BuckStarlarkError::new(p).into()),
             }
         };
-        Ok((extra, is_profiling_enabled))
+        Ok(EvalResult {
+            additional: extra.additional,
+            is_profiling_enabled,
+            starlark_peak_allocated_byte_limit: extra.starlark_peak_allocated_byte_limit,
+        })
     }
 
     /// Evaluates the AST for a parsed module. Loaded modules must contain the loaded
@@ -597,7 +608,6 @@ impl InterpreterForCell {
                 eval_provider,
                 false,
             )?
-            .0
             .additional;
 
         let extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>> =
@@ -642,7 +652,7 @@ impl InterpreterForCell {
             package_boundary_exception,
             &loaded_modules,
         )?;
-        let (build_ctx, is_profiling_enabled) = self.eval(
+        let eval_result = self.eval(
             &env,
             ast,
             buckconfig,
@@ -653,14 +663,14 @@ impl InterpreterForCell {
             unstable_typecheck,
         )?;
 
-        let internals = build_ctx.additional.into_build()?;
+        let internals = eval_result.additional.into_build()?;
         let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
-        let starlark_peak_mem_check_enabled = !is_profiling_enabled
+        let starlark_peak_mem_check_enabled = !eval_result.is_profiling_enabled
             && root_buckconfig
                 .parse("buck2", "check_starlark_peak_memory")?
                 .unwrap_or(false);
         let default_limit = 2 * (1 << 30);
-        let starlark_mem_limit = build_ctx
+        let starlark_mem_limit = eval_result
             .starlark_peak_allocated_byte_limit
             .get()
             .map_or(default_limit, |opt| opt.unwrap_or(default_limit));
