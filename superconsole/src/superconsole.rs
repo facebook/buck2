@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cell::Cell;
 use std::cmp;
 use std::env;
 use std::io;
@@ -38,7 +37,7 @@ const MAX_GRAPHEME_BUFFER: usize = 1000000;
 /// Producing output from sources other than SuperConsole while break the TUI.
 pub struct SuperConsole {
     /// Number of lines that were used to render the canvas last time.
-    canvas_height: Cell<u16>,
+    canvas_height: u16,
     /// Buffer storing the lines we should emit next time we render.
     to_emit: Lines,
     /// A default screen size to use if the size cannot be fetched
@@ -75,7 +74,7 @@ impl SuperConsole {
         output: Box<dyn SuperConsoleOutput>,
     ) -> Self {
         Self {
-            canvas_height: Cell::new(0),
+            canvas_height: 0,
             to_emit: Lines::new(),
             fallback_size,
             output,
@@ -161,8 +160,9 @@ impl SuperConsole {
 
     /// The first half of drawing.  It moves the buffer up to be overwritten and sets the length to 0.
     /// This is used to clear the scratch area so that any possibly emitted messages can write over it.
-    pub(crate) fn canvas_move_up(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        let len = self.canvas_height.take();
+    pub(crate) fn canvas_move_up(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+        let len = self.canvas_height;
+        self.canvas_height = 0;
         if len != 0 {
             writer.queue(MoveUp(len))?;
         }
@@ -172,7 +172,7 @@ impl SuperConsole {
     }
 
     /// Clears the canvas.
-    fn canvas_clear(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    fn canvas_clear(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         self.canvas_move_up(writer)?;
         writer.queue(Clear(ClearType::FromCursorDown))?;
         Ok(())
@@ -203,7 +203,7 @@ impl SuperConsole {
     /// Allows dynamic resizing.
     /// Cuts off any lines that are too for long a single row
     fn canvas_draw(
-        &self,
+        &mut self,
         root: &dyn Component,
         dimensions: Dimensions,
         mode: DrawMode,
@@ -211,7 +211,7 @@ impl SuperConsole {
         let mut output = root.draw(dimensions, mode)?;
         // We don't trust the child to not truncate the result.
         output.shrink_lines_to_dimensions(dimensions);
-        self.canvas_height.set(output.len().try_into()?);
+        self.canvas_height = output.len().try_into()?;
         Ok(output)
     }
 
