@@ -92,7 +92,6 @@ impl Dimensions {
     /// Finds the size of a [`Component`](crate::Component)'s output in a given dimension.
     /// Truncates the size to at most `u16::MAX`.
     // ptr args allowed because line trait only implemented on `Vec<line>`
-    #[allow(clippy::ptr_arg)]
     pub fn dimension_from_output_truncated(output: &Lines, direction: Direction) -> usize {
         match direction {
             Direction::Horizontal => output.max_line_length(),

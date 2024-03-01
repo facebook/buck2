@@ -184,7 +184,6 @@ impl SuperConsole {
     ) -> anyhow::Result<()> {
         /// Heuristic to determine if a buffer is too large to buffer.
         /// Can be tuned, but is currently set to 1000000 graphemes.
-        #[allow(clippy::ptr_arg)]
         fn is_big(buf: &Lines) -> bool {
             let len: usize = buf.iter().map(Line::len).sum();
             len > MAX_GRAPHEME_BUFFER
