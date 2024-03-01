@@ -31,6 +31,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -45,6 +46,7 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
@@ -128,7 +130,8 @@ pub(crate) async fn get_aquery_env(
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
 enum UnpackActionNodes<'v> {
-    ActionQueryNodes(&'v StarlarkTargetSet<ActionQueryNode>),
+    ActionQueryNodes(UnpackList<StarlarkActionQueryNode>),
+    ActionQueryNodesSet(&'v StarlarkTargetSet<ActionQueryNode>),
     ConfiguredProviders(ConfiguredProvidersExprArg<'v>),
     ConfiguredTargets(ConfiguredTargetListExprArg<'v>),
 }
@@ -145,7 +148,10 @@ async fn unpack_action_nodes<'v>(
 ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
     let aquery_env = get_aquery_env(&this.ctx.data, &this.global_cfg_options_override).await?;
     let providers = match expr {
-        UnpackActionNodes::ActionQueryNodes(action_nodes) => return Ok(action_nodes.0.clone()),
+        UnpackActionNodes::ActionQueryNodes(action_nodes) => {
+            return Ok(action_nodes.into_iter().map(|v| v.0).collect());
+        }
+        UnpackActionNodes::ActionQueryNodesSet(action_nodes) => return Ok(action_nodes.0.clone()),
         UnpackActionNodes::ConfiguredProviders(arg) => {
             ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 arg,
