@@ -72,7 +72,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        let interpreter = ctx
+        let mut interpreter = ctx
             .get_interpreter_calculator(
                 package.cell_name(),
                 BuildFileCell::new(package.cell_name()),

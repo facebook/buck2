@@ -54,7 +54,7 @@ async fn test_package_value_same_dir_package_file() {
     );
 
     let mut ctx = calculation(&fs).await;
-    let interpreter = ctx
+    let mut interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
         .unwrap();
@@ -101,7 +101,7 @@ async fn test_package_value_parent_dir_package_file() {
     );
 
     let mut ctx = calculation(&fs).await;
-    let interpreter = ctx
+    let mut interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
         .unwrap();
@@ -137,7 +137,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
     fs.write_file("foo/BUCK", "");
 
     let mut ctx = calculation(&fs).await;
-    let interpreter = ctx
+    let mut interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
         .unwrap();
@@ -222,7 +222,7 @@ async fn test_read_parent_package_value() {
     );
 
     let mut ctx = calculation(&fs).await;
-    let interpreter = ctx
+    let mut interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
         .unwrap();
@@ -287,7 +287,7 @@ async fn test_read_parent_package_value_from_bzl() {
     );
 
     let mut ctx = calculation(&fs).await;
-    let interpreter = ctx
+    let mut interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
         .unwrap();
@@ -323,7 +323,7 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
     fs.write_file("foo/BUCK", "");
 
     let mut ctx = calculation(&fs).await;
-    let interpreter = ctx
+    let mut interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
         .unwrap();
@@ -367,7 +367,7 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
     fs.write_file("foo/BUCK", "");
 
     let mut ctx = calculation(&fs).await;
-    let interpreter = ctx
+    let mut interpreter = ctx
         .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
         .await
         .unwrap();
