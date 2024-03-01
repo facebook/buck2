@@ -27,6 +27,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::internal_error;
 use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
@@ -78,7 +79,7 @@ async fn generate_profile_analysis(
                 .context("Recursive profile analysis failed")
                 .map(Arc::new)
         }
-        _ => Err(anyhow::anyhow!("Incorrect profile mode (internal error)")),
+        _ => Err(internal_error!("Incorrect profile mode")),
     }
 }
 

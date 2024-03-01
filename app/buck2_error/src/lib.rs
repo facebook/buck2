@@ -19,6 +19,7 @@ mod context_value;
 mod derive_tests;
 mod error;
 mod format;
+pub mod macros;
 mod root;
 mod source_location;
 

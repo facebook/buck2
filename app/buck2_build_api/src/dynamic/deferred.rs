@@ -19,6 +19,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
@@ -167,11 +168,7 @@ impl Deferred for DynamicAction {
             .output
             .get(self.index)
             .map_or_else(
-                || {
-                    Err(anyhow::anyhow!(
-                        "Unexpected index in DynamicAction (internal error)"
-                    ))
-                },
+                || Err(internal_error!("Unexpected index in DynamicAction")),
                 Ok,
             )?;
         Ok(DeferredValue::Deferred(key.deferred_data().dupe()))

@@ -17,6 +17,7 @@ use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_error::internal_error;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_profile::get_profile_response;
@@ -139,7 +140,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             .await?
                     }
                     _ => {
-                        return Err(anyhow::anyhow!("Incorrect profile mode (internal error)"));
+                        return Err(internal_error!("Incorrect profile mode"));
                     }
                 };
 
