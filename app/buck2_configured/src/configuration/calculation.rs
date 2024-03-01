@@ -281,7 +281,7 @@ async fn resolve_execution_platform_from_constraints(
 }
 
 async fn configuration_matches(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cfg: &ConfigurationData,
     target_node_cell: CellName,
     constraints_and_configs: &ConfigSettingData,
@@ -298,7 +298,6 @@ async fn configuration_matches(
     for (raw_section_and_key, config_value) in &constraints_and_configs.buckconfigs {
         let config_section_and_key = parse_config_section_and_key(raw_section_and_key, None)?;
         let v = ctx
-            .bad_dice()
             .get_legacy_config_property(
                 target_node_cell,
                 &config_section_and_key.section,

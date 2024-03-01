@@ -69,7 +69,7 @@ pub(crate) struct CfgConstructor {
 
 async fn eval_pre_constraint_analysis<'v>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
@@ -79,7 +79,7 @@ async fn eval_pre_constraint_analysis<'v>(
     print: &'v EventDispatcherPrintHandler,
 ) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
     with_starlark_eval_provider(
-        &mut ctx.bad_dice(),
+        ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOrInstrumentation::disabled(),
         "pre constraint-analysis invocation".to_owned(),
@@ -163,13 +163,13 @@ async fn analyze_constraints(
 
 async fn eval_post_constraint_analysis<'v>(
     cfg_constructor_post_constraint_analysis: Value<'v>,
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     params: Value<'v>,
     mut eval: Evaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
 ) -> anyhow::Result<ConfigurationData> {
     with_starlark_eval_provider(
-        &mut ctx.bad_dice(),
+        ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOrInstrumentation::disabled(),
         "post constraint-analysis invocation for cfg".to_owned(),

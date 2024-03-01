@@ -195,7 +195,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .buildfile()
             .to_owned();
 
-        let calc = ctx
+        let mut calc = ctx
             .get_interpreter_calculator(package.cell_name(), build_file_cell)
             .await?;
 
@@ -217,7 +217,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
         // Therefore we re-parse the file, if it exists.
         // Fortunately, there are only a small number (currently a few hundred)
-        let interpreter = ctx
+        let mut interpreter = ctx
             .get_interpreter_calculator(package.cell(), package.build_file_cell())
             .await?;
         Ok(interpreter

@@ -165,8 +165,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         Ok(ModuleDeps(
             ctx.try_compute_join(modules, |ctx, (span, import)| {
                 async move {
-                    ctx.bad_dice()
-                        .get_loaded_module(import.borrow())
+                    ctx.get_loaded_module(import.borrow())
                         .await
                         .with_context(|| {
                             format!(
@@ -186,14 +185,14 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     }
 
     pub async fn prepare_eval<'a>(
-        &'a self,
+        &'a mut self,
         starlark_file: StarlarkPath<'_>,
     ) -> anyhow::Result<(AstModule, ModuleDeps)> {
         let ParseData(ast, imports) = self.parse_file(starlark_file).await??;
         let deps = CycleGuard::<LoadCycleDescriptor>::new(self.ctx)?
-            .guard_this(Self::eval_deps(&mut self.ctx.bad_dice(), &imports))
+            .guard_this(Self::eval_deps(self.ctx, &imports))
             .await
-            .into_result(&mut self.ctx.bad_dice())
+            .into_result(self.ctx)
             .await???;
         Ok((ast, deps))
     }
@@ -277,7 +276,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
     /// Return `None` if there's no `PACKAGE` file in the directory.
     pub async fn prepare_package_file_eval(
-        &self,
+        &mut self,
         path: &PackageFilePath,
     ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
         // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
