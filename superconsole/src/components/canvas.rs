@@ -47,9 +47,7 @@ impl Canvas {
         self.last_lines.set(output.len().try_into()?);
         Ok(output)
     }
-}
 
-impl Canvas {
     /// Canvas only has a single child.
     /// It essentially functions as a passthrough - an invisible window which handles sizing and re-drawing correctly.
     pub(crate) fn new() -> Self {
