@@ -241,7 +241,7 @@ impl<T: IoHandler> ExtensionCommand<T> for RefreshTtls {
             Duration::seconds(self.min_ttl),
             processor.io.digest_config(),
         )
-        .map(|f| processor.rt.spawn(f));
+        .map(|f| processor.spawn(f));
         let _ignored = self.sender.send(task);
     }
 }

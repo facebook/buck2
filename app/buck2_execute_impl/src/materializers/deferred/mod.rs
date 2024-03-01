@@ -91,6 +91,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
+use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio::time::Interval;
 use tracing::instrument;
@@ -1147,6 +1148,22 @@ impl<T: 'static> Stream for CommandStream<T> {
 }
 
 impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
+    fn spawn_from_rt<F>(rt: &Handle, f: F) -> JoinHandle<F::Output>
+    where
+        F: std::future::Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        rt.spawn(f)
+    }
+
+    fn spawn<F>(&self, f: F) -> JoinHandle<F::Output>
+    where
+        F: std::future::Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        Self::spawn_from_rt(&self.rt, f)
+    }
+
     /// Loop that runs for as long as the materializer is alive.
     ///
     /// It takes commands via the `Materializer` trait methods.
@@ -1212,7 +1229,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 // `try_recv`.
                                 let (tx, rx) = oneshot::channel();
 
-                                self.rt.spawn(async {
+                                self.spawn(async {
                                     let res = fut.await;
                                     let _ignored = tx.send((Utc::now(), res));
                                 });
@@ -1760,7 +1777,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let io = self.io.dupe();
         let command_sender = self.command_sender.dupe();
         let task = self
-            .rt
             .spawn(async move {
                 let cancellations = CancellationContext::never_cancelled(); // spawned
 
@@ -2253,7 +2269,7 @@ fn clean_path<T: IoHandler>(
             .shared();
     }
 
-    rt.spawn({
+    DeferredMaterializerCommandProcessor::<T>::spawn_from_rt(rt, {
         let io = io.dupe();
         let cancellations = CancellationContext::never_cancelled();
         async move {
