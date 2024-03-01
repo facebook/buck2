@@ -392,13 +392,13 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
         anyhow::Error: From<<T as FromStr>::Err>,
         T: Send + Sync + 'static,
     {
-        let v = self
-            .get_legacy_config_property(cell_name, section, key)
-            .await?;
-        match v {
-            None => Ok(None),
-            Some(v) => Ok(Some(LegacyBuckConfig::parse_impl(section, key, &v)?)),
-        }
+        LegacyBuckConfig::parse_value(
+            section,
+            key,
+            self.get_legacy_config_property(cell_name, section, key)
+                .await?
+                .as_deref(),
+        )
     }
 }
 

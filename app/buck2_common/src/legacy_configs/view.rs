@@ -27,8 +27,6 @@ impl dyn LegacyBuckConfigView + '_ {
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        self.get(section, key)?
-            .map(|s| LegacyBuckConfig::parse_impl(section, key, &s))
-            .transpose()
+        LegacyBuckConfig::parse_value(section, key, self.get(section, key)?.as_deref())
     }
 }

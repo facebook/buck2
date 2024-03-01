@@ -1257,6 +1257,17 @@ impl LegacyBuckConfig {
             .transpose()
     }
 
+    pub fn parse_value<T: FromStr>(
+        section: &str,
+        key: &str,
+        value: Option<&str>,
+    ) -> anyhow::Result<Option<T>>
+    where
+        anyhow::Error: From<<T as FromStr>::Err>,
+    {
+        value.map(|s| Self::parse_impl(section, key, s)).transpose()
+    }
+
     pub fn parse_list<T: FromStr>(&self, section: &str, key: &str) -> anyhow::Result<Option<Vec<T>>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
