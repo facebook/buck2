@@ -160,14 +160,12 @@ impl SuperConsole {
 
     /// The first step of drawing.  It moves the buffer up to be overwritten and sets the length to 0.
     /// This is used to clear the scratch area so that any possibly emitted messages can write over it.
-    pub(crate) fn clear_canvas_pre(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        let mut len = self.canvas_height;
-        self.canvas_height = 0;
-        while len > 0 {
+    pub(crate) fn clear_canvas_pre(writer: &mut Vec<u8>, mut height: usize) -> anyhow::Result<()> {
+        while height > 0 {
             // We can only move up at most u16 at a time, so repeat until we move up enough
-            let step = std::cmp::min(len, u16::MAX as usize) as u16;
+            let step = std::cmp::min(height, u16::MAX as usize) as u16;
             writer.queue(MoveUp(step))?;
-            len -= step as usize;
+            height -= step as usize;
         }
         writer.queue(MoveToColumn(0))?;
         Ok(())
@@ -175,7 +173,7 @@ impl SuperConsole {
 
     /// The last step of drawing. Ensures there is nothing else below on the console.
     /// Important in case the new canvas was smaller than the last.
-    pub(crate) fn clear_canvas_post(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn clear_canvas_post(writer: &mut Vec<u8>) -> anyhow::Result<()> {
         writer.queue(Clear(ClearType::FromCursorDown))?;
         Ok(())
     }
@@ -183,8 +181,9 @@ impl SuperConsole {
     /// Clears the canvas portion of the superconsole.
     pub fn clear(&mut self) -> anyhow::Result<()> {
         let mut buffer = Vec::new();
-        self.clear_canvas_pre(&mut buffer)?;
-        self.clear_canvas_post(&mut buffer)?;
+        Self::clear_canvas_pre(&mut buffer, self.canvas_height)?;
+        self.canvas_height = 0;
+        Self::clear_canvas_post(&mut buffer)?;
         self.output.output(buffer)
     }
 
@@ -233,10 +232,11 @@ impl SuperConsole {
             _ => None,
         };
 
-        self.clear_canvas_pre(buffer)?;
+        Self::clear_canvas_pre(buffer, self.canvas_height)?;
+        self.canvas_height = 0;
         self.to_emit.render_with_limit(buffer, limit)?;
         canvas.render(buffer)?;
-        self.clear_canvas_post(buffer)?;
+        Self::clear_canvas_post(buffer)?;
         self.canvas_height = canvas.len();
 
         Ok(())
