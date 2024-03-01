@@ -16,7 +16,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::legacy_configs::view::LegacyBuckConfigView;
+use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
@@ -55,6 +55,7 @@ use starlark::environment::Module;
 use starlark::syntax::AstModule;
 use starlark::values::OwnedFrozenRef;
 
+use crate::interpreter::buckconfig::BuckConfigsViewForStarlark;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
@@ -481,8 +482,7 @@ impl InterpreterForCell {
         self: &Arc<Self>,
         env: &Module,
         ast: AstModule,
-        buckconfig: &dyn LegacyBuckConfigView,
-        root_buckconfig: &dyn LegacyBuckConfigView,
+        buckconfigs: &dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
@@ -499,8 +499,7 @@ impl InterpreterForCell {
         let extra = BuildContext::new_for_module(
             env,
             cell_info,
-            buckconfig,
-            root_buckconfig,
+            buckconfigs,
             host_info,
             extra_context,
             self.ignore_attrs_for_profiling,
@@ -542,8 +541,7 @@ impl InterpreterForCell {
     pub(crate) fn eval_module(
         self: &Arc<Self>,
         starlark_path: StarlarkModulePath<'_>,
-        buckconfig: &dyn LegacyBuckConfigView,
-        root_buckconfig: &dyn LegacyBuckConfigView,
+        buckconfigs: &dyn BuckConfigsViewForStarlark,
         ast: AstModule,
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
@@ -566,8 +564,7 @@ impl InterpreterForCell {
         self.eval(
             &env,
             ast,
-            buckconfig,
-            root_buckconfig,
+            buckconfigs,
             loaded_modules,
             extra_context,
             eval_provider,
@@ -581,8 +578,7 @@ impl InterpreterForCell {
         package_file_path: &PackageFilePath,
         ast: AstModule,
         parent: SuperPackage,
-        buckconfig: &dyn LegacyBuckConfigView,
-        root_buckconfig: &dyn LegacyBuckConfigView,
+        buckconfigs: &dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<SuperPackage> {
@@ -601,8 +597,7 @@ impl InterpreterForCell {
             .eval(
                 &env,
                 ast,
-                buckconfig,
-                root_buckconfig,
+                buckconfigs,
                 loaded_modules,
                 extra_context,
                 eval_provider,
@@ -635,8 +630,7 @@ impl InterpreterForCell {
     pub(crate) fn eval_build_file(
         self: &Arc<Self>,
         build_file: &BuildFilePath,
-        buckconfig: &dyn LegacyBuckConfigView,
-        root_buckconfig: &dyn LegacyBuckConfigView,
+        buckconfigs: &dyn BuckConfigsViewForStarlark,
         listing: PackageListing,
         super_package: SuperPackage,
         package_boundary_exception: bool,
@@ -655,8 +649,7 @@ impl InterpreterForCell {
         let eval_result = self.eval(
             &env,
             ast,
-            buckconfig,
-            root_buckconfig,
+            buckconfigs,
             loaded_modules,
             PerFileTypeContext::Build(internals),
             eval_provider,
@@ -666,9 +659,14 @@ impl InterpreterForCell {
         let internals = eval_result.additional.into_build()?;
         let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
         let starlark_peak_mem_check_enabled = !eval_result.is_profiling_enabled
-            && root_buckconfig
-                .parse("buck2", "check_starlark_peak_memory")?
-                .unwrap_or(false);
+            && LegacyBuckConfig::parse_value(
+                "buck2",
+                "check_starlark_peak_memory",
+                buckconfigs
+                    .read_root_cell_config("buck2", "check_starlark_peak_memory")?
+                    .as_deref(),
+            )?
+            .unwrap_or(false);
         let default_limit = 2 * (1 << 30);
         let starlark_mem_limit = eval_result
             .starlark_peak_allocated_byte_limit

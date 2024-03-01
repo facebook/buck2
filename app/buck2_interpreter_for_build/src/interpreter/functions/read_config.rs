@@ -46,8 +46,8 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let buckconfig = &BuildContext::from_context(eval)?.buckconfig;
-        match buckconfig.get(section, key)? {
+        let buckconfigs = &BuildContext::from_context(eval)?.buckconfigs;
+        match buckconfigs.current_cell_get(section, key)? {
             Some(v) => Ok(v.to_value()),
             None => Ok(default.unwrap_or_else(Value::new_none)),
         }
@@ -63,8 +63,8 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] default: NoneOr<StringValue<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneOr<StringValue<'v>>> {
-        let buckconfig = &BuildContext::from_context(eval)?.root_buckconfig;
-        match buckconfig.get(section, key)? {
+        let buckconfigs = &BuildContext::from_context(eval)?.buckconfigs;
+        match buckconfigs.root_cell_get(section, key)? {
             Some(v) => Ok(NoneOr::Other(v.to_string_value())),
             None => Ok(default),
         }

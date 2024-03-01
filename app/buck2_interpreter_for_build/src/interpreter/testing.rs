@@ -43,6 +43,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::Value;
 
+use crate::interpreter::buckconfig::LegacyConfigsViewForStarlark;
 use crate::interpreter::configuror::AdditionalGlobalsFn;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
@@ -260,10 +261,12 @@ impl Tester {
             .unwrap();
         let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
         let mut provider = StarlarkPassthroughProvider;
+        let buckconfigs =
+            LegacyConfigsViewForStarlark::new(buckconfig.clone(), root_buckconfig.clone());
+
         let env = interpreter.eval_module(
             StarlarkModulePath::LoadFile(path),
-            buckconfig,
-            root_buckconfig,
+            &buckconfigs,
             ast,
             loaded_modules.clone(),
             &mut provider,
@@ -309,10 +312,11 @@ impl Tester {
             .unwrap();
         let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
         let mut provider = StarlarkPassthroughProvider;
+        let buckconfigs =
+            LegacyConfigsViewForStarlark::new(buckconfig.clone(), root_buckconfig.clone());
         let eval_result_with_stats = interpreter.eval_build_file(
             path,
-            buckconfig,
-            root_buckconfig,
+            &buckconfigs,
             package_listing,
             SuperPackage::empty::<SuperPackageValuesImpl>(),
             false,

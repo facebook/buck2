@@ -54,6 +54,7 @@ use starlark::environment::Module;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
+use crate::interpreter::buckconfig::ConfigsOnDiceViewForStarlark;
 use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
@@ -229,12 +230,12 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", &starlark_file),
             move |provider, _| {
+                let buckconfigs = ConfigsOnDiceViewForStarlark::new(buckconfig, root_buckconfig);
                 let evaluation = self
                     .configs
                     .eval_module(
                         starlark_file,
-                        &buckconfig,
-                        &root_buckconfig,
+                        &buckconfigs,
                         ast,
                         loaded_modules.clone(),
                         provider,
@@ -319,13 +320,14 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", path),
             move |provider, _| {
+                let buckconfigs = ConfigsOnDiceViewForStarlark::new(buckconfig, root_buckconfig);
+
                 self.configs
                     .eval_package_file(
                         path,
                         ast,
                         parent,
-                        &buckconfig,
-                        &root_buckconfig,
+                        &buckconfigs,
                         deps.get_loaded_modules(),
                         provider,
                     )
@@ -525,13 +527,14 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             profiler_instrumentation,
             format!("load_buildfile:{}", &package),
             move |provider, _| {
+                let buckconfigs = ConfigsOnDiceViewForStarlark::new(buckconfig, root_buckconfig);
+
                 span(start_event, move || {
                     let result_with_stats = self
                         .configs
                         .eval_build_file(
                             &build_file_path,
-                            &buckconfig,
-                            &root_buckconfig,
+                            &buckconfigs,
                             listing,
                             super_package,
                             package_boundary_exception,

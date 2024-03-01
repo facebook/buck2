@@ -40,6 +40,7 @@ pub async fn with_starlark_eval_provider<'a, D: Deref<Target = DiceComputations<
 ) -> anyhow::Result<R> {
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
     let root_buckconfig_view: &dyn LegacyBuckConfigView = &root_buckconfig;
+
     let starlark_max_callstack_size =
         root_buckconfig_view.parse::<usize>("buck2", "starlark_max_callstack_size")?;
 

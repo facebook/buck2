@@ -10,7 +10,6 @@
 use std::cell::OnceCell;
 use std::fmt::Debug;
 
-use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
@@ -23,7 +22,8 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 
-use crate::interpreter::buckconfig::LegacyBuckConfigForStarlark;
+use crate::interpreter::buckconfig::BuckConfigsViewForStarlark;
+use crate::interpreter::buckconfig::LegacyBuckConfigsForStarlark;
 use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
@@ -153,10 +153,7 @@ pub struct BuildContext<'a> {
     /// `load()` statements.
     pub cell_info: &'a InterpreterCellInfo,
 
-    /// Current cell file buckconfig.
-    pub(crate) buckconfig: LegacyBuckConfigForStarlark<'a>,
-    /// Buckconfig of the root cell.
-    pub(crate) root_buckconfig: LegacyBuckConfigForStarlark<'a>,
+    pub(crate) buckconfigs: LegacyBuckConfigsForStarlark<'a>,
 
     pub host_info: &'a HostInfo,
 
@@ -175,18 +172,15 @@ impl<'a> BuildContext<'a> {
     pub(crate) fn new_for_module(
         module: &'a Module,
         cell_info: &'a InterpreterCellInfo,
-        buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
-        root_buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
+        buckconfigs: &'a dyn BuckConfigsViewForStarlark,
         host_info: &'a HostInfo,
         additional: PerFileTypeContext,
         ignore_attrs_for_profiling: bool,
     ) -> BuildContext<'a> {
-        let buckconfig = LegacyBuckConfigForStarlark::new(module, buckconfig);
-        let root_buckconfig = LegacyBuckConfigForStarlark::new(module, root_buckconfig);
+        let buckconfigs = LegacyBuckConfigsForStarlark::new(module, buckconfigs);
         BuildContext {
             cell_info,
-            buckconfig,
-            root_buckconfig,
+            buckconfigs,
             host_info,
             additional,
             ignore_attrs_for_profiling,
