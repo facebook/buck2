@@ -71,8 +71,8 @@ use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::stream::futures_unordered::FuturesUnordered;
@@ -255,18 +255,22 @@ async fn build(
         .await?
         .unwrap_or_default();
 
-    let build_result = build_targets(
-        &ctx,
-        resolved_pattern,
-        target_resolution_config,
-        build_providers,
-        &materialization_context,
-        build_opts.fail_fast,
-        MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
-        build_opts.skip_incompatible_targets,
-        want_configured_graph_size,
-    )
-    .await?;
+    let build_result = ctx
+        .with_linear_recompute(|ctx| async move {
+            build_targets(
+                &ctx,
+                resolved_pattern,
+                target_resolution_config,
+                build_providers,
+                &materialization_context,
+                build_opts.fail_fast,
+                MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
+                build_opts.skip_incompatible_targets,
+                want_configured_graph_size,
+            )
+            .await
+        })
+        .await?;
 
     process_build_result(server_ctx, ctx, request, build_result).await
 }
@@ -399,7 +403,7 @@ async fn process_build_result(
 }
 
 async fn build_targets(
-    ctx: &DiceComputations<'_>,
+    ctx: &LinearRecomputeDiceComputations<'_>,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
@@ -442,7 +446,7 @@ async fn build_targets(
 }
 
 fn build_targets_in_universe<'a>(
-    ctx: &'a DiceComputations,
+    ctx: &'a LinearRecomputeDiceComputations,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
@@ -474,7 +478,7 @@ fn build_targets_in_universe<'a>(
 }
 
 fn build_targets_with_global_target_platform<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
@@ -532,7 +536,7 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 }
 
 async fn build_targets_for_spec<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: PackageSpec<ProvidersPatternExtra>,
     package: PackageLabel,
     global_cfg_options: GlobalCfgOptions,
@@ -547,7 +551,7 @@ async fn build_targets_for_spec<'a>(
         PackageSpec::All => true,
     };
 
-    let res = match ctx.bad_dice(/* build stream */).get_interpreter_results(package.dupe()).await {
+    let res = match ctx.get().get_interpreter_results(package.dupe()).await {
         Ok(res) => res,
         Err(e) => {
             let e: buck2_error::Error = e.into();
@@ -632,14 +636,14 @@ async fn build_targets_for_spec<'a>(
 }
 
 async fn build_target<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_context: &MaterializationContext,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
-        .bad_dice(/* build stream */)
+        .get()
         .get_configured_provider_label(&providers_label, &spec.global_cfg_options)
         .await
     {

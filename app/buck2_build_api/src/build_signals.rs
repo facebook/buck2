@@ -63,14 +63,11 @@ impl SetBuildSignals for UserComputationData {
 }
 
 pub trait HasBuildSignals {
-    fn get_build_signals(&self) -> Option<&dyn BuildSignals>;
+    fn get_build_signals(&self) -> Option<&Arc<dyn BuildSignals>>;
 }
 
 impl HasBuildSignals for UserComputationData {
-    fn get_build_signals(&self) -> Option<&dyn BuildSignals> {
-        self.data
-            .get::<Arc<dyn BuildSignals>>()
-            .ok()
-            .map(|build_signals| build_signals.as_ref())
+    fn get_build_signals(&self) -> Option<&Arc<dyn BuildSignals>> {
+        self.data.get::<Arc<dyn BuildSignals>>().ok()
     }
 }

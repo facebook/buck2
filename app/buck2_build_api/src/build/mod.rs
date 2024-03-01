@@ -27,6 +27,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dashmap::DashMap;
 use dice::DiceComputations;
+use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -255,7 +256,7 @@ pub struct BuildConfiguredLabelOptions {
 }
 
 pub async fn build_configured_label<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a LinearRecomputeDiceComputations<'_>,
     materialization_context: &MaterializationContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
@@ -280,21 +281,17 @@ pub async fn build_configured_label<'a>(
 }
 
 async fn build_configured_label_inner<'a>(
-    ctx: &'a DiceComputations<'_>,
+    ctx: &'a LinearRecomputeDiceComputations<'_>,
     materialization_context: &MaterializationContext,
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
 ) -> anyhow::Result<BoxStream<'a, ConfiguredBuildEvent>> {
-    let artifact_fs = ctx.bad_dice(/* build stream */).get_artifact_fs().await?;
+    let artifact_fs = ctx.get().get_artifact_fs().await?;
 
     let (outputs, run_args, target_rule_type_name) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
-        let providers = match ctx
-            .bad_dice(/* build stream */)
-            .get_providers(providers_label.as_ref())
-            .await?
-        {
+        let providers = match ctx.get().get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
                 if opts.skippable {
                     console_message(reason.skipping_message(providers_label.target()));
@@ -376,7 +373,7 @@ async fn build_configured_label_inner<'a>(
         }
 
         let target_rule_type_name: String = ctx
-            .bad_dice(/* build stream */)
+            .get()
             .get_configured_target_node(providers_label.target())
             .await?
             .require_compatible()?
@@ -387,19 +384,22 @@ async fn build_configured_label_inner<'a>(
         (outputs, run_args, target_rule_type_name)
     };
 
-    if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
+    if let Some(signals) = ctx
+        .get()
+        .per_transaction_data()
+        .get_build_signals()
+        .cloned()
+    {
         let resolved_artifact_futs: FuturesOrdered<_> = outputs
             .iter()
-            .map(|(output, _type)| async move {
-                output
-                    .resolved_artifact(&mut ctx.bad_dice(/* keep_going */))
-                    .await
-            })
+            .map(|(output, _type)| async move { output.resolved_artifact(&mut ctx.get()).await })
             .collect();
 
-        let resolved_artifacts: Vec<_> =
-            tokio::task::unconstrained(keep_going::try_join_all(ctx, resolved_artifact_futs))
-                .await?;
+        let resolved_artifacts: Vec<_> = tokio::task::unconstrained(keep_going::try_join_all(
+            &ctx.get(),
+            resolved_artifact_futs,
+        ))
+        .await?;
         let node_keys = resolved_artifacts
             .iter()
             .filter_map(|resolved| match resolved.dupe() {
@@ -437,7 +437,7 @@ async fn build_configured_label_inner<'a>(
                 let materialization_context = materialization_context.dupe();
                 async move {
                     let res = match materialize_artifact_group_owned(
-                        &mut ctx.bad_dice(/* build stream */),
+                        &mut ctx.get(),
                         output,
                         materialization_context,
                     )
@@ -473,12 +473,10 @@ async fn build_configured_label_inner<'a>(
 
     if opts.want_configured_graph_size {
         let stream = stream.chain(futures::stream::once(async move {
-            let configured_graph_size = graph_size::get_configured_graph_size(
-                &mut ctx.bad_dice(/* build stream */),
-                providers_label.target(),
-            )
-            .await
-            .map_err(|e| e.into());
+            let configured_graph_size =
+                graph_size::get_configured_graph_size(&mut ctx.get(), providers_label.target())
+                    .await
+                    .map_err(|e| e.into());
 
             ConfiguredBuildEvent {
                 label: providers_label,

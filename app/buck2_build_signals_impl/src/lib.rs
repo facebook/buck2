@@ -197,6 +197,7 @@ pub struct Evaluation {
     load_result: Option<Arc<EvaluationResult>>,
 }
 
+#[derive(Clone)]
 pub struct BuildSignalSender {
     sender: UnboundedSender<BuildSignal>,
 }
