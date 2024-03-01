@@ -10,14 +10,9 @@
 use std::fmt;
 
 use allocative::Allocative;
+use buck2_error::Context;
 
 use crate::attrs::attr_type::AttrType;
-
-#[derive(Debug, buck2_error::Error)]
-enum OneOfAttrTypeError {
-    #[error("Oneof index ({0}) out of bounds (internal error)")]
-    IndexOutOfBounds(u32),
-}
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct OneOfAttrType {
@@ -47,6 +42,6 @@ impl OneOfAttrType {
     pub(crate) fn get(&self, i: u32) -> anyhow::Result<&AttrType> {
         self.xs
             .get(i as usize)
-            .ok_or_else(|| OneOfAttrTypeError::IndexOutOfBounds(i).into())
+            .with_internal_error(|| format!("Oneof index ({i}) out of bounds (internal error)"))
     }
 }

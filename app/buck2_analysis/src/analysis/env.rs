@@ -25,6 +25,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -61,8 +62,6 @@ enum AnalysisError {
     MissingQuery(String),
     #[error("required dependency `{0}` was not found")]
     MissingDep(ConfiguredProvidersLabel),
-    #[error("provider_collection already set (internal error)")]
-    ProviderCollectionAlreadySet,
 }
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
@@ -328,7 +327,7 @@ async fn run_analysis_with_env_underlying(
     {
         let extra_v = AnalysisExtraValue::get_or_init(&env)?;
         if extra_v.provider_collection.get().is_some() {
-            return Err(AnalysisError::ProviderCollectionAlreadySet.into());
+            return Err(internal_error!("provider_collection already set"));
         }
         extra_v
             .provider_collection

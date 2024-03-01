@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -82,10 +83,6 @@ enum TargetPatternParseError {
     ExpectingPatternOfType(&'static str, String),
     #[error("Configuration part of the pattern must be enclosed in `()`")]
     ConfigurationPartMustBeEnclosedInParentheses,
-    #[error(
-        "Cell resolver cell `{0}` does not match the given relative dir `{1}` (internal error)"
-    )]
-    CellResolverCellDoesNotMatchWorkingDir(CellName, CellPath),
     #[error("Pattern `{0}` is parsed as `{1}` which crosses cell boundaries. Try `{2}` instead")]
     PatternCrossesCellBoundaries(String, String, String),
 }
@@ -827,13 +824,9 @@ where
 
     if let Some(dir) = relative.dir() {
         if dir.cell() != cell_name {
-            return Err(
-                TargetPatternParseError::CellResolverCellDoesNotMatchWorkingDir(
-                    cell_name,
-                    dir.to_owned(),
-                )
-                .into(),
-            );
+            return Err(internal_error!(
+                "Cell resolver cell `{cell_name}` does not match the given relative dir `{dir}`"
+            ));
         }
     }
 

@@ -19,6 +19,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -38,14 +39,6 @@ use regex::RegexSet;
 
 use crate::json::QuotedJson;
 use crate::target_hash::BuckTargetHash;
-
-#[derive(Debug, buck2_error::Error)]
-enum FormatterError {
-    #[error("Attributes can only be specified when output format is JSON (internal error)")]
-    AttrsOnlyWithJson,
-    #[error("`output_format` is not set (internal error)")]
-    OutputFormatNotSet,
-}
 
 pub(crate) struct TargetInfo<'a> {
     pub(crate) node: TargetNodeRef<'a>,
@@ -425,13 +418,15 @@ pub(crate) fn create_formatter(
         _ => {
             // Self-check.
             if !other.output_attributes.is_empty() {
-                return Err(FormatterError::AttrsOnlyWithJson.into());
+                return Err(internal_error!(
+                    "Attributes can only be specified when output format is JSON"
+                ));
             }
         }
     }
 
     match output_format {
-        OutputFormat::Unknown => Err(FormatterError::OutputFormatNotSet.into()),
+        OutputFormat::Unknown => Err(internal_error!("`output_format` is not set")),
         OutputFormat::Stats => Ok(Arc::new(StatsFormat)),
         OutputFormat::Text => Ok(Arc::new(TargetNameFormat {
             target_call_stacks,

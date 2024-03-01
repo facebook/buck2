@@ -20,6 +20,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dupe::Dupe;
@@ -47,16 +48,6 @@ use crate::package::Package;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilitySpecification;
-
-#[derive(Debug, buck2_error::Error)]
-enum TargetNodeError {
-    #[error("`visibility` attribute coerced incorrectly (`{0}`) (internal error)")]
-    IncorrectVisibilityAttribute(String),
-    #[error(
-        "`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{0}` instead (internal error)"
-    )]
-    IncorrectMetadataAttribute(String),
-}
 
 /// Describes a target including its name, type, and the values that the user provided.
 /// Some information (e.g. deps) is extracted eagerly, most is in the attrs map and needs to be
@@ -214,10 +205,10 @@ impl TargetNode {
                 // This code is unreachable: visibility attributes are validated
                 // at the coercion stage. But if we did it wrong,
                 // better error with all the context than panic.
-                Err(TargetNodeError::IncorrectVisibilityAttribute(
+                Err(internal_error!(
+                    "`visibility` attribute coerced incorrectly (`{0}`)",
                     a.as_display_no_ctx().to_string(),
-                )
-                .into())
+                ))
             }
             None => {
                 static DEFAULT: VisibilitySpecification = VisibilitySpecification::DEFAULT;
@@ -478,7 +469,7 @@ impl<'a> TargetNodeRef<'a> {
         self.attr_or_none(METADATA_ATTRIBUTE_FIELD, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::Metadata(m) => Ok(m),
-                x => Err(TargetNodeError::IncorrectMetadataAttribute(format!("{:?}", x)).into()),
+                x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
             })
             .transpose()
     }

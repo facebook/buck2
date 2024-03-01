@@ -12,7 +12,6 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
@@ -20,6 +19,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::Context;
 use buck2_util::arc_str::ArcSlice;
 use dupe::Dupe;
 use dupe::IterDupedExt;
@@ -74,8 +74,6 @@ enum SelectError {
     )]
     #[buck2(user)]
     TwoKeysDoNotRefineEachOther(String, String),
-    #[error("concat with no items (internal error)")]
-    ConcatEmpty,
     #[error("duplicate key `{0}` in `select()`")]
     #[buck2(user)]
     DuplicateKey(String),
@@ -538,7 +536,7 @@ impl CoercedAttr {
             CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
                 let mut it = items.iter().map(|item| item.configure(t, ctx));
-                let first = it.next().ok_or(SelectError::ConcatEmpty)??;
+                let first = it.next().internal_error("concat with no items")??;
                 if singleton {
                     first
                 } else {

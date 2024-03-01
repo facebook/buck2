@@ -10,6 +10,7 @@
 //! Contains the internal support within the attribute framework for `select()`.
 
 use anyhow::Context;
+use buck2_error::internal_error;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
@@ -32,8 +33,6 @@ enum SelectError {
     ConcatNotSupported(String, String),
     #[error("select() cannot be used in non-configurable attribute")]
     SelectCannotBeUsedForNonConfigurableAttr,
-    #[error("duplicate `\"DEFAULT\"` key in `select()` (internal error)")]
-    DuplicateDefaultKey,
 }
 
 pub trait CoercedAttrExr: Sized {
@@ -88,7 +87,9 @@ impl CoercedAttrExr for CoercedAttr {
                             };
                             if k == "DEFAULT" {
                                 if default.is_some() {
-                                    return Err(SelectError::DuplicateDefaultKey.into());
+                                    return Err(internal_error!(
+                                        "duplicate `\"DEFAULT\"` key in `select()`"
+                                    ));
                                 }
                                 default = Some(v);
                             } else {

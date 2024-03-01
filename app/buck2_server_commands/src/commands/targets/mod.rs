@@ -24,6 +24,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_error::internal_error;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
@@ -37,12 +38,6 @@ use crate::commands::targets::default::TargetHashOptions;
 use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
-
-#[derive(Debug, buck2_error::Error)]
-enum TargetsCommandError {
-    #[error("Missing field in proto request (internal error)")]
-    MissingField,
-}
 
 pub(crate) enum Outputter {
     Stdout,
@@ -220,7 +215,7 @@ async fn targets(
                 .await?
             }
         }
-        None => return Err(TargetsCommandError::MissingField.into()),
+        None => return Err(internal_error!("Missing field in proto request")),
     };
 
     let response = TargetsResponse {

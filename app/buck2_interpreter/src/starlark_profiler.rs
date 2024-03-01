@@ -12,6 +12,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use dupe::Dupe;
 use starlark::environment::FrozenModule;
@@ -21,15 +22,11 @@ use starlark::eval::ProfileMode;
 
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkProfilerError {
-    #[error("will_freeze field was initialized incorrectly (internal error)")]
-    IncorrectWillFreeze,
     #[error(
         "Retained memory profiling is available only for analysis profile \
         or bxl profile (which freezes the module)"
     )]
     RetainedMemoryNotFrozen,
-    #[error("profile mode are inconsistent (internal error)")]
-    InconsistentProfileMode,
 }
 
 /// When profiling Starlark file, all dependencies of that file must be
@@ -76,7 +73,7 @@ impl StarlarkProfileDataAndStats {
 
         for data in iter {
             if data.profile_mode != profile_mode {
-                return Err(StarlarkProfilerError::InconsistentProfileMode.into());
+                return Err(internal_error!("profile mode are inconsistent"));
             }
             initialized_at = cmp::min(initialized_at, data.initialized_at);
             finalized_at = cmp::max(finalized_at, data.finalized_at);
@@ -160,7 +157,9 @@ impl StarlarkProfiler {
 
     fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
         if self.will_freeze != module.is_some() {
-            return Err(StarlarkProfilerError::IncorrectWillFreeze.into());
+            return Err(internal_error!(
+                "will_freeze field was initialized incorrectly"
+            ));
         }
 
         match self.profile_mode {

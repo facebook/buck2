@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use anyhow::Context;
 use buck2_core::target::label::TargetLabelRef;
 use buck2_core::target::name::TargetName;
+use buck2_error::internal_error;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -36,12 +37,6 @@ use starlark::values::Value;
 use crate::attrs::AttributeCoerceExt;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::check_within_view::check_within_view;
-
-#[derive(Debug, buck2_error::Error)]
-enum AttributeSpecError {
-    #[error("`within_view` coerced incorrectly (internal error)")]
-    WithinViewCoercedIncorrectly,
-}
 
 pub trait AttributeSpecExt {
     fn parse_params<'v>(
@@ -154,7 +149,7 @@ impl AttributeSpecExt for AttributeSpec {
         if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
             let within_view = match within_view {
                 CoercedAttr::WithinView(within_view) => within_view,
-                _ => return Err(AttributeSpecError::WithinViewCoercedIncorrectly.into()),
+                _ => return Err(internal_error!("`within_view` coerced incorrectly")),
             };
             for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
                 check_within_view(

@@ -22,6 +22,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_bzl_path_with_config;
@@ -52,12 +53,6 @@ use starlark::environment::Globals;
 use starlark::typing::Ty;
 
 use crate::builtin_docs::markdown::generate_markdown_files;
-
-#[derive(Debug, buck2_error::Error)]
-enum DocsError {
-    #[error("Unknown format requested (internal error)")]
-    UnknownFormat,
-}
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
@@ -267,7 +262,9 @@ impl Format {
         match format {
             unstable_docs_request::Format::Json => Ok(Format::Json),
             unstable_docs_request::Format::Markdown => Ok(Format::Markdown),
-            unstable_docs_request::Format::Unknown => Err(DocsError::UnknownFormat.into()),
+            unstable_docs_request::Format::Unknown => {
+                Err(internal_error!("Unknown format requested"))
+            }
         }
     }
 }

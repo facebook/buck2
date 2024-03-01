@@ -126,7 +126,7 @@ impl DynamicLambda {
         attributes_lambda: OwnedFrozenValueTyped<FrozenDynamicLambdaParams>,
     ) -> anyhow::Result<()> {
         if self.attributes_lambda.is_some() {
-            return Err(DynamicLambdaError::AttributesLambdaAlreadySet.into());
+            return Err(internal_error!("`attributes_lambda` field already set"));
         }
         self.attributes_lambda = Some(attributes_lambda);
         Ok(())
@@ -179,8 +179,6 @@ impl Deferred for DynamicAction {
 enum DynamicLambdaError {
     #[error("dynamic_output and anon_target cannot be used together (yet)")]
     AnonTargetIncompatible,
-    #[error("`attributes_lambda` field already set (internal error)")]
-    AttributesLambdaAlreadySet,
 }
 
 impl provider::Provider for DynamicLambda {

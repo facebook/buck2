@@ -11,6 +11,8 @@
 #![feature(min_specialization)]
 #![allow(clippy::large_enum_variant)]
 
+use buck2_error::internal_error;
+
 use crate::BuckDaemonProtoError::MissingClientContext;
 
 pub mod new_generic;
@@ -22,8 +24,11 @@ tonic::include_proto!("buck.daemon");
 enum BuckDaemonProtoError {
     #[error("daemon request was missing client context")]
     MissingClientContext,
-    #[error("wrong gRPC request message type, expecting {0} (internal error)")]
-    WrongRequestType(&'static str),
+}
+
+#[track_caller]
+fn wrong_request_type(request_type: &'static str) -> anyhow::Error {
+    internal_error!("wrong gRPC request message type, expecting {request_type}")
 }
 
 pub trait HasClientContext {
@@ -51,7 +56,7 @@ impl TryFrom<StreamingRequest> for LspRequest {
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
             Some(streaming_request::Request::Lsp(req)) => Ok(req),
-            _ => Err(BuckDaemonProtoError::WrongRequestType("LspRequest").into()),
+            _ => Err(wrong_request_type("LspRequest")),
         }
     }
 }
@@ -70,7 +75,7 @@ impl TryFrom<StreamingRequest> for SubscriptionRequestWrapper {
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
             Some(streaming_request::Request::Subscription(req)) => Ok(req),
-            _ => Err(BuckDaemonProtoError::WrongRequestType("SubscriptionRequestWrapper").into()),
+            _ => Err(wrong_request_type("SubscriptionRequestWrapper")),
         }
     }
 }
@@ -89,7 +94,7 @@ impl TryFrom<StreamingRequest> for DapRequest {
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
             Some(streaming_request::Request::Dap(req)) => Ok(req),
-            _ => Err(BuckDaemonProtoError::WrongRequestType("DapRequest").into()),
+            _ => Err(wrong_request_type("DapRequest")),
         }
     }
 }

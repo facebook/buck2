@@ -16,6 +16,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use serde::Serialize;
@@ -59,8 +60,6 @@ enum ConfiguredAttrError {
         "Cannot concatenate values coerced/configured to different oneof variants: `{0}` and `{1}`"
     )]
     ConcatDifferentOneofVariants(AttrType, AttrType),
-    #[error("while concat, LHS is oneof, expecting RHS to also be oneof (internal error)")]
-    LhsOneOfRhsNotOneOf,
     #[error("expecting a list, got `{0}`")]
     ExpectingList(String),
     #[error("expecting configuration dep, got `{0}`")]
@@ -267,7 +266,9 @@ impl ConfiguredAttr {
                             }
                             Ok(next)
                         }
-                        _ => Err(ConfiguredAttrError::LhsOneOfRhsNotOneOf.into()),
+                        _ => Err(internal_error!(
+                            "while concat, LHS is oneof, expecting RHS to also be oneof"
+                        )),
                     }),
                 )
             }

@@ -25,6 +25,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::error::ErrorTag;
 use buck2_data::ToProtoMessage;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::span_async;
@@ -55,16 +56,6 @@ use crate::analysis::env::get_user_defined_rule_spec;
 use crate::analysis::env::run_analysis;
 use crate::analysis::env::RuleSpec;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
-
-#[derive(Debug, buck2_error::Error)]
-enum AnalysisCalculationError {
-    #[error("Internal error: literal `{0}` not found in `deps`")]
-    LiteralNotFoundInDeps(String),
-    #[error(
-        "get_analysis_result should not be called on a forward target (`{0}`) when profiling is enabled (internal error)"
-    )]
-    ProfileForwardTarget(ConfiguredTargetLabel),
-}
 
 struct RuleAnalysisCalculationInstance;
 
@@ -162,8 +153,8 @@ async fn resolve_queries_impl(
                     let mut resolved_literals =
                         HashMap::with_capacity(resolved_literals_labels.0.len());
                     for (literal, label) in resolved_literals_labels.0 {
-                        let node = deps.get(label.target()).ok_or_else(|| {
-                            AnalysisCalculationError::LiteralNotFoundInDeps(literal.clone())
+                        let node = deps.get(label.target()).with_internal_error(|| {
+                            format!("Literal `{literal}` not found in `deps`")
                         })?;
                         resolved_literals.insert(literal, node.dupe());
                     }
@@ -324,7 +315,7 @@ async fn get_analysis_result_inner(
                     StarlarkProfileModeOrInstrumentation::None => {}
                     StarlarkProfileModeOrInstrumentation::Profile(_) => {
                         return Err(
-                            AnalysisCalculationError::ProfileForwardTarget(target.dupe()).into(),
+                            internal_error!("get_analysis_result should not be called on a forward target (`{target}`) when profiling is enabled")
                         );
                     }
                 }
@@ -350,12 +341,6 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
         starlark_allocated_bytes: heap.allocated_bytes() as u64,
         starlark_available_bytes: heap.available_bytes() as u64,
     }
-}
-
-#[derive(Debug, buck2_error::Error)]
-enum ProfileAnalysisError {
-    #[error("recursive analysis configured incorrectly (internal error)")]
-    RecursiveProfileConfiguredIncorrectly,
 }
 
 /// Run get_analysis_result but discard the results (public outside the `analysis` module, unlike
@@ -410,7 +395,7 @@ pub async fn profile_analysis_recursively(
         profile_mode,
         StarlarkProfileModeOrInstrumentation::Profile(_)
     ) {
-        return Err(ProfileAnalysisError::RecursiveProfileConfiguredIncorrectly.into());
+        return Err(internal_error!("recursive analysis configured incorrectly"));
     }
 
     let node = ctx

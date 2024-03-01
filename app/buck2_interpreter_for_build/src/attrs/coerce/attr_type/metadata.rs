@@ -8,6 +8,7 @@
  */
 
 use anyhow::Context as _;
+use buck2_error::internal_error;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_node::attrs::attr_type::metadata::MetadataAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -30,8 +31,6 @@ use crate::attrs::coerce::AttrTypeCoerce;
 
 #[derive(Debug, buck2_error::Error)]
 enum MetadataAttrTypeCoerceError {
-    #[error("Metadata attribute is not configurable (internal error)")]
-    AttrTypeNotConfigurable,
     #[error(
         "Metadata attribute with key {} is not convertible to JSON: {}",
         .key,
@@ -48,7 +47,7 @@ impl AttrTypeCoerce for MetadataAttrType {
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
-            return Err(MetadataAttrTypeCoerceError::AttrTypeNotConfigurable.into());
+            return Err(internal_error!("Metadata attribute is not configurable"));
         }
 
         let dict = match DictRef::from_value(value) {

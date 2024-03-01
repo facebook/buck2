@@ -9,13 +9,13 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::Context;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -42,12 +42,6 @@ use crate::uquery::environment::allbuildfiles;
 use crate::uquery::environment::rbuildfiles;
 use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
-
-#[derive(Debug, buck2_error::Error)]
-enum CqueryError {
-    #[error("Target universe not specified (internal error)")]
-    NoUniverse,
-}
 
 /// CqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
@@ -191,7 +185,10 @@ impl<'c> CqueryEnvironment<'c> {
     }
 
     fn owner_correct(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
-        let universe = self.universe.as_ref().context(CqueryError::NoUniverse)?;
+        let universe = self
+            .universe
+            .as_ref()
+            .internal_error("Target universe not specified")?;
         Ok(universe.owners(path))
     }
 }

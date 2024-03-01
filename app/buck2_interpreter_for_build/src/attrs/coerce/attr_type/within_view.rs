@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_error::internal_error;
 use buck2_node::attrs::attr_type::visibility::VisibilityAttrType;
 use buck2_node::attrs::attr_type::within_view::WithinViewAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -18,12 +19,6 @@ use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::visibility::parse_visibility_with_view;
 use crate::attrs::coerce::AttrTypeCoerce;
 
-#[derive(Debug, buck2_error::Error)]
-enum WithinViewAttrTypeCoerceError {
-    #[error("Within view attribute is not configurable (internal error)")]
-    AttrTypeNotConfigurable,
-}
-
 impl AttrTypeCoerce for WithinViewAttrType {
     fn coerce_item(
         &self,
@@ -32,7 +27,7 @@ impl AttrTypeCoerce for WithinViewAttrType {
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
-            return Err(WithinViewAttrTypeCoerceError::AttrTypeNotConfigurable.into());
+            return Err(internal_error!("Within view attribute is not configurable"));
         }
         Ok(CoercedAttr::WithinView(
             parse_visibility_with_view(ctx, value)?.build_within_view(),

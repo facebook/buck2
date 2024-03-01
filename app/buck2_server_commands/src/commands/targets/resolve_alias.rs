@@ -11,8 +11,6 @@
 
 #[derive(Debug, buck2_error::Error)]
 enum ResolveAliasError {
-    #[error("`output_format` not set (internal error)")]
-    OutputFormatNotSet,
     #[error("`--stat` format is not supported by `--resolve-alias`")]
     StatFormatNotSupported,
 }
@@ -27,6 +25,7 @@ use buck2_cli_proto::TargetsResponse;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -149,7 +148,7 @@ pub(crate) async fn targets_resolve_aliases(
     let json_writer;
 
     let formatter = match output_format {
-        OutputFormat::Unknown => return Err(ResolveAliasError::OutputFormatNotSet.into()),
+        OutputFormat::Unknown => return Err(internal_error!("`output_format` not set")),
         OutputFormat::Text => &LinesWriter as &dyn ResolveAliasFormatter,
         OutputFormat::Json => {
             json_writer = JsonWriter { json_lines: false };

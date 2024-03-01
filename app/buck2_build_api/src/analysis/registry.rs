@@ -22,6 +22,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::internal_error;
 use buck2_error::Context;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
@@ -68,12 +69,6 @@ use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
-
-#[derive(Debug, buck2_error::Error)]
-enum RegistryError {
-    #[error("analysis_value_storage is already set (internal error)")]
-    AnalysisValueStorageAlreadySet,
-}
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
@@ -472,7 +467,7 @@ impl<'v> AnalysisValueStorage<'v> {
             .analysis_value_storage
             .set(module.heap().alloc_typed(self));
         if res.is_err() {
-            return Err(RegistryError::AnalysisValueStorageAlreadySet.into());
+            return Err(internal_error!("analysis_value_storage is already set"));
         }
         Ok(())
     }
