@@ -66,9 +66,6 @@ async fn task_that_takes_some_time() -> String {
 
 #[tokio::main]
 async fn main() {
-    // set up state to be used for rendering
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
     // set up future to periodically cause re-render
     let delay = Duration::from_secs(1);
     let mut interval = time::interval(delay);
