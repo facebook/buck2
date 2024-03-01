@@ -32,7 +32,9 @@ def main(argv):
 
     env = os.environ.copy()
     # Make paths absolute, otherwise go build will fail.
-    env["GOROOT"] = os.path.realpath(env["GOROOT"])
+    if "GOROOT" in env:
+        env["GOROOT"] = os.path.realpath(env["GOROOT"])
+
     env["GOCACHE"] = os.path.realpath(env["BUCK_SCRATCH_PATH"])
 
     cwd = os.getcwd()

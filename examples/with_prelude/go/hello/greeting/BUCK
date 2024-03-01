@@ -1,0 +1,14 @@
+_SUPPORTED = not host_info().os.is_windows
+
+# buildifier: disable=no-effect
+go_library(
+    name = "greeting",
+    srcs = glob(["*.go"]),
+    visibility = ["PUBLIC"],
+) if _SUPPORTED else None
+
+# buildifier: disable=no-effect
+go_test(
+    name = "greeting_test",
+    srcs = glob(["*.go"]),
+) if _SUPPORTED else None
