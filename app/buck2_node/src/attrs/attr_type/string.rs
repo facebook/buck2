@@ -8,13 +8,14 @@
  */
 
 use std::fmt;
-use std::fmt::Display;
 use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use serde::Serialize;
+
+use crate::attrs::display::AttrDisplayWithContext;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct StringAttrType;
@@ -33,8 +34,12 @@ impl Deref for StringLiteral {
     }
 }
 
-impl Display for StringLiteral {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl AttrDisplayWithContext for StringLiteral {
+    fn fmt(
+        &self,
+        _ctx: &crate::attrs::fmt_context::AttrFmtContext,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         if f.alternate() {
             f.write_str(self.0.as_str())
         } else {

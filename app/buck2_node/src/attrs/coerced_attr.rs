@@ -250,7 +250,9 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::Int(v) => {
                 write!(f, "{}", v)
             }
-            CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => Display::fmt(v, f),
+            CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => {
+                AttrDisplayWithContext::fmt(v, ctx, f)
+            }
             CoercedAttr::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
             CoercedAttr::Tuple(v) => AttrDisplayWithContext::fmt(v, ctx, f),
             CoercedAttr::Dict(v) => AttrDisplayWithContext::fmt(v, ctx, f),

@@ -8,7 +8,6 @@
  */
 
 use std::fmt::Debug;
-use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -92,7 +91,9 @@ impl AttrDisplayWithContext for AnonTargetAttr {
             AnonTargetAttr::Int(v) => {
                 write!(f, "{}", v)
             }
-            AnonTargetAttr::String(v) | AnonTargetAttr::EnumVariant(v) => Display::fmt(v, f),
+            AnonTargetAttr::String(v) | AnonTargetAttr::EnumVariant(v) => {
+                AttrDisplayWithContext::fmt(v, ctx, f)
+            }
             AnonTargetAttr::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
             AnonTargetAttr::Tuple(v) => AttrDisplayWithContext::fmt(v, ctx, f),
             AnonTargetAttr::Dict(v) => AttrDisplayWithContext::fmt(v, ctx, f),

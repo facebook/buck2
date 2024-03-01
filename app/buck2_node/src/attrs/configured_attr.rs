@@ -135,7 +135,9 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::Int(v) => {
                 write!(f, "{}", v)
             }
-            ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => Display::fmt(v, f),
+            ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => {
+                AttrDisplayWithContext::fmt(v, ctx, f)
+            }
             ConfiguredAttr::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
             ConfiguredAttr::Tuple(v) => AttrDisplayWithContext::fmt(v, ctx, f),
             ConfiguredAttr::Dict(v) => AttrDisplayWithContext::fmt(v, ctx, f),
