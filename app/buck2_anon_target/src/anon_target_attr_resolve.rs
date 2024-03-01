@@ -22,7 +22,7 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use buck2_build_api::keep_going;
+use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -33,7 +33,7 @@ use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::AllocTuple;
 use starlark::values::Value;
@@ -238,37 +238,40 @@ impl AnonTargetDependents {
         &'v self,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<AnonTargetDependentAnalysisResults<'v>> {
-        let dice = &*dice;
-        let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
-            dice,
-            self.deps
-                .iter()
-                .map(async move |dep| {
-                    let res = dice
-                        .bad_dice(/* keep_going */)
-                        .get_analysis_result(dep)
-                        .await
-                        .and_then(|v| v.require_compatible());
-                    res.map(|x| (dep, x.providers().dupe()))
-                })
-                .collect::<FuturesUnordered<_>>(),
-        )
+        let dep_analysis_results: HashMap<_, _> = {
+            KeepGoing::try_compute_join_all(
+                dice,
+                KeepGoing::unordered(),
+                self.deps.iter(),
+                |ctx, dep| {
+                    async move {
+                        let res = ctx
+                            .get_analysis_result(dep)
+                            .await
+                            .and_then(|v| v.require_compatible());
+                        res.map(|x| (dep, x.providers().dupe()))
+                    }
+                    .boxed()
+                },
+            )
+        }
         .await?;
 
-        let promised_artifacts: HashMap<_, _> = keep_going::try_join_all(
-            dice,
-            self.promise_artifacts
-                .iter()
-                .map(async move |promise_artifact_attr| {
-                    get_artifact_from_anon_target_analysis(
-                        &promise_artifact_attr.id,
-                        &mut dice.bad_dice(/* keep_going */),
-                    )
-                    .await
-                    .map(|artifact| (promise_artifact_attr, artifact))
-                })
-                .collect::<FuturesUnordered<_>>(),
-        )
+        let promised_artifacts: HashMap<_, _> = {
+            KeepGoing::try_compute_join_all(
+                dice,
+                KeepGoing::unordered(),
+                self.promise_artifacts.iter(),
+                |ctx, promise_artifact_attr| {
+                    async move {
+                        get_artifact_from_anon_target_analysis(&promise_artifact_attr.id, ctx)
+                            .await
+                            .map(|artifact| (promise_artifact_attr, artifact))
+                    }
+                    .boxed()
+                },
+            )
+        }
         .await?;
 
         Ok(AnonTargetDependentAnalysisResults {

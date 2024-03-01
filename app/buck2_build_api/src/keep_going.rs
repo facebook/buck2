@@ -12,44 +12,95 @@ use std::hash::Hash;
 
 use dice::DiceComputations;
 use dice::UserComputationData;
+use futures::future::BoxFuture;
+use futures::stream::FuturesOrdered;
+use futures::stream::FuturesUnordered;
+use futures::Future;
+use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 
-/// Evaluate a series of futures, returning a series of results.
-/// If any future fails, it will fail.
-/// If KEEP_GOING is true, it will first make all others continue.
-pub async fn try_join_all<C, R, E>(
-    ctx: &DiceComputations<'_>,
-    mut inputs: impl Stream<Item = Result<R, E>> + Unpin,
-) -> Result<C, E>
-where
-    C: KeepGoingCollectable<R>,
-{
-    let keep_going = ctx.per_transaction_data().get_keep_going();
+pub struct KeepGoing;
 
-    let size = inputs.size_hint().0;
-    let mut res = C::with_capacity(size);
-    let mut err = None;
-    while let Some(x) = inputs.next().await {
-        match x {
-            Ok(x) => res.push(x),
-            Err(e) => {
-                if keep_going {
-                    err = Some(e);
-                } else {
-                    return Err(e);
-                }
+pub enum KeepGoingOrder {
+    Ordered,
+    Unordered,
+}
+
+impl KeepGoing {
+    pub fn ordered() -> KeepGoingOrder {
+        KeepGoingOrder::Ordered
+    }
+
+    pub fn unordered() -> KeepGoingOrder {
+        KeepGoingOrder::Unordered
+    }
+
+    pub fn try_compute_join_all<'a, C, T: Send, R: 'a, E: 'a>(
+        ctx: &'a mut DiceComputations<'_>,
+        order: KeepGoingOrder,
+        items: impl IntoIterator<Item = T>,
+        mapper: (
+            impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
+            + Send
+            + Sync
+            + Copy
+        ),
+    ) -> impl Future<Output = Result<C, E>> + 'a
+    where
+        C: KeepGoingCollectable<R> + 'a,
+    {
+        let keep_going = ctx.per_transaction_data().get_keep_going();
+
+        let futs = ctx.compute_many(items.into_iter().map(move |v| {
+            DiceComputations::declare_closure(
+                move |ctx: &mut DiceComputations| -> BoxFuture<Result<R, E>> { mapper(ctx, v) },
+            )
+        }));
+
+        match order {
+            KeepGoingOrder::Ordered => {
+                let futs: FuturesOrdered<_> = futs.into_iter().collect();
+                Self::try_join_all(keep_going, futs).left_future()
+            }
+            KeepGoingOrder::Unordered => {
+                let futs: FuturesUnordered<_> = futs.into_iter().collect();
+                Self::try_join_all(keep_going, futs).right_future()
             }
         }
     }
 
-    if let Some(err) = err {
-        return Err(err);
-    }
+    async fn try_join_all<C, R, E>(
+        keep_going: bool,
+        mut inputs: impl Stream<Item = Result<R, E>> + Unpin,
+    ) -> Result<C, E>
+    where
+        C: KeepGoingCollectable<R>,
+    {
+        let size = inputs.size_hint().0;
+        let mut res = C::with_capacity(size);
+        let mut err = None;
+        while let Some(x) = inputs.next().await {
+            match x {
+                Ok(x) => res.push(x),
+                Err(e) => {
+                    if keep_going {
+                        err = Some(e);
+                    } else {
+                        return Err(e);
+                    }
+                }
+            }
+        }
 
-    Ok(res)
+        if let Some(err) = err {
+            return Err(err);
+        }
+
+        Ok(res)
+    }
 }
 
 pub trait KeepGoingCollectable<I> {

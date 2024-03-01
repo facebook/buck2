@@ -27,7 +27,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
 use buck2_build_api::deferred::calculation::DeferredCalculation;
-use buck2_build_api::keep_going;
+use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::ParsedPattern;
@@ -41,7 +41,6 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;
-use futures::stream::FuturesOrdered;
 use gazebo::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
@@ -161,17 +160,13 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
-    let resolved_artifact_futs: FuturesOrdered<_> = inputs
-        .into_iter()
-        .map(|input| async {
-            input
-                .resolved_artifact(&mut ctx.bad_dice(/* keep_going */))
-                .await
-        })
-        .collect();
-
-    let resolved_artifacts: Vec<_> =
-        tokio::task::unconstrained(keep_going::try_join_all(ctx, resolved_artifact_futs)).await?;
+    let resolved_artifacts: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
+        ctx,
+        KeepGoing::ordered(),
+        inputs,
+        |ctx, input| async move { input.resolved_artifact(ctx).await }.boxed(),
+    ))
+    .await?;
 
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
         resolved_artifacts

@@ -36,7 +36,6 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::future;
-use futures::stream::FuturesOrdered;
 use futures::FutureExt;
 use indexmap::IndexMap;
 use ref_cast::RefCast;
@@ -55,7 +54,7 @@ use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
 use crate::deferred::calculation::DeferredCalculation;
-use crate::keep_going;
+use crate::keep_going::KeepGoing;
 use crate::starlark::values::type_repr::StarlarkTypeRepr;
 use crate::starlark::values::UnpackValue;
 
@@ -99,25 +98,23 @@ async fn build_action_no_redirect(
     let materialized_inputs = {
         let inputs = action.inputs()?;
 
-        let ensure_futs: FuturesOrdered<_> = inputs
-            .iter()
-            .map(|v| async {
-                let resolved = v
-                    .resolved_artifact(&mut ctx.bad_dice(/* keep_going */))
-                    .await?;
-                anyhow::Ok(
-                    ensure_artifact_group_staged(
-                        &mut ctx.bad_dice(/* keep_going */),
-                        resolved.clone(),
+        let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
+            ctx,
+            KeepGoing::ordered(),
+            inputs.iter(),
+            |ctx, v| {
+                async move {
+                    let resolved = v.resolved_artifact(ctx).await?;
+                    anyhow::Ok(
+                        ensure_artifact_group_staged(ctx, resolved.clone())
+                            .await?
+                            .to_group_values(&resolved)?,
                     )
-                    .await?
-                    .to_group_values(&resolved)?,
-                )
-            })
-            .collect();
-
-        let ready_inputs: Vec<_> =
-            tokio::task::unconstrained(keep_going::try_join_all(ctx, ensure_futs)).await?;
+                }
+                .boxed()
+            },
+        ))
+        .await?;
 
         let mut results = IndexMap::with_capacity(inputs.len());
         for (artifact, ready) in zip(inputs.iter(), ready_inputs) {

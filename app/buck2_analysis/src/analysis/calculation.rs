@@ -19,7 +19,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use buck2_build_api::analysis::calculation::RULE_ANALYSIS_CALCULATION;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_build_api::keep_going;
+use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -47,7 +47,6 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use smallvec::SmallVec;
 use starlark::eval::ProfileMode;
@@ -196,20 +195,20 @@ pub async fn get_dep_analysis<'v>(
     configured_node: ConfiguredTargetNodeRef<'v>,
     ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
-    let ctx = &*ctx;
-    keep_going::try_join_all(
+    KeepGoing::try_compute_join_all(
         ctx,
-        configured_node
-            .deps()
-            .map(async move |dep| {
+        KeepGoing::unordered(),
+        configured_node.deps(),
+        |ctx, dep| {
+            async move {
                 let res = ctx
-                    .bad_dice(/* keep_going */)
                     .get_analysis_result(dep.label())
                     .await
                     .and_then(|v| v.require_compatible());
                 res.map(|x| (dep.label(), x))
-            })
-            .collect::<FuturesUnordered<_>>(),
+            }
+            .boxed()
+        },
     )
     .await
 }

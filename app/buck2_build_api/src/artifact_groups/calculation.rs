@@ -39,7 +39,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
 use ref_cast::RefCast;
@@ -53,7 +52,7 @@ use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::deferred::calculation::DeferredCalculation;
-use crate::keep_going;
+use crate::keep_going::KeepGoing;
 
 #[async_trait]
 pub trait ArtifactGroupCalculation {
@@ -423,32 +422,25 @@ impl Key for EnsureTransitiveSetProjectionKey {
         let projection_sub_inputs = set
             .as_transitive_set()
             .get_projection_sub_inputs(self.0.projection)?;
-        let sub_inputs_futs: FuturesOrdered<_> = projection_sub_inputs
-            .iter()
-            .map(|a| async {
-                a.resolved_artifact(&mut ctx.bad_dice(/* keep_going */))
-                    .await
-            })
-            .collect();
 
-        let sub_inputs: Vec<_> =
-            tokio::task::unconstrained(keep_going::try_join_all(ctx, sub_inputs_futs)).await?;
+        let sub_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
+            ctx,
+            KeepGoing::ordered(),
+            projection_sub_inputs.iter(),
+            |ctx, a| async move { a.resolved_artifact(ctx).await }.boxed(),
+        ))
+        .await?;
 
         let (values, children) = {
             // Compute the new inputs. Note that ordering here (and below) is important to ensure
-            // stability of the ArtifactGroupValues we produce across executions, so we use
-            // FuturesOrdered.
-
-            let ensure_futs: FuturesOrdered<_> = sub_inputs
-                .iter()
-                .map(|v: &ResolvedArtifactGroup| async {
-                    ensure_artifact_group_staged(&mut ctx.bad_dice(/* keep_going */), v.clone())
-                        .await
-                })
-                .collect();
-
-            let ready_inputs: Vec<_> =
-                tokio::task::unconstrained(keep_going::try_join_all(ctx, ensure_futs)).await?;
+            // stability of the ArtifactGroupValues we produce across executions, which try_compute_join_all preserves.
+            let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
+                ctx,
+                KeepGoing::ordered(),
+                sub_inputs.iter(),
+                |ctx, v| async move { ensure_artifact_group_staged(ctx, v.clone()).await }.boxed(),
+            ))
+            .await?;
 
             // Partition our inputs in artifacts and projections.
             let mut values_count = 0;
