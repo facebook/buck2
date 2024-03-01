@@ -45,6 +45,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
@@ -128,15 +129,13 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
         literals: &[String],
         dice: &mut DiceComputations<'_>,
     ) -> Self {
-        let dice = &*dice;
-        let futs = literals.iter().map(|lit| async move {
-            (
-                lit.to_owned(),
-                base.eval_literals(&[lit], &mut dice.bad_dice()).await,
-            )
-        });
+        let resolved_literal_results = dice
+            .compute_join(literals.iter(), |ctx, lit| {
+                async move { (lit.to_owned(), base.eval_literals(&[lit], ctx).await) }.boxed()
+            })
+            .await;
         let mut resolved_literals = HashMap::new();
-        for (literal, result) in futures::future::join_all(futs).await {
+        for (literal, result) in resolved_literal_results {
             resolved_literals.insert(literal, result.map_err(buck2_error::Error::from));
         }
         Self { resolved_literals }
