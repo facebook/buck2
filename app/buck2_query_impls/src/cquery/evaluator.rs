@@ -20,7 +20,7 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
-use dice::DiceComputations;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -87,9 +87,12 @@ pub(crate) async fn preresolve_literals_and_build_universe(
     CqueryUniverse,
     PreresolvedQueryLiterals<ConfiguredTargetNode>,
 )> {
-    let resolved_literals =
-        PreresolvedQueryLiterals::pre_resolve(dice_query_data, literals, dice_query_delegate.ctx())
-            .await;
+    let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
+        dice_query_data,
+        literals,
+        &mut dice_query_delegate.ctx(),
+    )
+    .await;
     let universe = CqueryUniverse::build(&resolved_literals.literals()?)?;
     Ok((universe, resolved_literals))
 }
@@ -97,7 +100,7 @@ pub(crate) async fn preresolve_literals_and_build_universe(
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
 pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a, 'd>(
-    ctx: &'c mut DiceComputations<'d>,
+    ctx: &'c LinearRecomputeDiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
     owner_behavior: CqueryOwnerBehavior,
@@ -126,7 +129,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     // we can get errors for packages or targets that don't exist or fail to load.
     let refs: Vec<_> = universe.map(|v| v.as_ref());
     let universe_resolved = query_literals
-        .eval_literals(&refs, dice_query_delegate.ctx())
+        .eval_literals(&refs, &mut dice_query_delegate.ctx())
         .await?;
 
     let universe = CqueryUniverse::build(&universe_resolved)?;

@@ -39,7 +39,7 @@ use crate::uquery::environment::QueryLiterals;
 pub(crate) trait AqueryDelegate: Send + Sync {
     fn cquery_delegate(&self) -> &dyn CqueryDelegate;
 
-    fn ctx(&self) -> &DiceComputations;
+    fn ctx<'a>(&'a self) -> DiceComputations<'a>;
 
     async fn get_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode>;
 
@@ -104,7 +104,7 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
         self.literals
-            .eval_literals(literals, self.delegate.ctx())
+            .eval_literals(literals, &mut self.delegate.ctx())
             .await
     }
 

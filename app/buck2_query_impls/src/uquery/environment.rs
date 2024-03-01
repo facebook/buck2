@@ -95,7 +95,7 @@ pub(crate) trait UqueryDelegate: Send + Sync {
     // all parent packages if the package matches `project.package_boundary_exceptions` buckconfig.
     async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>>;
 
-    fn ctx(&self) -> &DiceComputations;
+    fn ctx<'a>(&'a self) -> DiceComputations<'a>;
 }
 
 #[async_trait]
@@ -103,7 +103,7 @@ pub(crate) trait QueryLiterals<T: QueryTarget>: Send + Sync {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        dice: &DiceComputations<'_>,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<T>>;
 }
 
@@ -126,11 +126,15 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
     pub(crate) async fn pre_resolve(
         base: &dyn QueryLiterals<T>,
         literals: &[String],
-        dice: &DiceComputations<'_>,
+        dice: &mut DiceComputations<'_>,
     ) -> Self {
-        let futs = literals
-            .iter()
-            .map(|lit| async move { (lit.to_owned(), base.eval_literals(&[lit], dice).await) });
+        let dice = &*dice;
+        let futs = literals.iter().map(|lit| async move {
+            (
+                lit.to_owned(),
+                base.eval_literals(&[lit], &mut dice.bad_dice()).await,
+            )
+        });
         let mut resolved_literals = HashMap::new();
         for (literal, result) in futures::future::join_all(futs).await {
             resolved_literals.insert(literal, result.map_err(buck2_error::Error::from));
@@ -153,7 +157,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        _: &DiceComputations<'_>,
+        _: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<T>> {
         let mut targets = TargetSet::new();
         for lit in literals {
@@ -217,7 +221,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<TargetNode>> {
         self.literals
-            .eval_literals(literals, self.delegate.ctx())
+            .eval_literals(literals, &mut self.delegate.ctx())
             .await
     }
 

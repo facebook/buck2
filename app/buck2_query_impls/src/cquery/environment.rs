@@ -68,7 +68,7 @@ pub(crate) trait CqueryDelegate: Send + Sync {
         target: &TargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 
-    fn ctx(&self) -> &DiceComputations;
+    fn ctx<'a>(&'a self) -> DiceComputations<'a>;
 }
 
 pub(crate) struct CqueryEnvironment<'c> {
@@ -210,7 +210,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
         self.literals
-            .eval_literals(literals, self.delegate.ctx())
+            .eval_literals(literals, &mut self.delegate.ctx())
             .await
     }
 

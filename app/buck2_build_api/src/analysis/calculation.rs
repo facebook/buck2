@@ -30,7 +30,7 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 
 pub static EVAL_ANALYSIS_QUERY: LateBinding<
     for<'a> fn(
-        &'a DiceComputations,
+        &'a mut DiceComputations,
         &'a str,
         HashMap<String, ConfiguredTargetNode>,
     ) -> Pin<

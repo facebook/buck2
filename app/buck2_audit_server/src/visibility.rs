@@ -38,7 +38,7 @@ enum VisibilityCommandError {
 }
 
 async fn verify_visibility(
-    ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     targets: TargetSet<TargetNode>,
 ) -> anyhow::Result<()> {
     let mut new_targets: TargetSet<TargetNode> = TargetSet::new();
@@ -48,14 +48,17 @@ async fn verify_visibility(
         Ok(())
     };
 
-    let lookup = TargetNodeLookup(&ctx);
+    ctx.with_linear_recompute(|ctx| async move {
+        let lookup = TargetNodeLookup(&ctx);
 
-    async_depth_first_postorder_traversal(
-        &lookup,
-        targets.iter_names(),
-        QueryTargetDepsSuccessors,
-        visit,
-    )
+        async_depth_first_postorder_traversal(
+            &lookup,
+            targets.iter_names(),
+            QueryTargetDepsSuccessors,
+            visit,
+        )
+        .await
+    })
     .await?;
 
     let mut visibility_errors = Vec::new();

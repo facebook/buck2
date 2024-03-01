@@ -23,6 +23,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
@@ -33,12 +34,12 @@ use crate::analysis::environment::get_from_template_placeholder_info;
 use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 
 pub(crate) struct AnalysisDiceQueryDelegate<'c, 'd> {
-    pub(crate) ctx: &'c DiceComputations<'d>,
+    pub(crate) ctx: &'c LinearRecomputeDiceComputations<'d>,
 }
 
-impl<'d> AnalysisDiceQueryDelegate<'_, 'd> {
-    pub(crate) fn ctx(&self) -> &DiceComputations<'d> {
-        self.ctx
+impl AnalysisDiceQueryDelegate<'_, '_> {
+    pub(crate) fn ctx<'d>(&'d self) -> DiceComputations<'d> {
+        self.ctx.get()
     }
 }
 
@@ -132,7 +133,6 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
         let targets = self
             .dice_query_delegate
             .ctx()
-            .bad_dice(/* query */)
             .compute(&TemplatePlaceholderInfoQueryKey {
                 template_name,
                 targets: Arc::new(targets),

@@ -38,6 +38,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
@@ -60,7 +61,7 @@ enum AuditIncludesError {
 }
 
 async fn get_transitive_includes(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     load_result: &EvaluationResult,
 ) -> anyhow::Result<Vec<ImportPath>> {
     // We define a simple graph of LoadedModules to traverse.
@@ -91,7 +92,7 @@ async fn get_transitive_includes(
     }
 
     struct Lookup<'a, 'd> {
-        ctx: &'a DiceComputations<'d>,
+        ctx: &'a LinearRecomputeDiceComputations<'d>,
     }
 
     #[async_trait]
@@ -99,7 +100,7 @@ async fn get_transitive_includes(
         async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
             Ok(Node(
                 self.ctx
-                    .bad_dice(/* query */)
+                    .get()
                     .get_loaded_module(StarlarkModulePath::LoadFile(&label.0))
                     .await?,
             ))
@@ -127,14 +128,17 @@ async fn get_transitive_includes(
         }
     }
 
-    let lookup = Lookup { ctx };
+    ctx.with_linear_recompute(|ctx| async move {
+        let lookup = Lookup { ctx: &ctx };
 
-    async_depth_first_postorder_traversal(
-        &lookup,
-        load_result.imports().map(NodeRef::ref_cast),
-        Delegate,
-        visit,
-    )
+        async_depth_first_postorder_traversal(
+            &lookup,
+            load_result.imports().map(NodeRef::ref_cast),
+            Delegate,
+            visit,
+        )
+        .await
+    })
     .await?;
     Ok(imports)
 }

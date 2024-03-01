@@ -42,9 +42,11 @@ impl QueryFrontend for QueryFrontendImpl {
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
-        let evaluator = get_uquery_evaluator(ctx, working_dir, global_cfg_options).await?;
-
-        evaluator.eval_query(query, query_args).await
+        ctx.with_linear_recompute(|ctx| async move {
+            let evaluator = get_uquery_evaluator(&ctx, working_dir, global_cfg_options).await?;
+            evaluator.eval_query(query, query_args).await
+        })
+        .await
     }
 
     async fn eval_cquery(
@@ -57,18 +59,21 @@ impl QueryFrontend for QueryFrontendImpl {
         global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
-        let evaluator =
-            get_cquery_evaluator(ctx, working_dir, global_cfg_options, owner_behavior).await?;
+        ctx.with_linear_recompute(|ctx| async move {
+            let evaluator =
+                get_cquery_evaluator(&ctx, working_dir, global_cfg_options, owner_behavior).await?;
 
-        // TODO(nga): this should support configured target patterns
-        //   similarly to what we do for `build` command.
-        //   Something like this should work:
-        //   ```
-        //   buck2 cquery --target-universe android//:binary 'deps("some//:lib (<arm32>)")'
-        //   ```
-        evaluator
-            .eval_query(query, query_args, target_universe.as_ref().map(|v| &v[..]))
-            .await
+            // TODO(nga): this should support configured target patterns
+            //   similarly to what we do for `build` command.
+            //   Something like this should work:
+            //   ```
+            //   buck2 cquery --target-universe android//:binary 'deps("some//:lib (<arm32>)")'
+            //   ```
+            evaluator
+                .eval_query(query, query_args, target_universe.as_ref().map(|v| &v[..]))
+                .await
+        })
+        .await
     }
 
     async fn eval_aquery(
@@ -79,9 +84,11 @@ impl QueryFrontend for QueryFrontendImpl {
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
-        let evaluator = get_aquery_evaluator(ctx, working_dir, global_cfg_options).await?;
-
-        evaluator.eval_query(query, query_args).await
+        ctx.with_linear_recompute(|ctx| async move {
+            let evaluator = get_aquery_evaluator(&ctx, working_dir, global_cfg_options).await?;
+            evaluator.eval_query(query, query_args).await
+        })
+        .await
     }
 
     async fn universe_from_literals(
@@ -91,13 +98,16 @@ impl QueryFrontend for QueryFrontendImpl {
         literals: &[String],
         global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<CqueryUniverse> {
-        let query_delegate = get_dice_query_delegate(ctx, cwd, global_cfg_options).await?;
-        Ok(preresolve_literals_and_build_universe(
-            &query_delegate,
-            query_delegate.query_data(),
-            literals,
-        )
-        .await?
-        .0)
+        ctx.with_linear_recompute(|ctx| async move {
+            let query_delegate = get_dice_query_delegate(&ctx, cwd, global_cfg_options).await?;
+            Ok(preresolve_literals_and_build_universe(
+                &query_delegate,
+                query_delegate.query_data(),
+                literals,
+            )
+            .await?
+            .0)
+        })
+        .await
     }
 }

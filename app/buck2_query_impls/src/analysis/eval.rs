@@ -28,20 +28,23 @@ pub(crate) fn init_eval_analysis_query() {
 }
 
 async fn eval_analysis_query(
-    ctx: &DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     query: &str,
     resolved_literals: HashMap<String, ConfiguredTargetNode>,
 ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
-    let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
-    let delegate = AnalysisConfiguredGraphQueryDelegate {
-        dice_query_delegate,
-        resolved_literals,
-    };
+    ctx.with_linear_recompute(|ctx| async move {
+        let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx: &ctx });
+        let delegate = AnalysisConfiguredGraphQueryDelegate {
+            dice_query_delegate,
+            resolved_literals,
+        };
 
-    let functions = ConfiguredGraphQueryEnvironment::functions();
-    let env = ConfiguredGraphQueryEnvironment::new(&delegate);
-    let evaluator = QueryEvaluator::new(&env, &functions);
+        let functions = ConfiguredGraphQueryEnvironment::functions();
+        let env = ConfiguredGraphQueryEnvironment::new(&delegate);
+        let evaluator = QueryEvaluator::new(&env, &functions);
 
-    let result = evaluator.eval_query(query).await?;
-    result.try_into_targets()
+        let result = evaluator.eval_query(query).await?;
+        result.try_into_targets()
+    })
+    .await
 }

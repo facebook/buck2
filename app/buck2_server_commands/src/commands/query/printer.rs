@@ -415,21 +415,18 @@ async fn printable_targets<'a, T: QueryTarget>(
     attributes: &'a Option<RegexSet>,
     target_call_stacks: bool,
 ) -> anyhow::Result<Vec<PrintableQueryTarget<'a, T>>> {
-    futures::future::join_all(targets.iter().map(|t| {
-        let print_providers = &print_providers;
-        async move {
-            Ok(PrintableQueryTarget {
-                value: t,
-                attributes,
-                target_call_stacks,
-                providers: match print_providers {
-                    ShouldPrintProviders::No => None,
-                    ShouldPrintProviders::Yes(lookup) => {
-                        Some(lookup.lookup(t).await?.require_compatible()?)
-                    }
-                },
-            })
-        }
+    futures::future::join_all(targets.iter().map(|t| async move {
+        Ok(PrintableQueryTarget {
+            value: t,
+            attributes,
+            target_call_stacks,
+            providers: match print_providers {
+                ShouldPrintProviders::No => None,
+                ShouldPrintProviders::Yes(lookup) => {
+                    Some(lookup.lookup(t).await?.require_compatible()?)
+                }
+            },
+        })
     }))
     .await
     .into_iter()

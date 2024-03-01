@@ -55,6 +55,7 @@ use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
@@ -136,7 +137,7 @@ impl LiteralParser {
 /// A Uquery delegate that resolves TargetNodes with the provided
 /// InterpreterCalculation.
 pub(crate) struct DiceQueryDelegate<'c, 'd> {
-    ctx: &'c DiceComputations<'d>,
+    ctx: &'c LinearRecomputeDiceComputations<'d>,
     cell_resolver: CellResolver,
     query_data: Arc<DiceQueryData>,
     package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
@@ -187,7 +188,7 @@ impl DiceQueryData {
 
 impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
     pub(crate) fn new(
-        ctx: &'c DiceComputations<'d>,
+        ctx: &'c LinearRecomputeDiceComputations<'d>,
         cell_resolver: CellResolver,
         package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
         query_data: Arc<DiceQueryData>,
@@ -200,8 +201,8 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
         }
     }
 
-    pub(crate) fn ctx(&self) -> &'c DiceComputations<'d> {
-        self.ctx
+    pub(crate) fn ctx<'x>(&'x self) -> DiceComputations<'x> {
+        self.ctx.get()
     }
 
     pub(crate) fn query_data(&self) -> &Arc<DiceQueryData> {
@@ -215,14 +216,14 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         &self,
         package: PackageLabel,
     ) -> anyhow::Result<Arc<EvaluationResult>> {
-        self.ctx.bad_dice(/* query */).get_interpreter_results(package).await
+        self.ctx.get().get_interpreter_results(package).await
     }
 
     async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>> {
         //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
         let module = self
             .ctx
-            .bad_dice(/* query */)
+            .get()
             .get_loaded_module_from_import_path(path)
             .await?;
         Ok(module.imports().cloned().collect())
@@ -245,12 +246,8 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns =
             patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
-        ResolveTargetPatterns::resolve(
-            &mut self.ctx.bad_dice(/* query */),
-            &self.cell_resolver,
-            &parsed_patterns,
-        )
-        .await
+        ResolveTargetPatterns::resolve(&mut self.ctx.get(), &self.cell_resolver, &parsed_patterns)
+            .await
     }
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.
@@ -261,16 +258,14 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
             .package_boundary_exceptions
             .get_package_boundary_exception_path(path)
         {
-            return Ok(
-                DicePackageListingResolver(&mut self.ctx.bad_dice(/* query */))
-                    .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
-                    .await?
-                    .into_iter()
-                    .collect(),
-            );
+            return Ok(DicePackageListingResolver(&mut self.ctx.get())
+                .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
+                .await?
+                .into_iter()
+                .collect());
         }
 
-        let package = DicePackageListingResolver(&mut self.ctx.bad_dice(/* query */))
+        let package = DicePackageListingResolver(&mut self.ctx.get())
             .get_enclosing_package(path.as_ref())
             .await?;
         Ok(vec![package])
@@ -281,8 +276,8 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         Ok(FileSet::new(indexset![FileNode(cell_path)]))
     }
 
-    fn ctx(&self) -> &DiceComputations {
-        self.ctx
+    fn ctx<'a>(&'a self) -> DiceComputations<'a> {
+        self.ctx.get()
     }
 }
 
@@ -298,14 +293,10 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self
             .ctx
-            .bad_dice(/* query */)
+            .get()
             .get_configured_target(target, self.query_data.global_cfg_options())
             .await?;
-        Ok(self
-            .ctx
-            .bad_dice(/* query */)
-            .get_configured_target_node(&target)
-            .await?)
+        Ok(self.ctx.get().get_configured_target_node(&target).await?)
     }
 
     async fn get_node_for_configured_target(
@@ -314,7 +305,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ConfiguredTargetNode> {
         Ok(self
             .ctx
-            .bad_dice(/* query */)
+            .get()
             .get_configured_target_node(target)
             .await?
             .require_compatible()?)
@@ -324,15 +315,8 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
         &self,
         target: &TargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        let target = self
-            .ctx
-            .bad_dice(/* query */)
-            .get_default_configured_target(target)
-            .await?;
-        self.ctx
-            .bad_dice(/* query */)
-            .get_configured_target_node(&target)
-            .await
+        let target = self.ctx.get().get_default_configured_target(target).await?;
+        self.ctx.get().get_configured_target_node(&target).await
     }
 
     async fn get_configured_target(
@@ -340,13 +324,13 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
         target: &TargetLabel,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
         self.ctx
-            .bad_dice(/* query */)
+            .get()
             .get_configured_target(target, self.query_data.global_cfg_options())
             .await
     }
 
-    fn ctx(&self) -> &DiceComputations {
-        self.ctx
+    fn ctx<'a>(&'a self) -> DiceComputations<'a> {
+        self.ctx.get()
     }
 }
 
@@ -355,11 +339,11 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         load_compatible_patterns(
-            &mut ctx.bad_dice(/* query */),
+            ctx,
             parsed_patterns,
             &self.global_cfg_options,
             MissingTargetBehavior::Fail,
@@ -373,15 +357,11 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
     async fn eval_literals(
         &self,
         literals: &[&str],
-        ctx: &DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
-        let loaded_patterns = load_patterns(
-            &mut ctx.bad_dice(/* query */),
-            parsed_patterns,
-            MissingTargetBehavior::Fail,
-        )
-        .await?;
+        let loaded_patterns =
+            load_patterns(ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
         let mut target_set = TargetSet::new();
         for (_package, results) in loaded_patterns.into_iter() {
             target_set.extend(results?.into_values());
@@ -391,16 +371,18 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
 }
 
 pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
-    ctx: &'c mut DiceComputations<'d>,
+    ctx: &'c LinearRecomputeDiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
 ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
-    let cell_resolver = ctx.get_cell_resolver().await?;
-    let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
+    let cell_resolver = ctx.get().get_cell_resolver().await?;
+    let package_boundary_exceptions = ctx.get().get_package_boundary_exceptions().await?;
     let target_alias_resolver = ctx
+        .get()
         .target_alias_resolver_for_working_dir(working_dir)
         .await?;
     let project_root = ctx
+        .get()
         .global_data()
         .get_io_provider()
         .project_root()

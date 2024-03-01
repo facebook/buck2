@@ -34,8 +34,8 @@ use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_util::truncate::truncate;
-use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 
 use crate::commands::query::printer::ProviderLookUp;
@@ -189,45 +189,49 @@ async fn cquery(
         )
         .await?;
 
-    let should_print_providers = if *show_providers {
-        ShouldPrintProviders::Yes(&*ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
-    } else {
-        ShouldPrintProviders::No
-    };
+    ctx.with_linear_recompute(|ctx| async move {
+        let should_print_providers = if *show_providers {
+            ShouldPrintProviders::Yes(&ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
+        } else {
+            ShouldPrintProviders::No
+        };
 
-    match query_result {
-        QueryEvaluationResult::Single(targets) => {
-            output_configuration
-                .print_single_output(
-                    &mut stdout,
-                    targets,
-                    target_call_stacks,
-                    should_print_providers,
-                )
-                .await?
-        }
-        QueryEvaluationResult::Multiple(results) => {
-            output_configuration
-                .print_multi_output(
-                    &mut stdout,
-                    results,
-                    target_call_stacks,
-                    should_print_providers,
-                )
-                .await?
-        }
-    };
+        match query_result {
+            QueryEvaluationResult::Single(targets) => {
+                output_configuration
+                    .print_single_output(
+                        &mut stdout,
+                        targets,
+                        target_call_stacks,
+                        should_print_providers,
+                    )
+                    .await?
+            }
+            QueryEvaluationResult::Multiple(results) => {
+                output_configuration
+                    .print_multi_output(
+                        &mut stdout,
+                        results,
+                        target_call_stacks,
+                        should_print_providers,
+                    )
+                    .await?
+            }
+        };
+        anyhow::Ok(())
+    })
+    .await?;
 
     Ok(CqueryResponse {})
 }
 
 #[async_trait]
-impl ProviderLookUp<ConfiguredTargetNode> for DiceComputations<'_> {
+impl ProviderLookUp<ConfiguredTargetNode> for LinearRecomputeDiceComputations<'_> {
     async fn lookup(
         &self,
         t: &ConfiguredTargetNode,
     ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
-        self.bad_dice(/* query */)
+        self.get()
             .get_providers(&ConfiguredProvidersLabel::new(
                 t.label().dupe(),
                 ProvidersName::Default,

@@ -90,35 +90,40 @@ pub(crate) async fn targets_batch(
     hash_options: TargetHashOptions,
     keep_going: bool,
 ) -> anyhow::Result<TargetsResponse> {
-    let results = load_patterns(&mut dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
+    let results = &load_patterns(&mut dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
 
-    let target_hashes = match hash_options.graph_type {
-        TargetHashGraphType::Configured => Some(
-            TargetHashes::compute::<ConfiguredTargetNode, _>(
-                dice.dupe(),
-                ConfiguredTargetNodeLookup(&dice),
-                results.iter_loaded_targets_by_package().collect(),
-                global_cfg_options,
-                hash_options.file_mode,
-                hash_options.fast_hash,
-                hash_options.recursive,
-            )
-            .await?,
-        ),
-        TargetHashGraphType::Unconfigured => Some(
-            TargetHashes::compute::<TargetNode, _>(
-                dice.dupe(),
-                TargetNodeLookup(&dice),
-                results.iter_loaded_targets_by_package().collect(),
-                global_cfg_options,
-                hash_options.file_mode,
-                hash_options.fast_hash,
-                hash_options.recursive,
-            )
-            .await?,
-        ),
-        _ => None,
-    };
+    let target_hashes = dice
+        .dupe()
+        .with_linear_recompute(|linear_ctx| async move {
+            match hash_options.graph_type {
+                TargetHashGraphType::Configured => anyhow::Ok(Some(
+                    TargetHashes::compute::<ConfiguredTargetNode, _>(
+                        dice.dupe(),
+                        ConfiguredTargetNodeLookup(&linear_ctx),
+                        results.iter_loaded_targets_by_package().collect(),
+                        global_cfg_options,
+                        hash_options.file_mode,
+                        hash_options.fast_hash,
+                        hash_options.recursive,
+                    )
+                    .await?,
+                )),
+                TargetHashGraphType::Unconfigured => Ok(Some(
+                    TargetHashes::compute::<TargetNode, _>(
+                        dice.dupe(),
+                        TargetNodeLookup(&linear_ctx),
+                        results.iter_loaded_targets_by_package().collect(),
+                        global_cfg_options,
+                        hash_options.file_mode,
+                        hash_options.fast_hash,
+                        hash_options.recursive,
+                    )
+                    .await?,
+                )),
+                _ => Ok(None),
+            }
+        })
+        .await?;
 
     let mut buffer = String::new();
     formatter.begin(&mut buffer);
