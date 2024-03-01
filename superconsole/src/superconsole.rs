@@ -158,9 +158,9 @@ impl SuperConsole {
         }
     }
 
-    /// The first half of drawing.  It moves the buffer up to be overwritten and sets the length to 0.
+    /// The first step of drawing.  It moves the buffer up to be overwritten and sets the length to 0.
     /// This is used to clear the scratch area so that any possibly emitted messages can write over it.
-    pub(crate) fn canvas_move_up(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn clear_canvas_pre(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         let mut len = self.canvas_height;
         self.canvas_height = 0;
         while len > 0 {
@@ -170,15 +170,21 @@ impl SuperConsole {
             len -= step as usize;
         }
         writer.queue(MoveToColumn(0))?;
+        Ok(())
+    }
 
+    /// The last step of drawing. Ensures there is nothing else below on the console.
+    /// Important in case the new canvas was smaller than the last.
+    pub(crate) fn clear_canvas_post(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+        writer.queue(Clear(ClearType::FromCursorDown))?;
         Ok(())
     }
 
     /// Clears the canvas portion of the superconsole.
     pub fn clear(&mut self) -> anyhow::Result<()> {
         let mut buffer = Vec::new();
-        self.canvas_move_up(&mut buffer)?;
-        buffer.queue(Clear(ClearType::FromCursorDown))?;
+        self.clear_canvas_pre(&mut buffer)?;
+        self.clear_canvas_post(&mut buffer)?;
         self.output.output(buffer)
     }
 
@@ -227,15 +233,11 @@ impl SuperConsole {
             _ => None,
         };
 
-        // Go the beginning of the canvas.
-        self.canvas_move_up(buffer)?;
-        self.canvas_height = canvas.len();
-
+        self.clear_canvas_pre(buffer)?;
         self.to_emit.render_with_limit(buffer, limit)?;
         canvas.render(buffer)?;
-
-        // clear any residue from the previous render.
-        buffer.queue(Clear(ClearType::FromCursorDown))?;
+        self.clear_canvas_post(buffer)?;
+        self.canvas_height = canvas.len();
 
         Ok(())
     }
