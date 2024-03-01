@@ -69,7 +69,7 @@ impl Canvas {
     }
 
     /// Clears the canvas.
-    pub fn clear(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn clear(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         self.move_up(writer)?;
         writer.queue(Clear(ClearType::FromCursorDown))?;
 
