@@ -160,6 +160,19 @@ def good():
     }
 
     #[test]
+    fn test_lint_suppressions_with_space_separator() {
+        let m = module(
+            r#"
+def good():
+    #    starlark-lint-disable unused-assign FIXME
+    b = 1
+"#,
+        );
+        let res = m.lint(None);
+        assert!(res.is_empty());
+    }
+
+    #[test]
     fn test_lint_suppressions_multiline_span() {
         let m = module(
             r#"

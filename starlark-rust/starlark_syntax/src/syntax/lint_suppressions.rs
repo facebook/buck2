@@ -181,7 +181,7 @@ fn parse_lint_suppressions(comment_line: &str) -> Vec<String> {
         .trim_start()
         .strip_prefix(LINT_SUPPRESISON_PREFIX)
     {
-        for name in short_names.split(',') {
+        for name in short_names.split([' ', ',']) {
             let trimmed = name.trim();
             if !trimmed.is_empty() {
                 res.push(trimmed.to_owned());
