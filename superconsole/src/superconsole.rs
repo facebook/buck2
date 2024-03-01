@@ -37,7 +37,7 @@ const MAX_GRAPHEME_BUFFER: usize = 1000000;
 /// Producing output from sources other than SuperConsole while break the TUI.
 pub struct SuperConsole {
     /// Number of lines that were used to render the canvas last time.
-    canvas_height: usize,
+    canvas_contents: Lines,
     /// Buffer storing the lines we should emit next time we render.
     to_emit: Lines,
     /// A default screen size to use if the size cannot be fetched
@@ -74,7 +74,7 @@ impl SuperConsole {
         output: Box<dyn SuperConsoleOutput>,
     ) -> Self {
         Self {
-            canvas_height: 0,
+            canvas_contents: Lines::new(),
             to_emit: Lines::new(),
             fallback_size,
             output,
@@ -181,8 +181,8 @@ impl SuperConsole {
     /// Clears the canvas portion of the superconsole.
     pub fn clear(&mut self) -> anyhow::Result<()> {
         let mut buffer = Vec::new();
-        Self::clear_canvas_pre(&mut buffer, self.canvas_height)?;
-        self.canvas_height = 0;
+        Self::clear_canvas_pre(&mut buffer, self.canvas_contents.len())?;
+        self.canvas_contents = Lines::new();
         Self::clear_canvas_post(&mut buffer)?;
         self.output.output(buffer)
     }
@@ -232,12 +232,12 @@ impl SuperConsole {
             _ => None,
         };
 
-        Self::clear_canvas_pre(buffer, self.canvas_height)?;
-        self.canvas_height = 0;
+        Self::clear_canvas_pre(buffer, self.canvas_contents.len())?;
+        self.canvas_contents = Lines::new();
         self.to_emit.render_with_limit(buffer, limit)?;
         canvas.render(buffer)?;
         Self::clear_canvas_post(buffer)?;
-        self.canvas_height = canvas.len();
+        self.canvas_contents = canvas;
 
         Ok(())
     }
