@@ -40,7 +40,7 @@ impl DrawVertical {
             },
             mode,
         )?;
-        self.lines.0.extend(output.0);
+        self.lines.extend(output);
         Ok(())
     }
 

@@ -349,9 +349,9 @@ mod tests {
             );
 
             let mut output = top;
-            output.0.extend(iter::repeat(Line::default()).take(8));
-            output.0.extend(bottom.0);
-            output.0.extend(iter::repeat(Line::default()).take(7));
+            output.extend(iter::repeat(Line::default()).take(8));
+            output.extend(bottom);
+            output.extend(iter::repeat(Line::default()).take(7));
 
             let drawn = splitter
                 .draw(Dimensions::new(20, 20), DrawMode::Normal)
@@ -381,7 +381,7 @@ mod tests {
             );
 
             let mut output = top;
-            output.0.extend(bottom.0);
+            output.extend(bottom);
 
             let drawn = splitter
                 .draw(Dimensions::new(20, 20), DrawMode::Normal)

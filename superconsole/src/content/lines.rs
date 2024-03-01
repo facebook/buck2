@@ -154,6 +154,10 @@ impl Lines {
         self.0.push(line);
     }
 
+    pub fn extend(&mut self, lines: impl IntoIterator<Item = Line>) {
+        self.0.extend(lines);
+    }
+
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &Line> {
         self.0.iter()
     }
@@ -228,7 +232,7 @@ impl Lines {
     /// Extends the Lines list by the given length, adding empty lines at the bottom
     pub fn pad_lines_bottom(&mut self, amount: usize) {
         let extender = iter::repeat(Line::default()).take(amount);
-        self.0.extend(extender);
+        self.extend(extender);
     }
 
     /// Same functionality as `pad_lines_bottom` but on the top.
