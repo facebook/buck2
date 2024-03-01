@@ -16,8 +16,7 @@ use std::sync::Arc;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_build_api::configure_targets::get_compatible_targets;
-use buck2_common::dice::file_ops::DiceFileOps;
-use buck2_common::file_ops::FileOps;
+use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
@@ -127,11 +126,11 @@ impl FileHasher for PathsAndContentsHasher {
     async fn hash_path(&self, cell_path: &CellPath) -> anyhow::Result<Vec<u8>> {
         #[async_recursion]
         async fn hash_item(
-            file_ops: &dyn FileOps,
+            ctx: &mut DiceComputations<'_>,
             cell_path: CellPathRef<'async_recursion>,
             res: &mut Vec<u8>,
         ) -> anyhow::Result<()> {
-            let info = file_ops.read_path_metadata(cell_path.dupe()).await?;
+            let info = DiceFileComputations::read_path_metadata(ctx, cell_path.dupe()).await?;
             // Important that the different branches can never clash, so add a prefix byte to them
             match PathMetadataOrRedirection::from(info) {
                 PathMetadataOrRedirection::PathMetadata(meta) => match meta {
@@ -154,26 +153,28 @@ impl FileHasher for PathsAndContentsHasher {
                     }
                     PathMetadata::Directory => {
                         res.push(2u8);
-                        let files = file_ops.read_dir(cell_path.dupe()).await?.included;
+                        let files = DiceFileComputations::read_dir(ctx, cell_path.dupe())
+                            .await?
+                            .included;
                         res.extend(files.len().to_be_bytes());
                         for x in &*files {
                             let name = x.file_name.as_str();
                             res.extend(name.len().to_be_bytes());
                             res.extend(name.as_bytes());
-                            hash_item(file_ops, cell_path.join(&x.file_name).as_ref(), res).await?;
+                            hash_item(ctx, cell_path.join(&x.file_name).as_ref(), res).await?;
                         }
                     }
                 },
                 PathMetadataOrRedirection::Redirection(r) => {
                     // TODO (T126181780): This should have a limit on recursion.
-                    hash_item(file_ops, r.as_ref().as_ref(), res).await?;
+                    hash_item(ctx, r.as_ref().as_ref(), res).await?;
                 }
             }
             Ok(())
         }
 
         let mut res = Vec::new();
-        hash_item(&DiceFileOps(&self.dice), cell_path.as_ref(), &mut res).await?;
+        hash_item(&mut self.dice.clone(), cell_path.as_ref(), &mut res).await?;
         Ok(res)
     }
 }

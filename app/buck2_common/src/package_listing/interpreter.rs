@@ -24,8 +24,7 @@ use futures::FutureExt;
 use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
-use crate::dice::file_ops::DiceFileOps;
-use crate::file_ops::FileOps;
+use crate::dice::file_ops::DiceFileComputations;
 use crate::find_buildfile::find_buildfile;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
@@ -55,7 +54,9 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
         let buildfile_candidates = cell_instance.buildfiles();
         if let Some(path) = path.parent() {
             for path in path.ancestors() {
-                let listing = self.fs().read_dir(path.dupe()).await?.included;
+                let listing = DiceFileComputations::read_dir(self.ctx, path)
+                    .await?
+                    .included;
                 if find_buildfile(buildfile_candidates, &listing).is_some() {
                     return Ok(PackageLabel::from_cell_path(path));
                 }
@@ -82,7 +83,9 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
                     // stop when we are no longer within the enclosing path
                     break;
                 }
-                let listing = self.fs().read_dir(path.dupe()).await?.included;
+                let listing = DiceFileComputations::read_dir(self.ctx, path.dupe())
+                    .await?
+                    .included;
                 if find_buildfile(buildfile_candidates, &listing).is_some() {
                     packages.push(PackageLabel::from_cell_path(path));
                 }
@@ -106,10 +109,6 @@ pub struct InterpreterPackageListingResolver<'c, 'd> {
 impl<'c, 'd> InterpreterPackageListingResolver<'c, 'd> {
     pub fn new(cell_resolver: CellResolver, ctx: &'c mut DiceComputations<'d>) -> Self {
         Self { cell_resolver, ctx }
-    }
-
-    fn fs(&self) -> impl FileOps + '_ {
-        DiceFileOps(self.ctx)
     }
 
     pub async fn gather_package_listing<'a>(
@@ -142,8 +141,7 @@ impl Directory {
         is_root: bool,
     ) -> anyhow::Result<Option<Directory>> {
         let cell_path = root.join(path.as_forward_rel_path());
-        let entries = DiceFileOps(ctx)
-            .read_dir(cell_path.as_ref())
+        let entries = DiceFileComputations::read_dir(ctx, cell_path.as_ref())
             .await
             .user()?
             .included;

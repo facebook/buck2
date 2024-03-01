@@ -20,8 +20,7 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::projected_artifact::ProjectedArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_common::dice::file_ops::DiceFileOps;
-use buck2_common::file_ops::FileOps;
+use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
@@ -285,8 +284,7 @@ async fn dir_artifact_value(
             ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
-            let files = DiceFileOps(ctx)
-                .read_dir(self.0.as_ref().as_ref())
+            let files = DiceFileComputations::read_dir(ctx, self.0.as_ref().as_ref())
                 .await?
                 .included;
 
@@ -329,9 +327,7 @@ async fn path_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    let raw = (&DiceFileOps(ctx) as &dyn FileOps)
-        .read_path_metadata(cell_path.as_ref().as_ref())
-        .await?;
+    let raw = DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref()).await?;
     match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
             PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(

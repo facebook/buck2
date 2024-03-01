@@ -39,6 +39,7 @@ use crate::dice::data::HasIoProvider;
 use crate::dice::file_ops::keys::FileOpsKey;
 use crate::dice::file_ops::keys::FileOpsValue;
 use crate::file_ops::FileOps;
+use crate::file_ops::FileOpsError;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
@@ -60,6 +61,63 @@ impl FileToken {
     }
 }
 
+pub struct DiceFileComputations;
+
+/// Functions for accessing files with keys on the dice graph.
+impl DiceFileComputations {
+    pub async fn read_dir(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<ReadDirOutput> {
+        ctx.compute(&ReadDirKey(path.to_owned()))
+            .await?
+            .map_err(anyhow::Error::from)
+    }
+
+    async fn read_file_if_exists(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<Option<String>> {
+        let path = path.to_owned();
+        let file_ops = get_default_file_ops(ctx).await?;
+
+        ctx.compute(&ReadFileKey(Arc::new(path)))
+            .await?
+            .read_if_exists(&*file_ops)
+            .await
+    }
+
+    pub async fn read_file(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<String> {
+        Self::read_file_if_exists(ctx, path)
+            .await?
+            .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
+    }
+
+    pub async fn read_path_metadata_if_exists(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<Option<RawPathMetadata>> {
+        ctx.compute(&PathMetadataKey(path.to_owned()))
+            .await?
+            .map_err(anyhow::Error::from)
+    }
+
+    pub async fn read_path_metadata(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<RawPathMetadata> {
+        Self::read_path_metadata_if_exists(ctx, path)
+            .await?
+            .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
+    }
+}
+
+/// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
+///
+/// In general, it's better to use DiceFileComputations directly.
 pub struct DiceFileOps<'c, 'd>(pub &'c DiceComputations<'d>);
 
 pub mod keys {
@@ -432,34 +490,22 @@ impl FileOps for DiceFileOps<'_, '_> {
         &self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<String>> {
-        let path = path.to_owned();
-        let file_ops = get_default_file_ops(&mut self.0.bad_dice(/* fileops */)).await?;
-
-        self.0
-            .bad_dice(/* fileops */)
-            .compute(&ReadFileKey(Arc::new(path)))
-            .await?
-            .read_if_exists(&*file_ops)
-            .await
+        DiceFileComputations::read_file_if_exists(&mut self.0.bad_dice(/* fileops */), path).await
     }
 
     async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
-        self.0
-            .bad_dice(/* fileops */)
-            .compute(&ReadDirKey(path.to_owned()))
-            .await?
-            .map_err(anyhow::Error::from)
+        DiceFileComputations::read_dir(&mut self.0.bad_dice(/* fileops */), path).await
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<RawPathMetadata>> {
-        self.0
-            .bad_dice(/* fileops */)
-            .compute(&PathMetadataKey(path.to_owned()))
-            .await?
-            .map_err(anyhow::Error::from)
+        DiceFileComputations::read_path_metadata_if_exists(
+            &mut self.0.bad_dice(/* fileops */),
+            path,
+        )
+        .await
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {

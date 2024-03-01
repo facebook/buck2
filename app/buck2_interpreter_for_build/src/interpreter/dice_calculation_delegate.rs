@@ -13,8 +13,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleGuard;
-use buck2_common::dice::file_ops::DiceFileOps;
-use buck2_common::file_ops::FileOps;
+use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
@@ -149,12 +148,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             .await
     }
 
-    async fn parse_file(&self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
-        let content = <dyn FileOps>::read_file(
-            &DiceFileOps(self.ctx),
-            starlark_path.path().as_ref().as_ref(),
-        )
-        .await?;
+    async fn parse_file(&mut self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
+        let content =
+            DiceFileComputations::read_file(self.ctx, starlark_path.path().as_ref().as_ref())
+                .await?;
         self.configs.parse(starlark_path, content)
     }
 
@@ -280,7 +277,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         path: &PackageFilePath,
     ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
         // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
-        let dir = DiceFileOps(self.ctx).read_dir(path.dir()).await?;
+        let dir = DiceFileComputations::read_dir(self.ctx, path.dir()).await?;
         // Note:
         // * we are using `read_dir` instead of `read_path_metadata` because
         //   * it is an extra IO, and `read_dir` is likely already cached.
