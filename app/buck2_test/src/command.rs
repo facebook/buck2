@@ -619,8 +619,8 @@ enum TestDriverTask {
 }
 
 #[derive(Copy, Clone, Dupe)]
-pub(crate) struct TestDriverState<'a, 'e, 'd> {
-    ctx: &'a DiceComputations<'d>,
+pub(crate) struct TestDriverState<'a, 'e> {
+    ctx: &'a DiceTransaction,
     label_filtering: &'a Arc<TestLabelFiltering>,
     global_cfg_options: &'a GlobalCfgOptions,
     session: &'a TestSession,
@@ -631,16 +631,16 @@ pub(crate) struct TestDriverState<'a, 'e, 'd> {
 }
 
 /// Maintains the state of an ongoing test execution.
-struct TestDriver<'a, 'e, 'd> {
-    state: TestDriverState<'a, 'e, 'd>,
+struct TestDriver<'a, 'e> {
+    state: TestDriverState<'a, 'e>,
     work: FuturesUnordered<BoxFuture<'a, anyhow::Result<Vec<TestDriverTask>>>>,
     labels_configured: HashSet<(ProvidersLabel, bool)>,
     labels_tested: HashSet<ConfiguredProvidersLabel>,
     build_errors: Vec<buck2_error::Error>,
 }
 
-impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
-    pub(crate) fn new(state: TestDriverState<'a, 'e, 'd>) -> Self {
+impl<'a, 'e> TestDriver<'a, 'e> {
+    pub(crate) fn new(state: TestDriverState<'a, 'e>) -> Self {
         Self {
             state,
             work: FuturesUnordered::new(),
@@ -710,7 +710,7 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
             async move {
                 let res = state
                     .ctx
-                    .bad_dice(/* test_driver */)
+                    .clone()
                     .get_interpreter_results(package.dupe())
                     .await?;
                 let SpecTargets { labels, skippable } = spec_to_targets(
@@ -745,13 +745,13 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
         let fut = async move {
             let label = state
                 .ctx
-                .bad_dice(/* test_driver */)
+                .clone()
                 .get_configured_provider_label(&label, state.global_cfg_options)
                 .await?;
 
             let node = state
                 .ctx
-                .bad_dice(/* test_driver */)
+                .clone()
                 .get_configured_target_node(label.target())
                 .await?;
 
@@ -801,7 +801,7 @@ impl<'a, 'e, 'd> TestDriver<'a, 'e, 'd> {
         let state = self.state;
         let fut = async move {
             test_target(
-                &mut state.ctx.bad_dice(/* test_driver */),
+                &mut state.ctx.clone(),
                 label,
                 state.test_executor.dupe(),
                 state.session,
