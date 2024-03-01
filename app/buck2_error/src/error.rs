@@ -12,6 +12,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use either::Either;
+use smallvec::SmallVec;
 
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
@@ -157,7 +158,12 @@ impl Error {
     }
 
     pub fn tag(self, tags: impl IntoIterator<Item = crate::ErrorTag>) -> Self {
-        self.context(ContextValue::Tags(tags.into_iter().collect()))
+        let tags = SmallVec::from_iter(tags);
+        if tags.is_empty() {
+            self
+        } else {
+            self.context(ContextValue::Tags(tags))
+        }
     }
 
     pub fn get_category(&self) -> Option<Category> {
