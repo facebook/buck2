@@ -28,7 +28,6 @@ pub mod alignment;
 mod blank;
 pub mod bordering;
 mod bounding;
-pub(crate) mod canvas;
 mod draw_horizontal;
 mod draw_vertical;
 pub(crate) mod echo;
