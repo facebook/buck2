@@ -20,6 +20,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         dex_files_info = android_binary_info.dex_files_info,
         native_library_info = android_binary_info.native_library_info,
         resources_info = android_binary_info.resources_info,
+        bundle_config = ctx.attrs.bundle_config_file,
     )
 
     java_packaging_deps = android_binary_info.java_packaging_deps
@@ -40,7 +41,8 @@ def build_bundle(
         android_toolchain: AndroidToolchainInfo,
         dex_files_info: DexFilesInfo,
         native_library_info: AndroidBinaryNativeLibsInfo,
-        resources_info: AndroidBinaryResourcesInfo) -> Artifact:
+        resources_info: AndroidBinaryResourcesInfo,
+        bundle_config: [Artifact, None]) -> Artifact:
     output_bundle = actions.declare_output("{}.aab".format(label.name))
 
     bundle_builder_args = cmd_args([
@@ -52,6 +54,8 @@ def build_bundle(
         "--dex-file",
         dex_files_info.primary_dex,
     ])
+    if bundle_config:
+        bundle_builder_args.add(["--path-to-bundle-config-file", bundle_config])
 
     if android_toolchain.package_meta_inf_version_files:
         bundle_builder_args.add("--package-meta-inf-version-files")
