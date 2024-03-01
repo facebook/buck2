@@ -31,11 +31,11 @@ start_link(InitialState) ->
 
 -spec get(Handle :: handle()) -> CurrentState :: term().
 get(Handle) ->
-    gen_server:call(Handle, get).
+    gen_server:call(Handle, get, 6000).
 
 -spec modify(Handle :: handle(), Fun :: fun((State) -> {A, State})) -> A.
 modify(Handle, Fun) ->
-    gen_server:call(Handle, {modify, Fun}).
+    gen_server:call(Handle, {modify, Fun}, 6000).
 
 
 %% ---- gen_server callbacks ----------
