@@ -43,6 +43,15 @@ impl QueryCommandTarget for ActionQueryNode {
     ) -> Result<S::Ok, S::Error> {
         serde::Serialize::serialize(attr, serializer)
     }
+
+    fn attr_fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+        _options: AttrFmtOptions,
+        attr: &Self::Attr<'_>,
+    ) -> std::fmt::Result {
+        std::fmt::Display::fmt(attr, fmt)
+    }
 }
 
 pub(crate) async fn aquery_command(

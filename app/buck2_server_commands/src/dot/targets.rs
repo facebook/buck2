@@ -74,11 +74,14 @@ impl<'a, T: QueryCommandTarget> DotNode for DotTargetGraphNode<'a, T> {
                         if attr_regex.is_match(attr_name) {
                             extra.insert(
                                 format!("buck_{}", attr_name),
-                                self.0.attr_to_string_alternate(
-                                    AttrFmtOptions {
-                                        exclude_quotes: true,
-                                    },
-                                    attr_value,
+                                format!(
+                                    "{:#}",
+                                    self.0.attr_display(
+                                        attr_value,
+                                        AttrFmtOptions {
+                                            exclude_quotes: true,
+                                        },
+                                    )
                                 ),
                             );
                         }

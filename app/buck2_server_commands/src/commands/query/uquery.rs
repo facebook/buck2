@@ -15,6 +15,7 @@ use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_error::Context;
+use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
@@ -60,6 +61,22 @@ impl QueryCommandTarget for TargetNode {
                 options: Default::default(),
             },
             serializer,
+        )
+    }
+
+    fn attr_fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+        options: AttrFmtOptions,
+        attr: &Self::Attr<'_>,
+    ) -> std::fmt::Result {
+        AttrDisplayWithContext::fmt(
+            attr,
+            &AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+                options,
+            },
+            fmt,
         )
     }
 }

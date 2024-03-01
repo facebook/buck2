@@ -21,6 +21,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_error::Context;
+use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
@@ -68,6 +69,22 @@ impl QueryCommandTarget for ConfiguredTargetNode {
                 options: Default::default(),
             },
             serializer,
+        )
+    }
+
+    fn attr_fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+        options: AttrFmtOptions,
+        attr: &Self::Attr<'_>,
+    ) -> std::fmt::Result {
+        AttrDisplayWithContext::fmt(
+            attr,
+            &AttrFmtContext {
+                package: Some(self.label().pkg().dupe()),
+                options,
+            },
+            fmt,
         )
     }
 }
