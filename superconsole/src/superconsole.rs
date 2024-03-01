@@ -211,14 +211,10 @@ impl SuperConsole {
             len > MAX_GRAPHEME_BUFFER
         }
 
-        // Go the beginning of the canvas.
-        self.canvas_move_up(buffer)?;
-
         // Pre-draw the frame *and then* start rendering emitted messages.
         let mut frame = root.draw(size, mode)?;
         // We don't trust the child to not truncate the result.
         frame.shrink_lines_to_dimensions(size);
-        self.canvas_height = frame.len();
 
         // Render at most a single frame if this not the last render.
         // Does not buffer if there is a ridiculous amount of data.
@@ -230,6 +226,11 @@ impl SuperConsole {
             }
             _ => None,
         };
+
+        // Go the beginning of the canvas.
+        self.canvas_move_up(buffer)?;
+        self.canvas_height = frame.len();
+
         self.to_emit.render(buffer, limit)?;
         frame.render(buffer, None)?;
 
