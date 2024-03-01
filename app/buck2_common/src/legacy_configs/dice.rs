@@ -36,12 +36,11 @@ use crate::legacy_configs::LegacyBuckConfigs;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
 #[derive(Clone, Dupe)]
-pub struct LegacyBuckConfigOnDice<'a, 'd> {
+pub struct OpaqueLegacyBuckConfigOnDice {
     config: Arc<OpaqueValue<LegacyBuckConfigForCellKey>>,
-    ctx: &'a DiceComputations<'d>,
 }
 
-impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
+impl std::fmt::Debug for OpaqueLegacyBuckConfigOnDice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LegacyBuckConfigOnDice")
             .field("config", &self.config)
@@ -49,13 +48,7 @@ impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
     }
 }
 
-impl<'a> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, '_> {
-    fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        self.lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
-    }
-}
-
-impl<'a> LegacyBuckConfigOnDice<'a, '_> {
+impl OpaqueLegacyBuckConfigOnDice {
     pub fn lookup(
         &self,
         ctx: &mut DiceComputations,
@@ -70,46 +63,76 @@ impl<'a> LegacyBuckConfigOnDice<'a, '_> {
             },
         )?)
     }
-}
 
-#[derive(Debug)]
-pub struct LegacyBuckConfigsOnDice<'a, 'd> {
-    configs: SortedMap<CellName, LegacyBuckConfigOnDice<'a, 'd>>,
-}
-
-impl LegacyBuckConfigsOnDice<'_, '_> {
-    pub fn cell_names(&self) -> Vec<CellName> {
-        self.configs.keys().copied().collect()
+    pub fn view<'a, 'd>(
+        &'a self,
+        ctx: &'a mut DiceComputations<'d>,
+    ) -> LegacyBuckConfigOnDice<'a, 'd> {
+        LegacyBuckConfigOnDice { ctx, config: self }
     }
 }
 
-impl<'a, 'd> LegacyBuckConfigsOnDice<'a, 'd> {
-    pub fn get(&self, cell_name: CellName) -> anyhow::Result<LegacyBuckConfigOnDice<'a, 'd>> {
+#[derive(Debug)]
+pub struct OpaqueLegacyBuckConfigsOnDice {
+    configs: SortedMap<CellName, OpaqueLegacyBuckConfigOnDice>,
+}
+
+impl OpaqueLegacyBuckConfigsOnDice {
+    pub fn get(&self, cell_name: CellName) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
         self.configs
             .get(&cell_name)
             .duped()
             .ok_or_else(|| ConfigError::UnknownCell(cell_name.to_owned()).into())
     }
+
+    pub fn cell_names(&self) -> Vec<CellName> {
+        self.configs.keys().copied().collect()
+    }
+}
+
+pub struct LegacyBuckConfigOnDice<'a, 'd> {
+    ctx: &'a mut DiceComputations<'d>,
+    config: &'a OpaqueLegacyBuckConfigOnDice,
+}
+
+impl LegacyBuckConfigOnDice<'_, '_> {
+    pub fn parse<T: FromStr>(&mut self, section: &str, key: &str) -> anyhow::Result<Option<T>>
+    where
+        anyhow::Error: From<<T as FromStr>::Err>,
+    {
+        LegacyBuckConfig::parse_value(section, key, self.get(section, key)?.as_deref())
+    }
+}
+
+impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LegacyBuckConfigOnDice")
+            .field("config", &self.config)
+            .finish()
+    }
+}
+
+impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
+    fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
+        self.config
+            .lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
+    }
 }
 
 #[async_trait]
-pub trait HasLegacyConfigs<'d> {
+pub trait HasLegacyConfigs {
     /// Get buckconfigs.
     ///
     /// This operation does not record buckconfig as a dependency of current computation.
     /// Accessing specific buckconfig property, records that key as dependency.
-    async fn get_legacy_configs_on_dice<'c>(
-        &'c self,
-    ) -> anyhow::Result<LegacyBuckConfigsOnDice<'c, 'd>>;
+    async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<OpaqueLegacyBuckConfigsOnDice>;
 
-    async fn get_legacy_config_on_dice<'c>(
-        &'c self,
+    async fn get_legacy_config_on_dice(
+        &self,
         cell_name: CellName,
-    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>>;
+    ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice>;
 
-    async fn get_legacy_root_config_on_dice<'c>(
-        &'c self,
-    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>>;
+    async fn get_legacy_root_config_on_dice(&self) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -295,10 +318,8 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
 }
 
 #[async_trait]
-impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
-    async fn get_legacy_configs_on_dice<'c>(
-        &'c self,
-    ) -> anyhow::Result<LegacyBuckConfigsOnDice<'c, 'd>> {
+impl HasLegacyConfigs for DiceComputations<'_> {
+    async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<OpaqueLegacyBuckConfigsOnDice> {
         let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
         let cell_names = self
             .bad_dice(/* configs */)
@@ -312,27 +333,24 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
                 .await?;
             configs_on_dice.push((
                 *cell_name,
-                LegacyBuckConfigOnDice {
+                OpaqueLegacyBuckConfigOnDice {
                     config: Arc::new(config),
-                    ctx: self,
                 },
             ));
         }
-        Ok(LegacyBuckConfigsOnDice {
+        Ok(OpaqueLegacyBuckConfigsOnDice {
             configs: SortedMap::from_iter(configs_on_dice),
         })
     }
 
-    async fn get_legacy_config_on_dice<'c>(
-        &'c self,
+    async fn get_legacy_config_on_dice(
+        &self,
         cell_name: CellName,
-    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
+    ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
         self.get_legacy_configs_on_dice().await?.get(cell_name)
     }
 
-    async fn get_legacy_root_config_on_dice<'c>(
-        &'c self,
-    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
+    async fn get_legacy_root_config_on_dice(&self) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
         let cell_resolver = self.bad_dice(/* configs */).get_cell_resolver().await?;
         self.get_legacy_config_on_dice(cell_resolver.root_cell())
             .await

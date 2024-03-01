@@ -12,9 +12,9 @@ use std::fmt;
 use std::ops::DerefMut;
 use std::sync::Arc;
 
-use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
-use buck2_common::legacy_configs::view::LegacyBuckConfigView;
+use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use dice::DiceComputations;
 use hashbrown::raw::RawTable;
 use starlark::collections::Hashed;
 use starlark::environment::Module;
@@ -163,16 +163,19 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
 }
 
 pub(crate) struct ConfigsOnDiceViewForStarlark<'a, 'd> {
-    buckconfig: LegacyBuckConfigOnDice<'a, 'd>,
-    root_buckconfig: LegacyBuckConfigOnDice<'a, 'd>,
+    ctx: &'a DiceComputations<'d>,
+    buckconfig: OpaqueLegacyBuckConfigOnDice,
+    root_buckconfig: OpaqueLegacyBuckConfigOnDice,
 }
 
 impl<'a, 'd> ConfigsOnDiceViewForStarlark<'a, 'd> {
     pub(crate) fn new(
-        buckconfig: LegacyBuckConfigOnDice<'a, 'd>,
-        root_buckconfig: LegacyBuckConfigOnDice<'a, 'd>,
+        ctx: &'a DiceComputations<'d>,
+        buckconfig: OpaqueLegacyBuckConfigOnDice,
+        root_buckconfig: OpaqueLegacyBuckConfigOnDice,
     ) -> Self {
         Self {
+            ctx,
             buckconfig,
             root_buckconfig,
         }
@@ -185,11 +188,13 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
         section: &str,
         key: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
-        LegacyBuckConfigView::get(&self.buckconfig, section, key)
+        self.buckconfig
+            .lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
     }
 
     fn read_root_cell_config(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        LegacyBuckConfigView::get(&self.root_buckconfig, section, key)
+        self.root_buckconfig
+            .lookup(&mut self.ctx.bad_dice(/* configs */), section, key)
     }
 }
 

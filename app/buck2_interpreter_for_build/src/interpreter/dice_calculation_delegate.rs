@@ -16,7 +16,7 @@ use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
+use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::listing::PackageListing;
@@ -144,8 +144,8 @@ pub struct DiceCalculationDelegate<'c, 'd> {
 
 impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     async fn get_legacy_buck_config_for_starlark(
-        &'c self,
-    ) -> anyhow::Result<LegacyBuckConfigOnDice<'c, 'd>> {
+        &self,
+    ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
         self.ctx
             .get_legacy_config_on_dice(self.build_file_cell.name())
             .await
@@ -229,8 +229,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             &mut self.ctx.bad_dice(),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", &starlark_file),
-            move |provider, _| {
-                let buckconfigs = ConfigsOnDiceViewForStarlark::new(buckconfig, root_buckconfig);
+            move |provider, ctx| {
+                let buckconfigs =
+                    ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
                 let evaluation = self
                     .configs
                     .eval_module(
@@ -319,8 +320,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             &mut self.ctx.bad_dice(),
             &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", path),
-            move |provider, _| {
-                let buckconfigs = ConfigsOnDiceViewForStarlark::new(buckconfig, root_buckconfig);
+            move |provider, ctx| {
+                let buckconfigs =
+                    ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
                 self.configs
                     .eval_package_file(
@@ -526,8 +528,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             &mut self.ctx.bad_dice(),
             profiler_instrumentation,
             format!("load_buildfile:{}", &package),
-            move |provider, _| {
-                let buckconfigs = ConfigsOnDiceViewForStarlark::new(buckconfig, root_buckconfig);
+            move |provider, ctx| {
+                let buckconfigs =
+                    ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
                 span(start_event, move || {
                     let result_with_stats = self
