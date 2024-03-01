@@ -171,17 +171,11 @@ impl SuperConsole {
         Ok(())
     }
 
-    /// Clears the canvas.
-    fn canvas_clear(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        self.canvas_move_up(writer)?;
-        writer.queue(Clear(ClearType::FromCursorDown))?;
-        Ok(())
-    }
-
     /// Clears the canvas portion of the superconsole.
     pub fn clear(&mut self) -> anyhow::Result<()> {
         let mut buffer = Vec::new();
-        self.canvas_clear(&mut buffer)?;
+        self.canvas_move_up(&mut buffer)?;
+        buffer.queue(Clear(ClearType::FromCursorDown))?;
         self.output.output(buffer)
     }
 
