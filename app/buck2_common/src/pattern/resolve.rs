@@ -99,7 +99,10 @@ impl ResolveTargetPatterns {
         cell_resolver: &CellResolver,
         patterns: &[ParsedPattern<P>],
     ) -> anyhow::Result<ResolvedPattern<P>> {
-        resolve_target_patterns_impl(cell_resolver, patterns, &DiceFileOps(&ctx)).await
+        ctx.with_linear_recompute(|ctx| async move {
+            resolve_target_patterns_impl(cell_resolver, patterns, &DiceFileOps(&ctx)).await
+        })
+        .await
     }
 }
 

@@ -55,9 +55,12 @@ pub fn find_package_roots_stream<'a>(
             async move {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 // ignore because the errors will be sent back via the stream
-                let _ignored =
-                    collect_package_roots(&DiceFileOps(&ctx), &cell_resolver, paths, |res| {
-                        packages_tx.unbounded_send(res)
+                let _ignored = ctx
+                    .with_linear_recompute(|ctx| async move {
+                        collect_package_roots(&DiceFileOps(&ctx), &cell_resolver, paths, |res| {
+                            packages_tx.unbounded_send(res)
+                        })
+                        .await
                     })
                     .await;
 

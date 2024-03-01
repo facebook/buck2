@@ -121,11 +121,11 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         mut stdout: PartialResultDispatcher<Self::PartialResult>,
         mut ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        let cell_resolver = ctx.get_cell_resolver().await?;
+        let cell_resolver = &ctx.get_cell_resolver().await?;
         let project_root = server_ctx.project_root();
         let digest_config = ctx.global_data().get_digest_config();
 
-        let io = FsIoProvider::new(project_root.dupe(), digest_config.cas_digest_config());
+        let io = &FsIoProvider::new(project_root.dupe(), digest_config.cas_digest_config());
         let stdout = stdout.as_writer();
 
         let mut result = FileStatusResult {
@@ -140,7 +140,11 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
             writeln!(&mut stderr, "Check file status: {}", path)?;
-            check_file_status(&DiceFileOps(&ctx), &cell_resolver, &io, &path, &mut result).await?;
+            let result = &mut result;
+            ctx.with_linear_recompute(|ctx| async move {
+                check_file_status(&DiceFileOps(&ctx), cell_resolver, io, &path, result).await
+            })
+            .await?;
         }
         if result.bad != 0 {
             Err(anyhow::anyhow!("Failed with {} mismatches", result.bad))

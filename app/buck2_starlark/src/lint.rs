@@ -123,22 +123,27 @@ impl StarlarkOpaqueSubcommand for StarlarkLintCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut ctx| {
-                let cell_resolver = ctx.get_cell_resolver().await?;
-                let io = ctx.global_data().get_io_provider();
-                let mut cache = Cache::new(&ctx);
+                let cell_resolver = &ctx.get_cell_resolver().await?;
+                let io = &ctx.global_data().get_io_provider();
 
                 let mut stdout = stdout.as_writer();
                 let mut lint_count = 0;
-                let files = starlark_files(
-                    &self.paths,
-                    server_ctx,
-                    &cell_resolver,
-                    &DiceFileOps(&ctx),
-                    &*io,
-                )
-                .await?;
+                let files = ctx
+                    .with_linear_recompute(|ctx| async move {
+                        starlark_files(
+                            &self.paths,
+                            server_ctx,
+                            &cell_resolver,
+                            &DiceFileOps(&ctx),
+                            &**io,
+                        )
+                        .await
+                    })
+                    .await?;
+                let mut cache = Cache::new(&ctx);
+
                 for file in &files {
-                    let lints = lint_file(&file.borrow(), &cell_resolver, &*io, &mut cache).await?;
+                    let lints = lint_file(&file.borrow(), cell_resolver, &**io, &mut cache).await?;
                     lint_count += lints.len();
                     for lint in lints {
                         writeln!(stdout, "{}", lint)?;

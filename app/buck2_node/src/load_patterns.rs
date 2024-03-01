@@ -23,6 +23,7 @@ use buck2_events::dispatch::console_message;
 use buck2_futures::owning_future::OwningFuture;
 use buck2_util::hash::BuckHasherBuilder;
 use dice::DiceComputations;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
@@ -44,7 +45,7 @@ enum BuildErrors {
 }
 
 async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
-    ctx: &'c mut DiceComputations<'_>,
+    ctx: &'c LinearRecomputeDiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> anyhow::Result<(
     ResolvedPattern<T>,
@@ -53,10 +54,10 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();
 
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.get().get_cell_resolver().await?;
 
     struct Builder<'c, 'd> {
-        ctx: &'c DiceComputations<'d>,
+        ctx: &'c LinearRecomputeDiceComputations<'d>,
         already_loading: HashSet<PackageLabel, BuckHasherBuilder>,
         load_package_futs:
             FuturesUnordered<BoxFuture<'c, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)>>,
@@ -75,8 +76,9 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
             }
 
             // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
+            // so DO NOT USE async move here
             self.load_package_futs.push(
-                OwningFuture::new(self.ctx.bad_dice(/* streaming */), |ctx| {
+                OwningFuture::new(self.ctx.get(), |ctx| {
                     ctx.get_interpreter_results(package.dupe())
                         .map(|res| (package, res))
                         .boxed()
@@ -103,7 +105,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     }
 
     collect_package_roots(
-        &DiceFileOps(ctx),
+        &DiceFileOps(&ctx),
         &cell_resolver,
         recursive_packages,
         |package| {
@@ -269,14 +271,17 @@ pub async fn load_patterns<T: PatternType>(
     parsed_patterns: Vec<ParsedPattern<T>>,
     skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<LoadedPatterns<T>> {
-    let (spec, mut load_package_futs) =
-        resolve_patterns_and_load_buildfiles(ctx, parsed_patterns).await?;
+    ctx.with_linear_recompute(|ctx| async move {
+        let (spec, mut load_package_futs) =
+            resolve_patterns_and_load_buildfiles(&ctx, parsed_patterns).await?;
 
-    let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
-        BTreeMap::new();
-    while let Some((pkg, load_res)) = load_package_futs.next().await {
-        results.insert(pkg, load_res.map_err(buck2_error::Error::from));
-    }
+        let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
+            BTreeMap::new();
+        while let Some((pkg, load_res)) = load_package_futs.next().await {
+            results.insert(pkg, load_res.map_err(buck2_error::Error::from));
+        }
 
-    apply_spec(spec, results, skip_missing_targets)
+        apply_spec(spec, results, skip_missing_targets)
+    })
+    .await
 }

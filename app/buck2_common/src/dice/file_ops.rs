@@ -32,6 +32,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::Key;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
@@ -60,6 +61,11 @@ impl FileToken {
         fs.read_file_if_exists((*self.0).as_ref()).await
     }
 }
+
+/// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
+///
+/// In general, it's better to use DiceFileComputations directly.
+pub struct DiceFileOps<'c, 'd>(pub &'c LinearRecomputeDiceComputations<'d>);
 
 pub struct DiceFileComputations;
 
@@ -114,11 +120,6 @@ impl DiceFileComputations {
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
     }
 }
-
-/// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
-///
-/// In general, it's better to use DiceFileComputations directly.
-pub struct DiceFileOps<'c, 'd>(pub &'c DiceComputations<'d>);
 
 pub mod keys {
     use std::sync::Arc;
@@ -490,26 +491,22 @@ impl FileOps for DiceFileOps<'_, '_> {
         &self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<String>> {
-        DiceFileComputations::read_file_if_exists(&mut self.0.bad_dice(/* fileops */), path).await
+        DiceFileComputations::read_file_if_exists(&mut self.0.get(), path).await
     }
 
     async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
-        DiceFileComputations::read_dir(&mut self.0.bad_dice(/* fileops */), path).await
+        DiceFileComputations::read_dir(&mut self.0.get(), path).await
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<RawPathMetadata>> {
-        DiceFileComputations::read_path_metadata_if_exists(
-            &mut self.0.bad_dice(/* fileops */),
-            path,
-        )
-        .await
+        DiceFileComputations::read_path_metadata_if_exists(&mut self.0.get(), path).await
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-        let file_ops = get_default_file_ops(&mut self.0.bad_dice(/* fileops */)).await?;
+        let file_ops = get_default_file_ops(&mut self.0.get()).await?;
         file_ops.is_ignored(path).await
     }
 

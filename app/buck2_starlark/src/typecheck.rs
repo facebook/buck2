@@ -160,23 +160,27 @@ impl StarlarkOpaqueSubcommand for StarlarkTypecheckCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut dice| {
-                let cell_resolver = dice.get_cell_resolver().await?;
-                let io = dice.global_data().get_io_provider();
+                let cell_resolver = &dice.get_cell_resolver().await?;
+                let io = &dice.global_data().get_io_provider();
 
-                let files = starlark_files(
-                    &self.paths,
-                    server_ctx,
-                    &cell_resolver,
-                    &DiceFileOps(&dice),
-                    &*io,
-                )
-                .await?;
+                let files = dice
+                    .with_linear_recompute(|ctx| async move {
+                        starlark_files(
+                            &self.paths,
+                            server_ctx,
+                            cell_resolver,
+                            &DiceFileOps(&ctx),
+                            &**io,
+                        )
+                        .await
+                    })
+                    .await?;
                 let mut stdout = stdout.as_writer();
                 let mut stderr = server_ctx.stderr()?;
                 let mut cache = Cache {
                     dice: &dice,
-                    io: &*io,
-                    cell_resolver: &cell_resolver,
+                    io: &**io,
+                    cell_resolver,
                     stdout: &mut stdout,
                     stderr: &mut stderr,
                     oracle: HashMap::new(),
