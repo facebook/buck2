@@ -35,12 +35,16 @@ const MAX_GRAPHEME_BUFFER: usize = 1000000;
 /// while a log area of emitted messages is produced above.
 /// Producing output from sources other than SuperConsole while break the TUI.
 pub struct SuperConsole {
+    /// Details about what is in the canvas area.
     root: Canvas,
+    /// Buffer storing the lines we should emit next time we render.
     to_emit: Lines,
     /// A default screen size to use if the size cannot be fetched
     /// from the terminal. This generally is only used for testing
     /// situations.
     fallback_size: Option<Dimensions>,
+    /// The terminal handle to write a buffer to the screen.
+    /// All IO goes through this handle.
     pub(crate) output: Box<dyn SuperConsoleOutput>,
 }
 
