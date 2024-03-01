@@ -267,12 +267,11 @@ impl Lines {
         self.truncate_lines_bottom(dimensions.height);
     }
 
-    /// Formats and renders all lines to `stdout`.
-    /// Notably, this *queues* the lines for rendering.  You must flush the buffer.
+    /// Like `render`, but with a limit.
     /// If a limit is specified, no more than that amount will be drained.
     /// The limit is on the number of *lines*, **NOT** the number of *bytes*.
     /// Care should be taken with calling a limit of 0 - this will cause no lines to render and the buffer to never be drained.
-    pub(crate) fn render(
+    pub(crate) fn render_with_limit(
         &mut self,
         writer: &mut Vec<u8>,
         limit: Option<usize>,
@@ -282,7 +281,15 @@ impl Lines {
         for line in self.0.drain(..amt) {
             line.render_with_clear_and_nl(writer)?;
         }
+        Ok(())
+    }
 
+    /// Formats and renders all lines to `stdout`.
+    /// Notably, this *queues* the lines for rendering.  You must flush the buffer.
+    pub(crate) fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+        for line in &self.0 {
+            line.render_with_clear_and_nl(writer)?;
+        }
         Ok(())
     }
 

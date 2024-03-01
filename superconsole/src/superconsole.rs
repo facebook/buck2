@@ -231,8 +231,8 @@ impl SuperConsole {
         self.canvas_move_up(buffer)?;
         self.canvas_height = canvas.len();
 
-        self.to_emit.render(buffer, limit)?;
-        canvas.render(buffer, None)?;
+        self.to_emit.render_with_limit(buffer, limit)?;
+        canvas.render(buffer)?;
 
         // clear any residue from the previous render.
         buffer.queue(Clear(ClearType::FromCursorDown))?;
