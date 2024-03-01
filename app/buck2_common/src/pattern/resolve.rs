@@ -16,10 +16,12 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
+use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
 use indexmap::IndexMap;
 
+use crate::dice::file_ops::DiceFileOps;
 use crate::file_ops::FileOps;
 use crate::pattern::package_roots::find_package_roots;
 
@@ -88,8 +90,20 @@ impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
     }
 }
 
-/// Resolves a list of [ParsedPattern] to a [ResolvedPattern].
-pub async fn resolve_target_patterns<P: PatternType>(
+pub struct ResolveTargetPatterns;
+
+impl ResolveTargetPatterns {
+    /// Resolves a list of [ParsedPattern] to a [ResolvedPattern].
+    pub async fn resolve<P: PatternType>(
+        ctx: &mut DiceComputations<'_>,
+        cell_resolver: &CellResolver,
+        patterns: &[ParsedPattern<P>],
+    ) -> anyhow::Result<ResolvedPattern<P>> {
+        resolve_target_patterns_impl(cell_resolver, patterns, &DiceFileOps(&ctx)).await
+    }
+}
+
+async fn resolve_target_patterns_impl<P: PatternType>(
     cell_resolver: &CellResolver,
     patterns: &[ParsedPattern<P>],
     file_ops: &dyn FileOps,
@@ -146,7 +160,7 @@ mod tests {
 
     use crate::file_ops::testing::TestFileOps;
     use crate::file_ops::FileOps;
-    use crate::pattern::resolve::resolve_target_patterns;
+    use crate::pattern::resolve::resolve_target_patterns_impl;
     use crate::pattern::resolve::ResolvedPattern;
 
     #[derive(Clone)]
@@ -205,7 +219,7 @@ mod tests {
                     .unwrap()
             });
 
-            resolve_target_patterns(&self.resolver, &patterns, &*self.file_ops).await
+            resolve_target_patterns_impl(&self.resolver, &patterns, &*self.file_ops).await
         }
     }
 

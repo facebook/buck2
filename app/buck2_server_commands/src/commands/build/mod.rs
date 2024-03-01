@@ -38,10 +38,9 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::pattern::resolve::resolve_target_patterns;
+use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryEntry;
@@ -225,7 +224,7 @@ async fn build(
     server_ctx.log_target_pattern(&parsed_patterns);
 
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
-        resolve_target_patterns(&cell_resolver, &parsed_patterns, &DiceFileOps(&ctx)).await?;
+        ResolveTargetPatterns::resolve(&mut ctx, &cell_resolver, &parsed_patterns).await?;
 
     let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
         TargetResolutionConfig::Default(global_cfg_options)

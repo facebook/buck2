@@ -14,8 +14,7 @@ use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_audit::analysis_queries::AuditAnalysisQueriesCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileOps;
-use buck2_common::pattern::resolve::resolve_target_patterns;
+use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -55,7 +54,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                 )
                 .await?;
                 let resolved_pattern =
-                    resolve_target_patterns(&cells, &parsed_patterns, &DiceFileOps(&ctx)).await?;
+                    ResolveTargetPatterns::resolve(&mut ctx, &cells, &parsed_patterns).await?;
 
                 let mut stdout = stdout.as_writer();
 

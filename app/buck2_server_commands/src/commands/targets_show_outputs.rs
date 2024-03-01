@@ -18,9 +18,8 @@ use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsShowOutputsResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
-use buck2_common::pattern::resolve::resolve_target_patterns;
+use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
@@ -144,7 +143,7 @@ async fn retrieve_targets_artifacts_from_patterns(
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let resolved_pattern =
-        resolve_target_patterns(cell_resolver, parsed_patterns, &DiceFileOps(ctx)).await?;
+        ResolveTargetPatterns::resolve(ctx, cell_resolver, parsed_patterns).await?;
 
     retrieve_artifacts_for_targets(ctx, resolved_pattern, global_cfg_options).await
 }

@@ -26,7 +26,6 @@ use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::events::HasEvents;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -34,7 +33,7 @@ use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
-use buck2_common::pattern::resolve::resolve_target_patterns;
+use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
@@ -303,7 +302,7 @@ async fn test(
     server_ctx.log_target_pattern(&parsed_patterns);
 
     let resolved_pattern =
-        resolve_target_patterns(&cell_resolver, &parsed_patterns, &DiceFileOps(&ctx)).await?;
+        ResolveTargetPatterns::resolve(&mut ctx, &cell_resolver, &parsed_patterns).await?;
 
     let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,

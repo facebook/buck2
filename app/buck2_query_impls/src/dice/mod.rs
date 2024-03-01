@@ -14,13 +14,12 @@ use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
-use buck2_common::pattern::resolve::resolve_target_patterns;
+use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
@@ -246,10 +245,10 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns =
             patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
-        resolve_target_patterns(
+        ResolveTargetPatterns::resolve(
+            &mut self.ctx.bad_dice(/* query */),
             &self.cell_resolver,
             &parsed_patterns,
-            &DiceFileOps(self.ctx),
         )
         .await
     }

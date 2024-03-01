@@ -35,9 +35,8 @@ use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::file_ops::FileDigest;
-use buck2_common::pattern::resolve::resolve_target_patterns;
+use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -197,7 +196,7 @@ async fn install(
     server_ctx.log_target_pattern(&parsed_patterns);
 
     let resolved_pattern =
-        resolve_target_patterns(&cell_resolver, &parsed_patterns, &DiceFileOps(&ctx)).await?;
+        ResolveTargetPatterns::resolve(&mut ctx, &cell_resolver, &parsed_patterns).await?;
 
     let resolved_pattern = resolved_pattern
         .convert_pattern()
