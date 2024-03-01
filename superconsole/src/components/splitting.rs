@@ -337,7 +337,7 @@ mod tests {
                 vec!["Line 1"].try_into().unwrap(),
                 vec!["Line 2222"].try_into().unwrap(),
             ]);
-            let mut bottom = Lines(vec![
+            let bottom = Lines(vec![
                 vec!["Line 11"].try_into().unwrap(),
                 vec!["Line 12"].try_into().unwrap(),
                 vec!["Last line just kiddi"].try_into().unwrap(),
@@ -350,7 +350,7 @@ mod tests {
 
             let mut output = top;
             output.0.extend(iter::repeat(Line::default()).take(8));
-            output.0.append(&mut bottom.0);
+            output.0.extend(bottom.0);
             output.0.extend(iter::repeat(Line::default()).take(7));
 
             let drawn = splitter
@@ -369,7 +369,7 @@ mod tests {
                 vec!["Line 1"].try_into().unwrap(),
                 vec!["Line 2222"].try_into().unwrap(),
             ]);
-            let mut bottom = Lines(vec![
+            let bottom = Lines(vec![
                 vec!["Line 11"].try_into().unwrap(),
                 vec!["Line 12"].try_into().unwrap(),
                 vec!["Last line just kiddi"].try_into().unwrap(),
@@ -381,7 +381,7 @@ mod tests {
             );
 
             let mut output = top;
-            output.0.append(&mut bottom.0);
+            output.0.extend(bottom.0);
 
             let drawn = splitter
                 .draw(Dimensions::new(20, 20), DrawMode::Normal)

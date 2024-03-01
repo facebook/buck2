@@ -139,8 +139,8 @@ impl SuperConsole {
 
     /// Queues the passed lines to be drawn on the next render.
     /// The lines *will not* appear until the next render is called.
-    pub fn emit(&mut self, mut lines: Lines) {
-        self.to_emit.0.append(&mut lines.0);
+    pub fn emit(&mut self, lines: Lines) {
+        self.to_emit.0.extend(lines.0);
     }
 
     fn size(&self) -> anyhow::Result<Dimensions> {

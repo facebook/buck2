@@ -33,14 +33,14 @@ impl DrawVertical {
     /// New component `draw` is called with remaining dimensions.
     pub fn draw(&mut self, component: &dyn Component, mode: DrawMode) -> anyhow::Result<()> {
         // We call `draw` even if no space is left, but maybe we should not.
-        let mut output = component.draw(
+        let output = component.draw(
             Dimensions {
                 width: self.dim.width,
                 height: self.dim.height.saturating_sub(self.lines.0.len()),
             },
             mode,
         )?;
-        self.lines.0.append(&mut output.0);
+        self.lines.0.extend(output.0);
         Ok(())
     }
 
