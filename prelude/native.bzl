@@ -182,6 +182,14 @@ def _get_valid_cpu_filters(cpu_filters: [list[str], None]) -> list[str]:
 
     return [cpu_filter for cpu_filter in cpu_filters if cpu_filter in cpu_abis]
 
+def _android_aar_macro_stub(
+        cpu_filters = None,
+        **kwargs):
+    __rules__["android_aar"](
+        cpu_filters = _get_valid_cpu_filters(cpu_filters),
+        **kwargs
+    )
+
 def _android_binary_macro_stub(
         allow_r_dot_java_in_secondary_dex = False,
         cpu_filters = None,
@@ -426,6 +434,7 @@ def _rust_test_macro_stub(**kwargs):
 # Probably good if they were defined to take in the base rule that
 # they are wrapping and return the wrapped one.
 __extra_rules__ = {
+    "android_aar": _android_aar_macro_stub,
     "android_binary": _android_binary_macro_stub,
     "android_instrumentation_apk": _android_instrumentation_apk_macro_stub,
     "apple_binary": _apple_binary_macro_stub,
