@@ -17,7 +17,10 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::fmt_context::AttrFmtContext;
 
 pub fn value_to_json(value: &CoercedAttr, pkg: PackageLabel) -> anyhow::Result<serde_json::Value> {
-    value.to_json(&AttrFmtContext { package: Some(pkg) })
+    value.to_json(&AttrFmtContext {
+        package: Some(pkg),
+        options: Default::default(),
+    })
 }
 
 pub fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> anyhow::Result<String> {

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::environment::QueryTargets;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -73,7 +74,12 @@ impl<'a, T: QueryCommandTarget> DotNode for DotTargetGraphNode<'a, T> {
                         if attr_regex.is_match(attr_name) {
                             extra.insert(
                                 format!("buck_{}", attr_name),
-                                self.0.attr_to_string_alternate(attr_value),
+                                self.0.attr_to_string_alternate(
+                                    AttrFmtOptions {
+                                        exclude_quotes: true,
+                                    },
+                                    attr_value,
+                                ),
                             );
                         }
                         Ok(())

@@ -7,13 +7,14 @@
  * of this source tree.
  */
 
+use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::environment::QueryTarget;
 
 /// Extensions of `QueryTarget` needed in query commands.
 pub(crate) trait QueryCommandTarget: QueryTarget {
     fn call_stack(&self) -> Option<String>;
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String;
+    fn attr_to_string_alternate(&self, _options: AttrFmtOptions, attr: &Self::Attr<'_>) -> String;
 
     fn attr_serialize<S: serde::Serializer>(
         &self,

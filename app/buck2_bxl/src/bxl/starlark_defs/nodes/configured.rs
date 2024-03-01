@@ -429,6 +429,7 @@ impl Display for StarlarkConfiguredAttr {
         self.0.fmt(
             &AttrFmtContext {
                 package: Some(self.1.dupe()),
+                options: Default::default(),
             },
             f,
         )
@@ -443,6 +444,7 @@ impl Serialize for StarlarkConfiguredAttr {
         self.0.serialize_with_ctx(
             &AttrFmtContext {
                 package: Some(self.1.dupe()),
+                options: Default::default(),
             },
             serializer,
         )

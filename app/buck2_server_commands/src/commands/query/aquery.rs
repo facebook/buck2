@@ -14,6 +14,7 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_error::Context;
+use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -31,7 +32,7 @@ impl QueryCommandTarget for ActionQueryNode {
         None
     }
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
+    fn attr_to_string_alternate(&self, _options: AttrFmtOptions, attr: &Self::Attr<'_>) -> String {
         format!("{:#}", attr)
     }
 

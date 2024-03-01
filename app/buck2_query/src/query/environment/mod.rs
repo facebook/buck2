@@ -72,6 +72,11 @@ impl QueryTargets {
     }
 }
 
+#[derive(Default, Clone, Dupe)]
+pub struct AttrFmtOptions {
+    pub exclude_quotes: bool,
+}
+
 pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
     type Attr<'a>: ?Sized + Debug + 'a;
 

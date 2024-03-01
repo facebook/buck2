@@ -585,7 +585,8 @@ fn test_source_label() -> anyhow::Result<()> {
         "[\"root//some:target\",\"cell1//named:target[foo]\",\"root//package/subdir/foo/bar.cpp\"]",
         coerced
             .as_display(&AttrFmtContext {
-                package: Some(PackageLabel::testing())
+                package: Some(PackageLabel::testing()),
+                options: Default::default(),
             })
             .to_string(),
     );
@@ -606,7 +607,8 @@ fn test_source_label() -> anyhow::Result<()> {
         ),
         configured
             .as_display(&AttrFmtContext {
-                package: Some(PackageLabel::testing())
+                package: Some(PackageLabel::testing()),
+                options: Default::default(),
             })
             .to_string(),
     );

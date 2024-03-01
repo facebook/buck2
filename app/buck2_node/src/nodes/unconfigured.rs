@@ -683,6 +683,7 @@ pub mod testing {
                             a.name.to_owned(),
                             a.value.to_json(&AttrFmtContext {
                                 package: Some(pkg.dupe()),
+                                options: Default::default(),
                             })?,
                         ))
                     })

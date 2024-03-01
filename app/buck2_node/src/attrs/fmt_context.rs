@@ -8,6 +8,7 @@
  */
 
 use buck2_core::package::PackageLabel;
+use buck2_query::query::environment::AttrFmtOptions;
 
 /// Attribute formatting context (for `Display` or `Serialize`).
 pub struct AttrFmtContext {
@@ -16,8 +17,14 @@ pub struct AttrFmtContext {
     /// * tests
     /// * error messages
     pub package: Option<PackageLabel>,
+    pub options: AttrFmtOptions,
 }
 
 impl AttrFmtContext {
-    pub const NO_CONTEXT: AttrFmtContext = AttrFmtContext { package: None };
+    pub const NO_CONTEXT: AttrFmtContext = AttrFmtContext {
+        package: None,
+        options: AttrFmtOptions {
+            exclude_quotes: false,
+        },
+    };
 }

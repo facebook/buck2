@@ -25,6 +25,7 @@ use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -46,11 +47,12 @@ impl QueryCommandTarget for ConfiguredTargetNode {
         ConfiguredTargetNode::call_stack(self)
     }
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
+    fn attr_to_string_alternate(&self, options: AttrFmtOptions, attr: &Self::Attr<'_>) -> String {
         format!(
             "{:#}",
             attr.as_display(&AttrFmtContext {
                 package: Some(self.label().pkg().dupe()),
+                options
             })
         )
     }
@@ -63,6 +65,7 @@ impl QueryCommandTarget for ConfiguredTargetNode {
         attr.serialize_with_ctx(
             &AttrFmtContext {
                 package: Some(self.label().pkg().dupe()),
+                options: Default::default(),
             },
             serializer,
         )
