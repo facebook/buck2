@@ -196,22 +196,6 @@ impl SuperConsole {
         self.output.output(buffer)
     }
 
-    /// A passthrough method that resizes the Canvas to reflect the size of the root.
-    /// Allows dynamic resizing.
-    /// Cuts off any lines that are too for long a single row
-    fn canvas_draw(
-        &mut self,
-        root: &dyn Component,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
-        let mut output = root.draw(dimensions, mode)?;
-        // We don't trust the child to not truncate the result.
-        output.shrink_lines_to_dimensions(dimensions);
-        self.canvas_height = output.len();
-        Ok(output)
-    }
-
     /// Helper method that makes rendering highly configurable.
     fn render_general(
         &mut self,
@@ -231,7 +215,11 @@ impl SuperConsole {
         self.canvas_move_up(buffer)?;
 
         // Pre-draw the frame *and then* start rendering emitted messages.
-        let mut frame = self.canvas_draw(root, size, mode)?;
+        let mut frame = root.draw(size, mode)?;
+        // We don't trust the child to not truncate the result.
+        frame.shrink_lines_to_dimensions(size);
+        self.canvas_height = frame.len();
+
         // Render at most a single frame if this not the last render.
         // Does not buffer if there is a ridiculous amount of data.
         let limit = match mode {
