@@ -30,6 +30,7 @@ where
     Result<(), T>: anyhow::Context<(), T>,
 {
     #[track_caller]
+    #[cold]
     fn from(value: T) -> crate::Error {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
@@ -117,6 +118,7 @@ pub(crate) fn recover_crate_error(
 }
 
 impl From<crate::Error> for anyhow::Error {
+    #[cold]
     fn from(value: crate::Error) -> Self {
         Into::into(CrateAsStdError(value))
     }

@@ -56,6 +56,7 @@ pub(crate) enum ErrorKind {
 
 impl Error {
     #[track_caller]
+    #[cold]
     pub fn new<E: StdError + Send + Sync + 'static>(e: E) -> Self {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
