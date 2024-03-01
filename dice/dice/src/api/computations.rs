@@ -60,13 +60,6 @@ impl<'d> DiceComputations<'d> {
         DiceComputations(DiceComputationsKind::Owned(inner))
     }
 
-    /// To support migration to a &mut-based DiceComputations api, this allows callers to get an
-    /// owned DiceComputations (which effectively allows upgrading a &DiceComputations to a &mut
-    /// DiceComputations). That makes it easier to incrementally migrate things to the &mut api.
-    pub fn bad_dice<'a>(&'a self) -> DiceComputations<'a> {
-        DiceComputations::borrowed(self.inner())
-    }
-
     pub(crate) fn inner(&self) -> &DiceComputationsImpl {
         match &self.0 {
             DiceComputationsKind::Owned(v) => &v,
@@ -158,7 +151,9 @@ impl<'d> DiceComputations<'d> {
         &'a mut self,
         func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
     ) -> impl Future<Output = T> + 'a {
-        func(LinearRecomputeDiceComputations(self.bad_dice()))
+        func(LinearRecomputeDiceComputations(DiceComputations::borrowed(
+            self.inner(),
+        )))
     }
 
     /// Creates computation Futures for all the given tasks.
@@ -327,7 +322,7 @@ pub struct LinearRecomputeDiceComputations<'a>(DiceComputations<'a>);
 impl LinearRecomputeDiceComputations<'_> {
     pub fn get(&self) -> DiceComputations<'_> {
         // for now, we don't actually record deps in any detail so we just cheap in the implementation here.
-        self.0.bad_dice()
+        DiceComputations::borrowed(self.0.inner())
     }
 }
 
