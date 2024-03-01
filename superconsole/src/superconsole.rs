@@ -120,7 +120,6 @@ impl SuperConsole {
     pub fn finalize_with_mode(
         mut self,
         root: &dyn Component,
-
         mode: DrawMode,
     ) -> anyhow::Result<()> {
         self.render_with_mode(root, mode)?;
@@ -180,7 +179,6 @@ impl SuperConsole {
         &mut self,
         buffer: &mut Vec<u8>,
         root: &dyn Component,
-
         mode: DrawMode,
         size: Dimensions,
     ) -> anyhow::Result<()> {

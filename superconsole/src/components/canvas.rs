@@ -38,7 +38,6 @@ impl Canvas {
     pub(crate) fn draw(
         &self,
         root: &dyn Component,
-
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
