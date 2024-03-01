@@ -75,7 +75,7 @@ impl<'a, T: QueryCommandTarget> DotNode for DotTargetGraphNode<'a, T> {
                             extra.insert(
                                 format!("buck_{}", attr_name),
                                 format!(
-                                    "{:#}",
+                                    "{}",
                                     self.0.attr_display(
                                         attr_value,
                                         AttrFmtOptions {
