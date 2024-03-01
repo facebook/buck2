@@ -36,6 +36,10 @@ impl QueryTarget for TargetNode {
         Cow::Borrowed(TargetNodeData::rule_type(self).name())
     }
 
+    fn name(&self) -> Cow<str> {
+        Cow::Borrowed(self.label().name().as_str())
+    }
+
     fn buildfile_path(&self) -> &BuildFilePath {
         TargetNode::buildfile_path(self)
     }

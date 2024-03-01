@@ -259,6 +259,9 @@ mod tests {
         fn rule_type(&self) -> Cow<str> {
             unimplemented!()
         }
+        fn name(&self) -> Cow<str> {
+            unimplemented!()
+        }
         fn buildfile_path(&self) -> &BuildFilePath {
             unimplemented!()
         }

@@ -270,6 +270,10 @@ impl QueryTarget for ActionQueryNode {
         }
     }
 
+    fn name(&self) -> Cow<str> {
+        Cow::Owned(self.node_key().to_string())
+    }
+
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath {
         // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicking.

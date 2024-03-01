@@ -109,6 +109,10 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Cow::Borrowed(self.0.rule_type().name())
     }
 
+    fn name(&self) -> Cow<str> {
+        Cow::Borrowed(self.0.label().name().as_str())
+    }
+
     fn buildfile_path(&self) -> &BuildFilePath {
         self.0.buildfile_path()
     }

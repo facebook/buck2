@@ -85,6 +85,8 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
 
     fn rule_type(&self) -> Cow<str>;
 
+    fn name(&self) -> Cow<str>;
+
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath;
 

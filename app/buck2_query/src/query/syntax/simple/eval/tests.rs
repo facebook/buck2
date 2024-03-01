@@ -62,6 +62,10 @@ impl QueryTarget for Target {
         unimplemented!()
     }
 
+    fn name(&self) -> Cow<str> {
+        unimplemented!()
+    }
+
     fn buildfile_path(&self) -> &BuildFilePath {
         unimplemented!()
     }
