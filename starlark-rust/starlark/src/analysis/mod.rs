@@ -260,14 +260,14 @@ def good1() -> str:
 
 # starlark-lint-disable missing-return
 # must not be on the last line of a block of comments
-def bad2() -> str:
+def good2() -> str:
     pass
 
 # suppressions accumulate in a block of comments,
 # starlark-lint-disable missing-return, unreachable
 # and you can put other comments between
 # starlark-lint-disable unused-load
-def good2() -> str:
+def good3() -> str:
     pass
 "#,
         );
