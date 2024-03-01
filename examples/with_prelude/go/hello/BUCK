@@ -1,0 +1,10 @@
+_SUPPORTED = not host_info().os.is_windows
+
+# buildifier: disable=no-effect
+go_binary(
+    name = "hello",
+    srcs = glob(["*.go"]),
+    deps = [
+        "//go/hello/greeting:greeting",
+    ],
+) if _SUPPORTED else None
