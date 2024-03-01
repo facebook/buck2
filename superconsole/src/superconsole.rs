@@ -212,15 +212,15 @@ impl SuperConsole {
         }
 
         // Pre-draw the frame *and then* start rendering emitted messages.
-        let mut frame = root.draw(size, mode)?;
+        let mut canvas = root.draw(size, mode)?;
         // We don't trust the child to not truncate the result.
-        frame.shrink_lines_to_dimensions(size);
+        canvas.shrink_lines_to_dimensions(size);
 
         // Render at most a single frame if this not the last render.
         // Does not buffer if there is a ridiculous amount of data.
         let limit = match mode {
             DrawMode::Normal if !is_big(&self.to_emit) => {
-                let limit = size.height.saturating_sub(frame.len());
+                let limit = size.height.saturating_sub(canvas.len());
                 // arbitrary value picked so we don't starve `emit` on small terminal sizes.
                 Some(cmp::max(limit, MINIMUM_EMIT))
             }
@@ -229,10 +229,10 @@ impl SuperConsole {
 
         // Go the beginning of the canvas.
         self.canvas_move_up(buffer)?;
-        self.canvas_height = frame.len();
+        self.canvas_height = canvas.len();
 
         self.to_emit.render(buffer, limit)?;
-        frame.render(buffer, None)?;
+        canvas.render(buffer, None)?;
 
         // clear any residue from the previous render.
         buffer.queue(Clear(ClearType::FromCursorDown))?;
