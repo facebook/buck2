@@ -42,6 +42,7 @@ use buck2_error::Context as _;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -1153,7 +1154,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         F: std::future::Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        rt.spawn(f)
+        // FIXME(JakobDegen): Ideally there wouldn't be a `None` case, but I don't know this code
+        // well enough to be confident in removing it
+        match get_dispatcher_opt() {
+            Some(dispatcher) => rt.spawn(with_dispatcher_async(dispatcher, f)),
+            None => rt.spawn(f),
+        }
     }
 
     fn spawn<F>(&self, f: F) -> JoinHandle<F::Output>
