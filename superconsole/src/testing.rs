@@ -79,7 +79,7 @@ pub fn test_console() -> SuperConsole {
         width: 80,
         height: 80,
     };
-    SuperConsole::new_internal(
+    SuperConsole::new_with_output(
         Some(size),
         Box::new(TestOutput {
             should_render: true,

@@ -48,7 +48,7 @@ impl SuperConsole {
     /// Build a new SuperConsole with a root component.
     pub fn new() -> Option<Self> {
         Self::compatible().then(|| {
-            Self::new_internal(
+            Self::new_with_output(
                 None,
                 Box::new(BlockingSuperConsoleOutput::new(Box::new(io::stderr()))),
             )
@@ -58,13 +58,13 @@ impl SuperConsole {
     /// Force a new SuperConsole to be built with a root component, regardless of
     /// whether the tty is compatible
     pub fn forced_new(fallback_size: Dimensions) -> Self {
-        Self::new_internal(
+        Self::new_with_output(
             Some(fallback_size),
             Box::new(BlockingSuperConsoleOutput::new(Box::new(io::stderr()))),
         )
     }
 
-    pub(crate) fn new_internal(
+    pub(crate) fn new_with_output(
         fallback_size: Option<Dimensions>,
         output: Box<dyn SuperConsoleOutput>,
     ) -> Self {

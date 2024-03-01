@@ -62,7 +62,7 @@ impl Builder {
     }
 
     fn build_inner(self, fallback_size: Option<Dimensions>) -> anyhow::Result<SuperConsole> {
-        Ok(SuperConsole::new_internal(fallback_size, self.output()?))
+        Ok(SuperConsole::new_with_output(fallback_size, self.output()?))
     }
 
     fn output(self) -> anyhow::Result<Box<dyn SuperConsoleOutput>> {
