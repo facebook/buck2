@@ -322,7 +322,7 @@ async fn process_build_result(
             unstable_build_report_filename: esto.clone(),
         };
 
-        Some(generate_build_report(
+        generate_build_report(
             build_report_opts,
             &artifact_fs,
             &cell_resolver,
@@ -331,7 +331,7 @@ async fn process_build_result(
             server_ctx.events().trace_id(),
             &build_result.configured,
             &build_result.other_errors,
-        )?)
+        )?
     } else {
         None
     };
@@ -394,7 +394,7 @@ async fn process_build_result(
     Ok(buck2_cli_proto::BuildResponse {
         build_targets,
         project_root,
-        serialized_build_report: serialized_build_report.unwrap_or_default(),
+        serialized_build_report,
         errors,
     })
 }

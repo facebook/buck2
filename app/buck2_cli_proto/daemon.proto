@@ -499,7 +499,7 @@ message BuildResponse {
   // Absolute path to the repo root
   string project_root = 2;
 
-  string serialized_build_report = 100;
+  optional string serialized_build_report = 100;
   repeated buck.data.ErrorReport errors = 102;
 }
 

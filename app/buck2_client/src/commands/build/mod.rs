@@ -272,8 +272,8 @@ impl StreamingCommand for BuildCommand {
 
         let mut stdout = Vec::new();
 
-        if !response.serialized_build_report.is_empty() {
-            stdout.extend(response.serialized_build_report.as_bytes());
+        if let Some(build_report) = response.serialized_build_report {
+            stdout.extend(build_report.as_bytes());
             writeln!(&mut stdout)?;
         }
 

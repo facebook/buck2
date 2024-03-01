@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::io::Write;
+
 use async_trait::async_trait;
 use buck2_cli_proto::BxlRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -118,12 +120,17 @@ impl StreamingCommand for BxlCommand {
         let response = result??;
 
         print_build_result(&console, &response.errors)?;
+        let mut stdout = Vec::new();
+        if let Some(build_report) = response.serialized_build_report {
+            stdout.extend(build_report.as_bytes());
+            writeln!(&mut stdout)?;
+        }
 
         if !success {
             return ExitResult::from_errors(&response.errors);
         }
 
-        ExitResult::success()
+        ExitResult::success().with_stdout(stdout)
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

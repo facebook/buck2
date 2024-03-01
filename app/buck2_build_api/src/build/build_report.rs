@@ -543,7 +543,7 @@ pub fn generate_build_report(
     trace_id: &TraceId,
     configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
-) -> Result<String, buck2_error::Error> {
+) -> Result<Option<String>, buck2_error::Error> {
     let build_report = BuildReportCollector::convert(
         trace_id,
         artifact_fs,
@@ -573,5 +573,5 @@ pub fn generate_build_report(
         serialized_build_report = Some(serde_json::to_string(&build_report)?);
     };
 
-    Ok(serialized_build_report.unwrap_or_default())
+    Ok(serialized_build_report)
 }

@@ -214,7 +214,7 @@ async fn bxl(
         .build_opts
         .as_ref()
         .expect("should have build options");
-    // TODO(lmvasquezg) Pipe this so it prints to stdout when passing --build-report=-
+
     let serialized_build_report = if bxl_opts.unstable_print_build_report {
         let artifact_fs = ctx.get_artifact_fs().await?;
         let build_report_opts = BuildReportOpts {
@@ -226,7 +226,7 @@ async fn bxl(
             unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
         };
 
-        Some(generate_build_report(
+        generate_build_report(
             build_report_opts,
             &artifact_fs,
             &cell_resolver,
@@ -238,7 +238,7 @@ async fn bxl(
                 .map(|(k, v)| (k.to_owned(), Some(v.to_owned())))
                 .collect::<BTreeMap<_, _>>(),
             &BTreeMap::default(),
-        )?)
+        )?
     } else {
         None
     };
