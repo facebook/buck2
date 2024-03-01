@@ -37,9 +37,9 @@ const MAX_GRAPHEME_BUFFER: usize = 1000000;
 pub struct SuperConsole {
     root: Canvas,
     to_emit: Lines,
-    // A default screen size to use if the size cannot be fetched
-    // from the terminal. This generally is only used for testing
-    // situations.
+    /// A default screen size to use if the size cannot be fetched
+    /// from the terminal. This generally is only used for testing
+    /// situations.
     fallback_size: Option<Dimensions>,
     pub(crate) output: Box<dyn SuperConsoleOutput>,
 }
