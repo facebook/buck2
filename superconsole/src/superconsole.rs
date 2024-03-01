@@ -288,7 +288,7 @@ mod tests {
             vec!["line 1"].try_into()?;
             MAX_GRAPHEME_BUFFER * 2
         ]));
-        let root = Echo(Lines(vec![vec!["line"].try_into()?; 1]));
+        let root = Echo(Lines(vec![vec!["line"].try_into()?]));
         let mut buffer = Vec::new();
 
         // Even though we have more messages than fit on the screen in the `to_emit` buffer
@@ -310,7 +310,7 @@ mod tests {
     fn test_block_render() -> anyhow::Result<()> {
         let mut console = test_console();
 
-        let root = Echo(Lines(vec![vec!["state"].try_into()?; 1]));
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
 
         console.render(&root)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
@@ -332,7 +332,7 @@ mod tests {
     fn test_block_lines() -> anyhow::Result<()> {
         let mut console = test_console();
 
-        let root = Echo(Lines(vec![vec!["state"].try_into()?; 1]));
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
 
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
@@ -361,7 +361,7 @@ mod tests {
     fn test_block_finalize() -> anyhow::Result<()> {
         let mut console = test_console();
 
-        let root = Echo(Lines(vec![vec!["state"].try_into()?; 1]));
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
 
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
