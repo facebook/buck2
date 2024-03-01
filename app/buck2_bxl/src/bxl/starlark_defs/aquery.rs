@@ -320,7 +320,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkAQueryCtx<'v>,
         query: &'v str,
         #[starlark(default = NoneOr::None)] query_args: NoneOr<UnpackUnconfiguredQueryArgs<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),

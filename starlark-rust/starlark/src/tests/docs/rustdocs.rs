@@ -84,7 +84,7 @@ fn globals(builder: &mut GlobalsBuilder) {
     fn default_arg<'v>(
         arg1: Option<Value<'v>>,
         #[starlark(default = NoneType)] arg2: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Vec<String>> {
         unimplemented!()
     }

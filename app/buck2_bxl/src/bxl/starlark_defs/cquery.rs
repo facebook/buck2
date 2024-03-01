@@ -489,7 +489,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         query: &'v str,
         #[starlark(default = NoneOr::None)] query_args: NoneOr<UnpackUnconfiguredQueryArgs<'v>>,
         #[starlark(default = NoneOr::None)] target_universe: NoneOr<UnpackListOrTuple<String>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),

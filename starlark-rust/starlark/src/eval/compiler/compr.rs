@@ -32,7 +32,7 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignCompiledValue;
 use crate::eval::compiler::Compiler;
 
-impl Compiler<'_, '_, '_> {
+impl Compiler<'_, '_, '_, '_> {
     pub fn list_comprehension(
         &mut self,
         x: &CstExpr,

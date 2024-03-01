@@ -44,7 +44,7 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         section: StringValue,
         key: StringValue,
         default: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let buckconfig = &BuildContext::from_context(eval)?.buckconfig;
         match buckconfig.get(section, key)? {
@@ -61,7 +61,7 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] key: StringValue,
         // Unlike `read_config` we only allow string or `None` as default.
         #[starlark(require = pos, default = NoneOr::None)] default: NoneOr<StringValue<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneOr<StringValue<'v>>> {
         let buckconfig = &BuildContext::from_context(eval)?.root_buckconfig;
         match buckconfig.get(section, key)? {

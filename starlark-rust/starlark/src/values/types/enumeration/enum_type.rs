@@ -253,7 +253,7 @@ where
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         args.no_named_args()?;
         let val = args.positional1(eval.heap())?;
@@ -304,7 +304,11 @@ where
         self.ty_enum_data().map(|t| t.ty_enum_type.dupe())
     }
 
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
+    fn export_as(
+        &self,
+        variable_name: &str,
+        _eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<()> {
         V::get_or_init_ty(&self.ty_enum_data, || {
             let ty_enum_value = Ty::custom(TyUser::new(
                 variable_name.to_owned(),

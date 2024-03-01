@@ -60,7 +60,7 @@ enum TypesError {
     StringConstantAsType,
 }
 
-impl<'v> Compiler<'v, '_, '_> {
+impl<'v> Compiler<'v, '_, '_, '_> {
     /// Compile expression when it is expected to be interpreted as type.
     pub(crate) fn expr_for_type(
         &mut self,

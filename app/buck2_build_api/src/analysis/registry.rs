@@ -129,7 +129,7 @@ impl<'v> AnalysisRegistry<'v> {
     /// which is in conflict with claimed `path`.
     pub fn claim_output_path(
         &mut self,
-        eval: &Evaluator<'_, '_>,
+        eval: &Evaluator<'_, '_, '_>,
         path: &ForwardRelativePath,
     ) -> anyhow::Result<()> {
         let declaration_location = eval.call_stack_top_location();
@@ -182,7 +182,7 @@ impl<'v> AnalysisRegistry<'v> {
     ///  - `StarlarkArtifact`/`StarlarkDeclaredArtifact`: If the artifact is already bound, an error is raised. Otherwise we proceed with the original artifact.
     pub fn get_or_declare_output<'v2>(
         &mut self,
-        eval: &Evaluator<'v2, '_>,
+        eval: &Evaluator<'v2, '_, '_>,
         value: OutputArtifactArg<'v2>,
         output_type: OutputType,
     ) -> anyhow::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
@@ -242,7 +242,7 @@ impl<'v> AnalysisRegistry<'v> {
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let set = self.artifact_groups.create_transitive_set(
             definition,

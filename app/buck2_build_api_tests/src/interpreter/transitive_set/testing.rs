@@ -37,7 +37,7 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<TransitiveSet<'v>> {
         static LAST_ID: AtomicU32 = AtomicU32::new(0);
 

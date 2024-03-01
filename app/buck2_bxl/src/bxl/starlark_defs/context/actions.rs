@@ -193,7 +193,7 @@ impl<'v> BxlActions<'v> {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         ctx: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
@@ -208,7 +208,7 @@ impl<'v> BxlActions<'v> {
 
 async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     ctx: &'c mut DiceComputations<'_>,
 ) -> anyhow::Result<ValueOfUnchecked<'v, DictRef<'v>>> {
     let analysis_results: Vec<_> = ctx

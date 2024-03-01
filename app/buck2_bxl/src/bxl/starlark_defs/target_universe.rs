@@ -120,7 +120,7 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
     fn lookup<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
         targets: TargetListExprArg<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
         this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {

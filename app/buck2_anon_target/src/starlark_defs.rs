@@ -135,7 +135,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
     /// pass in the artifact retrieved from this dict.
     fn artifacts<'v>(
         this: &StarlarkAnonTarget<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         Ok(eval.heap().alloc(Dict::new(
             this.artifacts
@@ -159,7 +159,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
     fn artifact<'v>(
         this: &StarlarkAnonTarget<'v>,
         name: &'v str,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         match this.artifacts.get(name) {
             Some(v) => Ok(eval.heap().alloc(StarlarkPromiseArtifact::new(
@@ -268,7 +268,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         // TODO(nga): this should be either positional or named, not both.
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attrs: DictOf<'v, &'v str, Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
         let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
@@ -293,7 +293,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             ValueTyped<'v, FrozenRuleCallable>,
             DictOf<'v, &'v str, Value<'v>>,
         )>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAnonTargets<'v>> {
         let mut this = this.state();
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;

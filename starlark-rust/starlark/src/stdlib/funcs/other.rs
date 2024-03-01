@@ -692,7 +692,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn repr<'v>(
         #[starlark(require = pos)] a: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StringValue<'v>> {
         let mut s = eval.string_pool.alloc();
         a.collect_repr(&mut s);
@@ -754,7 +754,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] x: ValueOfUnchecked<'v, ValueOfUnchecked<Value<'v>>>,
         #[starlark(require = named)] key: Option<Value<'v>>,
         #[starlark(require = named, default = false)] reverse: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>>>> {
         let it = x.get().iterate(eval.heap())?;
         let mut it = match key {
@@ -808,7 +808,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     #[starlark(as_type = StarlarkStr, speculative_exec_safe)]
     fn str<'v>(
         #[starlark(require = pos)] a: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StringValue<'v>> {
         if let Some(a) = StringValue::new(a) {
             // Special case that can avoid reallocating, but is equivalent.

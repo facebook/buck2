@@ -325,7 +325,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                 #[allow(non_snake_case)] // Starlark doesn't have this convention
                 fn invoke<'v>(
                     &self,
-                    eval: &mut starlark::eval::Evaluator<'v, '_>,
+                    eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
                     #this_param
                     parameters: &starlark::eval::Arguments<'v, '_>,
                 ) -> starlark::Result<starlark::values::Value<'v>> {

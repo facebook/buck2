@@ -319,12 +319,12 @@ unsafe impl<'v> Trace<'v> for BcFramePtr<'v> {
 }
 
 #[inline(always)]
-fn alloca_raw<'v, 'a, R>(
-    eval: &mut Evaluator<'v, 'a>,
+fn alloca_raw<'v, 'a, 'e, R>(
+    eval: &mut Evaluator<'v, 'a, 'e>,
     local_count: u32,
     max_stack_size: u32,
     max_loop_depth: LoopDepth,
-    k: impl FnOnce(&mut Evaluator<'v, 'a>, BcFramePtr<'v>) -> R,
+    k: impl FnOnce(&mut Evaluator<'v, 'a, 'e>, BcFramePtr<'v>) -> R,
 ) -> R {
     assert_eq!(mem::align_of::<BcFrame>() % mem::size_of::<usize>(), 0);
     assert_eq!(mem::size_of::<Value>(), mem::size_of::<usize>());
@@ -349,12 +349,12 @@ fn alloca_raw<'v, 'a, R>(
 ///
 /// After callback finishes, previous frame is restored.
 #[inline(always)]
-pub(crate) fn alloca_frame<'v, 'a, R>(
-    eval: &mut Evaluator<'v, 'a>,
+pub(crate) fn alloca_frame<'v, 'a, 'e, R>(
+    eval: &mut Evaluator<'v, 'a, 'e>,
     local_count: u32,
     max_stack_size: u32,
     loop_depth: LoopDepth,
-    k: impl FnOnce(&mut Evaluator<'v, 'a>) -> R,
+    k: impl FnOnce(&mut Evaluator<'v, 'a, 'e>) -> R,
 ) -> R {
     alloca_raw(
         eval,

@@ -58,7 +58,7 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
         include: UnpackListOrTuple<String>,
         #[starlark(require = named, default=UnpackListOrTuple::default())]
         exclude: UnpackListOrTuple<String>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, ListOf<'v, String>>> {
         let extra = ModuleInternals::from_context(eval, "glob")?;
         let spec = GlobSpec::new(&include.items, &exclude.items)?;
@@ -177,7 +177,7 @@ pub(crate) fn register_buck2_fail(builder: &mut GlobalsBuilder) {
     /// purposes.
     fn internal_buck2_fail<'v>(
         msg: &str,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         Err(BuckFail(msg.to_owned()).into())
     }

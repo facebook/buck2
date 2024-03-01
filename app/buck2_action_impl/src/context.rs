@@ -145,7 +145,7 @@ enum WriteActionError {
 }
 
 fn create_dir_tree<'v>(
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     this: &AnalysisActions<'v>,
     output: OutputArtifactArg<'v>,
     srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
@@ -165,7 +165,7 @@ fn create_dir_tree<'v>(
 }
 
 fn copy_file_impl<'v>(
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     this: &AnalysisActions<'v>,
     dest: OutputArtifactArg<'v>,
     src: ValueAsArtifactLike<'v>,
@@ -226,7 +226,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] prefix: &str,
         #[starlark(require = pos)] filename: Option<&str>,
         #[starlark(require = named, default = false)] dir: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         // We take either one or two positional arguments, namely (filename) or (prefix, filename).
         // The prefix argument is optional, but first, so we pretend the filename is optional
@@ -278,7 +278,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] pretty: bool,
         #[starlark(require = named, default = false)] absolute: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<impl AllocValue<'v>> {
         let mut this = this.state();
         let (declaration, output_artifact) =
@@ -334,7 +334,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] absolute: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<
         Either<
             ValueTyped<'v, StarlarkDeclaredArtifact>,
@@ -518,7 +518,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word
         // `file` in it
@@ -539,7 +539,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word
         // `file` in it
@@ -558,7 +558,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         copy_file_impl(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
     }
@@ -568,7 +568,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         copy_file_impl(
             eval,
@@ -586,7 +586,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, false)
     }
@@ -597,7 +597,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, true)
     }
@@ -674,7 +674,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         >,
         #[starlark(require = named, default = false)] unique_input_inodes: bool,
         #[starlark(require = named)] error_handler: Option<StarlarkCallable<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -878,7 +878,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_deferrable: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut this = this.state();
         let (declaration, output_artifact) =
@@ -921,7 +921,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_tree: bool,
         #[starlark(require = named, default = false)] is_directory: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut registry = this.state();
 
@@ -970,7 +970,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let mut this = this.state();
         this.create_transitive_set(

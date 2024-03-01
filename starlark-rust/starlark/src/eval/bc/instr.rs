@@ -44,7 +44,7 @@ pub(crate) trait BcInstr: Sized + 'static {
 
     /// Execute the instruction.
     fn run<'v, 'b>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         arg: &Self::Arg,

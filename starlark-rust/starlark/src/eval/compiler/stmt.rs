@@ -392,7 +392,7 @@ impl IrSpanned<AssignCompiledValue> {
     }
 }
 
-impl Compiler<'_, '_, '_> {
+impl Compiler<'_, '_, '_, '_> {
     pub fn assign_target(&mut self, expr: &CstAssignTarget) -> IrSpanned<AssignCompiledValue> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let assign = match &expr.node {
@@ -629,7 +629,7 @@ pub(crate) fn add_assign<'v>(
     }
 }
 
-impl Compiler<'_, '_, '_> {
+impl Compiler<'_, '_, '_, '_> {
     pub(crate) fn compile_context(&self, has_return_type: bool) -> StmtCompileContext {
         StmtCompileContext { has_return_type }
     }

@@ -182,7 +182,7 @@ impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
 /// Creates instances of mutable `UserProvider`s; called from a `NativeFunction`
 pub(crate) fn user_provider_creator<'v>(
     callable: FrozenRef<'static, UserProviderCallableData>,
-    eval: &Evaluator<'v, '_>,
+    eval: &Evaluator<'v, '_, '_>,
     mut param_parser: ParametersParser<'v, '_>,
 ) -> anyhow::Result<Value<'v>> {
     let heap = eval.heap();

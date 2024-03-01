@@ -33,7 +33,7 @@ pub(crate) fn to_scope_names_by_local_slot_id<'v>(x: Value<'v>) -> Option<&'v [F
     }
 }
 
-impl<'v, 'a> Evaluator<'v, 'a> {
+impl<'v> Evaluator<'v, '_, '_> {
     /// Obtain the local variables currently in scope. When at top-level these will be
     /// [`Module`](crate::environment::Module) variables, otherwise local definitions. The precise number of variables
     /// may change over time due to optimisation. The only legitimate use of this function is for debugging.
@@ -42,7 +42,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     }
 }
 
-fn inspect_local_variables<'v>(eval: &Evaluator<'v, '_>) -> Option<SmallMap<String, Value<'v>>> {
+fn inspect_local_variables<'v>(
+    eval: &Evaluator<'v, '_, '_>,
+) -> Option<SmallMap<String, Value<'v>>> {
     // First we find the first entry on the call_stack which contains a Def (and thus has locals)
     let xs = eval.call_stack.to_function_values();
     let names = xs
@@ -62,7 +64,7 @@ fn inspect_local_variables<'v>(eval: &Evaluator<'v, '_>) -> Option<SmallMap<Stri
     Some(res)
 }
 
-fn inspect_module_variables<'v>(eval: &Evaluator<'v, '_>) -> SmallMap<String, Value<'v>> {
+fn inspect_module_variables<'v>(eval: &Evaluator<'v, '_, '_>) -> SmallMap<String, Value<'v>> {
     let mut res = SmallMap::new();
     for (name, slot) in eval.module_env.mutable_names().all_names_and_slots() {
         if let Some(v) = eval.module_env.slots().get_slot(slot) {
@@ -91,7 +93,9 @@ mod tests {
             Ok(eval.call_stack().into_frames().map(ToString::to_string))
         }
 
-        fn debug_inspect_variables<'v>(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Dict<'v>> {
+        fn debug_inspect_variables<'v>(
+            eval: &mut Evaluator<'v, '_, '_>,
+        ) -> anyhow::Result<Dict<'v>> {
             let mut sm = SmallMap::new();
             for (k, v) in eval.local_variables() {
                 sm.insert_hashed(eval.heap().alloc_str(&k).get_hashed(), v);

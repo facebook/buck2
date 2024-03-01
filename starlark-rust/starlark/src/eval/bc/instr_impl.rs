@@ -95,7 +95,7 @@ pub(crate) trait InstrNoFlowImpl: 'static {
     type Arg: BcInstrArg;
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr,
         arg: &Self::Arg,
@@ -109,7 +109,7 @@ impl<I: InstrNoFlowImpl> BcInstr for InstrNoFlow<I> {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         arg: &Self::Arg,
@@ -129,7 +129,7 @@ impl InstrNoFlowImpl for InstrConstImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (constant, target): &(FrozenValue, BcSlotOut),
@@ -178,7 +178,7 @@ impl InstrNoFlowImpl for InstrLoadLocalImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(LocalSlotId, BcSlotOut),
@@ -194,7 +194,7 @@ impl InstrNoFlowImpl for InstrLoadLocalCapturedImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(LocalCapturedSlotId, BcSlotOut),
@@ -210,7 +210,7 @@ impl InstrNoFlowImpl for InstrLoadModuleImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(ModuleSlotId, BcSlotOut),
@@ -226,7 +226,7 @@ impl InstrNoFlowImpl for InstrMovImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(BcSlotIn, BcSlotOut),
@@ -241,7 +241,7 @@ impl InstrNoFlowImpl for InstrStoreLocalCapturedImpl {
     type Arg = (BcSlotIn, LocalCapturedSlotId);
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(BcSlotIn, LocalCapturedSlotId),
@@ -256,7 +256,7 @@ impl InstrNoFlowImpl for InstrStoreModuleAndExportImpl {
     type Arg = (BcSlotIn, ModuleSlotId, String);
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, slot, name): &(BcSlotIn, ModuleSlotId, String),
@@ -272,7 +272,7 @@ impl InstrNoFlowImpl for InstrStoreModuleImpl {
     type Arg = (BcSlotIn, ModuleSlotId);
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(BcSlotIn, ModuleSlotId),
@@ -288,7 +288,7 @@ impl InstrNoFlowImpl for InstrUnpackImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(BcSlotIn, FrozenRef<'static, [BcSlotOut]>),
@@ -318,7 +318,7 @@ impl InstrNoFlowImpl for InstrArrayIndexImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (array, index, target): &(BcSlotIn, BcSlotIn, BcSlotOut),
@@ -336,7 +336,7 @@ impl InstrNoFlowImpl for InstrSetArrayIndexImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, array, index): &(BcSlotIn, BcSlotIn, BcSlotIn),
@@ -353,7 +353,7 @@ impl InstrNoFlowImpl for InstrArrayIndexSetImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (array, index, source): &(BcSlotIn, BcSlotIn, BcSlotIn),
@@ -370,7 +370,7 @@ impl InstrNoFlowImpl for InstrObjectFieldImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (object, field, target): &(BcSlotIn, Symbol, BcSlotOut),
@@ -391,7 +391,7 @@ impl InstrNoFlowImpl for InstrObjectFieldRawImpl {
     type Arg = (BcSlotIn, Symbol, BcSlotOut);
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (object, field, target): &(BcSlotIn, Symbol, BcSlotOut),
@@ -407,7 +407,7 @@ impl InstrNoFlowImpl for InstrSetObjectFieldImpl {
     type Arg = (BcSlotIn, BcSlotIn, Symbol);
 
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, object, field): &(BcSlotIn, BcSlotIn, Symbol),
@@ -429,7 +429,7 @@ impl InstrNoFlowImpl for InstrSliceImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (list, start, stop, step, target): &(
@@ -455,7 +455,7 @@ impl InstrNoFlowImpl for InstrArrayIndex2Impl {
 
     #[cold]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (array, index0, index1, target): &(BcSlotIn, BcSlotIn, BcSlotIn, BcSlotOut),
@@ -493,7 +493,7 @@ impl InstrNoFlowImpl for InstrEqConstImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (a, b, target): &(BcSlotIn, FrozenValueNotSpecial, BcSlotOut),
@@ -510,7 +510,7 @@ impl InstrNoFlowImpl for InstrEqPtrImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (a, b, target): &(BcSlotIn, FrozenValue, BcSlotOut),
@@ -527,7 +527,7 @@ impl InstrNoFlowImpl for InstrEqIntImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (a, b, target): &(BcSlotIn, FrozenValueTyped<'static, PointerI32>, BcSlotOut),
@@ -548,7 +548,7 @@ impl InstrNoFlowImpl for InstrEqStrImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (a, b, target): &(BcSlotIn, FrozenStringValue, BcSlotOut),
@@ -620,7 +620,7 @@ impl<I: InstrBinOpImpl> InstrNoFlowImpl for InstrBinOpWrapper<I> {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (v0, v1, target): &(BcSlotIn, BcSlotIn, BcSlotOut),
@@ -638,7 +638,7 @@ impl<I: InstrUnOpImpl> InstrNoFlowImpl for InstrUnOpWrapper<I> {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (source, target): &(BcSlotIn, BcSlotOut),
@@ -788,7 +788,7 @@ impl InstrNoFlowImpl for InstrPercentSOneImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (before, arg, after, target): &(FrozenStringValue, BcSlotIn, FrozenStringValue, BcSlotOut),
@@ -805,7 +805,7 @@ impl InstrNoFlowImpl for InstrFormatOneImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (before, arg, after, target): &(FrozenStringValue, BcSlotIn, FrozenStringValue, BcSlotOut),
@@ -886,7 +886,7 @@ impl InstrNoFlowImpl for InstrTypeIsImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         (arg, t, target): &(BcSlotIn, FrozenStringValue, BcSlotOut),
@@ -906,7 +906,7 @@ impl InstrNoFlowImpl for InstrIsInstanceImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         (arg, t, target): &(BcSlotIn, TypeCompiled<FrozenValue>, BcSlotOut),
@@ -951,7 +951,7 @@ impl InstrNoFlowImpl for InstrTupleNPopImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         (values, target): &(BcSlotInRange, BcSlotOut),
@@ -968,7 +968,7 @@ impl InstrNoFlowImpl for InstrListNPopImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         (values, target): &(BcSlotInRange, BcSlotOut),
@@ -985,7 +985,7 @@ impl InstrNoFlowImpl for InstrListOfConstsImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         (values, target): &(Box<[FrozenValue]>, BcSlotOut),
@@ -1001,7 +1001,7 @@ impl InstrNoFlowImpl for InstrDictOfConstsImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         (values, target): &(SmallMap<FrozenValue, FrozenValue>, BcSlotOut),
@@ -1016,7 +1016,7 @@ impl InstrNoFlowImpl for InstrDictNPopImpl {
     type Arg = (BcSlotInRange, BcSlotOut);
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr,
         (npops, target): &(BcSlotInRange, BcSlotOut),
@@ -1052,7 +1052,7 @@ impl InstrNoFlowImpl for InstrDictConstKeysImpl {
     type Arg = (Box<[Hashed<FrozenValue>]>, BcSlotInRangeFrom, BcSlotOut);
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         (keys, values, target): &(Box<[Hashed<FrozenValue>]>, BcSlotInRangeFrom, BcSlotOut),
@@ -1074,7 +1074,7 @@ impl InstrNoFlowImpl for InstrListNewImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         target: &BcSlotOut,
@@ -1090,7 +1090,7 @@ impl InstrNoFlowImpl for InstrDictNewImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         target: &BcSlotOut,
@@ -1109,7 +1109,7 @@ impl BcInstr for InstrComprListAppend {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         (list, item): &(BcSlotIn, BcSlotIn),
@@ -1129,7 +1129,7 @@ impl BcInstr for InstrComprDictInsert {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         (dict, key, value): &(BcSlotIn, BcSlotIn, BcSlotIn),
@@ -1157,7 +1157,7 @@ impl InstrNoFlowImpl for InstrCheckTypeImpl {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (expr, ty): &(BcSlotIn, TypeCompiled<FrozenValue>),
@@ -1186,7 +1186,7 @@ impl BcInstr for InstrBr {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         _frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         target: &BcAddrOffset,
@@ -1200,7 +1200,7 @@ impl BcInstr for InstrIfBr {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         (cond, target): &(BcSlotIn, BcAddrOffset),
@@ -1219,7 +1219,7 @@ impl BcInstr for InstrIfNotBr {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         (cond, target): &(BcSlotIn, BcAddrOffset),
@@ -1247,7 +1247,7 @@ impl BcInstr for InstrIter {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         (over, loop_depth, iter_slot, var, end): &(
@@ -1289,7 +1289,7 @@ impl BcInstr for InstrContinue {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         (iter, loop_depth, var, begin, end): &(
@@ -1322,7 +1322,7 @@ impl BcInstr for InstrBreak {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         (iter, end): &(BcSlotIn, BcAddrOffset),
@@ -1338,7 +1338,7 @@ impl BcInstr for InstrIterStop {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         iter: &BcSlotIn,
@@ -1357,7 +1357,7 @@ impl BcInstr for InstrReturnConst {
     type Arg = FrozenValue;
 
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         value: &FrozenValue,
@@ -1371,7 +1371,7 @@ impl BcInstr for InstrReturn {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         &slot: &BcSlotIn,
@@ -1386,7 +1386,7 @@ impl BcInstr for InstrReturnCheckType {
 
     #[inline(always)]
     fn run<'v, 'b>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         &slot: &BcSlotIn,
@@ -1414,7 +1414,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
     type Arg = (BcSlotInRange, InstrDefData, BcSlotOut);
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (pops, def_data, target): &(BcSlotInRange, InstrDefData, BcSlotOut),
@@ -1480,7 +1480,7 @@ pub(crate) trait BcFrozenCallable: BcInstrArg + Copy {
         self,
         location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>>;
 }
 
@@ -1490,7 +1490,7 @@ impl BcFrozenCallable for FrozenValue {
         self,
         location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.to_value().invoke_with_loc(Some(location), args, eval)
     }
@@ -1502,7 +1502,7 @@ impl BcFrozenCallable for FrozenValueTyped<'static, FrozenDef> {
         self,
         location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
             self.as_ref().invoke(self.to_value(), args, eval)
@@ -1516,7 +1516,7 @@ impl BcFrozenCallable for BcNativeFunction {
         self,
         location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
             self.invoke(args, eval)
@@ -1557,7 +1557,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallImpl<A> {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (this, args, span, target): &(BcSlotIn, A, FrozenRef<'static, FrameSpan>, BcSlotOut),
@@ -1577,7 +1577,7 @@ impl<F: BcFrozenCallable, A: BcCallArgs<Symbol>> InstrNoFlowImpl
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (fun, args, span, target): &(F, A, FrozenRef<'static, FrameSpan>, BcSlotOut),
@@ -1599,7 +1599,7 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (fun, args, span, target): &(
@@ -1622,7 +1622,7 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
 /// Common of method invocation instructions.
 #[inline(always)]
 fn call_method_common<'v>(
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     frame: BcFramePtr<'v>,
     this: Value<'v>,
     symbol: &Symbol,
@@ -1643,7 +1643,7 @@ fn call_method_common<'v>(
 /// Common of method invocation instructions where a method is likely stdlib method.
 #[inline(always)]
 fn call_maybe_known_method_common<'v>(
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     frame: BcFramePtr<'v>,
     this: Value<'v>,
     symbol: &Symbol,
@@ -1679,7 +1679,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMethodImpl<A> {
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (this, symbol, args, span, target): &(
@@ -1708,7 +1708,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (this, symbol, known_method, args, span, target): &(
@@ -1743,7 +1743,7 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
     type Arg = ();
 
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (): &(),
@@ -1765,7 +1765,7 @@ impl BcInstr for InstrEnd {
     type Arg = BcInstrEndArg;
 
     fn run<'v, 'b>(
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         _: &Self::Arg,

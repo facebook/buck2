@@ -85,7 +85,7 @@ impl FrozenValueNotSpecial {
         this: Value<'v>,
         location: FrozenRef<'static, FrameSpan>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
             self.get_ref().invoke_method(this, args, eval)

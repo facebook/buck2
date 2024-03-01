@@ -16,7 +16,7 @@ pub trait AnonPromisesDyn<'v>: 'v {
     async fn run_promises(
         self: Box<Self>,
         dice: &mut DiceComputations,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         description: String,
     ) -> anyhow::Result<()>;
 }

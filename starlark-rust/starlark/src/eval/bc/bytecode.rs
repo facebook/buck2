@@ -94,7 +94,7 @@ impl Bc {
     #[inline(always)]
     pub(crate) fn run<'v, EC: EvaluationCallbacks>(
         &self,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         ec: &mut EC,
     ) -> Result<Value<'v>, EvalException> {
         debug_assert!(eval.current_frame.is_inititalized());
@@ -117,7 +117,7 @@ impl Bc {
 /// Execute one instruction.
 #[cfg_attr(not(debug_assertions), inline(always))]
 fn step<'v, 'b, EC: EvaluationCallbacks>(
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     ec: &mut EC,
     frame: BcFramePtr<'v>,
     ip: BcPtrAddr<'b>,
@@ -125,13 +125,13 @@ fn step<'v, 'b, EC: EvaluationCallbacks>(
     let opcode = ip.get_opcode();
     // println!("{}: {:?}", self.current_ip, opcode);
 
-    struct HandlerImpl<'v, 'a, 'y, 'b> {
-        eval: &'y mut Evaluator<'v, 'a>,
+    struct HandlerImpl<'v, 'a, 'e, 'y, 'b> {
+        eval: &'y mut Evaluator<'v, 'a, 'e>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
     }
 
-    impl<'v, 'a, 'y, 'b> BcOpcodeHandler<InstrControl<'v, 'b>> for HandlerImpl<'v, 'a, 'y, 'b> {
+    impl<'v, 'a, 'e, 'y, 'b> BcOpcodeHandler<InstrControl<'v, 'b>> for HandlerImpl<'v, 'a, 'e, 'y, 'b> {
         #[cfg_attr(not(debug_assertions), inline(always))]
         fn handle<I: BcInstr>(self) -> InstrControl<'v, 'b> {
             let HandlerImpl { eval, frame, ip } = self;
@@ -147,7 +147,7 @@ fn step<'v, 'b, EC: EvaluationCallbacks>(
 /// Execute the code block, either a module, a function body or a loop body.
 // Do not inline this function because it is called from two places: function and loop.
 pub(crate) fn run_block<'v, EC: EvaluationCallbacks>(
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     ec: &mut EC,
     mut ip: BcPtrAddr,
 ) -> Result<Value<'v>, EvalException> {

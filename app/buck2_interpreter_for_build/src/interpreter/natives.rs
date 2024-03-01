@@ -41,7 +41,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
     fn implicit_package_symbol<'v>(
         name: &str,
         default: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let internals = ModuleInternals::from_context(eval, "implicit_package_symbol")?;
         match internals.get_package_implicit(name) {

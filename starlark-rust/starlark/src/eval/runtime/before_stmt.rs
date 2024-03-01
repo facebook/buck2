@@ -22,9 +22,9 @@ use crate::eval::Evaluator;
 
 /// Configuration of `BeforeStmt` instrumentation of bytecode.
 #[derive(Default)]
-pub(crate) struct BeforeStmt<'a> {
+pub(crate) struct BeforeStmt<'a, 'e: 'a> {
     /// Functions to run before each statement.
-    pub(crate) before_stmt: Vec<BeforeStmtFunc<'a>>,
+    pub(crate) before_stmt: Vec<BeforeStmtFunc<'a, 'e>>,
     /// Explicitly request generation of `BeforeStmt` instructions
     /// even if no `before_stmt` functions are registered.
     /// This is needed when compiling dependencies of a file to be profiled.
@@ -34,13 +34,13 @@ pub(crate) struct BeforeStmt<'a> {
 /// This is used by DAP, and it is not public API.
 // TODO(cjhopman): pull DAP into the crate, and hide this function.
 #[doc(hidden)]
-pub enum BeforeStmtFunc<'a> {
-    Fn(&'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>)),
-    Dyn(Box<dyn BeforeStmtFuncDyn<'a>>),
+pub enum BeforeStmtFunc<'a, 'e: 'a> {
+    Fn(&'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>)),
+    Dyn(Box<dyn BeforeStmtFuncDyn<'a, 'e>>),
 }
 
-impl<'a> BeforeStmtFunc<'a> {
-    pub(crate) fn call<'v>(&mut self, span: FileSpanRef, eval: &mut Evaluator<'v, 'a>) {
+impl<'a, 'e: 'a> BeforeStmtFunc<'a, 'e> {
+    pub(crate) fn call<'v>(&mut self, span: FileSpanRef, eval: &mut Evaluator<'v, 'a, 'e>) {
         match self {
             BeforeStmtFunc::Fn(f) => f(span, eval),
             BeforeStmtFunc::Dyn(d) => d.call(span, eval),
@@ -51,27 +51,29 @@ impl<'a> BeforeStmtFunc<'a> {
 /// This is used by DAP, and it is not public API.
 // TODO(cjhopman): pull DAP into the crate, and hide this function.
 #[doc(hidden)]
-pub trait BeforeStmtFuncDyn<'a> {
+pub trait BeforeStmtFuncDyn<'a, 'e: 'a> {
     /// This is used by DAP, and it is not public API.
     // TODO(cjhopman): pull DAP into the crate, and hide this function.
     #[doc(hidden)]
-    fn call<'v>(&mut self, span: FileSpanRef, eval: &mut Evaluator<'v, 'a>);
+    fn call<'v>(&mut self, span: FileSpanRef, eval: &mut Evaluator<'v, 'a, 'e>);
 }
 
-impl<'a> BeforeStmt<'a> {
+impl<'a, 'e: 'a> BeforeStmt<'a, 'e> {
     pub(crate) fn enabled(&self) -> bool {
         self.instrument || !self.before_stmt.is_empty()
     }
 }
 
-impl<'a> From<&'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>)> for BeforeStmtFunc<'a> {
-    fn from(value: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>)) -> Self {
+impl<'a, 'e: 'a> From<&'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>)>
+    for BeforeStmtFunc<'a, 'e>
+{
+    fn from(value: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>)) -> Self {
         Self::Fn(value)
     }
 }
 
-impl<'a> From<Box<dyn BeforeStmtFuncDyn<'a>>> for BeforeStmtFunc<'a> {
-    fn from(value: Box<dyn BeforeStmtFuncDyn<'a>>) -> Self {
+impl<'a, 'e: 'a> From<Box<dyn BeforeStmtFuncDyn<'a, 'e>>> for BeforeStmtFunc<'a, 'e> {
+    fn from(value: Box<dyn BeforeStmtFuncDyn<'a, 'e>>) -> Self {
         Self::Dyn(value)
     }
 }

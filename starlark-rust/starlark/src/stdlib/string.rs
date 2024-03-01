@@ -357,7 +357,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn format<'v>(
         this: &str,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StringValue<'v>> {
         let iter = args.positions(eval.heap())?;
         dot_format::format(

@@ -83,7 +83,7 @@ impl<'v> AnalysisActions<'v> {
     pub async fn run_promises(
         &self,
         dice: &mut DiceComputations<'_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         description: String,
     ) -> anyhow::Result<()> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.

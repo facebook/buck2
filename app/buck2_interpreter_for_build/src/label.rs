@@ -33,7 +33,7 @@ pub mod testing {
     pub fn label_creator(builder: &mut GlobalsBuilder) {
         fn label<'v>(
             s: &str,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
@@ -53,7 +53,7 @@ pub mod testing {
 
         fn target_label<'v>(
             s: &str,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<StarlarkTargetLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<TargetPatternExtra>::parse_precise(

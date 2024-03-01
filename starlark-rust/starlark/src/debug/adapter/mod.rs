@@ -431,7 +431,7 @@ pub fn resolve_breakpoints(
 /// things there).
 pub trait DapAdapterEvalHook: Debug + Send + 'static {
     /// Hooks the evaluator for this DapAdapter.
-    fn add_dap_hooks<'v, 'a>(self: Box<Self>, eval: &mut Evaluator<'v, 'a>);
+    fn add_dap_hooks(self: Box<Self>, eval: &mut Evaluator<'_, '_, '_>);
 }
 
 /// The DAP capabilities that the adapter supports.

@@ -87,7 +87,7 @@ struct DapAdapterEvalHookImpl {
 
 fn evaluate_expr<'v>(
     state: &SharedAdapterState,
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     expr: String,
 ) -> anyhow::Result<Value<'v>> {
     // We don't want to trigger breakpoints during an evaluate,
@@ -106,8 +106,8 @@ fn evaluate_expr<'v>(
     res
 }
 
-impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
-    fn call<'v>(&mut self, span_loc: FileSpanRef, eval: &mut Evaluator<'v, 'a>) {
+impl<'a, 'e: 'a> BeforeStmtFuncDyn<'a, 'e> for DapAdapterEvalHookImpl {
+    fn call<'v>(&mut self, span_loc: FileSpanRef, eval: &mut Evaluator<'v, 'a, 'e>) {
         let stop = if self.state.disable_breakpoints.load(Ordering::SeqCst) > 0 {
             false
         } else {
@@ -175,7 +175,7 @@ impl DapAdapterEvalHookImpl {
 }
 
 impl DapAdapterEvalHook for DapAdapterEvalHookImpl {
-    fn add_dap_hooks<'v, 'a>(self: Box<Self>, eval: &mut Evaluator<'v, 'a>) {
+    fn add_dap_hooks(self: Box<Self>, eval: &mut Evaluator<'_, '_, '_>) {
         eval.before_stmt_for_dap((self as Box<dyn BeforeStmtFuncDyn>).into());
     }
 }

@@ -151,7 +151,7 @@ where
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         // apply the partial arguments first, then the remaining arguments I was given
 

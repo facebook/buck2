@@ -164,7 +164,7 @@ impl<'v> StarlarkPromise<'v> {
     fn apply(
         f: Value<'v>,
         x: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         eval.eval_function(f, &[x], &[])
             .map_err(|e| BuckStarlarkError::new(e).into())
@@ -173,7 +173,7 @@ impl<'v> StarlarkPromise<'v> {
     pub fn map(
         x: ValueTyped<'v, StarlarkPromise<'v>>,
         f: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         match x.get() {
             Some(x) => Ok(eval
@@ -222,14 +222,14 @@ impl<'v> StarlarkPromise<'v> {
 
     /// Resolve a promise. Errors if the promise was produced by `.map` or the promise has
     /// already been resolved.
-    pub fn resolve(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
+    pub fn resolve(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<()> {
         if matches!(&*self.value.borrow(), PromiseValue::Map(..)) {
             return Err(PromiseError::CantResolveMap.into());
         }
         self.resolve_rec(x, eval)
     }
 
-    fn resolve_rec(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
+    fn resolve_rec(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<()> {
         if matches!(&*self.value.borrow(), PromiseValue::Resolved(_)) {
             return Err(PromiseError::CantResolveTwice.into());
         }
@@ -304,7 +304,7 @@ fn promise_methods(builder: &mut MethodsBuilder) {
     fn map<'v>(
         this: ValueTyped<'v, StarlarkPromise<'v>>,
         #[starlark(require = pos)] func: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         StarlarkPromise::map(this, func, eval)
     }
@@ -363,7 +363,7 @@ mod tests {
     fn helpers(builder: &mut GlobalsBuilder) {
         fn promise_unresolved<'v>(
             name: String,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
             let promises = get_promises(eval.module());
             let promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());

@@ -236,7 +236,7 @@ where
         &self,
         me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         if self.ty_record_data().is_none() {
             return Err(crate::Error::new_other(
@@ -294,7 +294,11 @@ where
         self.ty_record_data().map(|t| t.ty_record_type.dupe())
     }
 
-    fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
+    fn export_as(
+        &self,
+        variable_name: &str,
+        _eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<()> {
         V::get_or_init_ty(&self.ty_record_data, || {
             let fields: SortedMap<String, Ty> = self
                 .fields

@@ -100,7 +100,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
     fn export_as(
         &self,
         variable_name: &str,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<()> {
         let mut id = self.id.borrow_mut();
         // First export wins
@@ -181,7 +181,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
         #[starlark(require = named)] attrs: Option<UnpackListOrTuple<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Transition<'v>> {
         let implementation = r#impl.0;
 

@@ -143,7 +143,7 @@ pub(crate) enum Builtin1 {
 }
 
 impl Builtin1 {
-    fn eval<'v>(&self, v: FrozenValue, ctx: &mut OptCtx<'v, '_, '_>) -> Option<Value<'v>> {
+    fn eval<'v>(&self, v: FrozenValue, ctx: &mut OptCtx<'v, '_, '_, '_>) -> Option<Value<'v>> {
         match self {
             Builtin1::Minus => v.to_value().minus(ctx.heap()).ok(),
             Builtin1::Plus => v.to_value().plus(ctx.heap()).ok(),
@@ -1154,7 +1154,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     }
 }
 
-impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
+impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
     fn expr_ident(&mut self, ident: &CstIdent) -> ExprCompiled {
         let resolved_ident = ident
             .node
@@ -1193,7 +1193,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
         }
     }
 
-    fn opt_ctx<'s>(&'s mut self) -> OptCtx<'v, 'a, 's> {
+    fn opt_ctx<'s>(&'s mut self) -> OptCtx<'v, 'a, 'e, 's> {
         let param_count = self.current_scope().param_count();
         OptCtx::new(self.eval, param_count)
     }

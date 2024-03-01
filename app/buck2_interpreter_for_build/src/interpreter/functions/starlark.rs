@@ -26,7 +26,7 @@ pub fn register_set_starlark_peak_allocated_byte_limit(globals: &mut GlobalsBuil
     /// Err if it has already been set
     fn set_starlark_peak_allocated_byte_limit<'v>(
         #[starlark(require = pos)] value: u64,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         let build_ctx = BuildContext::from_context(eval)?;
         let limit = &build_ctx.starlark_peak_allocated_byte_limit;

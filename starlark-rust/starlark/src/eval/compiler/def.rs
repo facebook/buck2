@@ -386,7 +386,7 @@ pub(crate) struct DefCompiled {
     pub(crate) info: FrozenRef<'static, DefInfo>,
 }
 
-impl Compiler<'_, '_, '_> {
+impl Compiler<'_, '_, '_, '_> {
     fn parameter_name(&mut self, ident: &CstAssignIdent) -> ParameterName {
         let binding_id = ident.payload.expect("no binding for parameter");
         let binding = self.scope_data.get_binding(binding_id);
@@ -565,7 +565,7 @@ impl<'v> Def<'v> {
         parameter_types: Vec<(LocalSlotId, String, TypeCompiled<FrozenValue>)>,
         return_type: Option<TypeCompiled<FrozenValue>>,
         stmt: FrozenRef<'static, DefInfo>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> Value<'v> {
         let captured = stmt
             .parent
@@ -631,7 +631,7 @@ where
         &self,
         me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.invoke_impl(me, &args.0, eval)
     }
@@ -679,7 +679,7 @@ where
         }
     }
 
-    fn check_parameter_types(&self, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<()> {
+    fn check_parameter_types(&self, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<()> {
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {
@@ -703,7 +703,7 @@ where
     pub(crate) fn check_return_type(
         &self,
         ret: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<()> {
         let return_type_ty: TypeCompiled<FrozenValue> =
             self.return_type.ok_or(DefError::CheckReturnTypeNoType)?;
@@ -725,7 +725,7 @@ where
         &self,
         me: Value<'v>,
         args: &A,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>>
     where
         'v: 'a,
@@ -748,7 +748,7 @@ where
         &self,
         me: Value<'v>,
         args: &A,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>>
     where
         'v: 'a,
@@ -763,7 +763,11 @@ where
     /// * the frame has been allocated and stored in `eval.current_frame`
     /// * the arguments have been collected into the frame
     #[inline(always)]
-    fn invoke_raw(&self, me: Value<'v>, eval: &mut Evaluator<'v, '_>) -> crate::Result<Value<'v>> {
+    fn invoke_raw(
+        &self,
+        me: Value<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<Value<'v>> {
         // println!("invoking {}", self.def.stmt.name.node);
 
         if !self.parameter_types.is_empty() {

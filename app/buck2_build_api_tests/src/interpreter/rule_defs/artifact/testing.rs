@@ -192,7 +192,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         // TODO(nga): parameters should be either positional or named, not both.
         artifact: OutputArtifactArg<'v>,
         associated_artifacts: UnpackListOrTuple<StarlarkArtifact>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let target_label = get_label(eval, "//foo:bar")?;
         let mut analysis_registry = AnalysisRegistry::new_from_owner(

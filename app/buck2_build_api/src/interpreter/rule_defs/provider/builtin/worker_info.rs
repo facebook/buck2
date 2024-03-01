@@ -57,7 +57,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
     fn WorkerInfo<'v>(
         #[starlark(default = AllocList::EMPTY)] exe: Value<'v>,
         #[starlark(require = named, default = NoneOr::None)] concurrency: NoneOr<usize>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
         let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;

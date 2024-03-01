@@ -157,7 +157,7 @@ impl<'v> RuleCallable<'v> {
         is_toolchain_rule: bool,
         uses_plugins: Vec<Value<'v>>,
         artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params
@@ -242,7 +242,7 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
     fn export_as(
         &self,
         variable_name: &str,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<()> {
         *self.id.borrow_mut() = Some(StarlarkRuleType {
             import_path: self.import_path.clone(),
@@ -255,7 +255,7 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
         &self,
         _me: Value<'v>,
         _args: &Arguments<'v, '_>,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         Err(starlark::Error::new_other(
             RuleError::RuleCalledBeforeFreezing,
@@ -381,7 +381,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         let record_target_call_stack =
             ModuleInternals::from_context(eval, self.rule.rule_type.name())?
@@ -448,7 +448,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         uses_plugins: UnpackListOrTuple<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         RuleCallable::new(
             r#impl,
@@ -474,7 +474,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             StringValue<'v>,
             StarlarkCallable<'v>,
         >,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         RuleCallable::new(
             r#impl,

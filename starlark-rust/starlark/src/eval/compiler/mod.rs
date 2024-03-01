@@ -60,7 +60,7 @@ pub(crate) fn add_span_to_expr_error(
 pub(crate) fn expr_throw<'v, T>(
     r: anyhow::Result<T>,
     span: FrameSpan,
-    eval: &Evaluator<'v, '_>,
+    eval: &Evaluator<'v, '_, '_>,
 ) -> Result<T, EvalException> {
     match r {
         Ok(v) => Ok(v),
@@ -68,8 +68,8 @@ pub(crate) fn expr_throw<'v, T>(
     }
 }
 
-pub(crate) struct Compiler<'v, 'a, 'e> {
-    pub(crate) eval: &'e mut Evaluator<'v, 'a>,
+pub(crate) struct Compiler<'v, 'a, 'e, 'x> {
+    pub(crate) eval: &'x mut Evaluator<'v, 'a, 'e>,
     pub(crate) scope_data: ModuleScopeData<'v>,
     pub(crate) locals: Vec<ScopeId>,
     pub(crate) globals: FrozenRef<'static, Globals>,
@@ -80,7 +80,7 @@ pub(crate) struct Compiler<'v, 'a, 'e> {
     pub(crate) typecheck: bool,
 }
 
-impl Compiler<'_, '_, '_> {
+impl Compiler<'_, '_, '_, '_> {
     pub(crate) fn enter_scope(&mut self, scope_id: ScopeId) {
         self.locals.push(scope_id);
     }

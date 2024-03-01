@@ -21,14 +21,14 @@ use crate::eval::Evaluator;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 
-pub(crate) trait OptCtxEval<'v, 'a> {
+pub(crate) trait OptCtxEval<'v, 'a, 'e> {
     fn heap(&self) -> &'v Heap;
     fn frozen_heap(&self) -> &FrozenHeap;
-    fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>>;
+    fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>>;
     fn frozen_module(&self) -> Option<&FrozenModuleData>;
 }
 
-impl<'v, 'a> OptCtxEval<'v, 'a> for OptimizeOnFreezeContext<'v, 'a> {
+impl<'v, 'a, 'e> OptCtxEval<'v, 'a, 'e> for OptimizeOnFreezeContext<'v, 'a> {
     fn heap(&self) -> &'v Heap {
         self.heap
     }
@@ -37,7 +37,7 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for OptimizeOnFreezeContext<'v, 'a> {
         self.frozen_heap
     }
 
-    fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>> {
+    fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
         None
     }
 
@@ -46,7 +46,7 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for OptimizeOnFreezeContext<'v, 'a> {
     }
 }
 
-impl<'v, 'a> OptCtxEval<'v, 'a> for Evaluator<'v, 'a> {
+impl<'v, 'a, 'e> OptCtxEval<'v, 'a, 'e> for Evaluator<'v, 'a, 'e> {
     fn heap(&self) -> &'v Heap {
         self.heap()
     }
@@ -55,7 +55,7 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for Evaluator<'v, 'a> {
         self.frozen_heap()
     }
 
-    fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>> {
+    fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
         Some(self)
     }
 
@@ -69,17 +69,17 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for Evaluator<'v, 'a> {
 /// We perform optimization
 /// * during compilation of AST to IR, and
 /// * when freezing the heap.
-pub(crate) struct OptCtx<'v, 'a, 'e> {
-    pub(crate) eval: &'e mut dyn OptCtxEval<'v, 'a>,
+pub(crate) struct OptCtx<'v, 'a, 'e: 'a, 'x> {
+    pub(crate) eval: &'x mut dyn OptCtxEval<'v, 'a, 'e>,
     /// Current function parameter slot count. Zero when compiling module.
     pub(crate) param_count: u32,
 }
 
-impl<'v, 'a, 'e> OptCtx<'v, 'a, 'e> {
+impl<'v, 'a, 'e: 'a, 'x> OptCtx<'v, 'a, 'e, 'x> {
     pub(crate) fn new(
-        eval: &'e mut dyn OptCtxEval<'v, 'a>,
+        eval: &'x mut dyn OptCtxEval<'v, 'a, 'e>,
         param_count: u32,
-    ) -> OptCtx<'v, 'a, 'e> {
+    ) -> OptCtx<'v, 'a, 'e, 'x> {
         OptCtx { eval, param_count }
     }
 
@@ -91,7 +91,7 @@ impl<'v, 'a, 'e> OptCtx<'v, 'a, 'e> {
         self.eval.frozen_heap()
     }
 
-    pub(crate) fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>> {
+    pub(crate) fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
         self.eval.eval()
     }
 

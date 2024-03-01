@@ -185,7 +185,7 @@ pub(crate) fn build<'v>(
     spec: ConfiguredProvidersExprArg<'v>,
     target_platform: ValueAsStarlarkTargetLabel<'v>,
     materializations: Materializations,
-    eval: &Evaluator<'v, '_>,
+    eval: &Evaluator<'v, '_, '_>,
 ) -> anyhow::Result<
     SmallMap<
         ValueTyped<'v, StarlarkConfiguredProvidersLabel>,

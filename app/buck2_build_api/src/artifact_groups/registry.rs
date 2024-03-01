@@ -38,7 +38,7 @@ impl ArtifactGroupRegistry {
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         deferred: &mut DeferredRegistry,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<TransitiveSet<'v>> {
         let reserved = deferred.reserve_trivial::<DeferredTransitiveSetData>();
         let set = TransitiveSet::new_from_values(

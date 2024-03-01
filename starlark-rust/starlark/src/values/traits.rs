@@ -433,7 +433,7 @@ pub trait StarlarkValue<'v>:
         &self,
         _me: Value<'v>,
         _args: &Arguments<'v, '_>,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         ValueError::unsupported(self, "call()")
     }
@@ -451,7 +451,7 @@ pub trait StarlarkValue<'v>:
         &self,
         _this: Value<'v>,
         _args: &Arguments<'v, '_>,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
         _sealed: Private,
     ) -> crate::Result<Value<'v>> {
         unreachable!("invoke_method should only be invoked for method or attribute");
@@ -855,7 +855,11 @@ pub trait StarlarkValue<'v>:
     }
 
     /// Called when exporting a value under a specific name,
-    fn export_as(&self, _variable_name: &str, _eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
+    fn export_as(
+        &self,
+        _variable_name: &str,
+        _eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<()> {
         // Most data types ignore how they are exported
         // but rules/providers like to use it as a helpful hint for users
         Ok(())

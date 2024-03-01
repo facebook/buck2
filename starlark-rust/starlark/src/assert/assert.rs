@@ -139,7 +139,7 @@ fn asserts_star(builder: &mut crate::environment::GlobalsBuilder) {
     fn fails<'v>(
         f: Value<'v>,
         msg: &str,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         let _ = msg;
         match f.invoke_pos(&[], eval) {

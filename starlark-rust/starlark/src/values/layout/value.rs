@@ -632,7 +632,7 @@ impl<'v> Value<'v> {
         self,
         location: Option<FrozenRef<'static, FrameSpan>>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         eval.with_call_stack(self, location, |eval| {
             self.get_ref_full().invoke(args, eval)
@@ -656,7 +656,7 @@ impl<'v> Value<'v> {
     pub(crate) fn invoke(
         self,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.invoke_with_loc(None, args, eval)
     }
@@ -665,7 +665,7 @@ impl<'v> Value<'v> {
     pub(crate) fn invoke_pos(
         self,
         pos: &[Value<'v>],
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         let params = Arguments(ArgumentsFull {
             pos,
@@ -831,7 +831,11 @@ impl<'v> Value<'v> {
 
     /// Call `export_as` on the underlying value, but only if the type is mutable.
     /// Otherwise, does nothing.
-    pub fn export_as(self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> crate::Result<()> {
+    pub fn export_as(
+        self,
+        variable_name: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<()> {
         self.get_ref().export_as(variable_name, eval)
     }
 
@@ -1136,7 +1140,7 @@ pub trait ValueLike<'v>:
     fn invoke(
         self,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.to_value().invoke(args, eval)
     }

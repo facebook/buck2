@@ -430,7 +430,7 @@ impl AnonTargetKey {
         &self,
         promise_artifact_mappings: SmallMap<String, Value<'v>>,
         anon_target_result: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<HashMap<PromiseArtifactId, Artifact>> {
         let mut fulfilled_artifact_mappings = HashMap::new();
 

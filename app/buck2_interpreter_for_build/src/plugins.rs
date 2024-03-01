@@ -64,7 +64,7 @@ impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
     fn export_as(
         &self,
         variable_name: &str,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<()> {
         let mut inner = self.0.borrow_mut();
         let InnerStarlarkPluginKind::Unbound(cell_path) = &*inner else {
@@ -151,7 +151,7 @@ fn plugins_module(registry: &mut MethodsBuilder) {
     /// plugins.kind()`
     fn kind<'v>(
         #[starlark(this)] _this: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkPluginKind> {
         let cell_path = BuildContext::from_context(eval)?
             .starlark_path()

@@ -23,7 +23,7 @@ use crate::syntax::AstModule;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
 
-impl<'v, 'a> Evaluator<'v, 'a> {
+impl<'v> Evaluator<'v, '_, '_> {
     /// Evaluate statements in the existing context. This function is designed for debugging,
     /// not production use.
     ///
@@ -121,7 +121,7 @@ mod tests {
     fn debugger(builder: &mut GlobalsBuilder) {
         fn debug_evaluate<'v>(
             code: String,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<Value<'v>> {
             let ast = AstModule::parse("interactive", code, &Dialect::Extended)
                 .map_err(crate::Error::into_anyhow)?;

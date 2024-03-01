@@ -164,13 +164,13 @@ pub fn resolve_query<'v>(
 pub trait RuleSpec: Sync {
     fn invoke<'v>(
         &self,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         ctx: ValueTyped<'v, AnalysisContext<'v>>,
     ) -> anyhow::Result<Value<'v>>;
 
     fn promise_artifact_mappings<'v>(
         &self,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<SmallMap<String, Value<'v>>>;
 }
 
@@ -375,7 +375,7 @@ pub fn get_user_defined_rule_spec(
     impl RuleSpec for Impl {
         fn invoke<'v>(
             &self,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
             ctx: ValueTyped<'v, AnalysisContext<'v>>,
         ) -> anyhow::Result<Value<'v>> {
             let rule_callable = self
@@ -398,7 +398,7 @@ pub fn get_user_defined_rule_spec(
 
         fn promise_artifact_mappings<'v>(
             &self,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<SmallMap<String, Value<'v>>> {
             let rule_callable = self
                 .module

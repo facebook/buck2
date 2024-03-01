@@ -137,7 +137,7 @@ impl UserProviderCallableNamed {
     fn invoke<'v>(
         &self,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         self.signature.parser(args, eval, |parser, eval| {
             user_provider_creator(self.data, eval, parser).map_err(Into::into)
@@ -304,7 +304,11 @@ impl TypeMatcher for UserProviderMatcher {
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
 
-    fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) -> starlark::Result<()> {
+    fn export_as(
+        &self,
+        variable_name: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<()> {
         // First export wins
         self.callable.get_or_try_init(|| {
             let provider_id = Arc::new(ProviderId {
@@ -356,7 +360,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         match self.callable.get() {
             Some(callable) => callable.invoke(args, eval),
@@ -439,7 +443,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         self.callable.invoke(args, eval)
     }
@@ -497,7 +501,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
     fn provider_field<'v>(
         #[starlark(require=pos)] ty: Value<'v>,
         #[starlark(require=named)] default: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<UserProviderField> {
         let ty = TypeCompiled::new(ty, eval.heap())?.to_frozen(eval.frozen_heap());
         let default = match default {
@@ -549,7 +553,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             UnpackListOrTuple<String>,
             SmallMap<String, Value<'v>>,
         >,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = starlark_path_from_build_context(eval)?.path();

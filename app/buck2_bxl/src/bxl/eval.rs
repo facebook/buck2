@@ -354,7 +354,7 @@ pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
 }
 
 fn eval_bxl<'a>(
-    eval: &mut Evaluator<'a, '_>,
+    eval: &mut Evaluator<'a, '_, '_>,
     frozen_callable: OwnedFrozenValueTyped<FrozenBxlFunction>,
     ctx: Value<'a>,
     provider: &mut dyn StarlarkEvaluatorProvider,

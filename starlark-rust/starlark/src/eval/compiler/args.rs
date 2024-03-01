@@ -163,7 +163,7 @@ impl ArgsCompiledValue {
     }
 }
 
-impl Compiler<'_, '_, '_> {
+impl Compiler<'_, '_, '_, '_> {
     pub(crate) fn args(&mut self, args: &[CstArgument]) -> ArgsCompiledValue {
         let mut res = ArgsCompiledValue::default();
         for x in args {

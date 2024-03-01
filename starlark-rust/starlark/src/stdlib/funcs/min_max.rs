@@ -28,7 +28,7 @@ use crate::values::Value;
 fn min_max_iter<'v>(
     mut it: impl Iterator<Item = Value<'v>>,
     key: Option<Value<'v>>,
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     // Select min on true, max on false.
     min: bool,
 ) -> crate::Result<Value<'v>> {
@@ -72,7 +72,7 @@ fn min_max_iter<'v>(
 fn min_max<'v>(
     mut args: UnpackTuple<Value<'v>>,
     key: Option<Value<'v>>,
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
     // Select min on true, max on false.
     min: bool,
 ) -> crate::Result<Value<'v>> {
@@ -109,7 +109,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
     fn max<'v>(
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         key: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         min_max(args, key, eval, false)
     }
@@ -134,7 +134,7 @@ pub(crate) fn register_min_max(globals: &mut GlobalsBuilder) {
     fn min<'v>(
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         key: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         min_max(args, key, eval, true)
     }

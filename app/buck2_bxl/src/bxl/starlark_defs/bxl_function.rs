@@ -52,7 +52,7 @@ pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         bxl_impl(r#impl, cli_args, doc, eval)
     }
@@ -62,7 +62,7 @@ fn bxl_impl<'v>(
     r#impl: StarlarkCallable<'v>,
     cli_args: DictOf<'v, &'v str, &'v CliArgs>,
     doc: &str,
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
 ) -> anyhow::Result<Value<'v>> {
     let implementation = r#impl.0;
 
@@ -137,7 +137,7 @@ impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
     fn export_as(
         &self,
         variable_name: &str,
-        _eval: &mut Evaluator<'v, '_>,
+        _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<()> {
         *self.id.borrow_mut() = Some(BxlFunctionLabel {
             bxl_path: self.bxl_path.clone(),

@@ -85,7 +85,7 @@ mod vtable;
 /// There are two special arguments, distinguished by their type, which provides access to interpreter state:
 ///
 /// * `heap: &'v Heap` gives access to the Starlark heap, for allocating things.
-/// * `eval: &mut Evaluator<'v, '_>` gives access to the Starlark evaluator, which can be used to look at interpreter state.
+/// * `eval: &mut Evaluator<'v, '_, '_>` gives access to the Starlark evaluator, which can be used to look at interpreter state.
 ///
 /// A module can be used to define globals (with `GlobalsBuilder`) or methods on an object (with `MethodsBuilder`).
 /// In the case of methods, the first argument to each function will be the object itself, typically named `this`.

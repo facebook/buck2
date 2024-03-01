@@ -75,7 +75,7 @@ fn call_transition_function<'v>(
     conf: &ConfigurationData,
     refs: Value<'v>,
     attrs: Option<Value<'v>>,
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
 ) -> anyhow::Result<TransitionApplied> {
     let mut args = vec![
         (

@@ -216,7 +216,11 @@ impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
     type Canonical = FrozenTransitiveSetDefinition;
 
-    fn export_as(&self, variable_name: &str, _: &mut Evaluator<'v, '_>) -> starlark::Result<()> {
+    fn export_as(
+        &self,
+        variable_name: &str,
+        _: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<()> {
         // First export wins
         self.exported.get_or_try_init(|| {
             let id = Arc::new(TransitiveSetId {

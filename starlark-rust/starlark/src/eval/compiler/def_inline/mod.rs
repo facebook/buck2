@@ -203,14 +203,14 @@ pub(crate) fn inline_def_body(
 pub(crate) struct CannotInline;
 
 /// Utility to inline function body at call site.
-pub(crate) struct InlineDefCallSite<'s, 'v, 'a, 'e> {
-    pub(crate) ctx: &'s mut OptCtx<'v, 'a, 'e>,
+pub(crate) struct InlineDefCallSite<'s, 'v, 'a, 'e, 'x> {
+    pub(crate) ctx: &'s mut OptCtx<'v, 'a, 'e, 'x>,
     // Values in the slots are either real frozen values
     // or `LocalAsValue` which are the parameters to be substituted with caller locals.
     pub(crate) slots: &'s [FrozenValue],
 }
 
-impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
+impl InlineDefCallSite<'_, '_, '_, '_, '_> {
     fn inline_opt(
         &mut self,
         expr: Option<&IrSpanned<ExprCompiled>>,

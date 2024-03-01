@@ -81,11 +81,11 @@ impl<'v> StarlarkSelector<'v> {
 
     fn select_map<'a>(
         val: Value<'a>,
-        eval: &mut Evaluator<'a, '_>,
+        eval: &mut Evaluator<'a, '_, '_>,
         func: Value<'a>,
     ) -> anyhow::Result<Value<'a>> {
         fn invoke<'v>(
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
             func: Value<'v>,
             val: Value<'v>,
         ) -> anyhow::Result<Value<'v>> {
@@ -119,11 +119,11 @@ impl<'v> StarlarkSelector<'v> {
 
     fn select_test<'a>(
         val: Value<'a>,
-        eval: &mut Evaluator<'a, '_>,
+        eval: &mut Evaluator<'a, '_, '_>,
         func: Value<'a>,
     ) -> anyhow::Result<bool> {
         fn invoke<'v>(
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
             func: Value<'v>,
             val: Value<'v>,
         ) -> anyhow::Result<bool> {
@@ -251,7 +251,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     fn select_map<'v>(
         #[starlark(require = pos)] d: Value<'v>,
         #[starlark(require = pos)] func: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         StarlarkSelector::select_map(d, eval, func)
     }
@@ -269,7 +269,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     fn select_test<'v>(
         #[starlark(require = pos)] d: Value<'v>,
         #[starlark(require = pos)] func: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<bool> {
         StarlarkSelector::select_test(d, eval, func)
     }

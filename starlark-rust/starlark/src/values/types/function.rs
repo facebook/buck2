@@ -94,21 +94,21 @@ pub trait NativeFunc: Send + Sync + 'static {
     /// Invoke the function.
     fn invoke<'v>(
         &self,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         args: &Arguments<'v, '_>,
     ) -> crate::Result<Value<'v>>;
 }
 
 impl<T> NativeFunc for T
 where
-    T: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
+    T: for<'v> Fn(&mut Evaluator<'v, '_, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
         + Send
         + Sync
         + 'static,
 {
     fn invoke<'v>(
         &self,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         args: &Arguments<'v, '_>,
     ) -> crate::Result<Value<'v>> {
         (*self)(eval, args)
@@ -122,7 +122,7 @@ pub trait NativeMeth: Send + Sync + 'static {
     /// Invoke the method.
     fn invoke<'v>(
         &self,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
     ) -> crate::Result<Value<'v>>;
@@ -131,7 +131,7 @@ pub trait NativeMeth: Send + Sync + 'static {
 impl<T> NativeMeth for T
 where
     T: for<'v> Fn(
-            &mut Evaluator<'v, '_>,
+            &mut Evaluator<'v, '_, '_>,
             Value<'v>,
             &Arguments<'v, '_>,
         ) -> crate::Result<Value<'v>>
@@ -141,7 +141,7 @@ where
 {
     fn invoke<'v>(
         &self,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
     ) -> crate::Result<Value<'v>> {
@@ -218,7 +218,7 @@ impl NativeFunction {
     pub fn new_direct<F>(function: F, name: String) -> Self
     where
         // If I switch this to the trait alias then it fails to resolve the usages
-        F: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
+        F: for<'v> Fn(&mut Evaluator<'v, '_, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
             + Send
             + Sync
             + 'static,
@@ -237,7 +237,10 @@ impl NativeFunction {
     /// Create a new [`NativeFunction`] from the Rust function, plus the parameter specification.
     pub fn new<F>(function: F, name: String, parameters: ParametersSpec<FrozenValue>) -> Self
     where
-        F: for<'v> Fn(&mut Evaluator<'v, '_>, ParametersParser<'v, '_>) -> crate::Result<Value<'v>>
+        F: for<'v> Fn(
+                &mut Evaluator<'v, '_, '_>,
+                ParametersParser<'v, '_>,
+            ) -> crate::Result<Value<'v>>
             + Send
             + Sync
             + 'static,
@@ -264,7 +267,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.function.invoke(eval, args).map_err(Into::into)
     }
@@ -371,7 +374,7 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
         &self,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         _: Private,
     ) -> crate::Result<Value<'v>> {
         self.function.invoke(eval, this, args)
@@ -415,7 +418,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
         &self,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         _: Private,
     ) -> crate::Result<Value<'v>> {
         let method = self.call(this, eval.heap())?;
@@ -470,7 +473,7 @@ where
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.method
             .invoke_method(self.this.to_value(), args, eval, Private)

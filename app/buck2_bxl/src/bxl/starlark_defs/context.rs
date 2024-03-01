@@ -1032,7 +1032,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] exec_compatible_with: NoneOr<
             TargetListExprArg<'v>,
         >,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
         this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
@@ -1152,7 +1152,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = true)] skip_incompatible: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<
         Either<
             NoneOr<StarlarkAnalysisResult>,
@@ -1233,7 +1233,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = "default")] materializations: &str,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<
         SmallMap<
             ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
@@ -1358,7 +1358,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         action_factory: ValueTyped<'v, AnalysisActions<'v>>,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Option<Value<'v>>> {
         this.via_dice(|dice, this| {
             dice.via(|dice| {

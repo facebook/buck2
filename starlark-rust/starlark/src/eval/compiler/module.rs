@@ -55,7 +55,7 @@ enum ModuleError {
     TopLevelStmtCountMismatch,
 }
 
-impl<'v> Compiler<'v, '_, '_> {
+impl<'v> Compiler<'v, '_, '_, '_> {
     fn eval_load(&mut self, load: Spanned<&LoadP<CstPayload>>) -> Result<(), EvalException> {
         let name = &load.node.module.node;
 

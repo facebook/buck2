@@ -278,7 +278,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         this: &'v BxlFilesystem<'v>,
         expr: FileExpr<'v>,
         #[starlark(default = NoneOr::None)] target_hint: NoneOr<ValueOf<'v, TargetListExprArg<'v>>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkArtifact>> {
         let buck_path = this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {

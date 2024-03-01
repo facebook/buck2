@@ -122,7 +122,9 @@ impl<'v> Freeze for PackageFileExtra<'v> {
 }
 
 impl<'v> PackageFileExtra<'v> {
-    pub fn get_or_init(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<&'v PackageFileExtra<'v>> {
+    pub fn get_or_init(
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> anyhow::Result<&'v PackageFileExtra<'v>> {
         Ok(InterpreterExtraValue::get(eval.module())?
             .package_extra
             .get_or_init(Default::default))

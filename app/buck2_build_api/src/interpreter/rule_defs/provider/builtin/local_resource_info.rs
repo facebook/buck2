@@ -131,7 +131,7 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] setup_timeout_seconds: NoneOr<
             Value<'v>,
         >,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<LocalResourceInfo<'v>> {
         let result = LocalResourceInfo {
             setup,

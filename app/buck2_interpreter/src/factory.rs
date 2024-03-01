@@ -15,7 +15,10 @@ use starlark::eval::Evaluator;
 pub trait StarlarkEvaluatorProvider {
     /// Creates an Evaluator for a module. The evaluator will be configured for instrumenting/profiling/debugging
     /// as appropriate. Also returns whether profiling is enabled.
-    fn make<'v, 'a>(&mut self, module: &'v Module) -> anyhow::Result<(Evaluator<'v, 'a>, bool)>;
+    fn make<'v, 'a, 'e>(
+        &mut self,
+        module: &'v Module,
+    ) -> anyhow::Result<(Evaluator<'v, 'a, 'e>, bool)>;
 
     fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
 
@@ -26,7 +29,10 @@ pub trait StarlarkEvaluatorProvider {
 pub struct StarlarkPassthroughProvider;
 
 impl StarlarkEvaluatorProvider for StarlarkPassthroughProvider {
-    fn make<'v, 'a>(&mut self, module: &'v Module) -> anyhow::Result<(Evaluator<'v, 'a>, bool)> {
+    fn make<'v, 'a, 'e>(
+        &mut self,
+        module: &'v Module,
+    ) -> anyhow::Result<(Evaluator<'v, 'a, 'e>, bool)> {
         Ok((Evaluator::new(module), true))
     }
 

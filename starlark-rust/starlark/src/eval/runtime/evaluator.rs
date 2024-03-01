@@ -114,7 +114,7 @@ pub(crate) const GC_THRESHOLD: usize = 100000;
 pub(crate) const DEFAULT_STACK_SIZE: usize = 50;
 
 /// Holds everything about an ongoing evaluation (local variables, globals, module resolution etc).
-pub struct Evaluator<'v, 'a> {
+pub struct Evaluator<'v, 'a, 'e> {
     // The module that is being used for this evaluation
     pub(crate) module_env: &'v Module,
     // The module-level variables in scope at the moment.
@@ -146,7 +146,7 @@ pub struct Evaluator<'v, 'a> {
     // Used for line profiling
     stmt_profile: StmtProfile,
     // Holds things that require hooking into evaluation.
-    eval_instrumentation: EvaluationInstrumentation<'a>,
+    eval_instrumentation: EvaluationInstrumentation<'a, 'e>,
     // Total time spent in runtime typechecking.
     // Filled only if runtime typechecking profiling is enabled.
     pub(crate) typecheck_profile: TypecheckProfile,
@@ -156,7 +156,7 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) string_pool: StringPool,
     /// Field that can be used for any purpose you want (can store types you define).
     /// Typically accessed via native functions you also define.
-    pub extra: Option<&'a dyn AnyLifetime<'a>>,
+    pub extra: Option<&'a dyn AnyLifetime<'e>>,
     /// Called to perform console IO each time `breakpoint` function is called.
     pub(crate) breakpoint_handler:
         Option<Box<dyn Fn() -> anyhow::Result<Box<dyn BreakpointConsole>>>>,
@@ -170,18 +170,18 @@ pub struct Evaluator<'v, 'a> {
 }
 
 /// Just holds things that require using EvaluationCallbacksEnabled so that we can cache whether that needs to be enabled or not.
-struct EvaluationInstrumentation<'a> {
+struct EvaluationInstrumentation<'a, 'e: 'a> {
     // Bytecode profile.
     bc_profile: BcProfile,
     // Extra functions to run on each statement, usually empty
-    before_stmt: BeforeStmt<'a>,
+    before_stmt: BeforeStmt<'a, 'e>,
     heap_or_flame_profile: bool,
     // Whether we need to instrument evaluation or not, should be set if before_stmt or bc_profile are enabled.
     enabled: bool,
 }
 
-impl<'a> EvaluationInstrumentation<'a> {
-    fn new() -> EvaluationInstrumentation<'a> {
+impl<'a, 'e: 'a> EvaluationInstrumentation<'a, 'e> {
+    fn new() -> EvaluationInstrumentation<'a, 'e> {
         Self {
             bc_profile: BcProfile::new(),
             before_stmt: BeforeStmt::default(),
@@ -194,7 +194,7 @@ impl<'a> EvaluationInstrumentation<'a> {
         self.heap_or_flame_profile = true;
     }
 
-    fn change<F: FnOnce(&mut EvaluationInstrumentation<'a>)>(&mut self, f: F) {
+    fn change<F: FnOnce(&mut EvaluationInstrumentation<'a, 'e>)>(&mut self, f: F) {
         f(self);
         self.enabled =
             self.bc_profile.enabled() || self.before_stmt.enabled() || self.heap_or_flame_profile;
@@ -203,11 +203,11 @@ impl<'a> EvaluationInstrumentation<'a> {
 
 // Implementing this forces users to be more careful about lifetimes that the Evaluator captures such that we could
 // add captures of types that implement Drop without needing changes to client code.
-impl Drop for Evaluator<'_, '_> {
+impl Drop for Evaluator<'_, '_, '_> {
     fn drop(&mut self) {}
 }
 
-impl<'v, 'a> Evaluator<'v, 'a> {
+impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// Crate a new [`Evaluator`] specifying the [`Module`] used for module variables.
     ///
     /// If your program contains `load()` statements, you also need to call
@@ -413,12 +413,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     pub(crate) fn before_stmt_fn(
         &mut self,
-        f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>),
+        f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>),
     ) {
         self.before_stmt(f.into())
     }
 
-    pub(crate) fn before_stmt(&mut self, f: BeforeStmtFunc<'a>) {
+    pub(crate) fn before_stmt(&mut self, f: BeforeStmtFunc<'a, 'e>) {
         self.eval_instrumentation
             .change(|v| v.before_stmt.before_stmt.push(f))
     }
@@ -426,7 +426,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// This function is used by DAP, and it is not public API.
     // TODO(nga): pull DAP into the crate, and hide this function.
     #[doc(hidden)]
-    pub fn before_stmt_for_dap(&mut self, f: BeforeStmtFunc<'a>) {
+    pub fn before_stmt_for_dap(&mut self, f: BeforeStmtFunc<'a, 'e>) {
         self.before_stmt(f)
     }
 
@@ -502,7 +502,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         // Make sure the error-path doesn't get inlined into the normal-path execution
         #[cold]
         #[inline(never)]
-        fn error<'v>(eval: &Evaluator<'v, '_>, slot: ModuleSlotId) -> anyhow::Error {
+        fn error<'v>(eval: &Evaluator<'v, '_, '_>, slot: ModuleSlotId) -> anyhow::Error {
             let name = match &eval.module_variables {
                 None => eval
                     .module_env

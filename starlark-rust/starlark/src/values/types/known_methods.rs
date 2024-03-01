@@ -53,7 +53,7 @@ impl KnownMethod {
         &self,
         this: Value<'v>,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.imp.invoke(eval, this, args)
     }

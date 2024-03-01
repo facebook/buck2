@@ -89,7 +89,7 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 ///     fn export_as(
 ///         &self,
 ///         variable_name: &str,
-///         _eval: &mut Evaluator<'v, '_>,
+///         _eval: &mut Evaluator<'v, '_, '_>,
 ///     ) -> starlark::Result<()> {
 ///         self.name.try_export_as(variable_name);
 ///         Ok(())

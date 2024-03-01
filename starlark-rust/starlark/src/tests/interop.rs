@@ -84,7 +84,7 @@ fn test_export_as() {
         fn export_as(
             &self,
             variable_name: &str,
-            _eval: &mut Evaluator<'v, '_>,
+            _eval: &mut Evaluator<'v, '_, '_>,
         ) -> crate::Result<()> {
             self.named.try_export_as(variable_name);
             Ok(())
@@ -135,7 +135,7 @@ fn test_load_symbols() {
         fn load_symbol<'v>(
             name: &str,
             value: Value<'v>,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
         ) -> starlark::Result<NoneType> {
             eval.set_module_variable_at_some_point(name, value)?;
             Ok(NoneType)
@@ -170,7 +170,7 @@ fn test_load_symbols_extra() -> crate::Result<()> {
         fn load_symbol<'v>(
             name: &str,
             value: Value<'v>,
-            eval: &mut Evaluator<'v, '_>,
+            eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<NoneType> {
             let extra = eval
                 .module()

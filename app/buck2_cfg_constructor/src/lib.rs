@@ -77,7 +77,7 @@ async fn eval_pre_constraint_analysis<'v>(
     rule_type: &RuleType,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
-) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v>)> {
+) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
     with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
@@ -165,7 +165,7 @@ async fn eval_post_constraint_analysis<'v>(
     cfg_constructor_post_constraint_analysis: Value<'v>,
     ctx: &DiceComputations<'_>,
     params: Value<'v>,
-    mut eval: Evaluator<'v, 'v>,
+    mut eval: Evaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
 ) -> anyhow::Result<ConfigurationData> {
     with_starlark_eval_provider(

@@ -135,7 +135,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
         #[starlark(require=named)] stage0: Value<'v>,
         #[starlark(require=named)] stage1: Value<'v>,
         #[starlark(require=named)] key: &str,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
         let ctx = match &build_context.additional {

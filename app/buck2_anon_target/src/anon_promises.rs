@@ -52,7 +52,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
     async fn run_promises(
         self: Box<Self>,
         dice: &mut DiceComputations,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         description: String,
     ) -> anyhow::Result<()> {
         // Resolve all the targets in parallel

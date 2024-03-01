@@ -740,11 +740,11 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     pub fn parser<R, F>(
         &self,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
         k: F,
     ) -> crate::Result<R>
     where
-        F: FnOnce(ParametersParser<'v, '_>, &mut Evaluator<'v, '_>) -> crate::Result<R>,
+        F: FnOnce(ParametersParser<'v, '_>, &mut Evaluator<'v, '_, '_>) -> crate::Result<R>,
     {
         eval.alloca_init(
             self.len(),

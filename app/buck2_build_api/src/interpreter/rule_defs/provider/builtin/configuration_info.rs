@@ -140,7 +140,7 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
             ValueOf<'v, &'v ConstraintValueInfo<'v>>,
         >,
         #[starlark(require = named)] values: DictOf<'v, &'v str, &'v str>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ConfigurationInfo<'v>> {
         let mut new_constraints = SmallMap::new();
         for (constraint_setting, constraint_value) in constraints.collect_entries() {

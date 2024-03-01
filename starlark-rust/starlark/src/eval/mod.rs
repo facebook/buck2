@@ -56,7 +56,7 @@ use crate::eval::runtime::evaluator;
 use crate::syntax::DialectTypes;
 use crate::values::Value;
 
-impl<'v, 'a> Evaluator<'v, 'a> {
+impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
     /// Evaluate an [`AstModule`] with this [`Evaluator`], modifying the in-scope
     /// [`Module`](crate::environment::Module) as appropriate.
     pub fn eval_module(&mut self, ast: AstModule, globals: &Globals) -> crate::Result<Value<'v>> {

@@ -404,7 +404,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] default_outputs: Value<'v>,
         #[starlark(default = AllocList::EMPTY)] other_outputs: Value<'v>,
         #[starlark(default = SmallMap::new())] sub_targets: SmallMap<String, Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
 

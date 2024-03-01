@@ -194,7 +194,9 @@ impl<'a> BuildContext<'a> {
         }
     }
 
-    pub fn from_context<'v>(eval: &Evaluator<'v, 'a>) -> anyhow::Result<&'a BuildContext<'a>> {
+    pub fn from_context<'v, 'a1>(
+        eval: &Evaluator<'v, 'a1, 'a>,
+    ) -> anyhow::Result<&'a1 BuildContext<'a>> {
         match eval.extra {
             None => Err(BuildContextError::UnavailableDuringAnalysis.into()),
             Some(extra) => Ok(extra

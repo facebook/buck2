@@ -20,7 +20,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 pub(crate) fn parse_query_evaluation_result<'v, T: NodeLike>(
     result: QueryEvaluationResult<T>,
-    eval: &mut Evaluator<'v, '_>,
+    eval: &mut Evaluator<'v, '_, '_>,
 ) -> anyhow::Result<Value<'v>> {
     Ok(match result {
         QueryEvaluationResult::Single(result) => match result {

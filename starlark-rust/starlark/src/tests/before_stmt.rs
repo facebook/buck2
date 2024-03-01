@@ -29,7 +29,7 @@ fn before_stmt() {
     let module = Module::new();
     let globals = Globals::new();
     let counter = Cell::new(0);
-    let before_stmt = |_span: FileSpanRef, _eval: &mut Evaluator<'_, '_>| {
+    let before_stmt = |_span: FileSpanRef, _eval: &mut Evaluator<'_, '_, '_>| {
         counter.set(counter.get() + 1);
     };
 

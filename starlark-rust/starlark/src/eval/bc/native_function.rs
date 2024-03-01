@@ -54,7 +54,7 @@ impl BcNativeFunction {
     pub(crate) fn invoke<'v>(
         &self,
         args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.imp.invoke(eval, args)
     }

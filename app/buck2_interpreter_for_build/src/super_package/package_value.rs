@@ -170,7 +170,7 @@ pub fn register_write_package_value(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] key: &str,
         #[starlark(require = pos)] value: Value<'v>,
         #[starlark(require = named, default = false)] overwrite: bool,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         let key = MetadataKeyRef::new(key)?;
 
@@ -208,7 +208,7 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
     /// Returns `None` if value is not set.
     fn read_package_value<'v>(
         #[starlark(require = pos)] key: &str,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let key = MetadataKeyRef::new(key)?;
 
@@ -244,7 +244,7 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
     /// Returns `None` if value is not set.
     fn read_parent_package_value<'v>(
         #[starlark(require = pos)] key: &str,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let key = MetadataKeyRef::new(key)?;
 

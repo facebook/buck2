@@ -47,7 +47,7 @@ pub fn filter(builder: &mut GlobalsBuilder) {
     fn filter<'v>(
         #[starlark(require = pos)] func: NoneOr<ValueOfUnchecked<'v, StarlarkFunction>>,
         #[starlark(require = pos)] seq: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let mut res = Vec::new();
 
@@ -82,7 +82,7 @@ pub fn map(builder: &mut GlobalsBuilder) {
     fn map<'v>(
         #[starlark(require = pos)] func: ValueOfUnchecked<'v, StarlarkFunction>,
         #[starlark(require = pos)] seq: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let it = seq.get().iterate(eval.heap())?;
         let mut res = Vec::with_capacity(it.size_hint().0);
@@ -158,7 +158,10 @@ pub fn pprint(builder: &mut GlobalsBuilder) {
     }
 }
 
-fn pretty_repr<'v>(a: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<StringValue<'v>> {
+fn pretty_repr<'v>(
+    a: Value<'v>,
+    eval: &mut Evaluator<'v, '_, '_>,
+) -> anyhow::Result<StringValue<'v>> {
     use std::fmt::Write;
 
     let mut s = eval.string_pool.alloc();
@@ -173,7 +176,7 @@ pub fn pstr(builder: &mut GlobalsBuilder) {
     /// Like `str`, but produces more verbose pretty-printed output
     fn pstr<'v>(
         #[starlark(require = pos)] a: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StringValue<'v>> {
         if let Some(a) = StringValue::new(a) {
             return Ok(a);
@@ -188,7 +191,7 @@ pub fn prepr(builder: &mut GlobalsBuilder) {
     /// Like `repr`, but produces more verbose pretty-printed output
     fn prepr<'v>(
         #[starlark(require = pos)] a: Value<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StringValue<'v>> {
         pretty_repr(a, eval)
     }

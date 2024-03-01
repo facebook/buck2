@@ -224,7 +224,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn resolved_attrs_lazy<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkLazyResolvedAttrs<'v>> {
         Ok(StarlarkLazyResolvedAttrs::new(this, ctx, eval.module()))
     }
@@ -251,7 +251,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn resolved_attrs_eager<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         ctx: &'v BxlContext<'v>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let configured_node = this.0.as_ref();
 

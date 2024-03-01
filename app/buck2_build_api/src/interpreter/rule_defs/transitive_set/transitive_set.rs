@@ -385,7 +385,7 @@ impl<'v> TransitiveSet<'v> {
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: impl IntoIterator<Item = Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Self> {
         let def = match transitive_set_definition_from_value(definition.to_value()) {
             Some(def) if def.has_id() => def,
@@ -485,7 +485,7 @@ impl<'v> TransitiveSet<'v> {
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Self> {
         let children = children
             .map(|v| v.iterate(eval.heap()))
