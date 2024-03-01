@@ -16,7 +16,6 @@ pub use alignment::Aligned;
 pub use blank::Blank;
 pub use bordering::Bordered;
 pub use bounding::Bounded;
-pub(crate) use canvas::Canvas;
 pub use padding::Padded;
 pub use splitting::Split;
 
@@ -29,7 +28,7 @@ pub mod alignment;
 mod blank;
 pub mod bordering;
 mod bounding;
-mod canvas;
+pub(crate) mod canvas;
 mod draw_horizontal;
 mod draw_vertical;
 pub(crate) mod echo;

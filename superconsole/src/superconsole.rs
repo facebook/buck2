@@ -17,7 +17,7 @@ use crossterm::tty::IsTty;
 use crossterm::QueueableCommand;
 
 use crate::ansi_support::enable_ansi_support;
-use crate::components::Canvas;
+use crate::components::canvas::Canvas;
 use crate::components::Component;
 use crate::components::DrawMode;
 use crate::content::Line;
