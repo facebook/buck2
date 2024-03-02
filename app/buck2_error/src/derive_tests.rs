@@ -46,7 +46,7 @@ fn test_derive_error2() {
 pub enum Error3 {
     #[error("foo")]
     #[buck2(user)]
-    #[buck2(typ = DaemonIsBusy)]
+    #[buck2(typ = ActionCommandFailure)]
     VariantA,
     #[error("bar")]
     #[buck2(infra)]
@@ -59,7 +59,10 @@ pub enum Error3 {
 fn test_derive_error3() {
     let e: crate::Error = Error3::VariantA.into();
     assert_eq!(e.get_category(), Some(crate::Category::User));
-    assert_eq!(e.get_error_type(), Some(crate::ErrorType::DaemonIsBusy));
+    assert_eq!(
+        e.get_error_type(),
+        Some(crate::ErrorType::ActionCommandFailure)
+    );
 
     let e: crate::Error = Error3::VariantB.into();
     assert_eq!(e.get_category(), Some(crate::Category::Infra));
@@ -161,12 +164,15 @@ fn test_root_is_applied_conditionally() {
     fn compute(x: &MaybeWatchmanError) -> Option<crate::ErrorType> {
         match x {
             MaybeWatchmanError::Some(_) => None,
-            MaybeWatchmanError::None => Some(crate::ErrorType::DaemonIsBusy),
+            MaybeWatchmanError::None => Some(crate::ErrorType::ActionCommandFailure),
         }
     }
 
     let e: crate::Error = MaybeWatchmanError::None.into();
-    assert_eq!(e.get_error_type(), Some(crate::ErrorType::DaemonIsBusy));
+    assert_eq!(
+        e.get_error_type(),
+        Some(crate::ErrorType::ActionCommandFailure)
+    );
 
     let e: crate::Error = MaybeWatchmanError::Some(WatchmanError).into();
     assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));

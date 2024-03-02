@@ -23,7 +23,6 @@ enum ErrorType {
   // always used in an `optional` way and so no default value should ever
   // appear. Still, let's use a sentinal just to be safe.
   UNUSED_DEFAULT = 0;
-  DAEMON_IS_BUSY = 1;
   ACTION_COMMAND_FAILURE = 2;
   WATCHMAN = 3;
   USER_DEADLINE_EXPIRED = 4;
@@ -62,6 +61,8 @@ enum ErrorTag {
   CLIENT_GRPC = 4;
   // Connect to buckd failed.
   DAEMON_CONNECT = 5;
+  // Daemon is running another command.
+  DAEMON_IS_BUSY = 501;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // Error during analysis.

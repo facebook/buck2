@@ -64,7 +64,7 @@ enum ConcurrencyHandlerError {
     #[buck2(user)]
     NestedInvocationWithDifferentStates(String, String),
     #[error("`--exit-when-different-state` was set")]
-    #[buck2(user, typ = DaemonIsBusy)]
+    #[buck2(tag = DaemonIsBusy)]
     ExitWhenDifferentState,
 }
 
@@ -1168,9 +1168,10 @@ mod tests {
         let fut3_result = fut3.await?;
 
         let fut3_error: buck2_error::Error = fut3_result.unwrap_err().into();
-        assert_eq!(
-            fut3_error.get_error_type(),
-            Some(buck2_error::ErrorType::DaemonIsBusy)
+        assert!(
+            fut3_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonIsBusy),
         );
 
         Ok(())

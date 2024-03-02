@@ -146,7 +146,9 @@ impl ExitResult {
         let mut has_infra = false;
         let mut has_user = false;
         for e in errors {
-            if e.typ == Some(buck2_data::error::ErrorType::DaemonIsBusy as i32) {
+            if e.tags
+                .contains(&(buck2_data::error::ErrorTag::DaemonIsBusy as i32))
+            {
                 return Self::status(ExitCode::DaemonIsBusy);
             }
             match e
