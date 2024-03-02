@@ -21,9 +21,9 @@ EnhancementContext = record(
 def create_enhancement_context(ctx: AnalysisContext) -> EnhancementContext:
     extra_sub_targets = {}
 
-    def debug_output(name: str, output: Artifact, other_outputs = []):
+    def debug_output(name: str, output: Artifact, other_outputs = [], sub_targets: dict[str, typing.Any] = {}):
         """Adds a subtarget to expose debugging outputs."""
-        extra_sub_targets[name] = [DefaultInfo(default_outputs = [output], other_outputs = other_outputs)]
+        extra_sub_targets[name] = [DefaultInfo(default_outputs = [output], other_outputs = other_outputs, sub_targets = sub_targets)]
 
     def get_sub_targets():
         return extra_sub_targets

@@ -165,7 +165,7 @@ def get_android_binary_native_library_info(
     dynamic_inputs = [fake_input]
     if apk_module_graph_file:
         dynamic_inputs.append(apk_module_graph_file)
-    native_library_merge_map = None
+    split_groups_map = None
     native_library_merge_dir = None
     native_merge_debug = None
     generated_java_code = []
@@ -183,7 +183,8 @@ def get_android_binary_native_library_info(
 
     linkable_nodes_by_platform = {}
     native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None)
-    has_native_merging = native_library_merge_sequence or getattr(ctx.attrs, "native_library_merge_map", None)
+    native_library_merge_map = getattr(ctx.attrs, "native_library_merge_map", None)
+    has_native_merging = native_library_merge_sequence or native_library_merge_map
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
 
     if has_native_merging or enable_relinker:
@@ -198,6 +199,8 @@ def get_android_binary_native_library_info(
             linkables_debug = ctx.actions.write("linkables." + platform, list(graph_node_map.keys()))
             enhance_ctx.debug_output("linkables." + platform, linkables_debug)
             linkable_nodes_by_platform[platform] = graph_node_map
+
+    lib_outputs_by_platform = _declare_library_subtargets(ctx, dynamic_outputs, original_shared_libs_by_platform, native_library_merge_map, native_library_merge_sequence)
 
     if native_library_merge_sequence:
         native_library_merge_input_file = ctx.actions.write_json("mergemap.input", {
@@ -242,6 +245,8 @@ def get_android_binary_native_library_info(
         if apk_module_graph_file:
             get_module_from_target = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts).target_to_module_mapping_function
 
+        split_groups = None
+        merged_shared_lib_targets_by_platform = {}  # dict[str, dict[Label, str]]
         if has_native_merging:
             native_library_merge_debug_outputs = {}
 
@@ -249,6 +254,7 @@ def get_android_binary_native_library_info(
             # then set it as the binary's precomputed_apk_module_graph attr.
             if ctx.attrs.native_library_merge_sequence:
                 merge_map_by_platform = artifacts[native_library_merge_map].read_json()
+                split_groups = artifacts[split_groups_map].read_json()
                 native_library_merge_debug_outputs["merge_sequence_output"] = native_library_merge_dir
             elif ctx.attrs.native_library_merge_map:
                 merge_map_by_platform = {}
@@ -291,8 +297,13 @@ def get_android_binary_native_library_info(
                 )
                 debug_info_by_platform[platform] = debug_info
                 merged_shared_libs_by_platform[platform] = merged_shared_libs
+                merged_shared_lib_targets = {}
                 for soname, lib in merged_shared_libs.items():
                     shared_object_targets[soname] = [str(target.raw_target()) for target in lib.primary_constituents]
+
+                    for target in lib.primary_constituents:
+                        merged_shared_lib_targets[target] = soname
+                merged_shared_lib_targets_by_platform[platform] = merged_shared_lib_targets
 
             debug_data_json = ctx.actions.write_json("native_merge_debug.json", debug_info_by_platform, pretty = True)
             native_library_merge_debug_outputs["native_merge_debug.json"] = debug_data_json
@@ -331,6 +342,8 @@ def get_android_binary_native_library_info(
         if enable_relinker:
             final_shared_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
 
+        _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, final_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug)
+
         unstripped_libs = {}
         for platform, libs in final_shared_libs_by_platform.items():
             for lib in libs.values():
@@ -365,7 +378,8 @@ def get_android_binary_native_library_info(
     ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = dynamic_outputs, f = dynamic_native_libs_info)
     all_native_libs = ctx.actions.symlinked_dir("debug_all_native_libs", {"others": native_libs, "primary": native_libs_always_in_primary_apk})
 
-    enhance_ctx.debug_output("debug_native_libs", all_native_libs)
+    lib_subtargets = _create_library_subtargets(lib_outputs_by_platform, native_libs)
+    enhance_ctx.debug_output("native_libs", all_native_libs, sub_targets = lib_subtargets)
     if native_merge_debug:
         enhance_ctx.debug_output("native_merge_debug", native_merge_debug)
 
@@ -382,6 +396,90 @@ def get_android_binary_native_library_info(
         non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_lib_assets],
         generated_java_code = generated_java_code,
     )
+
+# Merged libraries are dynamic dependencies, but outputs need to be declared in advance to be used by subtargets.
+# This means we have to declare outputs for all possible merged libs (every merged name and every unmerged library name).
+def _declare_library_subtargets(
+        ctx: AnalysisContext,
+        dynamic_outputs: list[Artifact],
+        original_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
+        native_library_merge_map,
+        native_library_merge_sequence) -> dict[str, dict[str, Artifact]]:
+    lib_outputs_by_platform = {}
+    for platform, original_shared_libs in original_shared_libs_by_platform.items():
+        sonames = set()
+        sonames.update(original_shared_libs.keys())
+        if native_library_merge_map:
+            sonames.update(native_library_merge_map.keys())
+        elif native_library_merge_sequence:
+            sonames.update([soname for (soname, _) in native_library_merge_sequence])
+
+        lib_outputs = {}
+        for soname in sonames.list():
+            output_path = _platform_output_path(soname, platform if len(original_shared_libs_by_platform) > 1 else None)
+            lib_output = ctx.actions.declare_output(output_path, dir = True)
+            dynamic_outputs.append(lib_output)
+            lib_outputs[soname] = lib_output
+        lib_outputs_by_platform[platform] = lib_outputs
+    return lib_outputs_by_platform
+
+# Bind debug library subtarget outputs to actual outputs.
+# For individual libraries, link to either the unmerged or merged output.
+# For merged libraries, link to either the merged output, or a symlinked dir of all merged split group outputs.
+def _link_library_subtargets(
+        ctx: AnalysisContext,
+        outputs,  # IndexSet[OutputArtifact]
+        lib_outputs_by_platform: dict[str, dict[str, Artifact]],  # dict[platform, dict[soname,  Artifact]]
+        original_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
+        final_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
+        merged_shared_lib_targets_by_platform: dict[str, dict[Label, str]],
+        split_groups: dict[str, str] | None,
+        native_merge_debug):
+    for platform, final_shared_libs in final_shared_libs_by_platform.items():
+        merged_lib_outputs = {}
+        for soname, lib in final_shared_libs.items():
+            base_soname = soname
+            if split_groups and soname in split_groups:
+                base_soname = split_groups[soname]
+
+            group_outputs = merged_lib_outputs.setdefault(base_soname, {})
+            group_outputs[soname] = lib.lib.output
+
+        for soname, _ in lib_outputs_by_platform[platform].items():
+            if soname in merged_lib_outputs:
+                group_outputs = merged_lib_outputs[soname]
+            elif soname in original_shared_libs_by_platform[platform]:
+                # link unmerged soname to merged output
+                original_shared_lib = original_shared_libs_by_platform[platform][soname]
+                merged_soname = merged_shared_lib_targets_by_platform[platform][original_shared_lib.label]
+                if split_groups and merged_soname in split_groups:
+                    merged_soname = split_groups[merged_soname]
+                group_outputs = merged_lib_outputs[merged_soname]
+            else:
+                # merged group name has no constituents, link to debug output
+                group_outputs = {soname: native_merge_debug}
+
+            ctx.actions.symlinked_dir(outputs[lib_outputs_by_platform[platform][soname]], group_outputs)
+
+def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, Artifact]], native_libs: Artifact):
+    if len(lib_outputs_by_platform) > 1:
+        return {
+            platform: [DefaultInfo(default_outputs = [native_libs], sub_targets = {
+                soname: [DefaultInfo(default_outputs = [output])]
+                for soname, output in lib_outputs.items()
+            })]
+            for platform, lib_outputs in lib_outputs_by_platform.items()
+        }
+    elif len(lib_outputs_by_platform) == 1:
+        lib_outputs = list(lib_outputs_by_platform.values())[0]
+        return {
+            soname: [DefaultInfo(default_outputs = [output])]
+            for soname, output in lib_outputs.items()
+        }
+    else:
+        # TODO(ctolliday) at this point we should have thrown an error earlier if no libraries matched cpu_filters
+        # (or returned earlier if there are no native library deps)
+        return {}
 
 # We could just return two artifacts of libs (one for the primary APK, one which can go
 # either into the primary APK or be exopackaged), and one artifact of assets,
