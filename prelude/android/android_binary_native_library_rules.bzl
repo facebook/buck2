@@ -211,11 +211,13 @@ def get_android_binary_native_library_info(
             mergemap_cmd.add(cmd_args(apk_module_graph_file, format = "--apk-module-graph={}"))
         native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output")
         native_library_merge_map = native_library_merge_dir.project("merge.map")
+        split_groups_map = native_library_merge_dir.project("split_groups.map")
         mergemap_cmd.add(cmd_args(native_library_merge_dir.as_output(), format = "--output={}"))
         ctx.actions.run(mergemap_cmd, category = "compute_mergemap")
         enhance_ctx.debug_output("compute_merge_sequence", native_library_merge_dir)
 
         dynamic_inputs.append(native_library_merge_map)
+        dynamic_inputs.append(split_groups_map)
 
     mergemap_gencode_jar = None
     if has_native_merging and ctx.attrs.native_library_merge_code_generator:

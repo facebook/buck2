@@ -683,6 +683,7 @@ def main() -> int:  # noqa: C901
 
     final_result = {}
     debug_results = {}
+    split_groups = {}
     mergemap_input = read_mergemap_input(args.mergemap_input)
     for platform, nodes in mergemap_input.nodes_by_platform.items():
         (
@@ -704,6 +705,9 @@ def main() -> int:  # noqa: C901
                     final_mapping[target] = None
                 else:
                     final_mapping[target] = final_lib_names[node.final_lib_key]
+                    split_groups[
+                        final_lib_names[node.final_lib_key]
+                    ] = node.base_library_name
             else:
                 final_mapping[target] = str(target)
         debug_results[platform] = (
@@ -717,6 +721,8 @@ def main() -> int:  # noqa: C901
         pathlib.Path(args.output).mkdir(parents=True, exist_ok=True)
         with open(os.path.join(args.output, "merge.map"), "w") as outfile:
             json.dump(final_result, outfile, indent=2)
+        with open(os.path.join(args.output, "split_groups.map"), "w") as outfile:
+            json.dump(split_groups, outfile, indent=2)
 
         # When writing an output dir we also produce some debugging information.
         for platform, result in final_result.items():
