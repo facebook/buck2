@@ -78,6 +78,11 @@ def _args_parser() -> argparse.ArgumentParser:
         required=False,
         help="Bundle relative path that should be codesigned prior to result bundle.",
     )
+    parser.add_argument(
+        "--fast-provisioning-profile-parsing",
+        action="store_true",
+        help="Uses experimental faster provisioning profile parsing.",
+    )
 
     return parser
 

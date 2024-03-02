@@ -173,6 +173,9 @@ def assemble_bundle(
         profile_output = ctx.actions.declare_output("bundling_profile.txt").as_output()
         command.add("--profile-output", profile_output)
 
+    if ctx.attrs._fast_provisioning_profile_parsing_enabled:
+        command.add("--fast-provisioning-profile-parsing")
+
     subtargets = {}
     if ctx.attrs._bundling_log_file_enabled:
         bundling_log_output = ctx.actions.declare_output("bundling_log.txt")

@@ -237,6 +237,11 @@ def _args_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Check there are no path conflicts between different source parts of the bundle if enabled.",
     )
+    parser.add_argument(
+        "--fast-provisioning-profile-parsing",
+        action="store_true",
+        help="Uses experimental faster provisioning profile parsing.",
+    )
     return parser
 
 

@@ -23,6 +23,7 @@ def apple_bundle_config() -> dict[str, typing.Any]:
         # This is a kill switch for the feature, it can also be disabled by setting
         # `apple.fast_adhoc_signing_enabled=false` in a global buckconfig file.
         "_fast_adhoc_signing_enabled": _maybe_get_bool("fast_adhoc_signing_enabled", True),
+        "_fast_provisioning_profile_parsing_enabled": _maybe_get_bool("fast_provisioning_profile_parsing_enabled", False),
         "_incremental_bundling_enabled": _maybe_get_bool("incremental_bundling_enabled", True),
         "_info_plist_identify_build_system_default": _maybe_get_bool("info_plist_identify_build_system", True),
         "_profile_bundling_enabled": _maybe_get_bool("profile_bundling_enabled", False),
