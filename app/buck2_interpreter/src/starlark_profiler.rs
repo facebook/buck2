@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use buck2_error::internal_error;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;

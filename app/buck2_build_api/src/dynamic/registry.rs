@@ -13,7 +13,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use indexmap::IndexSet;
 

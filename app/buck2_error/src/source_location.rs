@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_via_context() {
-        use crate::Context;
+        use crate::BuckErrorContext;
 
         let e: anyhow::Error = Err::<(), _>(MyError).context("foo").unwrap_err();
         let e: crate::Error = e.into();

@@ -20,7 +20,7 @@ use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::error::BuckStarlarkError;

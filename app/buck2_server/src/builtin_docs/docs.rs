@@ -23,7 +23,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::internal_error;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;

@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use buck2_error::Context as _;
+use buck2_error::BuckErrorContext as _;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;

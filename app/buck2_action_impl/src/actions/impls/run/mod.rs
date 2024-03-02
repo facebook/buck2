@@ -37,7 +37,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::Wor
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;

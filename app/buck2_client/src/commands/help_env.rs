@@ -14,7 +14,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::env::registry::EnvInfoEntry;
 use buck2_core::env::registry::ENV_INFO;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 
 /// Print help for environment variables used by buck2.
 #[derive(Debug, clap::Parser)]

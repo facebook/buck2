@@ -19,7 +19,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcSlice;
 use dupe::Dupe;
 use dupe::IterDupedExt;

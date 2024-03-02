@@ -18,7 +18,7 @@ use crate::context_value::ContextValue;
 /// in the near future, uses of `anyhow::Context` in `buck2/app` will be broadly replaced with use
 /// of this trait. Subsequently, additional APIs will be provided for annotating errors with
 /// structured context data.
-pub trait Context<T>: Sealed {
+pub trait BuckErrorContext<T>: Sealed {
     #[track_caller]
     fn context<C: Into<ContextValue>>(self, context: C) -> anyhow::Result<T>;
 
@@ -61,7 +61,7 @@ pub trait Sealed: Sized {}
 
 impl<T, E> Sealed for std::result::Result<T, E> where crate::Error: From<E> {}
 
-impl<T, E> Context<T> for std::result::Result<T, E>
+impl<T, E> BuckErrorContext<T> for std::result::Result<T, E>
 where
     crate::Error: From<E>,
 {
@@ -96,7 +96,7 @@ struct NoneError;
 
 impl<T> Sealed for Option<T> {}
 
-impl<T> Context<T> for Option<T> {
+impl<T> BuckErrorContext<T> for Option<T> {
     fn context<C>(self, c: C) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,

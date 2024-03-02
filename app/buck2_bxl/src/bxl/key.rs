@@ -25,7 +25,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;

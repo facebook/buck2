@@ -23,7 +23,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;

@@ -14,7 +14,7 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;

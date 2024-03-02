@@ -11,7 +11,7 @@ use std::future;
 use std::mem;
 
 use buck2_error::internal_error;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use futures::future::Either;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;

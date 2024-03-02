@@ -10,7 +10,7 @@
 use std::fmt;
 
 use allocative::Allocative;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 
 use crate::attrs::attr_type::AttrType;
 

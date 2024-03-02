@@ -9,7 +9,7 @@
 
 use std::num::NonZeroU32;
 
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 
 /// Process id.

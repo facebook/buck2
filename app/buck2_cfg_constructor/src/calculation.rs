@@ -16,7 +16,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;

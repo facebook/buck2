@@ -29,7 +29,7 @@ use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_util::truncate::truncate;
@@ -666,7 +666,6 @@ mod tests {
     use std::time::Duration;
 
     use allocative::Allocative;
-    use anyhow::Context;
     use assert_matches::assert_matches;
     use async_trait::async_trait;
     use buck2_core::is_open_source;

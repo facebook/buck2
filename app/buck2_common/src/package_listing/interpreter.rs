@@ -15,7 +15,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcS;
 use dice::DiceComputations;
 use dupe::Dupe;

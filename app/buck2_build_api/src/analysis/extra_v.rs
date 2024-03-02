@@ -10,7 +10,7 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;

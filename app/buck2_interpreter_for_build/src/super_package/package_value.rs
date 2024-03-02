@@ -12,7 +12,7 @@ use std::io;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;

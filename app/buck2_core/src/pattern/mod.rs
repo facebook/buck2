@@ -21,7 +21,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_error::internal_error;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use pattern_type::ConfigurationPredicate;

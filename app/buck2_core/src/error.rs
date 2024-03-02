@@ -15,7 +15,7 @@ use std::sync::Mutex;
 use std::sync::OnceLock;
 
 use arc_swap::ArcSwapOption;
-use buck2_error::Context;
+use buck2_error::BuckErrorContext;
 use starlark_map::small_set::SmallSet;
 
 use crate::env::macros::buck2_env;
