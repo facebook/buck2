@@ -20,6 +20,7 @@ use std::io;
 use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
+use clap::ArgAction;
 use clap::Parser;
 use clap::Subcommand;
 use tracing_subscriber::filter::LevelFilter;
@@ -103,7 +104,7 @@ pub enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
-        #[clap(short = 'c', long, default_value = "true")]
+        #[clap(short = 'c', long, default_value = "true", action = ArgAction::Set)]
         use_clippy: bool,
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
@@ -144,5 +145,45 @@ fn main() -> Result<(), anyhow::Error> {
             let state = server::State::new(reload_handle)?;
             state.run()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    use super::*;
+
+    #[test]
+    fn test_parse_use_clippy() {
+        assert!(matches!(
+            Opt::try_parse_from([
+                "rust-project",
+                "check",
+                "--use-clippy=true",
+                "fbcode/foo.rs",
+            ]),
+            Ok(Opt {
+                command: Command::Check {
+                    use_clippy: true,
+                    ..
+                }
+            })
+        ));
+
+        assert!(matches!(
+            Opt::try_parse_from([
+                "rust-project",
+                "check",
+                "--use-clippy=false",
+                "fbcode/foo.rs",
+            ]),
+            Ok(Opt {
+                command: Command::Check {
+                    use_clippy: false,
+                    ..
+                }
+            })
+        ));
     }
 }
