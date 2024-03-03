@@ -13,6 +13,7 @@ rust_library(
             "linux",
             [
                 "fbsource//third-party/rust:libc",
+                "fbsource//third-party/rust:perf-event",
             ],
         ),
         (
@@ -29,6 +30,7 @@ rust_library(
         ),
     ],
     test_deps = [
+        "fbcode//buck2/shed/three_billion_instructions:three_billion_instructions",
         "fbsource//third-party/rust:serde_json",
     ],
     deps = [

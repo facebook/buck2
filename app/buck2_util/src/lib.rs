@@ -18,6 +18,7 @@ pub mod cycle_detector;
 pub mod hash;
 pub mod indent;
 pub mod late_binding;
+pub mod per_thread_instruction_counter;
 pub mod process;
 pub mod process_stats;
 pub mod rtabort;

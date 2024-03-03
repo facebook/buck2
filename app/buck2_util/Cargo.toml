@@ -23,6 +23,9 @@ serde = { workspace = true }
 static_assertions = { workspace = true }
 tokio = { workspace = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+perf-event = { workspace = true }
+
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
 
@@ -31,3 +34,5 @@ winapi = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+
+three_billion_instructions = { workspace = true }
