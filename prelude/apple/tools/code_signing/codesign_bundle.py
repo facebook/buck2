@@ -59,12 +59,15 @@ def _select_provisioning_profile(
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
     list_codesign_identities: IListCodesignIdentities,
+    should_use_fast_provisioning_profile_parsing: bool,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory = _default_read_provisioning_profile_command_factory,
     log_file_path: Optional[Path] = None,
 ) -> SelectedProvisioningProfileInfo:
     identities = list_codesign_identities.list_codesign_identities()
     provisioning_profiles = _read_provisioning_profiles(
-        provisioning_profiles_dir, read_provisioning_profile_command_factory
+        provisioning_profiles_dir,
+        read_provisioning_profile_command_factory,
+        should_use_fast_provisioning_profile_parsing,
     )
     if not provisioning_profiles:
         raise CodeSignProvisioningError(
@@ -125,6 +128,7 @@ def signing_context_with_profile_selection(
     platform: ApplePlatform,
     list_codesign_identities: IListCodesignIdentities,
     log_file_path: Optional[Path] = None,
+    should_use_fast_provisioning_profile_parsing: bool = False,
 ) -> SigningContextWithProfileSelection:
     with open(info_plist_source, mode="rb") as info_plist_file:
         info_plist_metadata = InfoPlistMetadata.from_file(info_plist_file)
@@ -135,6 +139,7 @@ def signing_context_with_profile_selection(
         platform=platform,
         list_codesign_identities=list_codesign_identities,
         log_file_path=log_file_path,
+        should_use_fast_provisioning_profile_parsing=should_use_fast_provisioning_profile_parsing,
     )
 
     return SigningContextWithProfileSelection(
@@ -263,11 +268,16 @@ def _prepare_entitlements_and_info_plist(
 def _read_provisioning_profiles(
     dirpath: Path,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
+    should_use_fast_provisioning_profile_parsing: bool,
 ) -> List[ProvisioningProfileMetadata]:
+    _LOGGER.info(
+        f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
+    )
     return [
         _provisioning_profile_from_file_path(
             dirpath / f,
             read_provisioning_profile_command_factory,
+            should_use_fast_provisioning_profile_parsing,
         )
         for f in os.listdir(dirpath)
         if (f.endswith(".mobileprovision") or f.endswith(".provisionprofile"))
@@ -277,8 +287,36 @@ def _read_provisioning_profiles(
 def _provisioning_profile_from_file_path(
     path: Path,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
+    should_use_fast_provisioning_profile_parsing: bool,
 ) -> ProvisioningProfileMetadata:
-    output = subprocess.check_output(
+    if should_use_fast_provisioning_profile_parsing:
+        # Provisioning profiles have a plist embedded in them that we can extract directly.
+        # This is much faster than calling an external command like openssl.
+        with open(path, "rb") as f:
+            content = f.read()
+        start_index = content.find(b"<plist")
+        end_index = content.find(b"</plist>", start_index) + len(b"</plist>")
+        if start_index >= 0 and end_index >= 0:
+            plist_data = content[start_index:end_index]
+            return ProvisioningProfileMetadata.from_provisioning_profile_file_content(
+                path, plist_data
+            )
+        else:
+            _LOGGER.warning(
+                f"Failed to find plist in provisioning profile at {path}. Falling back to slow parsing."
+            )
+
+    # Fallback to slow parsing if fast parsing is disabled or fails
+    return _provisioning_profile_from_file_path_using_factory(
+        path, read_provisioning_profile_command_factory
+    )
+
+
+def _provisioning_profile_from_file_path_using_factory(
+    path: Path,
+    read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
+) -> ProvisioningProfileMetadata:
+    output: bytes = subprocess.check_output(
         read_provisioning_profile_command_factory.read_provisioning_profile_command(
             path
         ),

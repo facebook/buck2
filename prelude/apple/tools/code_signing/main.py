@@ -110,6 +110,7 @@ def _main() -> None:
                 entitlements_path=args.entitlements,
                 list_codesign_identities=ListCodesignIdentities.default(),
                 platform=args.platform,
+                should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
             )
         codesign_bundle(
             bundle_path=args.bundle_path,
