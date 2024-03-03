@@ -28,7 +28,6 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
-use buck2_core::soft_error;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::types::FileAttributes;
@@ -39,7 +38,6 @@ use edenfs::types::SyncBehavior;
 use edenfs::types::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
 use libc::EINVAL;
-use libc::EISDIR;
 use libc::ENOENT;
 use libc::ENOTDIR;
 use tokio::sync::Semaphore;
@@ -245,14 +243,6 @@ impl IoProvider for EdenIoProvider {
                 };
 
                 Ok(Some(RawPathMetadata::File(meta)))
-            }
-            Err(EdenError::PosixError { code, .. }) if code == EISDIR => {
-                tracing::debug!("getAttributesFromFilesV2({}): EISDIR", path);
-                soft_error!(
-                    "eden_io_eisdir",
-                    anyhow::anyhow!("Eden returned EISDIR for {}", path)
-                )?;
-                Ok(Some(RawPathMetadata::Directory))
             }
             Err(EdenError::PosixError { code, .. }) if code == ENOENT => {
                 tracing::debug!("getAttributesFromFilesV2({}): ENOENT", path);
