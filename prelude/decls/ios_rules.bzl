@@ -83,7 +83,7 @@ apple_asset_catalog = prelude_rule(
 apple_binary = prelude_rule(
     name = "apple_binary",
     docs = """
-        An `apple_binary()` rule builds a native executable\342\200\224such as an iOS or OSX app\342\200\224from
+        An `apple_binary()` rule builds a native executable - such as an iOS or OSX app - from
         the supplied set of Objective-C/C++ source files and dependencies. It is similar to
         a `cxx\\_binary()`rule with which it shares many attributes. In addition
         to those common attributes, `apple_binary()` has a some additional attributes

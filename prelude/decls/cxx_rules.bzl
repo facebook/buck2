@@ -136,8 +136,8 @@ cxx_genrule = prelude_rule(
     name = "cxx_genrule",
     docs = """
         A `cxx_genrule()` enables you to run shell commands as part
-        of the Buck build process. A `cxx_genrule()` exposes\342\200\224through
-        a set of string parameter macros and variables\342\200\224information about the
+        of the Buck build process. A `cxx_genrule()` exposes - through
+        a set of string parameter macros and variables - information about the
         tools and configuration options used by the
         Buck environment, specifically those related to the C/C++ toolchain.
 

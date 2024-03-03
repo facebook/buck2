@@ -752,7 +752,7 @@ http_archive = prelude_rule(
                 * foo\\_prime/bar-0.1.2
 
                  Only `data.dat` will be extracted, and it will be extracted into the output
-                 directory specified in\302\240`http\\_archive()out`.
+                 directory specified in `out`.
             """),
             "excludes": attrs.list(attrs.regex(), default = [], doc = """
                 An optional list of regex patterns. All file paths in the extracted archive which match
