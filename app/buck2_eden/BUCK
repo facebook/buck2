@@ -8,10 +8,8 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     named_deps = {
         # @oss-disable: "edenfs": "//eden/fs/service:thrift-rust", 
-        # @oss-disable: "fb303_core": "//fb303/thrift:fb303_core-rust", 
+        # @oss-disable: "edenfs_clients": "//eden/fs/service:thrift-rust-clients", 
     },
-    test_deps = [
-    ],
     deps = [
         # @oss-disable: "fbsource//third-party/rust:anyhow", 
         # @oss-disable: "fbsource//third-party/rust:async-trait", 
@@ -31,5 +29,6 @@ rust_library(
         # @oss-disable: "//common/rust/shed/fbinit:fbinit", 
         # @oss-disable: "//common/rust/shed/sorted_vector_map:sorted_vector_map", 
         # @oss-disable: "//common/rust/thrift/bareclient:thriftclient", 
+        # @oss-disable: "//fb303/thrift:fb303_core-rust-clients", 
     ],
 )

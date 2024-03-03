@@ -23,7 +23,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
-use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
 use edenfs::types::BinaryHash;
 use edenfs::types::EdenErrorType;
@@ -33,7 +32,8 @@ use edenfs::types::FileAttributeDataV2;
 use edenfs::types::MountState;
 use edenfs::types::PathString;
 use edenfs::types::SourceControlType;
-use fb303_core::client::BaseService;
+use edenfs_clients::EdenService;
+use fb303_core_clients::BaseService;
 use fbinit::FacebookInit;
 use futures::future::BoxFuture;
 use futures::future::Future;
@@ -241,7 +241,7 @@ impl EdenConnector {
             #[cfg(fbcode_build)]
             {
                 eden = fbcode::thrift_builder(fb, socket)?
-                    .build_client(::edenfs::client::make_EdenService);
+                    .build_client(::edenfs_clients::make_EdenService);
             }
 
             #[cfg(not(fbcode_build))]
@@ -268,7 +268,7 @@ impl EdenConnector {
     #[cfg(fbcode_build)]
     fn connect_fb303(&self) -> anyhow::Result<Arc<dyn BaseService + Send + Sync>> {
         fbcode::thrift_builder(self.fb, &self.socket)?
-            .build_client(::fb303_core::client::make_BaseService)
+            .build_client(::fb303_core_clients::make_BaseService)
     }
 
     #[cfg(not(fbcode_build))]
