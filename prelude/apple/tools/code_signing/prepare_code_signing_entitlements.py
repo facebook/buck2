@@ -15,6 +15,7 @@ from apple.tools.info_plist_processor.process import process as process_info_pli
 
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 
+
 # Buck v1 corresponding code is in `ProvisioningProfileCopyStep::execute` in `ProvisioningProfileCopyStep.java`
 def prepare_code_signing_entitlements(
     entitlements_path: Optional[Path],

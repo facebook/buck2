@@ -54,9 +54,9 @@ class IncrementalStateJSONEncoder(json.JSONEncoder):
             return {
                 "items": [self.default(i) for i in o.items],
                 "codesigned": o.codesigned,
-                "codesign_configuration": o.codesign_configuration.value
-                if o.codesign_configuration
-                else None,
+                "codesign_configuration": (
+                    o.codesign_configuration.value if o.codesign_configuration else None
+                ),
                 "codesign_on_copy_paths": [str(p) for p in o.codesign_on_copy_paths],
                 "codesign_identity": o.codesign_identity,
                 "swift_stdlib_paths": [str(p) for p in o.swift_stdlib_paths],

@@ -98,7 +98,7 @@ def _check_entitlements_match(
 ) -> Tuple[bool, Optional[EntitlementsMismatch]]:
     if expected_entitlements is None:
         return (True, None)
-    for (key, value) in expected_entitlements.items():
+    for key, value in expected_entitlements.items():
         profile_entitlement = profile.entitlements.get(key)
         if (key not in _IGNORE_MISMATCH_ENTITLEMENTS_KEYS) and (
             not _matches_or_array_is_subset_of(

@@ -111,7 +111,7 @@ def calculate_incremental_state(
     """
     result = []
     source_with_destination_files = _source_with_destination_files(spec)
-    for (src, dst) in source_with_destination_files:
+    for src, dst in source_with_destination_files:
         is_symlink = src.is_symlink()
         new_digest = _get_new_digest(action_metadata, src) if not is_symlink else None
         resolved_symlink = Path(os.readlink(src)) if is_symlink else None

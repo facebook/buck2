@@ -18,11 +18,13 @@ class _ReGroupName(str, Enum):
     closeparen = "closeparen"
 
 
-_re_string: str = "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::(?P<{modifier}>[^\\}}\\)]+))?(?P<{closeparen}>[\\}}\\)])".format(
-    openparen=_ReGroupName.openparen,
-    variable=_ReGroupName.variable,
-    modifier=_ReGroupName.modifier,
-    closeparen=_ReGroupName.closeparen,
+_re_string: str = (
+    "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::(?P<{modifier}>[^\\}}\\)]+))?(?P<{closeparen}>[\\}}\\)])".format(
+        openparen=_ReGroupName.openparen,
+        variable=_ReGroupName.variable,
+        modifier=_ReGroupName.modifier,
+        closeparen=_ReGroupName.closeparen,
+    )
 )
 
 

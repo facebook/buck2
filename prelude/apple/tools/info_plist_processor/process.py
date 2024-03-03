@@ -11,6 +11,7 @@ from typing import Any, Dict, IO, Optional, TextIO
 
 from apple.tools.plistlib_utils import detect_format_and_load
 
+
 # Corresponding v1 code is contained in `com/facebook/buck/apple/PlistProcessStep.java`, `PlistProcessStep::execute` method.
 def _merge_plist_dicts(
     source: Dict[str, Any], destination: Dict[str, Any], override: bool = False

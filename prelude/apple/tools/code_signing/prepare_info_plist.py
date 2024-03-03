@@ -15,6 +15,7 @@ from apple.tools.info_plist_processor.process import process as process_info_pli
 from .info_plist_metadata import InfoPlistMetadata
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 
+
 # Buck v1 corresponding code is in `ProvisioningProfileCopyStep::execute` in `ProvisioningProfileCopyStep.java`
 def prepare_info_plist(
     info_plist: Path,

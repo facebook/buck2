@@ -24,6 +24,7 @@ from typing import List
 
 EXIT_SUCCESS, EXIT_FAILURE = 0, 1
 
+
 # Filter opt related flags
 def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
     # List of llvm flags to be ignored.
