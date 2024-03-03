@@ -120,9 +120,6 @@ impl<T> AnyhowContextForError<T> for crate::Result<T> {
     }
 }
 
-// FIXME(JakobDegen): This impl should not exist. We should make people write error types for these
-// conditions. Let's have it for now to ease migration though.
-
 #[derive(Debug, buck2_error_derive::Error)]
 #[error("NoneError")]
 struct NoneError;
