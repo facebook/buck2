@@ -275,7 +275,10 @@ impl HardErrorConfigHolder {
 }
 
 #[derive(buck2_error::Error, Debug)]
-#[error("Invalid hard error config: `{0}`")]
+#[error(
+    "Invalid hard error config: `{0}`\n\
+    Valid examples: empty, `true`, `false`, `only=category1,category2`"
+)]
 struct InvalidHardErrorConfig(String);
 
 #[derive(buck2_error::Error, Debug)]
