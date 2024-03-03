@@ -12,6 +12,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;

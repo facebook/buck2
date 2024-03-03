@@ -25,6 +25,7 @@ mod source_location;
 
 use std::error::Request;
 
+pub use context::AnyhowContextForError;
 pub use context::BuckErrorContext;
 /// A piece of metadata to indicate whether this error is an infra or user error.
 ///

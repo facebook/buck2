@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;

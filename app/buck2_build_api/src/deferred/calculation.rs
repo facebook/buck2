@@ -15,6 +15,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::data::DeferredData;
@@ -24,7 +25,6 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::create_span;
 use buck2_events::dispatch::Span;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;

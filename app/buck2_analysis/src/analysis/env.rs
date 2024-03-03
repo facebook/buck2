@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anyhow::Context;
 use buck2_build_api::analysis::extra_v::AnalysisExtraValue;
 use buck2_build_api::analysis::extra_v::FrozenAnalysisExtraValue;
 use buck2_build_api::analysis::registry::AnalysisRegistry;

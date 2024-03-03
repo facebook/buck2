@@ -20,27 +20,27 @@ use crate::context_value::ContextValue;
 /// structured context data.
 pub trait BuckErrorContext<T>: Sealed {
     #[track_caller]
-    fn context<C: Into<ContextValue>>(self, context: C) -> anyhow::Result<T>;
+    fn buck_error_context<C: Into<ContextValue>>(self, context: C) -> anyhow::Result<T>;
 
     #[track_caller]
-    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
+    fn with_buck_error_context<C, F>(self, f: F) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
         F: FnOnce() -> C;
 
     #[track_caller]
     fn user(self) -> anyhow::Result<T> {
-        self.context(crate::Category::User)
+        self.buck_error_context(crate::Category::User)
     }
 
     #[track_caller]
     fn infra(self) -> anyhow::Result<T> {
-        self.context(crate::Category::Infra)
+        self.buck_error_context(crate::Category::Infra)
     }
 
     #[track_caller]
     fn tag(self, tag: crate::ErrorTag) -> anyhow::Result<T> {
-        self.context(ContextValue::Tags(smallvec![tag]))
+        self.buck_error_context(ContextValue::Tags(smallvec![tag]))
     }
 
     #[track_caller]
@@ -53,7 +53,7 @@ pub trait BuckErrorContext<T>: Sealed {
     where
         F: FnOnce() -> String,
     {
-        self.with_context(|| format!("{} (internal error)", f()))
+        self.with_buck_error_context(|| format!("{} (internal error)", f()))
             .tag(crate::ErrorTag::InternalError)
     }
 }
@@ -65,7 +65,7 @@ impl<T, E> BuckErrorContext<T> for std::result::Result<T, E>
 where
     crate::Error: From<E>,
 {
-    fn context<C>(self, c: C) -> anyhow::Result<T>
+    fn buck_error_context<C>(self, c: C) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
     {
@@ -75,7 +75,7 @@ where
         }
     }
 
-    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
+    fn with_buck_error_context<C, F>(self, f: F) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
         F: FnOnce() -> C,
@@ -84,6 +84,39 @@ where
             Ok(x) => Ok(x),
             Err(e) => Err(crate::Error::new_anyhow_with_context(e, f())),
         }
+    }
+}
+
+/// Similar to `anyhow::Context`, but works for `crate::Result`.
+pub trait AnyhowContextForError<T>: Sealed {
+    fn context<C>(self, context: C) -> anyhow::Result<T>
+    where
+        C: Into<ContextValue>;
+
+    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
+    where
+        C: Into<ContextValue>,
+        F: FnOnce() -> C;
+}
+
+impl<T> AnyhowContextForError<T> for crate::Result<T> {
+    #[inline]
+    #[track_caller]
+    fn context<C>(self, context: C) -> anyhow::Result<T>
+    where
+        C: Into<ContextValue>,
+    {
+        self.buck_error_context(context)
+    }
+
+    #[inline]
+    #[track_caller]
+    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
+    where
+        C: Into<ContextValue>,
+        F: FnOnce() -> C,
+    {
+        self.with_buck_error_context(f)
     }
 }
 
@@ -97,7 +130,7 @@ struct NoneError;
 impl<T> Sealed for Option<T> {}
 
 impl<T> BuckErrorContext<T> for Option<T> {
-    fn context<C>(self, c: C) -> anyhow::Result<T>
+    fn buck_error_context<C>(self, c: C) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
     {
@@ -107,7 +140,7 @@ impl<T> BuckErrorContext<T> for Option<T> {
         }
     }
 
-    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
+    fn with_buck_error_context<C, F>(self, f: F) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
         F: FnOnce() -> C,

@@ -13,6 +13,7 @@ use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::get_rule_spec;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;

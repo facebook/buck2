@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;

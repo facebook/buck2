@@ -11,10 +11,10 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
-use buck2_error::BuckErrorContext;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;

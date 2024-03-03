@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::unstable_docs_request;
 use buck2_cli_proto::UnstableDocsRequest;

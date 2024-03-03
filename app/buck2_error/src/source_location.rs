@@ -115,7 +115,7 @@ mod tests {
     fn test_via_context() {
         use crate::BuckErrorContext;
 
-        let e: anyhow::Error = Err::<(), _>(MyError).context("foo").unwrap_err();
+        let e: anyhow::Error = Err::<(), _>(MyError).buck_error_context("foo").unwrap_err();
         let e: crate::Error = e.into();
         assert_eq!(
             e.source_location(),

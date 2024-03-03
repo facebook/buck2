@@ -11,6 +11,7 @@ use std::fmt;
 use std::iter;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::error::BuckStarlarkError;
 use display_container::display_pair;

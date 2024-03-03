@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;

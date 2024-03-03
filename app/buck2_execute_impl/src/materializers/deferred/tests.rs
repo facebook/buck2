@@ -89,6 +89,7 @@ fn test_remove_path() {
 mod state_machine {
     use std::path::Path;
 
+    use anyhow::Context;
     use assert_matches::assert_matches;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
