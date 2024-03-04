@@ -35,6 +35,14 @@ macro_rules! make_error {
     ($val:expr, $context:expr $(,)?) => {{ ($val).with_context(|| $context) }};
 }
 
+fn if_exists<T>(r: io::Result<T>) -> io::Result<Option<T>> {
+    match r {
+        Ok(v) => Ok(Some(v)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 pub fn symlink<P, Q>(original: P, link: Q) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
@@ -233,14 +241,7 @@ pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<ReadDir> {
 pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<Option<ReadDir>> {
     let _guard = IoCounterKey::ReadDir.guard();
     make_error!(
-        {
-            let read_dir = fs::read_dir(path.as_ref());
-            match read_dir {
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-                Err(e) => Err(e),
-                Ok(read_dir) => Ok(Some(ReadDir { read_dir, _guard })),
-            }
-        },
+        if_exists(fs::read_dir(path.as_ref()).map(|read_dir| ReadDir { read_dir, _guard })),
         format!("read_dir_if_exists({})", P::as_ref(&path).display()),
     )
 }
@@ -386,13 +387,7 @@ pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
 ) -> anyhow::Result<Option<fs::Metadata>> {
     let _guard = IoCounterKey::Stat.guard();
     make_error!(
-        {
-            match fs::symlink_metadata(path.as_ref().as_maybe_relativized()) {
-                Ok(metadata) => Ok(Some(metadata)),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-                Err(e) => Err(e),
-            }
-        },
+        if_exists(fs::symlink_metadata(path.as_ref().as_maybe_relativized())),
         format!("symlink_metadata({})", path.as_ref().display())
     )
 }
@@ -446,13 +441,7 @@ pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<String> {
 pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<String>> {
     let _guard = IoCounterKey::Read.guard();
     make_error!(
-        {
-            match fs::read_to_string(path.as_ref().as_maybe_relativized()) {
-                Ok(d) => Ok(Some(d)),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-                Err(e) => Err(e),
-            }
-        },
+        if_exists(fs::read_to_string(path.as_ref().as_maybe_relativized())),
         format!("read_to_string_if_exists({})", P::as_ref(&path).display()),
     )
 }
@@ -461,13 +450,7 @@ pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Op
 pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<Vec<u8>>> {
     let _guard = IoCounterKey::Read.guard();
     make_error!(
-        {
-            match fs::read(path.as_ref().as_maybe_relativized()) {
-                Ok(d) => Ok(Some(d)),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-                Err(e) => Err(e),
-            }
-        },
+        if_exists(fs::read(path.as_ref().as_maybe_relativized())),
         format!("read_if_exists({})", P::as_ref(&path).display()),
     )
 }
@@ -484,13 +467,7 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<AbsNormPathBuf> {
 pub fn canonicalize_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<AbsNormPathBuf>> {
     let _guard = IoCounterKey::Canonicalize.guard();
     let path = make_error!(
-        {
-            match dunce::canonicalize(&path) {
-                Ok(path) => Ok(Some(path)),
-                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-                Err(e) => Err(e),
-            }
-        },
+        if_exists(dunce::canonicalize(&path)),
         format!("canonicalize_if_exists({})", P::as_ref(&path).display()),
     )?;
     path.map(AbsNormPathBuf::new).transpose()
