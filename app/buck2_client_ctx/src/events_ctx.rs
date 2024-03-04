@@ -243,9 +243,6 @@ impl<'a> EventsCtx<'a> {
                     tick = self.ticker.tick() => {
                         self.tick(&tick).await?;
                     }
-                    else => {
-                        unreachable!("The tick branch will always take precedence over an else case.");
-                    }
                 }
             }
         };
