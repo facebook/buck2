@@ -563,7 +563,7 @@ def _merge_assets(
         merge_assets_cmd.add(["--base-apk", base_apk])
         merged_assets_output_hash = None
 
-    assets_dirs_file = ctx.actions.write("assets_dirs", assets_dirs)
+    assets_dirs_file = ctx.actions.write_json("assets_dirs.json", {ROOT_MODULE: assets_dirs})
     merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
     merge_assets_cmd.hidden(assets_dirs)
 
