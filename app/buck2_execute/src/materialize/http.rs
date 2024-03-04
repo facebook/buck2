@@ -222,7 +222,8 @@ pub async fn http_download(
 
     Ok(http_retry(
         || async {
-            let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
+            let file = fs_util::create_file(&abs_path)
+                .map_err(|e| HttpDownloadError::IoError(anyhow::Error::from(e)))?;
 
             let stream = client
                 .get(url)

@@ -219,7 +219,7 @@ impl<T: IoHandler> ExtensionCommand<T> for Fsck {
             match res {
                 Ok(..) => {}
                 Err(e) => {
-                    let _ignored = self.sender.send((path, e));
+                    let _ignored = self.sender.send((path, e.into()));
                 }
             }
         }

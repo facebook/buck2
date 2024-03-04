@@ -31,8 +31,21 @@ use crate::fs::paths::abs_path::AbsPath;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 
+#[derive(buck2_error::Error, Debug)]
+#[error("{}", .op)]
+pub struct IoError {
+    op: String,
+    #[source]
+    e: io::Error,
+}
+
 macro_rules! make_error {
-    ($val:expr, $context:expr $(,)?) => {{ ($val).with_context(|| $context) }};
+    ($val:expr, $context:expr $(,)?) => {{
+        match ($val) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(IoError { op: $context, e }),
+        }
+    }};
 }
 
 macro_rules! make_anyhow_error {
@@ -148,7 +161,7 @@ pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     )
 }
 
-pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::MkDir.guard();
     make_error!(
         fs::create_dir_all(path.as_ref().as_maybe_relativized()),
@@ -156,7 +169,7 @@ pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     )
 }
 
-pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::MkDir.guard();
     make_error!(
         fs::create_dir(path.as_ref().as_maybe_relativized()),
@@ -167,7 +180,7 @@ pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
 /// Create directory if not exists.
 ///
 /// Fail if exists but is not a directory or creation failed.
-pub fn create_dir_if_not_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn create_dir_if_not_exists<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let path = path.as_ref();
     let _guard = IoCounterKey::MkDir.guard();
     make_error!(
@@ -234,7 +247,7 @@ impl Iterator for ReadDir {
     }
 }
 
-pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<ReadDir> {
+pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> Result<ReadDir, IoError> {
     let _guard = IoCounterKey::ReadDir.guard();
     make_error!(
         fs::read_dir(path.as_ref()).map(|read_dir| ReadDir { read_dir, _guard }),
@@ -242,7 +255,7 @@ pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<ReadDir> {
     )
 }
 
-pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<Option<ReadDir>> {
+pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> Result<Option<ReadDir>, IoError> {
     let _guard = IoCounterKey::ReadDir.guard();
     make_error!(
         if_exists(fs::read_dir(path.as_ref()).map(|read_dir| ReadDir { read_dir, _guard })),
@@ -250,7 +263,7 @@ pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<Opti
     )
 }
 
-pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<bool> {
+pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> Result<bool, IoError> {
     let _guard = IoCounterKey::Stat.guard();
     make_error!(
         fs::try_exists(path.as_ref().as_maybe_relativized()),
@@ -258,7 +271,7 @@ pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<bool> {
     )
 }
 
-pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::Remove.guard();
     make_error!(
         remove_file_impl(path.as_ref().as_maybe_relativized()),
@@ -267,13 +280,13 @@ pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
 }
 
 #[cfg(unix)]
-fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
+fn remove_file_impl(path: &Path) -> io::Result<()> {
     fs::remove_file(path)?;
     Ok(())
 }
 
 #[cfg(windows)]
-fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
+fn remove_file_impl(path: &Path) -> io::Result<()> {
     use std::os::windows::fs::FileTypeExt;
 
     let file_type = path.symlink_metadata()?.file_type();
@@ -285,7 +298,7 @@ fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Result<u64> {
+pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<u64, IoError> {
     let _guard = IoCounterKey::Copy.guard();
     make_error!(
         fs::copy(
@@ -300,7 +313,7 @@ pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Res
     )
 }
 
-pub fn read_link<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<PathBuf> {
+pub fn read_link<P: AsRef<AbsPath>>(path: P) -> Result<PathBuf, IoError> {
     let _guard = IoCounterKey::ReadLink.guard();
     make_error!(
         fs::read_link(path.as_ref().as_maybe_relativized()),
@@ -308,7 +321,7 @@ pub fn read_link<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<PathBuf> {
     )
 }
 
-pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Result<()> {
+pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<(), IoError> {
     let _guard = IoCounterKey::Rename.guard();
     make_error!(
         fs::rename(
@@ -323,7 +336,7 @@ pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::R
     )
 }
 
-pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> anyhow::Result<()> {
+pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), IoError> {
     let _guard = IoCounterKey::Write.guard();
     make_error!(
         fs::write(path.as_ref().as_maybe_relativized(), &contents),
@@ -331,7 +344,7 @@ pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> anyhow:
     )
 }
 
-pub fn metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
+pub fn metadata<P: AsRef<AbsPath>>(path: P) -> Result<fs::Metadata, IoError> {
     let _guard = IoCounterKey::Stat.guard();
     make_error!(
         fs::metadata(path.as_ref().as_maybe_relativized()),
@@ -339,7 +352,7 @@ pub fn metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
     )
 }
 
-pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
+pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> Result<fs::Metadata, IoError> {
     let _guard = IoCounterKey::Stat.guard();
     make_error!(
         fs::symlink_metadata(path.as_ref().as_maybe_relativized()),
@@ -347,7 +360,7 @@ pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metada
     )
 }
 
-pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> anyhow::Result<()> {
+pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> Result<(), IoError> {
     let _guard = IoCounterKey::Chmod.guard();
     make_error!(
         fs::set_permissions(path.as_ref().as_maybe_relativized(), perm),
@@ -377,7 +390,7 @@ pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::RmDirAll.guard();
     make_error!(
         fs::remove_dir_all(path.as_ref().as_maybe_relativized()),
@@ -388,7 +401,7 @@ pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
 /// `None` if file does not exist.
 pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
     path: P,
-) -> anyhow::Result<Option<fs::Metadata>> {
+) -> Result<Option<fs::Metadata>, IoError> {
     let _guard = IoCounterKey::Stat.guard();
     make_error!(
         if_exists(fs::symlink_metadata(path.as_ref().as_maybe_relativized())),
@@ -404,7 +417,7 @@ pub fn symlink_metadata_if_available<P: AsRef<AbsPath>>(path: P) -> Option<fs::M
 
 /// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
 /// Do nothing if `path` does not exist.
-pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let guard = IoCounterKey::RmDirAll.guard();
     let metadata = match symlink_metadata_if_exists(&path)? {
         Some(s) => s,
@@ -425,7 +438,7 @@ pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     r
 }
 
-pub fn read<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Vec<u8>> {
+pub fn read<P: AsRef<AbsPath>>(path: P) -> Result<Vec<u8>, IoError> {
     let _guard = IoCounterKey::Read.guard();
     make_error!(
         fs::read(path.as_ref().as_maybe_relativized()),
@@ -433,7 +446,7 @@ pub fn read<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Vec<u8>> {
     )
 }
 
-pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<String> {
+pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> Result<String, IoError> {
     let _guard = IoCounterKey::Read.guard();
     make_error!(
         fs::read_to_string(path.as_ref().as_maybe_relativized()),
@@ -442,7 +455,7 @@ pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<String> {
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
-pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<String>> {
+pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<String>, IoError> {
     let _guard = IoCounterKey::Read.guard();
     make_error!(
         if_exists(fs::read_to_string(path.as_ref().as_maybe_relativized())),
@@ -451,7 +464,7 @@ pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Op
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
-pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<Vec<u8>>> {
+pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<Vec<u8>>, IoError> {
     let _guard = IoCounterKey::Read.guard();
     make_error!(
         if_exists(fs::read(path.as_ref().as_maybe_relativized())),
@@ -484,7 +497,7 @@ pub fn simplified(path: &AbsPath) -> anyhow::Result<&AbsPath> {
     AbsPath::new(path)
 }
 
-pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::RmDir.guard();
     make_error!(
         fs::remove_dir(path.as_ref().as_maybe_relativized()),
@@ -507,7 +520,7 @@ impl Write for FileWriteGuard {
     }
 }
 
-pub fn create_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<FileWriteGuard> {
+pub fn create_file<P: AsRef<AbsPath>>(path: P) -> Result<FileWriteGuard, IoError> {
     let guard = IoCounterKey::Write.guard();
     let file = make_error!(
         File::create(path.as_ref().as_maybe_relativized()),
@@ -530,7 +543,7 @@ impl Read for FileReadGuard {
     }
 }
 
-pub fn open_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<FileReadGuard> {
+pub fn open_file<P: AsRef<AbsPath>>(path: P) -> Result<FileReadGuard, IoError> {
     let guard = IoCounterKey::Read.guard();
     let file = make_error!(
         File::open(path.as_ref().as_maybe_relativized()),

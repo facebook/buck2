@@ -294,7 +294,7 @@ async fn copy_output<W: Write>(
     // DICE. So now we open the file and read it all into the destination stream.
     let mut file = tag_result!(
         "bxl_output_missing",
-        fs_util::open_file(loc),
+        fs_util::open_file(loc).map_err(Into::into),
         quiet: true,
         daemon_in_memory_state_is_corrupted: true,
         task: false

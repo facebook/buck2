@@ -113,7 +113,7 @@ async fn build_dir_from_disk(
     let mut file_futures: Vec<_> = Vec::new();
 
     let files = blocking_executor
-        .execute_io_inline(|| fs_util::read_dir(&disk_path))
+        .execute_io_inline(|| fs_util::read_dir(&disk_path).map_err(Into::into))
         .await?;
     for file in files {
         let file = file?;

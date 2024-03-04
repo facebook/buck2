@@ -111,7 +111,9 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path)).await?
+        tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path))
+            .await?
+            .map_err(Into::into)
     }
 
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {

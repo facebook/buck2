@@ -198,7 +198,8 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
             let error = error.dupe();
             thread_pool.execute(move || {
                 // The wlak gives us back absolute paths since we give it absolute paths.
-                let res = AbsPath::new(dir_entry.path()).and_then(fs_util::remove_file);
+                let res = AbsPath::new(dir_entry.path())
+                    .and_then(|p| fs_util::remove_file(p).map_err(Into::into));
 
                 match res {
                     Ok(_) => {}

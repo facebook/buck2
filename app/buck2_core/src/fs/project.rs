@@ -533,7 +533,7 @@ impl ProjectRoot {
     }
 
     fn copy_file(src: &AbsNormPathBuf, dst: &AbsNormPathBuf) -> anyhow::Result<()> {
-        fs_util::copy(src, dst).map(|_| ())
+        fs_util::copy(src, dst).map(|_| ()).map_err(Into::into)
     }
 
     fn copy_dir(src_dir: &AbsNormPathBuf, dest_dir: &AbsNormPathBuf) -> anyhow::Result<()> {
