@@ -110,7 +110,7 @@ def get_android_binary_native_library_info(
     included_shared_lib_targets = []
     original_shared_libs_by_platform = {}  # dict[str, dict[str (soname), list[SharedLibrary]]]
     for platform, deps in deps_by_platform.items():
-        if platform == CPU_FILTER_FOR_PRIMARY_PLATFORM and platform not in ctx.attrs.cpu_filters:
+        if platform == CPU_FILTER_FOR_PRIMARY_PLATFORM and platform not in ctx.attrs.cpu_filters and len(ctx.attrs.cpu_filters) != 0:
             continue
 
         shared_libs = get_default_shared_libs(ctx, deps, shared_libraries_to_exclude)
