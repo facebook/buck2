@@ -413,7 +413,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                     maybe_compatible.collect::<anyhow::Result<_>>()?
                 };
 
-                let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
+                let result = filter_incompatible(maybe_compatible, ctx)?;
                 Ok(TargetListExpr::TargetSet(Cow::Owned(result)))
             }
         }

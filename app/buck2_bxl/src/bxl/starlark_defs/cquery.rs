@@ -114,8 +114,7 @@ async fn unpack_targets<'v>(
         )
         .await?
         .get(dice)
-        .await?
-        .into_iter(),
+        .await?,
         &this.ctx.data,
     )
 }
@@ -432,7 +431,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 .testsof_with_default_target_platform(dice, &targets)
                                 .await?;
 
-                        filter_incompatible(maybe_compatibles.into_iter(), ctx)
+                        filter_incompatible(maybe_compatibles, ctx)
                     }
                     .boxed_local()
                 })

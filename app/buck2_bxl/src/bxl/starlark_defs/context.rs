@@ -791,7 +791,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         }
                     } else {
                         Ok(Either::Right(StarlarkTargetSet(filter_incompatible(
-                            target_expr.get(ctx).await?.into_iter(),
+                            target_expr.get(ctx).await?,
                             this,
                         )?)))
                     }
@@ -921,8 +921,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
 
                     let maybe_compatible_set = target_expr.get(ctx).await?;
 
-                    let target_set =
-                        filter_incompatible(maybe_compatible_set.into_iter(), this_no_dice)?;
+                    let target_set = filter_incompatible(maybe_compatible_set, this_no_dice)?;
 
                     StarlarkTargetUniverse::new(this, target_set).await
                 }
