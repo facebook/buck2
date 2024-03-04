@@ -88,4 +88,13 @@ enum ErrorTag {
   // The daemon reported that it was shutting down during the execution of this
   // command
   INTERRUPTED_BY_DAEMON_SHUTDOWN = 23;
+
+  ///// IO SECTION
+  //
+  // Indicates that the IO operation went through the standard system
+  // interfaces, and not through EdenIO - note that the operation may still have
+  // been accessing an Eden mount though
+  IO_SYSTEM = 1000;
+  // IO done on a source file in the repo
+  IO_SOURCE = 1010;
 }

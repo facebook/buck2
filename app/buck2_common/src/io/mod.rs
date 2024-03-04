@@ -14,6 +14,8 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
@@ -52,17 +54,21 @@ impl<'a> dyn IoProvider + 'a {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>> {
-        self.read_file_if_exists_impl(path).await
+        self.read_file_if_exists_impl(path)
+            .await
+            .tag(ErrorTag::IoSource)
     }
 
     pub async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
-        self.read_dir_impl(path).await
+        self.read_dir_impl(path).await.tag(ErrorTag::IoSource)
     }
 
     pub async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        self.read_path_metadata_if_exists_impl(path).await
+        self.read_path_metadata_if_exists_impl(path)
+            .await
+            .tag(ErrorTag::IoSource)
     }
 }

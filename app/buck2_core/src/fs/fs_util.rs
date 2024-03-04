@@ -32,6 +32,7 @@ use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = IoSystem)]
 #[error("{}", .op)]
 pub struct IoError {
     op: String,
