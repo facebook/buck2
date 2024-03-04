@@ -35,6 +35,10 @@ macro_rules! make_error {
     ($val:expr, $context:expr $(,)?) => {{ ($val).with_context(|| $context) }};
 }
 
+macro_rules! make_anyhow_error {
+    ($val:expr, $context:expr $(,)?) => {{ ($val).with_context(|| $context) }};
+}
+
 fn if_exists<T>(r: io::Result<T>) -> io::Result<Option<T>> {
     match r {
         Ok(v) => Ok(Some(v)),
@@ -49,7 +53,7 @@ where
     Q: AsRef<AbsPath>,
 {
     let _guard = IoCounterKey::Symlink.guard();
-    make_error!(
+    make_anyhow_error!(
         symlink_impl(original.as_ref(), link.as_ref()),
         format!(
             "symlink(original={}, link={})",
@@ -138,7 +142,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
 
 pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     assert_cwd_is_not_set()?;
-    make_error!(
+    make_anyhow_error!(
         env::set_current_dir(path.as_ref()),
         format!("set_current_dir({})", P::as_ref(&path).display()),
     )
