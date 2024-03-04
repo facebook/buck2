@@ -705,9 +705,9 @@ def main() -> int:  # noqa: C901
                     final_mapping[target] = None
                 else:
                     final_mapping[target] = final_lib_names[node.final_lib_key]
-                    split_groups[
-                        final_lib_names[node.final_lib_key]
-                    ] = node.base_library_name
+                    split_groups[final_lib_names[node.final_lib_key]] = (
+                        node.base_library_name
+                    )
             else:
                 final_mapping[target] = str(target)
         debug_results[platform] = (
