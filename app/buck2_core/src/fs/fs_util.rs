@@ -21,6 +21,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
+use buck2_error::ErrorTag;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
@@ -31,8 +32,38 @@ use crate::fs::paths::abs_path::AbsPath;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 
+fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
+    'from_kind: {
+        let from_kind = match e.kind() {
+            io::ErrorKind::NotFound => ErrorTag::IoNotFound,
+            io::ErrorKind::PermissionDenied => ErrorTag::IoPermissionDenied,
+            io::ErrorKind::TimedOut => ErrorTag::IoTimeout,
+            io::ErrorKind::ExecutableFileBusy => ErrorTag::IoExecutableFileBusy,
+            io::ErrorKind::BrokenPipe => ErrorTag::IoBrokenPipe,
+            io::ErrorKind::StorageFull => ErrorTag::IoStorageFull,
+            io::ErrorKind::ConnectionAborted => ErrorTag::IoConnectionAborted,
+            _ => break 'from_kind,
+        };
+        return Some(from_kind);
+    }
+
+    if let Some(os_error_code) = e.raw_os_error() {
+        'from_os: {
+            let from_os = match os_error_code {
+                libc::ENOTCONN => ErrorTag::IoNotConnected,
+                libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
+                _ => break 'from_os,
+            };
+            return Some(from_os);
+        }
+    }
+
+    None
+}
+
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = IoSystem)]
+#[buck2(tag = io_error_kind_tag(&self.e))]
 #[error("{}", .op)]
 pub struct IoError {
     op: String,

@@ -13,6 +13,7 @@
 #![feature(pattern)]
 #![feature(box_patterns)]
 #![feature(impl_trait_in_assoc_type)]
+#![feature(io_error_more)]
 #![feature(once_cell_try)]
 #![feature(try_blocks)]
 #![cfg_attr(windows, feature(absolute_path))]

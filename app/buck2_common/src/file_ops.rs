@@ -37,6 +37,7 @@ pub(crate) enum FileOpsError {
     // File not found errors are not inherently always user errors; however, we only use these
     // methods with source files, and in that case this is correct
     #[buck2(user)]
+    #[buck2(tag = IoNotFound)]
     FileNotFound(String),
 }
 

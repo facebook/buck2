@@ -97,4 +97,14 @@ enum ErrorTag {
   IO_SYSTEM = 1000;
   // IO done on a source file in the repo
   IO_SOURCE = 1010;
+  // The nature of the failure, designed after (but not identical to) Rust's
+  // `io::ErrorKind`
+  IO_NOT_FOUND = 1020;
+  IO_PERMISSION_DENIED = 1021;
+  IO_BROKEN_PIPE = 1022;
+  IO_STORAGE_FULL = 1023;
+  IO_EXECUTABLE_FILE_BUSY = 1024;
+  IO_CONNECTION_ABORTED = 1025;
+  IO_NOT_CONNECTED = 1026;
+  IO_TIMEOUT = 1027;
 }
