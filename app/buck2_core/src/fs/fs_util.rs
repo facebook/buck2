@@ -61,6 +61,18 @@ fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
     None
 }
 
+impl IoError {
+    pub fn categorize_for_source_file(self) -> anyhow::Error {
+        if self.e.kind() == io::ErrorKind::NotFound {
+            buck2_error::Error::from(self)
+                .context(buck2_error::Category::User)
+                .into()
+        } else {
+            self.into()
+        }
+    }
+}
+
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = IoSystem)]
 #[buck2(tag = io_error_kind_tag(&self.e))]

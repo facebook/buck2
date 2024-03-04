@@ -16,6 +16,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::fs_util::IoError;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -113,7 +114,7 @@ impl IoProvider for FsIoProvider {
 
         tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path))
             .await?
-            .map_err(Into::into)
+            .map_err(IoError::categorize_for_source_file)
     }
 
     async fn read_dir_impl(
@@ -129,7 +130,8 @@ impl IoProvider for FsIoProvider {
         let path = self.fs.resolve(&path);
 
         tokio::task::spawn_blocking(move || {
-            let dir_entries = fs_util::read_dir(path)?;
+            let dir_entries =
+                fs_util::read_dir(path).map_err(IoError::categorize_for_source_file)?;
 
             let mut entries = Vec::new();
 
@@ -285,31 +287,36 @@ enum ExactPathMetadata {
 
 impl ExactPathMetadata {
     fn from_exact_path(curr: &PathAndAbsPath) -> anyhow::Result<Self> {
-        Ok(match fs_util::symlink_metadata_if_exists(&curr.abspath)? {
-            Some(meta) if meta.file_type().is_symlink() => {
-                let dest = fs_util::read_link(&curr.abspath)?;
+        Ok(
+            match fs_util::symlink_metadata_if_exists(&curr.abspath)
+                .map_err(IoError::categorize_for_source_file)?
+            {
+                Some(meta) if meta.file_type().is_symlink() => {
+                    let dest = fs_util::read_link(&curr.abspath)
+                        .map_err(IoError::categorize_for_source_file)?;
 
-                let out = if dest.is_absolute() {
-                    ExactPathSymlinkMetadata::ExternalSymlink(dest)
-                } else {
-                    // Remove the symlink name.
-                    let link_path = curr
-                        .path
-                        .parent()
-                        .expect("We pushed a component to this so it cannot be empty")
-                        .join_system(&dest)
-                        .with_context(|| {
-                            format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
-                        })?;
+                    let out = if dest.is_absolute() {
+                        ExactPathSymlinkMetadata::ExternalSymlink(dest)
+                    } else {
+                        // Remove the symlink name.
+                        let link_path = curr
+                            .path
+                            .parent()
+                            .expect("We pushed a component to this so it cannot be empty")
+                            .join_system(&dest)
+                            .with_context(|| {
+                                format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
+                            })?;
 
-                    ExactPathSymlinkMetadata::InternalSymlink(link_path)
-                };
+                        ExactPathSymlinkMetadata::InternalSymlink(link_path)
+                    };
 
-                ExactPathMetadata::Symlink(out)
-            }
-            Some(meta) => ExactPathMetadata::FileOrDirectory(meta),
-            None => ExactPathMetadata::DoesNotExist,
-        })
+                    ExactPathMetadata::Symlink(out)
+                }
+                Some(meta) => ExactPathMetadata::FileOrDirectory(meta),
+                None => ExactPathMetadata::DoesNotExist,
+            },
+        )
     }
 }
 
