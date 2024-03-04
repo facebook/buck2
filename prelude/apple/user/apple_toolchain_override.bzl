@@ -16,6 +16,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(),
         AppleToolchainInfo(
             actool = base.actool,
+            architecture = base.architecture,
             codesign = base.codesign,
             codesign_allocate = base.codesign_allocate,
             copy_scene_kit_assets = base.copy_scene_kit_assets,

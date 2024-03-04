@@ -16,6 +16,7 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(),
         AppleToolchainInfo(
             actool = ctx.attrs.actool[RunInfo],
+            architecture = ctx.attrs.architecture,
             codesign = ctx.attrs.codesign[RunInfo],
             codesign_allocate = ctx.attrs.codesign_allocate[RunInfo],
             codesign_identities_command = ctx.attrs.codesign_identities_command[RunInfo] if ctx.attrs.codesign_identities_command else None,
