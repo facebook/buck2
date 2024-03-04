@@ -200,7 +200,7 @@ def get_android_binary_native_library_info(
             enhance_ctx.debug_output("linkables." + platform, linkables_debug)
             linkable_nodes_by_platform[platform] = graph_node_map
 
-    lib_outputs_by_platform = _declare_library_subtargets(ctx, dynamic_outputs, original_shared_libs_by_platform, native_library_merge_map, native_library_merge_sequence)
+    lib_outputs_by_platform = _declare_library_subtargets(ctx, dynamic_outputs, original_shared_libs_by_platform, native_library_merge_map, native_library_merge_sequence, enable_relinker)
 
     if native_library_merge_sequence:
         native_library_merge_input_file = ctx.actions.write_json("mergemap.input", {
@@ -341,7 +341,9 @@ def get_android_binary_native_library_info(
             final_shared_libs_by_platform = original_shared_libs_by_platform
 
         if enable_relinker:
+            unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
             final_shared_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
+            _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, unrelinked_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug, unrelinked = True)
 
         _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, final_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug)
 
@@ -398,6 +400,11 @@ def get_android_binary_native_library_info(
         generated_java_code = generated_java_code,
     )
 
+_NativeLibSubtargetArtifacts = record(
+    default = Artifact,
+    unrelinked = Artifact | None,
+)
+
 # Merged libraries are dynamic dependencies, but outputs need to be declared in advance to be used by subtargets.
 # This means we have to declare outputs for all possible merged libs (every merged name and every unmerged library name).
 def _declare_library_subtargets(
@@ -405,7 +412,8 @@ def _declare_library_subtargets(
         dynamic_outputs: list[Artifact],
         original_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
         native_library_merge_map,
-        native_library_merge_sequence) -> dict[str, dict[str, Artifact]]:
+        native_library_merge_sequence,
+        enable_relinker: bool) -> dict[str, dict[str, _NativeLibSubtargetArtifacts]]:
     lib_outputs_by_platform = {}
     for platform, original_shared_libs in original_shared_libs_by_platform.items():
         sonames = set()
@@ -420,7 +428,20 @@ def _declare_library_subtargets(
             output_path = _platform_output_path(soname, platform if len(original_shared_libs_by_platform) > 1 else None)
             lib_output = ctx.actions.declare_output(output_path, dir = True)
             dynamic_outputs.append(lib_output)
-            lib_outputs[soname] = lib_output
+            if enable_relinker:
+                output_path = output_path + ".unrelinked"
+                unrelinked_lib_output = ctx.actions.declare_output(output_path, dir = True)
+                dynamic_outputs.append(unrelinked_lib_output)
+                lib_outputs[soname] = _NativeLibSubtargetArtifacts(
+                    default = lib_output,
+                    unrelinked = unrelinked_lib_output,
+                )
+            else:
+                lib_outputs[soname] = _NativeLibSubtargetArtifacts(
+                    default = lib_output,
+                    unrelinked = None,
+                )
+
         lib_outputs_by_platform[platform] = lib_outputs
     return lib_outputs_by_platform
 
@@ -430,12 +451,13 @@ def _declare_library_subtargets(
 def _link_library_subtargets(
         ctx: AnalysisContext,
         outputs,  # IndexSet[OutputArtifact]
-        lib_outputs_by_platform: dict[str, dict[str, Artifact]],  # dict[platform, dict[soname,  Artifact]]
+        lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]],  # dict[platform, dict[soname,  _NativeLibSubtargetArtifacts]]
         original_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
         final_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
         merged_shared_lib_targets_by_platform: dict[str, dict[Label, str]],
         split_groups: dict[str, str] | None,
-        native_merge_debug):
+        native_merge_debug,
+        unrelinked: bool = False):
     for platform, final_shared_libs in final_shared_libs_by_platform.items():
         merged_lib_outputs = {}
         for soname, lib in final_shared_libs.items():
@@ -446,7 +468,7 @@ def _link_library_subtargets(
             group_outputs = merged_lib_outputs.setdefault(base_soname, {})
             group_outputs[soname] = lib.lib.output
 
-        for soname, _ in lib_outputs_by_platform[platform].items():
+        for soname, lib_outputs in lib_outputs_by_platform[platform].items():
             if soname in merged_lib_outputs:
                 group_outputs = merged_lib_outputs[soname]
             elif soname in original_shared_libs_by_platform[platform]:
@@ -460,13 +482,22 @@ def _link_library_subtargets(
                 # merged group name has no constituents, link to debug output
                 group_outputs = {soname: native_merge_debug}
 
-            ctx.actions.symlinked_dir(outputs[lib_outputs_by_platform[platform][soname]], group_outputs)
+            output = lib_outputs.default
+            if unrelinked:
+                output = lib_outputs.unrelinked
+            ctx.actions.symlinked_dir(outputs[output], group_outputs)
 
-def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, Artifact]], native_libs: Artifact):
+def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]], native_libs: Artifact):
+    def create_library_subtarget(output: _NativeLibSubtargetArtifacts):
+        if output.unrelinked:
+            sub_targets = {"unrelinked": [DefaultInfo(default_outputs = [output.unrelinked])]}
+            return [DefaultInfo(default_outputs = [output.default], sub_targets = sub_targets)]
+        return [DefaultInfo(default_outputs = [output.default])]
+
     if len(lib_outputs_by_platform) > 1:
         return {
             platform: [DefaultInfo(default_outputs = [native_libs], sub_targets = {
-                soname: [DefaultInfo(default_outputs = [output])]
+                soname: create_library_subtarget(output)
                 for soname, output in lib_outputs.items()
             })]
             for platform, lib_outputs in lib_outputs_by_platform.items()
@@ -474,7 +505,7 @@ def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, Arti
     elif len(lib_outputs_by_platform) == 1:
         lib_outputs = list(lib_outputs_by_platform.values())[0]
         return {
-            soname: [DefaultInfo(default_outputs = [output])]
+            soname: create_library_subtarget(output)
             for soname, output in lib_outputs.items()
         }
     else:
@@ -1645,7 +1676,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             create_relinker_version_script(
                 ctx.actions,
                 output = relinker_version_script,
-                relinker_blocklist = [regex(s) for s in ctx.attrs.relinker_whitelist],
+                relinker_allowlist = [regex(s) for s in ctx.attrs.relinker_whitelist],
                 provided_symbols = provided_symbols_file,
                 needed_symbols = needed_symbols_for_this,
             )
@@ -1673,7 +1704,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
 def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
     return extract_global_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
 
-def create_relinker_version_script(actions: AnalysisActions, relinker_blocklist: list[regex], output: Artifact, provided_symbols: Artifact, needed_symbols: list[Artifact]):
+def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist: list[regex], output: Artifact, provided_symbols: Artifact, needed_symbols: list[Artifact]):
     def create_version_script(ctx, artifacts, outputs):
         all_needed_symbols = {}
         for symbols_file in needed_symbols:
@@ -1690,7 +1721,7 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_blocklist:
             elif "Java_" in symbol:
                 keep_symbol = True
             else:
-                for pattern in relinker_blocklist:
+                for pattern in relinker_allowlist:
                     if pattern.match(symbol):
                         keep_symbol = True
                         break
