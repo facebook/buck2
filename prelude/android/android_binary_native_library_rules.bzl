@@ -293,6 +293,7 @@ def get_android_binary_native_library_info(
                     default_shared_libs = original_shared_libs_by_platform[platform],
                     linkable_nodes = linkable_nodes_by_platform[platform],
                     merge_map = merge_map_by_platform[platform],
+                    merge_linker_args = ctx.attrs.native_library_merge_linker_args or {},
                     apk_module_graph = get_module_from_target,
                 )
                 debug_info_by_platform[platform] = debug_info
@@ -1046,6 +1047,7 @@ def _get_merged_linkables_for_platform(
         default_shared_libs: dict[str, SharedLibrary],
         linkable_nodes: dict[Label, LinkableNode],
         merge_map: dict[str, [str, None]],
+        merge_linker_args: dict[str, typing.Any],
         apk_module_graph: typing.Callable) -> (dict[str, MergedSharedLibrary], MergedLinkablesDebugInfo):
     """
     This takes the merge mapping and constructs the resulting merged shared libraries.
@@ -1277,12 +1279,15 @@ def _get_merged_linkables_for_platform(
             linkable_nodes = link_group_linkable_nodes,
             cxx_toolchain = cxx_toolchain,
         )
+        link_args = [link_args]
+        if soname in merge_linker_args:
+            link_args += [LinkArgs(infos = [LinkInfo(pre_flags = merge_linker_args[soname])])]
 
         shared_lib = create_shared_lib(
             ctx,
             output_path = output_path,
             soname = soname,
-            link_args = [link_args],
+            link_args = link_args,
             cxx_toolchain = cxx_toolchain,
             shared_lib_deps = [link_group_linkable_nodes[label].shared_lib.soname for label in shlib_deps],
             label = group_data.constituents[0],
