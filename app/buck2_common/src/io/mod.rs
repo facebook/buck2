@@ -20,14 +20,15 @@ use crate::file_ops::RawPathMetadata;
 
 #[async_trait]
 pub trait IoProvider: Allocative + Send + Sync {
-    async fn read_file_if_exists(
+    async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>>;
 
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>>;
+    async fn read_dir_impl(&self, path: ProjectRelativePathBuf)
+    -> anyhow::Result<Vec<RawDirEntry>>;
 
-    async fn read_path_metadata_if_exists(
+    async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>>;
@@ -44,4 +45,24 @@ pub trait IoProvider: Allocative + Send + Sync {
     fn project_root(&self) -> &ProjectRoot;
 
     fn as_any(&self) -> &dyn std::any::Any;
+}
+
+impl<'a> dyn IoProvider + 'a {
+    pub async fn read_file_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<String>> {
+        self.read_file_if_exists_impl(path).await
+    }
+
+    pub async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
+        self.read_dir_impl(path).await
+    }
+
+    pub async fn read_path_metadata_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        self.read_path_metadata_if_exists_impl(path).await
+    }
 }

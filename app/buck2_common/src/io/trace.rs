@@ -128,12 +128,12 @@ impl IoProvider for TracingIoProvider {
     ///
     /// This makes code working with the exported I/O manifest much easier to
     /// work with at the expense of some additional I/O during tracing builds.
-    async fn read_file_if_exists(
+    async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>> {
         self.add_project_path(path.clone());
-        self.io.read_file_if_exists(path).await
+        self.io.read_file_if_exists_impl(path).await
     }
 
     /// Combination of read_file_if_exists from underlying fs struct and reading
@@ -142,8 +142,11 @@ impl IoProvider for TracingIoProvider {
     ///
     /// This makes code working with the exported I/O manifest much easier to
     /// work with at the expense of some additional I/O during tracing builds.
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
-        let entries = self.io.read_dir(path.clone()).await?;
+    async fn read_dir_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Vec<RawDirEntry>> {
+        let entries = self.io.read_dir_impl(path.clone()).await?;
         self.add_project_path(path.clone());
         for entry in entries.iter() {
             self.add_project_path(path.join(ForwardRelativePath::unchecked_new(&entry.file_name)));
@@ -152,11 +155,14 @@ impl IoProvider for TracingIoProvider {
         Ok(entries)
     }
 
-    async fn read_path_metadata_if_exists(
+    async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        let res = self.io.read_path_metadata_if_exists(path.clone()).await?;
+        let res = self
+            .io
+            .read_path_metadata_if_exists_impl(path.clone())
+            .await?;
         match &res {
             Some(RawPathMetadata::File(_)) | Some(RawPathMetadata::Directory) => {
                 self.add_project_path(path);

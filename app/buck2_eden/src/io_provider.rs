@@ -120,7 +120,7 @@ impl EdenIoProvider {
 
 #[async_trait]
 impl IoProvider for EdenIoProvider {
-    async fn read_path_metadata_if_exists(
+    async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
@@ -255,20 +255,23 @@ impl IoProvider for EdenIoProvider {
                 // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
                 // look through to the target, so we do that.
                 tracing::debug!("getAttributesFromFilesV2({}): fallthrough", path);
-                self.fs.read_path_metadata_if_exists(path).await
+                self.fs.read_path_metadata_if_exists_impl(path).await
             }
             Err(err) => Err(err.into()),
         }
     }
 
-    async fn read_file_if_exists(
+    async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>> {
-        self.fs.read_file_if_exists(path).await
+        self.fs.read_file_if_exists_impl(path).await
     }
 
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
+    async fn read_dir_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Vec<RawDirEntry>> {
         let _guard = IoCounterKey::ReadDirEden.guard();
 
         let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));

@@ -168,7 +168,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
 async fn check_file_status(
     file_ops: &dyn FileOps,
     cell_resolver: &CellResolver,
-    io: &FsIoProvider,
+    io: &dyn IoProvider,
     path: &ProjectRelativePath,
     result: &mut FileStatusResult,
 ) -> anyhow::Result<()> {

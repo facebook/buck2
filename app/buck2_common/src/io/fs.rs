@@ -99,7 +99,7 @@ enum ReadDirError {
 /// edenfs, for example).
 #[async_trait]
 impl IoProvider for FsIoProvider {
-    async fn read_file_if_exists(
+    async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>> {
@@ -116,7 +116,10 @@ impl IoProvider for FsIoProvider {
             .map_err(Into::into)
     }
 
-    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
+    async fn read_dir_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Vec<RawDirEntry>> {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden couple hundred is probably
         // good (current plan in that impl is to allow multiple batches of 128 dirs at a time).
@@ -148,7 +151,7 @@ impl IoProvider for FsIoProvider {
         .context("Error listing directory")
     }
 
-    async fn read_path_metadata_if_exists(
+    async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
