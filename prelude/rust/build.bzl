@@ -135,6 +135,17 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
         panic_runtime = toolchain_info.panic_runtime,
     )
 
+    # When we pass explicit sysroot deps, we need to override the default sysroot to avoid accidentally
+    # linking against the prebuilt sysroot libs provided by the toolchain. Rustc requires a specific layout
+    # for these libs, so we need to carefully recreate the directory structure below.
+    if toolchain_info.explicit_sysroot_deps:
+        empty_dir = ctx.actions.copied_dir("empty_dir", {})
+        empty_sysroot = ctx.actions.copied_dir("empty_sysroot", {"lib/rustlib/" + toolchain_info.rustc_target_triple + "/lib": empty_dir})
+
+        sysroot_args = cmd_args("--sysroot=", empty_sysroot, delimiter = "")
+    else:
+        sysroot_args = cmd_args()
+
     return CompileContext(
         toolchain_info = toolchain_info,
         cxx_toolchain_info = cxx_toolchain_info,
@@ -144,6 +155,7 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
         clippy_wrapper = clippy_wrapper,
         common_args = {},
         transitive_dependency_dirs = {},
+        sysroot_args = sysroot_args,
     )
 
 def generate_rustdoc(
@@ -985,7 +997,6 @@ def _compute_common_args(
         # TODO: SplitDebugMode("split"): ["-Csplit-debuginfo=unpacked"],
     }[compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")]
 
-    null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "/dev/null"
     args = cmd_args(
         cmd_args(compile_ctx.symlinked_srcs, path_sep, crate_root, delimiter = ""),
         crate_name_arg,
@@ -998,7 +1009,7 @@ def _compute_common_args(
         ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
         split_debuginfo_flags,
-        ["--sysroot=" + null_path] if toolchain_info.explicit_sysroot_deps != None else [],
+        compile_ctx.sysroot_args,
         ["-Cpanic=abort", "-Zpanic-abort-tests=yes"] if toolchain_info.panic_runtime == PanicRuntime("abort") else [],
         _rustc_flags(toolchain_info.rustc_flags),
         _rustc_flags(toolchain_info.rustc_check_flags) if is_check else [],
