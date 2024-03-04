@@ -25,7 +25,6 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
-use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -48,7 +47,7 @@ use crate::ticker::Ticker;
 /// Other than tick() calls, implementations will only be notified when new events arrive.
 const TICKS_PER_SECOND: u32 = 10;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 #[allow(clippy::large_enum_variant)]
 enum BuckdCommunicationError {
     #[error("call to daemon returned an unexpected result type. got `{0:?}`")]
@@ -57,6 +56,11 @@ enum BuckdCommunicationError {
     EmptyCommandResult,
     #[error("buck daemon request finished without returning a CommandResult")]
     MissingCommandResult,
+    #[error(
+        "The Buck2 daemon was shut down while executing your command. This happened because: {0}"
+    )]
+    #[buck2(tag = InterruptedByDaemonShutdown)]
+    InterruptedByDaemonShutdown(buck2_data::DaemonShutdown),
     #[error("buckd communication encountered an unexpected error `{0:?}`")]
     TonicError(tonic::Status),
 }
@@ -261,11 +265,7 @@ impl<'a> EventsCtx<'a> {
                 // certain) the daemon shutdown is the cause for us to simply claim it is.
                 tracing::debug!("Original unpack_stream error was: {:#}", e);
 
-                return Err(anyhow::anyhow!(
-                    "The Buck2 daemon was shut down while executing your command. \
-                    This happened because: {}",
-                    shutdown,
-                ));
+                return Err(BuckdCommunicationError::InterruptedByDaemonShutdown(shutdown).into());
             }
             (Err(e), None) => return Err(e),
         };
@@ -483,7 +483,7 @@ impl FileTailers {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum EventsCtxError {
     #[error("While propagating error:\n{source:#?}, another error was detected:\n{other:#?}")]
     WrappedStreamError {

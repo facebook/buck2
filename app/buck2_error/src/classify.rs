@@ -27,6 +27,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::ServerPanicked => line!(),
         ErrorTag::ServerSegv => line!(),
         ErrorTag::InternalError => line!(),
+        ErrorTag::InterruptedByDaemonShutdown => line!(),
         ErrorTag::DaemonIsBusy => line!(),
         ErrorTag::DaemonConnect => line!(),
         ErrorTag::GrpcResponseMessageTooLarge => line!(),
@@ -56,6 +57,10 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Category> {
         ErrorTag::DaemonConnect => None,
         ErrorTag::DaemonIsBusy => Some(Category::User),
         ErrorTag::InternalError => Some(Category::Infra),
+        // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
+        // happens, it's probably because the user tried to shut down with Ctrl+C and something
+        // about that didn't work
+        ErrorTag::InterruptedByDaemonShutdown => Some(Category::User),
         ErrorTag::GrpcResponseMessageTooLarge => Some(Category::Infra),
         ErrorTag::ClientGrpc => Some(Category::Infra),
         ErrorTag::ProjectMissingPath => Some(Category::User),

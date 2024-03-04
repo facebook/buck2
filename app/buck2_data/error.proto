@@ -85,4 +85,7 @@ enum ErrorTag {
   INTERNAL_ERROR = 21;
   // Artifact projection to a path that does not exist
   PROJECT_MISSING_PATH = 22;
+  // The daemon reported that it was shutting down during the execution of this
+  // command
+  INTERRUPTED_BY_DAEMON_SHUTDOWN = 23;
 }
