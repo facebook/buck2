@@ -33,6 +33,9 @@ def get_module_name(ctx: AnalysisContext) -> str:
 def has_apple_toolchain(ctx: AnalysisContext) -> bool:
     return hasattr(ctx.attrs, "_apple_toolchain")
 
+def get_apple_architecture(ctx: AnalysisContext) -> str:
+    return ctx.attrs._apple_toolchain[AppleToolchainInfo].architecture
+
 def get_versioned_target_triple(ctx: AnalysisContext) -> str:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     swift_toolchain_info = apple_toolchain_info.swift_toolchain_info

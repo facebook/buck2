@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_sdk.bzl", "get_apple_sdk_name")
 load("@prelude//apple:apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
-load("@prelude//apple:apple_utility.bzl", "has_apple_toolchain")
+load("@prelude//apple:apple_utility.bzl", "get_apple_architecture", "has_apple_toolchain")
 load(
     "@prelude//cxx:argsfiles.bzl",
     "CompileArgsfile",  # @unused Used as a type
@@ -27,6 +27,7 @@ def apple_populate_xcode_attributes(
     data = cxx_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = product_name)
 
     if has_apple_toolchain(ctx):
+        data["arch"] = get_apple_architecture(ctx)
         data["sdk"] = get_apple_sdk_name(ctx)
         data["deployment_version"] = get_min_deployment_version_for_node(ctx)
 
