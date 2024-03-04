@@ -83,4 +83,6 @@ enum ErrorTag {
   SERVER_STDERR_UNKNOWN = 19;
   // Internal error in buck2. This is a bug.
   INTERNAL_ERROR = 21;
+  // Artifact projection to a path that does not exist
+  PROJECT_MISSING_PATH = 22;
 }

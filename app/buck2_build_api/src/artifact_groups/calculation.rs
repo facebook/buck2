@@ -25,6 +25,7 @@ use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::directory::DirectoryData;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -386,7 +387,8 @@ impl Key for EnsureProjectedArtifactKey {
                     self.0.path(),
                     self.0.base()
                 )
-            })?;
+            })
+            .tag(buck2_error::ErrorTag::ProjectMissingPath)?;
 
         Ok(value)
     }
