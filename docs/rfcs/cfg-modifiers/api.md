@@ -181,7 +181,7 @@ targets in repo.
 ```python
 # repo/PACKAGE
 
-set_cfg_modifiers(modifiers = [
+set_cfg_modifiers(cfg_modifiers = [
   "cfg//:linux",
   modifiers.match({
     "DEFAULT": "cfg//compiler:clang",
@@ -211,7 +211,7 @@ Then the same PACKAGE modifiers can be specified as follows.
 ```python
 # repo/PACKAGE
 
-set_cfg_modifiers(modifiers = [
+set_cfg_modifiers(cfg_modifiers = [
   "linux",
   modifiers.match({
     "DEFAULT": "clang",
@@ -294,7 +294,7 @@ Suppose modifiers for `repo//foo:bar` are specified as follows.
 ```python
 # repo/PACKAGE
 
-set_cfg_modifiers(modifiers = [
+set_cfg_modifiers(cfg_modifiers = [
   "cfg//:linux",
   modifiers.match({
     "DEFAULT": "cfg//compiler:clang",
@@ -304,7 +304,7 @@ set_cfg_modifiers(modifiers = [
 
 # repo/foo/PACKAGE
 
-set_cfg_modifiers(modifiers = ["cfg//os:macos"])
+set_cfg_modifiers(cfg_modifiers = ["cfg//os:macos"])
 
 # repo/foo/BUCK
 
@@ -380,7 +380,7 @@ follows.
 # always be building for apple/android as OS, no matter the host
 # configuration.
 
-set_cfg_modifiers(modifiers = [
+set_cfg_modifiers(cfg_modifiers = [
   modifiers.match_rule({
     "apple_.*": "cfg//os:iphone",
     "android_.*": "cfg//os:android",
