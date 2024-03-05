@@ -10,11 +10,10 @@ load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
 def _run_entry_point(ctx: bxl.Context) -> None:
     targets = flatten(ctx.cli_args.target)
-    uquery_universe = ctx.target_universe(targets).target_set()
-    checked_targets = do_filter(ctx.cquery(), uquery_universe)
+    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets))
 
     build_result = ctx.build([
-        target.with_sub_target("typecheck")
+        target.label.with_sub_target("typecheck")
         for target in checked_targets
     ])
     output = ctx.output.ensure_multiple(build_result)

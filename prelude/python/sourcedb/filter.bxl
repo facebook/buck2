@@ -13,10 +13,10 @@ BUCK_PYTHON_RULE_KINDS = [
 BUCK_PYTHON_RULE_KIND_QUERY = "|".join(BUCK_PYTHON_RULE_KINDS)
 
 def filter_root_targets(
-        query: bxl.CqueryContext,
-        target_patterns: typing.Any) -> bxl.ConfiguredTargetSet:
+        query: bxl.UqueryContext,
+        target_patterns: typing.Any) -> bxl.TargetSet:
     # Find all Pure-Python targets
-    candidate_targets = ctarget_set()
+    candidate_targets = utarget_set()
     for pattern in target_patterns:
         candidate_targets += query.kind(
             BUCK_PYTHON_RULE_KIND_QUERY,
@@ -39,18 +39,18 @@ def filter_root_targets(
     return filtered_targets
 
 def do_filter(
-        query: bxl.CqueryContext,
-        target_patterns: typing.Any) -> list[ConfiguredTargetLabel]:
+        query: bxl.UqueryContext,
+        target_patterns: typing.Any) -> list[TargetLabel]:
     root_targets = filter_root_targets(query, target_patterns)
     return [root_target.label for root_target in root_targets]
 
 def _do_filter_entry_point(ctx: bxl.Context) -> None:
-    query = ctx.cquery()
+    query = ctx.uquery()
     targets = do_filter(
         query,
         [query.eval(target) for target in ctx.cli_args.target],
     )
-    ctx.output.print_json([target.raw_target() for target in targets])
+    ctx.output.print_json(targets)
 
 filter = bxl_main(
     doc = (
