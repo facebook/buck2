@@ -66,7 +66,7 @@ impl PartialEq for AdditionalGlobalsFn {
         // And if compiler merges or splits vtables, we don't care,
         // because we behavior will be correct either way.
         // Anyway, this code is used only in tests.
-        #[allow(clippy::vtable_address_comparisons)]
+        #[allow(ambiguous_wide_pointer_comparisons)]
         Arc::ptr_eq(&self.0, &other.0)
     }
 }
