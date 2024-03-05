@@ -122,6 +122,7 @@ use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProviderExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
@@ -603,6 +604,7 @@ impl BxlEvalContext<'_> {
         let (analysis_registry, declared_outputs) = {
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
+            eval.extra = Some(&BxlEvalExtraTag);
 
             let dynamic_lambda_ctx_data =
                 dynamic_lambda_ctx_data(self.dynamic_lambda, self.deferred_ctx, &env)?;

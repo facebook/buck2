@@ -69,6 +69,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
+use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
@@ -182,6 +183,7 @@ impl BxlInnerEvaluator {
             let bxl_function_name = key.label().name.clone();
             let frozen_callable = get_bxl_callable(key.label(), &module)?;
             eval.set_print_handler(&print);
+            eval.extra = Some(&BxlEvalExtraTag);
 
             let force_print_stacktrace = key.force_print_stacktrace();
             let bxl_ctx = BxlContext::new(
