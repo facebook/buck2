@@ -1,13 +1,13 @@
-load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
-rust_library(
+rust_unittest(
     name = "buck2_node_tests",
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
-    test_deps = [
+    deps = [
         "fbsource//third-party/rust:anyhow",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
