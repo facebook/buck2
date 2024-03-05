@@ -236,6 +236,8 @@ pub struct EvaluationResultWithStats {
     pub result: EvaluationResult,
     // Peak allocated memory in starlark mutable heap during evaluation of BUCK file
     pub starlark_peak_allocated_bytes: u64,
+    /// Instruction count during evaluation of `BUCK` file.
+    pub cpu_instruction_count: Option<u64>,
 }
 
 #[derive(Debug)]

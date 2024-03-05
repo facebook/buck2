@@ -553,6 +553,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         .as_ref()
                         .ok()
                         .map(|rs| rs.starlark_peak_allocated_bytes);
+                    let cpu_instruction_count = result_with_stats
+                        .as_ref()
+                        .ok()
+                        .and_then(|rs| rs.cpu_instruction_count);
                     let result = result_with_stats.map(|rs| rs.result);
 
                     (
@@ -561,6 +565,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                             module_id,
                             cell: cell_str,
                             starlark_peak_allocated_bytes,
+                            cpu_instruction_count,
                             error,
                         },
                     )

@@ -48,6 +48,7 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::eval_result::EvaluationResultWithStats;
 use buck2_node::super_package::SuperPackage;
+use buck2_util::per_thread_instruction_counter::PerThreadInstructionCounter;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
@@ -254,6 +255,7 @@ struct EvalResult {
     additional: PerFileTypeContext,
     starlark_peak_allocated_byte_limit: OnceCell<Option<u64>>,
     is_profiling_enabled: bool,
+    cpu_instruction_count: Option<u64>,
 }
 
 impl InterpreterForCell {
@@ -507,7 +509,7 @@ impl InterpreterForCell {
         );
         let is_profiling_enabled;
         let print = EventDispatcherPrintHandler(get_dispatcher());
-        {
+        let cpu_instruction_count = {
             let (mut eval, is_profiling_enabled_by_provider) = eval_provider.make(env)?;
             is_profiling_enabled = is_profiling_enabled_by_provider;
             eval.enable_static_typechecking(unstable_typecheck);
@@ -517,14 +519,23 @@ impl InterpreterForCell {
             if self.verbose_gc {
                 eval.verbose_gc();
             }
+
+            // Ignore error if failed to initialize instruction counter.
+            let instruction_counter: Option<PerThreadInstructionCounter> =
+                PerThreadInstructionCounter::init().ok().unwrap_or_default();
+
             match eval.eval_module(ast, globals) {
                 Ok(_) => {
+                    let cpu_instruction_count = instruction_counter.and_then(|c| c.collect().ok());
+
                     eval_provider
                         .evaluation_complete(&mut eval)
                         .context("Profiler finalization failed")?;
                     eval_provider
                         .visit_frozen_module(None)
-                        .context("Profiler heap visitation failed")?
+                        .context("Profiler heap visitation failed")?;
+
+                    cpu_instruction_count
                 }
                 Err(p) => return Err(BuckStarlarkError::new(p).into()),
             }
@@ -533,6 +544,7 @@ impl InterpreterForCell {
             additional: extra.additional,
             is_profiling_enabled,
             starlark_peak_allocated_byte_limit: extra.starlark_peak_allocated_byte_limit,
+            cpu_instruction_count,
         })
     }
 
@@ -698,11 +710,13 @@ impl InterpreterForCell {
             Ok(EvaluationResultWithStats {
                 result: EvaluationResult::from(internals),
                 starlark_peak_allocated_bytes,
+                cpu_instruction_count: eval_result.cpu_instruction_count,
             })
         } else {
             Ok(EvaluationResultWithStats {
                 result: EvaluationResult::from(internals),
                 starlark_peak_allocated_bytes,
+                cpu_instruction_count: eval_result.cpu_instruction_count,
             })
         }
     }

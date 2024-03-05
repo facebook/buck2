@@ -955,6 +955,7 @@ mod tests {
                     cell: "bar".to_owned(),
                     error: None,
                     starlark_peak_allocated_bytes: Some(0),
+                    cpu_instruction_count: None,
                 })),
                 stats: None,
                 duration: None,
