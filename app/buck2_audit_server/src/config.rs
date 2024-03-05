@@ -132,7 +132,7 @@ impl AuditSubcommand for AuditConfigCommand {
                 let filter = move |cell: CellName, section: &str, key: &str| {
                     if specs.is_empty() {
                         if cell == resolved_relevant_cell {
-                            Some(format!("{}.{}", section, key))
+                            Some(format!("{section}.{key}"))
                         } else {
                             None
                         }
@@ -143,7 +143,7 @@ impl AuditSubcommand for AuditConfigCommand {
                                 && (filter_key == &"" || &key == filter_key)
                             {
                                 return if filter_key == &"" {
-                                    Some(format!("{}.{}", section, key))
+                                    Some(format!("{section}.{key}"))
                                 } else {
                                     Some((*spec).to_owned())
                                 };
@@ -184,7 +184,7 @@ impl AuditSubcommand for AuditConfigCommand {
                                 for (key, value) in values.iter() {
                                     if filter(cell, section, key).is_some() {
                                         if !printed_section {
-                                            writeln!(&mut stdout, "[{}]", section)?;
+                                            writeln!(&mut stdout, "[{section}]")?;
                                             printed_section = true;
                                         }
                                         print_value(&mut stdout, key, &value, self.value_style)?;
