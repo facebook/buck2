@@ -747,15 +747,15 @@ windows_resource = prelude_rule(
 
         # A rule that includes a single .rc file and compiles it into an object file.
         windows_resource(
-          name = 'resources',
+          name = "resources",
           srcs = [
-            'resources.rc',
+            "resources.rc",
           ],
         )
 
         # A rule that links against the above windows_resource rule.
         cxx_binary(
-          name = 'app',
+          name = "app",
           srcs = [
             "main.cpp",
           ],
