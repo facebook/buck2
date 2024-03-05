@@ -15,6 +15,7 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 # Provider that exposes the compilation database information
 CxxCompilationDbInfo = provider(fields = {
+    "compdb": provider_field(typing.Any, default = None),  # path customly built compile_commands.json (used by Zephyr projects)
     "info": provider_field(typing.Any, default = None),  # A map of the file (an `Artifact`) to its corresponding `CxxSrcCompileCommand`
     "platform": provider_field(typing.Any, default = None),  # platform for this compilation database
     "toolchain": provider_field(typing.Any, default = None),  # toolchain for this compilation database
