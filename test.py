@@ -202,14 +202,9 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
 
 
 RUSTC_ALLOW = {
-    # This needs a feature
+    # These are not in the shared-with-buck2 lists because they only appear in third-party deps.
+    # Normally cargo would suppress those, but we do vendored builds and so it doesn't.
     "unfulfilled-lint-expectations",
-    # error: unknown lint: `unknown_or_malformed_diagnostic_attributes`
-    #   |
-    #   = note: the `unknown_or_malformed_diagnostic_attributes` lint is unstable
-    #   = note: see issue #111996 <https://github.com/rust-lang/rust/issues/111996> for more information
-    #   = help: add `-Zcrate-attr="feature(diagnostic_namespace)"` to the command-line options to enable
-    #   = note: requested on the command line with `-D unknown-lints`
     "unknown-lints",
     # This is not *actually* a  warning but rather a warning level.
     "warnings",
