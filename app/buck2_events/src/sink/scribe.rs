@@ -130,7 +130,7 @@ mod fbcode {
                             data: Some(
                                 StructuredError {
                                     location: Some(Location {
-                                        file: file!().to_string(),
+                                        file: file!().to_owned(),
                                         line: line!(),
                                         column: column!(),
                                     }),
