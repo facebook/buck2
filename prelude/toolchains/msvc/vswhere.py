@@ -37,7 +37,7 @@ class Tool(NamedTuple):
     INCLUDE: List[Path] = []
 
 
-def find_in_path(executable, is_optional):
+def find_in_path(executable, is_optional=False):
     which = shutil.which(executable)
     if which is None:
         if is_optional:
@@ -229,12 +229,12 @@ def main():
 
     # If vcvars has been run, it puts these tools onto $PATH.
     if "VCINSTALLDIR" in os.environ:
-        cl_exe = find_in_path("cl.exe", False)
-        cvtres_exe = find_in_path("cvtres.exe", False)
-        lib_exe = find_in_path("lib.exe", False)
-        ml64_exe = find_in_path("ml64.exe", False)
-        link_exe = find_in_path("link.exe", False)
-        rc_exe = find_in_path("rc.exe", True)
+        cl_exe = find_in_path("cl.exe")
+        cvtres_exe = find_in_path("cvtres.exe")
+        lib_exe = find_in_path("lib.exe")
+        ml64_exe = find_in_path("ml64.exe")
+        link_exe = find_in_path("link.exe")
+        rc_exe = find_in_path("rc.exe", optional=True)
     else:
         cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe, rc_exe = find_with_vswhere_exe()
 
