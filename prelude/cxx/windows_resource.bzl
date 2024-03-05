@@ -15,6 +15,7 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             "{}.res".format(src.short_path),
         )
         rc_cmd = cmd_args(toolchain.rc_compiler_info.compiler)
+        rc_cmd.add(toolchain.rc_compiler_info.compiler_flags)
         rc_cmd.add(cmd_args(rc_output.as_output(), format = "/fo{}"))
         rc_cmd.add(src)
 
@@ -28,6 +29,7 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             "{}.obj".format(src.short_path),
         )
         cvtres_cmd = cmd_args(toolchain.cvtres_compiler_info.compiler)
+        cvtres_cmd.add(toolchain.cvtres_compiler_info.compiler_flags)
         cvtres_cmd.add(cmd_args(cvtres_output.as_output(), format = "/OUT:{}"))
         cvtres_cmd.add(rc_output)
 
