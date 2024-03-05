@@ -477,6 +477,13 @@ impl ConfiguredTargetNode {
         }
     }
 
+    pub fn unwrap_forward(&self) -> &ConfiguredTargetNode {
+        match self.forward_target() {
+            None => self,
+            Some(t) => t,
+        }
+    }
+
     #[inline]
     pub fn uses_plugins(&self) -> &[PluginKind] {
         self.as_ref().uses_plugins()

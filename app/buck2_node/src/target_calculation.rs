@@ -16,6 +16,8 @@ use buck2_core::target::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
+use crate::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+
 #[async_trait]
 pub trait ConfiguredTargetCalculationImpl: Send + Sync + 'static {
     async fn get_configured_target(
@@ -49,6 +51,12 @@ pub trait ConfiguredTargetCalculation {
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<ConfiguredTargetLabel>;
 
+    async fn get_configured_target_post_transition(
+        &mut self,
+        target: &TargetLabel,
+        global_cfg_options: &GlobalCfgOptions,
+    ) -> anyhow::Result<ConfiguredTargetLabel>;
+
     async fn get_configured_provider_label(
         &mut self,
         target: &ProvidersLabel,
@@ -72,6 +80,21 @@ impl ConfiguredTargetCalculation for DiceComputations<'_> {
             .get()?
             .get_configured_target(self, target, global_cfg_options)
             .await
+    }
+
+    async fn get_configured_target_post_transition(
+        &mut self,
+        target: &TargetLabel,
+        global_cfg_options: &GlobalCfgOptions,
+    ) -> anyhow::Result<ConfiguredTargetLabel> {
+        let configured = self
+            .get_configured_target(target, global_cfg_options)
+            .await?;
+        let configured_target_node = self
+            .get_configured_target_node(&configured)
+            .await?
+            .require_compatible()?;
+        Ok(configured_target_node.unwrap_forward().label().clone())
     }
 
     async fn get_configured_provider_label(
