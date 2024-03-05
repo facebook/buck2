@@ -393,9 +393,14 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
         exit_when_different_state: bool,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
+        // Have to put it on the function unfortunately, https://github.com/rust-lang/rust-clippy/issues/9047
+        #![allow(clippy::await_holding_invalid_type)]
+
         let trace = event_dispatcher.trace_id().dupe();
 
         let span = tracing::span!(tracing::Level::DEBUG, "wait_for_others", trace = %trace);
+        // FIXME(JakobDegen): Clippy points out that tracing won't know when this future gets
+        // descheduled from this executor thread, so this may show up in the wrong places
         let _enter = span.enter();
 
         let mut data = self.data.lock().await;
