@@ -204,37 +204,20 @@ impl AuditSubcommand for AuditConfigCommand {
                 let specs = Matches::parse(cell_alias_resolver, &self.specs)?;
                 let mut stdout = stdout.as_writer();
 
-                match self.output_format() {
-                    OutputFormat::Json => writeln!(
-                        &mut stdout,
-                        "{}",
-                        json!(
-                            config
-                                .iter()
-                                .flat_map(|(cell, cell_config)| cell_config
-                                    .all_sections()
-                                    .map(move |(section, cfg)| (cell, section, cfg)))
-                                .flat_map(|(cell, section, cfg)| {
-                                    cfg.iter()
-                                        .filter_map(|(key, value)| {
-                                            specs
-                                                .filter(resolved_relevant_cell, cell, section, key)
-                                                .map(|spec| (spec, value.as_str().to_owned()))
-                                        })
-                                        .collect::<HashMap<String, String>>()
-                                })
-                                .collect::<HashMap<String, String>>()
-                        )
-                    )?,
-                    OutputFormat::Simple => {
-                        for (cell, cell_config) in config.iter() {
-                            for (section, values) in cell_config.all_sections() {
-                                let mut printed_section = false;
-                                for (key, value) in values.iter() {
-                                    if specs
-                                        .filter(resolved_relevant_cell, cell, section, key)
-                                        .is_some()
-                                    {
+                let output_format = self.output_format();
+                let mut json_output = HashMap::new();
+                for (cell, cell_config) in config.iter() {
+                    for (section, values) in cell_config.all_sections() {
+                        let mut printed_section = false;
+                        for (key, value) in values.iter() {
+                            if let Some(spec) =
+                                specs.filter(resolved_relevant_cell, cell, section, key)
+                            {
+                                match output_format {
+                                    OutputFormat::Json => {
+                                        json_output.insert(spec, value.as_str().to_owned());
+                                    }
+                                    OutputFormat::Simple => {
                                         if !printed_section {
                                             writeln!(&mut stdout, "[{section}]")?;
                                             printed_section = true;
@@ -246,6 +229,9 @@ impl AuditSubcommand for AuditConfigCommand {
                             }
                         }
                     }
+                }
+                if output_format == OutputFormat::Json {
+                    writeln!(&mut stdout, "{}", json!(json_output))?;
                 }
 
                 Ok(())
