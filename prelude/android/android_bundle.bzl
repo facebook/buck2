@@ -84,6 +84,9 @@ def build_bundle(
     jar_files_that_may_contain_resources = actions.write("jar_files_that_may_contain_resources", resources_info.jar_files_that_may_contain_resources)
     bundle_builder_args.hidden(resources_info.jar_files_that_may_contain_resources)
 
+    if resources_info.module_assets:
+        bundle_builder_args.add(["--module-assets-dir", resources_info.module_assets])
+
     bundle_builder_args.add([
         "--root-module-asset-directories-list",
         root_module_asset_directories_file,
