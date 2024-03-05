@@ -228,9 +228,8 @@ impl AuditSubcommand for AuditConfigCommand {
                     )?,
                     OutputFormat::Simple => {
                         for (cell, cell_config) in config.iter() {
-                            for section in cell_config.sections() {
+                            for (section, values) in cell_config.all_sections() {
                                 let mut printed_section = false;
-                                let values = cell_config.get_section(section).unwrap();
                                 for (key, value) in values.iter() {
                                     if specs
                                         .filter(resolved_relevant_cell, cell, section, key)
