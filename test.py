@@ -67,7 +67,6 @@ def run(
     args: Iterable[str],
     capture_output: bool = False,
     env: Optional[Dict[str, str]] = None,
-    error: Optional[str] = None,
 ) -> subprocess.CompletedProcess:
     """
     Runs a command (args) in a new process.
@@ -85,7 +84,7 @@ def run(
             # We'd like to use the capture_output argument,
             # but that isn't available in Python 3.6 which we use on Windows
             stdout=subprocess.PIPE if capture_output else sys.stdout,
-            stderr=subprocess.PIPE if capture_output else sys.stderr,
+            stderr=sys.stderr,
             check=True,
             encoding="utf-8",
             env=env or os.environ.copy(),
@@ -95,9 +94,6 @@ def run(
         # Print the console info if we were capturing it
         if capture_output:
             print(e.stdout, file=sys.stdout)
-            print(e.stderr, file=sys.stderr)
-        if error:
-            print_error(error)
         sys.exit(1)
 
 
