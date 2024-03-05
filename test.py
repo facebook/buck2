@@ -304,10 +304,6 @@ RUSTC_ALLOW = {
     "warnings",
 }
 
-RUSTDOC_ALLOW = {
-    "rustdoc::redundant_explicit_links",  # FIXME new in Rust 1.73
-}
-
 
 def _get_default_rustc_warnings() -> List[str]:
     """
@@ -447,7 +443,7 @@ def rustdoc(package_args: List[str]) -> None:
         # contain a `code` field that itself has a `code` field that is machine
         # readable for we look for this.
         code = _lookup(line, "message", "code", "code")
-        if code is None or "rustdoc::" not in code or code in RUSTDOC_ALLOW:
+        if code is None or "rustdoc::" not in code:
             continue
 
         has_warnings = True
