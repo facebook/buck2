@@ -110,9 +110,10 @@ def check_no_changes(git: bool):
 
     status = run(status_cmd, capture_output=True)
     if status.stdout.strip():
+        run(status_cmd)
         run(diff_cmd)
         print_error(
-            "File changed from commit. This means you need to run cargo-fmt locally and amend this commit."
+            "File changes! Caused either by formatting or by tests creating stray files."
         )
         sys.exit(1)
 
