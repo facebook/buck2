@@ -20,6 +20,8 @@ use crate::AuditSubcommand;
     Dupe,
     Clone,
     Copy,
+    PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     clap::ArgEnum
