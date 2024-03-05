@@ -222,7 +222,7 @@ impl LocalExecutor {
             return manager.error("no_args", LocalExecutionError::NoArgs);
         }
 
-        let (scratch_path, input_materialization_duration) = match executor_stage_async(
+        let executor_stage_result = executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::LocalMaterializeInputs {}.into()),
             },
@@ -258,8 +258,9 @@ impl LocalExecutor {
                 anyhow::Ok((scratch_path, start.elapsed()))
             },
         )
-        .await
-        {
+        .await;
+
+        let (scratch_path, input_materialization_duration) = match executor_stage_result {
             Ok((scratch_path, input_materialization_duration)) => {
                 (scratch_path, input_materialization_duration)
             }
