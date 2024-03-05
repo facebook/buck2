@@ -120,7 +120,6 @@ pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
 /// start a new one.
 /// 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
 /// output directories between different buckd instances.
-#[allow(clippy::needless_borrow)] // False positive.
 pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
     fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
         let home = dirs::home_dir().context("Expected a HOME directory to be available")?;

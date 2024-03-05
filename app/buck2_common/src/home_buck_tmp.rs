@@ -20,7 +20,6 @@ use crate::invocation_roots::home_buck_dir;
 /// `~/.buck/tmp` after old files removed.
 ///
 /// We use this directory when we need tmp dir with short file names (to connect to unix socket).
-#[allow(clippy::needless_borrow)] // False positive.
 pub fn home_buck_tmp_dir() -> anyhow::Result<&'static AbsNormPath> {
     fn remove_old_files(tmp_dir: &AbsNormPath) -> anyhow::Result<()> {
         let mut now = None;
