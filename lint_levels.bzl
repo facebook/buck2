@@ -72,7 +72,6 @@ CLIPPY_DENY = [
     "clippy::trivially_copy_pass_by_ref",
     "clippy::useless_transmute",
     "clippy::verbose_file_reads",
-    "clippy::wildcard_dependencies",
     "clippy::useless-vec",  # TBD if this should be CLIPPY_ALLOW
     "clippy::unnecessary-literal-unwrap",  # TBD if this should be CLIPPY_ALLOW
     "clippy::needless_borrow",
