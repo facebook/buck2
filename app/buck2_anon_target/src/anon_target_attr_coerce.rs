@@ -143,6 +143,11 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     let artifact = artifact_like.0.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
                 } else {
+                    // TODO(nga): `EnsuredArtifact` gets here with unhelpful error message like:
+                    //    ```
+                    //    Expected value of type `artifact`, got value with type `ensured_artifact`
+                    //    (value was `<ensured <build artifact merged_cdb bound to ...
+                    //    ```
                     Err(AnonTargetCoercionError::type_error("artifact", value).into())
                 }
             }
