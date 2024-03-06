@@ -135,6 +135,7 @@ extra_attributes = {
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": toolchains_common.java_for_android(),
+        VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
     },
     "android_instrumentation_apk": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1

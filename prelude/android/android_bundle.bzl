@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
@@ -21,6 +22,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         native_library_info = android_binary_info.native_library_info,
         resources_info = android_binary_info.resources_info,
         bundle_config = ctx.attrs.bundle_config_file,
+        validation_deps_outputs = get_validation_deps_outputs(ctx),
     )
 
     java_packaging_deps = android_binary_info.java_packaging_deps
@@ -42,7 +44,8 @@ def build_bundle(
         dex_files_info: DexFilesInfo,
         native_library_info: AndroidBinaryNativeLibsInfo,
         resources_info: AndroidBinaryResourcesInfo,
-        bundle_config: [Artifact, None]) -> Artifact:
+        bundle_config: [Artifact, None],
+        validation_deps_outputs: [list[Artifact], None] = None) -> Artifact:
     output_bundle = actions.declare_output("{}.aab".format(label.name))
 
     bundle_builder_args = cmd_args([
@@ -54,6 +57,12 @@ def build_bundle(
         "--dex-file",
         dex_files_info.primary_dex,
     ])
+
+    # The outputs of validation_deps need to be added as hidden arguments
+    # to an action for the validation_deps targets to be built and enforced.
+    if validation_deps_outputs:
+        bundle_builder_args.hidden(validation_deps_outputs)
+
     if bundle_config:
         bundle_builder_args.add(["--path-to-bundle-config-file", bundle_config])
 
