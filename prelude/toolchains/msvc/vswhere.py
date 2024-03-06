@@ -15,10 +15,12 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import winreg
 from pathlib import Path
 from typing import IO, List, NamedTuple
 
+EXE_NAMES = ["cl.exe", "lib.exe", "ml64.exe", "link.exe"]
 
 class OutputJsonFiles(NamedTuple):
     # We write a Tool instance as JSON into each of these files.
@@ -99,8 +101,7 @@ def find_with_vswhere_exe():
         lib_path = tools_path / "lib" / "x64"
         include_path = tools_path / "include"
 
-        exe_names = "cl.exe", "lib.exe", "ml64.exe", "link.exe"
-        if not all(bin_path.joinpath(exe).exists() for exe in exe_names):
+        if not all(bin_path.joinpath(exe).exists() for exe in EXE_NAMES):
             continue
 
         PATH = [bin_path]
@@ -203,28 +204,27 @@ def write_tool_json(out, tool):
 
 
 # for use with the ewdk to grab the environment strings
-def get_env(ewdkdir: str):
+def get_ewdk_env(ewdkdir: Path):
     """
     Inspiration taken from the following:
     http://pythonwise.blogspot.fr/2010/04/sourcing-shell-script.html (Miki Tebeka)
     http://stackoverflow.com/questions/3503719/#comment28061110_3505826 (ahal)
     """
 
+    output = None
+
     # We need to write the script that will make the important variables available
-    # This gets run from the temporary build directory, so this does not pollute the sources
-    vcVarsExtract = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                "VcVarsExtract.bat")
-    if not os.path.exists(vcVarsExtract):
-        with open(vcVarsExtract, "w") as f:
-            f.write("@echo off\r\ncall %%1 %%2 %%3 %%4 %%5 %%6 %%7 %%8 %%9 > NUL\r\nset")
+    with tempfile.NamedTemporaryFile(prefix="VcVarsExtract", suffix=".bat", mode="w", delete=False) as tmp:
+        print(f"temp file at {tmp.name}")
+        output = tmp.name
+        print("@echo off", file=tmp)
+        print("call %* > NUL", file=tmp)
+        print("set", file=tmp)
+    
+    env_script = ewdkdir / "BuildEnv" / "SetupBuildEnv.cmd"
+    cmd = [tmp.name, env_script, "amd64"]
+    output = subprocess.check_output(cmd).decode("utf-8")
 
-    batch_file = os.path.join(ewdkdir, "BuildEnv", "SetupBuildEnv.cmd")
-
-    # This does not work as a list of strings, unfortunately
-    cmd = vcVarsExtract + ' "' + batch_file + '" ' + "amd64"
-
-    output = subprocess.check_output(cmd)
-    output = output.decode("utf-8")
     env = {}
     for line in output.split('\r\n'):
         if line and '=' in line:
@@ -234,11 +234,11 @@ def get_env(ewdkdir: str):
     return env
 
 
-def find_with_ewdk():
-    env = get_env(os.environ.get("EWDKDIR"))
+def find_with_ewdk(ewdkdir: Path):
+    env = get_ewdk_env(ewdkdir)
 
-    installation_path = Path(env.get("VSINSTALLDIR"))
-    vc_tools_version = env.get("VCToolsVersion")
+    installation_path = Path(env["VSINSTALLDIR"])
+    vc_tools_version = env["VCToolsVersion"]
     tools_path = installation_path / "VC" / "Tools" / "MSVC" / vc_tools_version
     bin_path = tools_path / "bin" / "HostX64" / "x64"
     lib_path = tools_path / "lib" / "x64"
@@ -248,17 +248,17 @@ def find_with_ewdk():
     LIB = [lib_path]
     INCLUDE = [include_path]
 
-    ucrt = Path(env.get("UCRTContentRoot"))
+    ucrt = Path(env["UCRTContentRoot"])
     ucrt_version = env.get("Version_Number")
 
-    if ucrt and ucrt_version:
+    if ucrt_version:
         PATH.append(ucrt / "bin" / ucrt_version / "x64")
         LIB.append(ucrt / "lib" / ucrt_version / "ucrt" / "x64")
         INCLUDE.append(ucrt / "include" / ucrt_version / "ucrt")
 
-    sdk = Path(env.get("WindowsSdkDir"))
+    sdk = Path(env["WindowsSdkDir"])
     sdk_version = ucrt_version
-    if sdk and sdk_version:
+    if sdk_version:
         PATH.append(sdk / "bin" / "x64")
         LIB.append(sdk / "lib" / sdk_version / "um" / "x64")
         INCLUDE.append(sdk / "include" / sdk_version / "um")
@@ -266,10 +266,9 @@ def find_with_ewdk():
         INCLUDE.append(sdk / "include" / sdk_version / "winrt")
         INCLUDE.append(sdk / "include" / sdk_version / "shared")
 
-    exe_names = "cl.exe", "lib.exe", "ml64.exe", "link.exe"
     return [
         Tool(exe=bin_path / exe, LIB=LIB, PATH=PATH, INCLUDE=INCLUDE)
-        for exe in exe_names
+        for exe in EXE_NAMES
     ]
 
 def main():
@@ -282,12 +281,9 @@ def main():
 
     # If vcvars has been run, it puts these tools onto $PATH.
     if "VCINSTALLDIR" in os.environ:
-        cl_exe = find_in_path("cl.exe")
-        lib_exe = find_in_path("lib.exe")
-        ml64_exe = find_in_path("ml64.exe")
-        link_exe = find_in_path("link.exe")
+        cl_exe, lib_exe, ml64_exe, link_exe = (find_in_path(exe) for exe in EXE_NAMES)
     elif "EWDKDIR" in os.environ:
-        cl_exe, lib_exe, ml64_exe, link_exe = find_with_ewdk()
+        cl_exe, lib_exe, ml64_exe, link_exe = find_with_ewdk(Path(os.environ["EWDKDIR"]))
     else:
         cl_exe, lib_exe, ml64_exe, link_exe = find_with_vswhere_exe()
 
