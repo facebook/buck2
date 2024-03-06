@@ -211,12 +211,8 @@ def get_ewdk_env(ewdkdir: Path):
     http://stackoverflow.com/questions/3503719/#comment28061110_3505826 (ahal)
     """
 
-    output = None
-
     # We need to write the script that will make the important variables available
     with tempfile.NamedTemporaryFile(prefix="VcVarsExtract", suffix=".bat", mode="w", delete=False) as tmp:
-        print(f"temp file at {tmp.name}")
-        output = tmp.name
         print("@echo off", file=tmp)
         print("call %* > NUL", file=tmp)
         print("set", file=tmp)
