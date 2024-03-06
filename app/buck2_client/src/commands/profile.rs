@@ -147,7 +147,7 @@ pub struct ProfileCommonOptions {
 
     /// Profile mode.
     ///
-    /// Memory profiling modes have suffixes either `-allocated` or `retained`.
+    /// Memory profiling modes have suffixes either `-allocated` or `-retained`.
     ///
     /// `-retained` means memory kept in frozen starlark heap after analysis complete.
     /// `-retained` does not work when profiling loading,
