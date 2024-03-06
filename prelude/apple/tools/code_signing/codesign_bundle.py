@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+import asyncio
 import logging
 import os
 import shutil
@@ -15,7 +16,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, cast, Dict, List, Optional, Union
 
 from apple.tools.plistlib_utils import detect_format_and_load
 
@@ -64,11 +65,22 @@ def _select_provisioning_profile(
     log_file_path: Optional[Path] = None,
 ) -> SelectedProvisioningProfileInfo:
     identities = list_codesign_identities.list_codesign_identities()
-    provisioning_profiles = _read_provisioning_profiles(
-        provisioning_profiles_dir,
-        read_provisioning_profile_command_factory,
-        should_use_fast_provisioning_profile_parsing,
+    _LOGGER.info(
+        f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
     )
+    provisioning_profiles = []
+    if should_use_fast_provisioning_profile_parsing:
+        provisioning_profiles = asyncio.run(
+            _fast_read_provisioning_profiles_async(
+                provisioning_profiles_dir,
+                read_provisioning_profile_command_factory,
+            )
+        )
+    else:
+        provisioning_profiles = _read_provisioning_profiles(
+            provisioning_profiles_dir,
+            read_provisioning_profile_command_factory,
+        )
     if not provisioning_profiles:
         raise CodeSignProvisioningError(
             f"\n\nFailed to find any provisioning profiles. Please make sure to install required provisioning profiles and make sure they are located at '{provisioning_profiles_dir}'.\n\nPlease follow the wiki to build & run on device: {META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK}.\nProvisioning profiles for your app can be downloaded from {META_IOS_PROVISIONING_PROFILES_LINK}.\n"
@@ -265,19 +277,50 @@ def _prepare_entitlements_and_info_plist(
     return prepared_entitlements_path
 
 
+async def _fast_read_provisioning_profiles_async(
+    dirpath: Path,
+    read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
+) -> List[ProvisioningProfileMetadata]:
+    tasks = []
+    for f in os.listdir(dirpath):
+        if f.endswith(".mobileprovision") or f.endswith(".provisionprofile"):
+            filepath = dirpath / f
+            tasks.append(
+                _provisioning_profile_from_file_path_async(
+                    filepath,
+                    read_provisioning_profile_command_factory,
+                    should_use_fast_provisioning_profile_parsing=True,
+                )
+            )
+    results = await asyncio.gather(*tasks)
+    return cast(List[ProvisioningProfileMetadata], results)
+
+
+async def _provisioning_profile_from_file_path_async(
+    path: Path,
+    read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
+    should_use_fast_provisioning_profile_parsing: bool,
+) -> ProvisioningProfileMetadata:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None,
+        _provisioning_profile_from_file_path,
+        path,
+        read_provisioning_profile_command_factory,
+        should_use_fast_provisioning_profile_parsing,
+    )
+
+
 def _read_provisioning_profiles(
     dirpath: Path,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
-    should_use_fast_provisioning_profile_parsing: bool,
 ) -> List[ProvisioningProfileMetadata]:
-    _LOGGER.info(
-        f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
-    )
+
     return [
         _provisioning_profile_from_file_path(
             dirpath / f,
             read_provisioning_profile_command_factory,
-            should_use_fast_provisioning_profile_parsing,
+            should_use_fast_provisioning_profile_parsing=False,
         )
         for f in os.listdir(dirpath)
         if (f.endswith(".mobileprovision") or f.endswith(".provisionprofile"))
