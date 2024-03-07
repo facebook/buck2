@@ -86,8 +86,8 @@ def find_with_vswhere_exe():
         reverse=True,
     )
 
-    vc_exe_names = "cl.exe", "cvtres.exe", "lib.exe", "ml64.exe", "link.exe"
-    ucrt_exe_names = "rc.exe",
+    vc_exe_names = ["cl.exe", "cvtres.exe", "lib.exe", "ml64.exe", "link.exe"]
+    ucrt_exe_names = ["rc.exe"]
 
     for vs_instance in list(vswhere_json):
         installation_path = Path(vs_instance["installationPath"])
