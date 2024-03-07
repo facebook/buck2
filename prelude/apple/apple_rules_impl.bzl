@@ -24,7 +24,7 @@ load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_core_data.bzl", "apple_core_data_impl")
-load(":apple_library.bzl", "apple_library_impl")
+load(":apple_library.bzl", "AppleSharedLibraryMachOFileType", "apple_library_impl")
 load(":apple_package.bzl", "apple_package_impl")
 load(":apple_package_config.bzl", "IpaCompressionLevel")
 load(":apple_resource.bzl", "apple_resource_impl")
@@ -112,6 +112,8 @@ def _apple_library_extra_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "serialize_debugging_options": attrs.bool(default = True),
+        # Mach-O file type for binary when the target is built as a shared library.
+        "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
         "stripped": attrs.option(attrs.bool(), default = None),
         "supports_header_symlink_subtarget": attrs.bool(default = False),
         "supports_shlib_interfaces": attrs.bool(default = True),
