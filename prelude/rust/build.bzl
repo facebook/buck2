@@ -1052,11 +1052,8 @@ def _clippy_wrapper(
             [
                 "@echo off",
                 "set __CLIPPY_INTERNAL_TESTS=true",
-                cmd_args(rustc_print_sysroot, format = 'FOR /F "tokens=* USEBACKQ" %%F IN (`{}`) DO ('),
-            ] + (
-                [] if skip_setting_sysroot else ["set SYSROOT=%%F"]
-            ) + [
-                ")",
+            ] + [
+                cmd_args(rustc_print_sysroot, format = 'FOR /F "tokens=* USEBACKQ" %%F IN (`{}`) DO (set SYSROOT=%%F)') if not skip_setting_sysroot else "",
                 cmd_args(clippy_driver, format = "{} %*"),
             ],
             allow_args = True,
