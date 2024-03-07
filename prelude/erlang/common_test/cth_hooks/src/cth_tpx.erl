@@ -497,13 +497,15 @@ add_result(
                                         filename:dirname(OutputFile), "ct_executor.stdout.txt"
                                     )
                             end,
-                        Io ++
+                        [
                             io_lib:format(
-                                "\n The std_out has been truncated, see ~s for the full suite std_out.",
+                                "The stdout logs have been truncated, see ~s for the full suite stdout. Showing tail below\n",
                                 [
                                     StdOutLocation
                                 ]
-                            );
+                            )
+                            | Io
+                        ];
                     false ->
                         Io
                 end
