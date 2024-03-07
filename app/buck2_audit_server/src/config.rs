@@ -192,12 +192,11 @@ impl AuditSubcommand for AuditConfigCommand {
                     .unwrap()
                     .cell_alias_resolver();
 
-                let relevant_cell = match &self.cell {
-                    Some(v) => v,
-                    None => "",
+                let relevant_cell = if self.all_cells {
+                    None
+                } else {
+                    Some(cell_alias_resolver.resolve(self.cell.as_deref().unwrap_or_default())?)
                 };
-
-                let resolved_relevant_cell = cell_alias_resolver.resolve(relevant_cell)?;
 
                 let config = ctx.get_legacy_configs().await?;
 
@@ -207,17 +206,25 @@ impl AuditSubcommand for AuditConfigCommand {
                 let output_format = self.output_format();
                 let mut json_output = HashMap::new();
                 for (cell, cell_config) in config.iter() {
+                    let mut printed_cell = false;
                     for (section, values) in cell_config.all_sections() {
                         let mut printed_section = false;
                         for (key, value) in values.iter() {
-                            if let Some(spec) =
-                                specs.filter(resolved_relevant_cell, cell, section, key)
+                            if let Some(mut spec) =
+                                specs.filter(relevant_cell.unwrap_or(cell), cell, section, key)
                             {
                                 match output_format {
                                     OutputFormat::Json => {
+                                        if self.all_cells && !spec.contains("//") {
+                                            spec = format!("{cell}//{spec}");
+                                        }
                                         json_output.insert(spec, value.as_str().to_owned());
                                     }
                                     OutputFormat::Simple => {
+                                        if self.all_cells && !printed_cell {
+                                            writeln!(&mut stdout, "# Cell: {cell}")?;
+                                            printed_cell = true;
+                                        }
                                         if !printed_section {
                                             writeln!(&mut stdout, "[{section}]")?;
                                             printed_section = true;
