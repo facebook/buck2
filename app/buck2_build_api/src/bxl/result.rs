@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt::Display;
+
 use allocative::Allocative;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -91,6 +93,26 @@ impl BxlResult {
         match self {
             BxlResult::None { .. } => None,
             BxlResult::BuildsArtifacts { built, .. } => Some(built),
+        }
+    }
+
+    pub fn add_build_results(&mut self, results: Vec<BxlBuildResult>) {
+        match self {
+            BxlResult::None { .. } => (),
+            BxlResult::BuildsArtifacts { ref mut built, .. } => {
+                built.extend(results);
+            }
+        }
+    }
+}
+
+impl Display for BxlResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BxlResult::None { .. } => write!(f, "BxlResult::None"),
+            BxlResult::BuildsArtifacts { built, .. } => {
+                write!(f, "BxlResult::Builds Artifacts {}", built.len())
+            }
         }
     }
 }

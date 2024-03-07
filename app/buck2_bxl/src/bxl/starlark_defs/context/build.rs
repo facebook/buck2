@@ -272,21 +272,20 @@ pub(crate) fn build<'v>(
         return Err(err.dupe().into());
     }
 
-    Ok(build_result
+    build_result
         .configured
         .into_iter()
         .map(|(target, result)| {
-            (
+            let bxl_result = BxlBuildResult::new(target.clone(), result);
+            ctx.add_build_result(bxl_result.clone())?;
+
+            Ok((
                 eval.heap()
                     .alloc_typed(StarlarkConfiguredProvidersLabel::new(target.clone()))
                     .hashed()
                     .unwrap(),
-                eval.heap()
-                    .alloc_typed(StarlarkBxlBuildResult(BxlBuildResult::new(
-                        target.clone(),
-                        result,
-                    ))),
-            )
+                eval.heap().alloc_typed(StarlarkBxlBuildResult(bxl_result)),
+            ))
         })
-        .collect())
+        .try_collect()
 }
