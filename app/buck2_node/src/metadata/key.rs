@@ -86,3 +86,19 @@ impl ToOwned for MetadataKeyRef {
         MetadataKey(ArcStr::from(&self.0))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_metadata_key_validation() {
+        assert!(MetadataKeyRef::new("foo").is_err());
+        assert!(MetadataKeyRef::new(".foo").is_ok());
+        assert!(MetadataKeyRef::new("foo.").is_ok());
+        assert!(MetadataKeyRef::new("foo.bar").is_ok());
+        assert!(MetadataKeyRef::new("foo..bar").is_err());
+        assert!(MetadataKeyRef::new("...").is_err());
+        assert!(MetadataKeyRef::new("a.b.c").is_err());
+    }
+}
