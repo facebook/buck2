@@ -22,7 +22,7 @@ def android_build_config_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.values)
-    android_build_config_info = AndroidBuildConfigInfo(package = ctx.attrs.package, build_config_fields = default_build_config_fields)
+    android_build_config_info = AndroidBuildConfigInfo(package = ctx.attrs.package, build_config_fields = default_build_config_fields, values_file = ctx.attrs.values_file)
     providers.append(android_build_config_info)
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps = [], build_config_info = android_build_config_info))
 

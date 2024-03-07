@@ -97,6 +97,7 @@ AndroidBuildConfigInfo = provider(
     fields = {
         "package": str,
         "build_config_fields": list[BuildConfigField],
+        "values_file": provider_field(typing.Any, default = None),
     },
 )
 
