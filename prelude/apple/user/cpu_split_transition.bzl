@@ -27,6 +27,15 @@ def _universal_constraint_value(platform: PlatformInfo, refs: struct) -> [None, 
     universal = platform.configuration.constraints.get(refs.universal[ConstraintSettingInfo].label)
     return universal.label == refs.universal_enabled[ConstraintValueInfo].label if universal != None else False
 
+def _filter_incompatible_constraints(platform_name: str, constraints: dict[TargetLabel, ConstraintValueInfo]) -> dict[TargetLabel, ConstraintValueInfo]:
+    filtered = dict()
+    for constraint_setting_label, constraint_value_info in constraints.items():
+        incompatible_constraint_name = "//cpu/x86" if platform_name == "arm64" else "//cpu/arm"
+        if incompatible_constraint_name in str(constraint_value_info.label):
+            continue
+        filtered[constraint_setting_label] = constraint_value_info
+    return filtered
+
 def _cpu_split_transition_impl(
         platform: PlatformInfo,
         refs: struct,
@@ -68,8 +77,8 @@ def _cpu_split_transition_impl(
 
     cpu_constraint_name = refs.cpu[ConstraintSettingInfo].label
     base_constraints = {
-        constraint_setting_label: constraint_setting_value
-        for (constraint_setting_label, constraint_setting_value) in platform.configuration.constraints.items()
+        constraint_setting_label: constraint_value_info
+        for (constraint_setting_label, constraint_value_info) in platform.configuration.constraints.items()
         if constraint_setting_label != cpu_constraint_name
     }
 
@@ -77,6 +86,8 @@ def _cpu_split_transition_impl(
     for platform_name, cpu_constraint in cpu_name_to_cpu_constraint.items():
         updated_constraints = dict(base_constraints)
         updated_constraints[cpu_constraint_name] = cpu_constraint
+        updated_constraints = _filter_incompatible_constraints(platform_name, updated_constraints)
+
         new_configs[platform_name] = PlatformInfo(
             label = platform_name,
             configuration = ConfigurationInfo(

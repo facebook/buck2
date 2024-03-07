@@ -114,12 +114,12 @@
 //! let fbcode_cell = cells.get(fbcode_cell_name)?;
 //! assert_eq!(fbcode_cell.name(), CellName::testing_new("fbcode"));
 //!
-//! let fbsource_aliases = fbsource_cell.cell_alias_resolver();
+//! let fbsource_aliases = fbsource_cell.testing_cell_alias_resolver();
 //! assert_eq!(fbsource_aliases.resolve("")?, CellName::testing_new("fbsource"));
 //! assert_eq!(fbsource_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
 //! assert_eq!(fbsource_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
 //!
-//! let fbcode_aliases = fbcode_cell.cell_alias_resolver();
+//! let fbcode_aliases = fbcode_cell.testing_cell_alias_resolver();
 //! assert_eq!(fbcode_aliases.resolve("")?, CellName::testing_new("fbcode"));
 //! assert_eq!(fbcode_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
 //! assert_eq!(fbcode_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
@@ -263,8 +263,7 @@ struct CellResolverInternals {
 }
 
 impl CellResolver {
-    // Make this public till we start parsing config files from cells
-    pub fn new(cells: Vec<CellInstance>) -> anyhow::Result<CellResolver> {
+    fn new(cells: Vec<CellInstance>) -> anyhow::Result<CellResolver> {
         let mut path_mappings: SequenceTrie<FileNameBuf, CellName> = SequenceTrie::new();
         let mut root_cell = None;
         for cell in &cells {
@@ -328,7 +327,8 @@ impl CellResolver {
     }
 
     pub fn root_cell_cell_alias_resolver(&self) -> &CellAliasResolver {
-        self.root_cell_instance().cell_alias_resolver()
+        // Root cell is never external
+        self.root_cell_instance().testing_cell_alias_resolver()
     }
 
     /// Get a `CellName` from a path by finding the best matching cell path that
@@ -352,6 +352,19 @@ impl CellResolver {
                         .collect(),
                 ))
             })
+    }
+
+    /// Finds the cell alias resolver for the cell containing the given path.
+    ///
+    /// The path must be the cwd, to ensure that the cell is non-external.
+    pub fn get_cwd_cell_alias_resolver(
+        &self,
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<&CellAliasResolver> {
+        // cwd is always non-external
+        Ok(self
+            .get(self.find(cwd)?)?
+            .non_external_cell_alias_resolver())
     }
 
     pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(
@@ -399,7 +412,10 @@ impl CellResolver {
         let context_cell_name = self.find(&proj_relative_path)?;
         let context_cell = self.get(context_cell_name)?;
 
-        let resolved_cell_name = context_cell.cell_alias_resolver().resolve(cell_alias)?;
+        // cwd is always non-external
+        let resolved_cell_name = context_cell
+            .non_external_cell_alias_resolver()
+            .resolve(cell_alias)?;
         let cell = self.get(resolved_cell_name)?;
         let cell_absolute_path = project_filesystem.resolve(cell.path().as_project_relative_path());
         cell_absolute_path.join_normalized(cell_relative_path)
@@ -589,11 +605,7 @@ pub struct CellsAggregator {
     cell_infos: HashMap<CellRootPathBuf, CellAggregatorInfo>,
 }
 
-fn default_buildfiles() -> Vec<FileNameBuf> {
-    (["BUCK.v2", "BUCK"][..]).map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct CellAggregatorInfo {
     /// The name to use for this alias.
     /// So that it is predictable, we always use the first name we encounter,
@@ -601,19 +613,6 @@ struct CellAggregatorInfo {
     name: Option<CellName>,
     /// All the aliases known by this cell.
     alias_mapping: HashMap<NonEmptyCellAlias, CellRootPathBuf>,
-    /// The build file name in this if it's been set. If it hasn't we'll use the
-    /// default `["BUCK.v2", "BUCK"]` when building the resolver.
-    buildfiles: Vec<FileNameBuf>,
-}
-
-impl Default for CellAggregatorInfo {
-    fn default() -> Self {
-        Self {
-            name: None,
-            alias_mapping: HashMap::new(),
-            buildfiles: default_buildfiles(),
-        }
-    }
 }
 
 impl CellAggregatorInfo {
@@ -683,15 +682,6 @@ impl CellsAggregator {
         Ok(alias_path)
     }
 
-    pub fn set_buildfiles(&mut self, cell_root: CellRootPathBuf, buildfiles: Vec<FileNameBuf>) {
-        let cell_info = self.cell_info(cell_root);
-        cell_info.buildfiles = buildfiles;
-    }
-
-    pub fn add_buildfile(&mut self, cell_root: CellRootPathBuf, buildfile: FileNameBuf) {
-        self.cell_info(cell_root).buildfiles.push(buildfile);
-    }
-
     fn get_cell_name_from_path(&self, path: &CellRootPath) -> anyhow::Result<CellName> {
         self.cell_infos
             .get(path)
@@ -732,7 +722,6 @@ impl CellsAggregator {
             cell_mappings.push(CellInstance::new(
                 cell_name,
                 cell_path.clone(),
-                cell_info.buildfiles.clone(),
                 CellAliasResolver::new(cell_name, aliases_for_cell)?,
                 nested_cells,
             )?);
@@ -810,7 +799,7 @@ mod tests {
             let cell1 = cells.get(CellName::testing_new("cell1")).unwrap();
             assert_eq!(cell1.path(), cell1_path);
 
-            let aliases = cell1.cell_alias_resolver();
+            let aliases = cell1.testing_cell_alias_resolver();
             assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell1"));
             assert_eq!(
                 aliases.resolve("cell1").unwrap(),
@@ -830,7 +819,7 @@ mod tests {
             let cell2 = cells.get(CellName::testing_new("cell2")).unwrap();
             assert_eq!(cell2.path(), cell2_path);
 
-            let aliases = cell2.cell_alias_resolver();
+            let aliases = cell2.testing_cell_alias_resolver();
             assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell2"));
             assert_eq!(
                 aliases.resolve("cell1").unwrap(),
@@ -850,7 +839,7 @@ mod tests {
             let cell3 = cells.get(CellName::testing_new("cell3")).unwrap();
             assert_eq!(cell3.path(), cell3_path);
 
-            let aliases = cell3.cell_alias_resolver();
+            let aliases = cell3.testing_cell_alias_resolver();
             assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell3"));
             assert_eq!(
                 aliases.resolve("z_cell1").unwrap(),

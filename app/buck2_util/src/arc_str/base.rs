@@ -84,7 +84,6 @@ impl<P: ArcStrLenStrategy> ArcStrBaseInner<P> {
     };
 
     fn layout_for_len(len: usize) -> Layout {
-        #[allow(clippy::let_unit_value)]
         let () = Self::ASSERT;
 
         let size = Self::OFFSET_OF_DATA.checked_add(len).unwrap();

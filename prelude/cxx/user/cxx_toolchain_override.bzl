@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "CxxPlatformInfo", "CxxToolchainInfo", "LinkerInfo", "LinkerType", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
@@ -15,7 +16,7 @@ load(
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
-load("@prelude//utils:pick.bzl", _pick = "pick", _pick_and_add = "pick_and_add", _pick_bin = "pick_bin", _pick_dep = "pick_dep")
+load("@prelude//utils:pick.bzl", _pick = "pick", _pick_and_add = "pick_and_add", _pick_bin = "pick_bin", _pick_dep = "pick_dep", _pick_raw = "pick_raw")
 load("@prelude//utils:utils.bzl", "flatten", "map_val", "value_or")
 
 def _cxx_toolchain_override(ctx):
@@ -52,6 +53,7 @@ def _cxx_toolchain_override(ctx):
         preprocessor_type = base_c_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
         dep_files_processor = base_c_info.dep_files_processor,
+        allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
     )
     base_cxx_info = base_toolchain.cxx_compiler_info
     cxx_info = CxxCompilerInfo(
@@ -62,6 +64,7 @@ def _cxx_toolchain_override(ctx):
         preprocessor_type = base_cxx_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
         dep_files_processor = base_cxx_info.dep_files_processor,
+        allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
     )
     base_linker_info = base_toolchain.linker_info
     linker_type = ctx.attrs.linker_type if ctx.attrs.linker_type != None else base_linker_info.type
@@ -221,7 +224,7 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "use_archiver_flags": attrs.option(attrs.bool(), default = None),
-    }
+    } | cxx_toolchain_allow_cache_upload_args()
 
 cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
     name = "cxx_toolchain_override",

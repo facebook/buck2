@@ -13,6 +13,7 @@ use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
+use display_container::fmt_keyed_container;
 use serde_json::Value;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -59,15 +60,15 @@ impl<C: Eq> Deref for DictLiteral<C> {
 
 impl<C: Eq + AttrDisplayWithContext> AttrDisplayWithContext for DictLiteral<C> {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{{")?;
-        for (i, (k, v)) in self.0.iter().enumerate() {
-            if i != 0 {
-                write!(f, ",")?;
-            }
-            write!(f, "{}: {}", k.as_display(ctx), v.as_display(ctx))?;
-        }
-        write!(f, "}}")?;
-        Ok(())
+        fmt_keyed_container(
+            f,
+            "{",
+            "}",
+            ": ",
+            self.0
+                .iter()
+                .map(|(k, v)| (k.as_display(ctx), v.as_display(ctx))),
+        )
     }
 }
 

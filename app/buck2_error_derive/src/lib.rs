@@ -9,20 +9,7 @@
 
 // This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
 
-#![allow(
-    clippy::blocks_in_conditions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::manual_find,
-    clippy::manual_map,
-    clippy::map_unwrap_or,
-    clippy::needless_pass_by_value,
-    clippy::option_if_let_else,
-    clippy::range_plus_one,
-    clippy::single_match_else,
-    clippy::too_many_lines,
-    clippy::wrong_self_convention
-)]
+#![allow(clippy::manual_map)]
 #![feature(let_chains)]
 
 mod ast;

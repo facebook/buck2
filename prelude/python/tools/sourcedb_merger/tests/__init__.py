@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-ignore-all-errors
+
 from .inputs_test import *  # noqa
 from .legacy_output_test import *  # noqa
 from .outputs_test import *  # noqa

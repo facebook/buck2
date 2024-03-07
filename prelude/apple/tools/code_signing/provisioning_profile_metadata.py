@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-strict
+
 from __future__ import annotations
 
 import hashlib
@@ -25,9 +27,9 @@ class ProvisioningProfileMetadata:
     uuid: str
     # Naïve object with ignored timezone, see https://bugs.python.org/msg110249
     expiration_date: datetime
-    platforms: Set[str]
+    platforms: FrozenSet[str]
     # Let's agree they are uppercased
-    developer_certificate_fingerprints: Set[str]
+    developer_certificate_fingerprints: FrozenSet[str]
     entitlements: Dict[str, Any]
 
     _mergeable_entitlements_keys: FrozenSet[str] = frozenset(
@@ -75,7 +77,20 @@ class ProvisioningProfileMetadata:
             file_path=file_path,
             uuid=root["UUID"],
             expiration_date=root["ExpirationDate"],
-            platforms=set(root["Platform"]),
-            developer_certificate_fingerprints=developer_certificate_fingerprints,
+            platforms=frozenset(root["Platform"]),
+            developer_certificate_fingerprints=frozenset(
+                developer_certificate_fingerprints
+            ),
             entitlements=root["Entitlements"],
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.file_path,
+                self.uuid,
+                self.expiration_date,
+                self.platforms,
+                self.developer_certificate_fingerprints,
+            )
         )

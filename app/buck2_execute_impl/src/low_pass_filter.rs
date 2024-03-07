@@ -59,7 +59,6 @@ impl LowPassFilter {
     /// To make things predictable, we synchronously increment the accessors count. This ensures
     /// that there is no ambiguity about whether an accessor has already incremented the count or
     /// not depending on whether it was polled.
-    #[allow(clippy::await_holding_lock)] // wait() actually releases the lock.
     #[allow(clippy::manual_async_fn)] // so you don't need to poll before access() takes effect
     pub fn access(&self, weight: usize) -> impl Future<Output = LowPassFilterGuard<'_>> {
         let go = {

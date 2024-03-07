@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-strict
+
 DEFAULT_OPERATION_TIMEOUT = 10
 
 # Simulator boot is an expensive command and can take a long time to complete

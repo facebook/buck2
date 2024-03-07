@@ -301,8 +301,7 @@ async fn test(
         parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
-    let resolved_pattern =
-        ResolveTargetPatterns::resolve(&mut ctx, &cell_resolver, &parsed_patterns).await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,
@@ -351,6 +350,7 @@ async fn test(
         build_opts.skip_incompatible_targets,
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
         timeout,
+        request.ignore_tests_attribute,
     )
     .await?;
 
@@ -425,6 +425,7 @@ async fn test_targets(
     skip_incompatible_targets: bool,
     missing_target_behavior: MissingTargetBehavior,
     timeout: Option<Duration>,
+    ignore_tests_attribute: bool,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
 
@@ -503,6 +504,7 @@ async fn test_targets(
                     cell_resolver: &cell_resolver,
                     working_dir_cell,
                     missing_target_behavior,
+                    ignore_tests_attribute,
                 });
 
                 driver.push_pattern(
@@ -628,6 +630,7 @@ pub(crate) struct TestDriverState<'a, 'e> {
     cell_resolver: &'a CellResolver,
     working_dir_cell: CellName,
     missing_target_behavior: MissingTargetBehavior,
+    ignore_tests_attribute: bool,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -777,13 +780,15 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             let node = node.forward_target().unwrap_or(&node);
 
             // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
-            for test in node.tests() {
-                work.push(TestDriverTask::ConfigureTarget {
-                    label: test.unconfigured(),
-                    // Historically `skippable: false` is what we enforced here, perhaps that
-                    // should change.
-                    skippable: false,
-                });
+            if !state.ignore_tests_attribute {
+                for test in node.tests() {
+                    work.push(TestDriverTask::ConfigureTarget {
+                        label: test.unconfigured(),
+                        // Historically `skippable: false` is what we enforced here, perhaps that
+                        // should change.
+                        skippable: false,
+                    });
+                }
             }
 
             anyhow::Ok(work)

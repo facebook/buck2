@@ -18,7 +18,6 @@ use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
@@ -128,18 +127,9 @@ impl StarlarkOpaqueSubcommand for StarlarkLintCommand {
 
                 let mut stdout = stdout.as_writer();
                 let mut lint_count = 0;
-                let files = ctx
-                    .with_linear_recompute(|ctx| async move {
-                        starlark_files(
-                            &self.paths,
-                            server_ctx,
-                            &cell_resolver,
-                            &DiceFileOps(&ctx),
-                            &**io,
-                        )
-                        .await
-                    })
-                    .await?;
+                let files =
+                    starlark_files(&mut ctx, &self.paths, server_ctx, &cell_resolver, &**io)
+                        .await?;
                 let mut cache = Cache::new(&ctx);
 
                 for file in &files {

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
@@ -15,6 +14,9 @@ use std::sync::OnceLock;
 
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_util::process;
+
+use crate::legacy_configs::init::ResourceControlConfig;
+use crate::legacy_configs::init::ResourceControlStatus;
 
 const SYSTEMD_MIN_VERSION: u32 = 253;
 static AVAILABILITY: OnceLock<Option<SystemdNotAvailableReason>> = OnceLock::new();
@@ -37,42 +39,88 @@ enum SystemdNotAvailableReason {
     UnsupportedPlatform,
 }
 
+pub enum SystemdPropertySetType {
+    Daemon,
+    Worker,
+}
+
 pub struct SystemdRunner {
-    unit_name: String,
-    working_directory: AbsNormPathBuf,
-    collect: bool,
-    properties: HashMap<String, String>,
+    fixed_systemd_args: Vec<String>,
 }
 
 impl SystemdRunner {
-    pub fn new(
-        unit_name: String,
-        working_directory: AbsNormPathBuf,
-        collect: bool,
-        properties: HashMap<String, String>,
-    ) -> Self {
+    fn create(property_set_type: SystemdPropertySetType, config: &ResourceControlConfig) -> Self {
+        // Common settings
+        let mut args = vec![
+            "--user".to_owned(),
+            "--scope".to_owned(),
+            "--quiet".to_owned(),
+        ];
+        if let Some(memory_max) = &config.memory_max {
+            args.push(format!("--property=MemoryMax={}", memory_max.to_owned()));
+            // Without setting `MemorySwapMax`, the process starts using swap until it's
+            // filled when the total memory usage reaches to `MemoryMax`. This may seem
+            // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
+            // to zero makes `MemoryMax` to be a 'hard limit' at which the process is
+            // stopped by OOM killer
+            args.push("--property=MemorySwapMax=0".to_owned());
+            // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
+            // some workers can keep alive even after buck2 daemon has gone due to OOM.
+            args.push("--property=OOMPolicy=kill".to_owned());
+        }
+
+        // Type-specific settings
+        match property_set_type {
+            SystemdPropertySetType::Daemon => {
+                // Set `--collect` because this is the outermost scope in buck2's context
+                // and we don't assume the upper-layer unit collects the garbage of this
+                // scope after being killed.
+                args.push("--collect".to_owned());
+            }
+            SystemdPropertySetType::Worker => { // TODO
+            }
+        }
+
         Self {
-            unit_name,
-            working_directory,
-            collect,
-            properties,
+            fixed_systemd_args: args,
         }
     }
 
-    pub fn background_command_linux<S: AsRef<OsStr>>(&self, program: S) -> std::process::Command {
-        let mut cmd = process::background_command("systemd-run");
-        cmd.arg("--user")
-            .arg("--scope")
-            .arg("--quiet")
-            .arg(format!("--working-directory={}", self.working_directory))
-            .arg(format!("--unit={}", self.unit_name));
-        if self.collect {
-            cmd.arg("--collect");
+    pub fn create_if_enabled(
+        property_set_type: SystemdPropertySetType,
+        config: &ResourceControlConfig,
+    ) -> anyhow::Result<Option<Self>> {
+        match config.status {
+            ResourceControlStatus::Off => Ok(None),
+            ResourceControlStatus::IfAvailable | ResourceControlStatus::Required => {
+                if let Err(e) = is_available() {
+                    if config.status == ResourceControlStatus::Required {
+                        return Err(e.context("Systemd is unavailable but required by buckconfig"));
+                    }
+                    tracing::warn!(
+                        "Systemd is not available on this system. Continuing without resource control: {:#}",
+                        e
+                    );
+                    Ok(None)
+                } else {
+                    Ok(Some(Self::create(property_set_type, config)))
+                }
+            }
         }
-        for (key, value) in self.properties.iter() {
-            cmd.arg(format!("--property={}={}", key, value));
-        }
+    }
 
+    /// Creates `std::process::Command` to run `program` under a systemd scope unit. `unit_name` is
+    /// an arbitrary string that you name the unit so it can be identified by the name later.
+    pub fn background_command_linux<S: AsRef<OsStr>>(
+        &self,
+        program: S,
+        unit_name: String,
+        working_directory: AbsNormPathBuf,
+    ) -> std::process::Command {
+        let mut cmd = process::background_command("systemd-run");
+        cmd.args(&self.fixed_systemd_args);
+        cmd.arg(format!("--working-directory={}", working_directory))
+            .arg(format!("--unit={}", unit_name));
         cmd.arg(program);
         cmd
     }
@@ -99,7 +147,7 @@ fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailable
     }
 }
 
-pub fn is_available() -> anyhow::Result<()> {
+fn is_available() -> anyhow::Result<()> {
     if !cfg!(target_os = "linux") {
         return Err(SystemdNotAvailableReason::UnsupportedPlatform.into());
     }
@@ -190,73 +238,5 @@ mod tests {
                 .unwrap(),
             SystemdNotAvailableReason::UnsupportedPlatform
         ));
-    }
-
-    #[test]
-    fn test_systemd_runner_background_command_normal() {
-        let prefix = if cfg!(windows) { "C:" } else { "" };
-        let mut properties = HashMap::new();
-        properties.insert("test_k0".to_owned(), "test_v0".to_owned());
-        properties.insert("test_k1".to_owned(), "test_v1".to_owned());
-        let runner = SystemdRunner::new(
-            "test_unit".to_owned(),
-            AbsNormPathBuf::from(format!("{}/test/path", prefix)).unwrap(),
-            true,
-            properties,
-        );
-        let cmd = runner.background_command_linux("test_prog");
-
-        assert_eq!(cmd.get_program(), "systemd-run");
-        assert!(
-            *cmd.get_args().collect::<Vec<&OsStr>>()
-                == [
-                    "--user",
-                    "--scope",
-                    "--quiet",
-                    format!("--working-directory={}/test/path", prefix).as_str(),
-                    "--unit=test_unit",
-                    "--collect",
-                    "--property=test_k0=test_v0",
-                    "--property=test_k1=test_v1",
-                    "test_prog"
-                ]
-                || *cmd.get_args().collect::<Vec<&OsStr>>()
-                    == [
-                        "--user",
-                        "--scope",
-                        "--quiet",
-                        format!("--working-directory={}/test/path", prefix).as_str(),
-                        "--unit=test_unit",
-                        "--collect",
-                        "--property=test_k1=test_v1",
-                        "--property=test_k0=test_v0",
-                        "test_prog"
-                    ]
-        );
-    }
-
-    #[test]
-    fn test_systemd_runner_background_command_no_property_scope() {
-        let prefix = if cfg!(windows) { "C:" } else { "" };
-        let runner = SystemdRunner::new(
-            "test_unit".to_owned(),
-            AbsNormPathBuf::from(format!("{}/test/path", prefix)).unwrap(),
-            false,
-            HashMap::new(),
-        );
-        let cmd = runner.background_command_linux("test_prog");
-
-        assert_eq!(cmd.get_program(), "systemd-run");
-        assert!(
-            *cmd.get_args().collect::<Vec<&OsStr>>()
-                == [
-                    "--user",
-                    "--scope",
-                    "--quiet",
-                    format!("--working-directory={}/test/path", prefix).as_str(),
-                    "--unit=test_unit",
-                    "test_prog"
-                ]
-        );
     }
 }

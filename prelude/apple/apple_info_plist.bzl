@@ -124,7 +124,7 @@ def _info_plist_additional_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
     return result
 
 def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata, extension: str) -> dict[str, typing.Any]:
-    if sdk_metadata.name == MacOSXSdkMetadata.name and extension == "xpc":
+    if sdk_metadata.name == MacOSXSdkMetadata.name and extension != "xpc":
         return {
             "NSHighResolutionCapable": True,
             "NSSupportsAutomaticGraphicsSwitching": True,

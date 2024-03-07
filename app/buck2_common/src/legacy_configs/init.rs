@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_core::buck2_env;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -112,13 +113,13 @@ pub struct ResourceControlConfig {
     /// A config to determine if the resource control should be activated or not.
     /// The corresponding buckconfig is `buck2_resource_control.status` that can take
     /// one of `{off | if_available | required}`.
-    status: ResourceControlStatus,
+    pub status: ResourceControlStatus,
     /// A memory threshold that buck2 daemon and workers are allowed to allocate. The units
     /// like `M` and `G` may be used (e.g. 64G,) or also `%` is accepted in this field (e.g. 90%.)
     /// The behavior when the combined amount of memory usage of the daemon and workers exceeds this
     /// is that all the processes are killed by OOMKiller.
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
-    memory_max: Option<String>,
+    pub memory_max: Option<String>,
 }
 
 #[derive(
@@ -131,7 +132,7 @@ pub struct ResourceControlConfig {
     PartialEq,
     Eq
 )]
-enum ResourceControlStatus {
+pub enum ResourceControlStatus {
     #[default]
     /// The resource is not controlled or limited.
     Off,
@@ -156,11 +157,19 @@ impl FromStr for ResourceControlStatus {
 
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        let status = config
-            .parse("buck2_resource_control", "status")?
-            .unwrap_or(ResourceControlStatus::Off);
-        let memory_max = config.parse("buck2_resource_control", "memory_max")?;
-        Ok(Self { status, memory_max })
+        if let Some(env_conf) = buck2_env!("BUCK2_TEST_RESOURCE_CONTROL_CONFIG")? {
+            Ok(Self::deserialize(env_conf)?)
+        } else {
+            let status = config
+                .parse("buck2_resource_control", "status")?
+                .unwrap_or(ResourceControlStatus::Off);
+            let memory_max = config.parse("buck2_resource_control", "memory_max")?;
+            Ok(Self { status, memory_max })
+        }
+    }
+
+    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
+        serde_json::from_str::<Self>(s).context("Error deserializing ResourceControlConfig")
     }
 }
 

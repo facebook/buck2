@@ -421,7 +421,12 @@ def _declare_library_subtargets(
         if native_library_merge_map:
             sonames.update(native_library_merge_map.keys())
         elif native_library_merge_sequence:
-            sonames.update([soname for (soname, _) in native_library_merge_sequence])
+            for entry in native_library_merge_sequence:
+                if type(entry) == "list":
+                    sonames.update([soname for (soname, _) in entry])
+                else:
+                    (soname, _) = entry
+                    sonames.add(soname)
 
         lib_outputs = {}
         for soname in sonames.list():
@@ -1774,6 +1779,15 @@ def create_shared_lib(
         shared_lib_deps: list[str],
         label: Label,
         can_be_asset: bool) -> SharedLibrary:
+    for link_arg in link_args:
+        flags = link_arg.flags or []
+        for info in link_arg.infos or []:
+            flags += info.pre_flags or []
+            flags += info.post_flags or []
+        for flag in flags:
+            flag = str(flag)
+            if flag.endswith("--exclude-libs,ALL") or flag.endswith("--exclude-libs=ALL"):
+                fail("The behavior of --exclude-libs,ALL is not predictable when building Android binaries and may cause runtime crashes, remove it from {} (or its merged constituents)".format(label))
     link_result = cxx_link_shared_library(
         ctx = ctx,
         output = output_path,

@@ -206,6 +206,11 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Uses jf which is not on RE
     "uses_jf",
+
+    # On Messenger Desktop few targets are massive and take much longer on RE than
+    # locally to build on Windows. This is a mitigation until we can break down these
+    # targets
+    "zeratul_windows_capacity_hog",
 ]}
 
 def genrule_labels_require_local(labels):

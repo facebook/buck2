@@ -72,12 +72,11 @@ pub(crate) fn audit_cell(
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
 ) -> anyhow::Result<IndexMap<String, AbsNormPathBuf>> {
-    let this_cell = cells.get(cells.find(cwd)?).unwrap();
+    let this_resolver = cells.get_cwd_cell_alias_resolver(cwd)?;
     let mappings: IndexMap<_, _> = {
         if aliases_to_resolve.is_empty() {
             if aliases {
-                this_cell
-                    .cell_alias_resolver()
+                this_resolver
                     .mappings()
                     .map(|(alias, cell_name)| {
                         (
@@ -104,7 +103,6 @@ pub(crate) fn audit_cell(
                     .collect()
             }
         } else {
-            let cell_alias_resolver = this_cell.cell_alias_resolver();
             aliases_to_resolve
                 .iter()
                 .map(|alias| {
@@ -112,7 +110,7 @@ pub(crate) fn audit_cell(
                         alias.to_owned(),
                         fs.resolve(
                             cells
-                                .get(cell_alias_resolver.resolve(alias)?)
+                                .get(this_resolver.resolve(alias)?)
                                 .unwrap()
                                 .path()
                                 .as_project_relative_path(),

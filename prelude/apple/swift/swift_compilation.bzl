@@ -277,6 +277,7 @@ def compile_swift(
         headers = [exported_swift_header],
         modular_args = modulemap_pp_info.modular_args,
         relative_args = CPreprocessorArgs(args = modulemap_pp_info.relative_args.args),
+        absolute_args = CPreprocessorArgs(args = modulemap_pp_info.absolute_args.args),
         modulemap_path = modulemap_pp_info.modulemap_path,
     )
 
@@ -489,13 +490,20 @@ def _get_shared_flags(
         ])
 
     if uses_explicit_modules(ctx):
-        # We set -fmodule-file-home-is-cwd as this is used to correctly
-        # set the working directory of modules when generating debug info.
         cmd.add([
             "-Xcc",
             "-Xclang",
             "-Xcc",
+            # We set -fmodule-file-home-is-cwd as this is used to correctly
+            # set the working directory of modules when generating debug info.
             "-fmodule-file-home-is-cwd",
+            "-Xcc",
+            "-Xclang",
+            "-Xcc",
+            # This is the default for compilation, but not in sourcekitd.
+            # Set it explicitly here so that indexing will not fail with
+            # invalid module format errors.
+            "-fmodule-format=obj",
         ])
         cmd.add(get_disable_pch_validation_flags())
 

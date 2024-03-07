@@ -413,9 +413,10 @@ async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
     });
     let mut dice_computations = dice_builder
         .mock_and_return(
-            FileOpsKey(),
+            FileOpsKey(CellName::testing_new("cell")),
             Ok(FileOpsValue(Arc::new(
-                TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()]),
+                TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()])
+                    .for_cell(CellName::testing_new("cell")),
             ))),
         )
         .build(UserComputationData::new())?
@@ -466,10 +467,11 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
     });
     let mut dice_computations = dice_builder
         .mock_and_return(
-            FileOpsKey(),
-            Ok(FileOpsValue(Arc::new(TestFileOps::new_with_symlinks(
-                btreemap![path => symlink.dupe()],
-            )))),
+            FileOpsKey(CellName::testing_new("cell")),
+            Ok(FileOpsValue(Arc::new(
+                TestFileOps::new_with_symlinks(btreemap![path => symlink.dupe()])
+                    .for_cell(CellName::testing_new("cell")),
+            ))),
         )
         .build(UserComputationData::new())?
         .commit()

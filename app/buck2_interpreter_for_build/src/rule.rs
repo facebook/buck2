@@ -351,7 +351,7 @@ pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
         Ok(rule
             .artifact_promise_mappings
             .as_ref()
-            .map_or(SmallMap::new(), |m| m.mappings.clone()))
+            .map_or_else(SmallMap::new, |m| m.mappings.clone()))
     })
 }
 

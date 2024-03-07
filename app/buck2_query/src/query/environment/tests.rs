@@ -105,6 +105,13 @@ impl QueryTarget for TestTarget {
         unimplemented!()
     }
 
+    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+        &self,
+        _func: F,
+    ) -> Result<(), E> {
+        unimplemented!()
+    }
+
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
         unimplemented!()
     }

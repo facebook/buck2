@@ -72,7 +72,9 @@ def _cmd_arg():
      command determine whether this filepath is treated as a file or a
      directory. If the filepath is a directory, then the shell command
      needs to create it if not using named outputs. Otherwise, it will
-     be automatically created.
+     be automatically created. All outputs (directories and files) must
+     be readable, writable, and (in the case of directories) executable
+     by the current user.
 
 
      The file or directory specified by this variable must always

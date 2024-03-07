@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -349,6 +350,8 @@ pub trait FileOps: Send + Sync {
     ) -> anyhow::Result<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
+
+    async fn buildfiles<'a>(&self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>>;
 }
 
 impl dyn FileOps + '_ {
@@ -383,11 +386,15 @@ pub mod testing {
     use async_trait::async_trait;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_path::CellPathRef;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::cells::paths::CellRelativePath;
+    use buck2_core::fs::paths::file_name::FileNameBuf;
     use cmp_any::PartialEqAny;
     use dupe::Dupe;
     use itertools::Itertools;
 
     use crate::cas_digest::CasDigestConfig;
+    use crate::dice::file_ops::keys::FileOpsDelegate;
     use crate::external_symlink::ExternalSymlink;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
@@ -407,18 +414,48 @@ pub mod testing {
     #[derive(Allocative)]
     pub struct TestFileOps {
         #[allocative(skip)]
-        entries: BTreeMap<CellPath, TestFileOpsEntry>,
+        entries: Arc<BTreeMap<CellPath, TestFileOpsEntry>>,
     }
 
     impl TestFileOps {
-        fn new(entries: BTreeMap<CellPath, TestFileOpsEntry>) -> Self {
-            let mut file_ops = Self {
-                entries: BTreeMap::new(),
-            };
-            for (path, entry) in entries {
-                file_ops.add_entry(path, entry);
+        fn new(inputs: BTreeMap<CellPath, TestFileOpsEntry>) -> Self {
+            let mut entries = BTreeMap::new();
+            for (path, entry) in inputs {
+                let mut file_type = match entry {
+                    TestFileOpsEntry::Directory(..) => FileType::Directory,
+                    TestFileOpsEntry::ExternalSymlink(..) => FileType::Symlink,
+                    TestFileOpsEntry::File(..) => FileType::File,
+                };
+                // make sure the test setup is correct and concise
+                assert!(
+                    entries.insert(path.to_owned(), entry).is_none(),
+                    "Adding `{}`, it already exists.",
+                    path
+                );
+
+                let mut path = path.as_ref();
+
+                // now add to / create the parent directories
+                while let (Some(dir), Some(name)) = (path.parent(), path.path().file_name()) {
+                    let dir_entry = entries
+                        .entry(dir.to_owned())
+                        .or_insert_with(|| TestFileOpsEntry::Directory(BTreeSet::new()));
+                    match dir_entry {
+                        TestFileOpsEntry::Directory(listing) => {
+                            listing.insert(SimpleDirEntry {
+                                file_type,
+                                file_name: name.to_owned(),
+                            });
+                            file_type = FileType::Directory;
+                            path = dir;
+                        }
+                        _ => panic!("Adding `{}`, but `{}` exists and is not a dir", path, dir),
+                    };
+                }
             }
-            file_ops
+            TestFileOps {
+                entries: Arc::new(entries),
+            }
         }
 
         pub fn new_with_files(files: BTreeMap<CellPath, String>) -> Self {
@@ -464,39 +501,13 @@ pub mod testing {
             )
         }
 
-        fn add_entry(&mut self, path: CellPath, entry: TestFileOpsEntry) {
-            let mut file_type = match entry {
-                TestFileOpsEntry::Directory(..) => FileType::Directory,
-                TestFileOpsEntry::ExternalSymlink(..) => FileType::Symlink,
-                TestFileOpsEntry::File(..) => FileType::File,
-            };
-            // make sure the test setup is correct and concise
-            assert!(
-                self.entries.insert(path.to_owned(), entry).is_none(),
-                "Adding `{}`, it already exists.",
-                path
-            );
-
-            let mut path = path.as_ref();
-
-            // now add to / create the parent directories
-            while let (Some(dir), Some(name)) = (path.parent(), path.path().file_name()) {
-                let dir_entry = self
-                    .entries
-                    .entry(dir.to_owned())
-                    .or_insert_with(|| TestFileOpsEntry::Directory(BTreeSet::new()));
-                match dir_entry {
-                    TestFileOpsEntry::Directory(listing) => {
-                        listing.insert(SimpleDirEntry {
-                            file_type,
-                            file_name: name.to_owned(),
-                        });
-                        file_type = FileType::Directory;
-                        path = dir;
-                    }
-                    _ => panic!("Adding `{}`, but `{}` exists and is not a dir", path, dir),
-                };
-            }
+        pub fn for_cell(&self, cell: CellName) -> TestCellFileOps {
+            TestCellFileOps(
+                cell,
+                Self {
+                    entries: Arc::clone(&self.entries),
+                },
+            )
         }
     }
 
@@ -547,6 +558,49 @@ pub mod testing {
 
         async fn is_ignored(&self, _path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
             Ok(false)
+        }
+
+        fn eq_token(&self) -> PartialEqAny {
+            PartialEqAny::always_false()
+        }
+
+        async fn buildfiles<'a>(&self, _cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
+            Ok(Arc::from_iter([FileNameBuf::unchecked_new("BUCK")]))
+        }
+    }
+
+    pub struct TestCellFileOps(CellName, TestFileOps);
+
+    #[async_trait]
+    impl FileOpsDelegate for TestCellFileOps {
+        async fn read_file_if_exists(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<Option<String>> {
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::read_file_if_exists(&self.1, path.as_ref()).await
+        }
+
+        /// Return the list of file outputs, sorted.
+        async fn read_dir(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<ReadDirOutput> {
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::read_dir(&self.1, path.as_ref()).await
+        }
+
+        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::is_ignored(&self.1, path.as_ref()).await
+        }
+
+        async fn read_path_metadata_if_exists(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<Option<RawPathMetadata>> {
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::read_path_metadata_if_exists(&self.1, path.as_ref()).await
         }
 
         fn eq_token(&self) -> PartialEqAny {

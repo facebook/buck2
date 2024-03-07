@@ -278,12 +278,10 @@ async fn docs(
     let format = Format::from_proto(request)?;
 
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
-    let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
+    let cwd = server_ctx.working_dir();
+    let current_cell_path = cell_resolver.get_cell_path(cwd)?;
     let current_cell = BuildFileCell::new(current_cell_path.cell());
-
-    let cell_alias_resolver = cell_resolver
-        .get(current_cell_path.cell())?
-        .cell_alias_resolver();
+    let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
 
     let lookups = parse_import_paths(
         cell_alias_resolver,

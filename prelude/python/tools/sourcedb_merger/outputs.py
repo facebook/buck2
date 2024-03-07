@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-ignore-all-errors
+
 import dataclasses
 import json
 import pathlib

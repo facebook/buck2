@@ -32,12 +32,10 @@ pub(crate) async fn server_execute(
     server_ctx
         .with_dice_ctx(async move |server_ctx, mut dice_ctx| {
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
-            let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
+            let cwd = server_ctx.working_dir();
+            let current_cell_path = cell_resolver.get_cell_path(cwd)?;
             let current_cell = BuildFileCell::new(current_cell_path.cell());
-
-            let cell_alias_resolver = cell_resolver
-                .get(current_cell_path.cell())?
-                .cell_alias_resolver();
+            let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
 
             let package = parse_package(&command.package, cell_alias_resolver)?;
 

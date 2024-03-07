@@ -14,7 +14,6 @@ use buck2_audit::providers::AuditProvidersCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersName;
@@ -66,7 +65,6 @@ async fn server_execute_with_dice(
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
 ) -> anyhow::Result<()> {
-    let cells = ctx.get_cell_resolver().await?;
     let global_cfg_options =
         global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
 
@@ -78,8 +76,7 @@ async fn server_execute_with_dice(
         server_ctx.working_dir(),
     )
     .await?;
-    let resolved_pattern =
-        ResolveTargetPatterns::resolve(&mut ctx, &cells, &parsed_patterns).await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     let mut futs = Vec::new();
     for (package, spec) in resolved_pattern.specs {

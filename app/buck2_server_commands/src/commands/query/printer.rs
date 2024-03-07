@@ -9,6 +9,7 @@
 
 #![allow(clippy::drop_non_drop)] // FIXME?
 
+use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::io::Write;
@@ -20,6 +21,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_cli_proto::QueryOutputFormat;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::environment::QueryTargets;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -32,6 +34,7 @@ use dupe::Copy_;
 use dupe::Dupe_;
 use gazebo::variants::UnpackVariants;
 use indent_write::fmt::IndentWriter;
+use indent_write::io::IndentWriter as IoIndentWriter;
 use regex::RegexSet;
 use serde::ser::SerializeMap;
 use serde::ser::SerializeSeq;
@@ -337,6 +340,42 @@ impl<'a> QueryResultPrinter<'a> {
                         writeln!(&mut output, "{}", target)?;
                     }
                 }
+                QueryOutputFormat::Starlark => {
+                    for (i, target) in targets.iter().enumerate() {
+                        if i > 0 {
+                            writeln!(&mut output)?;
+                            writeln!(&mut output)?;
+                        }
+                        if call_stack {
+                            match target.call_stack() {
+                                Some(call_stack) => {
+                                    write!(&mut output, "{}", indent("#  ", &call_stack))?;
+                                }
+                                None => {
+                                    // This is `aquery`.
+                                }
+                            }
+                        }
+                        writeln!(&mut output, "{}(", target.rule_type())?;
+                        let mut inner_out = IoIndentWriter::new("  ", &mut output);
+                        let mut attrs = BTreeMap::new();
+
+                        target.defined_attrs_for_each(|k, v| {
+                            attrs.insert(
+                                k.to_owned(),
+                                format!("{:#}", target.attr_display(v, AttrFmtOptions::default())),
+                            );
+                            anyhow::Ok(())
+                        })?;
+                        if let Some(name) = attrs.remove("name") {
+                            writeln!(&mut inner_out, "name = {},", name)?;
+                        }
+                        for (k, v) in attrs {
+                            writeln!(&mut inner_out, "{} = {},", k, v)?;
+                        }
+                        writeln!(&mut output, ")")?;
+                    }
+                }
                 QueryOutputFormat::Json => {
                     let mut ser = serde_json::Serializer::pretty(&mut output);
                     TargetSetJsonPrinter::new(
@@ -375,7 +414,7 @@ impl<'a> QueryResultPrinter<'a> {
                     return Err(QueryCommandError::FileSetHasNoAttributes.into());
                 }
                 match self.output_format {
-                    QueryOutputFormat::Default => {
+                    QueryOutputFormat::Default | QueryOutputFormat::Starlark => {
                         for file in files.iter() {
                             writeln!(
                                 &mut output,

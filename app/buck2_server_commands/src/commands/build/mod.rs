@@ -224,7 +224,7 @@ async fn build(
     server_ctx.log_target_pattern(&parsed_patterns);
 
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
-        ResolveTargetPatterns::resolve(&mut ctx, &cell_resolver, &parsed_patterns).await?;
+        ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
         TargetResolutionConfig::Default(global_cfg_options)

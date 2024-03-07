@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:utils.bzl", "from_named_set", "map_val", "value_or")
@@ -358,5 +359,5 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
     cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
     if project_root_file:
         cmd.add(["--project-root-file", project_root_file])
-    ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = ctx.attrs.allow_cache_upload)
+    ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs))
     return output

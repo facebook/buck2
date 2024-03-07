@@ -44,6 +44,7 @@ use starlark::starlark_module;
 use starlark::values::Value;
 
 use crate::interpreter::buckconfig::LegacyConfigsViewForStarlark;
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::configuror::AdditionalGlobalsFn;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
@@ -128,7 +129,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
     Ok((
         resolver
             .get(CellName::testing_new("root"))?
-            .cell_alias_resolver()
+            .testing_cell_alias_resolver()
             .dupe(),
         resolver,
         LegacyBuckConfigs::new(configs),
@@ -187,18 +188,23 @@ impl Tester {
     }
 
     fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
+        let build_file_cell = BuildFileCell::new(self.cell_alias_resolver.resolve_self());
         let import_paths = ImplicitImportPaths::parse(
             self.configs
                 .get(self.cell_alias_resolver.resolve_self())
                 .unwrap(),
-            BuildFileCell::new(self.cell_alias_resolver.resolve_self()),
+            build_file_cell,
             &self.cell_alias_resolver,
         )?;
         let additional_globals = self.additional_globals.clone();
-        Ok(Arc::new(InterpreterForCell::new(
+        let cell_info = InterpreterCellInfo::new(
+            build_file_cell,
+            self.cell_resolver.dupe(),
             self.cell_alias_resolver.dupe(),
+        )?;
+        Ok(Arc::new(InterpreterForCell::new(
+            cell_info,
             Arc::new(GlobalInterpreterState::new(
-                self.configs.iter().map(|(c, _)| c).collect(),
                 self.cell_resolver.dupe(),
                 BuildInterpreterConfiguror::new(
                     self.prelude_path.clone(),

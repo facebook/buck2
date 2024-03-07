@@ -17,8 +17,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -37,6 +37,7 @@ use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
+use crate::dice::file_ops::keys::FileOpsDelegate;
 use crate::dice::file_ops::keys::FileOpsKey;
 use crate::dice::file_ops::keys::FileOpsValue;
 use crate::file_ops::FileOps;
@@ -45,22 +46,10 @@ use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
 use crate::file_ops::SimpleDirEntry;
-use crate::ignores::all_cells::AllCellIgnores;
-use crate::ignores::all_cells::HasAllCellIgnores;
+use crate::ignores::all_cells::HasCellFileIgnores;
+use crate::ignores::file_ignores::CellFileIgnores;
 use crate::io::IoProvider;
-
-// TODO(cjhopman, bobyf): This FileToken can go away once Dice has support for
-// transient values.
-/// This is used as the "result" of a read_file computation so that we don't
-/// need to store the file content's in dice's cache.
-#[derive(Clone, Dupe, Allocative)]
-struct FileToken(Arc<CellPath>);
-
-impl FileToken {
-    async fn read_if_exists(&self, fs: &dyn FileOps) -> anyhow::Result<Option<String>> {
-        fs.read_file_if_exists((*self.0).as_ref()).await
-    }
-}
+use crate::legacy_configs::buildfiles::HasBuildfiles;
 
 /// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
 ///
@@ -84,13 +73,12 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<Option<String>> {
-        let path = path.to_owned();
-        let file_ops = get_default_file_ops(ctx).await?;
-
-        ctx.compute(&ReadFileKey(Arc::new(path)))
-            .await?
-            .read_if_exists(&*file_ops)
-            .await
+        let file_ops = get_delegated_file_ops(ctx, path.cell()).await?;
+        let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
+        // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
+        // However, that also means that the `ReadFileKey` is not marked as transient if this
+        // returns an error, which is unfortunate.
+        file_ops.read_file_if_exists(path.path()).await
     }
 
     pub async fn read_file(
@@ -119,28 +107,82 @@ impl DiceFileComputations {
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
     }
+
+    pub async fn is_ignored(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<bool> {
+        get_delegated_file_ops(ctx, path.cell())
+            .await?
+            .is_ignored(path.path())
+            .await
+    }
+
+    pub async fn buildfiles<'a>(
+        ctx: &mut DiceComputations<'_>,
+        cell: CellName,
+    ) -> anyhow::Result<Arc<[FileNameBuf]>> {
+        ctx.get_buildfiles(cell).await
+    }
 }
 
+/// Note: Everything in this mini-module exists only so that it can be replaced by a `TestFileOps`
+/// in unittests
 pub mod keys {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use async_trait::async_trait;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::cells::paths::CellRelativePath;
+    use cmp_any::PartialEqAny;
     use derive_more::Display;
     use dupe::Dupe;
 
-    use crate::file_ops::FileOps;
+    use crate::file_ops::RawPathMetadata;
+    use crate::file_ops::ReadDirOutput;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
-    pub struct FileOpsKey();
+    pub struct FileOpsKey(pub CellName);
 
     #[derive(Dupe, Clone, Allocative)]
-    pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOps>);
+    pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOpsDelegate>);
+
+    #[async_trait]
+    pub trait FileOpsDelegate: Send + Sync {
+        async fn read_file_if_exists(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<Option<String>>;
+
+        /// Return the list of file outputs, sorted.
+        async fn read_dir(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<ReadDirOutput>;
+
+        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool>;
+
+        async fn read_path_metadata_if_exists(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<Option<RawPathMetadata>>;
+
+        fn eq_token(&self) -> PartialEqAny;
+    }
+
+    impl PartialEq for dyn FileOpsDelegate {
+        fn eq(&self, other: &Self) -> bool {
+            self.eq_token() == other.eq_token()
+        }
+    }
 }
 
-async fn get_default_file_ops(
+async fn get_delegated_file_ops(
     dice: &mut DiceComputations<'_>,
-) -> buck2_error::Result<Arc<dyn FileOps>> {
+    cell: CellName,
+) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
     #[derive(Clone, Dupe, Derivative, Allocative)]
     #[derivative(PartialEq)]
     struct DiceFileOpsDelegate {
@@ -148,17 +190,14 @@ async fn get_default_file_ops(
         #[derivative(PartialEq = "ignore")]
         io: Arc<dyn IoProvider>,
         cells: CellResolver,
-        ignores: Arc<AllCellIgnores>,
+        ignores: Arc<CellFileIgnores>,
+        cell: CellName,
     }
 
     impl DiceFileOpsDelegate {
-        fn resolve(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
-            let cell_root = self.resolve_cell_root(path.cell())?;
-            Ok(cell_root.as_project_relative_path().join(path.path()))
-        }
-
-        fn resolve_cell_root(&self, cell: CellName) -> anyhow::Result<CellRootPathBuf> {
-            Ok(self.cells.get(cell).unwrap().path().to_buf())
+        fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
+            let cell_root = self.cells.get(self.cell).unwrap().path();
+            cell_root.as_project_relative_path().join(path)
         }
 
         fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath> {
@@ -171,24 +210,27 @@ async fn get_default_file_ops(
     }
 
     #[async_trait]
-    impl FileOps for DiceFileOpsDelegate {
+    impl FileOpsDelegate for DiceFileOpsDelegate {
         async fn read_file_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<String>> {
             // TODO(cjhopman): error on ignored paths, maybe.
-            let project_path = self.resolve(path)?;
+            let project_path = self.resolve(path);
             self.io_provider().read_file_if_exists(project_path).await
         }
 
-        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
+        async fn read_dir(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
             self.ignores
-                .check_ignored(path.cell(), UncheckedCellRelativePath::new(path.path()))?
+                .check(UncheckedCellRelativePath::new(path))
                 .into_result()
                 .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
 
-            let project_path = self.resolve(path)?;
+            let project_path = self.resolve(path);
             let mut entries = self
                 .io_provider()
                 .read_dir(project_path)
@@ -200,12 +242,12 @@ async fn get_default_file_ops(
 
             let is_ignored = |file_name: &str| {
                 let mut cell_relative_path_buf;
-                let cell_relative_path: &str = if path.path().is_empty() {
+                let cell_relative_path: &str = if path.is_empty() {
                     file_name
                 } else {
                     cell_relative_path_buf =
-                        String::with_capacity(path.path().as_str().len() + 1 + file_name.len());
-                    cell_relative_path_buf.push_str(path.path().as_str());
+                        String::with_capacity(path.as_str().len() + 1 + file_name.len());
+                    cell_relative_path_buf.push_str(path.as_str());
                     cell_relative_path_buf.push('/');
                     cell_relative_path_buf.push_str(file_name);
                     &cell_relative_path_buf
@@ -213,10 +255,7 @@ async fn get_default_file_ops(
 
                 let cell_relative_path =
                     UncheckedCellRelativePath::unchecked_new(cell_relative_path);
-                let is_ignored = self
-                    .ignores
-                    .check_ignored(path.cell(), cell_relative_path)?
-                    .is_ignored();
+                let is_ignored = self.ignores.check(cell_relative_path).is_ignored();
                 anyhow::Ok(is_ignored)
             };
 
@@ -253,9 +292,9 @@ async fn get_default_file_ops(
 
         async fn read_path_metadata_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<RawPathMetadata>> {
-            let project_path = self.resolve(path)?;
+            let project_path = self.resolve(path);
 
             let res = self
                 .io_provider()
@@ -266,10 +305,10 @@ async fn get_default_file_ops(
                 .transpose()
         }
 
-        async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
+        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
             Ok(self
                 .ignores
-                .check_ignored(path.cell(), UncheckedCellRelativePath::new(path.path()))?
+                .check(UncheckedCellRelativePath::new(path))
                 .is_ignored())
         }
 
@@ -289,12 +328,13 @@ async fn get_default_file_ops(
             let cells = ctx.get_cell_resolver().await?;
             let io = ctx.global_data().get_io_provider();
 
-            let ignores = ctx.new_all_cell_ignores().await?;
+            let ignores = ctx.new_cell_ignores(self.0).await?;
 
             Ok(FileOpsValue(Arc::new(DiceFileOpsDelegate {
                 io,
                 cells,
                 ignores,
+                cell: self.0,
             })))
         }
 
@@ -310,7 +350,7 @@ async fn get_default_file_ops(
         }
     }
 
-    Ok(dice.compute(&FileOpsKey()).await??.0)
+    Ok(dice.compute(&FileOpsKey(cell)).await??.0)
 }
 
 #[derive(Allocative)]
@@ -400,13 +440,12 @@ struct ReadFileKey(Arc<CellPath>);
 
 #[async_trait]
 impl Key for ReadFileKey {
-    type Value = FileToken;
+    type Value = ();
     async fn compute(
         &self,
         _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        FileToken(self.0.dupe())
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -425,9 +464,9 @@ impl Key for ReadDirKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_default_file_ops(ctx)
+        get_delegated_file_ops(ctx, self.0.cell())
             .await?
-            .read_dir(self.0.as_ref())
+            .read_dir(self.0.as_ref().path())
             .await
             .map_err(buck2_error::Error::from)
     }
@@ -455,9 +494,9 @@ impl Key for PathMetadataKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let res = get_default_file_ops(ctx)
+        let res = get_delegated_file_ops(ctx, self.0.cell())
             .await?
-            .read_path_metadata_if_exists(self.0.as_ref())
+            .read_path_metadata_if_exists(self.0.as_ref().path())
             .await?;
 
         match res {
@@ -506,14 +545,17 @@ impl FileOps for DiceFileOps<'_, '_> {
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-        let file_ops = get_default_file_ops(&mut self.0.get()).await?;
-        file_ops.is_ignored(path).await
+        DiceFileComputations::is_ignored(&mut self.0.get(), path).await
     }
 
     fn eq_token(&self) -> PartialEqAny {
         // We do not store this on DICE, so we don't care about equality.
         // Also we cannot do `PartialEqAny` here because `Self` is not `'static`.
         PartialEqAny::always_false()
+    }
+
+    async fn buildfiles<'a>(&self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
+        DiceFileComputations::buildfiles(&mut self.0.get(), cell).await
     }
 }
 

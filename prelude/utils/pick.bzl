@@ -12,6 +12,9 @@ def pick_bin(override, underlying):
     return override[RunInfo] if override != None else underlying
 
 def pick_dep(override, underlying):
+    return pick_raw(override, underlying)
+
+def pick_raw(override, underlying):
     return override if override != None else underlying
 
 def pick_and_add(override, additional, underlying):

@@ -910,12 +910,12 @@ def cxx_compile_srcs(
     )
 
     # Define object files.
-    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True, allow_cache_upload = ctx.attrs.allow_cache_upload)
+    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
     pic = _get_library_compile_output(ctx, pic_cxx_outs, impl_params.extra_link_input)
 
     non_pic = None
     if preferred_linkage != Linkage("shared"):
-        non_pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False, allow_cache_upload = ctx.attrs.allow_cache_upload)
+        non_pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False)
         non_pic = _get_library_compile_output(ctx, non_pic_cxx_outs, impl_params.extra_link_input)
 
     return _CxxCompiledSourcesOutput(
@@ -1095,9 +1095,16 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifa
     Return new objects with debug info stripped.
     """
 
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+
     # Stripping is not supported on Windows
-    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+    linker_type = cxx_toolchain_info.linker_info.type
     if linker_type == "windows":
+        return objects
+
+    # Disable stripping if no `strip` binary was provided by the toolchain.
+    if cxx_toolchain_info.binary_utilities_info == None or \
+       cxx_toolchain_info.binary_utilities_info.strip == None:
         return objects
 
     outs = []

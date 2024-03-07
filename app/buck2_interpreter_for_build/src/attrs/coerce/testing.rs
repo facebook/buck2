@@ -22,6 +22,7 @@ use buck2_core::package::PackageLabel;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use dupe::Dupe;
 use maplit::hashmap;
 use starlark::environment::Globals;
 use starlark::environment::Module;
@@ -60,8 +61,18 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
             HashMap::new(),
         ),
     ]);
+    let cell_alias_resolver = cell_resolver
+        .get(package.cell_name())
+        .unwrap()
+        .testing_cell_alias_resolver()
+        .dupe();
 
-    BuildAttrCoercionContext::new_with_package(cell_resolver, (package, package_listing), false)
+    BuildAttrCoercionContext::new_with_package(
+        cell_resolver,
+        cell_alias_resolver,
+        (package, package_listing),
+        false,
+    )
 }
 
 fn cell_resolver() -> CellResolver {
@@ -82,6 +93,11 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let cell_info = InterpreterCellInfo::new(
         BuildFileCell::new(CellName::testing_new("root")),
         cell_resolver(),
+        cell_resolver()
+            .get(CellName::testing_new("root"))
+            .unwrap()
+            .testing_cell_alias_resolver()
+            .dupe(),
     )
     .unwrap();
 

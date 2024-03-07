@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-strict
+
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import List, Optional, Type, TypeVar

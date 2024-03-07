@@ -14,9 +14,9 @@ use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
-use buck2_common::package_boundary::PackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
@@ -57,6 +57,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::indexset;
 
@@ -120,6 +121,7 @@ impl LiteralParser {
             self.working_dir.as_ref(),
             value,
             &self.cell_resolver,
+            &self.cell_alias_resolver,
         )
     }
 
@@ -140,7 +142,6 @@ pub(crate) struct DiceQueryDelegate<'c, 'd> {
     ctx: &'c LinearRecomputeDiceComputations<'d>,
     cell_resolver: CellResolver,
     query_data: Arc<DiceQueryData>,
-    package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
 }
 
 pub(crate) struct DiceQueryData {
@@ -159,8 +160,7 @@ impl DiceQueryData {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
 
         let cell_alias_resolver = cell_resolver
-            .get(cell_path.cell())?
-            .cell_alias_resolver()
+            .get_cwd_cell_alias_resolver(working_dir)?
             .dupe();
         let working_dir_abs = project_root.resolve(working_dir);
 
@@ -190,14 +190,12 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
     pub(crate) fn new(
         ctx: &'c LinearRecomputeDiceComputations<'d>,
         cell_resolver: CellResolver,
-        package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
         query_data: Arc<DiceQueryData>,
     ) -> Self {
         Self {
             ctx,
             cell_resolver: cell_resolver.dupe(),
             query_data,
-            package_boundary_exceptions,
         }
     }
 
@@ -230,14 +228,24 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     }
 
     // get the list of potential buildfile names for each cell
-    fn get_buildfile_names_by_cell(&self) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>> {
+    async fn get_buildfile_names_by_cell(
+        &self,
+    ) -> anyhow::Result<HashMap<CellName, Arc<[FileNameBuf]>>> {
         let resolver = &self.cell_resolver;
-        let mut buildfile_names_by_cell = HashMap::<CellName, &[FileNameBuf]>::new();
-        for (cell, _) in resolver.cells() {
-            let prev = buildfile_names_by_cell.insert(cell, resolver.get(cell)?.buildfiles());
-            assert!(prev.is_none());
-        }
-        Ok(buildfile_names_by_cell)
+        let buildfiles = self
+            .ctx
+            .get()
+            .try_compute_join(resolver.cells(), |ctx, (name, _)| {
+                async move {
+                    DiceFileComputations::buildfiles(ctx, name)
+                        .await
+                        .map(|x| (name, x))
+                }
+                .boxed()
+            })
+            .await?;
+
+        Ok(buildfiles.into_iter().collect())
     }
 
     async fn resolve_target_patterns(
@@ -246,8 +254,7 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns =
             patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
-        ResolveTargetPatterns::resolve(&mut self.ctx.get(), &self.cell_resolver, &parsed_patterns)
-            .await
+        ResolveTargetPatterns::resolve(&mut self.ctx.get(), &parsed_patterns).await
     }
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.
@@ -255,11 +262,13 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         // Without package boundary violations, there is only 1 owning package for a path.
         // However, with package boundary violations, all parent packages of the enclosing package can also be owners.
         if let Some(enclosing_violation_path) = self
-            .package_boundary_exceptions
-            .get_package_boundary_exception_path(path)
+            .ctx
+            .get()
+            .get_package_boundary_exception(path.as_ref())
+            .await?
         {
             return Ok(DicePackageListingResolver(&mut self.ctx.get())
-                .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
+                .get_enclosing_packages(path.as_ref(), (*enclosing_violation_path).as_ref())
                 .await?
                 .into_iter()
                 .collect());
@@ -376,7 +385,6 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     global_cfg_options: GlobalCfgOptions,
 ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
     let cell_resolver = ctx.get().get_cell_resolver().await?;
-    let package_boundary_exceptions = ctx.get().get_package_boundary_exceptions().await?;
     let target_alias_resolver = ctx
         .get()
         .target_alias_resolver_for_working_dir(working_dir)
@@ -390,7 +398,6 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     Ok(DiceQueryDelegate::new(
         ctx,
         cell_resolver.dupe(),
-        package_boundary_exceptions,
         Arc::new(DiceQueryData::new(
             global_cfg_options,
             cell_resolver,

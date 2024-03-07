@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
@@ -29,7 +28,6 @@ use dupe::Dupe;
 use ref_cast::RefCast;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
-use crate::legacy_configs::LegacyBuckConfigs;
 
 #[derive(PartialEq, Allocative)]
 pub struct PackageBoundaryExceptions(HashMap<CellName, CellPackageBoundaryExceptions>);
@@ -95,112 +93,77 @@ impl CellPackageBoundaryExceptions {
     }
 }
 
-impl PackageBoundaryExceptions {
-    fn new(configs: &LegacyBuckConfigs) -> anyhow::Result<Self> {
-        Ok(Self(
-            configs
-                .iter()
-                .filter_map(|(name, cell_configs)| {
-                    cell_configs
-                        .get("project", "package_boundary_exceptions")
-                        .map(|v| {
-                            let e = CellPackageBoundaryExceptions::new(v).with_context(
-                                || format!("Error parsing `project.package_boundary_exceptions` key from cell `{}`", name)
-                            )?;
-                            Ok((name, e))
-                        })
-                })
-                .collect::<anyhow::Result<_>>()?,
-        ))
-    }
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
+#[display(fmt = "{:?}", self)]
+struct CellPackageBoundaryExceptionsKey(CellName);
 
-    /// Returns the package boundary exception path that covers this path, if it exists
-    pub fn get_package_boundary_exception_path(&self, path: &CellPath) -> Option<CellPath> {
-        if let Some(exceptions) = self.0.get(&path.cell()) {
-            exceptions
-                .get_package_boundary_exception_path(path.path())
-                .map(|p| CellPath::new(path.cell(), p))
+#[async_trait]
+impl Key for CellPackageBoundaryExceptionsKey {
+    type Value = buck2_error::Result<Option<Arc<CellPackageBoundaryExceptions>>>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let s = ctx
+            .get_legacy_config_property(self.0, "project", "package_boundary_exceptions")
+            .await?;
+        if let Some(s) = s {
+            Ok(Some(Arc::new(CellPackageBoundaryExceptions::new(&s)?)))
         } else {
-            None
+            Ok(None)
         }
     }
 
-    pub fn contains(&self, path: &CellPath) -> bool {
-        self.get_package_boundary_exception_path(path).is_some()
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 }
 
 #[async_trait]
 pub trait HasPackageBoundaryExceptions {
-    async fn get_package_boundary_exceptions(
-        &mut self,
-    ) -> buck2_error::Result<Arc<PackageBoundaryExceptions>>;
-
     async fn get_package_boundary_exception(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<bool>;
+    ) -> buck2_error::Result<Option<Arc<CellPath>>>;
 }
 
 #[async_trait]
 impl HasPackageBoundaryExceptions for DiceComputations<'_> {
-    async fn get_package_boundary_exceptions(
-        &mut self,
-    ) -> buck2_error::Result<Arc<PackageBoundaryExceptions>> {
-        #[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
-        #[display(fmt = "{:?}", self)]
-        struct PackageBoundaryExceptionsKey;
-
-        #[async_trait]
-        impl Key for PackageBoundaryExceptionsKey {
-            type Value = buck2_error::Result<Arc<PackageBoundaryExceptions>>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellations: &CancellationContext,
-            ) -> Self::Value {
-                Ok(Arc::new(PackageBoundaryExceptions::new(
-                    &ctx.get_legacy_configs().await?,
-                )?))
-            }
-
-            fn validity(x: &Self::Value) -> bool {
-                x.is_ok()
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-        }
-
-        self.compute(&PackageBoundaryExceptionsKey).await?
-    }
-
     async fn get_package_boundary_exception(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<bool> {
+    ) -> buck2_error::Result<Option<Arc<CellPath>>> {
         #[derive(Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative)]
         #[repr(transparent)]
         struct PackageBoundaryExceptionKey(CellPath);
 
         #[async_trait]
         impl Key for PackageBoundaryExceptionKey {
-            type Value = buck2_error::Result<bool>;
+            type Value = buck2_error::Result<Option<Arc<CellPath>>>;
 
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
-                Ok(ctx
-                    .get_package_boundary_exceptions()
-                    .await?
-                    .contains(&self.0))
+                let Some(exceptions) = ctx
+                    .compute(&CellPackageBoundaryExceptionsKey(self.0.cell()))
+                    .await??
+                else {
+                    return Ok(None);
+                };
+                Ok(exceptions
+                    .get_package_boundary_exception_path(self.0.path())
+                    .map(|p| Arc::new(CellPath::new(self.0.cell(), p))))
             }
 
             fn validity(x: &Self::Value) -> bool {

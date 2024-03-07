@@ -8,7 +8,6 @@
  */
 
 use anyhow::Context;
-use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::display_precise_pattern;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -96,18 +95,16 @@ impl ResolveTargetPatterns {
     /// Resolves a list of [ParsedPattern] to a [ResolvedPattern].
     pub async fn resolve<P: PatternType>(
         ctx: &mut DiceComputations<'_>,
-        cell_resolver: &CellResolver,
         patterns: &[ParsedPattern<P>],
     ) -> anyhow::Result<ResolvedPattern<P>> {
         ctx.with_linear_recompute(|ctx| async move {
-            resolve_target_patterns_impl(cell_resolver, patterns, &DiceFileOps(&ctx)).await
+            resolve_target_patterns_impl(patterns, &DiceFileOps(&ctx)).await
         })
         .await
     }
 }
 
 async fn resolve_target_patterns_impl<P: PatternType>(
-    cell_resolver: &CellResolver,
     patterns: &[ParsedPattern<P>],
     file_ops: &dyn FileOps,
 ) -> anyhow::Result<ResolvedPattern<P>> {
@@ -121,7 +118,7 @@ async fn resolve_target_patterns_impl<P: PatternType>(
                 resolved.add_package(package.dupe());
             }
             ParsedPattern::Recursive(cell_path) => {
-                let roots = find_package_roots(cell_path.clone(), file_ops, cell_resolver)
+                let roots = find_package_roots(cell_path.clone(), file_ops)
                     .await
                     .context("Error resolving recursive target pattern.")?;
                 for package in roots {
@@ -218,11 +215,20 @@ mod tests {
             T: PatternType,
         {
             let patterns: Vec<_> = patterns.map(|p| {
-                ParsedPattern::<T>::parse_precise(p, CellName::testing_new("root"), &self.resolver)
-                    .unwrap()
+                ParsedPattern::<T>::parse_precise(
+                    p,
+                    CellName::testing_new("root"),
+                    &self.resolver,
+                    &self
+                        .resolver
+                        .get(CellName::testing_new("root"))
+                        .unwrap()
+                        .testing_cell_alias_resolver(),
+                )
+                .unwrap()
             });
 
-            resolve_target_patterns_impl(&self.resolver, &patterns, &*self.file_ops).await
+            resolve_target_patterns_impl(&patterns, &*self.file_ops).await
         }
     }
 

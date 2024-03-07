@@ -19,6 +19,7 @@ use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -69,6 +70,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
+use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
@@ -182,6 +184,7 @@ impl BxlInnerEvaluator {
             let bxl_function_name = key.label().name.clone();
             let frozen_callable = get_bxl_callable(key.label(), &module)?;
             eval.set_print_handler(&print);
+            eval.extra = Some(&BxlEvalExtraTag);
 
             let force_print_stacktrace = key.force_print_stacktrace();
             let bxl_ctx = BxlContext::new(
@@ -410,6 +413,7 @@ pub(crate) fn get_bxl_callable<'a>(
 pub(crate) struct CliResolutionCtx<'a> {
     pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
     pub(crate) cell_resolver: CellResolver,
+    pub(crate) cell_alias_resolver: CellAliasResolver,
     pub(crate) relative_dir: PackageLabel,
     pub(crate) dice: &'a DiceTransaction,
 }

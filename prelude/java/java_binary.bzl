@@ -79,9 +79,6 @@ def _create_fat_jar(
 
     main_class = ctx.attrs.main_class
     if main_class:
-        if do_not_create_inner_jar and native_libs:
-            fail("For performance reasons, java binaries with a main class and native libs should always generate an inner jar.\
-            The reason for having inner.jar is so that we don't have to compress the native libraries, which is slow at compilation time and also at runtime (when decompressing).")
         args += ["--main_class", main_class]
 
     manifest_file = ctx.attrs.manifest_file

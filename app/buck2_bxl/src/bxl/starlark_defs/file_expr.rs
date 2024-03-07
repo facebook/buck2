@@ -87,10 +87,9 @@ impl<'a> FileExpr<'a> {
     ) -> anyhow::Result<CellPath> {
         match self {
             FileExpr::Literal(val) => {
-                match parse_cell_path_as_file_expr_literal(
-                    val,
-                    cell_instance.cell_alias_resolver(),
-                )? {
+                let cell_alias_resolver =
+                    dice.get_cell_alias_resolver(cell_instance.name()).await?;
+                match parse_cell_path_as_file_expr_literal(val, &cell_alias_resolver)? {
                     Some(cell_path) => Ok(cell_path),
                     None => {
                         let fs = dice.global_data().get_io_provider().project_root().dupe();

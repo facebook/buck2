@@ -20,6 +20,8 @@ use crate::AuditSubcommand;
     Dupe,
     Clone,
     Copy,
+    PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     clap::ArgEnum
@@ -76,6 +78,10 @@ pub struct AuditConfigCommand {
 
     #[clap(long = "cell")]
     pub cell: Option<String>,
+
+    /// Produce information for all cells that Buck2 knows about.
+    #[clap(long, conflicts_with = "cell")]
+    pub all_cells: bool,
 
     #[clap(long, alias = "style", ignore_case = true, arg_enum)]
     pub output_format: Option<OutputFormat>,

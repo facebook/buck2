@@ -129,6 +129,7 @@ pub(crate) fn get_attr_coercion_context<'v>(
     Ok(BuildAttrCoercionContext::new_no_package(
         build_context.cell_info().cell_resolver().dupe(),
         build_context.cell_info().name().name(),
+        build_context.cell_info().cell_alias_resolver().dupe(),
     ))
 }
 

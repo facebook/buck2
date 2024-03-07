@@ -254,9 +254,6 @@ fn iter_test_env<'v>(
         }
     };
 
-    // TODO: In an ideal world this wouldnt be necessary, but env's lifetime is bound by this
-    // function.
-    #[allow(clippy::needless_collect)]
     let env = env.iter().collect::<Vec<_>>();
 
     Either::Right(env.into_iter().map(|(key, value)| {
@@ -315,9 +312,6 @@ fn iter_executor_overrides<'v>(
         }
     };
 
-    // TODO: In an ideal world this wouldnt be necessary, but executor_overrides's lifetime is
-    // bound by this function.
-    #[allow(clippy::needless_collect)]
     let executor_overrides = executor_overrides.iter().collect::<Vec<_>>();
 
     Either::Right(executor_overrides.into_iter().map(|(key, value)| {
@@ -352,9 +346,6 @@ fn iter_local_resources<'v>(
         }
     };
 
-    // TODO: In an ideal world this wouldnt be necessary, but local_resources's lifetime is
-    // bound by this function.
-    #[allow(clippy::needless_collect)]
     let local_resources = local_resources.iter().collect::<Vec<_>>();
 
     Either::Right(local_resources.into_iter().map(|(key, value)| {

@@ -67,7 +67,6 @@ def run(
     args: Iterable[str],
     capture_output: bool = False,
     env: Optional[Dict[str, str]] = None,
-    error: Optional[str] = None,
 ) -> subprocess.CompletedProcess:
     """
     Runs a command (args) in a new process.
@@ -85,7 +84,7 @@ def run(
             # We'd like to use the capture_output argument,
             # but that isn't available in Python 3.6 which we use on Windows
             stdout=subprocess.PIPE if capture_output else sys.stdout,
-            stderr=subprocess.PIPE if capture_output else sys.stderr,
+            stderr=sys.stderr,
             check=True,
             encoding="utf-8",
             env=env or os.environ.copy(),
@@ -95,9 +94,6 @@ def run(
         # Print the console info if we were capturing it
         if capture_output:
             print(e.stdout, file=sys.stdout)
-            print(e.stderr, file=sys.stderr)
-        if error:
-            print_error(error)
         sys.exit(1)
 
 
@@ -114,9 +110,10 @@ def check_no_changes(git: bool):
 
     status = run(status_cmd, capture_output=True)
     if status.stdout.strip():
+        run(status_cmd)
         run(diff_cmd)
         print_error(
-            "File changed from commit. This means you need to run cargo-fmt locally and amend this commit."
+            "File changes! Caused either by formatting or by tests creating stray files."
         )
         sys.exit(1)
 
@@ -205,14 +202,9 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
 
 
 RUSTC_ALLOW = {
-    # This needs a feature
+    # These are not in the shared-with-buck2 lists because they only appear in third-party deps.
+    # Normally cargo would suppress those, but we do vendored builds and so it doesn't.
     "unfulfilled-lint-expectations",
-    # error: unknown lint: `unknown_or_malformed_diagnostic_attributes`
-    #   |
-    #   = note: the `unknown_or_malformed_diagnostic_attributes` lint is unstable
-    #   = note: see issue #111996 <https://github.com/rust-lang/rust/issues/111996> for more information
-    #   = help: add `-Zcrate-attr="feature(diagnostic_namespace)"` to the command-line options to enable
-    #   = note: requested on the command line with `-D unknown-lints`
     "unknown-lints",
     # This is not *actually* a  warning but rather a warning level.
     "warnings",

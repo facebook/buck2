@@ -63,6 +63,7 @@ fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetL
         target,
         ctx.build_file_cell().name(),
         ctx.cell_resolver(),
+        ctx.cell_info.cell_alias_resolver(),
     ) {
         Ok(ParsedPattern::Target(package, target_name, TargetPatternExtra)) => {
             Ok(TargetLabel::new(package, target_name.as_ref())

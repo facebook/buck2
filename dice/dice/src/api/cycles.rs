@@ -31,10 +31,37 @@ impl FromStr for DetectCycles {
     type Err = InvalidType;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "ENABLED" => Ok(DetectCycles::Enabled),
-            "DISABLED" => Ok(DetectCycles::Disabled),
-            _ => Err(InvalidType(s.to_owned())),
+        if s.eq_ignore_ascii_case("ENABLED") {
+            Ok(DetectCycles::Enabled)
+        } else if s.eq_ignore_ascii_case("DISABLED") {
+            Ok(DetectCycles::Disabled)
+        } else {
+            Err(InvalidType(s.to_owned()))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+
+    use super::*;
+
+    #[test]
+    fn parse() {
+        assert_matches!("enabled".parse::<DetectCycles>(), Ok(DetectCycles::Enabled));
+        assert_matches!("ENABLED".parse::<DetectCycles>(), Ok(DetectCycles::Enabled));
+        assert_matches!(
+            "disabled".parse::<DetectCycles>(),
+            Ok(DetectCycles::Disabled)
+        );
+        assert_matches!(
+            "DISABLED".parse::<DetectCycles>(),
+            Ok(DetectCycles::Disabled)
+        );
+        assert_matches!(
+            "foo".parse::<DetectCycles>(),
+            Err(InvalidType(x)) if x == "foo"
+        );
     }
 }

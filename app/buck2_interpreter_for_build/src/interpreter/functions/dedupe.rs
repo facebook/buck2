@@ -26,9 +26,7 @@ pub(crate) fn register_dedupe(builder: &mut GlobalsBuilder) {
         let mut seen = HashSet::new();
         let mut res = Vec::new();
         for v in val.iterate(heap)? {
-            let p = v.identity();
-            if !seen.contains(&p) {
-                seen.insert(p);
+            if seen.insert(v.identity()) {
                 res.push(v);
             }
         }

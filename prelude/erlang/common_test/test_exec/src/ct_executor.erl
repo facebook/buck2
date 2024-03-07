@@ -26,6 +26,9 @@
 % For testing
 -export([split_args/1]).
 
+-define(STDOUT_MAX_LINES, 1000).
+-define(STDOUT_MAX_LINE_LENGTH, 10000).
+
 -spec run([string()]) -> no_return().
 run(Args) when is_list(Args) ->
     ExitCode =
@@ -71,7 +74,9 @@ run(Args) when is_list(Args) ->
                 erlang:system_flag(backtrace_depth, 20),
                 ?LOG_DEBUG("ct_run called with arguments ~p ~n", [CtRunArgs]),
                 Providers1 = [buck_ct_provider:do_pre_running(Provider) || Provider <- Providers0],
-                {ok, IoBuffer} = io_buffer:start_link(),
+                {ok, IoBuffer} = io_buffer:start_link(#{
+                    passthrough => true, max_elements => ?STDOUT_MAX_LINES, max_length => ?STDOUT_MAX_LINE_LENGTH
+                }),
                 register(cth_tpx_io_buffer, IoBuffer),
                 %% set global timeout
                 Result = ct:run_test(CtRunArgs),

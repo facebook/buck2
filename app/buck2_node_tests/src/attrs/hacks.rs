@@ -23,8 +23,11 @@ use starlark::values::Heap;
 #[test]
 fn stringifies_correctly() -> anyhow::Result<()> {
     let heap = Heap::new();
-    let coercer_ctx =
-        BuildAttrCoercionContext::new_no_package(cells(None)?.1, cells(None)?.0.resolve_self());
+    let coercer_ctx = BuildAttrCoercionContext::new_no_package(
+        cells(None)?.1,
+        cells(None)?.0.resolve_self(),
+        cells(None)?.0,
+    );
     let coercer = AttrType::string();
     let coerced = coercer
         .coerce(

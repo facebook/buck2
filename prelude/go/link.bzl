@@ -58,14 +58,6 @@ def _build_mode_param(mode: GoBuildMode) -> str:
 def get_inherited_link_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
     return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if GoPkgLinkInfo in d])
 
-def is_any_dep_cgo(deps: list[Dependency]) -> bool:
-    for d in deps:
-        if GoPkgLinkInfo in d:
-            for pkg in d[GoPkgLinkInfo].pkgs.values():
-                if pkg.cgo:
-                    return True
-    return False
-
 # TODO(cjhopman): Is link_style a LibOutputStyle or a LinkStrategy here? Based
 # on returning an empty thing for link_style != shared, it seems likely its
 # intended to be LibOutputStyle, but it's called in places that are passing what
@@ -149,15 +141,15 @@ def link(
             link_mode = "external"
         elif shared:
             link_mode = "external"
-        elif is_any_dep_cgo(deps):
-            link_mode = "external"
-        else:
-            link_mode = "internal"
-    cmd.add("-linkmode", link_mode)
 
-    if link_mode == "external":
+    if link_mode != None:
+        cmd.add("-linkmode", link_mode)
+
+    cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
+    if cxx_toolchain == None and link_mode == "external":
+        fail("cxx_toolchain required for link_mode='external'")
+    if cxx_toolchain != None:
         is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
-        cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
 
         # Gather external link args from deps.
         ext_links = get_link_args_for_strategy(ctx, cxx_inherited_link_info(deps), to_link_strategy(link_style))

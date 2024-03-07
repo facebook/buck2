@@ -7,6 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:set.bzl", "set")
 load(
@@ -105,6 +106,7 @@ _CxxCompileCommand = record(
     compiler_type = field(str),
     # The action category
     category = field(str),
+    allow_cache_upload = field(bool),
 )
 
 # Information about how to compile a source file.
@@ -323,12 +325,14 @@ def create_compile_cmds(
             argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag, False)
             abs_argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, abs_headers_tag, True)
 
+            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
             cxx_compile_cmd_by_ext[ext] = _CxxCompileCommand(
                 base_compile_cmd = base_compile_cmd,
                 argsfile = argsfile_by_ext[ext.value],
                 headers_dep_files = headers_dep_files,
                 compiler_type = compiler_info.compiler_type,
                 category = category,
+                allow_cache_upload = allow_cache_upload,
             )
 
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
@@ -361,8 +365,7 @@ def create_compile_cmds(
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
-        pic: bool = False,
-        allow_cache_upload: bool = False) -> list[CxxCompileOutput]:
+        pic: bool = False) -> list[CxxCompileOutput]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
@@ -463,7 +466,7 @@ def compile_cxx(
             category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = identifier,
             dep_files = action_dep_files,
-            allow_cache_upload = allow_cache_upload,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         )
 
         # If we're building with split debugging, where the debug info is in the

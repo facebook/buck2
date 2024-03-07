@@ -21,6 +21,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigLocation;
 use buck2_common::legacy_configs::LegacyBuckConfigValue;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellAliasResolver;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -92,6 +93,86 @@ fn print_value(
     Ok(())
 }
 
+struct Match<'a> {
+    /// The original specification - important if we want to produce JSON keys.
+    /// Not present if it wasn't a key match, as then we can't express it.
+    spec: Option<&'a str>,
+    /// The cell, or otherwise require the cell passed in by the filterer.
+    cell: Option<CellName>,
+    /// The section.
+    section: &'a str,
+    /// The key. Might be optional if the user did `foo` as their match.
+    key: Option<&'a str>,
+}
+
+impl<'a> Match<'a> {
+    fn parse(resolver: &CellAliasResolver, spec: &'a str) -> anyhow::Result<Self> {
+        let (cell, config) = match spec.split_once("//") {
+            Some((cell, config)) => (Some(resolver.resolve(cell)?), config),
+            None => (None, spec),
+        };
+        let (section, key) = config.split1(".");
+        Ok(Self {
+            spec: if key == "" { None } else { Some(spec) },
+            cell,
+            section,
+            key: if key == "" { None } else { Some(key) },
+        })
+    }
+
+    fn filter(
+        &self,
+        default_cell: CellName,
+        cell: CellName,
+        section: &str,
+        key: &str,
+    ) -> Option<String> {
+        if cell == self.cell.unwrap_or(default_cell)
+            && section == self.section
+            && self.key.map_or(true, |k| k == key)
+        {
+            Some(
+                self.spec
+                    .map_or_else(|| format!("{section}.{key}"), str::to_owned),
+            )
+        } else {
+            None
+        }
+    }
+}
+
+struct Matches<'a> {
+    matches: Vec<Match<'a>>,
+}
+
+impl<'a> Matches<'a> {
+    fn parse(resolver: &CellAliasResolver, specs: &'a [String]) -> anyhow::Result<Self> {
+        Ok(Self {
+            matches: specs.try_map(|x| Match::parse(resolver, x))?,
+        })
+    }
+
+    fn filter(
+        &self,
+        default_cell: CellName,
+        cell: CellName,
+        section: &str,
+        key: &str,
+    ) -> Option<String> {
+        if self.matches.is_empty() {
+            if cell == default_cell {
+                Some(format!("{section}.{key}"))
+            } else {
+                None
+            }
+        } else {
+            self.matches
+                .iter()
+                .find_map(|x| x.filter(default_cell, cell, section, key))
+        }
+    }
+}
+
 #[async_trait]
 impl AuditSubcommand for AuditConfigCommand {
     async fn server_execute(
@@ -104,87 +185,42 @@ impl AuditSubcommand for AuditConfigCommand {
             .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let cwd = server_ctx.working_dir();
                 let cell_resolver = ctx.get_cell_resolver().await?;
+                let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
 
-                let working_dir_cell = cell_resolver.find(cwd)?;
-                let cell_alias_resolver = cell_resolver
-                    .get(working_dir_cell)
-                    .unwrap()
-                    .cell_alias_resolver();
-
-                let relevant_cell = match &self.cell {
-                    Some(v) => v,
-                    None => "",
+                let relevant_cell = if self.all_cells {
+                    None
+                } else {
+                    Some(cell_alias_resolver.resolve(self.cell.as_deref().unwrap_or_default())?)
                 };
 
-                let resolved_relevant_cell = cell_alias_resolver.resolve(relevant_cell)?;
-
-                let config = ctx.get_legacy_configs().await?;
-
-                let specs = self.specs.try_map(|v| {
-                    let (cell, config) = match v.split_once("//") {
-                        Some((cell, config)) => (cell_alias_resolver.resolve(cell)?, config),
-                        None => (resolved_relevant_cell, v.as_str()),
-                    };
-                    let (section, key) = config.split1(".");
-                    anyhow::Ok((cell, section, key, v))
-                })?;
-
-                let filter = move |cell: CellName, section: &str, key: &str| {
-                    if specs.is_empty() {
-                        if cell == resolved_relevant_cell {
-                            Some(format!("{}.{}", section, key))
-                        } else {
-                            None
-                        }
-                    } else {
-                        for (filter_cell, filter_section, filter_key, spec) in &specs {
-                            if cell == *filter_cell
-                                && &section == filter_section
-                                && (filter_key == &"" || &key == filter_key)
-                            {
-                                return if filter_key == &"" {
-                                    Some(format!("{}.{}", section, key))
-                                } else {
-                                    Some((*spec).to_owned())
-                                };
-                            }
-                        }
-                        None
-                    }
-                };
-
+                let specs = Matches::parse(cell_alias_resolver, &self.specs)?;
                 let mut stdout = stdout.as_writer();
 
-                match self.output_format() {
-                    OutputFormat::Json => writeln!(
-                        &mut stdout,
-                        "{}",
-                        json!(
-                            config
-                                .iter()
-                                .flat_map(|(cell, cell_config)| cell_config
-                                    .all_sections()
-                                    .map(move |(section, cfg)| (cell, section, cfg)))
-                                .flat_map(|(cell, section, cfg)| {
-                                    cfg.iter()
-                                        .filter_map(|(key, value)| {
-                                            filter(cell, section, key)
-                                                .map(|spec| (spec, value.as_str().to_owned()))
-                                        })
-                                        .collect::<HashMap<String, String>>()
-                                })
-                                .collect::<HashMap<String, String>>()
-                        )
-                    )?,
-                    OutputFormat::Simple => {
-                        for (cell, cell_config) in config.iter() {
-                            for section in cell_config.sections() {
-                                let mut printed_section = false;
-                                let values = cell_config.get_section(section).unwrap();
-                                for (key, value) in values.iter() {
-                                    if filter(cell, section, key).is_some() {
+                let output_format = self.output_format();
+                let mut json_output = HashMap::new();
+                for (cell, _) in cell_resolver.cells() {
+                    let cell_config = ctx.get_legacy_config_for_cell(cell).await?;
+                    let mut printed_cell = false;
+                    for (section, values) in cell_config.all_sections() {
+                        let mut printed_section = false;
+                        for (key, value) in values.iter() {
+                            if let Some(mut spec) =
+                                specs.filter(relevant_cell.unwrap_or(cell), cell, section, key)
+                            {
+                                match output_format {
+                                    OutputFormat::Json => {
+                                        if self.all_cells && !spec.contains("//") {
+                                            spec = format!("{cell}//{spec}");
+                                        }
+                                        json_output.insert(spec, value.as_str().to_owned());
+                                    }
+                                    OutputFormat::Simple => {
+                                        if self.all_cells && !printed_cell {
+                                            writeln!(&mut stdout, "# Cell: {cell}")?;
+                                            printed_cell = true;
+                                        }
                                         if !printed_section {
-                                            writeln!(&mut stdout, "[{}]", section)?;
+                                            writeln!(&mut stdout, "[{section}]")?;
                                             printed_section = true;
                                         }
                                         print_value(&mut stdout, key, &value, self.value_style)?;
@@ -194,6 +230,9 @@ impl AuditSubcommand for AuditConfigCommand {
                             }
                         }
                     }
+                }
+                if output_format == OutputFormat::Json {
+                    writeln!(&mut stdout, "{}", json!(json_output))?;
                 }
 
                 Ok(())

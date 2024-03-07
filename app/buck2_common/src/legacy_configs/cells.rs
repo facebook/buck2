@@ -20,13 +20,11 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use gazebo::prelude::*;
 
 use crate::legacy_configs::init::DaemonStartupConfig;
 use crate::legacy_configs::path::BuckConfigFile;
@@ -280,13 +278,6 @@ impl BuckConfigBasedCells {
                 }
             }
 
-            if let Some(buildfiles) = Self::parse_buildfile_name(&config)? {
-                cells_aggregator.set_buildfiles(path.clone(), buildfiles);
-            }
-            if let Some(buildfile) = config.parse::<String>("buildfile", "extra_for_test")? {
-                cells_aggregator.add_buildfile(path.clone(), FileNameBuf::try_from(buildfile)?);
-            }
-
             buckconfigs.insert(path, config);
         }
 
@@ -303,30 +294,6 @@ impl BuckConfigBasedCells {
             cell_resolver,
             config_paths: file_ops.trace,
         })
-    }
-
-    /// Deal with the `buildfile.name` key (and `name_v2`)
-    fn parse_buildfile_name(config: &LegacyBuckConfig) -> anyhow::Result<Option<Vec<FileNameBuf>>> {
-        // For buck2, we support a slightly different mechanism for setting the buildfile to
-        // assist with easier migration from v1 to v2.
-        // First, we check the key `buildfile.name_v2`, if this is provided, we use it.
-        // Second, if that wasn't provided, we will use `buildfile.name` like buck1 does,
-        // but for every entry `FOO` we will insert a preceding `FOO.v2`.
-        // If neither of those is provided, we will use the default of `["BUCK.v2", "BUCK"]`.
-        // This scheme provides a natural progression to buckv2, with the ability to use separate
-        // buildfiles for the two where necessary.
-        if let Some(buildfiles_value) = config.parse_list::<String>("buildfile", "name_v2")? {
-            Ok(Some(buildfiles_value.into_try_map(FileNameBuf::try_from)?))
-        } else if let Some(buildfiles_value) = config.parse_list::<String>("buildfile", "name")? {
-            let mut buildfiles = Vec::new();
-            for buildfile in buildfiles_value {
-                buildfiles.push(FileNameBuf::try_from(format!("{}.v2", buildfile))?);
-                buildfiles.push(FileNameBuf::try_from(buildfile)?);
-            }
-            Ok(Some(buildfiles))
-        } else {
-            Ok(None)
-        }
     }
 }
 
@@ -422,26 +389,25 @@ pub struct ImmediateConfig {
 }
 
 #[cfg(test)]
+pub(crate) fn create_project_filesystem() -> ProjectRoot {
+    #[cfg(not(windows))]
+    let root_path = "/".to_owned();
+    #[cfg(windows)]
+    let root_path = "C:/".to_owned();
+    ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
+}
+
+#[cfg(test)]
 mod tests {
     use buck2_core::cells::name::CellName;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
-    use gazebo::prelude::*;
     use indoc::indoc;
 
+    use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::tests::assert_config_value;
     use crate::legacy_configs::LegacyConfigCmdArg;
-
-    fn create_project_filesystem() -> ProjectRoot {
-        #[cfg(not(windows))]
-        let root_path = "/".to_owned();
-        #[cfg(windows)]
-        let root_path = "C:/".to_owned();
-        ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
-    }
 
     #[test]
     fn test_cells() -> anyhow::Result<()> {
@@ -466,9 +432,6 @@ mod tests {
                                 root = ..
                                 other = .
                                 third_party = ../third_party/
-                            [buildfile]
-                                name = TARGETS
-                                extra_for_test = TARGETS.test
                         "#
                 ),
             ),
@@ -478,9 +441,6 @@ mod tests {
                     r#"
                             [repositories]
                                 third_party = .
-                            [buildfile]
-                                name_v2 = OKAY
-                                name = OKAY_v1
                         "#
                 ),
             ),
@@ -501,19 +461,9 @@ mod tests {
         let tp_instance = resolver.get(CellName::testing_new("third_party"))?;
 
         assert_eq!(
-            vec!["BUCK.v2", "BUCK"],
-            root_instance.buildfiles().map(|n| n.as_str())
-        );
-        assert_eq!(
-            vec!["TARGETS.v2", "TARGETS", "TARGETS.test"],
-            other_instance.buildfiles().map(|n| n.as_str())
-        );
-        assert_eq!(vec!["OKAY"], tp_instance.buildfiles().map(|n| n.as_str()));
-
-        assert_eq!(
             "other",
             root_instance
-                .cell_alias_resolver()
+                .testing_cell_alias_resolver()
                 .resolve("other_alias")?
                 .as_str()
         );
@@ -521,7 +471,7 @@ mod tests {
         assert_eq!(
             "other",
             tp_instance
-                .cell_alias_resolver()
+                .testing_cell_alias_resolver()
                 .resolve("other_alias")?
                 .as_str()
         );
@@ -880,14 +830,14 @@ mod tests {
         let root = resolver.get(CellName::testing_new("root")).unwrap();
 
         assert_eq!(
-            root.cell_alias_resolver()
+            root.testing_cell_alias_resolver()
                 .resolve("other")
                 .unwrap()
                 .as_str(),
             "other"
         );
         assert_eq!(
-            root.cell_alias_resolver()
+            root.testing_cell_alias_resolver()
                 .resolve("other_alias")
                 .unwrap()
                 .as_str(),

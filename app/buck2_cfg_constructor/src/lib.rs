@@ -132,12 +132,19 @@ async fn analyze_constraints(
     refs: Vec<String>,
 ) -> anyhow::Result<SmallMap<String, FrozenProviderCollectionValue>> {
     let cell_resolver = &ctx.get_cell_resolver().await?;
+    let cell_alias_resolver = &ctx
+        .get_cell_alias_resolver(cell_resolver.root_cell())
+        .await?;
     let res = ctx
         .try_compute_join(refs, |ctx, label_str| {
             async move {
                 // Ensure all refs are configuration rules
-                let label =
-                    TargetLabel::parse(&label_str, cell_resolver.root_cell(), cell_resolver)?;
+                let label = TargetLabel::parse(
+                    &label_str,
+                    cell_resolver.root_cell(),
+                    cell_resolver,
+                    cell_alias_resolver,
+                )?;
 
                 if ctx.get_target_node(&label).await?.rule_kind() == RuleKind::Configuration {
                     Ok((

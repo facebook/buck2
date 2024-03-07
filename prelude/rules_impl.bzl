@@ -16,6 +16,7 @@ load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_t
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
+load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
 load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
 load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
@@ -159,6 +160,7 @@ extra_implemented_rules = struct(
     cxx_python_extension = cxx_python_extension_impl,
     prebuilt_cxx_library = prebuilt_cxx_library_impl,
     prebuilt_cxx_library_group = prebuilt_cxx_library_group_impl,
+    windows_resource = windows_resource_impl,
 
     # C++ / LLVM
     llvm_link_bitcode = llvm_link_bitcode_impl,
@@ -584,6 +586,9 @@ inlined_extra_attributes = {
     },
     "rust_test": {},
     "sh_test": {},
+    "windows_resource": {
+        "_cxx_toolchain": toolchains_common.cxx(),
+    },
 }
 
 all_extra_attributes = _merge_dictionaries([

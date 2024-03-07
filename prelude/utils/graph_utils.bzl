@@ -51,18 +51,15 @@ def post_order_traversal(
     Performs a post-order traversal of `graph`.
     """
 
-    out_degrees = {node: 0 for node in graph}
+    out_degrees = {}
     rdeps = {node: [] for node in graph}
     for node, deps in graph.items():
-        for dep in dedupe(deps):
-            out_degrees[node] += 1
+        deps = dedupe(deps)
+        out_degrees[node] = len(deps)
+        for dep in deps:
             rdeps[dep].append(node)
 
-    queue = []
-
-    for node, out_degree in out_degrees.items():
-        if out_degree == 0:
-            queue.append(node)
+    queue = [node for node, out_degree in out_degrees.items() if out_degree == 0]
 
     ordered = []
 
@@ -207,8 +204,8 @@ def breadth_first_traversal_by(
         if not queue:
             break
         node = queue.pop()
-        if graph_nodes:
-            expect(node in graph_nodes, "Expected node {} in graph nodes", node_formatter(node))
+        if graph_nodes and node not in graph_nodes:
+            fail("Expected node {} in graph nodes".format(node_formatter(node)))
         nodes_to_visit = get_nodes_to_traverse_func(node)
         for node in nodes_to_visit:
             if node not in visited:

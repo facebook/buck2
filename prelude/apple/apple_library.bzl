@@ -84,6 +84,13 @@ load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "xctest_swift_support_info")
 
+AppleSharedLibraryMachOFileType = enum(
+    # dynamicly bound shared library file
+    "dylib",
+    # dynamicly bound bundle file aka Mach-O bundle
+    "bundle",
+)
+
 AppleLibraryAdditionalParams = record(
     # Name of the top level rule utilizing the apple_library rule.
     rule_type = str,
@@ -108,6 +115,17 @@ AppleLibraryAdditionalParams = record(
 
 def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def get_apple_library_providers(deps_providers) -> list[Provider]:
+        shared_type = AppleSharedLibraryMachOFileType(ctx.attrs.shared_library_macho_file_type)
+        if shared_type == AppleSharedLibraryMachOFileType("bundle"):
+            shared_library_flags_overrides = SharedLibraryFlagOverrides(
+                # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
+                shared_library_name_linker_flags_format = [],
+                shared_library_flags = ["-bundle"],
+            )
+        elif shared_type == AppleSharedLibraryMachOFileType("dylib"):
+            shared_library_flags_overrides = None
+        else:
+            fail("Unsupported `shared_library_macho_file_type` attribute value: `{}`".format(shared_type))
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
@@ -119,6 +137,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
                     # We generate a provider on our own, disable to avoid several providers of same type.
                     cxx_resources_as_apple_resources = False,
                 ),
+                shared_library_flags = shared_library_flags_overrides,
             ),
             deps_providers,
         )

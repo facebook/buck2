@@ -9,6 +9,7 @@
 
 //! Dice operations for legacy configuration
 
+use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -25,12 +26,9 @@ use dice::Key;
 use dice::OpaqueValue;
 use dice::ProjectionKey;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
-use starlark_map::sorted_map::SortedMap;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::view::LegacyBuckConfigView;
-use crate::legacy_configs::ConfigError;
 use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
 
@@ -72,24 +70,6 @@ impl OpaqueLegacyBuckConfigOnDice {
     }
 }
 
-#[derive(Debug)]
-pub struct OpaqueLegacyBuckConfigsOnDice {
-    configs: SortedMap<CellName, OpaqueLegacyBuckConfigOnDice>,
-}
-
-impl OpaqueLegacyBuckConfigsOnDice {
-    pub fn get(&self, cell_name: CellName) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
-        self.configs
-            .get(&cell_name)
-            .duped()
-            .ok_or_else(|| ConfigError::UnknownCell(cell_name.to_owned()).into())
-    }
-
-    pub fn cell_names(&self) -> Vec<CellName> {
-        self.configs.keys().copied().collect()
-    }
-}
-
 pub struct LegacyBuckConfigOnDice<'a, 'd> {
     ctx: &'a mut DiceComputations<'d>,
     config: &'a OpaqueLegacyBuckConfigOnDice,
@@ -118,15 +98,25 @@ impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
     }
 }
 
+pub trait HasInjectedLegacyConfigs {
+    /// Use this function carefully: a computation which fetches this key will be recomputed
+    /// if any buckconfig property changes.
+    ///
+    /// Consider using `get_legacy_config_property` instead.
+    fn get_injected_legacy_configs(
+        &mut self,
+    ) -> impl Future<Output = anyhow::Result<LegacyBuckConfigs>>;
+
+    /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
+    fn is_injected_legacy_configs_key_set(&mut self) -> impl Future<Output = anyhow::Result<bool>>;
+}
+
 #[async_trait]
 pub trait HasLegacyConfigs {
     /// Get buckconfigs.
     ///
     /// This operation does not record buckconfig as a dependency of current computation.
     /// Accessing specific buckconfig property, records that key as dependency.
-    async fn get_legacy_configs_on_dice(&mut self)
-    -> anyhow::Result<OpaqueLegacyBuckConfigsOnDice>;
-
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
@@ -135,15 +125,6 @@ pub trait HasLegacyConfigs {
     async fn get_legacy_root_config_on_dice(
         &mut self,
     ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice>;
-
-    /// Use this function carefully: a computation which fetches this key will be recomputed
-    /// if any buckconfig property changes.
-    ///
-    /// Consider using `get_legacy_config_property` instead.
-    async fn get_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs>;
-
-    /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
-    async fn is_legacy_configs_key_set(&mut self) -> anyhow::Result<bool>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -209,7 +190,7 @@ impl Key for LegacyBuckConfigForCellKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<LegacyBuckConfig> {
-        let legacy_configs = ctx.get_legacy_configs().await?;
+        let legacy_configs = ctx.get_injected_legacy_configs().await?;
         legacy_configs
             .get(self.cell_name)
             .map(|x| x.dupe())
@@ -219,37 +200,6 @@ impl Key for LegacyBuckConfigForCellKey {
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         match (x, y) {
             (Ok(x), Ok(y)) => x.compare(y),
-            _ => false,
-        }
-    }
-}
-
-#[derive(Debug, Display, Clone, Eq, PartialEq, Hash, Allocative)]
-#[display(fmt = "{}//{}.{}", cell_name, section, property)]
-struct LegacyBuckConfigPropertyKey {
-    cell_name: CellName,
-    section: String,
-    property: String,
-}
-
-#[async_trait]
-impl Key for LegacyBuckConfigPropertyKey {
-    type Value = buck2_error::Result<Option<Arc<str>>>;
-
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> buck2_error::Result<Option<Arc<str>>> {
-        let legacy_config = ctx.get_legacy_config_for_cell(self.cell_name).await?;
-        Ok(legacy_config
-            .get(&self.section, &self.property)
-            .map(|s| s.to_owned().into()))
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
             _ => false,
         }
     }
@@ -284,72 +234,30 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
     }
 }
 
-#[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Dupe, Allocative)]
-#[display(fmt = "{:?}", self)]
-struct LegacyBuckConfigCellNamesKey;
-
-impl ProjectionKey for LegacyBuckConfigCellNamesKey {
-    type DeriveFromKey = LegacyBuckConfigKey;
-    type Value = Arc<Vec<CellName>>;
-
-    fn compute(
-        &self,
-        configs: &Option<LegacyBuckConfigs>,
-        _ctx: &DiceProjectionComputations,
-    ) -> Arc<Vec<CellName>> {
-        let cell_names: Vec<_> = configs
-            .as_ref()
-            .unwrap_or_else(|| {
-                panic!(
-                    "Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value"
-                )
-            })
-            .iter()
-            .map(|(k, _)| k)
-            .collect();
-        assert!(
-            cell_names.is_sorted(),
-            "configs.iter() must return a sorted iterator"
-        );
-        Arc::new(cell_names)
+impl HasInjectedLegacyConfigs for DiceComputations<'_> {
+    async fn get_injected_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs> {
+        self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
+            panic!("Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value")
+        })
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    async fn is_injected_legacy_configs_key_set(&mut self) -> anyhow::Result<bool> {
+        Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
     }
 }
 
 #[async_trait]
 impl HasLegacyConfigs for DiceComputations<'_> {
-    async fn get_legacy_configs_on_dice(
-        &mut self,
-    ) -> anyhow::Result<OpaqueLegacyBuckConfigsOnDice> {
-        let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
-        let cell_names = self.projection(&configs, &LegacyBuckConfigCellNamesKey)?;
-        let mut configs_on_dice = Vec::with_capacity(cell_names.len());
-        for cell_name in &*cell_names {
-            let config = self
-                .compute_opaque(&LegacyBuckConfigForCellKey {
-                    cell_name: *cell_name,
-                })
-                .await?;
-            configs_on_dice.push((
-                *cell_name,
-                OpaqueLegacyBuckConfigOnDice {
-                    config: Arc::new(config),
-                },
-            ));
-        }
-        Ok(OpaqueLegacyBuckConfigsOnDice {
-            configs: SortedMap::from_iter(configs_on_dice),
-        })
-    }
-
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
     ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
-        self.get_legacy_configs_on_dice().await?.get(cell_name)
+        let config = self
+            .compute_opaque(&LegacyBuckConfigForCellKey { cell_name })
+            .await?;
+        Ok(OpaqueLegacyBuckConfigOnDice {
+            config: Arc::new(config),
+        })
     }
 
     async fn get_legacy_root_config_on_dice(
@@ -358,16 +266,6 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         let cell_resolver = self.get_cell_resolver().await?;
         self.get_legacy_config_on_dice(cell_resolver.root_cell())
             .await
-    }
-
-    async fn get_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs> {
-        self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
-            panic!("Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value")
-        })
-    }
-
-    async fn is_legacy_configs_key_set(&mut self) -> anyhow::Result<bool> {
-        Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
     }
 
     async fn get_legacy_config_for_cell(
@@ -384,13 +282,9 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         section: &str,
         property: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(self
-            .compute(&LegacyBuckConfigPropertyKey {
-                cell_name,
-                section: section.to_owned(),
-                property: property.to_owned(),
-            })
-            .await??)
+        self.get_legacy_config_on_dice(cell_name)
+            .await?
+            .lookup(self, section, property)
     }
 
     async fn parse_legacy_config_property<T: FromStr>(

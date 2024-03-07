@@ -1194,7 +1194,6 @@ mod tests {
     impl Key for CleanupTestKey {
         type Value = ();
 
-        #[allow(clippy::await_holding_lock)]
         async fn compute(
             &self,
             _ctx: &mut DiceComputations,

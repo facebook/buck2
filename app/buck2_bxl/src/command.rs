@@ -259,6 +259,7 @@ pub(crate) async fn get_bxl_cli_args(
 ) -> anyhow::Result<BxlResolvedCliArgs> {
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd)?.as_ref());
     let cell_name = cell_resolver.find(&cwd)?;
+    let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
 
     let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
 
@@ -270,6 +271,7 @@ pub(crate) async fn get_bxl_cli_args(
     let cli_ctx = CliResolutionCtx {
         target_alias_resolver,
         cell_resolver: cell_resolver.dupe(),
+        cell_alias_resolver,
         relative_dir: cur_package,
         dice: ctx,
     };
@@ -386,10 +388,7 @@ pub(crate) fn parse_bxl_label_from_cli(
 
     // Targets with cell aliases should be resolved against the cell mapping
     // as defined the cell derived from the cwd.
-    let cell_alias_resolver = cell_resolver
-        .get(current_cell.cell())
-        .unwrap()
-        .cell_alias_resolver();
+    let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
 
     let (bxl_path, bxl_fn) = bxl_label
         .rsplit_once(':')
@@ -430,11 +429,9 @@ fn filter_bxl_build_results(
         for res in build_results {
             match res {
                 BxlBuildResult::Built { label, result } => {
-                    assert!(
-                        btree.insert(label.to_owned(), result.to_owned()).is_none(),
-                        "Found duped bxl build result {}",
-                        label
-                    );
+                    if btree.insert(label.to_owned(), result.to_owned()).is_some() {
+                        tracing::debug!("Found duped bxl result {}", label);
+                    }
                 }
                 BxlBuildResult::None => (),
             }

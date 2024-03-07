@@ -83,13 +83,13 @@ fn test() -> anyhow::Result<()> {
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "[[[\"hello\",\"world!\"]+select(\"root//some:config\"=[\"some\"],\"DEFAULT\"=[\"okay\"]+select(\"root//other:config\"=[\"other\"],\"DEFAULT\"=[\"default\",\"for\",\"realz\"]))+[\"...\"]+[\"...\"]]]",
+        "[[[\"hello\", \"world!\"]+select({\"root//some:config\": [\"some\"], \"DEFAULT\": [\"okay\"]+select({\"root//other:config\": [\"other\"], \"DEFAULT\": [\"default\", \"for\", \"realz\"]})})+[\"...\"]+[\"...\"]]]",
         coerced.as_display_no_ctx().to_string()
     );
 
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        "[[[\"hello\",\"world!\",\"okay\",\"other\",\"...\",\"...\"]]]",
+        "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
         configured.as_display_no_ctx().to_string()
     );
 
@@ -174,7 +174,7 @@ fn test_concat_option_one_of() {
         .unwrap();
     let configured = coerced.configure(&attr, &configuration_ctx()).unwrap();
     assert_eq!(
-        r#"["foo","bar"]"#,
+        r#"["foo", "bar"]"#,
         configured.as_display_no_ctx().to_string()
     );
 }
@@ -187,12 +187,12 @@ fn test_any() -> anyhow::Result<()> {
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "[\"//some:target\",\"cell1//named:target[foo]\"]",
+        "[\"//some:target\", \"cell1//named:target[foo]\"]",
         coerced.as_display_no_ctx().to_string()
     );
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        "[\"//some:target\",\"cell1//named:target[foo]\"]",
+        "[\"//some:target\", \"cell1//named:target[foo]\"]",
         configured.as_display_no_ctx().to_string()
     );
 
@@ -225,12 +225,12 @@ fn test_option() -> anyhow::Result<()> {
     let value = heap.alloc(vec!["string1", "string2"]);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "[\"string1\",\"string2\"]",
+        "[\"string1\", \"string2\"]",
         coerced.as_display_no_ctx().to_string()
     );
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        "[\"string1\",\"string2\"]",
+        "[\"string1\", \"string2\"]",
         configured.as_display_no_ctx().to_string()
     );
 
@@ -252,12 +252,12 @@ fn test_dict() -> anyhow::Result<()> {
     let attr = AttrType::dict(AttrType::string(), AttrType::list(AttrType::string()), true);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "{\"a\": [],\"b\": [\"1\"]}",
+        "{\"a\": [], \"b\": [\"1\"]}",
         coerced.as_display_no_ctx().to_string()
     );
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        "{\"a\": [],\"b\": [\"1\"]}",
+        "{\"a\": [], \"b\": [\"1\"]}",
         configured.as_display_no_ctx().to_string()
     );
 
@@ -268,24 +268,24 @@ fn test_dict() -> anyhow::Result<()> {
     );
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "{\"b\": [\"1\"],\"a\": []}",
+        "{\"b\": [\"1\"], \"a\": []}",
         coerced.as_display_no_ctx().to_string()
     );
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        "{\"b\": [\"1\"],\"a\": []}",
+        "{\"b\": [\"1\"], \"a\": []}",
         configured.as_display_no_ctx().to_string()
     );
 
     let value = to_value(
         &env,
         &globals,
-        r#"{"b":["1"],"a":[]} + select({"DEFAULT": { "c": []}})"#,
+        r#"{"b":["1"], "a":[]} + select({"DEFAULT": { "c": []}})"#,
     );
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        r#"{"b": ["1"],"a": [],"c": []}"#,
+        r#"{"b": ["1"], "a": [], "c": []}"#,
         configured.as_display_no_ctx().to_string()
     );
 
@@ -306,12 +306,12 @@ fn test_one_of() -> anyhow::Result<()> {
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), values)?;
     assert_eq!(
-        "[\"test\",\"extra\"]",
+        "[\"test\", \"extra\"]",
         coerced.as_display_no_ctx().to_string()
     );
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        "[\"test\",\"extra\"]",
+        "[\"test\", \"extra\"]",
         configured.as_display_no_ctx().to_string()
     );
 
@@ -331,14 +331,14 @@ fn test_label() -> anyhow::Result<()> {
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "[\"root//some:target\",\"cell1//named:target[foo]\"]",
+        "[\"root//some:target\", \"cell1//named:target[foo]\"]",
         coerced.as_display_no_ctx().to_string()
     );
 
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
         format!(
-            "[\"root//some:target ({})\",\"cell1//named:target[foo] ({})\"]",
+            "[\"root//some:target ({})\", \"cell1//named:target[foo] ({})\"]",
             ConfigurationData::testing_new(),
             ConfigurationData::testing_new()
         ),
@@ -582,7 +582,7 @@ fn test_source_label() -> anyhow::Result<()> {
         value,
     )?;
     assert_eq!(
-        "[\"root//some:target\",\"cell1//named:target[foo]\",\"root//package/subdir/foo/bar.cpp\"]",
+        "[\"root//some:target\", \"cell1//named:target[foo]\", \"root//package/subdir/foo/bar.cpp\"]",
         coerced
             .as_display(&AttrFmtContext {
                 package: Some(PackageLabel::testing()),
@@ -594,7 +594,7 @@ fn test_source_label() -> anyhow::Result<()> {
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
         format!(
-            "[{},{},{}]",
+            "[{}, {}, {}]",
             format_args!(
                 "\"root//some:target ({})\"",
                 ConfigurationData::testing_new(),
@@ -862,13 +862,13 @@ fn test_bool() -> anyhow::Result<()> {
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "[True,False]+select(\"root//some:config\"=[True],\"DEFAULT\"=[False])+[True]",
+        "[True, False]+select({\"root//some:config\": [True], \"DEFAULT\": [False]})+[True]",
         coerced.as_display_no_ctx().to_string()
     );
 
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!(
-        "[True,False,False,True]",
+        "[True, False, False, True]",
         configured.as_display_no_ctx().to_string()
     );
 

@@ -1185,7 +1185,6 @@ impl Drop for RemoteExecutionClientImpl {
     }
 }
 
-#[allow(clippy::needless_collect)] // chunks() is not Send.
 fn chunks<T>(v: Vec<T>, chunk_size: usize) -> impl Iterator<Item = Vec<T>> {
     if !v.is_empty() && v.len() <= chunk_size {
         return Either::Left(std::iter::once(v));

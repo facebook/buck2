@@ -65,7 +65,7 @@ impl MetadataKeyRef {
 }
 
 fn validate_key(key: &str) -> Result<(), MetadataKeyError> {
-    if key.chars().filter(|c| *c == '.').count() != 1 {
+    if key.split('.').count() != 2 {
         return Err(MetadataKeyError::KeyMustContainExactlyOneDot(
             key.to_owned(),
         ));
@@ -84,5 +84,21 @@ impl ToOwned for MetadataKeyRef {
 
     fn to_owned(&self) -> Self::Owned {
         MetadataKey(ArcStr::from(&self.0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_metadata_key_validation() {
+        assert!(MetadataKeyRef::new("foo").is_err());
+        assert!(MetadataKeyRef::new(".foo").is_ok());
+        assert!(MetadataKeyRef::new("foo.").is_ok());
+        assert!(MetadataKeyRef::new("foo.bar").is_ok());
+        assert!(MetadataKeyRef::new("foo..bar").is_err());
+        assert!(MetadataKeyRef::new("...").is_err());
+        assert!(MetadataKeyRef::new("a.b.c").is_err());
     }
 }

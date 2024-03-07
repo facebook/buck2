@@ -85,7 +85,7 @@ impl ProcessGroup {
     }
 
     pub(crate) async fn kill(
-        &self,
+        &mut self,
         graceful_shutdown_timeout_s: Option<u32>,
     ) -> anyhow::Result<()> {
         self.inner.kill(graceful_shutdown_timeout_s).await

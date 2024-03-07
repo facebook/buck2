@@ -409,10 +409,11 @@ def prepare_cd_exe(
     jvm_args = ["-XX:-MaxFDLimit"]
 
     if extra_jvm_args_target:
+        local_only = True
         for target in extra_jvm_args_target:
             if qualified_name == qualified_name_with_subtarget(target):
                 jvm_args = jvm_args + extra_jvm_args
-                local_only = True
+                local_only = False
                 break
     else:
         jvm_args = jvm_args + extra_jvm_args

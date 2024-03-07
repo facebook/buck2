@@ -19,6 +19,7 @@ use dupe::Dupe;
 use futures::FutureExt;
 use indexmap::IndexSet;
 use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
 use starlark::values::tuple::UnpackTuple;
@@ -32,6 +33,7 @@ use super::context::output::get_artifact_path_display;
 use super::context::output::get_cmd_line_inputs;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
+use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
 
@@ -208,9 +210,10 @@ pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(time_a)
     ///     ctx.output.print(time_b)
     /// ```
-    fn now() -> anyhow::Result<StarlarkInstant> {
-        // TODO(nga): this function is callable from interpreter/analysis context,
-        //   where it can cause non-determinism.
+    ///
+    /// This function is only accessible through Bxl.
+    fn now(eval: &mut Evaluator) -> anyhow::Result<StarlarkInstant> {
+        BxlEvalExtraTag::from_context(eval)?;
         Ok(StarlarkInstant(Instant::now()))
     }
 }

@@ -39,6 +39,7 @@ use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
+use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
@@ -233,10 +234,12 @@ impl<T: PatternType> ParsedPattern<T> {
         pattern: &str,
         cell: CellName,
         cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
             cell,
             cell_resolver,
+            cell_alias_resolver,
             None,
             TargetParsingOptions::precise(),
             pattern,
@@ -254,10 +257,12 @@ impl<T: PatternType> ParsedPattern<T> {
         relative_dir: Option<CellPathRef>,
         cell: CellName,
         cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
             cell,
             cell_resolver,
+            cell_alias_resolver,
             None,
             TargetParsingOptions {
                 relative: TargetParsingRel::RequireAbsolute(relative_dir),
@@ -282,10 +287,12 @@ impl<T: PatternType> ParsedPattern<T> {
         relative_dir: CellPathRef,
         pattern: &str,
         cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
             relative_dir.cell(),
             cell_resolver,
+            cell_alias_resolver,
             Some(target_alias_resolver),
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(relative_dir),
@@ -314,10 +321,12 @@ impl<T: PatternType> ParsedPattern<T> {
         relative_dir: CellPathRef,
         pattern: &str,
         cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
             relative_dir.cell(),
             cell_resolver,
+            cell_alias_resolver,
             Some(target_alias_resolver),
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(relative_dir),
@@ -334,7 +343,16 @@ impl<T: PatternType> ParsedPattern<T> {
         let cell_name = CellName::testing_new(cell_name);
         let cell_resolver =
             CellResolver::testing_with_name_and_path(cell_name, CellRootPathBuf::testing_new(""));
-        Self::parse_precise(pattern, cell_name, &cell_resolver).unwrap()
+        Self::parse_precise(
+            pattern,
+            cell_name,
+            &cell_resolver,
+            cell_resolver
+                .get(cell_name)
+                .unwrap()
+                .testing_cell_alias_resolver(),
+        )
+        .unwrap()
     }
 }
 
@@ -759,6 +777,7 @@ impl<'a> TargetParsingOptions<'a> {
 fn parse_target_pattern<T>(
     cell_name: CellName,
     cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
     target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
@@ -770,6 +789,7 @@ where
         let parsed_pattern = parse_target_pattern_no_validate::<T>(
             cell_name,
             cell_resolver,
+            cell_alias_resolver,
             target_alias_resolver,
             opts,
             pattern,
@@ -810,6 +830,7 @@ where
 fn parse_target_pattern_no_validate<T>(
     cell_name: CellName,
     cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
     target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
@@ -831,14 +852,16 @@ where
         }
     }
 
-    let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver();
-
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 
     if let Some(target_alias_resolver) = target_alias_resolver {
-        if let Some(aliased) =
-            resolve_target_alias(cell_name, cell_resolver, target_alias_resolver, &lex)?
-        {
+        if let Some(aliased) = resolve_target_alias(
+            cell_name,
+            cell_resolver,
+            cell_alias_resolver,
+            target_alias_resolver,
+            &lex,
+        )? {
             return Ok(aliased);
         }
     }
@@ -914,6 +937,7 @@ enum ResolveTargetAliasError {
 fn resolve_target_alias<T>(
     cell_name: CellName,
     cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
     target_alias_resolver: &dyn TargetAliasResolver,
     lex: &PatternParts<T>,
 ) -> anyhow::Result<Option<ParsedPattern<T>>>
@@ -955,6 +979,7 @@ where
     let res = parse_target_pattern::<TargetPatternExtra>(
         cell_name,
         cell_resolver,
+        cell_alias_resolver,
         None,
         TargetParsingOptions::precise(),
         alias,
@@ -1134,6 +1159,14 @@ mod tests {
         ])
     }
 
+    fn alias_resolver() -> CellAliasResolver {
+        resolver()
+            .get(CellName::testing_new("root"))
+            .unwrap()
+            .testing_cell_alias_resolver()
+            .clone()
+    }
+
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
     #[test_case(PhantomData::< ConfiguredTargetPatternExtra >; "parsing ConfiguredTargetPatternExtra")]
@@ -1149,26 +1182,34 @@ mod tests {
             ParsedPattern::<T>::parse_precise(
                 "//package/path:",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )
             .unwrap()
         );
         assert_eq!(
             mk_package::<T>("root", ""),
-            ParsedPattern::<T>::parse_precise("//:", CellName::testing_new("root"), &resolver())
-                .unwrap()
+            ParsedPattern::<T>::parse_precise(
+                "//:",
+                CellName::testing_new("root"),
+                &resolver(),
+                &alias_resolver(),
+            )
+            .unwrap()
         );
         assert_eq!(
             mk_package::<T>("cell1", "package/path"),
             ParsedPattern::<T>::parse_precise(
                 "cell1//package/path:",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )
             .unwrap()
         );
         assert_matches!(
-            ParsedPattern::<T>::parse_precise("package/path:", CellName::testing_new("root"), &resolver()),
+            ParsedPattern::<T>::parse_precise("package/path:", CellName::testing_new("root"), &resolver(),
+            &alias_resolver(),),
             Err(e) => {
                 assert!(
                     format!("{:?}", e).contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
@@ -1180,7 +1221,8 @@ mod tests {
             ParsedPattern::<T>::parse_precise(
                 "alias2//package/path:",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )
             .unwrap()
         );
@@ -1189,7 +1231,8 @@ mod tests {
             ParsedPattern::<T>::parse_precise(
                 "@alias2//package/path:",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )
             .unwrap()
         );
@@ -1198,14 +1241,21 @@ mod tests {
             ParsedPattern::<T>::parse_precise(
                 "//package/path/...",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )
             .unwrap()
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path"),
-            ParsedPattern::<T>::parse_relative(&NoAliases, package.as_ref(), "...", &resolver(),)
-                .unwrap()
+            ParsedPattern::<T>::parse_relative(
+                &NoAliases,
+                package.as_ref(),
+                "...",
+                &resolver(),
+                &alias_resolver(),
+            )
+            .unwrap()
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path/foo"),
@@ -1214,6 +1264,7 @@ mod tests {
                 package.as_ref(),
                 "foo/...",
                 &resolver(),
+                &alias_resolver(),
             )
             .unwrap()
         );
@@ -1231,12 +1282,19 @@ mod tests {
             ParsedPattern::parse_precise(
                 "//package/path:target",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path/foo", "target"),
-            ParsedPattern::parse_relative(&NoAliases, package.as_ref(), "foo:target", &resolver(),)?
+            ParsedPattern::parse_relative(
+                &NoAliases,
+                package.as_ref(),
+                "foo:target",
+                &resolver(),
+                &alias_resolver(),
+            )?
         );
         Ok(())
     }
@@ -1254,6 +1312,7 @@ mod tests {
                 package.as_ref(),
                 "path",
                 &resolver(),
+                &alias_resolver(),
             ),
             Err(e) => {
                 assert!(
@@ -1269,11 +1328,18 @@ mod tests {
                 package.as_ref(),
                 "//package/path",
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "path"),
-            ParsedPattern::parse_relaxed(&NoAliases, package.as_ref(), "path", &resolver(),)?
+            ParsedPattern::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                "path",
+                &resolver(),
+                &alias_resolver(),
+            )?
         );
         assert_eq!(
             mk_providers("root", "package/path", "path", Some(&["provider"])),
@@ -1282,6 +1348,7 @@ mod tests {
                 package.as_ref(),
                 "path[provider]",
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1296,6 +1363,7 @@ mod tests {
                 package.as_ref(),
                 "path/subpath[provider]",
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1305,6 +1373,7 @@ mod tests {
                 package.as_ref(),
                 "path/subpath",
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1314,6 +1383,7 @@ mod tests {
                 package.as_ref(),
                 "//package/path/",
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1323,13 +1393,20 @@ mod tests {
                 package.as_ref(),
                 "//package/path/:target",
                 &resolver(),
+                &alias_resolver(),
             )?
         );
 
         // Awkward but technically valid?
         assert_eq!(
             mk_target("root", "package", "foo"),
-            ParsedPattern::parse_relaxed(&NoAliases, package.as_ref(), "/:foo", &resolver(),)?
+            ParsedPattern::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                "/:foo",
+                &resolver(),
+                &alias_resolver(),
+            )?
         );
 
         // There's no target here so this is invalid.
@@ -1339,6 +1416,7 @@ mod tests {
                 package.as_ref(),
                 "/",
                 &resolver(),
+                &alias_resolver(),
             ),
             Err(e) => {
                 assert!(
@@ -1364,6 +1442,7 @@ mod tests {
                 Some(package.as_ref()),
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1373,6 +1452,7 @@ mod tests {
                 Some(package.as_ref()),
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         let err = ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
@@ -1380,6 +1460,7 @@ mod tests {
             None,
             CellName::testing_new("root"),
             &resolver(),
+            &alias_resolver(),
         )
         .unwrap_err();
         assert!(
@@ -1396,6 +1477,7 @@ mod tests {
                 None,
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             )?
         );
 
@@ -1405,6 +1487,7 @@ mod tests {
                 Some(package.as_ref()),
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             Err(e) => {
                 assert!(
@@ -1419,6 +1502,7 @@ mod tests {
                 Some(package.as_ref()),
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             Err(e) => {
                 assert!(
@@ -1432,6 +1516,7 @@ mod tests {
                 None,
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             Err(e) => {
                 assert!(
@@ -1458,7 +1543,13 @@ mod tests {
 
         assert_eq!(
             mk_target("cell1", "foo/bar", "target"),
-            ParsedPattern::parse_relaxed(&config, package.as_ref(), "foo", &resolver(),)?
+            ParsedPattern::parse_relaxed(
+                &config,
+                package.as_ref(),
+                "foo",
+                &resolver(),
+                &alias_resolver(),
+            )?
         );
 
         assert_matches!(
@@ -1467,6 +1558,7 @@ mod tests {
                 package.as_ref(),
                 "invalid/alias",
                 &resolver(),
+                &alias_resolver(),
             ),
             Err(e) => {
                 assert!(
@@ -1481,6 +1573,7 @@ mod tests {
                 package.as_ref(),
                 "badalias",
                 &resolver(),
+                &alias_resolver(),
             ),
             Err(e) => {
                 assert!(
@@ -1499,7 +1592,8 @@ mod tests {
             ParsedPattern::parse_precise(
                 "//package/path:target",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1507,7 +1601,8 @@ mod tests {
             ParsedPattern::parse_precise(
                 "//package/path:target[java-output]",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1520,7 +1615,8 @@ mod tests {
             ParsedPattern::parse_precise(
                 "//package/path:target[FDSIcon+FDSInternal.h]",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )?
         );
 
@@ -1528,6 +1624,7 @@ mod tests {
             "//package/path:target#flavor",
             CellName::testing_new("root"),
             &resolver(),
+            &alias_resolver(),
         )?
         .as_literal("")?;
         assert_eq!(
@@ -1549,7 +1646,13 @@ mod tests {
 
         assert_eq!(
             mk_providers("cell1", "foo/bar", "target", Some(&["qux"])),
-            ParsedPattern::parse_relaxed(&config, package.as_ref(), "foo[qux]", &resolver(),)?
+            ParsedPattern::parse_relaxed(
+                &config,
+                package.as_ref(),
+                "foo[qux]",
+                &resolver(),
+                &alias_resolver(),
+            )?
         );
 
         Ok(())
@@ -1568,7 +1671,8 @@ mod tests {
             ParsedPattern::parse_precise(
                 "//package/path:target",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1582,7 +1686,8 @@ mod tests {
             ParsedPattern::parse_precise(
                 "//package/path:target (<unspecified>)",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1599,7 +1704,8 @@ mod tests {
             ParsedPattern::parse_precise(
                 "//package/path:target[P] (<foo>)",
                 CellName::testing_new("root"),
-                &resolver()
+                &resolver(),
+                &alias_resolver(),
             )?
         );
         assert_eq!(
@@ -1617,6 +1723,7 @@ mod tests {
                 "//package/path:target[P] (<foo>#0123456789abcdef)",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             )?
         );
         Ok(())
@@ -1628,7 +1735,12 @@ mod tests {
     #[test_case(PhantomData::< ConfiguredProvidersPatternExtra >; "parsing ConfiguredProvidersPatternExtra")]
     fn parse_pattern_failure<T: PatternType>(_: PhantomData<T>) {
         fails(
-            ParsedPattern::<T>::parse_precise("", CellName::testing_new("root"), &resolver()),
+            ParsedPattern::<T>::parse_precise(
+                "",
+                CellName::testing_new("root"),
+                &resolver(),
+                &alias_resolver(),
+            ),
             &[],
         );
         fails(
@@ -1636,6 +1748,7 @@ mod tests {
                 "//package/path",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[],
         );
@@ -1644,6 +1757,7 @@ mod tests {
                 "//package...",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[],
         );
@@ -1652,6 +1766,7 @@ mod tests {
                 "package",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[],
         );
@@ -1660,6 +1775,7 @@ mod tests {
                 "bad_alias//package/path:",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[
                 "bad_alias//package/path:",
@@ -1671,6 +1787,7 @@ mod tests {
                 "//package/path/:target",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[],
         );
@@ -1679,6 +1796,7 @@ mod tests {
                 "//package/path/",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[],
         );
@@ -1687,6 +1805,7 @@ mod tests {
                 "$(exe my macro)",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[
                 "$(exe my macro)",
@@ -1702,6 +1821,7 @@ mod tests {
                 "//package/path:target[unclosed",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[
                 "//package/path:target[unclosed",
@@ -1713,6 +1833,7 @@ mod tests {
                 "//package/path:target[out]wrong",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[
                 "//package/path:target[out]wrong",
@@ -1724,6 +1845,7 @@ mod tests {
                 "$(exe my macro)",
                 CellName::testing_new("root"),
                 &resolver(),
+                &alias_resolver(),
             ),
             &[
                 "$(exe my macro)",
@@ -1764,6 +1886,7 @@ mod tests {
             "//package/path:target",
             CellName::testing_new("root"),
             &resolver(),
+            &alias_resolver(),
         )?;
         assert!(pattern.matches(&target_in_pkg1));
         assert!(!pattern.matches(&another_target_in_pkg1));
@@ -1777,6 +1900,7 @@ mod tests {
             "//package/path:",
             CellName::testing_new("root"),
             &resolver(),
+            &alias_resolver(),
         )?;
         assert!(pattern.matches(&target_in_pkg1));
         assert!(pattern.matches(&another_target_in_pkg1));
@@ -1784,8 +1908,12 @@ mod tests {
         assert!(!pattern.matches(&target_in_pkg3));
         assert!(!pattern.matches(&target_in_different_cell));
 
-        let pattern =
-            ParsedPattern::parse_precise("//package:", CellName::testing_new("root"), &resolver())?;
+        let pattern = ParsedPattern::parse_precise(
+            "//package:",
+            CellName::testing_new("root"),
+            &resolver(),
+            &alias_resolver(),
+        )?;
         assert!(!pattern.matches(&target_in_pkg1));
         assert!(!pattern.matches(&another_target_in_pkg1));
         assert!(pattern.matches(&target_in_pkg2));
@@ -1798,6 +1926,7 @@ mod tests {
             "//package/path/...",
             CellName::testing_new("root"),
             &resolver(),
+            &alias_resolver(),
         )?;
         assert!(pattern.matches(&target_in_pkg1));
         assert!(pattern.matches(&another_target_in_pkg1));
@@ -1809,6 +1938,7 @@ mod tests {
             "//package/...",
             CellName::testing_new("root"),
             &resolver(),
+            &alias_resolver(),
         )?;
         assert!(pattern.matches(&target_in_pkg1));
         assert!(pattern.matches(&another_target_in_pkg1));
@@ -1816,16 +1946,24 @@ mod tests {
         assert!(!pattern.matches(&target_in_pkg3));
         assert!(!pattern.matches(&target_in_different_cell));
 
-        let pattern =
-            ParsedPattern::parse_precise("//...", CellName::testing_new("root"), &resolver())?;
+        let pattern = ParsedPattern::parse_precise(
+            "//...",
+            CellName::testing_new("root"),
+            &resolver(),
+            &alias_resolver(),
+        )?;
         assert!(pattern.matches(&target_in_pkg1));
         assert!(pattern.matches(&another_target_in_pkg1));
         assert!(pattern.matches(&target_in_pkg2));
         assert!(pattern.matches(&target_in_pkg3));
         assert!(!pattern.matches(&target_in_different_cell));
 
-        let pattern =
-            ParsedPattern::parse_precise("cell1//...", CellName::testing_new("root"), &resolver())?;
+        let pattern = ParsedPattern::parse_precise(
+            "cell1//...",
+            CellName::testing_new("root"),
+            &resolver(),
+            &alias_resolver(),
+        )?;
         assert!(!pattern.matches(&target_in_pkg1));
         assert!(!pattern.matches(&another_target_in_pkg1));
         assert!(!pattern.matches(&target_in_pkg2));
@@ -1880,6 +2018,7 @@ mod tests {
             "root//cell1/xx/cell2/yy/...",
             CellName::testing_new("root"),
             &cell_resolver,
+            &alias_resolver(),
         )
         .unwrap_err();
         let err = format!("{:?}", err);

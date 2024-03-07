@@ -86,7 +86,6 @@ enum TypingError {
 
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn as_ty_dyn(&self) -> &Ty;
-    fn matches_dyn(&self, value: Value) -> bool;
     fn is_runtime_wildcard_dyn(&self) -> bool;
     fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
 }
@@ -102,9 +101,6 @@ where
 {
     fn as_ty_dyn(&self) -> &Ty {
         &self.ty
-    }
-    fn matches_dyn(&self, value: Value) -> bool {
-        self.type_compiled_impl.matches(value)
     }
     fn is_runtime_wildcard_dyn(&self) -> bool {
         self.type_compiled_impl.is_wildcard()

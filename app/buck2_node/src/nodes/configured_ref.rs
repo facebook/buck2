@@ -156,6 +156,16 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Ok(())
     }
 
+    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+        &self,
+        mut func: F,
+    ) -> Result<(), E> {
+        for a in self.0.attrs(AttrInspectOptions::DefinedOnly) {
+            func(a.name, &a.value)?;
+        }
+        Ok(())
+    }
+
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
         func(
             self.0

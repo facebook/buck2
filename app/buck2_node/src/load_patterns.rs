@@ -11,7 +11,6 @@ use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileOps;
 use buck2_common::pattern::package_roots::collect_package_roots;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -53,8 +52,6 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 )> {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();
-
-    let cell_resolver = ctx.get().get_cell_resolver().await?;
 
     struct Builder<'c, 'd> {
         ctx: &'c LinearRecomputeDiceComputations<'d>,
@@ -104,17 +101,12 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         }
     }
 
-    collect_package_roots(
-        &DiceFileOps(&ctx),
-        &cell_resolver,
-        recursive_packages,
-        |package| {
-            let package = package?;
-            spec.add_package(package.dupe());
-            builder.load_package(package);
-            anyhow::Ok(())
-        },
-    )
+    collect_package_roots(&DiceFileOps(&ctx), recursive_packages, |package| {
+        let package = package?;
+        spec.add_package(package.dupe());
+        builder.load_package(package);
+        anyhow::Ok(())
+    })
     .await?;
 
     Ok((spec, builder.load_package_futs))

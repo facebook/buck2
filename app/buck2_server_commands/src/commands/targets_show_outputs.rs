@@ -17,11 +17,9 @@ use buck2_cli_proto::targets_show_outputs_response::TargetPaths;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsShowOutputsResponse;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
@@ -97,8 +95,6 @@ async fn targets_show_outputs(
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
     let cwd = server_ctx.working_dir();
 
-    let cell_resolver = ctx.get_cell_resolver().await?;
-
     let client_ctx = request.client_context()?;
     let global_cfg_options =
         global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
@@ -114,13 +110,9 @@ async fn targets_show_outputs(
 
     let mut targets_paths = Vec::new();
 
-    for targets_artifacts in retrieve_targets_artifacts_from_patterns(
-        &mut ctx,
-        &global_cfg_options,
-        &parsed_patterns,
-        &cell_resolver,
-    )
-    .await?
+    for targets_artifacts in
+        retrieve_targets_artifacts_from_patterns(&mut ctx, &global_cfg_options, &parsed_patterns)
+            .await?
     {
         let mut paths = Vec::new();
         for artifact in targets_artifacts.artifacts {
@@ -140,10 +132,8 @@ async fn retrieve_targets_artifacts_from_patterns(
     ctx: &mut DiceComputations<'_>,
     global_cfg_options: &GlobalCfgOptions,
     parsed_patterns: &[ParsedPattern<ProvidersPatternExtra>],
-    cell_resolver: &CellResolver,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
-    let resolved_pattern =
-        ResolveTargetPatterns::resolve(ctx, cell_resolver, parsed_patterns).await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve(ctx, parsed_patterns).await?;
 
     retrieve_artifacts_for_targets(ctx, resolved_pattern, global_cfg_options).await
 }

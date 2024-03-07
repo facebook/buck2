@@ -101,6 +101,7 @@ impl<'v> StarlarkAQueryCtx<'v> {
         let target_platform = global_target_platform.parse_target_platforms(
             ctx.target_alias_resolver(),
             ctx.cell_resolver(),
+            ctx.cell_alias_resolver(),
             ctx.cell_name(),
             default_target_platform,
         )?;

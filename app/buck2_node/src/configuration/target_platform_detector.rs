@@ -27,6 +27,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
@@ -63,6 +64,7 @@ impl TargetPlatformDetector {
         spec: &str,
         cell_name: CellName,
         cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<Self> {
         let mut detectors = Vec::new();
         for value in spec.split_whitespace() {
@@ -74,6 +76,7 @@ impl TargetPlatformDetector {
                                 matcher,
                                 cell_name,
                                 cell_resolver,
+                                cell_alias_resolver,
                             )? {
                                 buck2_core::pattern::ParsedPattern::Recursive(root) => root,
                                 _ => {
@@ -89,6 +92,7 @@ impl TargetPlatformDetector {
                             target,
                             cell_name,
                             cell_resolver,
+                            cell_alias_resolver,
                         )
                         .and_then(|x| x.as_target_label(target))
                         .context("Error parsing target platform detector spec")?;
@@ -150,12 +154,17 @@ mod tests {
                 HashMap::new(),
             ),
         ]);
+        let cell_alias_resolver = cell_resolver
+            .get(CellName::testing_new("root"))
+            .unwrap()
+            .testing_cell_alias_resolver();
 
         let check_fails = |spec: &str| {
             if TargetPlatformDetector::parse_spec(
                 spec,
                 CellName::testing_new("root"),
                 &cell_resolver,
+                &cell_alias_resolver,
             )
             .is_ok()
             {
@@ -167,8 +176,13 @@ mod tests {
         };
 
         let check_good = |spec: &str| {
-            TargetPlatformDetector::parse_spec(spec, CellName::testing_new("root"), &cell_resolver)
-                .unwrap_or_else(|_| panic!("Expected parsing `{}` to succeed.", spec))
+            TargetPlatformDetector::parse_spec(
+                spec,
+                CellName::testing_new("root"),
+                &cell_resolver,
+                &cell_alias_resolver,
+            )
+            .unwrap_or_else(|_| panic!("Expected parsing `{}` to succeed.", spec))
         };
 
         check_good("target://...->//:tgt");
@@ -209,11 +223,16 @@ mod tests {
                 HashMap::new(),
             ),
         ]);
+        let cell_alias_resolver = cell_resolver
+            .get(CellName::testing_new("root"))
+            .unwrap()
+            .testing_cell_alias_resolver();
 
         let detector = TargetPlatformDetector::parse_spec(
             "target://lib/...->//:p1 target://lib2/foo/...->//:p2 target:alias1//map/...->alias1//:alias",
             CellName::testing_new("root"),
             &cell_resolver,
+            &cell_alias_resolver,
         )?;
 
         let p1 = TargetLabel::testing_parse("root//:p1");

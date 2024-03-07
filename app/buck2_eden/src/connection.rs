@@ -23,7 +23,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
-use edenfs::errors::eden_service::ListMountsError;
 use edenfs::types::BinaryHash;
 use edenfs::types::EdenErrorType;
 use edenfs::types::FileAttributeData;
@@ -32,6 +31,7 @@ use edenfs::types::FileAttributeDataV2;
 use edenfs::types::MountState;
 use edenfs::types::PathString;
 use edenfs::types::SourceControlType;
+use edenfs_clients::errors::ListMountsError;
 use edenfs_clients::EdenService;
 use fb303_core_clients::BaseService;
 use fbinit::FacebookInit;
@@ -375,7 +375,7 @@ impl HasErrorHandlingStrategy for IsMountReadyError {
 
 macro_rules! impl_has_error_handling_strategy {
     ($err: ident) => {
-        impl HasErrorHandlingStrategy for ::edenfs::errors::eden_service::$err {
+        impl HasErrorHandlingStrategy for ::edenfs_clients::errors::$err {
             fn error_handling_strategy(&self) -> ErrorHandlingStrategy {
                 match self {
                     Self::ThriftError(..) => ErrorHandlingStrategy::Reconnect,

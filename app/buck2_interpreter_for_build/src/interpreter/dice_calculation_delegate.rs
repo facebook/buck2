@@ -53,6 +53,7 @@ use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
 use crate::interpreter::buckconfig::ConfigsOnDiceViewForStarlark;
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
@@ -102,15 +103,20 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let cell_resolver = ctx.get_cell_resolver().await?;
                 let global_state = ctx.get_global_interpreter_state().await?;
 
-                let cell = cell_resolver.get(self.0)?;
+                let cell_alias_resolver = ctx.get_cell_alias_resolver(self.0).await?;
 
                 let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
 
+                let cell_info = InterpreterCellInfo::new(
+                    self.1,
+                    ctx.get_cell_resolver().await?,
+                    cell_alias_resolver,
+                )?;
+
                 Ok(Arc::new(InterpreterForCell::new(
-                    cell.cell_alias_resolver().dupe(),
+                    cell_info,
                     global_state.dupe(),
                     implicit_import_paths,
                 )?))
@@ -511,7 +517,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let package_boundary_exception = self
             .ctx
             .get_package_boundary_exception(package.as_cell_path())
-            .await?;
+            .await?
+            .is_some();
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
         let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
         let module_id = build_file_path.to_string();

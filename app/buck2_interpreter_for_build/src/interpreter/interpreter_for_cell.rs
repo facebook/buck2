@@ -23,7 +23,6 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::CellAliasResolver;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::humanized::HumanizedBytes;
@@ -151,7 +150,7 @@ pub(crate) struct InterpreterForCell {
     /// Non-cell-specific information.
     global_state: Arc<GlobalInterpreterState>,
     /// Cell-specific alias resolver.
-    cell_names: CellAliasResolver,
+    cell_info: InterpreterCellInfo,
     /// Log GC.
     verbose_gc: bool,
     /// When true, rule function creates a node with no attributes.
@@ -192,7 +191,11 @@ impl LoadResolver for InterpreterLoadResolver {
         // This is to be removed when we finish migration to Buck2.
         let path = path.trim_end_match("?v2_only");
 
-        let path = parse_import(&self.config.cell_names, &self.loader_path, path)?;
+        let path = parse_import(
+            &self.config.cell_info.cell_alias_resolver(),
+            &self.loader_path,
+            path,
+        )?;
 
         // check for bxl files first before checking for prelude.
         // All bxl imports are parsed the same regardless of prelude or not.
@@ -284,13 +287,13 @@ impl InterpreterForCell {
 
     //, configuror: Arc<dyn InterpreterConfigurer>
     pub(crate) fn new(
-        cell_names: CellAliasResolver,
+        cell_info: InterpreterCellInfo,
         global_state: Arc<GlobalInterpreterState>,
         implicit_import_paths: Arc<ImplicitImportPaths>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             global_state,
-            cell_names,
+            cell_info,
             verbose_gc: Self::verbose_gc()?,
             ignore_attrs_for_profiling: Self::is_ignore_attrs_for_profiling()?,
             implicit_import_paths,
@@ -343,7 +346,7 @@ impl InterpreterForCell {
         loaded_modules: &LoadedModules,
     ) -> anyhow::Result<(Module, ModuleInternals)> {
         let internals = self.global_state.configuror.new_extra_context(
-            self.get_cell_config(build_file.build_file_cell()),
+            &self.cell_info,
             build_file.clone(),
             package_listing.dupe(),
             super_package,
@@ -365,13 +368,6 @@ impl InterpreterForCell {
         }
 
         Ok((env, internals))
-    }
-
-    fn get_cell_config(&self, build_file_cell: BuildFileCell) -> &InterpreterCellInfo {
-        self.global_state
-            .cell_configs
-            .get(&build_file_cell)
-            .unwrap_or_else(|| panic!("Should've had cell config for {}", build_file_cell))
     }
 
     fn load_resolver(
@@ -497,11 +493,10 @@ impl InterpreterForCell {
             .globals_for_file_type(extra_context.file_type());
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
-        let cell_info = self.get_cell_config(import.build_file_cell());
         let host_info = self.global_state.configuror.host_info();
         let extra = BuildContext::new_for_module(
             env,
-            cell_info,
+            &self.cell_info,
             buckconfigs,
             host_info,
             extra_context,
@@ -570,7 +565,8 @@ impl InterpreterForCell {
             || matches!(starlark_path, StarlarkModulePath::BxlFile(..))
             || match self.global_state.configuror.prelude_import() {
                 Some(prelude_import) => {
-                    prelude_import.prelude_cell() == self.cell_names.resolve_self()
+                    prelude_import.prelude_cell()
+                        == self.cell_info.cell_alias_resolver().resolve_self()
                 }
                 None => false,
             };

@@ -8,6 +8,7 @@
  */
 
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::pattern::ParsedPattern;
 use buck2_node::visibility::VisibilityPattern;
@@ -39,6 +40,7 @@ fn parse_visibility(
     patterns: &[String],
     cell_name: CellName,
     cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
 ) -> anyhow::Result<VisibilitySpecification> {
     let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
     for pattern in patterns {
@@ -49,6 +51,7 @@ fn parse_visibility(
                 pattern,
                 cell_name,
                 cell_resolver,
+                cell_alias_resolver,
             )?));
         }
     }
@@ -59,6 +62,7 @@ fn parse_within_view(
     patterns: &[String],
     cell_name: CellName,
     cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
 ) -> anyhow::Result<WithinViewSpecification> {
     let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
     for pattern in patterns {
@@ -69,6 +73,7 @@ fn parse_within_view(
                 pattern,
                 cell_name,
                 cell_resolver,
+                cell_alias_resolver,
             )?));
         }
     }
@@ -95,11 +100,13 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
             &visibility.items,
             build_context.cell_info().name().name(),
             build_context.cell_info().cell_resolver(),
+            build_context.cell_info().cell_alias_resolver(),
         )?;
         let within_view = parse_within_view(
             &within_view.items,
             build_context.cell_info().name().name(),
             build_context.cell_info().cell_resolver(),
+            build_context.cell_info().cell_alias_resolver(),
         )?;
 
         match &mut *package_file_eval_ctx.visibility.borrow_mut() {

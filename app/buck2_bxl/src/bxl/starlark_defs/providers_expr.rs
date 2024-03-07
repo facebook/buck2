@@ -233,6 +233,7 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
                     CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
                     s,
                     ctx.cell_resolver(),
+                    ctx.cell_alias_resolver(),
                 )?
                 .as_providers_label(s)?)
             }

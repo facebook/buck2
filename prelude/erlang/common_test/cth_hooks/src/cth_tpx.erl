@@ -489,7 +489,7 @@ add_result(
                 case Truncated of
                     true ->
                         StdOutLocation =
-                            case os:getenv("SANDCASTLE") of
+                            case is_running_in_sandcastle() of
                                 true ->
                                     "tab Diagnostics: Artifacts/ct_executor.stdout.txt";
                                 _ ->
@@ -497,13 +497,15 @@ add_result(
                                         filename:dirname(OutputFile), "ct_executor.stdout.txt"
                                     )
                             end,
-                        Io ++
+                        [
                             io_lib:format(
-                                "\n The std_out has been truncated, see ~s for the full suite std_out.",
+                                "The stdout logs have been truncated, see ~s for the full suite stdout. Showing tail below\n",
                                 [
                                     StdOutLocation
                                 ]
-                            );
+                            )
+                            | Io
+                        ];
                     false ->
                         Io
                 end
@@ -672,3 +674,15 @@ modify_shared_state(HookState, Caller, Action) ->
         {ok, Action(State)}
     end),
     NewHookState.
+
+-spec is_running_in_sandcastle() -> boolean().
+is_running_in_sandcastle() ->
+    case os:getenv("SANDCASTLE_DIFF_ID") of
+        [$D | _] ->
+            true;
+        _ ->
+            case os:getenv("SANDCASTLE") of
+                false -> false;
+                _ -> true
+            end
+    end.

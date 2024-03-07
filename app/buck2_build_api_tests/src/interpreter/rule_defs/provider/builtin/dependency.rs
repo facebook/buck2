@@ -32,6 +32,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
             s,
             c.build_file_cell().name(),
             c.cell_resolver(),
+            c.cell_info.cell_alias_resolver(),
         ) {
             Ok(ParsedPattern::Target(package, target_name, providers)) => providers
                 .into_providers_label(package, target_name.as_ref())

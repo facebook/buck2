@@ -14,7 +14,6 @@ use buck2_build_api::query::bxl::BxlUqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_UQUERY_FUNCTIONS;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
-use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -47,7 +46,6 @@ impl BxlUqueryFunctionsImpl {
         dice: &'c LinearRecomputeDiceComputations<'d>,
     ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
         let cell_resolver = dice.get().get_cell_resolver().await?;
-        let package_boundary_exceptions = dice.get().get_package_boundary_exceptions().await?;
         let target_alias_resolver = dice
             .get()
             .target_alias_resolver_for_working_dir(&self.working_dir)
@@ -60,12 +58,7 @@ impl BxlUqueryFunctionsImpl {
             self.project_root.dupe(),
             target_alias_resolver,
         )?);
-        Ok(DiceQueryDelegate::new(
-            dice,
-            cell_resolver,
-            package_boundary_exceptions,
-            query_data,
-        ))
+        Ok(DiceQueryDelegate::new(dice, cell_resolver, query_data))
     }
 
     async fn uquery_env<'c, 'd>(

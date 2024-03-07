@@ -43,6 +43,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -122,6 +123,7 @@ use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProviderExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
@@ -249,6 +251,8 @@ pub(crate) struct BxlContextCoreData {
     cell_root_abs: AbsNormPathBuf,
     #[derivative(Debug = "ignore")]
     cell_resolver: CellResolver,
+    #[derivative(Debug = "ignore")]
+    cell_alias_resolver: CellAliasResolver,
     project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
     artifact_fs: ArtifactFs,
@@ -265,6 +269,7 @@ impl BxlContextCoreData {
             .dupe();
         let cell_name = bxl_cell.name();
         let target_alias_resolver = dice.target_alias_resolver_for_cell(cell_name).await?;
+        let cell_alias_resolver = dice.get_cell_alias_resolver(cell).await?;
         let artifact_fs = dice.get_artifact_fs().await?;
         let project_fs = dice.global_data().get_io_provider().project_root().dupe();
 
@@ -281,6 +286,7 @@ impl BxlContextCoreData {
             cell_name,
             cell_root_abs,
             cell_resolver,
+            cell_alias_resolver,
             project_fs,
             artifact_fs,
         })
@@ -480,6 +486,10 @@ impl<'v> BxlContextNoDice<'v> {
         &self.core.cell_root_abs
     }
 
+    pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
+        &self.core.cell_alias_resolver
+    }
+
     pub(crate) fn current_bxl(&self) -> &BxlKey {
         &self.core.current_bxl
     }
@@ -503,9 +513,7 @@ impl<'v> BxlContextNoDice<'v> {
     pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
         parse_query_file_literal(
             literal,
-            self.cell_resolver()
-                .get(self.cell_name())?
-                .cell_alias_resolver(),
+            self.cell_alias_resolver(),
             self.cell_resolver(),
             // NOTE(nga): we pass cell root as working directory here,
             //   which is inconsistent with the rest of buck2:
@@ -603,6 +611,7 @@ impl BxlEvalContext<'_> {
         let (analysis_registry, declared_outputs) = {
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
+            eval.extra = Some(&BxlEvalExtraTag);
 
             let dynamic_lambda_ctx_data =
                 dynamic_lambda_ctx_data(self.dynamic_lambda, self.deferred_ctx, &env)?;
@@ -761,6 +770,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let target_platform = target_platform.parse_target_platforms(
             this.target_alias_resolver(),
             this.cell_resolver(),
+            this.cell_alias_resolver(),
             this.cell_name(),
             &this.global_cfg_options().target_platform,
         )?;
@@ -888,6 +898,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let target_platform = target_platform.parse_target_platforms(
             this.target_alias_resolver(),
             this.cell_resolver(),
+            this.cell_alias_resolver(),
             this.cell_name(),
             &this.global_cfg_options().target_platform,
         )?;
@@ -1041,6 +1052,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             let target_platform = target_platform.parse_target_platforms(
                                 this.target_alias_resolver(),
                                 this.cell_resolver(),
+                                this.cell_alias_resolver(),
                                 this.cell_name(),
                                 &this.global_cfg_options().target_platform,
                             )?;
@@ -1164,6 +1176,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let target_platform = target_platform.parse_target_platforms(
             this.data.target_alias_resolver(),
             this.data.cell_resolver(),
+            this.cell_alias_resolver(),
             this.data.cell_name(),
             &this.data.global_cfg_options().target_platform,
         )?;
@@ -1299,6 +1312,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         CellPathRef::new(this_no_dice.cell_name(), CellRelativePath::empty()),
                         label,
                         this_no_dice.cell_resolver(),
+                        this_no_dice.cell_alias_resolver(),
                     )? {
                         ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                             let target_label = TargetLabel::new(pkg, name.as_ref());

@@ -22,6 +22,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcSlice;
+use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
@@ -226,24 +227,26 @@ impl AttrDisplayWithContext for CoercedAttr {
         match self {
             CoercedAttr::Selector(s) => {
                 write!(f, "select(")?;
-                for (i, (key, value)) in s.all_entries().enumerate() {
-                    if i > 0 {
-                        write!(f, ",")?;
-                    }
-                    match key {
-                        CoercedSelectorKeyRef::Target(k) => {
-                            write!(f, "\"{}\"={}", k, value.as_display(ctx))?;
-                        }
-                        CoercedSelectorKeyRef::Default => {
-                            write!(f, "\"DEFAULT\"={}", value.as_display(ctx))?;
-                        }
-                    }
-                }
+                fmt_keyed_container(
+                    f,
+                    "{",
+                    "}",
+                    ": ",
+                    s.all_entries().map(|(k, v)| {
+                        (
+                            match k {
+                                CoercedSelectorKeyRef::Target(k) => format!("\"{}\"", k),
+                                CoercedSelectorKeyRef::Default => "\"DEFAULT\"".to_owned(),
+                            },
+                            v.as_display(ctx),
+                        )
+                    }),
+                )?;
                 write!(f, ")")?;
                 Ok(())
             }
             CoercedAttr::Concat(items) => {
-                write!(f, "{}", items.iter().map(|a| a.as_display(ctx)).format("+"))
+                items.iter().map(|a| a.as_display(ctx)).format("+").fmt(f)
             }
             CoercedAttr::Bool(v) => {
                 write!(f, "{}", v)

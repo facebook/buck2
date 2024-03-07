@@ -38,6 +38,8 @@ use allocative::Allocative;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 
+use crate::fast_string;
+
 /// A small, `Copy`, value representing a position in a `CodeMap`'s file.
 #[derive(
     Copy, Clone, Dupe, Hash, Eq, PartialEq, PartialOrd, Ord, Debug, Default, Allocative
@@ -349,9 +351,7 @@ impl CodeMap {
                 let line = self.find_line(pos);
                 let line_span = self.line_span(line);
                 let byte_col = pos.0 - line_span.begin.0;
-                let column = self.source_span(line_span)[..byte_col as usize]
-                    .chars()
-                    .count();
+                let column = fast_string::len(&self.source_span(line_span)[..byte_col as usize]).0;
 
                 ResolvedPos { line, column }
             }
