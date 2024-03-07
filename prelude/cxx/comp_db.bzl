@@ -32,7 +32,10 @@ def create_compilation_database(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
         identifier: str) -> DefaultInfo:
-    mk_comp_db = get_cxx_toolchain_info(ctx).mk_comp_db[RunInfo]
+    mk_comp_db = get_cxx_toolchain_info(ctx).mk_comp_db
+    if mk_comp_db == None:
+        return DefaultInfo()
+    mk_comp_db = mk_comp_db[RunInfo]
 
     # Generate the per-source compilation DB entries.
     entries = {}
