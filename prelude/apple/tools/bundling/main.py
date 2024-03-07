@@ -367,7 +367,6 @@ def _main() -> None:
     if swift_support_args:
         swift_stdlib_paths = run_swift_stdlib_tool(
             bundle_path=args.output,
-            signing_identity=selected_identity_argument,
             args=swift_support_args,
         )
     else:
@@ -382,12 +381,15 @@ def _main() -> None:
             raise RuntimeError(
                 "Expected signing context to be created before bundling is done if codesign is requested."
             )
+        codesign_on_copy_paths = [
+            i.dst for i in spec if i.codesign_on_copy
+        ] + swift_stdlib_paths
         codesign_bundle(
             bundle_path=args.output,
             signing_context=signing_context,
             entitlements_path=args.entitlements,
             platform=args.platform,
-            codesign_on_copy_paths=[i.dst for i in spec if i.codesign_on_copy],
+            codesign_on_copy_paths=codesign_on_copy_paths,
             codesign_args=args.codesign_args,
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
