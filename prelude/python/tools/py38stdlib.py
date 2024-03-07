@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-strict
+
 # This is list is "borrowed" from https://github.com/amyreese/stdlibs
 from typing import FrozenSet
 
