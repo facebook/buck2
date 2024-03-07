@@ -65,7 +65,7 @@ impl MetadataKeyRef {
 }
 
 fn validate_key(key: &str) -> Result<(), MetadataKeyError> {
-    if key.chars().filter(|c| *c == '.').count() != 1 {
+    if key.split('.').count() != 2 {
         return Err(MetadataKeyError::KeyMustContainExactlyOneDot(
             key.to_owned(),
         ));
