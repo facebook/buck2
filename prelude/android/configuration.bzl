@@ -23,7 +23,7 @@ load("@prelude//utils:expect.bzl", "expect")
 # platforms). We only use the "arm64" native libraries if it is one of the specified platforms. We
 # "throw away" the non-native libraries for all other configured sub-graphs.
 
-_DEFAULT_PLATFORM = "config//platform/android:x86_32-fbsource"
+_DEFAULT_PLATFORM = "config//platform/android:arm64-fbsource"
 
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
