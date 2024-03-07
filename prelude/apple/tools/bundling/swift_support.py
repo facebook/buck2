@@ -7,6 +7,7 @@
 
 # pyre-strict
 
+import logging
 import os
 import shlex
 import shutil
@@ -15,6 +16,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union
+
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,10 +42,11 @@ def run_swift_stdlib_tool(
         env = os.environ.copy()
         # xcrun doesn't like relative paths
         env["SDKROOT"] = os.path.abspath(args.sdk_root)
-        result = subprocess.run(
-            _execution_command(bundle_path, signing_identity, args, tmp_dir),
-            env=env,
+        cmd = _execution_command(bundle_path, signing_identity, args, tmp_dir)
+        _LOGGER.info(
+            f"Running Swift stdlib tool with command: `{cmd}` and environment `{env}`."
         )
+        result = subprocess.run(cmd, env=env)
         result.check_returncode()
         outputs = sorted(os.listdir(tmp_dir))
         frameworks_path = bundle_path / args.frameworks_destination
