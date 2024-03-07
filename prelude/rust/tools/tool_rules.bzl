@@ -17,6 +17,7 @@ def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
         toolchain_info.compiler,
         cmd_args("--print=cfg=", out.as_output(), delimiter = ""),
         cmd_args("--target=", toolchain_info.rustc_target_triple, delimiter = ""),
+        cmd_args("--sysroot="),  # We do not need a sysroot here, and not all platforms we support have one available (e.g. mips64-unknown-linux-gnuabi64)
     ]
 
     ctx.actions.run(cmd, category = "rustc_cfg")
