@@ -83,6 +83,12 @@ def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs)
         **kwargs
     )
 
+def apple_xcuitest_macro_impl(apple_xcuitest_rule, **kwargs):
+    kwargs.update(apple_bundle_config())
+    apple_xcuitest_rule(
+        **kwargs
+    )
+
 def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwargs):
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
