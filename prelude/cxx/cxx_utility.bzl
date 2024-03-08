@@ -5,9 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def cxx_attrs_get_allow_cache_upload(attrs: struct) -> bool:
+def cxx_attrs_get_allow_cache_upload(attrs: struct, default: [None, bool] = None) -> bool:
+    default_value = default if default != None else False
+    if not hasattr(attrs, "allow_cache_upload"):
+        return default_value
     value = attrs.allow_cache_upload
-    return value if value != None else False
+    return value if value != None else default_value
 
 def cxx_toolchain_allow_cache_upload_args():
     doc = """
