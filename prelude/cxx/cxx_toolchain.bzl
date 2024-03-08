@@ -34,6 +34,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
+        allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
     )
     cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
     cxx_info = CxxCompilerInfo(
@@ -43,6 +44,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
+        allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
     )
     asm_info = AsmCompilerInfo(
         compiler = ctx.attrs.asm_compiler[RunInfo],

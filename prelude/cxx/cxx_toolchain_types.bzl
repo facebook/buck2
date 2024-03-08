@@ -118,6 +118,8 @@ _compiler_fields = [
     "preprocessor_type",
     "preprocessor_flags",
     "dep_files_processor",
+    # Controls cache upload for object files
+    "allow_cache_upload",
 ]
 
 HipCompilerInfo = provider(fields = _compiler_fields)
