@@ -430,11 +430,9 @@ fn filter_bxl_build_results(
         for res in build_results {
             match res {
                 BxlBuildResult::Built { label, result } => {
-                    assert!(
-                        btree.insert(label.to_owned(), result.to_owned()).is_none(),
-                        "Found duped bxl build result {}",
-                        label
-                    );
+                    if btree.insert(label.to_owned(), result.to_owned()).is_some() {
+                        tracing::debug!("Found duped bxl result {}", label);
+                    }
                 }
                 BxlBuildResult::None => (),
             }
