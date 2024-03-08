@@ -207,8 +207,8 @@ def breadth_first_traversal_by(
         if not queue:
             break
         node = queue.pop()
-        if graph_nodes:
-            expect(node in graph_nodes, "Expected node {} in graph nodes", node_formatter(node))
+        if graph_nodes and node not in graph_nodes:
+            fail("Expected node {} in graph nodes".format(node_formatter(node)))
         nodes_to_visit = get_nodes_to_traverse_func(node)
         for node in nodes_to_visit:
             if node not in visited:
