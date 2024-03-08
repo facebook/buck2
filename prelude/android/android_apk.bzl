@@ -35,11 +35,18 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         validation_deps_outputs = get_validation_deps_outputs(ctx),
     )
 
-    exopackage_info = ExopackageInfo(
-        secondary_dex_info = dex_files_info.secondary_dex_exopackage_info,
-        native_library_info = native_library_info.exopackage_info,
-        resources_info = resources_info.exopackage_info,
-    )
+    if dex_files_info.secondary_dex_exopackage_info or native_library_info.exopackage_info or resources_info.exopackage_info:
+        exopackage_info = ExopackageInfo(
+            secondary_dex_info = dex_files_info.secondary_dex_exopackage_info,
+            native_library_info = native_library_info.exopackage_info,
+            resources_info = resources_info.exopackage_info,
+        )
+        exopackage_outputs = _get_exopackage_outputs(exopackage_info)
+        default_output = ctx.actions.write("exopackage_apk_warning", "exopackage apks should not be used externally, try buck install or building with exopackage disabled\n")
+    else:
+        exopackage_info = None
+        exopackage_outputs = []
+        default_output = output_apk
 
     class_to_srcs, class_to_srcs_subtargets = get_class_to_source_map_info(
         ctx,
@@ -63,7 +70,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             r_dot_java_packages = set([info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]),
             shared_libraries = set(native_library_info.shared_libraries),
         ),
-        DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info) + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
+        DefaultInfo(default_output = default_output, other_outputs = exopackage_outputs + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info, definitely_has_native_libs = definitely_has_native_libs),
         TemplatePlaceholderInfo(
             keyed_variables = {
