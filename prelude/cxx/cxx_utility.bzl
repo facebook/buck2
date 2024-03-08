@@ -8,3 +8,22 @@
 def cxx_attrs_get_allow_cache_upload(attrs: struct) -> bool:
     value = attrs.allow_cache_upload
     return value if value != None else False
+
+def cxx_toolchain_allow_cache_upload_args():
+    doc = """
+        Whether to allow uploading of object files to cache when the compile
+        action is executed locally and the configuration allows uploads (i.e.,
+        there is a cache configured and the client has permission to write to it).
+        """
+    return {
+        "c_compiler_allow_cache_upload": attrs.option(
+            attrs.bool(),
+            default = None,
+            doc = doc,
+        ),
+        "cxx_compiler_allow_cache_upload": attrs.option(
+            attrs.bool(),
+            default = None,
+            doc = doc,
+        ),
+    }

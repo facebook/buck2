@@ -7,6 +7,7 @@
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
@@ -225,7 +226,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:hmap_wrapper")),
         "_msvc_hermetic_exec": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
-    }
+    } | cxx_toolchain_allow_cache_upload_args()
 
 def _cxx_toolchain_inheriting_target_platform_attrs():
     attrs = dict(cxx_rules.cxx_toolchain.attrs)

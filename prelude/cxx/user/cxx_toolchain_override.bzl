@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "CxxPlatformInfo", "CxxToolchainInfo", "LinkerInfo", "LinkerType", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
@@ -221,7 +222,7 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "use_archiver_flags": attrs.option(attrs.bool(), default = None),
-    }
+    } | cxx_toolchain_allow_cache_upload_args()
 
 cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
     name = "cxx_toolchain_override",
