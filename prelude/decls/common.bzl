@@ -205,8 +205,9 @@ def _exec_os_type_arg() -> Attr:
 
 def _allow_cache_upload_arg():
     return {
-        "allow_cache_upload": attrs.bool(
-            default = False,
+        "allow_cache_upload": attrs.option(
+            attrs.bool(),
+            default = None,
             doc = """
             Whether to allow uploading the output of this rule to be uploaded
             to cache when the action is executed locally if the configuration

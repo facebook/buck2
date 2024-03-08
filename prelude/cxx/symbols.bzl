@@ -7,6 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 
 def _extract_symbol_names(
@@ -118,7 +119,7 @@ def _anon_extract_symbol_names_impl(ctx):
         objects = ctx.attrs.objects,
         prefer_local = ctx.attrs.prefer_local,
         undefined_only = ctx.attrs.undefined_only,
-        allow_cache_upload = ctx.attrs.allow_cache_upload,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
     return [DefaultInfo(), _SymbolsInfo(artifact = output)]
 

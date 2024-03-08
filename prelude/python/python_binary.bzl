@@ -23,6 +23,7 @@ load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//cxx:groups.bzl",
     "Group",
@@ -763,7 +764,7 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         srcs,
         {},
         compile = value_or(ctx.attrs.compile, False),
-        allow_cache_upload = ctx.attrs.allow_cache_upload,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
     return [
         make_default_info(pex),
