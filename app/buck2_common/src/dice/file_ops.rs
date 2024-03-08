@@ -17,8 +17,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -152,13 +150,9 @@ async fn get_default_file_ops(
     }
 
     impl DiceFileOpsDelegate {
-        fn resolve(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
-            let cell_root = self.resolve_cell_root(path.cell())?;
-            Ok(cell_root.as_project_relative_path().join(path.path()))
-        }
-
-        fn resolve_cell_root(&self, cell: CellName) -> anyhow::Result<CellRootPathBuf> {
-            Ok(self.cells.get(cell).unwrap().path().to_buf())
+        fn resolve(&self, path: CellPathRef) -> ProjectRelativePathBuf {
+            let cell_root = self.cells.get(path.cell()).unwrap().path();
+            cell_root.as_project_relative_path().join(path.path())
         }
 
         fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath> {
@@ -177,7 +171,7 @@ async fn get_default_file_ops(
             path: CellPathRef<'async_trait>,
         ) -> anyhow::Result<Option<String>> {
             // TODO(cjhopman): error on ignored paths, maybe.
-            let project_path = self.resolve(path)?;
+            let project_path = self.resolve(path);
             self.io_provider().read_file_if_exists(project_path).await
         }
 
@@ -188,7 +182,7 @@ async fn get_default_file_ops(
                 .into_result()
                 .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
 
-            let project_path = self.resolve(path)?;
+            let project_path = self.resolve(path);
             let mut entries = self
                 .io_provider()
                 .read_dir(project_path)
@@ -255,7 +249,7 @@ async fn get_default_file_ops(
             &self,
             path: CellPathRef<'async_trait>,
         ) -> anyhow::Result<Option<RawPathMetadata>> {
-            let project_path = self.resolve(path)?;
+            let project_path = self.resolve(path);
 
             let res = self
                 .io_provider()
