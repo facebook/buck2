@@ -362,7 +362,6 @@ silly_binary = rule(
     impl = _silly_binary_impl,
     attrs = {
         "srcs": attr.list(attr.src()),
-        "link_flags": attr.args(),
         "_silly_toolchain": attr.dep(default = "toolchains//:silly"),
     },
 )
