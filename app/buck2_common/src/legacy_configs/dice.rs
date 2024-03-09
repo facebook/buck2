@@ -290,14 +290,14 @@ struct LegacyBuckConfigCellNamesKey;
 
 impl ProjectionKey for LegacyBuckConfigCellNamesKey {
     type DeriveFromKey = LegacyBuckConfigKey;
-    type Value = Arc<Vec<CellName>>;
+    type Value = Arc<[CellName]>;
 
     fn compute(
         &self,
         configs: &Option<LegacyBuckConfigs>,
         _ctx: &DiceProjectionComputations,
-    ) -> Arc<Vec<CellName>> {
-        let cell_names: Vec<_> = configs
+    ) -> Arc<[CellName]> {
+        let cell_names: Arc<[_]> = configs
             .as_ref()
             .unwrap_or_else(|| {
                 panic!(
@@ -311,7 +311,7 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
             cell_names.is_sorted(),
             "configs.iter() must return a sorted iterator"
         );
-        Arc::new(cell_names)
+        cell_names
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
