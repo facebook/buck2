@@ -103,6 +103,13 @@ impl DiceFileComputations {
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
     }
+
+    pub async fn is_ignored(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<bool> {
+        get_default_file_ops(ctx).await?.is_ignored(path).await
+    }
 }
 
 pub mod keys {
@@ -485,8 +492,7 @@ impl FileOps for DiceFileOps<'_, '_> {
     }
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-        let file_ops = get_default_file_ops(&mut self.0.get()).await?;
-        file_ops.is_ignored(path).await
+        DiceFileComputations::is_ignored(&mut self.0.get(), path).await
     }
 
     fn eq_token(&self) -> PartialEqAny {
