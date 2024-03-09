@@ -654,9 +654,10 @@ def _ordered_roots(
     """
 
     # Calculate all deps each root node needs to link against.
-    link_deps = {}
-    for label, root in spec.roots.items():
-        link_deps[label] = _link_deps(spec.link_infos, root.deps, pic_behavior)
+    link_deps = {
+        label: _link_deps(spec.link_infos, root.deps, pic_behavior)
+        for label, root in spec.roots.items()
+    }
 
     # Used the link deps to create the graph of root nodes.
     root_graph = {
@@ -664,14 +665,12 @@ def _ordered_roots(
         for node, deps in link_deps.items()
     }
 
-    ordered_roots = []
-
     # Emit the root link info in post-order, so that we generate root link rules
     # for dependencies before their dependents.
-    for label in post_order_traversal(root_graph):
-        root = spec.roots[label]
-        deps = link_deps[label]
-        ordered_roots.append((label, root, deps))
+    ordered_roots = [
+        (label, spec.roots[label], link_deps[label])
+        for label in post_order_traversal(root_graph)
+    ]
 
     return ordered_roots
 
