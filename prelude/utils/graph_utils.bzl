@@ -58,11 +58,7 @@ def post_order_traversal(
             out_degrees[node] += 1
             rdeps[dep].append(node)
 
-    queue = []
-
-    for node, out_degree in out_degrees.items():
-        if out_degree == 0:
-            queue.append(node)
+    queue = [node for node, out_degree in out_degrees.items() if out_degree == 0]
 
     ordered = []
 
