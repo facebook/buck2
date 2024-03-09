@@ -263,8 +263,7 @@ struct CellResolverInternals {
 }
 
 impl CellResolver {
-    // Make this public till we start parsing config files from cells
-    pub fn new(cells: Vec<CellInstance>) -> anyhow::Result<CellResolver> {
+    fn new(cells: Vec<CellInstance>) -> anyhow::Result<CellResolver> {
         let mut path_mappings: SequenceTrie<FileNameBuf, CellName> = SequenceTrie::new();
         let mut root_cell = None;
         for cell in &cells {

@@ -466,7 +466,7 @@ struct CellConfigLoader {
 }
 
 impl CellConfigLoader {
-    pub async fn cells_and_configs(
+    async fn cells_and_configs(
         &self,
         dice_ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {

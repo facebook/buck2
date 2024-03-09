@@ -29,7 +29,7 @@ fn config_type_from_i32(value: i32) -> anyhow::Result<ConfigType> {
     })
 }
 
-pub fn get_legacy_config_args<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>(
+pub(crate) fn get_legacy_config_args<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
 ) -> anyhow::Result<Vec<LegacyConfigCmdArg>> {
     config_overrides
@@ -44,7 +44,7 @@ pub fn get_legacy_config_args<'a, Iter: IntoIterator<Item = &'a ConfigOverride>>
 }
 
 /// Read the configs, returning the cell resolver and the legacy configs
-pub fn parse_legacy_cells(
+pub(crate) fn parse_legacy_cells(
     config_overrides: &[LegacyConfigCmdArg],
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
