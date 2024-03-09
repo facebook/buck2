@@ -47,19 +47,6 @@ use crate::ignores::all_cells::AllCellIgnores;
 use crate::ignores::all_cells::HasAllCellIgnores;
 use crate::io::IoProvider;
 
-// TODO(cjhopman, bobyf): This FileToken can go away once Dice has support for
-// transient values.
-/// This is used as the "result" of a read_file computation so that we don't
-/// need to store the file content's in dice's cache.
-#[derive(Clone, Dupe, Allocative)]
-struct FileToken(Arc<CellPath>);
-
-impl FileToken {
-    async fn read_if_exists(&self, fs: &dyn FileOps) -> anyhow::Result<Option<String>> {
-        fs.read_file_if_exists((*self.0).as_ref()).await
-    }
-}
-
 /// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
 ///
 /// In general, it's better to use DiceFileComputations directly.
@@ -82,13 +69,12 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<Option<String>> {
-        let path = path.to_owned();
         let file_ops = get_default_file_ops(ctx).await?;
-
-        ctx.compute(&ReadFileKey(Arc::new(path)))
-            .await?
-            .read_if_exists(&*file_ops)
-            .await
+        let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
+        // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
+        // However, that also means that the `ReadFileKey` is not marked as transient if this
+        // returns an error, which is unfortunate.
+        file_ops.read_file_if_exists(path).await
     }
 
     pub async fn read_file(
@@ -394,13 +380,12 @@ struct ReadFileKey(Arc<CellPath>);
 
 #[async_trait]
 impl Key for ReadFileKey {
-    type Value = FileToken;
+    type Value = ();
     async fn compute(
         &self,
         _ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        FileToken(self.0.dupe())
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
