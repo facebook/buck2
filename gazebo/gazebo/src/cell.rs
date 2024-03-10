@@ -212,7 +212,6 @@ mod tests {
     use std::mem;
 
     use super::*;
-    use crate::cast;
 
     #[test]
     fn test_from_ref_docs() {
@@ -276,11 +275,11 @@ mod tests {
         let orig = RefCell::new("test".to_owned());
         let p = orig.borrow();
         let p2 = Ref::clone(&p);
-        let (pointer, cell): (usize, usize) = unsafe { mem::transmute(p) };
+        let (pointer, cell): (*const String, *const ()) = unsafe { mem::transmute(p) };
         // We expect the first to be a pointer to the underlying string
-        assert_eq!(pointer, cast::ptr_to_usize(Ref::deref(&p2)));
+        assert_eq!(pointer, Ref::deref(&p2) as *const String);
         // We want to make sure the second is never zero
-        assert_ne!(cell, 0);
+        assert!(!cell.is_null());
 
         // Put it back as it was, to make sure our test doesn't leak memory
         let _ignore: Ref<String> = unsafe { mem::transmute((pointer, cell)) };
