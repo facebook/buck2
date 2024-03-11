@@ -7,73 +7,43 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use dice::DiceComputations;
-use itertools::Itertools;
 
 use crate::dice::cells::HasCellResolver;
 use crate::ignores::file_ignores::CellFileIgnores;
-use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::legacy_configs::dice::HasLegacyConfigs;
 
-/// Ignored path configurations for all cells.
-#[derive(Allocative, Debug, Eq, PartialEq)]
-pub(crate) struct AllCellIgnores {
-    ignores: HashMap<CellName, CellFileIgnores>,
-}
-
-impl AllCellIgnores {
-    pub(crate) fn check_ignored(
-        &self,
-        cell: CellName,
-        path: &UncheckedCellRelativePath,
-    ) -> anyhow::Result<FileIgnoreResult> {
-        Ok(self
-            .ignores
-            .get(&cell)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Internal error: Should've had an ignore spec for `{}`. Had `{}`",
-                    cell,
-                    self.ignores.keys().join(", ")
-                )
-            })?
-            .check(path))
-    }
+#[async_trait]
+pub(crate) trait HasCellFileIgnores {
+    async fn new_cell_ignores(
+        &mut self,
+        cell_name: CellName,
+    ) -> anyhow::Result<Arc<CellFileIgnores>>;
 }
 
 #[async_trait]
-pub(crate) trait HasAllCellIgnores {
-    async fn new_all_cell_ignores(&mut self) -> anyhow::Result<Arc<AllCellIgnores>>;
-}
-
-#[async_trait]
-impl HasAllCellIgnores for DiceComputations<'_> {
-    async fn new_all_cell_ignores(&mut self) -> anyhow::Result<Arc<AllCellIgnores>> {
+impl HasCellFileIgnores for DiceComputations<'_> {
+    async fn new_cell_ignores(
+        &mut self,
+        cell_name: CellName,
+    ) -> anyhow::Result<Arc<CellFileIgnores>> {
         let cells = self.get_cell_resolver().await?;
-        let configs = self.get_legacy_configs_on_dice().await?;
+        let instance = cells.get(cell_name)?;
+        let config = self.get_legacy_config_on_dice(cell_name).await?;
 
-        let mut ignores = HashMap::new();
+        let ignore_spec = config.lookup(self, "project", "ignore")?;
+        let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
 
-        for (cell_name, instance) in cells.cells() {
-            let config = configs.get(cell_name).unwrap();
-            let ignore_spec = config.lookup(self, "project", "ignore")?;
-            let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
+        let cell_ignores = CellFileIgnores::new_for_interpreter(
+            ignore_spec,
+            instance.nested_cells().clone(),
+            cells.is_root_cell(cell_name),
+        )?;
 
-            let cell_ignores = CellFileIgnores::new_for_interpreter(
-                ignore_spec,
-                instance.nested_cells().clone(),
-                cells.is_root_cell(cell_name),
-            )?;
-            ignores.insert(cell_name, cell_ignores);
-        }
-
-        Ok(Arc::new(AllCellIgnores { ignores }))
+        Ok(Arc::new(cell_ignores))
     }
 }

@@ -47,8 +47,8 @@ use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
 use crate::file_ops::SimpleDirEntry;
-use crate::ignores::all_cells::AllCellIgnores;
-use crate::ignores::all_cells::HasAllCellIgnores;
+use crate::ignores::all_cells::HasCellFileIgnores;
+use crate::ignores::file_ignores::CellFileIgnores;
 use crate::io::IoProvider;
 
 /// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
@@ -191,7 +191,7 @@ async fn get_delegated_file_ops(
         #[derivative(PartialEq = "ignore")]
         io: Arc<dyn IoProvider>,
         cells: CellResolver,
-        ignores: Arc<AllCellIgnores>,
+        ignores: Arc<CellFileIgnores>,
         cell: CellName,
     }
 
@@ -227,7 +227,7 @@ async fn get_delegated_file_ops(
         ) -> anyhow::Result<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
             self.ignores
-                .check_ignored(self.cell, UncheckedCellRelativePath::new(path))?
+                .check(UncheckedCellRelativePath::new(path))
                 .into_result()
                 .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
 
@@ -256,10 +256,7 @@ async fn get_delegated_file_ops(
 
                 let cell_relative_path =
                     UncheckedCellRelativePath::unchecked_new(cell_relative_path);
-                let is_ignored = self
-                    .ignores
-                    .check_ignored(self.cell, cell_relative_path)?
-                    .is_ignored();
+                let is_ignored = self.ignores.check(cell_relative_path).is_ignored();
                 anyhow::Ok(is_ignored)
             };
 
@@ -312,7 +309,7 @@ async fn get_delegated_file_ops(
         async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
             Ok(self
                 .ignores
-                .check_ignored(self.cell, UncheckedCellRelativePath::new(path))?
+                .check(UncheckedCellRelativePath::new(path))
                 .is_ignored())
         }
 
@@ -332,7 +329,7 @@ async fn get_delegated_file_ops(
             let cells = ctx.get_cell_resolver().await?;
             let io = ctx.global_data().get_io_provider();
 
-            let ignores = ctx.new_all_cell_ignores().await?;
+            let ignores = ctx.new_cell_ignores(self.0).await?;
 
             Ok(FileOpsValue(Arc::new(DiceFileOpsDelegate {
                 io,
