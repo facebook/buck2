@@ -35,6 +35,7 @@ use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
+use crate::dice::file_ops::keys::FileOpsDelegate;
 use crate::dice::file_ops::keys::FileOpsKey;
 use crate::dice::file_ops::keys::FileOpsValue;
 use crate::file_ops::FileOps;
@@ -112,26 +113,58 @@ impl DiceFileComputations {
     }
 }
 
+/// Note: Everything in this mini-module exists only so that it can be replaced by a `TestFileOps`
+/// in unittests
 pub mod keys {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use async_trait::async_trait;
+    use buck2_core::cells::cell_path::CellPathRef;
+    use cmp_any::PartialEqAny;
     use derive_more::Display;
     use dupe::Dupe;
 
-    use crate::file_ops::FileOps;
+    use crate::file_ops::RawPathMetadata;
+    use crate::file_ops::ReadDirOutput;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
     pub struct FileOpsKey();
 
     #[derive(Dupe, Clone, Allocative)]
-    pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOps>);
+    pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOpsDelegate>);
+
+    #[async_trait]
+    pub trait FileOpsDelegate: Send + Sync {
+        async fn read_file_if_exists(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> anyhow::Result<Option<String>>;
+
+        /// Return the list of file outputs, sorted.
+        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput>;
+
+        async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool>;
+
+        async fn read_path_metadata_if_exists(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> anyhow::Result<Option<RawPathMetadata>>;
+
+        fn eq_token(&self) -> PartialEqAny;
+    }
+
+    impl PartialEq for dyn FileOpsDelegate {
+        fn eq(&self, other: &Self) -> bool {
+            self.eq_token() == other.eq_token()
+        }
+    }
 }
 
 async fn get_default_file_ops(
     dice: &mut DiceComputations<'_>,
-) -> buck2_error::Result<Arc<dyn FileOps>> {
+) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
     #[derive(Clone, Dupe, Derivative, Allocative)]
     #[derivative(PartialEq)]
     struct DiceFileOpsDelegate {
@@ -158,7 +191,7 @@ async fn get_default_file_ops(
     }
 
     #[async_trait]
-    impl FileOps for DiceFileOpsDelegate {
+    impl FileOpsDelegate for DiceFileOpsDelegate {
         async fn read_file_if_exists(
             &self,
             path: CellPathRef<'async_trait>,

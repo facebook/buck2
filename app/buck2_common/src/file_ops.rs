@@ -388,6 +388,7 @@ pub mod testing {
     use itertools::Itertools;
 
     use crate::cas_digest::CasDigestConfig;
+    use crate::dice::file_ops::keys::FileOpsDelegate;
     use crate::external_symlink::ExternalSymlink;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
@@ -551,6 +552,36 @@ pub mod testing {
 
         fn eq_token(&self) -> PartialEqAny {
             PartialEqAny::always_false()
+        }
+    }
+
+    #[async_trait]
+    impl FileOpsDelegate for TestFileOps {
+        async fn read_file_if_exists(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> anyhow::Result<Option<String>> {
+            FileOps::read_file_if_exists(self, path).await
+        }
+
+        /// Return the list of file outputs, sorted.
+        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
+            FileOps::read_dir(self, path).await
+        }
+
+        async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
+            FileOps::is_ignored(self, path).await
+        }
+
+        async fn read_path_metadata_if_exists(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> anyhow::Result<Option<RawPathMetadata>> {
+            FileOps::read_path_metadata_if_exists(self, path).await
+        }
+
+        fn eq_token(&self) -> PartialEqAny {
+            FileOps::eq_token(self)
         }
     }
 }
