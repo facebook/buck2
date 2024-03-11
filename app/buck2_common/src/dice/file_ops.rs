@@ -70,7 +70,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<Option<String>> {
-        let file_ops = get_default_file_ops(ctx).await?;
+        let file_ops = get_delegated_file_ops(ctx).await?;
         let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
         // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
         // However, that also means that the `ReadFileKey` is not marked as transient if this
@@ -109,7 +109,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<bool> {
-        get_default_file_ops(ctx).await?.is_ignored(path).await
+        get_delegated_file_ops(ctx).await?.is_ignored(path).await
     }
 }
 
@@ -162,7 +162,7 @@ pub mod keys {
     }
 }
 
-async fn get_default_file_ops(
+async fn get_delegated_file_ops(
     dice: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
     #[derive(Clone, Dupe, Derivative, Allocative)]
@@ -444,7 +444,7 @@ impl Key for ReadDirKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_default_file_ops(ctx)
+        get_delegated_file_ops(ctx)
             .await?
             .read_dir(self.0.as_ref())
             .await
@@ -474,7 +474,7 @@ impl Key for PathMetadataKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let res = get_default_file_ops(ctx)
+        let res = get_delegated_file_ops(ctx)
             .await?
             .read_path_metadata_if_exists(self.0.as_ref())
             .await?;
