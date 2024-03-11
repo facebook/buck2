@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use dupe::Dupe;
 
@@ -21,16 +22,19 @@ pub struct InterpreterCellInfo(Arc<Data>);
 struct Data {
     cell_name: BuildFileCell,
     cell_resolver: CellResolver,
+    cell_alias_resolver: CellAliasResolver,
 }
 
 impl InterpreterCellInfo {
     pub(crate) fn new(
         cell_name: BuildFileCell,
         cell_resolver: CellResolver,
+        cell_alias_resolver: CellAliasResolver,
     ) -> anyhow::Result<Self> {
         Ok(Self(Arc::new(Data {
             cell_name,
             cell_resolver,
+            cell_alias_resolver,
         })))
     }
 
@@ -40,5 +44,9 @@ impl InterpreterCellInfo {
 
     pub fn cell_resolver(&self) -> &CellResolver {
         &self.0.cell_resolver
+    }
+
+    pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
+        &self.0.cell_alias_resolver
     }
 }

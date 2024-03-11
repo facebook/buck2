@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
@@ -23,7 +21,6 @@ use dice::Key;
 use dupe::Dupe;
 use starlark::environment::Globals;
 
-use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::HasInterpreterContext;
 
@@ -32,8 +29,6 @@ use crate::interpreter::context::HasInterpreterContext;
 #[derive(Allocative)]
 pub struct GlobalInterpreterState {
     pub cell_resolver: CellResolver,
-
-    pub(crate) cell_configs: HashMap<BuildFileCell, InterpreterCellInfo>,
 
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should
@@ -77,16 +72,8 @@ impl GlobalInterpreterState {
         let extension_file_global_env = interpreter_configuror.extension_file_globals();
         let bxl_file_global_env = interpreter_configuror.bxl_file_globals();
 
-        let mut cell_configs = HashMap::new();
-        for cell_name in cell_resolver.cells().map(|(x, _)| x) {
-            cell_configs.insert(
-                BuildFileCell::new(cell_name),
-                InterpreterCellInfo::new(BuildFileCell::new(cell_name), cell_resolver.dupe())?,
-            );
-        }
         Ok(Self {
             cell_resolver,
-            cell_configs,
             build_file_global_env,
             package_file_global_env,
             extension_file_global_env,

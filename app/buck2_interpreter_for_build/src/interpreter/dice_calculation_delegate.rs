@@ -53,6 +53,7 @@ use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
 use crate::interpreter::buckconfig::ConfigsOnDiceViewForStarlark;
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
@@ -108,8 +109,14 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 
                 let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
 
-                Ok(Arc::new(InterpreterForCell::new(
+                let cell_info = InterpreterCellInfo::new(
+                    self.1,
+                    ctx.get_cell_resolver().await?,
                     cell_alias_resolver,
+                )?;
+
+                Ok(Arc::new(InterpreterForCell::new(
+                    cell_info,
                     global_state.dupe(),
                     implicit_import_paths,
                 )?))
