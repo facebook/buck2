@@ -265,41 +265,6 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
     }
 }
 
-#[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Dupe, Allocative)]
-#[display(fmt = "{:?}", self)]
-struct LegacyBuckConfigCellNamesKey;
-
-impl ProjectionKey for LegacyBuckConfigCellNamesKey {
-    type DeriveFromKey = LegacyBuckConfigKey;
-    type Value = Arc<[CellName]>;
-
-    fn compute(
-        &self,
-        configs: &Option<LegacyBuckConfigs>,
-        _ctx: &DiceProjectionComputations,
-    ) -> Arc<[CellName]> {
-        let cell_names: Arc<[_]> = configs
-            .as_ref()
-            .unwrap_or_else(|| {
-                panic!(
-                    "Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value"
-                )
-            })
-            .iter()
-            .map(|(k, _)| k)
-            .collect();
-        assert!(
-            cell_names.is_sorted(),
-            "configs.iter() must return a sorted iterator"
-        );
-        cell_names
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
-    }
-}
-
 impl HasInjectedLegacyConfigs for DiceComputations<'_> {
     async fn get_injected_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs> {
         self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
