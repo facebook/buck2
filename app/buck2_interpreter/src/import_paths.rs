@@ -13,7 +13,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -34,7 +34,7 @@ pub struct ImplicitImportPaths {
 
 impl ImplicitImportPaths {
     pub fn parse(
-        config: &LegacyBuckConfig,
+        mut config: impl LegacyBuckConfigView,
         cell_name: BuildFileCell,
         cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<ImplicitImportPaths> {
@@ -42,9 +42,9 @@ impl ImplicitImportPaths {
         // normal imports. e.g. it uses `cell//path/to/file.bzl` instead of
         // `cell//path/to:file.bzl`.
         let root_import = config
-            .get("buildfile", "includes")
+            .get("buildfile", "includes")?
             .map(|i| {
-                let (cell_alias, path): (&str, &str) = i.split_once("//").unwrap_or(("", i));
+                let (cell_alias, path): (&str, &str) = i.split_once("//").unwrap_or(("", &*i));
                 let path = CellRelativePathBuf::try_from(path.to_owned())?;
                 let path = CellPath::new(cell_alias_resolver.resolve(cell_alias)?, path.to_buf());
 
@@ -56,7 +56,7 @@ impl ImplicitImportPaths {
         let package_imports = PackageImplicitImports::new(
             cell_name,
             cell_alias_resolver.dupe(),
-            config.get("buildfile", "package_includes"),
+            config.get("buildfile", "package_includes")?.as_deref(),
         )?;
         Ok(ImplicitImportPaths {
             root_import,
@@ -98,15 +98,14 @@ impl HasImportPaths for DiceComputations<'_> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let config = ctx
-                    .get_legacy_config_for_cell(self.cell_name.name())
-                    .await?;
+                let config = ctx.get_legacy_config_on_dice(self.cell_name.name()).await?;
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let cell_alias_resolver = cell_resolver
                     .get(self.cell_name.name())?
                     .cell_alias_resolver();
+
                 Ok(Arc::new(ImplicitImportPaths::parse(
-                    &config,
+                    config.view(ctx),
                     self.cell_name,
                     cell_alias_resolver,
                 )?))
