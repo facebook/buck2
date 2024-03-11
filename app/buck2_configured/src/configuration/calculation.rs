@@ -15,7 +15,7 @@ use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provid
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::parse_config_section_and_key;
-use buck2_error::{AnyhowContextForError};
+use buck2_error::AnyhowContextForError;
 use buck2_core::cells::name::CellName;
 use futures::FutureExt;
 use starlark_map::unordered_map::UnorderedMap;
