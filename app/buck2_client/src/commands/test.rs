@@ -156,6 +156,11 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long)]
     test_executor_stdout: Option<OutputDestinationArg>,
 
+    /// Normally testing will follow the `tests` attribute of all targets, to find their associated tests.
+    /// When passed, this flag will disable that, and only run the directly supplied targets.
+    #[clap(long)]
+    ignore_tests_attribute: bool,
+
     /// Writes the test executor stderr to the provided path
     ///
     /// --test-executor-stderr=- will write to stderr
@@ -218,6 +223,7 @@ impl StreamingCommand for TestCommand {
                         })
                         .transpose()
                         .context("Invalid `timeout`")?,
+                    ignore_tests_attribute: self.ignore_tests_attribute,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),

@@ -436,6 +436,9 @@ message TestRequest {
   // cancelled. The test orchestrator will be allowed to shut down gracefully.
   // The exit code will be a user failure.
   optional google.protobuf.Duration timeout = 12;
+
+  // Should you add tests that are on the `tests` attribute of the target.
+  bool ignore_tests_attribute = 13;
 }
 
 message BxlRequest {
