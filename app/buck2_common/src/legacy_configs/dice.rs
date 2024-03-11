@@ -25,12 +25,9 @@ use dice::Key;
 use dice::OpaqueValue;
 use dice::ProjectionKey;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
-use starlark_map::sorted_map::SortedMap;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::view::LegacyBuckConfigView;
-use crate::legacy_configs::ConfigError;
 use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
 
@@ -72,20 +69,6 @@ impl OpaqueLegacyBuckConfigOnDice {
     }
 }
 
-#[derive(Debug)]
-pub struct OpaqueLegacyBuckConfigsOnDice {
-    configs: SortedMap<CellName, OpaqueLegacyBuckConfigOnDice>,
-}
-
-impl OpaqueLegacyBuckConfigsOnDice {
-    pub fn get(&self, cell_name: CellName) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
-        self.configs
-            .get(&cell_name)
-            .duped()
-            .ok_or_else(|| ConfigError::UnknownCell(cell_name.to_owned()).into())
-    }
-}
-
 pub struct LegacyBuckConfigOnDice<'a, 'd> {
     ctx: &'a mut DiceComputations<'d>,
     config: &'a OpaqueLegacyBuckConfigOnDice,
@@ -120,9 +103,6 @@ pub trait HasLegacyConfigs {
     ///
     /// This operation does not record buckconfig as a dependency of current computation.
     /// Accessing specific buckconfig property, records that key as dependency.
-    async fn get_legacy_configs_on_dice(&mut self)
-    -> anyhow::Result<OpaqueLegacyBuckConfigsOnDice>;
-
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
@@ -317,35 +297,16 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
 
 #[async_trait]
 impl HasLegacyConfigs for DiceComputations<'_> {
-    async fn get_legacy_configs_on_dice(
-        &mut self,
-    ) -> anyhow::Result<OpaqueLegacyBuckConfigsOnDice> {
-        let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
-        let cell_names = self.projection(&configs, &LegacyBuckConfigCellNamesKey)?;
-        let mut configs_on_dice = Vec::with_capacity(cell_names.len());
-        for cell_name in &*cell_names {
-            let config = self
-                .compute_opaque(&LegacyBuckConfigForCellKey {
-                    cell_name: *cell_name,
-                })
-                .await?;
-            configs_on_dice.push((
-                *cell_name,
-                OpaqueLegacyBuckConfigOnDice {
-                    config: Arc::new(config),
-                },
-            ));
-        }
-        Ok(OpaqueLegacyBuckConfigsOnDice {
-            configs: SortedMap::from_iter(configs_on_dice),
-        })
-    }
-
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
     ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
-        self.get_legacy_configs_on_dice().await?.get(cell_name)
+        let config = self
+            .compute_opaque(&LegacyBuckConfigForCellKey { cell_name })
+            .await?;
+        Ok(OpaqueLegacyBuckConfigOnDice {
+            config: Arc::new(config),
+        })
     }
 
     async fn get_legacy_root_config_on_dice(
