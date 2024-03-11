@@ -13,9 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
@@ -67,7 +65,6 @@ pub struct GlobalInterpreterState {
 
 impl GlobalInterpreterState {
     pub fn new(
-        cell_names: Vec<CellName>,
         cell_resolver: CellResolver,
         interpreter_configuror: Arc<BuildInterpreterConfiguror>,
         disable_starlark_types: bool,
@@ -81,7 +78,7 @@ impl GlobalInterpreterState {
         let bxl_file_global_env = interpreter_configuror.bxl_file_globals();
 
         let mut cell_configs = HashMap::new();
-        for cell_name in cell_names {
+        for cell_name in cell_resolver.cells().map(|(x, _)| x) {
             cell_configs.insert(
                 BuildFileCell::new(cell_name),
                 InterpreterCellInfo::new(BuildFileCell::new(cell_name), cell_resolver.dupe())?,
@@ -153,10 +150,8 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let disable_starlark_types = ctx.get_disable_starlark_types().await?;
                 let unstable_typecheck = ctx.get_unstable_typecheck().await?;
-                let legacy_configs = ctx.get_legacy_configs_on_dice().await?;
 
                 Ok(GisValue(Arc::new(GlobalInterpreterState::new(
-                    legacy_configs.cell_names(),
                     cell_resolver,
                     interpreter_configuror,
                     disable_starlark_types,

@@ -84,10 +84,6 @@ impl OpaqueLegacyBuckConfigsOnDice {
             .duped()
             .ok_or_else(|| ConfigError::UnknownCell(cell_name.to_owned()).into())
     }
-
-    pub fn cell_names(&self) -> Vec<CellName> {
-        self.configs.keys().copied().collect()
-    }
 }
 
 pub struct LegacyBuckConfigOnDice<'a, 'd> {

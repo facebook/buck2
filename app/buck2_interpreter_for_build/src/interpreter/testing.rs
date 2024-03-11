@@ -198,7 +198,6 @@ impl Tester {
         Ok(Arc::new(InterpreterForCell::new(
             self.cell_alias_resolver.dupe(),
             Arc::new(GlobalInterpreterState::new(
-                self.configs.iter().map(|(c, _)| c).collect(),
                 self.cell_resolver.dupe(),
                 BuildInterpreterConfiguror::new(
                     self.prelude_path.clone(),
