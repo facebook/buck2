@@ -162,7 +162,7 @@ impl LegacyBuckConfig {
     }
 }
 
-impl LegacyBuckConfigView for LegacyBuckConfig {
+impl LegacyBuckConfigView for &LegacyBuckConfig {
     fn get(&mut self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
         Ok(LegacyBuckConfig::get(self, section, key).map(|v| v.to_owned().into()))
     }
