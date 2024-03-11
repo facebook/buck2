@@ -1095,9 +1095,16 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifa
     Return new objects with debug info stripped.
     """
 
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+
     # Stripping is not supported on Windows
-    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+    linker_type = cxx_toolchain_info.linker_info.type
     if linker_type == "windows":
+        return objects
+
+    # Disable stripping if no `strip` binary was provided by the toolchain.
+    if cxx_toolchain_info.binary_utilities_info == None or \
+       cxx_toolchain_info.binary_utilities_info.strip == None:
         return objects
 
     outs = []
