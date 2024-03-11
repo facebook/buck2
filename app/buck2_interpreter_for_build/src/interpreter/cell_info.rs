@@ -7,19 +7,13 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use dupe::Dupe;
 
-#[derive(Clone, Dupe, Debug, Allocative)]
-pub struct InterpreterCellInfo(Arc<Data>);
-
-#[derive(Debug, Allocative)]
-struct Data {
+#[derive(Clone, Debug, Allocative)]
+pub struct InterpreterCellInfo {
     cell_name: BuildFileCell,
     cell_resolver: CellResolver,
     cell_alias_resolver: CellAliasResolver,
@@ -31,22 +25,22 @@ impl InterpreterCellInfo {
         cell_resolver: CellResolver,
         cell_alias_resolver: CellAliasResolver,
     ) -> anyhow::Result<Self> {
-        Ok(Self(Arc::new(Data {
+        Ok(Self {
             cell_name,
             cell_resolver,
             cell_alias_resolver,
-        })))
+        })
     }
 
     pub(crate) fn name(&self) -> BuildFileCell {
-        self.0.cell_name
+        self.cell_name
     }
 
     pub fn cell_resolver(&self) -> &CellResolver {
-        &self.0.cell_resolver
+        &self.cell_resolver
     }
 
     pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
-        &self.0.cell_alias_resolver
+        &self.cell_alias_resolver
     }
 }
