@@ -59,7 +59,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
                 let listing = DiceFileComputations::read_dir(self.ctx, path)
                     .await?
                     .included;
-                if find_buildfile(buildfile_candidates, &listing).is_some() {
+                if find_buildfile(&buildfile_candidates, &listing).is_some() {
                     return Ok(PackageLabel::from_cell_path(path));
                 }
             }
@@ -89,7 +89,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
                 let listing = DiceFileComputations::read_dir(self.ctx, path.dupe())
                     .await?
                     .included;
-                if find_buildfile(buildfile_candidates, &listing).is_some() {
+                if find_buildfile(&buildfile_candidates, &listing).is_some() {
                     packages.push(PackageLabel::from_cell_path(path));
                 }
             }
@@ -292,7 +292,7 @@ async fn gather_package_listing_impl(
     let buildfile_candidates = DiceFileComputations::buildfiles(ctx, cell_instance).await?;
     Ok(Directory::gather(
         ctx,
-        buildfile_candidates,
+        &buildfile_candidates,
         root.as_cell_path(),
         PackageRelativePath::empty(),
         true,

@@ -135,7 +135,7 @@ pub async fn collect_package_roots<E>(
             }
         };
 
-        if find_buildfile(buildfile_candidates, &listing).is_some() {
+        if find_buildfile(&buildfile_candidates, &listing).is_some() {
             collector(Ok(PackageLabel::from_cell_path(path.as_ref())))?;
         }
 

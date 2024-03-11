@@ -121,9 +121,9 @@ impl DiceFileComputations {
     pub async fn buildfiles<'a>(
         _ctx: &mut DiceComputations<'_>,
         instance: &'a CellInstance,
-    ) -> anyhow::Result<&'a [FileNameBuf]> {
+    ) -> anyhow::Result<Arc<[FileNameBuf]>> {
         // Ok for now, will change with external cells
-        Ok(instance.testing_buildfiles())
+        Ok(instance.testing_buildfiles().iter().cloned().collect())
     }
 }
 
@@ -558,7 +558,7 @@ impl FileOps for DiceFileOps<'_, '_> {
     async fn buildfiles<'a>(
         &self,
         instance: &'a CellInstance,
-    ) -> anyhow::Result<&'a [FileNameBuf]> {
+    ) -> anyhow::Result<Arc<[FileNameBuf]>> {
         DiceFileComputations::buildfiles(&mut self.0.get(), instance).await
     }
 }

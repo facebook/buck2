@@ -351,8 +351,10 @@ pub trait FileOps: Send + Sync {
 
     fn eq_token(&self) -> PartialEqAny;
 
-    async fn buildfiles<'a>(&self, instance: &'a CellInstance)
-    -> anyhow::Result<&'a [FileNameBuf]>;
+    async fn buildfiles<'a>(
+        &self,
+        instance: &'a CellInstance,
+    ) -> anyhow::Result<Arc<[FileNameBuf]>>;
 }
 
 impl dyn FileOps + '_ {
@@ -569,8 +571,8 @@ pub mod testing {
         async fn buildfiles<'a>(
             &self,
             instance: &'a CellInstance,
-        ) -> anyhow::Result<&'a [FileNameBuf]> {
-            Ok(instance.testing_buildfiles())
+        ) -> anyhow::Result<Arc<[FileNameBuf]>> {
+            Ok(instance.testing_buildfiles().iter().cloned().collect())
         }
     }
 

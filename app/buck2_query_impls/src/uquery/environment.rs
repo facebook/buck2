@@ -83,7 +83,7 @@ pub(crate) trait UqueryDelegate: Send + Sync {
 
     async fn get_buildfile_names_by_cell(
         &self,
-    ) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>>;
+    ) -> anyhow::Result<HashMap<CellName, Arc<[FileNameBuf]>>>;
 
     /// Resolves a target pattern.
     async fn resolve_target_patterns(

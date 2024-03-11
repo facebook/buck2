@@ -230,7 +230,7 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     // get the list of potential buildfile names for each cell
     async fn get_buildfile_names_by_cell(
         &self,
-    ) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>> {
+    ) -> anyhow::Result<HashMap<CellName, Arc<[FileNameBuf]>>> {
         let resolver = &self.cell_resolver;
         let buildfiles = self
             .ctx
