@@ -112,13 +112,13 @@ pub struct ResourceControlConfig {
     /// A config to determine if the resource control should be activated or not.
     /// The corresponding buckconfig is `buck2_resource_control.status` that can take
     /// one of `{off | if_available | required}`.
-    status: ResourceControlStatus,
+    pub status: ResourceControlStatus,
     /// A memory threshold that buck2 daemon and workers are allowed to allocate. The units
     /// like `M` and `G` may be used (e.g. 64G,) or also `%` is accepted in this field (e.g. 90%.)
     /// The behavior when the combined amount of memory usage of the daemon and workers exceeds this
     /// is that all the processes are killed by OOMKiller.
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
-    memory_max: Option<String>,
+    pub memory_max: Option<String>,
 }
 
 #[derive(
@@ -131,7 +131,7 @@ pub struct ResourceControlConfig {
     PartialEq,
     Eq
 )]
-enum ResourceControlStatus {
+pub enum ResourceControlStatus {
     #[default]
     /// The resource is not controlled or limited.
     Off,
