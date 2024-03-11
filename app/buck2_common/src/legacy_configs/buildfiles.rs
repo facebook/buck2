@@ -7,14 +7,24 @@
  * of this source tree.
  */
 
+use std::future::Future;
+use std::sync::Arc;
+
 use buck2_core::cells::default_buildfiles;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use dice::CancellationContext;
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::prelude::VecExt as _;
 
-use crate::legacy_configs::LegacyBuckConfig;
+use crate::legacy_configs::dice::HasLegacyConfigs;
+use crate::legacy_configs::view::LegacyBuckConfigView;
 
 /// Deal with the `buildfile.name` key (and `name_v2`)
-pub fn parse_buildfile_name(config: &LegacyBuckConfig) -> anyhow::Result<Vec<FileNameBuf>> {
+pub fn parse_buildfile_name(
+    mut config: impl LegacyBuckConfigView,
+) -> anyhow::Result<Vec<FileNameBuf>> {
     // For buck2, we support a slightly different mechanism for setting the buildfile to
     // assist with easier migration from v1 to v2.
     // First, we check the key `buildfile.name_v2`, if this is provided, we use it.
@@ -42,6 +52,52 @@ pub fn parse_buildfile_name(config: &LegacyBuckConfig) -> anyhow::Result<Vec<Fil
     }
 
     Ok(base)
+}
+
+pub trait HasBuildfiles {
+    fn get_buildfiles(
+        &mut self,
+        cell: CellName,
+    ) -> impl Future<Output = anyhow::Result<Arc<[FileNameBuf]>>>;
+}
+
+#[derive(
+    Clone,
+    derive_more::Display,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    allocative::Allocative
+)]
+#[display(fmt = "BuildfilesKey({})", "self.0")]
+struct BuildfilesKey(CellName);
+
+#[async_trait::async_trait]
+impl Key for BuildfilesKey {
+    type Value = buck2_error::Result<Arc<[FileNameBuf]>>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let config = ctx.get_legacy_config_on_dice(self.0).await?;
+        Ok(parse_buildfile_name(config.view(ctx))?.into())
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+impl HasBuildfiles for DiceComputations<'_> {
+    async fn get_buildfiles(&mut self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
+        Ok(self.compute(&BuildfilesKey(cell)).await??)
+    }
 }
 
 #[cfg(test)]

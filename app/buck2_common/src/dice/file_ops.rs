@@ -50,6 +50,7 @@ use crate::file_ops::SimpleDirEntry;
 use crate::ignores::all_cells::HasCellFileIgnores;
 use crate::ignores::file_ignores::CellFileIgnores;
 use crate::io::IoProvider;
+use crate::legacy_configs::buildfiles::HasBuildfiles;
 
 /// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
 ///
@@ -119,11 +120,10 @@ impl DiceFileComputations {
     }
 
     pub async fn buildfiles<'a>(
-        _ctx: &mut DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         instance: &'a CellInstance,
     ) -> anyhow::Result<Arc<[FileNameBuf]>> {
-        // Ok for now, will change with external cells
-        Ok(instance.testing_buildfiles().iter().cloned().collect())
+        ctx.get_buildfiles(instance.name()).await
     }
 }
 
