@@ -168,7 +168,7 @@ impl BxlInnerEvaluator {
                 .context("Failed to create error cache for BXL")?,
         ));
 
-        let (actions, ensured_artifacts, materializations, build_results) = {
+        let (actions, ensured_artifacts, materializations) = {
             let resolved_args = ValueOfUnchecked::<StructRef>::unpack_value_err(
                 env.heap().alloc(AllocStruct(
                     key.cli_args()
@@ -239,7 +239,7 @@ impl BxlInnerEvaluator {
             }
         };
 
-        let (frozen_module, mut bxl_result) = match actions_finalizer {
+        let (frozen_module, bxl_result) = match actions_finalizer {
             Some(actions_finalizer) => {
                 // this bxl registered actions, so extract the deferreds from it
                 let (frozen_module, deferred) = actions_finalizer(env)?;
@@ -276,7 +276,6 @@ impl BxlInnerEvaluator {
             .visit_frozen_module(Some(&frozen_module))
             .context("Profiler heap visitation failed")?;
 
-        bxl_result.add_build_results(build_results);
         Ok((bxl_result, materializations))
     }
 }

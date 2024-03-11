@@ -24,7 +24,6 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_build_api::dynamic::deferred::dynamic_lambda_ctx_data;
@@ -55,7 +54,6 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -222,8 +220,6 @@ pub(crate) struct BxlContext<'v> {
     #[allocative(skip)]
     pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
     pub(crate) data: BxlContextNoDice<'v>,
-    //TODO(lmvasquezg) Extend so we track the results of all bxl commands.
-    pub(crate) results: RefCell<Vec<BxlBuildResult>>,
 }
 
 impl<'v> Deref for BxlContext<'v> {
@@ -349,7 +345,6 @@ impl<'v> BxlContext<'v> {
                 context_type,
                 core,
             },
-            results: RefCell::new(Vec::new()),
         })
     }
 
@@ -377,7 +372,6 @@ impl<'v> BxlContext<'v> {
                 context_type: BxlContextType::Dynamic(dynamic_data),
                 core,
             },
-            results: RefCell::new(Vec::new()),
         })
     }
 
@@ -406,7 +400,6 @@ impl<'v> BxlContext<'v> {
         Option<AnalysisRegistry<'v>>,
         IndexSet<ArtifactGroup>,
         Arc<DashMap<BuildArtifact, ()>>,
-        Vec<BxlBuildResult>,
     )> {
         let this = value.as_ref();
         let root_data = this.data.context_type.unpack_root()?;
@@ -438,7 +431,6 @@ impl<'v> BxlContext<'v> {
                 .flatten_ok()
                 .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?,
             materializations.dupe(),
-            this.results.take(),
         ))
     }
 
@@ -452,17 +444,6 @@ impl<'v> BxlContext<'v> {
             .borrow_mut()
             .take()
             .expect("nothing to have stolen state yet"))
-    }
-
-    pub(crate) fn add_build_result(
-        &self,
-        result: BxlBuildResult,
-    ) -> anyhow::Result<(), anyhow::Error> {
-        self.results
-            .try_borrow_mut()
-            .internal_error("borrowed twice")?
-            .push(result);
-        Ok(())
     }
 }
 
