@@ -133,8 +133,17 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
 
     let fs = ProjectRootTemp::new()?;
 
+    let cell_root = CellName::testing_new("root");
+    let cell_parent = CellName::testing_new("parent");
     let mut dice_builder = DiceBuilder::new()
-        .mock_and_return(FileOpsKey(), Ok(FileOpsValue(Arc::new(files))))
+        .mock_and_return(
+            FileOpsKey(cell_root),
+            Ok(FileOpsValue(Arc::new(files.for_cell(cell_root)))),
+        )
+        .mock_and_return(
+            FileOpsKey(cell_parent),
+            Ok(FileOpsValue(Arc::new(files.for_cell(cell_parent)))),
+        )
         .set_data(|data| {
             data.set_testing_io_provider(&fs);
             data.set_digest_config(DigestConfig::testing_default());

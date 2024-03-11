@@ -18,6 +18,8 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::instance::CellInstance;
+use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -71,12 +73,12 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<Option<String>> {
-        let file_ops = get_delegated_file_ops(ctx).await?;
+        let file_ops = get_delegated_file_ops(ctx, path.cell()).await?;
         let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
         // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
         // However, that also means that the `ReadFileKey` is not marked as transient if this
         // returns an error, which is unfortunate.
-        file_ops.read_file_if_exists(path).await
+        file_ops.read_file_if_exists(path.path()).await
     }
 
     pub async fn read_file(
@@ -110,7 +112,10 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<bool> {
-        get_delegated_file_ops(ctx).await?.is_ignored(path).await
+        get_delegated_file_ops(ctx, path.cell())
+            .await?
+            .is_ignored(path.path())
+            .await
     }
 
     pub async fn buildfiles<'a>(
@@ -129,7 +134,8 @@ pub mod keys {
 
     use allocative::Allocative;
     use async_trait::async_trait;
-    use buck2_core::cells::cell_path::CellPathRef;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::cells::paths::CellRelativePath;
     use cmp_any::PartialEqAny;
     use derive_more::Display;
     use dupe::Dupe;
@@ -139,7 +145,7 @@ pub mod keys {
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
-    pub struct FileOpsKey();
+    pub struct FileOpsKey(pub CellName);
 
     #[derive(Dupe, Clone, Allocative)]
     pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOpsDelegate>);
@@ -148,17 +154,20 @@ pub mod keys {
     pub trait FileOpsDelegate: Send + Sync {
         async fn read_file_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<String>>;
 
         /// Return the list of file outputs, sorted.
-        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput>;
+        async fn read_dir(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<ReadDirOutput>;
 
-        async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool>;
+        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool>;
 
         async fn read_path_metadata_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<RawPathMetadata>>;
 
         fn eq_token(&self) -> PartialEqAny;
@@ -173,6 +182,7 @@ pub mod keys {
 
 async fn get_delegated_file_ops(
     dice: &mut DiceComputations<'_>,
+    cell: CellName,
 ) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
     #[derive(Clone, Dupe, Derivative, Allocative)]
     #[derivative(PartialEq)]
@@ -182,12 +192,13 @@ async fn get_delegated_file_ops(
         io: Arc<dyn IoProvider>,
         cells: CellResolver,
         ignores: Arc<AllCellIgnores>,
+        cell: CellName,
     }
 
     impl DiceFileOpsDelegate {
-        fn resolve(&self, path: CellPathRef) -> ProjectRelativePathBuf {
-            let cell_root = self.cells.get(path.cell()).unwrap().path();
-            cell_root.as_project_relative_path().join(path.path())
+        fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
+            let cell_root = self.cells.get(self.cell).unwrap().path();
+            cell_root.as_project_relative_path().join(path)
         }
 
         fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath> {
@@ -203,17 +214,20 @@ async fn get_delegated_file_ops(
     impl FileOpsDelegate for DiceFileOpsDelegate {
         async fn read_file_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<String>> {
             // TODO(cjhopman): error on ignored paths, maybe.
             let project_path = self.resolve(path);
             self.io_provider().read_file_if_exists(project_path).await
         }
 
-        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
+        async fn read_dir(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
             self.ignores
-                .check_ignored(path.cell(), UncheckedCellRelativePath::new(path.path()))?
+                .check_ignored(self.cell, UncheckedCellRelativePath::new(path))?
                 .into_result()
                 .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
 
@@ -229,12 +243,12 @@ async fn get_delegated_file_ops(
 
             let is_ignored = |file_name: &str| {
                 let mut cell_relative_path_buf;
-                let cell_relative_path: &str = if path.path().is_empty() {
+                let cell_relative_path: &str = if path.is_empty() {
                     file_name
                 } else {
                     cell_relative_path_buf =
-                        String::with_capacity(path.path().as_str().len() + 1 + file_name.len());
-                    cell_relative_path_buf.push_str(path.path().as_str());
+                        String::with_capacity(path.as_str().len() + 1 + file_name.len());
+                    cell_relative_path_buf.push_str(path.as_str());
                     cell_relative_path_buf.push('/');
                     cell_relative_path_buf.push_str(file_name);
                     &cell_relative_path_buf
@@ -244,7 +258,7 @@ async fn get_delegated_file_ops(
                     UncheckedCellRelativePath::unchecked_new(cell_relative_path);
                 let is_ignored = self
                     .ignores
-                    .check_ignored(path.cell(), cell_relative_path)?
+                    .check_ignored(self.cell, cell_relative_path)?
                     .is_ignored();
                 anyhow::Ok(is_ignored)
             };
@@ -282,7 +296,7 @@ async fn get_delegated_file_ops(
 
         async fn read_path_metadata_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<RawPathMetadata>> {
             let project_path = self.resolve(path);
 
@@ -295,10 +309,10 @@ async fn get_delegated_file_ops(
                 .transpose()
         }
 
-        async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
+        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
             Ok(self
                 .ignores
-                .check_ignored(path.cell(), UncheckedCellRelativePath::new(path.path()))?
+                .check_ignored(self.cell, UncheckedCellRelativePath::new(path))?
                 .is_ignored())
         }
 
@@ -324,6 +338,7 @@ async fn get_delegated_file_ops(
                 io,
                 cells,
                 ignores,
+                cell: self.0,
             })))
         }
 
@@ -339,7 +354,7 @@ async fn get_delegated_file_ops(
         }
     }
 
-    Ok(dice.compute(&FileOpsKey()).await??.0)
+    Ok(dice.compute(&FileOpsKey(cell)).await??.0)
 }
 
 #[derive(Allocative)]
@@ -453,9 +468,9 @@ impl Key for ReadDirKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_delegated_file_ops(ctx)
+        get_delegated_file_ops(ctx, self.0.cell())
             .await?
-            .read_dir(self.0.as_ref())
+            .read_dir(self.0.as_ref().path())
             .await
             .map_err(buck2_error::Error::from)
     }
@@ -483,9 +498,9 @@ impl Key for PathMetadataKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let res = get_delegated_file_ops(ctx)
+        let res = get_delegated_file_ops(ctx, self.0.cell())
             .await?
-            .read_path_metadata_if_exists(self.0.as_ref())
+            .read_path_metadata_if_exists(self.0.as_ref().path())
             .await?;
 
         match res {

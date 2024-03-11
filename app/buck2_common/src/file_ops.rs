@@ -388,6 +388,8 @@ pub mod testing {
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_path::CellPathRef;
     use buck2_core::cells::instance::CellInstance;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use cmp_any::PartialEqAny;
     use dupe::Dupe;
@@ -500,6 +502,15 @@ pub mod testing {
                     .collect::<BTreeMap<CellPath, TestFileOpsEntry>>(),
             )
         }
+
+        pub fn for_cell(&self, cell: CellName) -> TestCellFileOps {
+            TestCellFileOps(
+                cell,
+                Self {
+                    entries: Arc::clone(&self.entries),
+                },
+            )
+        }
     }
 
     #[async_trait]
@@ -563,33 +574,42 @@ pub mod testing {
         }
     }
 
+    pub struct TestCellFileOps(CellName, TestFileOps);
+
     #[async_trait]
-    impl FileOpsDelegate for TestFileOps {
+    impl FileOpsDelegate for TestCellFileOps {
         async fn read_file_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<String>> {
-            FileOps::read_file_if_exists(self, path).await
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::read_file_if_exists(&self.1, path.as_ref()).await
         }
 
         /// Return the list of file outputs, sorted.
-        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
-            FileOps::read_dir(self, path).await
+        async fn read_dir(
+            &self,
+            path: &'async_trait CellRelativePath,
+        ) -> anyhow::Result<ReadDirOutput> {
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::read_dir(&self.1, path.as_ref()).await
         }
 
-        async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-            FileOps::is_ignored(self, path).await
+        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::is_ignored(&self.1, path.as_ref()).await
         }
 
         async fn read_path_metadata_if_exists(
             &self,
-            path: CellPathRef<'async_trait>,
+            path: &'async_trait CellRelativePath,
         ) -> anyhow::Result<Option<RawPathMetadata>> {
-            FileOps::read_path_metadata_if_exists(self, path).await
+            let path = CellPath::new(self.0, path.to_owned());
+            FileOps::read_path_metadata_if_exists(&self.1, path.as_ref()).await
         }
 
         fn eq_token(&self) -> PartialEqAny {
-            FileOps::eq_token(self)
+            PartialEqAny::always_false()
         }
     }
 }
