@@ -9,6 +9,7 @@
 
 //! Dice operations for legacy configuration
 
+use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -97,6 +98,19 @@ impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
     }
 }
 
+pub trait HasInjectedLegacyConfigs {
+    /// Use this function carefully: a computation which fetches this key will be recomputed
+    /// if any buckconfig property changes.
+    ///
+    /// Consider using `get_legacy_config_property` instead.
+    fn get_injected_legacy_configs(
+        &mut self,
+    ) -> impl Future<Output = anyhow::Result<LegacyBuckConfigs>>;
+
+    /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
+    fn is_injected_legacy_configs_key_set(&mut self) -> impl Future<Output = anyhow::Result<bool>>;
+}
+
 #[async_trait]
 pub trait HasLegacyConfigs {
     /// Get buckconfigs.
@@ -111,15 +125,6 @@ pub trait HasLegacyConfigs {
     async fn get_legacy_root_config_on_dice(
         &mut self,
     ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice>;
-
-    /// Use this function carefully: a computation which fetches this key will be recomputed
-    /// if any buckconfig property changes.
-    ///
-    /// Consider using `get_legacy_config_property` instead.
-    async fn get_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs>;
-
-    /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
-    async fn is_legacy_configs_key_set(&mut self) -> anyhow::Result<bool>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -185,7 +190,7 @@ impl Key for LegacyBuckConfigForCellKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<LegacyBuckConfig> {
-        let legacy_configs = ctx.get_legacy_configs().await?;
+        let legacy_configs = ctx.get_injected_legacy_configs().await?;
         legacy_configs
             .get(self.cell_name)
             .map(|x| x.dupe())
@@ -295,6 +300,18 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
     }
 }
 
+impl HasInjectedLegacyConfigs for DiceComputations<'_> {
+    async fn get_injected_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs> {
+        self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
+            panic!("Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value")
+        })
+    }
+
+    async fn is_injected_legacy_configs_key_set(&mut self) -> anyhow::Result<bool> {
+        Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
+    }
+}
+
 #[async_trait]
 impl HasLegacyConfigs for DiceComputations<'_> {
     async fn get_legacy_config_on_dice(
@@ -315,16 +332,6 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         let cell_resolver = self.get_cell_resolver().await?;
         self.get_legacy_config_on_dice(cell_resolver.root_cell())
             .await
-    }
-
-    async fn get_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs> {
-        self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
-            panic!("Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value")
-        })
-    }
-
-    async fn is_legacy_configs_key_set(&mut self) -> anyhow::Result<bool> {
-        Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
     }
 
     async fn get_legacy_config_for_cell(

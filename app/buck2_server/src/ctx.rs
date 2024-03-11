@@ -42,7 +42,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::http::SetHttpClient;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
@@ -475,7 +475,7 @@ impl CellConfigLoader {
                 if self.reuse_current_config {
                     // If there is a previous command and --reuse-current-config is set, then the old config is used, ignoring any overrides.
                     if dice_ctx.is_cell_resolver_key_set().await?
-                        && dice_ctx.is_legacy_configs_key_set().await?
+                        && dice_ctx.is_injected_legacy_configs_key_set().await?
                     {
                         if !self.config_overrides.is_empty() {
                             warn!(
@@ -485,7 +485,7 @@ impl CellConfigLoader {
                         }
                         return buck2_error::Ok((
                             dice_ctx.get_cell_resolver().await?,
-                            dice_ctx.get_legacy_configs().await?,
+                            dice_ctx.get_injected_legacy_configs().await?,
                             HashSet::new(),
                         ));
                     } else {
