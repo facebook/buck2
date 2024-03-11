@@ -881,13 +881,8 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         let mut metadata = HashMap::new();
         // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
         // error. We won't be able to get configs to log in that case, but we shouldn't crash.
-        let (cells, configs, paths): (CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>) =
+        let (cells, configs, _): (CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>) =
             self.cell_configs_loader.cells_and_configs(ctx).await?;
-
-        // Add legacy config paths to I/O tracing (if enabled).
-        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
-            tracing_provider.add_config_paths(&self.base_context.project_root, paths);
-        }
 
         let root_cell_config = configs.get(cells.root_cell());
         if let Ok(config) = root_cell_config {
@@ -937,6 +932,20 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         }
 
         Ok(metadata)
+    }
+
+    async fn report_traced_config_paths(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<()> {
+        let (_, _, paths) = self.cell_configs_loader.cells_and_configs(ctx).await?;
+
+        // Add legacy config paths to I/O tracing (if enabled).
+        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
+            tracing_provider.add_config_paths(&self.base_context.project_root, paths);
+        }
+
+        Ok(())
     }
 
     fn log_target_pattern(
