@@ -115,17 +115,23 @@ pub async fn collect_package_roots<E>(
     }
 
     while let Some((path, listing)) = queue.next().await {
-        let (buildfile_candidates, listing) = match cell_resolver
-            .get(path.cell())
-            .and_then(|cell_instance| anyhow::Ok((cell_instance.buildfiles(), listing?.included)))
-        {
-            Ok(r) => r,
-            Err(e) => {
-                collector(Err(e.context(format!(
-                    "Error resolving recursive spec `{}/...`",
-                    path
-                ))))?;
-                continue;
+        let (buildfile_candidates, listing) = {
+            let r = async {
+                let instance = cell_resolver.get(path.cell())?;
+                let buildfiles = file_ops.buildfiles(instance).await?;
+                anyhow::Ok((buildfiles, listing?.included))
+            }
+            .await;
+
+            match r {
+                Ok(r) => r,
+                Err(e) => {
+                    collector(Err(e.context(format!(
+                        "Error resolving recursive spec `{}/...`",
+                        path
+                    ))))?;
+                    continue;
+                }
             }
         };
 

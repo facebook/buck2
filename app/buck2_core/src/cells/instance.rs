@@ -82,7 +82,7 @@ impl CellInstance {
 
     // Get the name of build files for the cell.
     #[inline]
-    pub fn buildfiles(&self) -> &[FileNameBuf] {
+    pub fn testing_buildfiles(&self) -> &[FileNameBuf] {
         &self.0.buildfiles
     }
 

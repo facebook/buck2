@@ -17,6 +17,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::instance::CellInstance;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -110,6 +111,14 @@ impl DiceFileComputations {
         path: CellPathRef<'_>,
     ) -> anyhow::Result<bool> {
         get_delegated_file_ops(ctx).await?.is_ignored(path).await
+    }
+
+    pub async fn buildfiles<'a>(
+        _ctx: &mut DiceComputations<'_>,
+        instance: &'a CellInstance,
+    ) -> anyhow::Result<&'a [FileNameBuf]> {
+        // Ok for now, will change with external cells
+        Ok(instance.testing_buildfiles())
     }
 }
 
@@ -532,6 +541,13 @@ impl FileOps for DiceFileOps<'_, '_> {
         // We do not store this on DICE, so we don't care about equality.
         // Also we cannot do `PartialEqAny` here because `Self` is not `'static`.
         PartialEqAny::always_false()
+    }
+
+    async fn buildfiles<'a>(
+        &self,
+        instance: &'a CellInstance,
+    ) -> anyhow::Result<&'a [FileNameBuf]> {
+        DiceFileComputations::buildfiles(&mut self.0.get(), instance).await
     }
 }
 

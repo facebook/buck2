@@ -502,13 +502,16 @@ mod tests {
 
         assert_eq!(
             vec!["BUCK.v2", "BUCK"],
-            root_instance.buildfiles().map(|n| n.as_str())
+            root_instance.testing_buildfiles().map(|n| n.as_str())
         );
         assert_eq!(
             vec!["TARGETS.v2", "TARGETS", "TARGETS.test"],
-            other_instance.buildfiles().map(|n| n.as_str())
+            other_instance.testing_buildfiles().map(|n| n.as_str())
         );
-        assert_eq!(vec!["OKAY"], tp_instance.buildfiles().map(|n| n.as_str()));
+        assert_eq!(
+            vec!["OKAY"],
+            tp_instance.testing_buildfiles().map(|n| n.as_str())
+        );
 
         assert_eq!(
             "other",

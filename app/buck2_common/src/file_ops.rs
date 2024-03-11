@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::instance::CellInstance;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -349,6 +350,9 @@ pub trait FileOps: Send + Sync {
     ) -> anyhow::Result<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
+
+    async fn buildfiles<'a>(&self, instance: &'a CellInstance)
+    -> anyhow::Result<&'a [FileNameBuf]>;
 }
 
 impl dyn FileOps + '_ {
@@ -383,6 +387,8 @@ pub mod testing {
     use async_trait::async_trait;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_path::CellPathRef;
+    use buck2_core::cells::instance::CellInstance;
+    use buck2_core::fs::paths::file_name::FileNameBuf;
     use cmp_any::PartialEqAny;
     use dupe::Dupe;
     use itertools::Itertools;
@@ -552,6 +558,13 @@ pub mod testing {
 
         fn eq_token(&self) -> PartialEqAny {
             PartialEqAny::always_false()
+        }
+
+        async fn buildfiles<'a>(
+            &self,
+            instance: &'a CellInstance,
+        ) -> anyhow::Result<&'a [FileNameBuf]> {
+            Ok(instance.testing_buildfiles())
         }
     }
 

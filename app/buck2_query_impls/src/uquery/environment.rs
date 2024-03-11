@@ -81,7 +81,9 @@ pub(crate) trait UqueryDelegate: Send + Sync {
     /// Get the imports from a LoadedModule corresponding to some path.
     async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>>;
 
-    fn get_buildfile_names_by_cell(&self) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>>;
+    async fn get_buildfile_names_by_cell(
+        &self,
+    ) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>>;
 
     /// Resolves a target pattern.
     async fn resolve_target_patterns(
@@ -354,7 +356,7 @@ pub(crate) async fn rbuildfiles<'c>(
     let universe_paths: Vec<ArcCellPath> =
         universe.iter().map(|file| Arc::new(file.clone())).collect();
     // step 1: split the build files and bzl files
-    let (buildfiles, bzlfiles) = split_universe_files(&universe_paths, delegate)?;
+    let (buildfiles, bzlfiles) = split_universe_files(&universe_paths, delegate).await?;
 
     // step 2: get all top level imports accordingly
     let top_level_import_by_build_file =
@@ -491,13 +493,13 @@ pub(crate) async fn rbuildfiles<'c>(
     Ok(FileSet::new(output_files))
 }
 
-fn split_universe_files<'c>(
+async fn split_universe_files<'c>(
     universe: &[ArcCellPath],
     delegate: &'c dyn UqueryDelegate,
 ) -> anyhow::Result<(Vec<ArcCellPath>, Vec<ArcCellPath>)> {
     let mut buildfiles = Vec::<ArcCellPath>::new();
     let mut bzlfiles = Vec::<ArcCellPath>::new();
-    let buildfile_names_by_cell = delegate.get_buildfile_names_by_cell()?;
+    let buildfile_names_by_cell = delegate.get_buildfile_names_by_cell().await?;
     for file in universe {
         let buildfile_names_for_file =
             buildfile_names_by_cell.get(&file.cell()).ok_or_else(|| {

@@ -86,11 +86,12 @@ async fn starlark_file(
             // It's a shame we throw away the digest we calculated, but not a huge deal (its cheap compared to parsing)
             let is_buildfile = match proj_path.file_name() {
                 None => false,
-                Some(file_name) => cell_resolver
-                    .get(cell_path.cell())?
-                    .buildfiles()
-                    .iter()
-                    .any(|x| (*x).deref() == file_name),
+                Some(file_name) => {
+                    DiceFileComputations::buildfiles(ctx, cell_resolver.get(cell_path.cell())?)
+                        .await?
+                        .iter()
+                        .any(|x| (*x).deref() == file_name)
+                }
             };
 
             if is_buildfile {

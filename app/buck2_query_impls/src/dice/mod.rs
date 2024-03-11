@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
@@ -57,6 +58,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::indexset;
 
@@ -230,14 +232,24 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     }
 
     // get the list of potential buildfile names for each cell
-    fn get_buildfile_names_by_cell(&self) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>> {
+    async fn get_buildfile_names_by_cell(
+        &self,
+    ) -> anyhow::Result<HashMap<CellName, &[FileNameBuf]>> {
         let resolver = &self.cell_resolver;
-        let mut buildfile_names_by_cell = HashMap::<CellName, &[FileNameBuf]>::new();
-        for (cell, _) in resolver.cells() {
-            let prev = buildfile_names_by_cell.insert(cell, resolver.get(cell)?.buildfiles());
-            assert!(prev.is_none());
-        }
-        Ok(buildfile_names_by_cell)
+        let buildfiles = self
+            .ctx
+            .get()
+            .try_compute_join(resolver.cells(), |ctx, (name, instance)| {
+                async move {
+                    DiceFileComputations::buildfiles(ctx, instance)
+                        .await
+                        .map(|x| (name, x))
+                }
+                .boxed()
+            })
+            .await?;
+
+        Ok(buildfiles.into_iter().collect())
     }
 
     async fn resolve_target_patterns(

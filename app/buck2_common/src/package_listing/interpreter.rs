@@ -52,7 +52,8 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<PackageLabel> {
         let cell_instance = self.cell_resolver.get(path.cell())?;
-        let buildfile_candidates = cell_instance.buildfiles();
+        let buildfile_candidates =
+            DiceFileComputations::buildfiles(&mut self.ctx, cell_instance).await?;
         if let Some(path) = path.parent() {
             for path in path.ancestors() {
                 let listing = DiceFileComputations::read_dir(self.ctx, path)
@@ -76,7 +77,8 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
         enclosing_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>> {
         let cell_instance = self.cell_resolver.get(path.cell())?;
-        let buildfile_candidates = cell_instance.buildfiles();
+        let buildfile_candidates =
+            DiceFileComputations::buildfiles(&mut self.ctx, cell_instance).await?;
         if let Some(path) = path.parent() {
             let mut packages = Vec::new();
             for path in path.ancestors() {
@@ -287,7 +289,7 @@ async fn gather_package_listing_impl(
     root: PackageLabel,
 ) -> anyhow::Result<PackageListing> {
     let cell_instance = cell_resolver.get(root.cell_name())?;
-    let buildfile_candidates = cell_instance.buildfiles();
+    let buildfile_candidates = DiceFileComputations::buildfiles(ctx, cell_instance).await?;
     Ok(Directory::gather(
         ctx,
         buildfile_candidates,
