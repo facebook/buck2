@@ -570,9 +570,9 @@ pub mod testing {
 
         async fn buildfiles<'a>(
             &self,
-            instance: &'a CellInstance,
+            _instance: &'a CellInstance,
         ) -> anyhow::Result<Arc<[FileNameBuf]>> {
-            Ok(instance.testing_buildfiles().iter().cloned().collect())
+            Ok(Arc::from_iter([FileNameBuf::unchecked_new("BUCK")]))
         }
     }
 
