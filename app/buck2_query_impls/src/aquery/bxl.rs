@@ -17,7 +17,6 @@ use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
-use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
@@ -65,7 +64,6 @@ impl BxlAqueryFunctionsImpl {
     ) -> anyhow::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
         let cell_resolver = dice.get().get_cell_resolver().await?;
 
-        let package_boundary_exceptions = dice.get().get_package_boundary_exceptions().await?;
         let target_alias_resolver = dice
             .get()
             .target_alias_resolver_for_working_dir(&self.working_dir)
@@ -78,12 +76,7 @@ impl BxlAqueryFunctionsImpl {
             self.project_root.dupe(),
             target_alias_resolver,
         )?);
-        let query_delegate = DiceQueryDelegate::new(
-            &dice,
-            cell_resolver,
-            package_boundary_exceptions,
-            query_data,
-        );
+        let query_delegate = DiceQueryDelegate::new(&dice, cell_resolver, query_data);
 
         Ok(Arc::new(DiceAqueryDelegate::new(query_delegate).await?))
     }

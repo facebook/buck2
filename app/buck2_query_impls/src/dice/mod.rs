@@ -17,7 +17,6 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
-use buck2_common::package_boundary::PackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
@@ -142,7 +141,6 @@ pub(crate) struct DiceQueryDelegate<'c, 'd> {
     ctx: &'c LinearRecomputeDiceComputations<'d>,
     cell_resolver: CellResolver,
     query_data: Arc<DiceQueryData>,
-    package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
 }
 
 pub(crate) struct DiceQueryData {
@@ -192,14 +190,12 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
     pub(crate) fn new(
         ctx: &'c LinearRecomputeDiceComputations<'d>,
         cell_resolver: CellResolver,
-        package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
         query_data: Arc<DiceQueryData>,
     ) -> Self {
         Self {
             ctx,
             cell_resolver: cell_resolver.dupe(),
             query_data,
-            package_boundary_exceptions,
         }
     }
 
@@ -267,11 +263,13 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         // Without package boundary violations, there is only 1 owning package for a path.
         // However, with package boundary violations, all parent packages of the enclosing package can also be owners.
         if let Some(enclosing_violation_path) = self
-            .package_boundary_exceptions
-            .get_package_boundary_exception_path(path)
+            .ctx
+            .get()
+            .get_package_boundary_exception(path.as_ref())
+            .await?
         {
             return Ok(DicePackageListingResolver(&mut self.ctx.get())
-                .get_enclosing_packages(path.as_ref(), enclosing_violation_path.as_ref())
+                .get_enclosing_packages(path.as_ref(), (*enclosing_violation_path).as_ref())
                 .await?
                 .into_iter()
                 .collect());
@@ -388,7 +386,6 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     global_cfg_options: GlobalCfgOptions,
 ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
     let cell_resolver = ctx.get().get_cell_resolver().await?;
-    let package_boundary_exceptions = ctx.get().get_package_boundary_exceptions().await?;
     let target_alias_resolver = ctx
         .get()
         .target_alias_resolver_for_working_dir(working_dir)
@@ -402,7 +399,6 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     Ok(DiceQueryDelegate::new(
         ctx,
         cell_resolver.dupe(),
-        package_boundary_exceptions,
         Arc::new(DiceQueryData::new(
             global_cfg_options,
             cell_resolver,
