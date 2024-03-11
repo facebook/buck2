@@ -198,14 +198,13 @@ impl AuditSubcommand for AuditConfigCommand {
                     Some(cell_alias_resolver.resolve(self.cell.as_deref().unwrap_or_default())?)
                 };
 
-                let config = ctx.get_legacy_configs().await?;
-
                 let specs = Matches::parse(cell_alias_resolver, &self.specs)?;
                 let mut stdout = stdout.as_writer();
 
                 let output_format = self.output_format();
                 let mut json_output = HashMap::new();
-                for (cell, cell_config) in config.iter() {
+                for (cell, _) in cell_resolver.cells() {
+                    let cell_config = ctx.get_legacy_config_for_cell(cell).await?;
                     let mut printed_cell = false;
                     for (section, values) in cell_config.all_sections() {
                         let mut printed_section = false;
