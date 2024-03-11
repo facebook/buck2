@@ -159,8 +159,7 @@ impl DiceQueryData {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
 
         let cell_alias_resolver = cell_resolver
-            .get(cell_path.cell())?
-            .cell_alias_resolver()
+            .get_cwd_cell_alias_resolver(working_dir)?
             .dupe();
         let working_dir_abs = project_root.resolve(working_dir);
 

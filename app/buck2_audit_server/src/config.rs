@@ -185,12 +185,7 @@ impl AuditSubcommand for AuditConfigCommand {
             .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let cwd = server_ctx.working_dir();
                 let cell_resolver = ctx.get_cell_resolver().await?;
-
-                let working_dir_cell = cell_resolver.find(cwd)?;
-                let cell_alias_resolver = cell_resolver
-                    .get(working_dir_cell)
-                    .unwrap()
-                    .cell_alias_resolver();
+                let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
 
                 let relevant_cell = if self.all_cells {
                     None
