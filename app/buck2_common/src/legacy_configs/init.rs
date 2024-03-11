@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_core::buck2_env;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -156,11 +157,19 @@ impl FromStr for ResourceControlStatus {
 
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        let status = config
-            .parse("buck2_resource_control", "status")?
-            .unwrap_or(ResourceControlStatus::Off);
-        let memory_max = config.parse("buck2_resource_control", "memory_max")?;
-        Ok(Self { status, memory_max })
+        if let Some(env_conf) = buck2_env!("BUCK2_TEST_RESOURCE_CONTROL_CONFIG")? {
+            Ok(Self::deserialize(env_conf)?)
+        } else {
+            let status = config
+                .parse("buck2_resource_control", "status")?
+                .unwrap_or(ResourceControlStatus::Off);
+            let memory_max = config.parse("buck2_resource_control", "memory_max")?;
+            Ok(Self { status, memory_max })
+        }
+    }
+
+    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
+        serde_json::from_str::<Self>(s).context("Error deserializing ResourceControlConfig")
     }
 }
 
