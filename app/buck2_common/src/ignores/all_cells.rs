@@ -18,14 +18,14 @@ use dice::DiceComputations;
 use itertools::Itertools;
 
 use crate::dice::cells::HasCellResolver;
+use crate::ignores::file_ignores::CellFileIgnores;
 use crate::ignores::file_ignores::FileIgnoreResult;
-use crate::ignores::file_ignores::FileIgnores;
 use crate::legacy_configs::dice::HasLegacyConfigs;
 
 /// Ignored path configurations for all cells.
 #[derive(Allocative, Debug, Eq, PartialEq)]
 pub(crate) struct AllCellIgnores {
-    ignores: HashMap<CellName, FileIgnores>,
+    ignores: HashMap<CellName, CellFileIgnores>,
 }
 
 impl AllCellIgnores {
@@ -66,7 +66,7 @@ impl HasAllCellIgnores for DiceComputations<'_> {
             let ignore_spec = config.lookup(self, "project", "ignore")?;
             let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
 
-            let cell_ignores = FileIgnores::new_for_interpreter(
+            let cell_ignores = CellFileIgnores::new_for_interpreter(
                 ignore_spec,
                 instance.nested_cells().clone(),
                 cells.is_root_cell(cell_name),
