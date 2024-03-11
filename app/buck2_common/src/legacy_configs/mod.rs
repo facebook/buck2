@@ -10,6 +10,7 @@
 //! Contains utilities for dealing with buckv1 concepts (ex. buckv1's
 //! .buckconfig files as configuration)
 
+pub mod buildfiles;
 pub mod cells;
 pub mod dice;
 pub mod init;

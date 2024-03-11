@@ -588,7 +588,7 @@ pub struct CellsAggregator {
     cell_infos: HashMap<CellRootPathBuf, CellAggregatorInfo>,
 }
 
-fn default_buildfiles() -> Vec<FileNameBuf> {
+pub fn default_buildfiles() -> Vec<FileNameBuf> {
     (["BUCK.v2", "BUCK"][..]).map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
 }
 
