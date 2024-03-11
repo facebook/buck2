@@ -11,7 +11,7 @@ use std::ops::Deref;
 
 use async_recursion::async_recursion;
 use buck2_client_ctx::path_arg::PathArg;
-use buck2_common::file_ops::FileOps;
+use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::io::IoProvider;
@@ -25,6 +25,7 @@ use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use dice::DiceComputations;
 use dupe::Dupe;
 
 #[derive(Debug, buck2_error::Error)]
@@ -37,17 +38,17 @@ enum StarlarkFilesError {
 
 #[async_recursion]
 async fn starlark_file(
+    ctx: &mut DiceComputations<'_>,
     proj_path: ProjectRelativePathBuf,
     // None = this file was given explicitly
     // Some = it was a directory traversal (and we know its type)
     recursive: Option<FileType>,
     cell_resolver: &CellResolver,
-    fs: &dyn FileOps,
     io: &dyn IoProvider,
     files: &mut Vec<OwnedStarlarkPath>,
 ) -> anyhow::Result<()> {
     let cell_path = cell_resolver.get_cell_path(&proj_path)?;
-    if recursive.is_some() && fs.is_ignored(cell_path.as_ref()).await? {
+    if recursive.is_some() && DiceFileComputations::is_ignored(ctx, cell_path.as_ref()).await? {
         // File is ignored by Buck, give up on it
         return Ok(());
     }
@@ -78,7 +79,7 @@ async fn starlark_file(
                 };
                 let mut child_path = proj_path.clone();
                 child_path.push(file_name);
-                starlark_file(child_path, Some(x.file_type), cell_resolver, fs, io, files).await?;
+                starlark_file(ctx, child_path, Some(x.file_type), cell_resolver, io, files).await?;
             }
         }
         FileType::File => {
@@ -123,10 +124,10 @@ async fn starlark_file(
 
 /// Find the paths to apply Starlark to (e.g. linter, typecheck)
 pub(crate) async fn starlark_files(
+    ctx: &mut DiceComputations<'_>,
     paths: &[PathArg],
     context: &dyn ServerCommandContextTrait,
     cell_resolver: &CellResolver,
-    fs: &dyn FileOps,
     io: &dyn IoProvider,
 ) -> anyhow::Result<Vec<OwnedStarlarkPath>> {
     let mut files = Vec::new();
@@ -135,7 +136,7 @@ pub(crate) async fn starlark_files(
         let path = path.resolve(context.working_dir_abs());
         let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, context.project_root())?;
         let proj_path = cell_resolver.resolve_path(cell_path.as_ref())?;
-        starlark_file(proj_path, None, cell_resolver, fs, io, &mut files).await?;
+        starlark_file(ctx, proj_path, None, cell_resolver, io, &mut files).await?;
     }
     Ok(files)
 }
