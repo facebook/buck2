@@ -414,18 +414,48 @@ pub mod testing {
     #[derive(Allocative)]
     pub struct TestFileOps {
         #[allocative(skip)]
-        entries: BTreeMap<CellPath, TestFileOpsEntry>,
+        entries: Arc<BTreeMap<CellPath, TestFileOpsEntry>>,
     }
 
     impl TestFileOps {
-        fn new(entries: BTreeMap<CellPath, TestFileOpsEntry>) -> Self {
-            let mut file_ops = Self {
-                entries: BTreeMap::new(),
-            };
-            for (path, entry) in entries {
-                file_ops.add_entry(path, entry);
+        fn new(inputs: BTreeMap<CellPath, TestFileOpsEntry>) -> Self {
+            let mut entries = BTreeMap::new();
+            for (path, entry) in inputs {
+                let mut file_type = match entry {
+                    TestFileOpsEntry::Directory(..) => FileType::Directory,
+                    TestFileOpsEntry::ExternalSymlink(..) => FileType::Symlink,
+                    TestFileOpsEntry::File(..) => FileType::File,
+                };
+                // make sure the test setup is correct and concise
+                assert!(
+                    entries.insert(path.to_owned(), entry).is_none(),
+                    "Adding `{}`, it already exists.",
+                    path
+                );
+
+                let mut path = path.as_ref();
+
+                // now add to / create the parent directories
+                while let (Some(dir), Some(name)) = (path.parent(), path.path().file_name()) {
+                    let dir_entry = entries
+                        .entry(dir.to_owned())
+                        .or_insert_with(|| TestFileOpsEntry::Directory(BTreeSet::new()));
+                    match dir_entry {
+                        TestFileOpsEntry::Directory(listing) => {
+                            listing.insert(SimpleDirEntry {
+                                file_type,
+                                file_name: name.to_owned(),
+                            });
+                            file_type = FileType::Directory;
+                            path = dir;
+                        }
+                        _ => panic!("Adding `{}`, but `{}` exists and is not a dir", path, dir),
+                    };
+                }
             }
-            file_ops
+            TestFileOps {
+                entries: Arc::new(entries),
+            }
         }
 
         pub fn new_with_files(files: BTreeMap<CellPath, String>) -> Self {
@@ -469,41 +499,6 @@ pub mod testing {
                     .map(|(path, s)| (path, TestFileOpsEntry::ExternalSymlink(s)))
                     .collect::<BTreeMap<CellPath, TestFileOpsEntry>>(),
             )
-        }
-
-        fn add_entry(&mut self, path: CellPath, entry: TestFileOpsEntry) {
-            let mut file_type = match entry {
-                TestFileOpsEntry::Directory(..) => FileType::Directory,
-                TestFileOpsEntry::ExternalSymlink(..) => FileType::Symlink,
-                TestFileOpsEntry::File(..) => FileType::File,
-            };
-            // make sure the test setup is correct and concise
-            assert!(
-                self.entries.insert(path.to_owned(), entry).is_none(),
-                "Adding `{}`, it already exists.",
-                path
-            );
-
-            let mut path = path.as_ref();
-
-            // now add to / create the parent directories
-            while let (Some(dir), Some(name)) = (path.parent(), path.path().file_name()) {
-                let dir_entry = self
-                    .entries
-                    .entry(dir.to_owned())
-                    .or_insert_with(|| TestFileOpsEntry::Directory(BTreeSet::new()));
-                match dir_entry {
-                    TestFileOpsEntry::Directory(listing) => {
-                        listing.insert(SimpleDirEntry {
-                            file_type,
-                            file_name: name.to_owned(),
-                        });
-                        file_type = FileType::Directory;
-                        path = dir;
-                    }
-                    _ => panic!("Adding `{}`, but `{}` exists and is not a dir", path, dir),
-                };
-            }
         }
     }
 
