@@ -205,37 +205,6 @@ impl Key for LegacyBuckConfigForCellKey {
     }
 }
 
-#[derive(Debug, Display, Clone, Eq, PartialEq, Hash, Allocative)]
-#[display(fmt = "{}//{}.{}", cell_name, section, property)]
-struct LegacyBuckConfigPropertyKey {
-    cell_name: CellName,
-    section: String,
-    property: String,
-}
-
-#[async_trait]
-impl Key for LegacyBuckConfigPropertyKey {
-    type Value = buck2_error::Result<Option<Arc<str>>>;
-
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> buck2_error::Result<Option<Arc<str>>> {
-        let legacy_config = ctx.get_legacy_config_for_cell(self.cell_name).await?;
-        Ok(legacy_config
-            .get(&self.section, &self.property)
-            .map(|s| s.to_owned().into()))
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
-    }
-}
-
 #[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
 #[display(fmt = "{}.{}", section, property)]
 struct LegacyBuckConfigPropertyProjectionKey {
@@ -313,13 +282,9 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         section: &str,
         property: &str,
     ) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(self
-            .compute(&LegacyBuckConfigPropertyKey {
-                cell_name,
-                section: section.to_owned(),
-                property: property.to_owned(),
-            })
-            .await??)
+        self.get_legacy_config_on_dice(cell_name)
+            .await?
+            .lookup(self, section, property)
     }
 
     async fn parse_legacy_config_property<T: FromStr>(
