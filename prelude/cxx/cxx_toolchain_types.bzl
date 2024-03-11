@@ -307,9 +307,9 @@ def cxx_toolchain_infos(
         # NOTE(agallagher): The arg-less variants of the ldflags macro are
         # identical, and are just separate to match v1's behavior (ideally,
         # we just have a single `ldflags` macro for this case).
-        "ldflags-shared": _shell_quote(linker_info.linker_flags),
-        "ldflags-static": _shell_quote(linker_info.linker_flags),
-        "ldflags-static-pic": _shell_quote(linker_info.linker_flags),
+        "ldflags-shared": _shell_quote(linker_info.linker_flags or []),
+        "ldflags-static": _shell_quote(linker_info.linker_flags or []),
+        "ldflags-static-pic": _shell_quote(linker_info.linker_flags or []),
         "objcopy": binary_utilities_info.objcopy,
         # TODO(T110378148): $(platform-name) is almost unusued. Should we remove it?
         "platform-name": platform_name,
