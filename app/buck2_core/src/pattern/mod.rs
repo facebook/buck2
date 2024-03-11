@@ -831,7 +831,10 @@ where
         }
     }
 
-    let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver();
+    // TODO(JakobDegen): Next diff
+    let cell_alias_resolver = cell_resolver
+        .get(cell_name)?
+        .non_external_cell_alias_resolver();
 
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 

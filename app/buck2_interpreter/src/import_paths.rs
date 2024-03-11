@@ -99,15 +99,13 @@ impl HasImportPaths for DiceComputations<'_> {
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let config = ctx.get_legacy_config_on_dice(self.cell_name.name()).await?;
-                let cell_resolver = ctx.get_cell_resolver().await?;
-                let cell_alias_resolver = cell_resolver
-                    .get(self.cell_name.name())?
-                    .cell_alias_resolver();
+                let cell_alias_resolver =
+                    ctx.get_cell_alias_resolver(self.cell_name.name()).await?;
 
                 Ok(Arc::new(ImplicitImportPaths::parse(
                     config.view(ctx),
                     self.cell_name,
-                    cell_alias_resolver,
+                    &cell_alias_resolver,
                 )?))
             }
 

@@ -213,7 +213,7 @@ fn cells() -> CellsData {
         cell_resolver
             .get(CellName::testing_new("root"))
             .unwrap()
-            .cell_alias_resolver()
+            .testing_cell_alias_resolver()
             .dupe(),
         cell_resolver,
         configs_by_name,

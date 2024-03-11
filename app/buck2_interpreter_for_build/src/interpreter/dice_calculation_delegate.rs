@@ -102,15 +102,14 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let cell_resolver = ctx.get_cell_resolver().await?;
                 let global_state = ctx.get_global_interpreter_state().await?;
 
-                let cell = cell_resolver.get(self.0)?;
+                let cell_alias_resolver = ctx.get_cell_alias_resolver(self.0).await?;
 
                 let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
 
                 Ok(Arc::new(InterpreterForCell::new(
-                    cell.cell_alias_resolver().dupe(),
+                    cell_alias_resolver,
                     global_state.dupe(),
                     implicit_import_paths,
                 )?))

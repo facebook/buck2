@@ -11,6 +11,8 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -23,6 +25,11 @@ pub trait HasCellResolver {
     async fn get_cell_resolver(&mut self) -> anyhow::Result<CellResolver>;
 
     async fn is_cell_resolver_key_set(&mut self) -> anyhow::Result<bool>;
+
+    async fn get_cell_alias_resolver(
+        &mut self,
+        cell: CellName,
+    ) -> anyhow::Result<CellAliasResolver>;
 }
 
 pub trait SetCellResolver {
@@ -57,6 +64,18 @@ impl HasCellResolver for DiceComputations<'_> {
 
     async fn is_cell_resolver_key_set(&mut self) -> anyhow::Result<bool> {
         Ok(self.compute(&CellResolverKey).await?.is_some())
+    }
+
+    async fn get_cell_alias_resolver(
+        &mut self,
+        cell: CellName,
+    ) -> anyhow::Result<CellAliasResolver> {
+        let resolver = self.get_cell_resolver().await?;
+        // Ok for now, change with external cells
+        Ok(resolver
+            .get(cell)?
+            .non_external_cell_alias_resolver()
+            .dupe())
     }
 }
 

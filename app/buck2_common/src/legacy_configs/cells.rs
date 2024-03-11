@@ -463,7 +463,7 @@ mod tests {
         assert_eq!(
             "other",
             root_instance
-                .cell_alias_resolver()
+                .testing_cell_alias_resolver()
                 .resolve("other_alias")?
                 .as_str()
         );
@@ -471,7 +471,7 @@ mod tests {
         assert_eq!(
             "other",
             tp_instance
-                .cell_alias_resolver()
+                .testing_cell_alias_resolver()
                 .resolve("other_alias")?
                 .as_str()
         );
@@ -830,14 +830,14 @@ mod tests {
         let root = resolver.get(CellName::testing_new("root")).unwrap();
 
         assert_eq!(
-            root.cell_alias_resolver()
+            root.testing_cell_alias_resolver()
                 .resolve("other")
                 .unwrap()
                 .as_str(),
             "other"
         );
         assert_eq!(
-            root.cell_alias_resolver()
+            root.testing_cell_alias_resolver()
                 .resolve("other_alias")
                 .unwrap()
                 .as_str(),

@@ -114,12 +114,12 @@
 //! let fbcode_cell = cells.get(fbcode_cell_name)?;
 //! assert_eq!(fbcode_cell.name(), CellName::testing_new("fbcode"));
 //!
-//! let fbsource_aliases = fbsource_cell.cell_alias_resolver();
+//! let fbsource_aliases = fbsource_cell.testing_cell_alias_resolver();
 //! assert_eq!(fbsource_aliases.resolve("")?, CellName::testing_new("fbsource"));
 //! assert_eq!(fbsource_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
 //! assert_eq!(fbsource_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
 //!
-//! let fbcode_aliases = fbcode_cell.cell_alias_resolver();
+//! let fbcode_aliases = fbcode_cell.testing_cell_alias_resolver();
 //! assert_eq!(fbcode_aliases.resolve("")?, CellName::testing_new("fbcode"));
 //! assert_eq!(fbcode_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
 //! assert_eq!(fbcode_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
@@ -327,7 +327,8 @@ impl CellResolver {
     }
 
     pub fn root_cell_cell_alias_resolver(&self) -> &CellAliasResolver {
-        self.root_cell_instance().cell_alias_resolver()
+        // Root cell is never external
+        self.root_cell_instance().testing_cell_alias_resolver()
     }
 
     /// Get a `CellName` from a path by finding the best matching cell path that
@@ -360,7 +361,10 @@ impl CellResolver {
         &self,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<&CellAliasResolver> {
-        Ok(self.get(self.find(cwd)?)?.cell_alias_resolver())
+        // cwd is always non-external
+        Ok(self
+            .get(self.find(cwd)?)?
+            .non_external_cell_alias_resolver())
     }
 
     pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(
@@ -408,7 +412,10 @@ impl CellResolver {
         let context_cell_name = self.find(&proj_relative_path)?;
         let context_cell = self.get(context_cell_name)?;
 
-        let resolved_cell_name = context_cell.cell_alias_resolver().resolve(cell_alias)?;
+        // cwd is always non-external
+        let resolved_cell_name = context_cell
+            .non_external_cell_alias_resolver()
+            .resolve(cell_alias)?;
         let cell = self.get(resolved_cell_name)?;
         let cell_absolute_path = project_filesystem.resolve(cell.path().as_project_relative_path());
         cell_absolute_path.join_normalized(cell_relative_path)
@@ -792,7 +799,7 @@ mod tests {
             let cell1 = cells.get(CellName::testing_new("cell1")).unwrap();
             assert_eq!(cell1.path(), cell1_path);
 
-            let aliases = cell1.cell_alias_resolver();
+            let aliases = cell1.testing_cell_alias_resolver();
             assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell1"));
             assert_eq!(
                 aliases.resolve("cell1").unwrap(),
@@ -812,7 +819,7 @@ mod tests {
             let cell2 = cells.get(CellName::testing_new("cell2")).unwrap();
             assert_eq!(cell2.path(), cell2_path);
 
-            let aliases = cell2.cell_alias_resolver();
+            let aliases = cell2.testing_cell_alias_resolver();
             assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell2"));
             assert_eq!(
                 aliases.resolve("cell1").unwrap(),
@@ -832,7 +839,7 @@ mod tests {
             let cell3 = cells.get(CellName::testing_new("cell3")).unwrap();
             assert_eq!(cell3.path(), cell3_path);
 
-            let aliases = cell3.cell_alias_resolver();
+            let aliases = cell3.testing_cell_alias_resolver();
             assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell3"));
             assert_eq!(
                 aliases.resolve("z_cell1").unwrap(),

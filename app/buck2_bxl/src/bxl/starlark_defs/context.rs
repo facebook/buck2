@@ -43,6 +43,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -250,6 +251,8 @@ pub(crate) struct BxlContextCoreData {
     cell_root_abs: AbsNormPathBuf,
     #[derivative(Debug = "ignore")]
     cell_resolver: CellResolver,
+    #[derivative(Debug = "ignore")]
+    cell_alias_resolver: CellAliasResolver,
     project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
     artifact_fs: ArtifactFs,
@@ -266,6 +269,7 @@ impl BxlContextCoreData {
             .dupe();
         let cell_name = bxl_cell.name();
         let target_alias_resolver = dice.target_alias_resolver_for_cell(cell_name).await?;
+        let cell_alias_resolver = dice.get_cell_alias_resolver(cell).await?;
         let artifact_fs = dice.get_artifact_fs().await?;
         let project_fs = dice.global_data().get_io_provider().project_root().dupe();
 
@@ -282,6 +286,7 @@ impl BxlContextCoreData {
             cell_name,
             cell_root_abs,
             cell_resolver,
+            cell_alias_resolver,
             project_fs,
             artifact_fs,
         })
@@ -481,6 +486,10 @@ impl<'v> BxlContextNoDice<'v> {
         &self.core.cell_root_abs
     }
 
+    pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
+        &self.core.cell_alias_resolver
+    }
+
     pub(crate) fn current_bxl(&self) -> &BxlKey {
         &self.core.current_bxl
     }
@@ -504,9 +513,7 @@ impl<'v> BxlContextNoDice<'v> {
     pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
         parse_query_file_literal(
             literal,
-            self.cell_resolver()
-                .get(self.cell_name())?
-                .cell_alias_resolver(),
+            self.cell_alias_resolver(),
             self.cell_resolver(),
             // NOTE(nga): we pass cell root as working directory here,
             //   which is inconsistent with the rest of buck2:
