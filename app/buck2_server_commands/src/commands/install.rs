@@ -34,7 +34,6 @@ use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::directory::DirectoryEntry;
@@ -177,8 +176,6 @@ async fn install(
 ) -> anyhow::Result<InstallResponse> {
     let cwd = server_ctx.working_dir();
 
-    let cell_resolver = ctx.get_cell_resolver().await?;
-
     let client_ctx = request.client_context()?;
     let global_cfg_options =
         global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
@@ -195,8 +192,7 @@ async fn install(
     .await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
-    let resolved_pattern =
-        ResolveTargetPatterns::resolve(&mut ctx, &cell_resolver, &parsed_patterns).await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     let resolved_pattern = resolved_pattern
         .convert_pattern()

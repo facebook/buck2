@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_audit::analysis_queries::AuditAnalysisQueriesCommand;
 use buck2_cli_proto::ClientContext;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
@@ -39,8 +38,6 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut ctx| {
-                let cells = ctx.get_cell_resolver().await?;
-
                 let global_cfg_options =
                     global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx)
                         .await?;
@@ -54,7 +51,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                 )
                 .await?;
                 let resolved_pattern =
-                    ResolveTargetPatterns::resolve(&mut ctx, &cells, &parsed_patterns).await?;
+                    ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
                 let mut stdout = stdout.as_writer();
 

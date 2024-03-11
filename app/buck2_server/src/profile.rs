@@ -17,7 +17,6 @@ use buck2_analysis::analysis::calculation::profile_analysis_recursively;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::ClientContext;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -191,8 +190,6 @@ async fn generate_profile(
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
-    let cells = ctx.get_cell_resolver().await?;
-
     let global_cfg_options =
         global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
@@ -203,7 +200,7 @@ async fn generate_profile(
     )
     .await?;
 
-    let resolved = ResolveTargetPatterns::resolve(&mut ctx, &cells, &parsed_patterns).await?;
+    let resolved = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     match action {
         Action::Analysis => {

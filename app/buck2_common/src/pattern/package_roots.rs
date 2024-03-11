@@ -10,7 +10,6 @@
 use std::collections::HashSet;
 
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_futures::drop::DropTogether;
@@ -26,7 +25,6 @@ use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
 
-use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::DiceFileOps;
 use crate::file_ops::FileOps;
 use crate::find_buildfile::find_buildfile;
@@ -53,11 +51,10 @@ pub fn find_package_roots_stream<'a>(
     let spawned = spawn_cancellable(
         |_cancellations| {
             async move {
-                let cell_resolver = ctx.get_cell_resolver().await?;
                 // ignore because the errors will be sent back via the stream
                 let _ignored = ctx
                     .with_linear_recompute(|ctx| async move {
-                        collect_package_roots(&DiceFileOps(&ctx), &cell_resolver, paths, |res| {
+                        collect_package_roots(&DiceFileOps(&ctx), paths, |res| {
                             packages_tx.unbounded_send(res)
                         })
                         .await
@@ -77,7 +74,6 @@ pub fn find_package_roots_stream<'a>(
 
 pub async fn collect_package_roots<E>(
     file_ops: &dyn FileOps,
-    cell_resolver: &CellResolver,
     paths: Vec<CellPath>,
     mut collector: impl FnMut(anyhow::Result<PackageLabel>) -> Result<(), E>,
 ) -> Result<(), E> {
@@ -117,8 +113,7 @@ pub async fn collect_package_roots<E>(
     while let Some((path, listing)) = queue.next().await {
         let (buildfile_candidates, listing) = {
             let r = async {
-                let instance = cell_resolver.get(path.cell())?;
-                let buildfiles = file_ops.buildfiles(instance).await?;
+                let buildfiles = file_ops.buildfiles(path.cell()).await?;
                 anyhow::Ok((buildfiles, listing?.included))
             }
             .await;
@@ -161,10 +156,9 @@ pub async fn collect_package_roots<E>(
 pub(crate) async fn find_package_roots(
     cell_path: CellPath,
     fs: &dyn FileOps,
-    cells: &CellResolver,
 ) -> anyhow::Result<Vec<PackageLabel>> {
     let mut results = Vec::new();
-    collect_package_roots(fs, cells, vec![cell_path], |res| {
+    collect_package_roots(fs, vec![cell_path], |res| {
         results.push(res);
         Result::<_, !>::Ok(())
     })

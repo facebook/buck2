@@ -301,8 +301,7 @@ async fn test(
         parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
-    let resolved_pattern =
-        ResolveTargetPatterns::resolve(&mut ctx, &cell_resolver, &parsed_patterns).await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,

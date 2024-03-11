@@ -22,7 +22,6 @@ use dice::Key;
 use dupe::Dupe;
 use smallvec::SmallVec;
 
-use crate::dice::cells::HasCellResolver;
 use crate::package_listing::interpreter::InterpreterPackageListingResolver;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
@@ -54,9 +53,8 @@ impl Key for PackageListingKey {
     ) -> Self::Value {
         let now = Instant::now();
 
-        let cell_resolver = ctx.get_cell_resolver().await?;
         let (result, spans) = async_record_root_spans(
-            InterpreterPackageListingResolver::new(cell_resolver, ctx).resolve(self.0.dupe()),
+            InterpreterPackageListingResolver::new(ctx).resolve(self.0.dupe()),
         )
         .await;
 
@@ -88,8 +86,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
         &mut self,
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<PackageLabel> {
-        let cell_resolver = self.0.get_cell_resolver().await?;
-        InterpreterPackageListingResolver::new(cell_resolver, self.0)
+        InterpreterPackageListingResolver::new(self.0)
             .get_enclosing_package(path)
             .await
     }
@@ -99,8 +96,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
         path: CellPathRef<'async_trait>,
         enclosing_violation_path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Vec<PackageLabel>> {
-        let cell_resolver = self.0.get_cell_resolver().await?;
-        InterpreterPackageListingResolver::new(cell_resolver, self.0)
+        InterpreterPackageListingResolver::new(self.0)
             .get_enclosing_packages(path, enclosing_violation_path)
             .await
     }

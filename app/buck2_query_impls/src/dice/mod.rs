@@ -235,9 +235,9 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         let buildfiles = self
             .ctx
             .get()
-            .try_compute_join(resolver.cells(), |ctx, (name, instance)| {
+            .try_compute_join(resolver.cells(), |ctx, (name, _)| {
                 async move {
-                    DiceFileComputations::buildfiles(ctx, instance)
+                    DiceFileComputations::buildfiles(ctx, name)
                         .await
                         .map(|x| (name, x))
                 }
@@ -254,8 +254,7 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns =
             patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
-        ResolveTargetPatterns::resolve(&mut self.ctx.get(), &self.cell_resolver, &parsed_patterns)
-            .await
+        ResolveTargetPatterns::resolve(&mut self.ctx.get(), &parsed_patterns).await
     }
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.

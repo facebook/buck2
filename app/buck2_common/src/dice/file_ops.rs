@@ -17,7 +17,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
-use buck2_core::cells::instance::CellInstance;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
@@ -121,9 +120,9 @@ impl DiceFileComputations {
 
     pub async fn buildfiles<'a>(
         ctx: &mut DiceComputations<'_>,
-        instance: &'a CellInstance,
+        cell: CellName,
     ) -> anyhow::Result<Arc<[FileNameBuf]>> {
-        ctx.get_buildfiles(instance.name()).await
+        ctx.get_buildfiles(cell).await
     }
 }
 
@@ -555,11 +554,8 @@ impl FileOps for DiceFileOps<'_, '_> {
         PartialEqAny::always_false()
     }
 
-    async fn buildfiles<'a>(
-        &self,
-        instance: &'a CellInstance,
-    ) -> anyhow::Result<Arc<[FileNameBuf]>> {
-        DiceFileComputations::buildfiles(&mut self.0.get(), instance).await
+    async fn buildfiles<'a>(&self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
+        DiceFileComputations::buildfiles(&mut self.0.get(), cell).await
     }
 }
 
