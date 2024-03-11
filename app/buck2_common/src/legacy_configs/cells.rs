@@ -26,7 +26,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
-use crate::legacy_configs::buildfiles::parse_buildfile_name;
 use crate::legacy_configs::init::DaemonStartupConfig;
 use crate::legacy_configs::path::BuckConfigFile;
 use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
@@ -278,8 +277,6 @@ impl BuckConfigBasedCells {
                     }
                 }
             }
-
-            cells_aggregator.set_buildfiles(path.clone(), parse_buildfile_name(&config)?);
 
             buckconfigs.insert(path, config);
         }

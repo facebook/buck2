@@ -18,7 +18,6 @@ use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
 use crate::cells::CellAliasResolver;
-use crate::fs::paths::file_name::FileNameBuf;
 
 #[derive(Debug, buck2_error::Error)]
 enum CellInstanceError {
@@ -38,10 +37,6 @@ struct CellData {
     name: CellName,
     /// the project relative path to this 'CellInstance'
     path: CellRootPathBuf,
-    /// a list of potential buildfile names for this cell (e.g. 'BUCK', 'TARGETS',
-    /// 'TARGET.v2'). The candidates are listed in priority order, buck will use
-    /// the first one it encounters in a directory.
-    buildfiles: Vec<FileNameBuf>,
     #[derivative(Debug = "ignore")]
     /// the aliases of this specific cell
     aliases: CellAliasResolver,
@@ -52,7 +47,6 @@ impl CellInstance {
     pub(crate) fn new(
         name: CellName,
         path: CellRootPathBuf,
-        buildfiles: Vec<FileNameBuf>,
         aliases: CellAliasResolver,
         nested_cells: NestedCells,
     ) -> anyhow::Result<CellInstance> {
@@ -62,7 +56,6 @@ impl CellInstance {
         Ok(CellInstance(Arc::new(CellData {
             name,
             path,
-            buildfiles,
             aliases,
             nested_cells,
         })))
@@ -78,12 +71,6 @@ impl CellInstance {
     #[inline]
     pub fn path(&self) -> &CellRootPath {
         &self.0.path
-    }
-
-    // Get the name of build files for the cell.
-    #[inline]
-    pub fn testing_buildfiles(&self) -> &[FileNameBuf] {
-        &self.0.buildfiles
     }
 
     #[inline]

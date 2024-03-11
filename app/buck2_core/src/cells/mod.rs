@@ -592,7 +592,7 @@ pub fn default_buildfiles() -> Vec<FileNameBuf> {
     (["BUCK.v2", "BUCK"][..]).map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct CellAggregatorInfo {
     /// The name to use for this alias.
     /// So that it is predictable, we always use the first name we encounter,
@@ -600,19 +600,6 @@ struct CellAggregatorInfo {
     name: Option<CellName>,
     /// All the aliases known by this cell.
     alias_mapping: HashMap<NonEmptyCellAlias, CellRootPathBuf>,
-    /// The build file name in this if it's been set. If it hasn't we'll use the
-    /// default `["BUCK.v2", "BUCK"]` when building the resolver.
-    buildfiles: Vec<FileNameBuf>,
-}
-
-impl Default for CellAggregatorInfo {
-    fn default() -> Self {
-        Self {
-            name: None,
-            alias_mapping: HashMap::new(),
-            buildfiles: default_buildfiles(),
-        }
-    }
 }
 
 impl CellAggregatorInfo {
@@ -682,15 +669,6 @@ impl CellsAggregator {
         Ok(alias_path)
     }
 
-    pub fn set_buildfiles(&mut self, cell_root: CellRootPathBuf, buildfiles: Vec<FileNameBuf>) {
-        let cell_info = self.cell_info(cell_root);
-        cell_info.buildfiles = buildfiles;
-    }
-
-    pub fn add_buildfile(&mut self, cell_root: CellRootPathBuf, buildfile: FileNameBuf) {
-        self.cell_info(cell_root).buildfiles.push(buildfile);
-    }
-
     fn get_cell_name_from_path(&self, path: &CellRootPath) -> anyhow::Result<CellName> {
         self.cell_infos
             .get(path)
@@ -731,7 +709,6 @@ impl CellsAggregator {
             cell_mappings.push(CellInstance::new(
                 cell_name,
                 cell_path.clone(),
-                cell_info.buildfiles.clone(),
                 CellAliasResolver::new(cell_name, aliases_for_cell)?,
                 nested_cells,
             )?);
