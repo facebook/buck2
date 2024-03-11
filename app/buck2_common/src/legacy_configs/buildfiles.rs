@@ -10,21 +10,21 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use buck2_core::cells::default_buildfiles;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use gazebo::prelude::SliceExt as _;
 use gazebo::prelude::VecExt as _;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
+const DEFAULT_BUILDFILES: &[&str] = &["BUCK.v2", "BUCK"];
+
 /// Deal with the `buildfile.name` key (and `name_v2`)
-pub fn parse_buildfile_name(
-    mut config: impl LegacyBuckConfigView,
-) -> anyhow::Result<Vec<FileNameBuf>> {
+fn parse_buildfile_name(mut config: impl LegacyBuckConfigView) -> anyhow::Result<Vec<FileNameBuf>> {
     // For buck2, we support a slightly different mechanism for setting the buildfile to
     // assist with easier migration from v1 to v2.
     // First, we check the key `buildfile.name_v2`, if this is provided, we use it.
@@ -44,7 +44,7 @@ pub fn parse_buildfile_name(
             }
             buildfiles
         } else {
-            default_buildfiles()
+            DEFAULT_BUILDFILES.map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
         };
 
     if let Some(buildfile) = config.parse::<String>("buildfile", "extra_for_test")? {

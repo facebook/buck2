@@ -588,10 +588,6 @@ pub struct CellsAggregator {
     cell_infos: HashMap<CellRootPathBuf, CellAggregatorInfo>,
 }
 
-pub fn default_buildfiles() -> Vec<FileNameBuf> {
-    (["BUCK.v2", "BUCK"][..]).map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
-}
-
 #[derive(Debug, Default)]
 struct CellAggregatorInfo {
     /// The name to use for this alias.
