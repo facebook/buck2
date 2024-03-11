@@ -42,8 +42,12 @@ def main():
     prepend_env(env, "PATH", tool.PATH)
     prepend_env(env, "INCLUDE", tool.INCLUDE)
 
-    completed_process = subprocess.run([tool.exe, *arguments], env=env)
-    sys.exit(completed_process.returncode)
+    if tool.exe is None:
+        print("Tool not found", file=sys.stderr)
+        sys.exit(1)
+    else:
+        completed_process = subprocess.run([tool.exe, *arguments], env=env)
+        sys.exit(completed_process.returncode)
 
 
 if __name__ == "__main__":

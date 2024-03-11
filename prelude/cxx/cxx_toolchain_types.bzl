@@ -124,6 +124,8 @@ _compiler_fields = [
 
 HipCompilerInfo = provider(fields = _compiler_fields)
 CudaCompilerInfo = provider(fields = _compiler_fields)
+CvtresCompilerInfo = provider(fields = _compiler_fields)
+RcCompilerInfo = provider(fields = _compiler_fields)
 CCompilerInfo = provider(fields = _compiler_fields)
 CxxCompilerInfo = provider(fields = _compiler_fields)
 AsmCompilerInfo = provider(fields = _compiler_fields)
@@ -182,6 +184,8 @@ CxxToolchainInfo = provider(
         "as_compiler_info": provider_field(typing.Any, default = None),
         "hip_compiler_info": provider_field(typing.Any, default = None),
         "cuda_compiler_info": provider_field(typing.Any, default = None),
+        "cvtres_compiler_info": provider_field(typing.Any, default = None),
+        "rc_compiler_info": provider_field(typing.Any, default = None),
         "mk_comp_db": provider_field(typing.Any, default = None),
         "mk_hmap": provider_field(typing.Any, default = None),
         "llvm_link": provider_field(typing.Any, default = None),
@@ -232,6 +236,8 @@ def cxx_toolchain_infos(
         as_compiler_info = None,
         hip_compiler_info = None,
         cuda_compiler_info = None,
+        cvtres_compiler_info = None,
+        rc_compiler_info = None,
         object_format = CxxObjectFormat("native"),
         mk_comp_db = None,
         mk_hmap = None,
@@ -273,6 +279,8 @@ def cxx_toolchain_infos(
         as_compiler_info = as_compiler_info,
         hip_compiler_info = hip_compiler_info,
         cuda_compiler_info = cuda_compiler_info,
+        cvtres_compiler_info = cvtres_compiler_info,
+        rc_compiler_info = rc_compiler_info,
         mk_comp_db = mk_comp_db,
         mk_hmap = mk_hmap,
         object_format = object_format,
