@@ -13,6 +13,7 @@ use std::fmt::Debug;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -66,6 +67,7 @@ pub struct BuildAttrCoercionContext {
     /// Used to coerce targets
     cell_resolver: CellResolver,
     cell_name: CellName,
+    cell_alias_resolver: CellAliasResolver,
     /// Used to resolve relative targets. This is present when a build file
     /// is being evaluated, however it is absent if an extension file is being
     /// evaluated. The latter case occurs when default values for attributes
@@ -102,12 +104,14 @@ impl BuildAttrCoercionContext {
     fn new(
         cell_resolver: CellResolver,
         cell_name: CellName,
+        cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(PackageLabel, PackageListing)>,
         package_boundary_exception: bool,
     ) -> Self {
         Self {
             cell_resolver,
             cell_name,
+            cell_alias_resolver,
             enclosing_package,
             package_boundary_exception,
             alloc: Bump::new(),
@@ -119,18 +123,24 @@ impl BuildAttrCoercionContext {
         }
     }
 
-    pub fn new_no_package(cell_resolver: CellResolver, cell_name: CellName) -> Self {
-        Self::new(cell_resolver, cell_name, None, false)
+    pub fn new_no_package(
+        cell_resolver: CellResolver,
+        cell_name: CellName,
+        cell_alias_resolver: CellAliasResolver,
+    ) -> Self {
+        Self::new(cell_resolver, cell_name, cell_alias_resolver, None, false)
     }
 
     pub fn new_with_package(
         cell_resolver: CellResolver,
+        cell_alias_resolver: CellAliasResolver,
         enclosing_package: (PackageLabel, PackageListing),
         package_boundary_exception: bool,
     ) -> Self {
         Self::new(
             cell_resolver,
             enclosing_package.0.cell_name(),
+            cell_alias_resolver,
             Some(enclosing_package),
             package_boundary_exception,
         )
@@ -142,6 +152,7 @@ impl BuildAttrCoercionContext {
             self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
             self.cell_name,
             &self.cell_resolver,
+            &self.cell_alias_resolver,
         )
     }
 

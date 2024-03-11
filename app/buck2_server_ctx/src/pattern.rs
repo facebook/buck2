@@ -13,6 +13,7 @@ use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern_type::PatternType;
@@ -24,6 +25,7 @@ use crate::ctx::ServerCommandContextTrait;
 
 pub struct PatternParser {
     cell_resolver: CellResolver,
+    cell_alias_resolver: CellAliasResolver,
     cwd: CellPath,
     target_alias_resolver: BuckConfigTargetAliasResolver,
 }
@@ -39,9 +41,11 @@ impl PatternParser {
         let cell_name = cwd.cell();
 
         let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
+        let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
 
         Ok(Self {
             cell_resolver,
+            cell_alias_resolver,
             cwd,
             target_alias_resolver,
         })
@@ -53,6 +57,7 @@ impl PatternParser {
             self.cwd.as_ref(),
             pattern,
             &self.cell_resolver,
+            &self.cell_alias_resolver,
         )
     }
 }
@@ -80,12 +85,18 @@ pub async fn global_cfg_options_from_client_context(
 ) -> anyhow::Result<GlobalCfgOptions> {
     let cell_resolver: &CellResolver = &dice_ctx.get_cell_resolver().await?;
     let working_dir: &ProjectRelativePath = server_ctx.working_dir();
+    let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(working_dir)?;
     let cwd = cell_resolver.get_cell_path(working_dir)?;
     let target_platform = &client_context.target_platform;
     let target_platform_label = if !target_platform.is_empty() {
         Some(
-            ParsedPattern::parse_precise(target_platform, cwd.cell(), cell_resolver)?
-                .as_target_label(target_platform)?,
+            ParsedPattern::parse_precise(
+                target_platform,
+                cwd.cell(),
+                cell_resolver,
+                cell_alias_resolver,
+            )?
+            .as_target_label(target_platform)?,
         )
     } else {
         None

@@ -569,6 +569,7 @@ impl CliArgType {
                                 ctx.relative_dir.as_cell_path(),
                                 x,
                                 &ctx.cell_resolver,
+                                &ctx.cell_alias_resolver,
                             )?
                             .as_target_label(x)?,
                         )
@@ -583,6 +584,7 @@ impl CliArgType {
                                 ctx.relative_dir.as_cell_path(),
                                 x,
                                 &ctx.cell_resolver,
+                                &ctx.cell_alias_resolver,
                             )?
                             .as_providers_label(x)?,
                         )
@@ -596,6 +598,7 @@ impl CliArgType {
                         ctx.relative_dir.as_cell_path(),
                         x,
                         &ctx.cell_resolver,
+                        &ctx.cell_alias_resolver,
                     )?;
                     let loaded = load_patterns(
                         &mut ctx.dice.clone(),
@@ -617,6 +620,7 @@ impl CliArgType {
                         ctx.relative_dir.as_cell_path(),
                         x,
                         &ctx.cell_resolver,
+                        &ctx.cell_alias_resolver,
                     )?;
                     let loaded = load_patterns(
                         &mut ctx.dice.clone(),

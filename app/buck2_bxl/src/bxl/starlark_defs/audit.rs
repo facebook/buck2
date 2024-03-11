@@ -123,6 +123,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         let target_platform = target_platform.parse_target_platforms(
             this.ctx.target_alias_resolver(),
             this.ctx.cell_resolver(),
+            this.ctx.cell_alias_resolver(),
             this.ctx.cell_name(),
             &this.ctx.global_cfg_options().target_platform,
         )?;

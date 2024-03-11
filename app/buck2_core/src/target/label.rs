@@ -24,6 +24,7 @@ use triomphe::ThinArc;
 
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
+use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
@@ -157,10 +158,15 @@ impl TargetLabel {
         label: &str,
         cell_name: CellName,
         cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<TargetLabel> {
-        let (pkg, name, TargetPatternExtra) =
-            ParsedPattern::<TargetPatternExtra>::parse_precise(label, cell_name, cell_resolver)?
-                .as_literal(label)?;
+        let (pkg, name, TargetPatternExtra) = ParsedPattern::<TargetPatternExtra>::parse_precise(
+            label,
+            cell_name,
+            cell_resolver,
+            cell_alias_resolver,
+        )?
+        .as_literal(label)?;
         Ok(TargetLabel::new(pkg, name.as_ref()))
     }
 

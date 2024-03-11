@@ -40,7 +40,7 @@ impl InterpreterCellInfo {
         &self.cell_resolver
     }
 
-    pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
+    pub fn cell_alias_resolver(&self) -> &CellAliasResolver {
         &self.cell_alias_resolver
     }
 }

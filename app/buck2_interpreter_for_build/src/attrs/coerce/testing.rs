@@ -61,8 +61,18 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
             HashMap::new(),
         ),
     ]);
+    let cell_alias_resolver = cell_resolver
+        .get(package.cell_name())
+        .unwrap()
+        .testing_cell_alias_resolver()
+        .dupe();
 
-    BuildAttrCoercionContext::new_with_package(cell_resolver, (package, package_listing), false)
+    BuildAttrCoercionContext::new_with_package(
+        cell_resolver,
+        cell_alias_resolver,
+        (package, package_listing),
+        false,
+    )
 }
 
 fn cell_resolver() -> CellResolver {

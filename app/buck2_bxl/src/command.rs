@@ -259,6 +259,7 @@ pub(crate) async fn get_bxl_cli_args(
 ) -> anyhow::Result<BxlResolvedCliArgs> {
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd)?.as_ref());
     let cell_name = cell_resolver.find(&cwd)?;
+    let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
 
     let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
 
@@ -270,6 +271,7 @@ pub(crate) async fn get_bxl_cli_args(
     let cli_ctx = CliResolutionCtx {
         target_alias_resolver,
         cell_resolver: cell_resolver.dupe(),
+        cell_alias_resolver,
         relative_dir: cur_package,
         dice: ctx,
     };

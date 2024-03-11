@@ -40,6 +40,7 @@ pub mod testing {
                 s,
                 c.cell_info().name().name(),
                 c.cell_info().cell_resolver(),
+                c.cell_info().cell_alias_resolver(),
             )? {
                 ParsedPattern::Target(package, target_name, providers) => {
                     providers.into_providers_label(package, target_name.as_ref())
@@ -60,6 +61,7 @@ pub mod testing {
                 s,
                 c.cell_info().name().name(),
                 c.cell_info().cell_resolver(),
+                c.cell_info().cell_alias_resolver(),
             )? {
                 ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
                     TargetLabel::new(package, target_name.as_ref())

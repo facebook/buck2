@@ -215,8 +215,17 @@ mod tests {
             T: PatternType,
         {
             let patterns: Vec<_> = patterns.map(|p| {
-                ParsedPattern::<T>::parse_precise(p, CellName::testing_new("root"), &self.resolver)
-                    .unwrap()
+                ParsedPattern::<T>::parse_precise(
+                    p,
+                    CellName::testing_new("root"),
+                    &self.resolver,
+                    &self
+                        .resolver
+                        .get(CellName::testing_new("root"))
+                        .unwrap()
+                        .testing_cell_alias_resolver(),
+                )
+                .unwrap()
             });
 
             resolve_target_patterns_impl(&patterns, &*self.file_ops).await

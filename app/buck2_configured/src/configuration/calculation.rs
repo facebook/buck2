@@ -83,6 +83,7 @@ async fn get_target_platform_detector(
             // TODO(cjhopman): Consider revisiting that approach.
             let resolver = ctx.get_cell_resolver().await?;
             let root_cell = resolver.root_cell();
+            let cell_alias_resolver = ctx.get_cell_alias_resolver(root_cell).await?;
 
             Ok(Arc::new(
                 match ctx
@@ -94,7 +95,12 @@ async fn get_target_platform_detector(
                     .await?
                 {
                     None => TargetPlatformDetector::empty(),
-                    Some(spec) => TargetPlatformDetector::parse_spec(&spec, root_cell, &resolver)?,
+                    Some(spec) => TargetPlatformDetector::parse_spec(
+                        &spec,
+                        root_cell,
+                        &resolver,
+                        &cell_alias_resolver,
+                    )?,
                 },
             ))
         }
@@ -115,13 +121,14 @@ async fn get_execution_platforms(
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
     let cells = ctx.get_cell_resolver().await?;
+    let cell_alias_resolver = ctx.get_cell_alias_resolver(cells.root_cell()).await?;
 
     let execution_platforms_target = ctx
         .get_legacy_config_property(cells.root_cell(), "build", "execution_platforms")
         .await?;
 
     let execution_platforms_target = match execution_platforms_target {
-        Some(v) => TargetLabel::parse(&v, cells.root_cell(), &cells)?,
+        Some(v) => TargetLabel::parse(&v, cells.root_cell(), &cells, &cell_alias_resolver)?,
         None => {
             return Ok(None);
         }
@@ -409,10 +416,14 @@ async fn compute_platform_configuration(
     let configuration_data = compute_platform_configuration_no_label_check(ctx, target).await?;
 
     let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_alias_resolver = ctx
+        .get_cell_alias_resolver(cell_resolver.root_cell())
+        .await?;
     let parsed_target = TargetLabel::parse(
         configuration_data.label()?,
         cell_resolver.root_cell(),
         &cell_resolver,
+        &cell_alias_resolver,
     )
     .context("`PlatformInfo` label for `platform()` rule should be a valid target label")?;
 

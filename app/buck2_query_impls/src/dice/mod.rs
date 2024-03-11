@@ -121,6 +121,7 @@ impl LiteralParser {
             self.working_dir.as_ref(),
             value,
             &self.cell_resolver,
+            &self.cell_alias_resolver,
         )
     }
 

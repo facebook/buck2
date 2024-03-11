@@ -551,14 +551,22 @@ impl<'a> BuckLspContext<'a> {
         current_package: CellPathRef<'_>,
         literal: &str,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
-        let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+        let (cell_resolver, cell_alias_resolver) = self
+            .with_dice_ctx(|mut dice_ctx| async move {
+                Ok((
+                    dice_ctx.get_cell_resolver().await?,
+                    dice_ctx
+                        .get_cell_alias_resolver(current_package.cell())
+                        .await?,
+                ))
+            })
             .await?;
         match ParsedPattern::<ProvidersPatternExtra>::parsed_opt_absolute(
             literal,
             Some(current_package),
             current_package.cell(),
             &cell_resolver,
+            &cell_alias_resolver,
         ) {
             Ok(ParsedPattern::Target(package, target, _)) => {
                 let res = self

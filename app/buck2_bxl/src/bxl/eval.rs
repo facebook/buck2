@@ -19,6 +19,7 @@ use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -412,6 +413,7 @@ pub(crate) fn get_bxl_callable<'a>(
 pub(crate) struct CliResolutionCtx<'a> {
     pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
     pub(crate) cell_resolver: CellResolver,
+    pub(crate) cell_alias_resolver: CellAliasResolver,
     pub(crate) relative_dir: PackageLabel,
     pub(crate) dice: &'a DiceTransaction,
 }

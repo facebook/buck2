@@ -366,6 +366,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
             val,
             ctx.cell_resolver(),
+            ctx.cell_alias_resolver(),
         )? {
             ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                 let result = match dice
@@ -519,6 +520,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
                     CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
                     s,
                     ctx.cell_resolver(),
+                    ctx.cell_alias_resolver(),
                 )? {
                     ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                         Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(

@@ -770,6 +770,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let target_platform = target_platform.parse_target_platforms(
             this.target_alias_resolver(),
             this.cell_resolver(),
+            this.cell_alias_resolver(),
             this.cell_name(),
             &this.global_cfg_options().target_platform,
         )?;
@@ -897,6 +898,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let target_platform = target_platform.parse_target_platforms(
             this.target_alias_resolver(),
             this.cell_resolver(),
+            this.cell_alias_resolver(),
             this.cell_name(),
             &this.global_cfg_options().target_platform,
         )?;
@@ -1050,6 +1052,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                             let target_platform = target_platform.parse_target_platforms(
                                 this.target_alias_resolver(),
                                 this.cell_resolver(),
+                                this.cell_alias_resolver(),
                                 this.cell_name(),
                                 &this.global_cfg_options().target_platform,
                             )?;
@@ -1173,6 +1176,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
         let target_platform = target_platform.parse_target_platforms(
             this.data.target_alias_resolver(),
             this.data.cell_resolver(),
+            this.cell_alias_resolver(),
             this.data.cell_name(),
             &this.data.global_cfg_options().target_platform,
         )?;
@@ -1308,6 +1312,7 @@ fn context_methods(builder: &mut MethodsBuilder) {
                         CellPathRef::new(this_no_dice.cell_name(), CellRelativePath::empty()),
                         label,
                         this_no_dice.cell_resolver(),
+                        this_no_dice.cell_alias_resolver(),
                     )? {
                         ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                             let target_label = TargetLabel::new(pkg, name.as_ref());
