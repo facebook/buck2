@@ -617,6 +617,7 @@ def _rust_link_providers(
                     # if this target actually requested that. Opt ourselves out
                     # if it didn't.
                     ignore_force_static_follows_dependents = preferred_linkage != Linkage("static"),
+                    include_in_android_mergemap = False,
                 ),
                 label = new_label,
             ),
@@ -838,6 +839,7 @@ def _native_providers(
                 link_infos = link_infos,
                 shared_libs = solibs,
                 default_soname = shlib_name,
+                include_in_android_mergemap = False,
             ),
         ),
         deps = inherited_link_graphs + inherited_exported_deps,
