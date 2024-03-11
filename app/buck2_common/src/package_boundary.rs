@@ -139,7 +139,7 @@ pub trait HasPackageBoundaryExceptions {
     async fn get_package_boundary_exception(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<bool>;
+    ) -> buck2_error::Result<Option<Arc<CellPath>>>;
 }
 
 #[async_trait]
@@ -183,14 +183,14 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
     async fn get_package_boundary_exception(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<bool> {
+    ) -> buck2_error::Result<Option<Arc<CellPath>>> {
         #[derive(Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative)]
         #[repr(transparent)]
         struct PackageBoundaryExceptionKey(CellPath);
 
         #[async_trait]
         impl Key for PackageBoundaryExceptionKey {
-            type Value = buck2_error::Result<bool>;
+            type Value = buck2_error::Result<Option<Arc<CellPath>>>;
 
             async fn compute(
                 &self,
@@ -200,7 +200,8 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
                 Ok(ctx
                     .get_package_boundary_exceptions()
                     .await?
-                    .contains(&self.0))
+                    .get_package_boundary_exception_path(&self.0)
+                    .map(Arc::new))
             }
 
             fn validity(x: &Self::Value) -> bool {
