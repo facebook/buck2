@@ -6,7 +6,6 @@ oncall("build_infra")
 rust_library(
     name = "buck2_bxl",
     srcs = glob(["src/**/*.rs"]),
-    doctests = False,  # FIXME
     test_deps = [
         "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:maplit",
