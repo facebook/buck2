@@ -43,6 +43,7 @@ use buck2_common::http::SetHttpClient;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
@@ -870,65 +871,59 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         }
 
         fn extract_scuba_defaults(
-            config: Option<&LegacyBuckConfig>,
+            config: &LegacyBuckConfig,
         ) -> Option<serde_json::Map<String, serde_json::Value>> {
-            let config = config?.get("scuba", "defaults")?;
+            let config = config.get("scuba", "defaults")?;
             let unescaped_config = shlex::split(config)?.join("");
             let sample_json: serde_json::Value = serde_json::from_str(&unescaped_config).ok()?;
             sample_json.get("normals")?.as_object().cloned()
         }
 
         let mut metadata = HashMap::new();
-        // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
-        // error. We won't be able to get configs to log in that case, but we shouldn't crash.
-        let (cells, configs, _): (CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>) =
-            self.cell_configs_loader.cells_and_configs(ctx).await?;
 
-        let root_cell_config = configs.get(cells.root_cell());
-        if let Ok(config) = root_cell_config {
-            add_config(&mut metadata, config, "log", "repository", "repository");
+        let cells = ctx.get_cell_resolver().await?;
 
-            // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
-            // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
-            // does, but metadata in this function indirectly makes its way to Scuba, so it makes sense to respect at
-            // least some of the data within it.
-            //
-            // The configuration field is expected to be the canonical JSON representation for a Scuba sample, which is
-            // to say something like this:
-            // ```
-            // {
-            //   "normals": { "key": "value" },
-            //   "ints": { "key": 0 },
-            // }
-            // ```
-            //
-            // TODO(swgillespie) - This only covers the normals since Buck2's event protocol only allows for string
-            // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
-            // to consider adding support to the protocol for integer metadata.
+        let config = ctx.get_legacy_config_for_cell(cells.root_cell()).await?;
+        add_config(&mut metadata, &config, "log", "repository", "repository");
 
-            if let Ok(cwd_cell_name) = cells.find(&self.working_dir) {
-                let cwd_cell_config = configs.get(cwd_cell_name).ok();
-                if let Some(normals_obj) = extract_scuba_defaults(cwd_cell_config) {
-                    for (key, value) in normals_obj.iter() {
-                        if let Some(value) = value.as_str() {
-                            metadata.insert(key.clone(), value.to_owned());
-                        }
+        // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
+        // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
+        // does, but metadata in this function indirectly makes its way to Scuba, so it makes sense to respect at
+        // least some of the data within it.
+        //
+        // The configuration field is expected to be the canonical JSON representation for a Scuba sample, which is
+        // to say something like this:
+        // ```
+        // {
+        //   "normals": { "key": "value" },
+        //   "ints": { "key": 0 },
+        // }
+        // ```
+        //
+        // TODO(swgillespie) - This only covers the normals since Buck2's event protocol only allows for string
+        // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
+        // to consider adding support to the protocol for integer metadata.
+
+        if let Ok(cwd_cell_name) = cells.find(&self.working_dir) {
+            let cwd_cell_config = ctx.get_legacy_config_for_cell(cwd_cell_name).await?;
+            if let Some(normals_obj) = extract_scuba_defaults(&cwd_cell_config) {
+                for (key, value) in normals_obj.iter() {
+                    if let Some(value) = value.as_str() {
+                        metadata.insert(key.clone(), value.to_owned());
                     }
                 }
-
-                // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
-                // the root cell.
-                if let Some(config) = cwd_cell_config {
-                    add_config(&mut metadata, config, "client", "id", "client");
-                    add_config(
-                        &mut metadata,
-                        config,
-                        "cache",
-                        "schedule_type",
-                        "schedule_type",
-                    );
-                }
             }
+
+            // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
+            // the root cell.
+            add_config(&mut metadata, &config, "client", "id", "client");
+            add_config(
+                &mut metadata,
+                &config,
+                "cache",
+                "schedule_type",
+                "schedule_type",
+            );
         }
 
         Ok(metadata)
