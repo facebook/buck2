@@ -51,5 +51,5 @@ fn run_arbitrary_starlark(content: &str) -> String {
 }
 
 fuzz_target!(|content: &str| {
-    let _ = run_arbitrary_starlark(content);
+    let _ignore = run_arbitrary_starlark(content);
 });
