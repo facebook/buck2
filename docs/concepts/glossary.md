@@ -103,7 +103,7 @@ parentheses).
 
 A constraint represents a property that may differ across different
 [target](#target) or build contexts, such as CPU architecture, the version of a
-system-installed compiler, optimzation level, which version of a particular
+system-installed compiler, optimization level, which version of a particular
 library to use, etc.
 
 #### Daemon
