@@ -20,7 +20,6 @@ import winreg
 from pathlib import Path
 from typing import IO, List, NamedTuple
 
-EXE_NAMES = ["cl.exe", "lib.exe", "ml64.exe", "link.exe"]
 VC_EXE_NAMES = ["cl.exe", "cvtres.exe", "lib.exe", "ml64.exe", "link.exe"]
 UCRT_EXE_NAMES = ["rc.exe"]
 
@@ -109,7 +108,6 @@ def find_with_vswhere_exe():
         lib_path = tools_path / "lib" / "x64"
         include_path = tools_path / "include"
 
-        if not all(bin_path.joinpath(exe).exists() for exe in EXE_NAMES):
         vc_exe_paths = [bin_path / exe for exe in VC_EXE_NAMES]
 
         if not all(exe.exists() for exe in vc_exe_paths):
@@ -265,10 +263,18 @@ def find_with_ewdk(ewdkdir: Path):
     ucrt = Path(env["UCRTContentRoot"])
     ucrt_version = env.get("Version_Number")
 
+    vc_exe_paths = [bin_path / exe for exe in VC_EXE_NAMES]
+
     if ucrt_version:
-        PATH.append(ucrt / "bin" / ucrt_version / "x64")
+        ucrt_bin_path = ucrt / "bin" / ucrt_version / "x64"
+        PATH.append(ucrt_bin_path)
         LIB.append(ucrt / "lib" / ucrt_version / "ucrt" / "x64")
         INCLUDE.append(ucrt / "include" / ucrt_version / "ucrt")
+
+        ucrt_exe_paths = [ucrt_bin_path / exe for exe in UCRT_EXE_NAMES]
+        ucrt_exe_paths = [exe if exe.exists() else None for exe in ucrt_exe_paths]
+    else:
+        ucrt_exe_paths = [None for exe in UCRT_EXE_NAMES]
 
     sdk = Path(env["WindowsSdkDir"])
     sdk_version = ucrt_version
@@ -282,7 +288,7 @@ def find_with_ewdk(ewdkdir: Path):
 
     return [
         Tool(exe=bin_path / exe, LIB=LIB, PATH=PATH, INCLUDE=INCLUDE)
-        for exe in EXE_NAMES
+        for exe in vc_exe_paths + ucrt_exe_paths
     ]
 
 def main():
@@ -297,15 +303,14 @@ def main():
 
     # If vcvars has been run, it puts these tools onto $PATH.
     if "VCINSTALLDIR" in os.environ:
-        cl_exe, lib_exe, ml64_exe, link_exe = (find_in_path(exe) for exe in EXE_NAMES)
-    elif "EWDKDIR" in os.environ:
-        cl_exe, lib_exe, ml64_exe, link_exe = find_with_ewdk(Path(os.environ["EWDKDIR"]))
-
         cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe = (
             find_in_path(exe) for exe in VC_EXE_NAMES
         )
         rc_exe = find_in_path("rc.exe", optional=True)
-
+    elif "EWDKDIR" in os.environ:
+        cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe, rc_exe = (
+            find_with_ewdk(Path(os.environ["EWDKDIR"]))
+        )
     else:
         cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe, rc_exe = (
             find_with_vswhere_exe()
