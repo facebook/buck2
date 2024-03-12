@@ -971,7 +971,7 @@ mod tests {
                     format: None,
                 },
                 ArgValue {
-                    content: ArgValueContent::DeclaredOutput(declared_output.clone()),
+                    content: ArgValueContent::DeclaredOutput(declared_output.name.clone()),
                     format: Some("--output={}".to_owned()),
                 },
             ],
@@ -1069,7 +1069,7 @@ mod tests {
                     format: None,
                 },
                 ArgValue {
-                    content: ArgValueContent::DeclaredOutput(declared_output.clone()),
+                    content: ArgValueContent::DeclaredOutput(declared_output.name.clone()),
                     format: Some("--output={}".to_owned()),
                 },
             ],

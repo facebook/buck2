@@ -225,7 +225,7 @@ message ArgFormat {
 message ArgValueContent {
   oneof value {
     ExternalRunnerSpecValue spec_value = 1;
-    DeclaredOutput declared_output = 2;
+    OutputName declared_output = 2;
   }
 }
 

@@ -175,7 +175,7 @@ pub struct ArgValue {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArgValueContent {
     ExternalRunnerSpecValue(ExternalRunnerSpecValue),
-    DeclaredOutput(DeclaredOutput),
+    DeclaredOutput(OutputName),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, From)]
