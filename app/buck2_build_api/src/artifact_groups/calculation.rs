@@ -144,9 +144,9 @@ fn ensure_build_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     built: BuildArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    ActionCalculation::build_action(dice, built.key.clone()).map(move |action_outputs| {
+    ActionCalculation::build_action(dice, built.key().clone()).map(move |action_outputs| {
         let action_outputs = action_outputs?;
-        if let Some(value) = action_outputs.get(&built.path) {
+        if let Some(value) = action_outputs.get(built.get_path()) {
             Ok(EnsureArtifactGroupReady::Single(value.dupe()))
         } else {
             Err(

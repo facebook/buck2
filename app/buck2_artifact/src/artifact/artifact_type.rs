@@ -312,7 +312,7 @@ impl DeclaredArtifact {
 
     pub fn output_type(&self) -> OutputType {
         match &*self.artifact.borrow() {
-            DeclaredArtifactKind::Bound(x) => x.output_type,
+            DeclaredArtifactKind::Bound(x) => x.output_type(),
             DeclaredArtifactKind::Unbound(x) => x.1,
         }
     }
@@ -495,7 +495,7 @@ pub mod testing {
 
         fn testing_action_key(&self) -> Option<ActionKey> {
             match &*self.artifact.borrow() {
-                DeclaredArtifactKind::Bound(built) => Some(built.key.dupe()),
+                DeclaredArtifactKind::Bound(built) => Some(built.key().dupe()),
                 DeclaredArtifactKind::Unbound(_) => None,
             }
         }
@@ -507,7 +507,7 @@ pub mod testing {
         }
 
         fn testing_action_key(&self) -> Option<ActionKey> {
-            Some(self.key.dupe())
+            Some(self.key().dupe())
         }
     }
 
