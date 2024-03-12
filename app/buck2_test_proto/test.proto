@@ -283,7 +283,7 @@ message Output {
 }
 
 message OutputEntry {
-  DeclaredOutput declared_output = 1;
+  OutputName declared_output = 1;
   Output output = 2;
 }
 

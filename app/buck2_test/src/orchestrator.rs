@@ -313,14 +313,10 @@ impl<'a> BuckTestOrchestrator<'a> {
                 .find(|&x| x.name == output_name)
                 .map_or(false, |x| x.supports_remote);
 
-            let declared_output = DeclaredOutput {
-                name: output_name.clone(),
-                supports_remote,
-            };
             let output = match (
                 supports_remote,
                 execution_kind.as_ref(),
-                translations::convert_artifact(output_name.into_string(), artifact),
+                translations::convert_artifact(output_name.clone().into_string(), artifact),
             ) {
                 // This condition checks that a downstream consumer supports
                 // remote outputs AND the output is actually in CAS.
@@ -338,7 +334,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                     Output::LocalPath(abs_path)
                 }
             };
-            output_map.insert(declared_output, output);
+            output_map.insert(output_name, output);
         }
 
         // Request materialization in case this ran on RE. Eventually Tpx should be able to

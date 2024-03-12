@@ -302,7 +302,7 @@ pub struct ExecutionResult2 {
     pub status: ExecutionStatus,
     pub stdout: ExecutionStream,
     pub stderr: ExecutionStream,
-    pub outputs: HashMap<DeclaredOutput, Output>,
+    pub outputs: HashMap<OutputName, Output>,
     pub start_time: SystemTime,
     pub execution_time: Duration,
     /// We don't try to convert this field, mostly because it shares with buck2.data, and that

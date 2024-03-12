@@ -1013,10 +1013,7 @@ mod tests {
             stdout: ExecutionStream::Inline(vec![97, 115, 109]),
             stderr: ExecutionStream::Inline(vec![118, 105, 109]),
             outputs: [(
-                DeclaredOutput {
-                    name: OutputName::unchecked_new("name".to_owned()),
-                    supports_remote: true,
-                },
+                OutputName::unchecked_new("name".to_owned()),
                 Output::LocalPath(String::from(local_path).try_into().expect("valid abs path")),
             )]
             .into_iter()
