@@ -42,6 +42,7 @@ use dice::Key;
 use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
+use itertools::Itertools;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 
@@ -179,8 +180,19 @@ pub enum EnsureArtifactStagedError {
     #[error("Expected a transitive set, got a single artifact")]
     ExpectedTransitiveSet,
     // This one could probably be a panic! if DICE didn't eagerly re-evaluate all deps.
-    #[error("Building an artifact didn't produce it. Expected `{0}` but only have `{1:?}`")]
+    #[error("Building an artifact didn't produce it. Expected `{}` but only have `{}`", .0.get_path(), display_outputs(.1))]
     BuildArtifactMissing(BuildArtifact, ActionOutputs),
+}
+
+fn display_outputs(outputs: &ActionOutputs) -> String {
+    format!(
+        "({})",
+        outputs
+            .iter()
+            .map(|(path, _)| path.path())
+            .sorted()
+            .join(", ")
+    )
 }
 
 /// Represents the "ready" stage of an ensure_artifact_*() call. At this point the
