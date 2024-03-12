@@ -24,12 +24,7 @@ use crate::actions::key::ActionKey;
 #[display(fmt = "`{}`, action: {}", path, key)]
 pub struct BuildArtifact {
     path: BuckOutPath,
-    // If two BuildArtifact's have the same path then they are basically the same,
-    // even if the ActionKey differs due to things like `dynamic_output`.
-    // TODO(ndmitchell): Clean this up by making it more explicit in ActionKey.
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     key: ActionKey,
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     output_type: OutputType,
 }
 
