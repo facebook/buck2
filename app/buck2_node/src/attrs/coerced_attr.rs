@@ -229,10 +229,9 @@ impl AttrDisplayWithContext for CoercedAttr {
                 write!(f, "select(")?;
                 fmt_keyed_container(
                     f,
-                    // TODO(cjhopman): This is a bug, we're dropping the {} from the dict in the select arg
-                    "",
-                    "",
-                    "= ",
+                    "{",
+                    "}",
+                    ": ",
                     s.all_entries().map(|(k, v)| {
                         (
                             match k {

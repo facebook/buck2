@@ -83,7 +83,7 @@ fn test() -> anyhow::Result<()> {
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "[[[\"hello\", \"world!\"]+select(\"root//some:config\"= [\"some\"], \"DEFAULT\"= [\"okay\"]+select(\"root//other:config\"= [\"other\"], \"DEFAULT\"= [\"default\", \"for\", \"realz\"]))+[\"...\"]+[\"...\"]]]",
+        "[[[\"hello\", \"world!\"]+select({\"root//some:config\": [\"some\"], \"DEFAULT\": [\"okay\"]+select({\"root//other:config\": [\"other\"], \"DEFAULT\": [\"default\", \"for\", \"realz\"]})})+[\"...\"]+[\"...\"]]]",
         coerced.as_display_no_ctx().to_string()
     );
 
@@ -862,7 +862,7 @@ fn test_bool() -> anyhow::Result<()> {
 
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!(
-        "[True, False]+select(\"root//some:config\"= [True], \"DEFAULT\"= [False])+[True]",
+        "[True, False]+select({\"root//some:config\": [True], \"DEFAULT\": [False]})+[True]",
         coerced.as_display_no_ctx().to_string()
     );
 
