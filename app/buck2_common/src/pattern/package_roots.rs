@@ -10,7 +10,6 @@
 use std::collections::HashSet;
 
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_cancellable;
@@ -139,7 +138,7 @@ pub async fn collect_package_roots<E>(
         // (due to having some huge things in an `apps/` dir).
         for entry in listing.iter().rev() {
             if entry.file_type.is_dir() {
-                let child = path.join(ForwardRelativePath::unchecked_new(&entry.file_name));
+                let child = path.join(&entry.file_name);
                 if seen.insert(child.clone()) {
                     queue.push(list_dir(child));
                 }
