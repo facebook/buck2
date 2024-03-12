@@ -34,6 +34,7 @@ use crate::data::ExecutorConfigOverride;
 use crate::data::ExternalRunnerSpec;
 use crate::data::ExternalRunnerSpecValue;
 use crate::data::Output;
+use crate::data::OutputName;
 use crate::data::RemoteDir;
 use crate::data::RemoteFile;
 use crate::data::RemoteObject;
@@ -386,6 +387,23 @@ impl TryInto<buck2_test_proto::ExternalRunnerSpecValue> for ExternalRunnerSpecVa
         };
 
         Ok(buck2_test_proto::ExternalRunnerSpecValue { value: Some(value) })
+    }
+}
+
+impl From<OutputName> for buck2_test_proto::OutputName {
+    fn from(o: OutputName) -> Self {
+        Self {
+            name: o.name.as_str().to_owned(),
+        }
+    }
+}
+
+impl TryFrom<buck2_test_proto::OutputName> for OutputName {
+    type Error = anyhow::Error;
+
+    fn try_from(o: buck2_test_proto::OutputName) -> Result<Self, Self::Error> {
+        let name = ForwardRelativePathBuf::try_from(o.name)?;
+        Ok(Self { name })
     }
 }
 
