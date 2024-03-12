@@ -128,9 +128,11 @@ uploads, which allows users to get cache hits for things that executed locally.
 
 #### Hybrid execution
 
-Enables shifting work to the local host when available parallelism in the build
-is low. This enables users to save on [remote execution](#remote-execution-re)
-roundtrips to enable faster builds.
+Allows Buck2 to race local and remote execution and get whichever finishes first
+(unless there's a cache hit, then it will get output from cache). This can
+provide substantial speedup by eliminating the overhead of going to
+[remote execution](#remote-execution-re) when there is enough capacity to
+service the build locally.
 
 #### Isolation dir
 
