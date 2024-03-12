@@ -341,6 +341,13 @@ impl QueryTarget for ActionQueryNode {
         Ok(())
     }
 
+    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+        &self,
+        func: F,
+    ) -> Result<(), E> {
+        self.attrs_for_each(func)
+    }
+
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
         let mut res = None;
 

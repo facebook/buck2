@@ -120,6 +120,11 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
         func: F,
     ) -> Result<(), E>;
 
+    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+        &self,
+        func: F,
+    ) -> Result<(), E>;
+
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
 }
 
