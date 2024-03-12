@@ -246,7 +246,7 @@ impl AttrDisplayWithContext for CoercedAttr {
                 Ok(())
             }
             CoercedAttr::Concat(items) => {
-                write!(f, "{}", items.iter().map(|a| a.as_display(ctx)).format("+"))
+                items.iter().map(|a| a.as_display(ctx)).format("+").fmt(f)
             }
             CoercedAttr::Bool(v) => {
                 write!(f, "{}", v)
