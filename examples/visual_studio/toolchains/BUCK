@@ -41,7 +41,7 @@ system_cxx_toolchain(
         }),
     }),
     cxx_flags = select({
-        "config//os:linux": ["-std=c++20"],
+        "config//os:linux": [],
         #Added C++ 20 version flag
         #Removed flags that are already the default: /GS, /fp:precise /Gd /Zc:wchar_t /Gm-
         #Removed deprecated /errorReport:prompt
