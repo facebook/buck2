@@ -14,6 +14,7 @@ use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
+use display_container::fmt_container;
 use gazebo::prelude::SliceExt;
 use serde_json::to_value;
 use serde_json::Value;
@@ -21,6 +22,7 @@ use serde_json::Value;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::display::AttrDisplayWithContext;
+use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 
@@ -59,15 +61,7 @@ impl<C: Eq> Deref for TupleLiteral<C> {
 
 impl<C: Eq + AttrDisplayWithContext> AttrDisplayWithContext for TupleLiteral<C> {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "(")?;
-        for (i, v) in self.0.iter().enumerate() {
-            if i != 0 {
-                write!(f, ",")?;
-            }
-            AttrDisplayWithContext::fmt(v, ctx, f)?;
-        }
-        write!(f, ")")?;
-        Ok(())
+        fmt_container(f, "(", ")", self.0.iter().map(|v| v.as_display(ctx)))
     }
 }
 

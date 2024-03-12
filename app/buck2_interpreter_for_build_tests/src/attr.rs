@@ -89,7 +89,7 @@ fn list_works() -> buck2_error::Result<()> {
             )
 
             assert_eq('attrs.list(attrs.string(), default=[])', repr(not_frozen))
-            assert_eq('attrs.list(attrs.string(), default=["1","2"])', repr(frozen))
+            assert_eq('attrs.list(attrs.string(), default=["1", "2"])', repr(frozen))
         "#
     ))
 }
