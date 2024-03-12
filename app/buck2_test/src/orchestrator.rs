@@ -306,7 +306,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         for (test_path, artifact) in outputs {
             let project_relative_path = fs.buck_out_path_resolver().resolve_test(&test_path);
-            let output_name = test_path.into_path();
+            let output_name = test_path.into_path().into();
             // It's OK to search iteratively here because there will be few entries in `pre_create_dirs`
             let supports_remote = pre_create_dirs
                 .iter()
@@ -320,7 +320,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             let output = match (
                 supports_remote,
                 execution_kind.as_ref(),
-                translations::convert_artifact(output_name.to_string(), artifact),
+                translations::convert_artifact(output_name.into_string(), artifact),
             ) {
                 // This condition checks that a downstream consumer supports
                 // remote outputs AND the output is actually in CAS.
@@ -922,7 +922,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         let (expanded_cmd, expanded_env, inputs) = expanded;
 
         for output in pre_create_dirs {
-            let test_path = BuckOutTestPath::new(output_root.clone(), output.name);
+            let test_path = BuckOutTestPath::new(output_root.clone(), output.name.into());
             declared_outputs.insert(test_path, OutputCreationBehavior::Create);
         }
 
@@ -1235,7 +1235,8 @@ impl<'a> Execute2RequestExpander<'a> {
                     arg.add_to_command_line(&mut cli, ctx)?;
                 }
                 ArgValueContent::DeclaredOutput(output) => {
-                    let test_path = BuckOutTestPath::new(self.output_root.to_owned(), output.name);
+                    let test_path =
+                        BuckOutTestPath::new(self.output_root.to_owned(), output.name.into());
                     let path = self
                         .fs
                         .fs()

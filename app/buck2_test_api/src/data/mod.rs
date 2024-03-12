@@ -178,7 +178,7 @@ pub enum ArgValueContent {
     DeclaredOutput(DeclaredOutput),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, From)]
 pub struct OutputName {
     pub name: ForwardRelativePathBuf,
 }
@@ -189,12 +189,26 @@ impl OutputName {
             name: ForwardRelativePathBuf::unchecked_new(name),
         }
     }
+
+    pub fn as_str(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn into_string(self) -> String {
+        self.name.into_string()
+    }
+}
+
+impl From<OutputName> for ForwardRelativePathBuf {
+    fn from(value: OutputName) -> Self {
+        value.name
+    }
 }
 
 #[derive(Derivative, Debug, Clone)]
 #[derivative(PartialEq, Eq, Hash)]
 pub struct DeclaredOutput {
-    pub name: ForwardRelativePathBuf,
+    pub name: OutputName,
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub supports_remote: bool,
 }
@@ -202,7 +216,7 @@ pub struct DeclaredOutput {
 impl DeclaredOutput {
     pub fn unchecked_new(name: String, supports_remote: bool) -> Self {
         Self {
-            name: ForwardRelativePathBuf::unchecked_new(name),
+            name: OutputName::unchecked_new(name),
             supports_remote,
         }
     }

@@ -422,7 +422,7 @@ impl TryFrom<buck2_test_proto::DeclaredOutput> for DeclaredOutput {
     fn try_from(o: buck2_test_proto::DeclaredOutput) -> Result<Self, Self::Error> {
         let name = ForwardRelativePathBuf::try_from(o.name)?;
         Ok(Self {
-            name,
+            name: name.into(),
             supports_remote: o.supports_remote,
         })
     }
@@ -956,7 +956,7 @@ mod tests {
     #[test]
     fn execute_request2_roundtrip() {
         let declared_output = DeclaredOutput {
-            name: ForwardRelativePathBuf::unchecked_new("name".to_owned()),
+            name: OutputName::unchecked_new("name".to_owned()),
             supports_remote: true,
         };
 
@@ -1014,7 +1014,7 @@ mod tests {
             stderr: ExecutionStream::Inline(vec![118, 105, 109]),
             outputs: [(
                 DeclaredOutput {
-                    name: ForwardRelativePathBuf::unchecked_new("name".to_owned()),
+                    name: OutputName::unchecked_new("name".to_owned()),
                     supports_remote: true,
                 },
                 Output::LocalPath(String::from(local_path).try_into().expect("valid abs path")),
@@ -1054,7 +1054,7 @@ mod tests {
     #[test]
     fn test_executable_roundtrip() {
         let declared_output = DeclaredOutput {
-            name: ForwardRelativePathBuf::unchecked_new("name".to_owned()),
+            name: OutputName::unchecked_new("name".to_owned()),
             supports_remote: false,
         };
 
