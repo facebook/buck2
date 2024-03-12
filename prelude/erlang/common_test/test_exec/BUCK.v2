@@ -25,11 +25,9 @@ erlang_application(
 )
 
 erlang_tests(
-    contacts = ["whatsapp_erlclient"],
+    contacts = ["whatsapp_testing_infra"],
     labels = ["unit"],
-    suites = glob(
-        ["test/*_SUITE.erl"],
-    ),
+    suites = ["test/ct_executor_SUITE.erl"],
     deps = [
         "stdlib",
         ":test_exec",

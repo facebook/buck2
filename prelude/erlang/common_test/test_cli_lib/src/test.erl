@@ -34,6 +34,11 @@
     start_shell/0
 ]).
 
+%% Test functions
+-export([
+    list_impl/1
+]).
+
 -type test_id() :: string() | non_neg_integer().
 -type test_info() :: #{name := string(), suite := atom()}.
 -type run_spec() :: test_id() | [test_info()].
@@ -71,7 +76,7 @@ help() ->
     [
         print_help(F, A)
      || {F, A} <- ?MODULE:module_info(exports),
-        not lists:member(F, [module_info, ensure_initialized, start, start_shell])
+        not lists:member(F, [module_info, ensure_initialized, start, start_shell, list_impl])
     ],
     io:format("~n"),
     io:format("For more information, use the built in help, e.g. h(test, help)~n"),
@@ -143,10 +148,9 @@ list() ->
 %% tests from that module instead
 -spec list(RegExOrModule :: module() | string()) -> ok | {error, term()}.
 list(RegEx) when is_list(RegEx) ->
-    ensure_initialized(),
-    case ct_daemon:list(RegEx) of
-        {invalid_regex, _} = Err -> {error, Err};
-        Tests -> print_tests(Tests)
+    case list_impl(RegEx) of
+        {ok, TestsString} -> io:format("~s", [TestsString]);
+        Error -> Error
     end.
 
 %% @doc Run a test given by either the test id from the last list() command, or
@@ -210,6 +214,14 @@ reset() ->
     end.
 
 %% internal
+-spec list_impl(RegEx :: string()) -> {ok, string()} | {error, term()}.
+list_impl(RegEx) ->
+    ensure_initialized(),
+    case ct_daemon:list(RegEx) of
+        {invalid_regex, _} = Err -> {error, Err};
+        Tests -> {ok, print_tests(Tests)}
+    end.
+
 ensure_initialized() ->
     PrintInit = lists:foldl(
         fun(Fun, Acc) -> Fun() orelse Acc end,
@@ -294,19 +306,20 @@ init_group_leader() ->
     ct_daemon:set_gl(),
     false.
 
--spec print_tests([{module(), [{non_neg_integer(), string()}]}]) -> ok.
+-spec print_tests([{module(), [{non_neg_integer(), string()}]}]) -> string().
 print_tests([]) ->
-    io:format("no tests found~n");
+    lists:flatten(io_lib:format("no tests found~n"));
 print_tests(Tests) ->
-    print_tests_impl(lists:reverse(Tests)).
+    lists:flatten(print_tests_impl(lists:reverse(Tests))).
 
--spec print_tests_impl([{module(), [{non_neg_integer(), string()}]}]) -> ok.
+-spec print_tests_impl([{module(), [{non_neg_integer(), string()}]}]) -> io_lib:chars().
 print_tests_impl([]) ->
-    ok;
+    "";
 print_tests_impl([{Suite, SuiteTests} | Rest]) ->
-    io:format("~s:~n", [Suite]),
-    [io:format("\t~b - ~s~n", [Id, Test]) || {Id, Test} <- SuiteTests],
-    print_tests_impl(Rest).
+    SuiteString = io_lib:format("~s:~n", [Suite]),
+    TestsString = [io_lib:format("\t~b - ~s~n", [Id, Test]) || {Id, Test} <- SuiteTests],
+    RestString = print_tests_impl(Rest),
+    SuiteString ++ TestsString ++ RestString.
 
 -spec is_debug_session() -> boolean().
 is_debug_session() ->
