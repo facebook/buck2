@@ -205,11 +205,9 @@ impl From<OutputName> for ForwardRelativePathBuf {
     }
 }
 
-#[derive(Derivative, Debug, Clone)]
-#[derivative(PartialEq, Eq, Hash)]
+#[derive(Derivative, Debug, Clone, PartialEq)]
 pub struct DeclaredOutput {
     pub name: OutputName,
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub supports_remote: bool,
 }
 
