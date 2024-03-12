@@ -229,6 +229,13 @@ message ArgValueContent {
   }
 }
 
+// This message should be compatible with the prefix of DeclaredOutput for
+// backwards compatibility
+message OutputName {
+  string name = 1;
+  reserved 2;
+}
+
 message DeclaredOutput {
   string name = 1;
   // Flags that a consumer supports *remote* output, in which case it's not
