@@ -13,6 +13,7 @@ load(":exec_deps.bzl", "HttpArchiveExecDeps")
 # Flags to apply to decompress the various types of archives.
 _TAR_FLAGS = {
     "tar": [],
+    "tar.bz2": [],
     "tar.gz": ["-z"],
     "tar.xz": ["-J"],
     "tar.zst": ["--use-compress-program=unzstd"],
