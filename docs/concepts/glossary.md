@@ -18,6 +18,12 @@ other artifacts as outputs. An example command could be `gcc -o main main.c`,
 which takes the artifact `main.c` (a source file) and produces the artifact
 called `main` (the compiled binary).
 
+#### Action digest
+
+Encoded [action](#action) representation. It is sent to
+[remote execution](#remote-execution-re). Used among other things to retrieve
+action inputs and to check for cache hits
+
 #### Action graph
 
 The dependency graph of all [actions](#action) belonging to a target: it can be
