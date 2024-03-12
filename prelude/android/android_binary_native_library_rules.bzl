@@ -421,7 +421,12 @@ def _declare_library_subtargets(
         if native_library_merge_map:
             sonames.update(native_library_merge_map.keys())
         elif native_library_merge_sequence:
-            sonames.update([soname for (soname, _) in native_library_merge_sequence])
+            for entry in native_library_merge_sequence:
+                if type(entry) == "list":
+                    sonames.update([soname for (soname, _) in entry])
+                else:
+                    (soname, _) = entry
+                    sonames.add(soname)
 
         lib_outputs = {}
         for soname in sonames.list():
