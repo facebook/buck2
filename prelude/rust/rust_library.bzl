@@ -617,7 +617,7 @@ def _rust_link_providers(
                     # if this target actually requested that. Opt ourselves out
                     # if it didn't.
                     ignore_force_static_follows_dependents = preferred_linkage != Linkage("static"),
-                    include_in_android_mergemap = False,
+                    include_in_android_mergemap = False,  # TODO(pickett): Plumb D54748362 to the macro layer
                 ),
                 label = new_label,
             ),
