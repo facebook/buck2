@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import winreg
 from pathlib import Path
 from typing import IO, List, NamedTuple
@@ -218,6 +219,81 @@ def write_tool_json(out, tool):
     out.write(j)
 
 
+# for use with the ewdk to grab the environment strings
+def get_ewdk_env(ewdkdir: Path):
+    """
+    Inspiration taken from the following:
+    http://pythonwise.blogspot.fr/2010/04/sourcing-shell-script.html (Miki Tebeka)
+    http://stackoverflow.com/questions/3503719/#comment28061110_3505826 (ahal)
+    """
+
+    # We need to write the script that will make the important variables available
+    with tempfile.NamedTemporaryFile(
+        prefix="VcVarsExtract", suffix=".bat", mode="w", delete=False
+    ) as tmp:
+        print("@echo off", file=tmp)
+        print("call %* > NUL", file=tmp)
+        print("set", file=tmp)
+
+    env_script = ewdkdir / "BuildEnv" / "SetupBuildEnv.cmd"
+    cmd = [tmp.name, env_script, "amd64"]
+    output = subprocess.check_output(cmd).decode("utf-8")
+
+    env = {}
+    for line in output.split("\r\n"):
+        if line and "=" in line:
+            first, second = line.split("=", 1)
+            env[first] = second
+
+    return env
+
+
+def find_with_ewdk(ewdkdir: Path):
+    env = get_ewdk_env(ewdkdir)
+
+    installation_path = Path(env["VSINSTALLDIR"])
+    vc_tools_version = env["VCToolsVersion"]
+    tools_path = installation_path / "VC" / "Tools" / "MSVC" / vc_tools_version
+    bin_path = tools_path / "bin" / "HostX64" / "x64"
+    lib_path = tools_path / "lib" / "x64"
+    include_path = tools_path / "include"
+
+    PATH = [bin_path]
+    LIB = [lib_path]
+    INCLUDE = [include_path]
+
+    ucrt = Path(env["UCRTContentRoot"])
+    ucrt_version = env.get("Version_Number")
+
+    vc_exe_paths = [bin_path / exe for exe in VC_EXE_NAMES]
+
+    if ucrt_version:
+        ucrt_bin_path = ucrt / "bin" / ucrt_version / "x64"
+        PATH.append(ucrt_bin_path)
+        LIB.append(ucrt / "lib" / ucrt_version / "ucrt" / "x64")
+        INCLUDE.append(ucrt / "include" / ucrt_version / "ucrt")
+
+        ucrt_exe_paths = [ucrt_bin_path / exe for exe in UCRT_EXE_NAMES]
+        ucrt_exe_paths = [exe if exe.exists() else None for exe in ucrt_exe_paths]
+    else:
+        ucrt_exe_paths = [None for exe in UCRT_EXE_NAMES]
+
+    sdk = Path(env["WindowsSdkDir"])
+    sdk_version = ucrt_version
+    if sdk_version:
+        PATH.append(sdk / "bin" / "x64")
+        LIB.append(sdk / "lib" / sdk_version / "um" / "x64")
+        INCLUDE.append(sdk / "include" / sdk_version / "um")
+        INCLUDE.append(sdk / "include" / sdk_version / "cppwinrt")
+        INCLUDE.append(sdk / "include" / sdk_version / "winrt")
+        INCLUDE.append(sdk / "include" / sdk_version / "shared")
+
+    return [
+        Tool(exe=bin_path / exe, LIB=LIB, PATH=PATH, INCLUDE=INCLUDE)
+        for exe in vc_exe_paths + ucrt_exe_paths
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cl", type=argparse.FileType("w"), required=True)
@@ -234,6 +310,10 @@ def main():
             find_in_path(exe) for exe in VC_EXE_NAMES
         )
         rc_exe = find_in_path("rc.exe", optional=True)
+    elif "EWDKDIR" in os.environ:
+        cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe, rc_exe = find_with_ewdk(
+            Path(os.environ["EWDKDIR"])
+        )
     else:
         cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe, rc_exe = (
             find_with_vswhere_exe()
