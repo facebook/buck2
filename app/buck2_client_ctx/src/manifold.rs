@@ -49,13 +49,13 @@ impl Default for Ttl {
 #[derive(Debug, Error)]
 enum HttpWriteError {
     #[error(transparent)]
-    Client(#[from] HttpError),
+    Client(HttpError),
 }
 
 #[derive(Debug, Error)]
 enum HttpAppendError {
     #[error(transparent)]
-    Client(#[from] HttpError),
+    Client(HttpError),
 }
 
 impl AsHttpError for HttpWriteError {
@@ -95,7 +95,7 @@ pub enum UploadError {
     #[error("File not found")]
     FileNotFound,
     #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    Other(anyhow::Error),
 }
 
 impl From<io::Error> for UploadError {
