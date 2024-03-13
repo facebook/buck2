@@ -14,10 +14,9 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_interpreter::paths::package::PackageFilePath;
+use buck2_core::package::PackageLabel;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
@@ -39,10 +38,9 @@ async fn get_cfg_constructor_uncached(
     ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
     let root_cell = ctx.get_cell_resolver().await?.root_cell();
-    let package_file_path =
-        PackageFilePath::for_dir(CellPathRef::new(root_cell, CellRelativePath::empty()));
+    let package_label = PackageLabel::new(root_cell, CellRelativePath::empty());
     // This returns empty super package if `PACKAGE` file does not exist.
-    let super_package = ctx.eval_package_file(&package_file_path).await?;
+    let super_package = ctx.eval_package_file(package_label).await?;
     Ok(super_package.cfg_constructor().duped())
 }
 

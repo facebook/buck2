@@ -257,13 +257,13 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         .await
     }
 
-    /// Eval parent `PACKAGE` file for given `PACKAGE` file.
+    /// Eval parent `PACKAGE` file for given package file.
     async fn eval_parent_package_file(
         &mut self,
-        file: &PackageFilePath,
+        file: PackageLabel,
     ) -> anyhow::Result<SuperPackage> {
         let cell_resolver = self.ctx.get_cell_resolver().await?;
-        let proj_rel_path = cell_resolver.resolve_path(file.dir())?;
+        let proj_rel_path = cell_resolver.resolve_path(file.as_cell_path())?;
         match proj_rel_path.parent() {
             None => {
                 // We are in the project root, there's no parent.
@@ -271,7 +271,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             }
             Some(parent) => {
                 let parent_cell = cell_resolver.get_cell_path(parent)?;
-                self.eval_package_file(&PackageFilePath::for_dir(parent_cell.as_ref()))
+                self.eval_package_file(PackageLabel::from_cell_path(parent_cell.as_ref()))
                     .await
             }
         }
@@ -301,10 +301,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
     async fn eval_package_file_uncached(
         &mut self,
-        path: &PackageFilePath,
+        path: PackageLabel,
     ) -> anyhow::Result<SuperPackage> {
-        let parent = self.eval_parent_package_file(path).await?;
-        let ast_deps = self.prepare_package_file_eval(path).await?;
+        let parent = self.eval_parent_package_file(path.dupe()).await?;
+        let package_file_path = PackageFilePath::for_dir(path.as_cell_path());
+        let ast_deps = self.prepare_package_file_eval(&package_file_path).await?;
 
         let (ast, deps) = match ast_deps {
             Some(x) => x,
@@ -330,7 +331,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
                 configs
                     .eval_package_file(
-                        path,
+                        &package_file_path,
                         ast,
                         parent,
                         &mut buckconfigs,
@@ -345,10 +346,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
     pub(crate) async fn eval_package_file(
         &mut self,
-        path: &PackageFilePath,
+        path: PackageLabel,
     ) -> anyhow::Result<SuperPackage> {
         #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash)]
-        struct PackageFileKey(PackageFilePath);
+        struct PackageFileKey(PackageLabel);
 
         #[async_trait]
         impl Key for PackageFileKey {
@@ -359,11 +360,12 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
+                let cell_name = self.0.as_cell_path().cell();
                 let mut interpreter = ctx
-                    .get_interpreter_calculator(self.0.cell(), self.0.build_file_cell())
+                    .get_interpreter_calculator(cell_name, BuildFileCell::new(cell_name))
                     .await?;
                 interpreter
-                    .eval_package_file_uncached(&self.0)
+                    .eval_package_file_uncached(self.0.dupe())
                     .await
                     .map_err(buck2_error::Error::from)
             }
@@ -381,7 +383,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
-            .compute(&PackageFileKey(path.clone()))
+            .compute(&PackageFileKey(path))
             .await?
             .map_err(anyhow::Error::from)
     }
@@ -393,16 +395,15 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         package: PackageLabel,
         package_listing: &PackageListing,
     ) -> anyhow::Result<SuperPackage> {
-        let package_file_path = PackageFilePath::for_dir(package.as_cell_path());
         if package_listing
             .get_file(PackageFilePath::PACKAGE_FILE_NAME.as_ref())
             .is_none()
         {
             // Without this optimization, `cquery <that android target>` has 6% time regression.
             // With this optimization, check for `PACKAGE` files adds 2% to time.
-            self.eval_parent_package_file(&package_file_path).await
+            self.eval_parent_package_file(package).await
         } else {
-            self.eval_package_file(&package_file_path).await
+            self.eval_package_file(package).await
         }
     }
 

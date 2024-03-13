@@ -8,7 +8,8 @@
  */
 
 use async_trait::async_trait;
-use buck2_interpreter::paths::package::PackageFilePath;
+use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::package::PackageLabel;
 use buck2_node::super_package::SuperPackage;
 use dice::DiceComputations;
 
@@ -16,13 +17,14 @@ use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 
 #[async_trait]
 pub trait EvalPackageFile {
-    async fn eval_package_file(&mut self, path: &PackageFilePath) -> anyhow::Result<SuperPackage>;
+    async fn eval_package_file(&mut self, path: PackageLabel) -> anyhow::Result<SuperPackage>;
 }
 
 #[async_trait]
 impl EvalPackageFile for DiceComputations<'_> {
-    async fn eval_package_file(&mut self, path: &PackageFilePath) -> anyhow::Result<SuperPackage> {
-        self.get_interpreter_calculator(path.cell(), path.build_file_cell())
+    async fn eval_package_file(&mut self, path: PackageLabel) -> anyhow::Result<SuperPackage> {
+        let cell_name = path.as_cell_path().cell();
+        self.get_interpreter_calculator(cell_name, BuildFileCell::new(cell_name))
             .await?
             .eval_package_file(path)
             .await
