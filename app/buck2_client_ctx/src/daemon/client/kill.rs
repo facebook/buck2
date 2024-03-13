@@ -115,6 +115,7 @@ async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyh
         "Killing PID {} with status {}",
         pid,
         kill::get_sysinfo_status(pid)
+            .map(|s| s.to_string())
             .as_deref()
             .unwrap_or("<unknown>")
     );
@@ -131,7 +132,7 @@ async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyh
     }
 
     // Last chance: we do logging this time.
-    let status = kill::get_sysinfo_status(pid);
+    let status = kill::get_sysinfo_status(pid).map(|s| s.to_string());
     let status = status.unwrap_or_else(|| "<unknown>".to_owned());
     if handle.has_exited()? {
         return Ok(());

@@ -48,7 +48,7 @@ impl KilledProcessHandle {
 }
 
 /// Get the status of a given process according to sysinfo.
-pub fn get_sysinfo_status(pid: Pid) -> Option<String> {
+pub fn get_sysinfo_status(pid: Pid) -> Option<sysinfo::ProcessStatus> {
     use sysinfo::PidExt;
     use sysinfo::ProcessExt;
     use sysinfo::ProcessRefreshKind;
@@ -61,7 +61,7 @@ pub fn get_sysinfo_status(pid: Pid) -> Option<String> {
     system.refresh_process_specifics(pid, ProcessRefreshKind::new());
 
     let proc = system.process(pid)?;
-    Some(proc.status().to_string())
+    Some(proc.status())
 }
 
 #[cfg(test)]

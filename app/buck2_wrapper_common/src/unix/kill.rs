@@ -14,6 +14,7 @@ use nix::sys::signal::Signal;
 use sysinfo::Process;
 use sysinfo::ProcessExt;
 
+use crate::kill::get_sysinfo_status;
 use crate::pid::Pid;
 
 pub(crate) fn process_creation_time(process: &Process) -> Option<Duration> {
@@ -22,14 +23,15 @@ pub(crate) fn process_creation_time(process: &Process) -> Option<Duration> {
 }
 
 pub(crate) fn process_exists(pid: Pid) -> anyhow::Result<bool> {
-    let pid = pid.to_nix()?;
-    match nix::sys::signal::kill(pid, None) {
-        Ok(_) => Ok(true),
-        Err(nix::errno::Errno::ESRCH) => Ok(false),
-        Err(e) => {
-            Err(e).with_context(|| format!("unexpected error checking if process {} exists", pid))
-        }
-    }
+    Ok(match get_sysinfo_status(pid) {
+        // It occasionally happens that systemd on a machine becomes unresponsive and stops reaping
+        // its children. Unfortunately, there's not really much that we can do about that, and it
+        // does typically eventually resolve itself. In the meantime though, the user may be waiting
+        // on the daemon restart to finish to continue their work, so let's not block them.
+        Some(sysinfo::ProcessStatus::Zombie) => false,
+        Some(_) => true,
+        None => false,
+    })
 }
 
 pub(crate) fn kill(pid: Pid) -> anyhow::Result<Option<KilledProcessHandleImpl>> {
