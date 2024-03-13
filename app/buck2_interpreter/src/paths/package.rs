@@ -31,6 +31,16 @@ impl PackageFilePath {
         }
     }
 
+    pub fn from_file_path(path: CellPathRef) -> Option<PackageFilePath> {
+        if path.ends_with(PackageFilePath::PACKAGE_FILE_NAME.as_ref()) {
+            Some(PackageFilePath {
+                path: path.to_owned(),
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn cell(&self) -> CellName {
         self.path.cell()
     }

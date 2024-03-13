@@ -277,6 +277,11 @@ impl CellPath {
     }
 
     #[inline]
+    pub fn ends_with(&self, suffix: &ForwardRelativePath) -> bool {
+        self.as_ref().ends_with(suffix)
+    }
+
+    #[inline]
     pub fn into_parts(self) -> (CellName, Box<CellRelativePath>) {
         (self.cell, self.path)
     }
@@ -379,6 +384,11 @@ impl<'a> CellPathRef<'a> {
     #[inline]
     pub fn starts_with(&self, base: CellPathRef) -> bool {
         self.cell() == base.cell() && self.path().starts_with(base.path())
+    }
+
+    #[inline]
+    pub fn ends_with(&self, suffix: &ForwardRelativePath) -> bool {
+        self.path().ends_with(suffix)
     }
 
     #[inline]

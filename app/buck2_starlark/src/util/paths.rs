@@ -99,11 +99,8 @@ async fn starlark_file(
                 )));
             } else if proj_path.as_str().ends_with(".bxl") {
                 files.push(OwnedStarlarkPath::BxlFile(BxlFilePath::new(cell_path)?));
-            } else if proj_path.ends_with(PackageFilePath::PACKAGE_FILE_NAME) {
-                // `parent` must return `Some` if we have a non-empty file, which we do because of above
-                files.push(OwnedStarlarkPath::PackageFile(PackageFilePath::for_dir(
-                    cell_path.parent().unwrap(),
-                )))
+            } else if let Some(path) = PackageFilePath::from_file_path(cell_path.as_ref()) {
+                files.push(OwnedStarlarkPath::PackageFile(path));
             } else if recursive.is_none() || proj_path.as_str().ends_with(".bzl") {
                 // If a file was asked for explicitly, and is nothing else, treat it as .bzl file
                 // If it's not explicit, just ignore it (probably a source file)
