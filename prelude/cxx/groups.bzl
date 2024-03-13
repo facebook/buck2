@@ -380,3 +380,47 @@ def _hash_group_name(prefix: str, name: str) -> str:
     Hash algorithm is stable in starlark: https://fburl.com/code/ptegkov6
     """
     return "{}_{}".format(prefix, str(hash(name)))
+
+def _make_json_info_for_build_target_pattern(build_target_pattern: BuildTargetPattern) -> dict[str, typing.Any]:
+    # `BuildTargetPattern` contains lambdas which are not serializable, so
+    # have to generate the JSON representation
+    return {
+        "cell": build_target_pattern.cell,
+        "kind": build_target_pattern.kind,
+        "name": build_target_pattern.name,
+        "path": build_target_pattern.path,
+    }
+
+def _make_json_info_for_group_mapping_filters(filters: list[[BuildTargetFilter, LabelFilter]]) -> list[dict[str, typing.Any]]:
+    json_filters = []
+    for filter in filters:
+        if filter._type == FilterType("label"):
+            json_filters += [{"regex": str(filter.regex)}]
+        elif filter._type == FilterType("pattern"):
+            json_filters += [_make_json_info_for_build_target_pattern(filter.pattern)]
+        else:
+            fail("Unknown filter type: " + filter)
+    return json_filters
+
+def _make_json_info_for_group_mapping(group_mapping: GroupMapping) -> dict[str, typing.Any]:
+    return {
+        "filters": _make_json_info_for_group_mapping_filters(group_mapping.filters),
+        "preferred_linkage": group_mapping.preferred_linkage,
+        "root": group_mapping.root,
+        "traversal": group_mapping.traversal,
+    }
+
+def _make_json_info_for_group(group: Group) -> dict[str, typing.Any]:
+    return {
+        "attrs": group.attrs,
+        "mappings": [_make_json_info_for_group_mapping(mapping) for mapping in group.mappings],
+        "name": group.name,
+    }
+
+def make_info_subtarget_providers(ctx: AnalysisContext, groups: list[Group], mappings: dict[Label, str]) -> list[Provider]:
+    info_json = {
+        "groups": {group.name: _make_json_info_for_group(group) for group in groups},
+        "mappings": mappings,
+    }
+    json_output = ctx.actions.write_json("link_group_map_info.json", info_json)
+    return [DefaultInfo(default_output = json_output)]
