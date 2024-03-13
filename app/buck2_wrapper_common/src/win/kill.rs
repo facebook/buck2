@@ -13,7 +13,6 @@ use sysinfo::PidExt;
 use sysinfo::Process;
 use sysinfo::ProcessExt;
 
-use crate::kill::get_sysinfo_status;
 use crate::pid::Pid;
 use crate::win::winapi_process::WinapiProcessHandle;
 
@@ -48,10 +47,5 @@ pub(crate) struct KilledProcessHandleImpl {
 impl KilledProcessHandleImpl {
     pub(crate) fn has_exited(&self) -> anyhow::Result<bool> {
         self.handle.has_exited()
-    }
-
-    pub(crate) fn status(&self) -> Option<String> {
-        // Maybe there is a better way to get this via the handle, but for now this'll do.
-        get_sysinfo_status(self.handle.pid())
     }
 }

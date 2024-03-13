@@ -14,7 +14,6 @@ use nix::sys::signal::Signal;
 use sysinfo::Process;
 use sysinfo::ProcessExt;
 
-use crate::kill::get_sysinfo_status;
 use crate::pid::Pid;
 
 pub(crate) fn process_creation_time(process: &Process) -> Option<Duration> {
@@ -50,9 +49,5 @@ pub(crate) struct KilledProcessHandleImpl {
 impl KilledProcessHandleImpl {
     pub(crate) fn has_exited(&self) -> anyhow::Result<bool> {
         Ok(!process_exists(self.pid)?)
-    }
-
-    pub(crate) fn status(&self) -> Option<String> {
-        get_sysinfo_status(self.pid)
     }
 }

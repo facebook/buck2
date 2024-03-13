@@ -45,10 +45,6 @@ impl KilledProcessHandle {
     pub fn has_exited(&self) -> anyhow::Result<bool> {
         self.handle.has_exited()
     }
-
-    pub fn status(&self) -> Option<String> {
-        self.handle.status()
-    }
 }
 
 /// Get the status of a given process according to sysinfo.
