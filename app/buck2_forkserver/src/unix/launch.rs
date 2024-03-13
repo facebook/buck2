@@ -25,6 +25,7 @@ pub async fn launch_forkserver(
     exe: impl AsRef<OsStr>,
     args: impl IntoIterator<Item = impl AsRef<OsStr>>,
     state_dir: &AbsNormPath,
+    resource_control_arg: String,
 ) -> anyhow::Result<ForkserverClient> {
     let (client_io, server_io) =
         UnixStream::pair().context("Failed to create fork server channel")?;
@@ -45,7 +46,9 @@ pub async fn launch_forkserver(
         .arg("--fd")
         .arg(server_io.as_raw_fd().to_string())
         .arg("--state-dir")
-        .arg(state_dir.as_path());
+        .arg(state_dir.as_path())
+        .arg("--resource-control")
+        .arg(resource_control_arg);
 
     let fds = [server_io.as_raw_fd()];
 

@@ -168,6 +168,10 @@ impl ResourceControlConfig {
         }
     }
 
+    pub fn serialize(&self) -> anyhow::Result<String> {
+        serde_json::to_string(&self).context("Error serializing ResourceControlConfig")
+    }
+
     pub fn deserialize(s: &str) -> anyhow::Result<Self> {
         serde_json::from_str::<Self>(s).context("Error deserializing ResourceControlConfig")
     }

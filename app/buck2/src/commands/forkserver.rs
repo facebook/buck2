@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_common::legacy_configs::init::ResourceControlConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -29,6 +30,9 @@ pub(crate) struct ForkserverCommand {
 
     #[clap(long)]
     state_dir: PathBuf,
+
+    #[clap(long, parse(try_from_str = ResourceControlConfig::deserialize))]
+    resource_control: ResourceControlConfig,
 }
 
 impl ForkserverCommand {
@@ -41,6 +45,8 @@ impl ForkserverCommand {
         let state_dir = AbsNormPathBuf::try_from(self.state_dir)?;
 
         fs_util::create_dir_all(&state_dir)?;
+
+        let _todo_resource_control = self.resource_control;
 
         #[cfg(unix)]
         {

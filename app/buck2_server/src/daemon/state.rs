@@ -412,8 +412,12 @@ impl DaemonState {
 
             // Create this after the materializer because it'll want to write to buck-out, and an Eden
             // materializer would create buck-out now.
-            let forkserver =
-                maybe_launch_forkserver(root_config, &paths.forkserver_state_dir()).await?;
+            let forkserver = maybe_launch_forkserver(
+                root_config,
+                &paths.forkserver_state_dir(),
+                &init_ctx.daemon_startup_config.resource_control,
+            )
+            .await?;
 
             let dice = init_ctx
                 .construct_dice(io.dupe(), digest_config, root_config)
