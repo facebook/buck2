@@ -28,6 +28,7 @@ use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 #[derive(Debug, buck2_error::Error)]
 enum KillError {
     #[error("Daemon pid {} did not die after kill within {:.1}s (status: {})", _0, _1.as_secs_f32(), _2)]
+    #[buck2(tag = DaemonWontDieFromKill)]
     DidNotDie(Pid, Duration, String),
 }
 

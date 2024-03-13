@@ -88,6 +88,8 @@ enum ErrorTag {
   // The daemon reported that it was shutting down during the execution of this
   // command
   INTERRUPTED_BY_DAEMON_SHUTDOWN = 23;
+  // The daemon couldn't be killed
+  DAEMON_WONT_DIE_FROM_KILL = 24;
 
   ///// IO SECTION
   //
