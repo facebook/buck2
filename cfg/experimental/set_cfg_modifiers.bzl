@@ -10,7 +10,7 @@ load(":common.bzl?v2_only", "get_tagged_modifiers", "tagged_modifiers_to_json")
 load(":set_cfg_constructor.bzl?v2_only", "MODIFIER_METADATA_KEY")
 load(":types.bzl?v2_only", "Modifier", "ModifierPackageLocation")  # @unused Used in type annotation
 
-def set_cfg_modifiers(modifiers: list[Modifier] | None = None, cfg_modifiers: list[Modifier] | None = None):
+def set_cfg_modifiers(cfg_modifiers: list[Modifier] | None = None):
     """
     Sets a configuration modifier for all targets under this PACKAGE file. This can only be called from a PACKAGE file context
     (e.g. a PACKAGE file or a bzl file transitively loaded by a PACKAGE file).
@@ -19,8 +19,6 @@ def set_cfg_modifiers(modifiers: list[Modifier] | None = None, cfg_modifiers: li
         cfg_modifiers:
             A list of modifiers to set. The simplest modifier is a constraint value target.
             For example, to change the OS to linux in fbsource, this can be specified as `["ovr_config//os/constraints:linux"]`.
-        modifiers:
-            Deprecated name for `cfg_modifiers` parameter. Only one of the two can be specified.
     """
     if not is_buck2():
         return
@@ -34,9 +32,7 @@ def set_cfg_modifiers(modifiers: list[Modifier] | None = None, cfg_modifiers: li
     if not module_path.endswith("/PACKAGE") and module_path != "PACKAGE":
         fail("set_cfg_modifiers is only allowed to be used from PACKAGE files, not a bzl file")
 
-    if modifiers != None and cfg_modifiers != None:
-        fail("set_cfg_modifiers must be called with at most one of `modifiers` or `cfg_modifiers`")
-    cfg_modifiers = cfg_modifiers or modifiers or []  # or [] is used to satisfy typechecker
+    cfg_modifiers = cfg_modifiers or []
 
     # Make this buck1-proof
     write_package_value = getattr(native, "write_package_value", None)
