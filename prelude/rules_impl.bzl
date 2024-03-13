@@ -524,6 +524,7 @@ inlined_extra_attributes = {
         "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
         "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source(allow_directory = True)))), default = None),
+        "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
         "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),

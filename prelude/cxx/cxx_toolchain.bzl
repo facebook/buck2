@@ -103,6 +103,7 @@ def cxx_toolchain_impl(ctx):
         link_ordering = ctx.attrs.link_ordering,
         linker = ctx.attrs.linker[RunInfo],
         linker_flags = cmd_args(ctx.attrs.linker_flags).add(c_lto_flags),
+        post_linker_flags = cmd_args(ctx.attrs.post_linker_flags),
         lto_mode = lto_mode,
         mk_shlib_intf = ctx.attrs.shared_library_interface_producer,
         object_file_extension = ctx.attrs.object_file_extension or "o",

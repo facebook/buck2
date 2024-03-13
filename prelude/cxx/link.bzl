@@ -162,8 +162,8 @@ def cxx_link_into(
     else:
         links_with_linker_map = opts.links
 
-    linker, toolchain_linker_flags = cxx_link_cmd_parts(cxx_toolchain_info)
-    all_link_args = cmd_args(toolchain_linker_flags)
+    link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info)
+    all_link_args = cmd_args(link_cmd_parts.linker_flags)
     all_link_args.add(get_output_flags(linker_info.type, output))
 
     sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
@@ -222,6 +222,8 @@ def cxx_link_into(
         pdb = link_args_output.pdb_artifact,
     )
 
+    all_link_args.add(link_cmd_parts.post_linker_flags)
+
     if linker_info.type == "windows":
         shell_quoted_args = cmd_args(all_link_args)
     else:
@@ -233,7 +235,7 @@ def cxx_link_into(
         allow_args = True,
     )
 
-    command = cmd_args(linker)
+    command = cmd_args(link_cmd_parts.linker)
     command.add(cmd_args(argfile, format = "@{}"))
     command.hidden(link_args_output.hidden)
     command.hidden(shell_quoted_args)

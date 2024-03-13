@@ -93,6 +93,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
             linker_info = LinkerInfo(
                 linker = RunInfo(args = linker),
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
+                post_linker_flags = ctx.attrs.post_link_flags,
                 archiver = RunInfo(args = archiver_args),
                 archiver_type = archiver_type,
                 archiver_supports_argfiles = archiver_supports_argfiles,
@@ -210,6 +211,7 @@ system_cxx_toolchain = rule(
         "linker_wrapper": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
         "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         "msvc_tools": attrs.default_only(attrs.exec_dep(providers = [VisualStudio], default = "prelude//toolchains/msvc:msvc_tools")),
+        "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_compiler": attrs.string(default = "rc.exe"),
         "rc_flags": attrs.list(attrs.string(), default = []),
     },

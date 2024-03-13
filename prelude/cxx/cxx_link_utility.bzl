@@ -256,20 +256,35 @@ def executable_shared_lib_arguments(
         shared_libs_symlink_tree = shared_libs_symlink_tree,
     )
 
-def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> ((RunInfo | cmd_args), cmd_args):
+LinkCmdParts = record(
+    linker = [RunInfo, cmd_args],
+    linker_flags = cmd_args,
+    post_linker_flags = cmd_args,
+    # linker + linker_flags, for convenience
+    link_cmd = cmd_args,
+)
+
+def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> LinkCmdParts:
     # `toolchain_linker_flags` can either be a list of strings, `cmd_args` or `None`,
     # so we need to do a bit more work to satisfy the type checker
     toolchain_linker_flags = toolchain.linker_info.linker_flags
+    toolchain_post_linker_flags = toolchain.linker_info.post_linker_flags
     if toolchain_linker_flags == None:
         toolchain_linker_flags = cmd_args()
     elif not type(toolchain_linker_flags) == "cmd_args":
         toolchain_linker_flags = cmd_args(toolchain_linker_flags)
 
-    return toolchain.linker_info.linker, toolchain_linker_flags
+    if toolchain_post_linker_flags == None:
+        toolchain_post_linker_flags = cmd_args()
+    elif not type(toolchain_post_linker_flags) == "cmd_args":
+        toolchain_post_linker_flags = cmd_args(toolchain_post_linker_flags)
 
-# The command line for linking with C++
-def cxx_link_cmd(toolchain: CxxToolchainInfo) -> cmd_args:
-    linker, toolchain_linker_flags = cxx_link_cmd_parts(toolchain)
-    command = cmd_args(linker)
-    command.add(toolchain_linker_flags)
-    return command
+    link_cmd = cmd_args(toolchain.linker_info.linker)
+    link_cmd.add(toolchain_linker_flags)
+
+    return LinkCmdParts(
+        linker = toolchain.linker_info.linker,
+        linker_flags = toolchain_linker_flags,
+        post_linker_flags = toolchain_post_linker_flags,
+        link_cmd = link_cmd,
+    )

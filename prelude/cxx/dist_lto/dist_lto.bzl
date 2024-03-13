@@ -18,7 +18,7 @@ load(
 )
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
-    "cxx_link_cmd",
+    "cxx_link_cmd_parts",
     "linker_map_args",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
@@ -361,7 +361,9 @@ def cxx_dist_link(
             index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
             index_out_dir = cmd_args(index_file_out.as_output()).parent()
 
-            index_cmd = cxx_link_cmd(cxx_toolchain)
+            index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+
+            index_cmd = index_cmd_parts.link_cmd
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
 
             output_as_string = cmd_args(output)
@@ -371,6 +373,7 @@ def cxx_dist_link(
             index_cmd.add("-Wl,--thinlto-emit-imports-files")
             index_cmd.add("-Wl,--thinlto-full-index")
             index_cmd.add(cmd_args(index_out_dir, format = "-Wl,--thinlto-prefix-replace=;{}/"))
+            index_cmd.add(index_cmd_parts.post_linker_flags)
 
             # Terminate the index file with a newline.
             index_meta.add("")
@@ -403,13 +406,15 @@ def cxx_dist_link(
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
-        opt_args = cmd_args()
-        opt_args.add(cxx_link_cmd(cxx_toolchain))
+        opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+        opt_args = opt_cmd_parts.link_cmd
 
         # buildifier: disable=uninitialized
         for link in link_infos:
             for raw_flag in link.pre_flags + link.post_flags:
                 opt_args.add(raw_flag)
+
+        opt_args.add(opt_cmd_parts.post_linker_flags)
         return opt_args
 
     opt_common_flags = prepare_opt_flags(link_infos)
@@ -576,7 +581,8 @@ def cxx_dist_link(
                     current_index += 1
             link_args.add(link.post_flags)
 
-        link_cmd = cxx_link_cmd(cxx_toolchain)
+        link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+        link_cmd = link_cmd_parts.link_cmd
         final_link_argfile, final_link_inputs = ctx.actions.write(
             outputs[linker_argsfile_out].as_output(),
             link_args,
@@ -598,6 +604,7 @@ def cxx_dist_link(
         link_cmd.hidden(link_args)
         link_cmd.hidden(opt_objects)
         link_cmd.hidden(archives)
+        link_cmd.add(link_cmd_parts.post_linker_flags)
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
