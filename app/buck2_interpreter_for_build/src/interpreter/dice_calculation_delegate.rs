@@ -24,6 +24,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_futures::cancellation::CancellationContext;
@@ -291,14 +292,22 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         //     and not `package` on case-insensitive filesystems.
         //     We do case-sensitive comparison for `BUCK` files, so we do the same here.
         //   * we fail here if `PACKAGE` (but not `package`) exists, and it is not a file.
-        if !dir.contains(PackageFilePath::PACKAGE_FILE_NAME) {
-            return Ok(None);
+        for package_file_path in PackageFilePath::for_dir(package.as_cell_path()) {
+            if !dir.contains(
+                package_file_path
+                    .path()
+                    .path()
+                    .file_name()
+                    .internal_error("Must have name")?,
+            ) {
+                continue;
+            }
+            let (module, deps) = self
+                .prepare_eval(StarlarkPath::PackageFile(&package_file_path))
+                .await?;
+            return Ok(Some((package_file_path, module, deps)));
         }
-        let package_file_path = PackageFilePath::for_dir(package.as_cell_path());
-        let (module, deps) = self
-            .prepare_eval(StarlarkPath::PackageFile(&package_file_path))
-            .await?;
-        Ok(Some((package_file_path, module, deps)))
+        Ok(None)
     }
 
     async fn eval_package_file_uncached(
@@ -396,16 +405,18 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         package: PackageLabel,
         package_listing: &PackageListing,
     ) -> anyhow::Result<SuperPackage> {
-        if package_listing
-            .get_file(PackageFilePath::PACKAGE_FILE_NAME.as_ref())
-            .is_none()
-        {
-            // Without this optimization, `cquery <that android target>` has 6% time regression.
-            // With this optimization, check for `PACKAGE` files adds 2% to time.
-            self.eval_parent_package_file(package).await
-        } else {
-            self.eval_package_file(package).await
+        for package_file_name in PackageFilePath::package_file_names() {
+            if package_listing
+                .get_file(package_file_name.as_ref())
+                .is_some()
+            {
+                return self.eval_package_file(package).await;
+            }
         }
+
+        // Without this optimization, `cquery <that android target>` has 6% time regression.
+        // With this optimization, check for `PACKAGE` files adds 2% to time.
+        self.eval_parent_package_file(package).await
     }
 
     async fn resolve_package_listing(

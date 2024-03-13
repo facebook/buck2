@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::iter;
+
 use allocative::Allocative;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -22,23 +24,26 @@ pub struct PackageFilePath {
 }
 
 impl PackageFilePath {
-    pub const PACKAGE_FILE_NAME: &'static FileName = FileName::unchecked_new("PACKAGE");
+    pub fn package_file_names() -> impl Iterator<Item = &'static FileName> {
+        iter::once(FileName::unchecked_new("PACKAGE"))
+    }
 
-    /// Create for directory containing `PACKAGE` file.
-    pub fn for_dir(path: CellPathRef) -> PackageFilePath {
-        PackageFilePath {
-            path: path.join(Self::PACKAGE_FILE_NAME),
-        }
+    /// Files which could be `PACKAGE` files.
+    pub fn for_dir(path: CellPathRef) -> impl Iterator<Item = PackageFilePath> + '_ {
+        Self::package_file_names().map(move |name| PackageFilePath {
+            path: path.join(name),
+        })
     }
 
     pub fn from_file_path(path: CellPathRef) -> Option<PackageFilePath> {
-        if path.ends_with(PackageFilePath::PACKAGE_FILE_NAME.as_ref()) {
-            Some(PackageFilePath {
-                path: path.to_owned(),
-            })
-        } else {
-            None
+        for file_name in Self::package_file_names() {
+            if path.ends_with(file_name.as_ref()) {
+                return Some(PackageFilePath {
+                    path: path.to_owned(),
+                });
+            }
         }
+        None
     }
 
     pub fn cell(&self) -> CellName {
