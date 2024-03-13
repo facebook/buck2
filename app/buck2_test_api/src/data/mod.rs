@@ -205,7 +205,7 @@ impl From<OutputName> for ForwardRelativePathBuf {
     }
 }
 
-#[derive(Derivative, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DeclaredOutput {
     pub name: OutputName,
     pub supports_remote: bool,
