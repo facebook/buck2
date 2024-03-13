@@ -202,7 +202,7 @@ pub struct DaemonStartupConfig {
 impl DaemonStartupConfig {
     pub fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
         // Intepreted client side because we need the value here.
-        let allow_vpnless = config.parse("buck2", "allow_vpnless")?.unwrap_or_default();
+        let allow_vpnless = config.parse("buck2", "allow_vpnless")?.unwrap_or(true);
 
         Ok(Self {
             daemon_buster: config.get("buck2", "daemon_buster").map(ToOwned::to_owned),
