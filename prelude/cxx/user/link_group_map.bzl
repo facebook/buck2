@@ -139,10 +139,10 @@ def _make_json_info_for_group(group: Group) -> dict[str, typing.Any]:
         "name": group.name,
     }
 
-def _make_info_subtarget_providers(ctx: AnalysisContext, link_group_info: LinkGroupInfo) -> list[Provider]:
+def _make_info_subtarget_providers(ctx: AnalysisContext, groups: list[Group], mappings: dict[Label, str]) -> list[Provider]:
     info_json = {
-        "groups": {name: _make_json_info_for_group(group) for name, group in link_group_info.groups.items()},
-        "mappings": link_group_info.mappings,
+        "groups": {group.name: _make_json_info_for_group(group) for group in groups},
+        "mappings": mappings,
     }
     json_output = ctx.actions.write_json("link_group_map_info.json", info_json)
     return [DefaultInfo(default_output = json_output)]
@@ -162,7 +162,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     link_group_info = build_link_group_info(linkable_graph, link_groups)
     return [
         DefaultInfo(sub_targets = {
-            "info": _make_info_subtarget_providers(ctx, link_group_info),
+            "info": _make_info_subtarget_providers(ctx, link_group_info.groups.values(), link_group_info.mappings),
         }),
         link_group_info,
     ]
