@@ -23,14 +23,14 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
-use edenfs::types::BinaryHash;
-use edenfs::types::EdenErrorType;
-use edenfs::types::FileAttributeData;
-use edenfs::types::FileAttributeDataOrErrorV2;
-use edenfs::types::FileAttributeDataV2;
-use edenfs::types::MountState;
-use edenfs::types::PathString;
-use edenfs::types::SourceControlType;
+use edenfs::BinaryHash;
+use edenfs::EdenErrorType;
+use edenfs::FileAttributeData;
+use edenfs::FileAttributeDataOrErrorV2;
+use edenfs::FileAttributeDataV2;
+use edenfs::MountState;
+use edenfs::PathString;
+use edenfs::SourceControlType;
 use edenfs_clients::errors::ListMountsError;
 use edenfs_clients::EdenService;
 use fb303_core_clients::BaseService;
@@ -401,20 +401,17 @@ impl_has_error_handling_strategy!(GetSHA1Error);
 #[derive(Debug, buck2_error::Error)]
 pub enum EdenError {
     #[error("Eden POSIX error (code = {}): {}", .code, .error.message)]
-    PosixError {
-        error: edenfs::types::EdenError,
-        code: i32,
-    },
+    PosixError { error: edenfs::EdenError, code: i32 },
 
     #[error("Eden service error: {}", .error.message)]
-    ServiceError { error: edenfs::types::EdenError },
+    ServiceError { error: edenfs::EdenError },
 
     #[error("Eden returned an unexpected field: {}", .field)]
     UnknownField { field: i32 },
 }
 
-impl From<edenfs::types::EdenError> for EdenError {
-    fn from(error: edenfs::types::EdenError) -> Self {
+impl From<edenfs::EdenError> for EdenError {
+    fn from(error: edenfs::EdenError) -> Self {
         if error.errorType == EdenErrorType::POSIX_ERROR {
             if let Some(error_code) = error.errorCode {
                 return Self::PosixError {
