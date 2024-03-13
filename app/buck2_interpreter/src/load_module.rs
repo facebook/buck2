@@ -41,8 +41,8 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
     async fn get_package_file_deps(
         &self,
         ctx: &mut DiceComputations<'_>,
-        package: &PackageFilePath,
-    ) -> anyhow::Result<Option<Vec<ImportPath>>>;
+        package: PackageLabel,
+    ) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>>;
 
     async fn global_env_for_file_type(
         &self,

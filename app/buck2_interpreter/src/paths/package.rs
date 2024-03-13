@@ -46,10 +46,6 @@ impl PackageFilePath {
             .expect("constructor verifies that path is not root")
     }
 
-    pub fn parent_package_file(&self) -> Option<PackageFilePath> {
-        self.dir().parent().map(PackageFilePath::for_dir)
-    }
-
     pub fn path(&self) -> &CellPath {
         &self.path
     }

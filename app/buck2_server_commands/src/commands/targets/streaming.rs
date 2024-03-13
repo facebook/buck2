@@ -190,7 +190,7 @@ pub(crate) async fn targets_streaming(
         }
         if imports {
             // Need to also find imports from PACKAGE files
-            let mut path = Some(PackageFilePath::for_dir(res.package.as_cell_path()));
+            let mut path = Some(res.package);
             while let Some(x) = path {
                 if package_files_seen.contains(&x) {
                     break;
@@ -199,12 +199,14 @@ pub(crate) async fn targets_streaming(
                 // These aren't cached, but the cost is relatively low (Starlark parsing),
                 // and there aren't many, so we just do it on the main thread.
                 // We ignore errors as these will bubble up as BUCK file errors already.
-                if let Ok(Some(imports)) = package_imports(&mut dice, &x).await {
+                if let Ok(Some((package_file_path, imports))) =
+                    package_imports(&mut dice, x.dupe()).await
+                {
                     if needs_separator {
                         formatter.separator(&mut buffer);
                     }
                     needs_separator = true;
-                    formatter.imports(x.path(), &imports, None, &mut buffer);
+                    formatter.imports(package_file_path.path(), &imports, None, &mut buffer);
                     outputter.write1(stdout, &buffer)?;
                     buffer.clear();
                     imported.lock().unwrap().extend(imports.into_iter());
@@ -212,7 +214,7 @@ pub(crate) async fn targets_streaming(
                 // TODO(nga): we should cross cell boundary:
                 //   This is what we do when we evaluate `PACKAGE` files.
                 //   https://fburl.com/code/qxl59b64
-                path = x.parent_package_file();
+                path = x.parent();
             }
         }
     }
@@ -334,8 +336,8 @@ async fn load_targets(
 /// Return `None` if the PACKAGE file doesn't exist
 async fn package_imports(
     dice: &mut DiceComputations<'_>,
-    path: &PackageFilePath,
-) -> anyhow::Result<Option<Vec<ImportPath>>> {
+    path: PackageLabel,
+) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
     INTERPRETER_CALCULATION_IMPL
         .get()?
         .get_package_file_deps(dice, path)

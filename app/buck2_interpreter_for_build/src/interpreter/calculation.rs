@@ -212,18 +212,23 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     async fn get_package_file_deps(
         &self,
         ctx: &mut DiceComputations<'_>,
-        package: &PackageFilePath,
-    ) -> anyhow::Result<Option<Vec<ImportPath>>> {
+        package: PackageLabel,
+    ) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
         // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
         // Therefore we re-parse the file, if it exists.
         // Fortunately, there are only a small number (currently a few hundred)
+        let cell_name = package.as_cell_path().cell();
         let mut interpreter = ctx
-            .get_interpreter_calculator(package.cell(), package.build_file_cell())
+            .get_interpreter_calculator(cell_name, BuildFileCell::new(cell_name))
             .await?;
-        Ok(interpreter
-            .prepare_package_file_eval(package)
-            .await?
-            .map(|x| x.1.get_loaded_modules().imports().cloned().collect()))
+        let x = interpreter.prepare_package_file_eval(package).await?;
+        let Some((package_file_path, _module, deps)) = x else {
+            return Ok(None);
+        };
+        Ok(Some((
+            package_file_path,
+            deps.get_loaded_modules().imports().cloned().collect(),
+        )))
     }
 
     async fn global_env_for_file_type(

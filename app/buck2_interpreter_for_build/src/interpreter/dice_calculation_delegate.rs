@@ -280,10 +280,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     /// Return `None` if there's no `PACKAGE` file in the directory.
     pub async fn prepare_package_file_eval(
         &mut self,
-        path: &PackageFilePath,
-    ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
+        package: PackageLabel,
+    ) -> anyhow::Result<Option<(PackageFilePath, AstModule, ModuleDeps)>> {
         // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
-        let dir = DiceFileComputations::read_dir(self.ctx, path.dir()).await?;
+        let dir = DiceFileComputations::read_dir(self.ctx, package.as_cell_path()).await?;
         // Note:
         // * we are using `read_dir` instead of `read_path_metadata` because
         //   * it is an extra IO, and `read_dir` is likely already cached.
@@ -294,9 +294,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         if !dir.contains(PackageFilePath::PACKAGE_FILE_NAME) {
             return Ok(None);
         }
-        Ok(Some(
-            self.prepare_eval(StarlarkPath::PackageFile(path)).await?,
-        ))
+        let package_file_path = PackageFilePath::for_dir(package.as_cell_path());
+        let (module, deps) = self
+            .prepare_eval(StarlarkPath::PackageFile(&package_file_path))
+            .await?;
+        Ok(Some((package_file_path, module, deps)))
     }
 
     async fn eval_package_file_uncached(
@@ -304,10 +306,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         path: PackageLabel,
     ) -> anyhow::Result<SuperPackage> {
         let parent = self.eval_parent_package_file(path.dupe()).await?;
-        let package_file_path = PackageFilePath::for_dir(path.as_cell_path());
-        let ast_deps = self.prepare_package_file_eval(&package_file_path).await?;
+        let ast_deps = self.prepare_package_file_eval(path.dupe()).await?;
 
-        let (ast, deps) = match ast_deps {
+        let (package_file_path, ast, deps) = match ast_deps {
             Some(x) => x,
             None => {
                 // If there's no `PACKAGE` file, return parent.

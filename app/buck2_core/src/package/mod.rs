@@ -153,6 +153,10 @@ impl PackageLabel {
         }
     }
 
+    pub fn parent(&self) -> Option<PackageLabel> {
+        Some(PackageLabel::from_cell_path(self.as_cell_path().parent()?))
+    }
+
     // Following functions should only be used in tests, so they have "testing" in their names.
 
     /// Some package name usable in tests.
