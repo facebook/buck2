@@ -85,6 +85,18 @@ def get_aapt2_link(
         manifest_entries_min_sdk = manifest_entries.get("min_sdk_version", None)
         if manifest_entries_min_sdk != None:
             aapt2_command.add(["--min-sdk-version", str(manifest_entries_min_sdk)])
+        manifest_entries_target_sdk = manifest_entries.get("target_sdk_version", None)
+        if manifest_entries_target_sdk != None:
+            aapt2_command.add(["--target-sdk-version", str(manifest_entries_target_sdk)])
+        manifest_entries_version_code = manifest_entries.get("version_code", None)
+        if manifest_entries_version_code != None:
+            aapt2_command.add(["--version-code", manifest_entries_version_code])
+        manifest_entries_version_name = manifest_entries.get("version_name", None)
+        if manifest_entries_version_name != None:
+            aapt2_command.add(["--version-name", manifest_entries_version_name])
+        manifest_entries_debug_mode = str(manifest_entries.get("debug_mode", "False")).lower() == "true"
+        if manifest_entries_debug_mode:
+            aapt2_command.add(["--debug-mode"])
 
         if filter_locales and len(locales) > 0:
             aapt2_command.add("-c")
