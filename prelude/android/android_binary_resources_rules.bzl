@@ -41,7 +41,6 @@ def get_android_binary_resources_info(
         resource_infos_to_exclude: [set_type, None] = None,
         r_dot_java_packages_to_exclude: [list[str], None] = [],
         generate_strings_and_ids_separately: [bool, None] = True,
-        aapt2_min_sdk: [str, None] = None,
         aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
@@ -65,6 +64,7 @@ def get_android_binary_resources_info(
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         resource_infos,
         android_manifest,
+        manifest_entries = getattr(ctx.attrs, "manifest_entries", {}),
         includes_vector_drawables = getattr(ctx.attrs, "includes_vector_drawables", False),
         no_auto_version = getattr(ctx.attrs, "no_auto_version_resources", False),
         no_version_transitions = getattr(ctx.attrs, "no_version_transitions_resources", False),
@@ -78,7 +78,6 @@ def get_android_binary_resources_info(
         extra_filtered_resources = getattr(ctx.attrs, "extra_filtered_resources", []),
         locales = getattr(ctx.attrs, "locales", []) or getattr(ctx.attrs, "locales_for_binary_resources", []),
         filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False) or bool(getattr(ctx.attrs, "locales_for_binary_resources", [])),
-        min_sdk = aapt2_min_sdk,
         preferred_density = aapt2_preferred_density,
     )
 

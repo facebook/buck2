@@ -15,6 +15,7 @@ def get_aapt2_link(
         android_toolchain: AndroidToolchainInfo,
         resource_infos: list[AndroidResourceInfo],
         android_manifest: Artifact,
+        manifest_entries: dict,
         includes_vector_drawables: bool,
         no_auto_version: bool,
         no_version_transitions: bool,
@@ -24,7 +25,6 @@ def get_aapt2_link(
         package_id_offset: int,
         resource_stable_ids: [Artifact, None],
         preferred_density: [str, None],
-        min_sdk: [str, None],
         filter_locales: bool,
         locales: list[str],
         compiled_resource_apks: list[Artifact],
@@ -81,8 +81,11 @@ def get_aapt2_link(
             aapt2_command.add(["--stable-ids", resource_stable_ids])
         if preferred_density != None:
             aapt2_command.add(["--preferred-density", preferred_density])
-        if min_sdk != None:
-            aapt2_command.add(["--min-sdk-version", min_sdk])
+
+        manifest_entries_min_sdk = manifest_entries.get("min_sdk_version", None)
+        if manifest_entries_min_sdk != None:
+            aapt2_command.add(["--min-sdk-version", str(manifest_entries_min_sdk)])
+
         if filter_locales and len(locales) > 0:
             aapt2_command.add("-c")
 
