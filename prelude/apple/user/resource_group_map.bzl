@@ -15,6 +15,7 @@ load(
     "@prelude//cxx:groups.bzl",
     "compute_mappings",
     "create_group",
+    "make_info_subtarget_providers",
     "parse_groups_definitions",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
@@ -59,7 +60,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         graph_map = resource_graph_node_map,
     )
     return [
-        DefaultInfo(),
+        DefaultInfo(sub_targets = {
+            "info": make_info_subtarget_providers(ctx, resource_groups, mappings),
+        }),
         ResourceGroupInfo(
             groups = resource_groups,
             groups_hash = hash(str(resource_groups)),
