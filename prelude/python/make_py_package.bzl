@@ -264,6 +264,7 @@ def _make_py_package_impl(
         preload_libraries,
         symlink_tree_path,
         package_style,
+        True if ctx.attrs.zip_safe == None else ctx.attrs.zip_safe,
     )
     bootstrap_args.add(build_args)
     if standalone:
@@ -353,7 +354,8 @@ def _pex_bootstrap_args(
         shared_libraries: dict[str, (LinkedObject, bool)],
         preload_libraries: cmd_args,
         symlink_tree_path: Artifact | None,
-        package_style: PackageStyle) -> cmd_args:
+        package_style: PackageStyle,
+        zip_safe: bool) -> cmd_args:
     cmd = cmd_args()
     cmd.add(preload_libraries)
     cmd.add([
@@ -376,6 +378,9 @@ def _pex_bootstrap_args(
     if package_style == PackageStyle("inplace_lite") and not shared_libraries:
         cmd.add("--use-lite")
     cmd.add(output.as_output())
+
+    if package_style == PackageStyle("standalone") and not zip_safe:
+        cmd.add("--no-zip-safe")
 
     return cmd
 
