@@ -8,7 +8,6 @@
  */
 
 use buck2_core::soft_error;
-use thiserror::Error;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonAttributeArgs {
@@ -66,7 +65,7 @@ pub struct CommonAttributeArgs {
     output_attributes: Vec<String>,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum ArgErrors {
     #[error("`--output-attributes` is deprecated, use `--output-attribute` instead")]
     OutputAttributesDeprecated,

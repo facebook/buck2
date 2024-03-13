@@ -14,7 +14,6 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
-use thiserror::Error;
 
 #[derive(Debug)]
 enum RootKind {
@@ -52,7 +51,7 @@ pub struct RootCommand {
     dir: Option<PathArg>,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum RootError {
     #[error("Finding package root isn't yet implemented.")]
     PackageRootUnimplemented,

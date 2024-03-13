@@ -17,7 +17,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     _args: impl IntoIterator<Item = &'a str>,
     _daemon_env_vars: &[(&OsStr, &OsStr)],
 ) -> anyhow::Result<()> {
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error::Error)]
     #[error("not Windows")]
     struct NotWindows;
 

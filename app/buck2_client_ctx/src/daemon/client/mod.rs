@@ -49,7 +49,7 @@ pub mod kill;
 
 use crate::startup_deadline::StartupDeadline;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum LifecycleError {
     #[error("Missing `{}` file in `{}` directory", BuckdLifecycleLock::BUCKD_LIFECYCLE, _0.display())]
     MissingLifecycle(AbsNormPathBuf),
@@ -151,7 +151,7 @@ pub struct BuckdClient<'a> {
     pub(crate) events_ctx: EventsCtx<'a>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum GrpcToStreamError {
     #[error("buck daemon returned an empty CommandProgress")]
     EmptyCommandProgress,

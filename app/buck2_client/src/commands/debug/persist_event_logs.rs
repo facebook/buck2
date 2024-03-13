@@ -26,7 +26,6 @@ use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
-use thiserror::Error;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
 use tokio::io;
@@ -44,7 +43,7 @@ fn manifold_ttl_s() -> anyhow::Result<Option<u64>> {
 
 const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum PersistEventLogError {
     #[error("Read more bytes than are available")]
     ReadBytesOverflow,

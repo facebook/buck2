@@ -9,9 +9,8 @@
 
 use anyhow::Context;
 use buck2_util::process::async_background_command;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum SourceControlError {
     #[error("HG command failed with code '{0}' and error '{1}' ")]
     HgCommand(i32, String),

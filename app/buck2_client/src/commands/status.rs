@@ -23,7 +23,7 @@ use chrono::NaiveDateTime;
 use humantime::format_duration;
 use walkdir::WalkDir;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum StatusError {
     #[error("Incorrect seconds/nanos argument")]
     NativeDateTime,

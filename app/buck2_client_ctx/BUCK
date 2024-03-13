@@ -64,7 +64,6 @@ rust_library(
         "fbsource//third-party/rust:sysinfo",
         "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:termwiz",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tokio-util",

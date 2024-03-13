@@ -262,7 +262,7 @@ impl ExitResultVariant {
 /// A wrapper around an `io::Error` which indicates that the error came from "client IO".
 ///
 /// We use this to inform the exit code generation
-#[derive(thiserror::Error, derivative::Derivative)]
+#[derive(buck2_error::Error, derivative::Derivative)]
 #[derivative(Debug = "transparent")]
 #[error(transparent)]
 pub struct ClientIoError(pub io::Error);

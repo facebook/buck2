@@ -12,7 +12,6 @@ use std::str::FromStr;
 use anyhow::Context as _;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use thiserror::Error;
 
 /// A key / value metadata pair provided by the client. This will be injected into Buck2's logging.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -52,7 +51,7 @@ impl FromStr for ClientMetadata {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum ClientMetadataError {
     #[error(
         "Invalid client metadata format: `{0}`. Client metadata keys must be a `key=value` pair."

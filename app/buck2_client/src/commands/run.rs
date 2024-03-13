@@ -34,7 +34,6 @@ use buck2_common::argv::SanitizedArgv;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
-use thiserror::Error;
 
 use crate::commands::build::print_build_failed;
 use crate::commands::build::print_build_result;
@@ -243,7 +242,7 @@ struct CommandArgsFile {
     print_command: bool,
 }
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub enum RunCommandError {
     #[error("Target `{0}` is not a binary rule (only binary rules can be `run`)")]
     NonBinaryRule(String),

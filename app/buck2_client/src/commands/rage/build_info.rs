@@ -21,9 +21,8 @@ use chrono::DateTime;
 use chrono::Local;
 use futures::TryStreamExt;
 use humantime::format_duration;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum BuildInfoError {
     #[error("Failed to read event log")]
     EventLogReadFail,

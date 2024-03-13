@@ -153,7 +153,7 @@ impl<'a> ClientCommandContext<'a> {
 
     /// A client context for commands where CommonConfigOptions are not provided.
     pub fn empty_client_context(&self, command_name: &str) -> anyhow::Result<ClientContext> {
-        #[derive(Debug, thiserror::Error)]
+        #[derive(Debug, buck2_error::Error)]
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
 

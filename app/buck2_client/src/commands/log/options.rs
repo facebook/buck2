@@ -27,7 +27,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use rand::Rng;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum EventLogOptionsError {
     #[error("Manifold failed; stderr:\n{}", indent("  ", _0))]
     ManifoldFailed(String),

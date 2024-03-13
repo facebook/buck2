@@ -13,7 +13,7 @@ use buck2_core::soft_error;
 
 use crate::commands::log::what_ran::WhatRanCommand;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DebugWhatRanCommandError {
     #[error("`buck2 debug what-ran` is deprecated. Use `buck2 log what-ran` instead.")]
     Deprecated,

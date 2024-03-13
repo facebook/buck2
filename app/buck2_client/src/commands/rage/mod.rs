@@ -54,7 +54,6 @@ use futures::future::LocalBoxFuture;
 use manifold::file_to_manifold;
 use manifold::manifold_leads;
 use serde::Serialize;
-use thiserror::Error;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
@@ -62,7 +61,7 @@ use tokio::io::BufReader;
 
 use crate::commands::debug::upload_re_logs;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum RageError {
     #[error("Failed to get a valid user selection")]
     InvalidSelectionError,

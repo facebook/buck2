@@ -32,7 +32,7 @@ use gazebo::prelude::*;
 
 use crate::print::PrintOutputs;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 enum TargetsError {
     /// Clap should report it, but if we missed something, this is a fallback.
     #[error("Flags are mutually exclusive")]

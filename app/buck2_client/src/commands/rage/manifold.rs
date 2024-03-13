@@ -13,10 +13,9 @@ use anyhow::Context;
 use buck2_client_ctx::manifold::Bucket;
 use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use thiserror::Error;
 use tokio::fs::File;
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ManifoldError {
     #[error("Failed to open file `{0}`")]
     OpenFileError(String),

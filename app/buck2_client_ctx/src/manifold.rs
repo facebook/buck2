@@ -22,7 +22,6 @@ use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use hyper::Response;
-use thiserror::Error;
 use tokio::io::AsyncRead;
 
 use crate::chunk_reader::ChunkReader;
@@ -46,13 +45,13 @@ impl Default for Ttl {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum HttpWriteError {
     #[error(transparent)]
     Client(HttpError),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, buck2_error::Error)]
 enum HttpAppendError {
     #[error(transparent)]
     Client(HttpError),
@@ -74,7 +73,7 @@ impl AsHttpError for HttpAppendError {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 pub enum UploadError {
     #[error(
         "No result code from uploading path `{0}` to Manifold, probably due to signal interrupt"
