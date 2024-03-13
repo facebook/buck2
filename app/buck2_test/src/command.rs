@@ -233,7 +233,7 @@ impl ServerCommandTemplate for TestServerCommand {
     type PartialResult = NoPartialResult;
 
     fn is_success(&self, response: &Self::Response) -> bool {
-        matches!(response.exit_code, Some(0))
+        matches!(response.exit_code, Some(0)) && response.errors.is_empty()
     }
 
     fn end_event(&self, _response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
