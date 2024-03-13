@@ -209,6 +209,9 @@ pub(crate) async fn targets_streaming(
                     buffer.clear();
                     imported.lock().unwrap().extend(imports.into_iter());
                 }
+                // TODO(nga): we should cross cell boundary:
+                //   This is what we do when we evaluate `PACKAGE` files.
+                //   https://fburl.com/code/qxl59b64
                 path = x.parent_package_file();
             }
         }
