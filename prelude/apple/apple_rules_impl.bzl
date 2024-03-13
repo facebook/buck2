@@ -134,7 +134,7 @@ def _apple_universal_executable_extra_attrs():
     attribs = {
         "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
         "executable_name": attrs.option(attrs.string(), default = None),
-        "labels": attrs.list(attrs.string()),
+        "labels": attrs.list(attrs.string(), default = []),
         "split_arch_dsym": attrs.bool(default = False),
         "universal": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
