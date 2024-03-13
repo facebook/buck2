@@ -14,7 +14,7 @@ load(":apple_bundle_utility.bzl", "get_default_binary_dep", "get_flattened_binar
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym_ext")
 load(":apple_universal_binaries.bzl", "create_universal_binary")
-load(":debug.bzl", "AppleDebuggableInfo")
+load(":debug.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET")
 load(":resource_groups.bzl", "ResourceGraphInfo")
 
 _FORWARDED_PROVIDER_TYPES = [
@@ -51,6 +51,11 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
         split_arch_dsym = ctx.attrs.split_arch_dsym,
     )
 
+    debug_info = project_artifacts(
+        actions = ctx.actions,
+        tsets = [binary_outputs.debuggable_info.debug_info_tset],
+    )
+
     sub_targets = {}
     if ctx.attrs.split_arch_dsym:
         dsyms = binary_outputs.debuggable_info.dsyms
@@ -58,14 +63,18 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
         dsyms = [get_apple_dsym_ext(
             ctx = ctx,
             executable = binary_outputs.binary,
-            debug_info = project_artifacts(
-                actions = ctx.actions,
-                tsets = [binary_outputs.debuggable_info.debug_info_tset],
-            ),
+            debug_info = debug_info,
             action_identifier = ctx.attrs.name + "_dsym",
             output_path = dsym_name,
         )]
     sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsyms)]
+
+    debug_info_artifacts_manifest = ctx.actions.write(
+        "debuginfo.artifacts",
+        debug_info,
+        with_inputs = True,
+    )
+    sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(default_output = debug_info_artifacts_manifest)]
 
     default_binary = get_default_binary_dep(ctx.attrs.executable)
     forwarded_providers = []
