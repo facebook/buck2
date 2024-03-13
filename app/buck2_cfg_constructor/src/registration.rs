@@ -13,7 +13,6 @@ use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_interpreter::cfg_constructor::REGISTER_SET_CFG_CONSTRUCTOR;
-use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::build_context::PerFileTypeContext;
 use buck2_interpreter_for_build::interpreter::package_file_extra::PackageFileExtra;
@@ -142,11 +141,11 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
             PerFileTypeContext::Package(ctx) => ctx,
             _ => return Err(RegisterCfgConstructorError::NotPackageRoot.into()),
         };
-        if ctx.path
-            != PackageFilePath::for_dir(CellPathRef::new(
+        if ctx.path.dir()
+            != CellPathRef::new(
                 build_context.cell_info.cell_resolver().root_cell(),
                 CellRelativePath::empty(),
-            ))
+            )
         {
             return Err(RegisterCfgConstructorError::NotPackageRoot.into());
         }
