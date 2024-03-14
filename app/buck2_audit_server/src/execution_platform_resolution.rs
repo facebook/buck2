@@ -17,6 +17,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -56,8 +57,8 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     server_ctx.working_dir(),
                 ).await?;
 
-                let mut configured_patterns = Vec::new();
-                let mut target_patterns = Vec::new();
+                let mut configured_patterns: Vec<ConfiguredTargetLabel> = Vec::new();
+                let mut target_patterns: Vec<ParsedPattern<ConfiguredTargetPatternExtra>> = Vec::new();
                 for pat in self.patterns.iter() {
                     let pat = pattern_parser.parse_pattern::<ConfiguredTargetPatternExtra>(pat)?;
                     match pat.clone() {
