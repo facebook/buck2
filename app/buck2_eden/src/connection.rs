@@ -433,7 +433,7 @@ pub trait EdenDataIntoResult {
 
 macro_rules! impl_eden_data_into_result {
     ($typ: ident, $data: ty, $ok_variant: ident) => {
-        impl EdenDataIntoResult for ::edenfs::types::$typ {
+        impl EdenDataIntoResult for ::edenfs::$typ {
             type Data = $data;
 
             fn into_result(self) -> Result<Self::Data, EdenError> {
