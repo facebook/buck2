@@ -9,10 +9,14 @@
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::future::Future;
+use std::pin::Pin;
 
 use allocative::Allocative;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -23,8 +27,10 @@ use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::span;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_util::late_binding::LateBinding;
 use buck2_util::self_ref::RefData;
 use buck2_util::self_ref::SelfRef;
+use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
@@ -32,6 +38,15 @@ use itertools::Itertools;
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured::ConfiguredTargetNodeRef;
 use crate::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
+
+pub static UNIVERSE_FROM_LITERALS: LateBinding<
+    for<'c> fn(
+        &'c mut DiceComputations<'_>,
+        &'c ProjectRelativePath,
+        &'c [String],
+        GlobalCfgOptions,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<CqueryUniverse>> + Send + 'c>>,
+> = LateBinding::new("UNIVERSE_FROM_LITERALS");
 
 #[derive(Debug)]
 struct CqueryUniverseInner<'a> {

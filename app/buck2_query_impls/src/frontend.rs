@@ -15,6 +15,7 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_node::configured_universe::CqueryUniverse;
+use buck2_node::configured_universe::UNIVERSE_FROM_LITERALS;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
@@ -90,24 +91,39 @@ impl QueryFrontend for QueryFrontendImpl {
         })
         .await
     }
+}
 
-    async fn universe_from_literals(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        cwd: &ProjectRelativePath,
-        literals: &[String],
-        global_cfg_options: GlobalCfgOptions,
-    ) -> anyhow::Result<CqueryUniverse> {
-        ctx.with_linear_recompute(|ctx| async move {
-            let query_delegate = get_dice_query_delegate(&ctx, cwd, global_cfg_options).await?;
-            Ok(preresolve_literals_and_build_universe(
-                &query_delegate,
-                query_delegate.query_data(),
+async fn universe_from_literals(
+    ctx: &mut DiceComputations<'_>,
+    cwd: &ProjectRelativePath,
+    literals: &[String],
+    global_cfg_options: GlobalCfgOptions,
+) -> anyhow::Result<CqueryUniverse> {
+    ctx.with_linear_recompute(|ctx| async move {
+        let query_delegate = get_dice_query_delegate(&ctx, cwd, global_cfg_options).await?;
+        Ok(preresolve_literals_and_build_universe(
+            &query_delegate,
+            query_delegate.query_data(),
+            literals,
+        )
+        .await?
+        .0)
+    })
+    .await
+}
+
+pub(crate) fn init_universe_from_literals() {
+    UNIVERSE_FROM_LITERALS.init(
+        |ctx: &mut DiceComputations<'_>,
+         cwd: &ProjectRelativePath,
+         literals: &[String],
+         global_cfg_options: GlobalCfgOptions| {
+            Box::pin(universe_from_literals(
+                ctx,
+                cwd,
                 literals,
-            )
-            .await?
-            .0)
-        })
-        .await
-    }
+                global_cfg_options,
+            ))
+        },
+    );
 }

@@ -31,7 +31,6 @@ use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::build::ProvidersToBuild;
-use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
@@ -61,6 +60,7 @@ use buck2_events::errors::create_error_report;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_node::configured_universe::CqueryUniverse;
+use buck2_node::configured_universe::UNIVERSE_FROM_LITERALS;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -159,15 +159,13 @@ impl TargetResolutionConfig {
             Ok(TargetResolutionConfig::Default(global_cfg_options))
         } else {
             Ok(TargetResolutionConfig::Universe(
-                QUERY_FRONTEND
-                    .get()?
-                    .universe_from_literals(
-                        ctx,
-                        server_ctx.working_dir(),
-                        &target_universe,
-                        global_cfg_options,
-                    )
-                    .await?,
+                (UNIVERSE_FROM_LITERALS.get()?)(
+                    ctx,
+                    server_ctx.working_dir(),
+                    &target_universe,
+                    global_cfg_options,
+                )
+                .await?,
             ))
         }
     }
