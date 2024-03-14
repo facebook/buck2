@@ -16,18 +16,14 @@ use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
-use buck2_node::load_patterns::load_patterns;
-use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
-use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use buck2_server_ctx::pattern::parse_and_resolve_patterns_to_targets_from_cli_args;
 use gazebo::prelude::SliceExt;
 use indent_write::io::IndentWriter;
 
@@ -53,7 +49,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
     ) -> anyhow::Result<()> {
         server_ctx.with_dice_ctx(
             async move |server_ctx, mut ctx| {
-                let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredTargetPatternExtra>(
+                let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<ConfiguredTargetPatternExtra>(
                     &mut ctx,
                     &self
                         .patterns
@@ -62,40 +58,32 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 )
                     .await?;
 
-                let mut configured_patterns: Vec<ConfiguredTargetLabel> = Vec::new();
-                let mut target_patterns: Vec<ParsedPattern<ConfiguredTargetPatternExtra>> = Vec::new();
-                for pat in parsed_patterns {
-                    match pat.clone() {
-                        ParsedPattern::Package(pkg) => target_patterns.push(ParsedPattern::Package(pkg)),
-                        ParsedPattern::Recursive(path) => target_patterns.push(ParsedPattern::Recursive(path)),
-                        ParsedPattern::Target(pkg, target_name, extra) => {
-                            match extra.cfg {
-                                ConfigurationPredicate::Any => target_patterns.push(ParsedPattern::Target(pkg, target_name, extra)),
-                                ConfigurationPredicate::Builtin(_) => return Err(AuditExecutionPlatformResolutionCommandError::BuiltinConfigurationsNotSupported(pat.to_string()).into()),
-                                ConfigurationPredicate::Bound(_label, None) => return Err(AuditExecutionPlatformResolutionCommandError::ConfigurationLabelWithoutHashNotSupported(pat.to_string()).into()),
-                                ConfigurationPredicate::Bound(label, Some(hash)) => {
-                                    let cfg = ConfigurationData::lookup_bound(BoundConfigurationId { label, hash })?;
-                                    configured_patterns.push(TargetLabel::new(pkg, target_name.as_ref()).configure(cfg));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let loaded_patterns = load_patterns(&mut ctx, target_patterns, MissingTargetBehavior::Fail).await?;
                 let global_cfg_options = global_cfg_options_from_client_context(
                     &client_ctx,
                     server_ctx,
                     &mut ctx,
                 )
-                .await?;
+                    .await?;
 
-                for (_, targets) in loaded_patterns.into_iter() {
-                    for (_, node) in targets? {
-                        configured_patterns.push(
-                            ctx.get_configured_target(node.label(), &global_cfg_options)
-                                .await?,
-                        );
+                let mut configured_patterns: Vec<ConfiguredTargetLabel> = Vec::new();
+                for (target_label, extra) in targets {
+                    match extra.cfg {
+                        ConfigurationPredicate::Any => {
+                            configured_patterns.push(
+                                ctx.get_configured_target(&target_label, &global_cfg_options)
+                                    .await?,
+                            );
+                        },
+                        ConfigurationPredicate::Builtin(p) => {
+                            return Err(AuditExecutionPlatformResolutionCommandError::BuiltinConfigurationsNotSupported(p.to_string()).into())
+                        }
+                        ConfigurationPredicate::Bound(label, None) => {
+                            return Err(AuditExecutionPlatformResolutionCommandError::ConfigurationLabelWithoutHashNotSupported(label.to_string()).into())
+                        }
+                        ConfigurationPredicate::Bound(label, Some(hash)) => {
+                            let cfg = ConfigurationData::lookup_bound(BoundConfigurationId { label, hash })?;
+                            configured_patterns.push(target_label.configure(cfg));
+                        }
                     }
                 }
 

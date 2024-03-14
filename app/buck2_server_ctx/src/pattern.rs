@@ -93,7 +93,7 @@ pub async fn parse_and_resolve_patterns_from_cli_args<T: PatternType>(
     ResolveTargetPatterns::resolve(ctx, &patterns).await
 }
 
-async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>(
+pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>(
     ctx: &mut DiceComputations<'_>,
     target_patterns: &[buck2_data::TargetPattern],
     cwd: &ProjectRelativePath,
