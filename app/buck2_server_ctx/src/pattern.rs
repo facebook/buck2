@@ -10,6 +10,8 @@
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_common::pattern::resolve::ResolveTargetPatterns;
+use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
@@ -75,6 +77,15 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
     let parser = PatternParser::new(ctx, cwd).await?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
+}
+
+pub async fn parse_and_resolve_patterns_from_cli_args<T: PatternType>(
+    ctx: &mut DiceComputations<'_>,
+    target_patterns: &[buck2_data::TargetPattern],
+    cwd: &ProjectRelativePath,
+) -> anyhow::Result<ResolvedPattern<T>> {
+    let patterns = parse_patterns_from_cli_args(ctx, target_patterns, cwd).await?;
+    ResolveTargetPatterns::resolve(ctx, &patterns).await
 }
 
 /// Extract target configuration components from [`ClientContext`].

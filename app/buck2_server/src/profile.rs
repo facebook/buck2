@@ -18,7 +18,6 @@ use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::ClientContext;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
-use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
@@ -39,7 +38,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
-use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use buck2_server_ctx::pattern::parse_and_resolve_patterns_from_cli_args;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -193,14 +192,12 @@ async fn generate_profile(
     let global_cfg_options =
         global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
 
-    let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
+    let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
         &mut ctx,
         target_patterns,
         server_ctx.working_dir(),
     )
     .await?;
-
-    let resolved = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     match action {
         Action::Analysis => {

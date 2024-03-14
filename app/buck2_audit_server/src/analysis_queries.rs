@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_audit::analysis_queries::AuditAnalysisQueriesCommand;
 use buck2_cli_proto::ClientContext;
-use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -22,7 +21,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
-use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use buck2_server_ctx::pattern::parse_and_resolve_patterns_from_cli_args;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -42,16 +41,15 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                     global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx)
                         .await?;
 
-                let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-                    &mut ctx,
-                    &self
-                        .patterns
-                        .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-                    server_ctx.working_dir(),
-                )
-                .await?;
                 let resolved_pattern =
-                    ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
+                    parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
+                        &mut ctx,
+                        &self
+                            .patterns
+                            .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                        server_ctx.working_dir(),
+                    )
+                    .await?;
 
                 let mut stdout = stdout.as_writer();
 

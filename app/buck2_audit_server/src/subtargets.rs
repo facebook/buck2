@@ -16,7 +16,6 @@ use buck2_audit::subtargets::AuditSubtargetsCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_cli_proto::ClientContext;
-use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -26,7 +25,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
-use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use buck2_server_ctx::pattern::parse_and_resolve_patterns_from_cli_args;
 use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use buck2_util::indent::indent;
 use dice::DiceTransaction;
@@ -64,7 +63,7 @@ async fn server_execute_with_dice(
     let global_cfg_options =
         global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
 
-    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
+    let resolved_pattern = parse_and_resolve_patterns_from_cli_args::<ProvidersPatternExtra>(
         &mut ctx,
         command
             .patterns
@@ -73,7 +72,6 @@ async fn server_execute_with_dice(
         server_ctx.working_dir(),
     )
     .await?;
-    let resolved_pattern = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
     let mut futs = FuturesOrdered::new();
     for (package, spec) in resolved_pattern.specs {
