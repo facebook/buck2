@@ -165,10 +165,7 @@ async fn copy_directory(src: &Path, dst: &Path) -> anyhow::Result<()> {
 async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
     if let Some(parent) = dst.parent() {
         if !parent.exists() {
-            return Err(anyhow::anyhow!(
-                "Directory `{}` does not exist",
-                parent.display()
-            ));
+            tokio::fs::create_dir_all(parent).await?;
         }
     }
     let dest_path = match dst.is_dir() {
