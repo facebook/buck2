@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::DiceHasCommandExecutor;
+use buck2_build_api::actions::execute::dice_data::GetReClient;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -128,6 +129,7 @@ use crate::local_resource_api::LocalResourcesSetupResult;
 use crate::local_resource_registry::LocalResourceRegistry;
 use crate::local_resource_setup::required_local_resources_setup_contexts;
 use crate::local_resource_setup::LocalResourceSetupContext;
+use crate::remote_storage;
 use crate::session::TestSession;
 use crate::translations;
 
@@ -308,13 +310,13 @@ impl<'a> BuckTestOrchestrator<'a> {
             let project_relative_path = fs.buck_out_path_resolver().resolve_test(&test_path);
             let output_name = test_path.into_path().into();
             // It's OK to search iteratively here because there will be few entries in `pre_create_dirs`
-            let supports_remote = pre_create_dirs
+            let remote_storage_config = pre_create_dirs
                 .iter()
                 .find(|&x| x.name == output_name)
-                .map_or(false, |x| x.remote_storage_config.supports_remote);
+                .map_or_else(Default::default, |x| x.remote_storage_config.dupe());
 
             let output = match (
-                supports_remote,
+                remote_storage_config.supports_remote,
                 execution_kind.as_ref(),
                 translations::convert_artifact(output_name.clone().into_string(), artifact),
             ) {
@@ -326,6 +328,12 @@ impl<'a> BuckTestOrchestrator<'a> {
                 // RE? Alternatively, when we make buck upload local testing
                 // artifacts to CAS, we can remove this condition altogether.
                 (true, Some(CommandExecutionKind::Remote { .. }), Some(remote_object)) => {
+                    remote_storage::apply_config(
+                        self.dice.per_transaction_data().get_re_client(),
+                        &remote_object,
+                        &remote_storage_config,
+                    )
+                    .await?;
                     Output::RemoteObject(remote_object)
                 }
                 _ => {

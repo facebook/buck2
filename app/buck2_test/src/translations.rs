@@ -20,6 +20,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_test_api::data::ConfiguredTarget;
 use buck2_test_api::data::RemoteObject;
+use remote_execution as RE;
 
 use crate::session::TestSession;
 
@@ -91,6 +92,14 @@ fn convert_digest(digest: &FileDigest) -> buck2_test_api::data::CasDigest {
     buck2_test_api::data::CasDigest {
         hash,
         size_bytes: digest.size() as i64,
+    }
+}
+
+pub fn convert_test_to_re_digest(digest: buck2_test_api::data::CasDigest) -> RE::TDigest {
+    RE::TDigest {
+        hash: digest.hash,
+        size_in_bytes: digest.size_bytes,
+        ..Default::default()
     }
 }
 

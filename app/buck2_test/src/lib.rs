@@ -21,6 +21,7 @@ pub(crate) mod local_resource_api;
 pub(crate) mod local_resource_registry;
 pub(crate) mod local_resource_setup;
 pub mod orchestrator;
+pub(crate) mod remote_storage;
 pub mod session;
 pub(crate) mod tcp;
 pub mod translations;
