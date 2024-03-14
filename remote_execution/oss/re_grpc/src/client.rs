@@ -785,6 +785,15 @@ impl REClient {
         })
     }
 
+    pub async fn extend_digest_ttl(
+        &self,
+        _metadata: RemoteExecutionMetadata,
+        _request: ExtendDigestTtlRequest,
+    ) -> anyhow::Result<TDigest> {
+        // TODO(arr)
+        Err(anyhow::anyhow!("Not implemented (RE extend_digest_ttl)"))
+    }
+
     pub fn get_execution_client(&self) -> &Self {
         self
     }

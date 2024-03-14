@@ -40,6 +40,7 @@ use remote_execution::DownloadRequest;
 use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteResponse;
 use remote_execution::ExecuteWithProgressResponse;
+use remote_execution::ExtendDigestTtlRequest;
 use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
@@ -99,6 +100,7 @@ struct RemoteExecutionClientData {
     materializes: OpStats,
     write_action_results: OpStats,
     get_digest_expirations: OpStats,
+    extend_digest_ttl: OpStats,
 }
 
 impl RemoteExecutionClient {
@@ -130,6 +132,7 @@ impl RemoteExecutionClient {
                 materializes: OpStats::default(),
                 write_action_results: OpStats::default(),
                 get_digest_expirations: OpStats::default(),
+                extend_digest_ttl: OpStats::default(),
             }),
         })
     }
@@ -349,6 +352,22 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .get_digest_expirations(digests, use_case)
+                .map_err(|e| self.decorate_error(e)))
+            .await
+    }
+
+    pub async fn extend_digest_ttl(
+        &self,
+        digests: Vec<TDigest>,
+        ttl: Duration,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<()> {
+        self.data
+            .extend_digest_ttl
+            .op(self
+                .data
+                .client
+                .extend_digest_ttl(digests, ttl, use_case)
                 .map_err(|e| self.decorate_error(e)))
             .await
     }
@@ -1142,6 +1161,35 @@ impl RemoteExecutionClientImpl {
             .into_iter()
             .map(|t| (t.digest, now + chrono::Duration::seconds(t.ttl)))
             .collect())
+    }
+
+    async fn extend_digest_ttl(
+        &self,
+        digests: Vec<TDigest>,
+        ttl: Duration,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<()> {
+        let use_case = &use_case;
+        // TODO(arr): use batch API from RE when it becomes available
+        let futs = digests.into_iter().map(|digest| async move {
+            self.client()
+                .get_cas_client()
+                .extend_digest_ttl(
+                    use_case.metadata(None),
+                    ExtendDigestTtlRequest {
+                        digest,
+                        ttl: ttl.as_secs() as i64,
+                        ..Default::default()
+                    },
+                )
+                .await?;
+
+            anyhow::Ok(())
+        });
+
+        futures::future::try_join_all(futs).await?;
+
+        Ok(())
     }
 
     async fn write_action_result(

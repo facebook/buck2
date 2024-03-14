@@ -470,6 +470,19 @@ impl ManagedRemoteExecutionClient {
             .await
     }
 
+    pub async fn extend_digest_ttl(
+        &self,
+        digests: Vec<TDigest>,
+        ttl: Duration,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<()> {
+        self.lock()?
+            .get()
+            .await?
+            .extend_digest_ttl(digests, ttl, use_case)
+            .await
+    }
+
     pub async fn write_action_result(
         &self,
         digest: ActionDigest,

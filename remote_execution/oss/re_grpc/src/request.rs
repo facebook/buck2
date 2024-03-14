@@ -73,6 +73,12 @@ pub struct GetDigestsTtlRequest {
     pub _dot_dot: (),
 }
 
+#[derive(Default)]
+pub struct ExtendDigestTtlRequest {
+    pub digest: TDigest,
+    pub ttl: i64,
+}
+
 #[derive(Clone, Default)]
 pub struct ExecuteRequest {
     pub action_digest: TDigest,
