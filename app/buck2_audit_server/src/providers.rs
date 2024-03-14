@@ -14,12 +14,11 @@ use buck2_audit::providers::AuditProvidersCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
-use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_and_resolve_provider_labels_from_cli_args;
+use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_util::indent::indent;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -60,8 +59,14 @@ async fn server_execute_with_dice(
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
 ) -> anyhow::Result<()> {
-    let global_cfg_options =
-        global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
+    let target_resolution_config = TargetResolutionConfig::from_args(
+        &mut ctx,
+        &client_ctx,
+        server_ctx,
+        // TODO(nga): pass universe
+        &[],
+    )
+    .await?;
 
     let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
         &mut ctx,
@@ -74,17 +79,18 @@ async fn server_execute_with_dice(
 
     let mut futs = Vec::new();
     for label in provider_labels {
-        let providers_label = ctx
-            .get_configured_provider_label(&label, &global_cfg_options)
-            .await?;
-
-        futs.push(DiceComputations::declare_closure(|ctx| {
-            async move {
-                let result = ctx.get_providers(&providers_label).await;
-                (providers_label, result)
-            }
-            .boxed()
-        }));
+        for providers_label in target_resolution_config
+            .get_configured_provider_label(&mut ctx, &label)
+            .await?
+        {
+            futs.push(DiceComputations::declare_closure(|ctx| {
+                async move {
+                    let result = ctx.get_providers(&providers_label).await;
+                    (providers_label, result)
+                }
+                .boxed()
+            }));
+        }
     }
 
     let mut futs: FuturesOrdered<_> = ctx.compute_many(futs).into_iter().collect();

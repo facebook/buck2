@@ -19,9 +19,11 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::PatternType;
+use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::span;
@@ -173,6 +175,21 @@ impl CqueryUniverse {
             configured_nodes.extend(results);
         }
         configured_nodes
+    }
+
+    pub fn get_provider_label(&self, label: &ProvidersLabel) -> Vec<ConfiguredProvidersLabel> {
+        self.get_from_package(
+            label.target().pkg(),
+            &PackageSpec::Targets(vec![(
+                label.target().name().to_owned(),
+                ProvidersPatternExtra {
+                    providers: label.name().clone(),
+                },
+            )]),
+        )
+        .into_iter()
+        .map(|(node, extra)| ConfiguredProvidersLabel::new(node.label().dupe(), extra.providers))
+        .collect()
     }
 
     pub fn get_provider_labels<P: PatternType>(
