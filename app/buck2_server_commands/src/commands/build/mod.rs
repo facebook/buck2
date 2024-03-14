@@ -35,6 +35,7 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
@@ -71,6 +72,7 @@ use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
@@ -144,6 +146,33 @@ enum TargetResolutionConfig {
     Universe(CqueryUniverse),
 }
 
+impl TargetResolutionConfig {
+    async fn from_args(
+        ctx: &mut DiceComputations<'_>,
+        client_ctx: &ClientContext,
+        server_ctx: &dyn ServerCommandContextTrait,
+        target_universe: &[String],
+    ) -> anyhow::Result<TargetResolutionConfig> {
+        let global_cfg_options =
+            global_cfg_options_from_client_context(client_ctx, server_ctx, ctx).await?;
+        if target_universe.is_empty() {
+            Ok(TargetResolutionConfig::Default(global_cfg_options))
+        } else {
+            Ok(TargetResolutionConfig::Universe(
+                QUERY_FRONTEND
+                    .get()?
+                    .universe_from_literals(
+                        ctx,
+                        server_ctx.working_dir(),
+                        &target_universe,
+                        global_cfg_options,
+                    )
+                    .await?,
+            ))
+        }
+    }
+}
+
 fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions {
     req.build_opts.as_ref().expect("should have build options")
 }
@@ -215,10 +244,6 @@ async fn build(
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
-    let client_ctx = request.client_context()?;
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
-
     let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
         parse_patterns_from_cli_args(&mut ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
@@ -226,16 +251,13 @@ async fn build(
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
         ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
 
-    let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
-        TargetResolutionConfig::Default(global_cfg_options)
-    } else {
-        TargetResolutionConfig::Universe(
-            QUERY_FRONTEND
-                .get()?
-                .universe_from_literals(&mut ctx, cwd, &request.target_universe, global_cfg_options)
-                .await?,
-        )
-    };
+    let target_resolution_config = TargetResolutionConfig::from_args(
+        &mut ctx,
+        request.client_context()?,
+        server_ctx,
+        &request.target_universe,
+    )
+    .await?;
 
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
 
