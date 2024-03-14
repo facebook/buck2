@@ -27,7 +27,8 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
-use buck2_server_ctx::pattern::PatternParser;
+use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use gazebo::prelude::SliceExt;
 use indent_write::io::IndentWriter;
 
 use crate::AuditSubcommand;
@@ -52,15 +53,18 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
     ) -> anyhow::Result<()> {
         server_ctx.with_dice_ctx(
             async move |server_ctx, mut ctx| {
-                let pattern_parser = PatternParser::new(
+                let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredTargetPatternExtra>(
                     &mut ctx,
+                    &self
+                        .patterns
+                        .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
                     server_ctx.working_dir(),
-                ).await?;
+                )
+                    .await?;
 
                 let mut configured_patterns: Vec<ConfiguredTargetLabel> = Vec::new();
                 let mut target_patterns: Vec<ParsedPattern<ConfiguredTargetPatternExtra>> = Vec::new();
-                for pat in self.patterns.iter() {
-                    let pat = pattern_parser.parse_pattern::<ConfiguredTargetPatternExtra>(pat)?;
+                for pat in parsed_patterns {
                     match pat.clone() {
                         ParsedPattern::Package(pkg) => target_patterns.push(ParsedPattern::Package(pkg)),
                         ParsedPattern::Recursive(path) => target_patterns.push(ParsedPattern::Recursive(path)),
