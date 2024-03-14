@@ -34,7 +34,6 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
-use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
@@ -60,7 +59,6 @@ use buck2_events::errors::create_error_report;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_node::configured_universe::CqueryUniverse;
-use buck2_node::configured_universe::UNIVERSE_FROM_LITERALS;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -68,11 +66,10 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
+use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
@@ -136,38 +133,6 @@ impl ServerCommandTemplate for BuildServerCommand {
         response: &Self::Response,
     ) -> Vec<buck2_data::ErrorReport> {
         response.errors.clone()
-    }
-}
-
-enum TargetResolutionConfig {
-    /// Resolve using target platform.
-    Default(GlobalCfgOptions),
-    /// Resolve in the universe.
-    Universe(CqueryUniverse),
-}
-
-impl TargetResolutionConfig {
-    async fn from_args(
-        ctx: &mut DiceComputations<'_>,
-        client_ctx: &ClientContext,
-        server_ctx: &dyn ServerCommandContextTrait,
-        target_universe: &[String],
-    ) -> anyhow::Result<TargetResolutionConfig> {
-        let global_cfg_options =
-            global_cfg_options_from_client_context(client_ctx, server_ctx, ctx).await?;
-        if target_universe.is_empty() {
-            Ok(TargetResolutionConfig::Default(global_cfg_options))
-        } else {
-            Ok(TargetResolutionConfig::Universe(
-                (UNIVERSE_FROM_LITERALS.get()?)(
-                    ctx,
-                    server_ctx.working_dir(),
-                    &target_universe,
-                    global_cfg_options,
-                )
-                .await?,
-            ))
-        }
     }
 }
 
