@@ -7,16 +7,20 @@
  * of this source tree.
  */
 
+use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context as _;
 use buck2_core::cells::name::CellName;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 
 use super::LocalResourceType;
 use super::PrepareForLocalExecutionResult;
+use super::RemoteStorageConfig;
 use super::RequiredLocalResources;
+use super::TtlConfig;
 use crate::convert;
 use crate::data::ArgHandle;
 use crate::data::ArgValue;
@@ -407,12 +411,29 @@ impl TryFrom<buck2_test_proto::OutputName> for OutputName {
     }
 }
 
+impl From<TtlConfig> for buck2_test_proto::TtlConfig {
+    fn from(o: TtlConfig) -> Self {
+        Self {
+            ttl_seconds: o.ttl.as_secs() as i64,
+            use_case: o.use_case.to_string(),
+        }
+    }
+}
+
+impl From<buck2_test_proto::TtlConfig> for TtlConfig {
+    fn from(o: buck2_test_proto::TtlConfig) -> Self {
+        let ttl = Duration::from_secs(o.ttl_seconds as u64);
+        let use_case = RemoteExecutorUseCase::new(o.use_case);
+        Self { ttl, use_case }
+    }
+}
+
 impl From<DeclaredOutput> for buck2_test_proto::DeclaredOutput {
     fn from(o: DeclaredOutput) -> Self {
         Self {
             name: o.name.as_str().to_owned(),
-            supports_remote: o.supports_remote,
-            ttl_config: None,
+            supports_remote: o.remote_storage_config.supports_remote,
+            ttl_config: o.remote_storage_config.ttl_config.map(Into::into),
         }
     }
 }
@@ -421,10 +442,14 @@ impl TryFrom<buck2_test_proto::DeclaredOutput> for DeclaredOutput {
     type Error = anyhow::Error;
 
     fn try_from(o: buck2_test_proto::DeclaredOutput) -> Result<Self, Self::Error> {
-        let name = ForwardRelativePathBuf::try_from(o.name)?;
-        Ok(Self {
-            name: name.into(),
+        let name = ForwardRelativePathBuf::try_from(o.name)?.into();
+        let remote_storage_config = RemoteStorageConfig {
             supports_remote: o.supports_remote,
+            ttl_config: o.ttl_config.map(Into::into),
+        };
+        Ok(Self {
+            name,
+            remote_storage_config,
         })
     }
 }
@@ -958,7 +983,7 @@ mod tests {
     fn execute_request2_roundtrip() {
         let declared_output = DeclaredOutput {
             name: OutputName::unchecked_new("name".to_owned()),
-            supports_remote: true,
+            remote_storage_config: RemoteStorageConfig::new(true),
         };
 
         let test_executable = TestExecutable {
@@ -1053,7 +1078,7 @@ mod tests {
     fn test_executable_roundtrip() {
         let declared_output = DeclaredOutput {
             name: OutputName::unchecked_new("name".to_owned()),
-            supports_remote: false,
+            remote_storage_config: RemoteStorageConfig::new(false),
         };
 
         let test_executable = TestExecutable {

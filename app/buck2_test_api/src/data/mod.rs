@@ -19,6 +19,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_core::cells::name::CellName;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 pub use buck2_test_proto::CasDigest;
@@ -205,17 +206,52 @@ impl From<OutputName> for ForwardRelativePathBuf {
     }
 }
 
+#[derive(Dupe, Clone, PartialEq)]
+pub struct TtlConfig {
+    /// Specifies a custom TTL for blobs under the output dir.
+    pub ttl: Duration,
+    /// Specifies a custom use-case to use for managing blobs' TTL.
+    pub use_case: RemoteExecutorUseCase,
+}
+
+// Use a custom implementation of Debug because we don't care about interning
+// that's happening inside RemoteExecutorUseCase
+impl Debug for TtlConfig {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("TtlConfig")
+            .field("ttl", &self.ttl)
+            .field("use_case", &self.use_case.as_str())
+            .finish()
+    }
+}
+
+#[derive(Debug, Dupe, Clone, PartialEq, Default)]
+pub struct RemoteStorageConfig {
+    /// Signals that the output does not have to be materialized.
+    pub supports_remote: bool,
+    pub ttl_config: Option<TtlConfig>,
+}
+
+impl RemoteStorageConfig {
+    pub fn new(supports_remote: bool) -> Self {
+        Self {
+            supports_remote,
+            ..Default::default()
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeclaredOutput {
     pub name: OutputName,
-    pub supports_remote: bool,
+    pub remote_storage_config: RemoteStorageConfig,
 }
 
 impl DeclaredOutput {
-    pub fn unchecked_new(name: String, supports_remote: bool) -> Self {
+    pub fn unchecked_new(name: String, remote_storage_config: RemoteStorageConfig) -> Self {
         Self {
             name: OutputName::unchecked_new(name),
-            supports_remote,
+            remote_storage_config,
         }
     }
 }

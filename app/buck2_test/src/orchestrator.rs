@@ -311,7 +311,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             let supports_remote = pre_create_dirs
                 .iter()
                 .find(|&x| x.name == output_name)
-                .map_or(false, |x| x.supports_remote);
+                .map_or(false, |x| x.remote_storage_config.supports_remote);
 
             let output = match (
                 supports_remote,
