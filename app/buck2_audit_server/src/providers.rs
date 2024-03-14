@@ -14,13 +14,12 @@ use buck2_audit::providers::AuditProvidersCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
-use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
-use buck2_server_ctx::pattern::parse_and_resolve_patterns_to_targets_from_cli_args;
+use buck2_server_ctx::pattern::parse_and_resolve_provider_labels_from_cli_args;
 use buck2_util::indent::indent;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -64,7 +63,7 @@ async fn server_execute_with_dice(
     let global_cfg_options =
         global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
 
-    let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<ProvidersPatternExtra>(
+    let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
         &mut ctx,
         &command
             .patterns
@@ -74,8 +73,7 @@ async fn server_execute_with_dice(
     .await?;
 
     let mut futs = Vec::new();
-    for (target_label, providers) in targets {
-        let label = providers.into_providers_label(target_label.pkg(), target_label.name());
+    for label in provider_labels {
         let providers_label = ctx
             .get_configured_provider_label(&label, &global_cfg_options)
             .await?;
