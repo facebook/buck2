@@ -412,6 +412,7 @@ impl From<DeclaredOutput> for buck2_test_proto::DeclaredOutput {
         Self {
             name: o.name.as_str().to_owned(),
             supports_remote: o.supports_remote,
+            ttl_config: None,
         }
     }
 }

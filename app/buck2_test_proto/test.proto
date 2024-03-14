@@ -236,11 +236,19 @@ message OutputName {
   reserved 2;
 }
 
+message TtlConfig {
+  // Specifies a custom TTL in seconds for blobs in the output.
+  int64 ttl_seconds = 1;
+  // Specifies a custom use-case to use for managing the blobs in CAS.
+  string use_case = 2;
+}
+
 message DeclaredOutput {
   string name = 1;
   // Flags that a consumer supports *remote* output, in which case it's not
   // necessary to materialize this output.
   bool supports_remote = 2;
+  optional TtlConfig ttl_config = 3;
 }
 
 // Copy of Digest from Remote Execution API:
