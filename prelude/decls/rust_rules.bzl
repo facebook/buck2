@@ -6,10 +6,11 @@
 # of this source tree.
 
 load("@prelude//cxx/user:link_group_map.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
-load(":common.bzl", "Linkage", "buck", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")

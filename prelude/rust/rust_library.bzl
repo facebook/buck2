@@ -30,7 +30,6 @@ load(
     "@prelude//cxx:omnibus.bzl",
     "create_linkable_root",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -66,6 +65,7 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     ":build.bzl",

@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:link_groups_types.bzl", "Traversal")
-load("@prelude//decls:common.bzl", "Linkage")
+load("@prelude//linking:types.bzl", "Linkage")
 load(
     "@prelude//utils:build_target_pattern.bzl",
     "BuildTargetPattern",

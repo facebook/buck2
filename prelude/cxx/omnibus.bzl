@@ -12,7 +12,6 @@ load(
     "CxxLinkResult",  # @unused Used as a type
     "cxx_link_shared_library",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
@@ -38,6 +37,7 @@ load(
     "linkable_deps",
     "linkable_graph",
 )
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",

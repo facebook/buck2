@@ -13,7 +13,6 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -45,6 +44,7 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")

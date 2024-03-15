@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -38,6 +37,7 @@ load(
     "get_linkable_graph_node_map_func",
     "get_transitive_deps",
 )
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load(

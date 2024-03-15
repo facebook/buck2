@@ -7,7 +7,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
-load("@prelude//decls:common.bzl", "Linkage")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load(

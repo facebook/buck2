@@ -32,7 +32,6 @@ load(
     "create_linkable_root",
     "get_roots",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -60,6 +59,7 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "merge_shared_libraries",
 )
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@prelude//utils:expect.bzl", "expect")

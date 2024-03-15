@@ -28,7 +28,6 @@ load(
     "extract_global_syms",
     "extract_undefined_syms",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")  # @unused
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
@@ -60,6 +59,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal_by", "post_order_traversal", "pre_order_traversal")
 load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type

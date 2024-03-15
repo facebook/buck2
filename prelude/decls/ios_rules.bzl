@@ -11,8 +11,9 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//cxx:link_groups_types.bzl", "Traversal")
+load("@prelude//linking:types.bzl", "Linkage")
 load(":apple_common.bzl", "apple_common")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "Linkage", "buck", "prelude_rule")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
 

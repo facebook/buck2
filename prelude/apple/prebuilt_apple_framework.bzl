@@ -18,7 +18,6 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -41,6 +40,7 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeDefault")
 load(":apple_frameworks.bzl", "to_framework_name")

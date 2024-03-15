@@ -53,7 +53,6 @@ load(
     "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//linking:link_info.bzl", "LinkedObject")
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -68,6 +67,7 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load("@prelude//paths.bzl", "paths")
 load("@prelude//resources.bzl", "gather_resources")

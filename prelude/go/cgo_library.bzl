@@ -30,7 +30,6 @@ load(
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -42,6 +41,7 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 load(

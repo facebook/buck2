@@ -39,16 +39,6 @@ IncludeType = ["local", "system", "raw"]
 
 LinkableDepType = ["static", "static_pic", "shared"]
 
-# Ways a library can request to be linked (e.g. usually specific via a rule
-# param like `preferred_linkage`). The actual link style used for a library is
-# usually determined by a combination of this and the link style being exported
-# via a provider.
-Linkage = enum(
-    "any",
-    "static",
-    "shared",
-)
-
 LogLevel = ["off", "severe", "warning", "info", "config", "fine", "finer", "finest", "all"]
 
 OnDuplicateEntry = ["fail", "overwrite", "append"]

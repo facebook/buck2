@@ -47,7 +47,6 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
-load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//haskell:compile.bzl",
     "CompileResultInfo",
@@ -132,6 +131,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//linking:types.bzl", "Linkage")
 load(
     "@prelude//python:python.bzl",
     "PythonLibraryInfo",

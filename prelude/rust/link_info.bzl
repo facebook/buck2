@@ -34,10 +34,6 @@ load(
     "get_link_group_preferred_linkage",
 )
 load(
-    "@prelude//decls:common.bzl",
-    "Linkage",  # @unused Used as a type
-)
-load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
     "LinkGroupLibInfo",  # @unused Used as a type
@@ -59,6 +55,10 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
+)
+load(
+    "@prelude//linking:types.bzl",
+    "Linkage",  # @unused Used as a type
 )
 load(
     ":context.bzl",

@@ -17,7 +17,7 @@ load(
     "get_no_as_needed_shared_libs_flags",
     "get_objects_as_library_args",
 )
-load("@prelude//decls:common.bzl", "Linkage")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:utils.bzl",

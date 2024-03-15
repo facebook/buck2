@@ -17,7 +17,8 @@ load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_attr")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
-load("@prelude//decls/common.bzl", "LinkableDepType", "Linkage")
+load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//decls/common.bzl", "LinkableDepType")
 
 def get_apple_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
