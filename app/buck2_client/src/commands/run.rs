@@ -105,6 +105,7 @@ impl StreamingCommand for RunCommand {
                     target_patterns: vec![buck2_data::TargetPattern {
                         value: self.target.clone(),
                     }],
+                    target_cfg: Some(self.common_opts.config_opts.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: build_providers::Action::Skip as i32,
                         run_info: build_providers::Action::Build as i32,

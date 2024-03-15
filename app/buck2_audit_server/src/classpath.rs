@@ -35,7 +35,7 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_ctx: ClientContext,
+        _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut ctx| {
@@ -48,9 +48,12 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                     cwd,
                 )
                 .await?;
-                let global_cfg_options =
-                    global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx)
-                        .await?;
+                let global_cfg_options = global_cfg_options_from_client_context(
+                    &self.common_opts.config_opts.target_cfg(),
+                    server_ctx,
+                    &mut ctx,
+                )
+                .await?;
                 // Incompatible targets are skipped because this is an audit command
                 let targets = load_compatible_patterns(
                     &mut ctx,

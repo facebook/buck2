@@ -19,7 +19,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditExecutionPlatformResolutionCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    pub common_opts: CommonCommandOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     pub patterns: Vec<String>,

@@ -35,7 +35,6 @@ use buck2_cli_proto::build_request::build_providers::Action as BuildProviderActi
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::CommonBuildOptions;
-use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -53,6 +52,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
 use buck2_events::errors::create_error_report;
@@ -216,7 +216,10 @@ async fn build(
 
     let target_resolution_config = TargetResolutionConfig::from_args(
         &mut ctx,
-        request.client_context()?,
+        request
+            .target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &request.target_universe,
     )

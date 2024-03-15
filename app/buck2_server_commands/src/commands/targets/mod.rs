@@ -19,12 +19,12 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
-use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
@@ -198,10 +198,15 @@ async fn targets(
                 res?
             } else {
                 let formatter = create_formatter(request, other)?;
-                let client_ctx = request.client_context()?;
-                let global_cfg_options =
-                    global_cfg_options_from_client_context(client_ctx, server_ctx, &mut dice)
-                        .await?;
+                let global_cfg_options = global_cfg_options_from_client_context(
+                    request
+                        .target_cfg
+                        .as_ref()
+                        .internal_error("target_cfg must be set")?,
+                    server_ctx,
+                    &mut dice,
+                )
+                .await?;
                 let fs = server_ctx.project_root();
                 targets_batch(
                     server_ctx,

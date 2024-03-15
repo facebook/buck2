@@ -12,12 +12,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_cli_proto::profile_request::ProfileOpts;
-use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_profile::get_profile_response;
@@ -103,9 +103,12 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             }
                         };
 
-                        let client_ctx = self.req.client_context()?;
                         let global_cfg_options = global_cfg_options_from_client_context(
-                            client_ctx, server_ctx, &mut ctx,
+                            opts.target_cfg
+                                .as_ref()
+                                .internal_error("target_cfg must be set")?,
+                            server_ctx,
+                            &mut ctx,
                         )
                         .await?;
 

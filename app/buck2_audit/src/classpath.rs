@@ -21,7 +21,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditClasspathCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    pub common_opts: CommonCommandOptions,
 
     /// Output in JSON format
     #[clap(long)]

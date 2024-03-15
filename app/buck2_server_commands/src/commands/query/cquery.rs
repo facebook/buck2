@@ -156,6 +156,7 @@ async fn cquery(
         context,
         show_providers,
         correct_owner,
+        target_cfg,
         ..
     } = request;
     // The request will always have a universe value, an empty one indicates the user didn't provide a universe.
@@ -168,8 +169,14 @@ async fn cquery(
 
     let target_call_stacks = client_ctx.target_call_stacks;
 
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options = global_cfg_options_from_client_context(
+        target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     let owner_behavior = match correct_owner {
         true => CqueryOwnerBehavior::Correct,

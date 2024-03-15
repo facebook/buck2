@@ -114,7 +114,7 @@ impl ServerAuditSubcommand for AuditOutputCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_ctx: ClientContext,
+        _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut dice_ctx| {
@@ -129,7 +129,7 @@ impl ServerAuditSubcommand for AuditOutputCommand {
                 let cell_resolver = dice_ctx.get_cell_resolver().await?;
 
                 let global_cfg_options = global_cfg_options_from_client_context(
-                    &client_ctx,
+                    &self.common_opts.config_opts.target_cfg(),
                     server_ctx,
                     &mut dice_ctx,
                 )

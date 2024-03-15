@@ -30,7 +30,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
-use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
@@ -50,6 +49,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::name::TargetName;
 use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -176,9 +176,15 @@ async fn install(
 ) -> anyhow::Result<InstallResponse> {
     let cwd = server_ctx.working_dir();
 
-    let client_ctx = request.client_context()?;
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options = global_cfg_options_from_client_context(
+        request
+            .target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     let materializations = MaterializationContext::force_materializations();
     let materializations = &materializations; // Don't move this below.

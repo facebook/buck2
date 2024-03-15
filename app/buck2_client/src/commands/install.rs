@@ -182,6 +182,7 @@ impl StreamingCommand for InstallCommand {
                     target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                         value: pat.to_owned(),
                     }),
+                    target_cfg: Some(self.common_opts.config_opts.target_cfg()),
                     build_opts: Some(self.build_opts.to_proto()),
                     installer_run_args: extra_run_args,
                     installer_debug: self.installer_debug,

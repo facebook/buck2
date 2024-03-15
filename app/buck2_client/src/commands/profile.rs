@@ -204,6 +204,12 @@ impl StreamingCommand for ProfileSubcommand {
                     target_patterns: opts
                         .target_patterns
                         .into_map(|value| buck2_data::TargetPattern { value }),
+                    target_cfg: Some(
+                        self.profile_common_opts
+                            .common_opts
+                            .config_opts
+                            .target_cfg(),
+                    ),
                     recursive: opts.recursive,
                     action: action.into(),
                 };
@@ -226,6 +232,12 @@ impl StreamingCommand for ProfileSubcommand {
                 let bxl_opts = BxlProfile {
                     bxl_label: opts.bxl_label,
                     bxl_args: opts.bxl_args,
+                    target_cfg: Some(
+                        self.profile_common_opts
+                            .common_opts
+                            .config_opts
+                            .target_cfg(),
+                    ),
                 };
 
                 buckd

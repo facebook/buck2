@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_cli_proto::ClientContext;
+use buck2_cli_proto::TargetCfg;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
@@ -138,9 +138,9 @@ pub async fn parse_and_resolve_provider_labels_from_cli_args(
         .into_map(|(label, providers)| providers.into_providers_label(label.pkg(), label.name())))
 }
 
-/// Extract target configuration components from [`ClientContext`].
+/// Extract target configuration components.
 pub async fn global_cfg_options_from_client_context(
-    client_context: &ClientContext,
+    target_cfg: &TargetCfg,
     server_ctx: &dyn ServerCommandContextTrait,
     dice_ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<GlobalCfgOptions> {
@@ -148,7 +148,7 @@ pub async fn global_cfg_options_from_client_context(
     let working_dir: &ProjectRelativePath = server_ctx.working_dir();
     let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(working_dir)?;
     let cwd = cell_resolver.get_cell_path(working_dir)?;
-    let target_platform = &client_context.target_platform;
+    let target_platform = &target_cfg.target_platform;
     let target_platform_label = if !target_platform.is_empty() {
         Some(
             ParsedPattern::parse_precise(
@@ -165,6 +165,6 @@ pub async fn global_cfg_options_from_client_context(
 
     Ok(GlobalCfgOptions {
         target_platform: target_platform_label,
-        cli_modifiers: client_context.cli_modifiers.clone().into(),
+        cli_modifiers: target_cfg.cli_modifiers.clone().into(),
     })
 }

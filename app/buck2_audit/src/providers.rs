@@ -19,7 +19,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditProvidersCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    pub common_opts: CommonCommandOptions,
 
     #[clap(long, conflicts_with_all=&["list", "print-debug"])]
     pub quiet: bool,

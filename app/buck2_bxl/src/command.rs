@@ -28,7 +28,6 @@ use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
-use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::target_aliases::HasTargetAliasResolver;
@@ -43,6 +42,7 @@ use buck2_core::soft_error;
 use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::errors::create_error_report;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -137,9 +137,15 @@ async fn bxl(
     let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
     let project_root = server_ctx.project_root().to_string();
 
-    let client_ctx = request.client_context()?;
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options = global_cfg_options_from_client_context(
+        request
+            .target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     let bxl_args =
         match get_bxl_cli_args(cwd, &mut ctx, &bxl_label, &request.bxl_args, &cell_resolver).await?

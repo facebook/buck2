@@ -38,11 +38,11 @@ impl ServerAuditSubcommand for AuditSubtargetsCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_ctx: ClientContext,
+        _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
-                server_execute_with_dice(self, client_ctx, server_ctx, stdout, ctx)
+                server_execute_with_dice(self, server_ctx, stdout, ctx)
             })
             .await
     }
@@ -50,14 +50,17 @@ impl ServerAuditSubcommand for AuditSubtargetsCommand {
 
 async fn server_execute_with_dice(
     command: &AuditSubtargetsCommand,
-    client_ctx: ClientContext,
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
 ) -> anyhow::Result<()> {
     // TODO(raulgarcia4): Extract function where possible, shares a lot of code with audit providers.
-    let global_cfg_options =
-        global_cfg_options_from_client_context(&client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options = global_cfg_options_from_client_context(
+        &command.common_opts.config_opts.target_cfg(),
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
         &mut ctx,

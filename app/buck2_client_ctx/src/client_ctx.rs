@@ -118,8 +118,6 @@ impl<'a> ClientCommandContext<'a> {
         let config_opts = cmd.common_opts();
         Ok(ClientContext {
             config_overrides: config_opts.config_overrides(arg_matches)?,
-            cli_modifiers: config_opts.cli_modifiers.clone(),
-            target_platform: config_opts.target_platforms.clone().unwrap_or_default(),
             host_platform: match config_opts.host_platform_override() {
                 HostPlatformOverride::Default => GrpcHostPlatformOverride::DefaultPlatform,
                 HostPlatformOverride::Linux => GrpcHostPlatformOverride::Linux,
@@ -170,8 +168,6 @@ impl<'a> ClientCommandContext<'a> {
                 .context(CurrentDirIsNotUtf8)?
                 .to_owned(),
             config_overrides: Default::default(),
-            cli_modifiers: Default::default(),
-            target_platform: Default::default(),
             host_platform: Default::default(),
             host_arch: Default::default(),
             host_xcode_version: Default::default(),

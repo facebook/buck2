@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_cli_proto::ClientContext;
+use buck2_cli_proto::TargetCfg;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -32,12 +32,12 @@ pub enum TargetResolutionConfig {
 impl TargetResolutionConfig {
     pub async fn from_args(
         ctx: &mut DiceComputations<'_>,
-        client_ctx: &ClientContext,
+        target_cfg: &TargetCfg,
         server_ctx: &dyn ServerCommandContextTrait,
         target_universe: &[String],
     ) -> anyhow::Result<TargetResolutionConfig> {
         let global_cfg_options =
-            global_cfg_options_from_client_context(client_ctx, server_ctx, ctx).await?;
+            global_cfg_options_from_client_context(target_cfg, server_ctx, ctx).await?;
         if target_universe.is_empty() {
             Ok(TargetResolutionConfig::Default(global_cfg_options))
         } else {

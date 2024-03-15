@@ -108,15 +108,18 @@ async fn aquery(
     )?;
 
     let buck2_cli_proto::AqueryRequest {
-        query,
-        query_args,
-        context,
-        ..
+        query, query_args, ..
     } = request;
 
-    let client_ctx = context.as_ref().internal_error("No client context")?;
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options = global_cfg_options_from_client_context(
+        request
+            .target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     let query_result = QUERY_FRONTEND
         .get()?

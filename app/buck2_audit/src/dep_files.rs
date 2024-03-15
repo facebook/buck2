@@ -19,7 +19,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditDepFilesCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    pub common_opts: CommonCommandOptions,
 
     #[clap(help = "Target to query dep files for")]
     pub pattern: String,

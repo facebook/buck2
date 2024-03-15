@@ -88,11 +88,16 @@ message PingResponse {
   bytes payload = 2;
 }
 
+message TargetCfg {
+  /// Empty string means not specified.
+  string target_platform = 1;
+  repeated string cli_modifiers = 2;
+}
+
 message ClientContext {
+  reserved 5, 21;
   string working_dir = 1;
   repeated ConfigOverride config_overrides = 3;
-  /// Empty string means not specified.
-  string target_platform = 5;
   enum HostPlatformOverride {
     DEFAULT_PLATFORM = 0;
     LINUX = 1;
@@ -127,7 +132,6 @@ message ClientContext {
 
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;
-  repeated string cli_modifiers = 21;
 }
 
 message TargetsRequest {
@@ -176,6 +180,7 @@ message TargetsRequest {
 
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
+  TargetCfg target_cfg = 201;
 
   optional string output = 17;
   OutputFormat output_format = 19;
@@ -205,6 +210,7 @@ message ConfiguredTargetsRequest {
   reserved 10;
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
+  TargetCfg target_cfg = 201;
   bool skip_missing_targets = 11;
 }
 
@@ -226,6 +232,7 @@ message AqueryRequest {
   repeated string output_attributes = 3;
   // The literals for a repeated query (one containing `%s`).
   repeated string query_args = 4;
+  TargetCfg target_cfg = 5;
 
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them).
@@ -243,6 +250,8 @@ message UqueryRequest {
   repeated string output_attributes = 3;
   // The literals for a repeated query (one containing `%s`).
   repeated string query_args = 4;
+  // TODO(nga): uquery does not need it.
+  TargetCfg target_cfg = 5;
 
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them).
@@ -261,6 +270,7 @@ message CqueryRequest {
   // The literals for a repeated query (one containing `%s`).
   repeated string query_args = 4;
   repeated string target_universe = 5;
+  TargetCfg target_cfg = 9;
 
   bool show_providers = 7;
 
@@ -355,6 +365,7 @@ message BuildRequest {
 
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
+  TargetCfg target_cfg = 201;
   repeated string target_universe = 8;
 
   message BuildProviders {
@@ -407,6 +418,7 @@ message TestRequest {
 
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
+  TargetCfg target_cfg = 201;
 
   repeated string test_executor_args = 3;
 
@@ -451,6 +463,8 @@ message BxlRequest {
 
   CommonBuildOptions build_opts = 4;
 
+  TargetCfg target_cfg = 201;
+
   BuildRequest.Materializations final_artifact_materializations = 6;
 
   bool print_stacktrace = 7;
@@ -467,6 +481,7 @@ message BxlResponse {
 message InstallRequest {
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
+  TargetCfg target_cfg = 201;
   CommonBuildOptions build_opts = 3;
   repeated string installer_run_args = 4;
   bool installer_debug = 5;
@@ -741,6 +756,7 @@ message DapResponse {}
 message BxlProfile {
   string bxl_label = 1;
   repeated string bxl_args = 2;
+  TargetCfg target_cfg = 201;
 }
 
 message TargetProfile {
@@ -750,6 +766,7 @@ message TargetProfile {
   }
 
   repeated buck.data.TargetPattern target_patterns = 1;
+  TargetCfg target_cfg = 101;
   bool recursive = 2;
   Action action = 3;
 }

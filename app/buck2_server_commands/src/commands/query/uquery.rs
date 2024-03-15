@@ -137,6 +137,7 @@ async fn uquery(
         query,
         query_args,
         context,
+        target_cfg,
         ..
     } = request;
 
@@ -144,8 +145,15 @@ async fn uquery(
 
     let target_call_stacks = client_ctx.target_call_stacks;
 
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    // TODO(nga): query does not really need cfg.
+    let global_cfg_options = global_cfg_options_from_client_context(
+        target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     let query_result = QUERY_FRONTEND
         .get()?

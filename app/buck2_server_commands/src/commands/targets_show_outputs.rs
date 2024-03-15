@@ -14,7 +14,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_cli_proto::targets_show_outputs_response::TargetPaths;
-use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsShowOutputsResponse;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
@@ -27,6 +26,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -95,9 +95,15 @@ async fn targets_show_outputs(
 ) -> anyhow::Result<TargetsShowOutputsResponse> {
     let cwd = server_ctx.working_dir();
 
-    let client_ctx = request.client_context()?;
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options = global_cfg_options_from_client_context(
+        request
+            .target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
         &mut ctx,

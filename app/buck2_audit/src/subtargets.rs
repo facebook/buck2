@@ -17,7 +17,7 @@ use crate::AuditSubcommand;
 #[clap(name = "audit-subtargets")]
 pub struct AuditSubtargetsCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    pub common_opts: CommonCommandOptions,
 
     /// Do not recursively print all nested subtargets; print only
     /// the first level. This is set to false by default.

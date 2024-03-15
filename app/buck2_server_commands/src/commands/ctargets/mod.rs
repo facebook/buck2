@@ -16,6 +16,7 @@ use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_cli_proto::HasClientContext;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_error::BuckErrorContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -78,8 +79,15 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
 
         let target_call_stacks = client_ctx.target_call_stacks;
 
-        let global_cfg_options =
-            global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+        let global_cfg_options = global_cfg_options_from_client_context(
+            self.req
+                .target_cfg
+                .as_ref()
+                .internal_error("target_cfg must be set")?,
+            server_ctx,
+            &mut ctx,
+        )
+        .await?;
 
         let skip_missing_targets = MissingTargetBehavior::from_skip(self.req.skip_missing_targets);
 

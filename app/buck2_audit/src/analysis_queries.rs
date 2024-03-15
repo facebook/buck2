@@ -19,7 +19,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditAnalysisQueriesCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    pub common_opts: CommonCommandOptions,
 
     #[clap(
         long,

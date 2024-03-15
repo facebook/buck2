@@ -103,6 +103,8 @@ impl StreamingCommand for UqueryCommand {
                 UqueryRequest {
                     query,
                     query_args,
+                    // TODO(nga): uquery does not need it.
+                    target_cfg: Some(self.common_opts.config_opts.target_cfg()),
                     context: Some(context),
                     output_attributes,
                     unstable_output_format,

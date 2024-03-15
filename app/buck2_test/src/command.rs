@@ -51,6 +51,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::errors::create_error_report;
@@ -271,8 +272,15 @@ async fn test(
     let working_dir_cell = cell_resolver.find(cwd)?;
 
     let client_ctx = request.client_context()?;
-    let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+    let global_cfg_options = global_cfg_options_from_client_context(
+        request
+            .target_cfg
+            .as_ref()
+            .internal_error("target_cfg must be set")?,
+        server_ctx,
+        &mut ctx,
+    )
+    .await?;
 
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.

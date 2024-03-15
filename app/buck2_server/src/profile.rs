@@ -16,7 +16,7 @@ use buck2_analysis::analysis::calculation::profile_analysis;
 use buck2_analysis::analysis::calculation::profile_analysis_recursively;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
-use buck2_cli_proto::ClientContext;
+use buck2_cli_proto::TargetCfg;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -25,6 +25,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::target::label::TargetLabel;
 use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
@@ -149,17 +150,13 @@ impl ServerCommandTemplate for ProfileServerCommand {
                 let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
                     .context("Invalid action")?;
 
-                let context = self
-                    .req
-                    .context
-                    .as_ref()
-                    .context("Missing client context")?;
-
                 let profile_data = generate_profile(
                     server_ctx,
                     ctx,
-                    context,
                     &opts.target_patterns,
+                    opts.target_cfg
+                        .as_ref()
+                        .internal_error("target_cfg not set")?,
                     action,
                     &profile_mode,
                 )
@@ -184,13 +181,13 @@ impl ServerCommandTemplate for ProfileServerCommand {
 async fn generate_profile(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
-    client_ctx: &ClientContext,
     target_patterns: &[buck2_data::TargetPattern],
+    target_cfg: &TargetCfg,
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     let global_cfg_options =
-        global_cfg_options_from_client_context(client_ctx, server_ctx, &mut ctx).await?;
+        global_cfg_options_from_client_context(target_cfg, server_ctx, &mut ctx).await?;
 
     let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
         &mut ctx,

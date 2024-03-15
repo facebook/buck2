@@ -20,7 +20,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditOutputCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    pub common_opts: CommonCommandOptions,
 
     #[clap(
         name = "OUTPUT_PATH",

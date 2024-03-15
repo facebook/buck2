@@ -27,6 +27,7 @@ use std::str::FromStr;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
+use buck2_cli_proto::TargetCfg;
 use buck2_core::fs::fs_util;
 use clap::ArgGroup;
 use dupe::Dupe;
@@ -328,6 +329,13 @@ impl CommonBuildConfigurationOptions {
     }
     pub fn host_xcode_version_override(&self) -> Option<String> {
         self.fake_xcode_version.to_owned()
+    }
+
+    pub fn target_cfg(&self) -> TargetCfg {
+        TargetCfg {
+            target_platform: self.target_platforms.clone().unwrap_or_default(),
+            cli_modifiers: self.cli_modifiers.clone(),
+        }
     }
 
     pub fn default_ref() -> &'static Self {

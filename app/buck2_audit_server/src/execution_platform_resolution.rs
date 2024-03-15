@@ -44,7 +44,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_ctx: ClientContext,
+        _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx.with_dice_ctx(
             async move |server_ctx, mut ctx| {
@@ -59,7 +59,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
 
                 let target_resolution_config = TargetResolutionConfig::from_args(
                     &mut ctx,
-                    &client_ctx,
+                    &self.common_opts.config_opts.target_cfg(),
                     server_ctx,
                     // TODO(nga): pass universe
                     &[],

@@ -201,6 +201,7 @@ impl StreamingCommand for TestCommand {
                     target_patterns: self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                    target_cfg: Some(self.common_opts.config_opts.target_cfg()),
                     test_executor_args: self.test_executor_args,
                     excluded_labels: self.exclude,
                     included_labels: self.include,
