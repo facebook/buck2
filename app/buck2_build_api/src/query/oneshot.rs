@@ -34,7 +34,6 @@ pub trait QueryFrontend: Send + Sync + 'static {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>>;
 
     async fn eval_cquery(

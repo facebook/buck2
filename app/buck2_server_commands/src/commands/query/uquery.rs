@@ -25,7 +25,6 @@ use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -137,7 +136,6 @@ async fn uquery(
         query,
         query_args,
         context,
-        target_cfg,
         ..
     } = request;
 
@@ -145,25 +143,9 @@ async fn uquery(
 
     let target_call_stacks = client_ctx.target_call_stacks;
 
-    // TODO(nga): query does not really need cfg.
-    let global_cfg_options = global_cfg_options_from_client_context(
-        target_cfg
-            .as_ref()
-            .internal_error("target_cfg must be set")?,
-        server_ctx,
-        &mut ctx,
-    )
-    .await?;
-
     let query_result = QUERY_FRONTEND
         .get()?
-        .eval_uquery(
-            &mut ctx,
-            server_ctx.working_dir(),
-            query,
-            query_args,
-            global_cfg_options,
-        )
+        .eval_uquery(&mut ctx, server_ctx.working_dir(), query, query_args)
         .await?;
 
     match query_result {

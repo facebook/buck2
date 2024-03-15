@@ -41,10 +41,9 @@ impl QueryFrontend for QueryFrontendImpl {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
         ctx.with_linear_recompute(|ctx| async move {
-            let evaluator = get_uquery_evaluator(&ctx, working_dir, global_cfg_options).await?;
+            let evaluator = get_uquery_evaluator(&ctx, working_dir).await?;
             evaluator.eval_query(query, query_args).await
         })
         .await

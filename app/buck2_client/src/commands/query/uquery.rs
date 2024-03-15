@@ -75,6 +75,7 @@ When printed, values with `select()`s use a special json encoding.
     verbatim_doc_comment,
 )]
 pub struct UqueryCommand {
+    // TODO(nga): uquery does not need `--target-platforms=` flag.
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 
@@ -103,8 +104,6 @@ impl StreamingCommand for UqueryCommand {
                 UqueryRequest {
                     query,
                     query_args,
-                    // TODO(nga): uquery does not need it.
-                    target_cfg: Some(self.common_opts.config_opts.target_cfg()),
                     context: Some(context),
                     output_attributes,
                     unstable_output_format,

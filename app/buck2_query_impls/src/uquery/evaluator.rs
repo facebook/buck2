@@ -67,9 +67,9 @@ impl UqueryEvaluator<'_, '_> {
 pub(crate) async fn get_uquery_evaluator<'a, 'c: 'a, 'd>(
     ctx: &'c LinearRecomputeDiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
-    global_cfg_options: GlobalCfgOptions,
 ) -> anyhow::Result<UqueryEvaluator<'c, 'd>> {
-    let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
+    let dice_query_delegate =
+        get_dice_query_delegate(ctx, working_dir, GlobalCfgOptions::default()).await?;
     let functions = DefaultQueryFunctionsModule::new();
 
     Ok(UqueryEvaluator {

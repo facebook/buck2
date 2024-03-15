@@ -244,14 +244,12 @@ message AqueryResponse {
 }
 
 message UqueryRequest {
-  reserved 6;
+  reserved 5, 6;
   ClientContext context = 1;
   string query = 2;
   repeated string output_attributes = 3;
   // The literals for a repeated query (one containing `%s`).
   repeated string query_args = 4;
-  // TODO(nga): uquery does not need it.
-  TargetCfg target_cfg = 5;
 
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them).

@@ -13,7 +13,6 @@ use allocative::Allocative;
 use buck2_build_api::query::bxl::BxlUqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_UQUERY_FUNCTIONS;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
@@ -468,13 +467,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     parse_query_evaluation_result(
                         QUERY_FRONTEND
                             .get()?
-                            .eval_uquery(
-                                dice,
-                                &this.ctx.working_dir()?,
-                                query,
-                                &query_args,
-                                GlobalCfgOptions::default(),
-                            )
+                            .eval_uquery(dice, &this.ctx.working_dir()?, query, &query_args)
                             .await?,
                         eval,
                     )
