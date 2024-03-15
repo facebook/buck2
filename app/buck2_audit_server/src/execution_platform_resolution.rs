@@ -18,12 +18,11 @@ use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
-use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_and_resolve_patterns_to_targets_from_cli_args;
+use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use gazebo::prelude::SliceExt;
 use indent_write::io::IndentWriter;
 
@@ -58,10 +57,12 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 )
                     .await?;
 
-                let global_cfg_options = global_cfg_options_from_client_context(
+                let target_resolution_config = TargetResolutionConfig::from_args(
+                    &mut ctx,
                     &client_ctx,
                     server_ctx,
-                    &mut ctx,
+                    // TODO(nga): pass universe
+                    &[],
                 )
                     .await?;
 
@@ -69,11 +70,11 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 for (target_label, extra) in targets {
                     match extra.cfg {
                         ConfigurationPredicate::Any => {
-                            configured_patterns.push(
-                                ctx.get_configured_target(&target_label, &global_cfg_options)
+                            configured_patterns.extend(
+                                target_resolution_config.get_configured_target(&mut ctx, &target_label)
                                     .await?,
                             );
-                        },
+                        }
                         ConfigurationPredicate::Builtin(p) => {
                             return Err(AuditExecutionPlatformResolutionCommandError::BuiltinConfigurationsNotSupported(p.to_string()).into())
                         }
@@ -82,7 +83,17 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                         }
                         ConfigurationPredicate::Bound(label, Some(hash)) => {
                             let cfg = ConfigurationData::lookup_bound(BoundConfigurationId { label, hash })?;
-                            configured_patterns.push(target_label.configure(cfg));
+                            let configured = target_label.configure(cfg);
+                            match &target_resolution_config {
+                                TargetResolutionConfig::Default(_) => {
+                                    configured_patterns.push(configured);
+                                }
+                                TargetResolutionConfig::Universe(universe) => {
+                                    if universe.contains(&configured) {
+                                        configured_patterns.push(configured);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

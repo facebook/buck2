@@ -11,10 +11,13 @@ use buck2_cli_proto::ClientContext;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::configured_universe::UNIVERSE_FROM_LITERALS;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
+use gazebo::prelude::VecExt;
 
 use crate::ctx::ServerCommandContextTrait;
 use crate::pattern::global_cfg_options_from_client_context;
@@ -50,21 +53,33 @@ impl TargetResolutionConfig {
         }
     }
 
+    pub async fn get_configured_target(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        label: &TargetLabel,
+    ) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+        match self {
+            TargetResolutionConfig::Default(global_cfg_options) => Ok(vec![
+                ctx.get_configured_target(label, global_cfg_options).await?,
+            ]),
+            TargetResolutionConfig::Universe(universe) => {
+                // TODO(nga): whoever called this function,
+                //    they may have resolved pattern unnecessarily.
+                Ok(universe.get_target_label(label))
+            }
+        }
+    }
+
     pub async fn get_configured_provider_label(
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &ProvidersLabel,
     ) -> anyhow::Result<Vec<ConfiguredProvidersLabel>> {
-        match self {
-            TargetResolutionConfig::Default(global_cfg_options) => Ok(vec![
-                ctx.get_configured_provider_label(label, global_cfg_options)
-                    .await?,
-            ]),
-            TargetResolutionConfig::Universe(universe) => {
-                // TODO(nga): whoever called this function,
-                //    they may have resolved pattern unnecessarily.
-                Ok(universe.get_provider_label(label))
-            }
-        }
+        Ok(self
+            .get_configured_target(ctx, label.target())
+            .await?
+            .into_map(|configured_target_label| {
+                ConfiguredProvidersLabel::new(configured_target_label, label.name().clone())
+            }))
     }
 }

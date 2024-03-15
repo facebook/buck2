@@ -155,14 +155,30 @@ impl PatternType for ProvidersPatternExtra {
     }
 }
 
-#[derive(Default, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Default,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    derive_more::Display
+)]
 pub enum ConfigurationPredicate {
     /// Matches any configuration.
     #[default]
+    #[display(fmt = "<any>")]
     Any,
     /// Matches builtin platform.
     Builtin(BuiltinPlatform),
     /// Matches user defined configuration.
+    #[display(
+        fmt = "{}{}",
+        "_0",
+        "_1.as_ref().map_or(String::new(), |h| format!(\"#{}\", h))"
+    )]
     Bound(
         BoundConfigurationLabel,
         /// None means match any configuration with given label.
