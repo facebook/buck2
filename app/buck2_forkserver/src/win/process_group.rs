@@ -19,11 +19,11 @@ use anyhow::Context;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
-use winapi::shared::minwindef;
 use winapi::um::processthreadsapi;
 
 use crate::win::child_process::ChildProcess;
 use crate::win::job_object::JobObject;
+use crate::win::utils::result_dword;
 
 pub(crate) struct ProcessCommandImpl {
     inner: Command,
@@ -166,13 +166,6 @@ impl ProcessGroupImpl {
             .as_std()
             .main_thread_handle()
             .as_raw_handle();
-        unsafe {
-            let resume_thread_result = processthreadsapi::ResumeThread(handle);
-            if resume_thread_result == minwindef::DWORD::MAX {
-                Err(anyhow::anyhow!("Failed to resume thread"))
-            } else {
-                Ok(())
-            }
-        }
+        result_dword(unsafe { processthreadsapi::ResumeThread(handle) })
     }
 }

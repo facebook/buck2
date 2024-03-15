@@ -10,10 +10,19 @@
 use std::io::Error;
 
 use winapi::shared::minwindef::BOOL;
+use winapi::shared::minwindef::DWORD;
 use winapi::shared::minwindef::FALSE;
 
 pub(crate) fn result_bool(ret: BOOL) -> anyhow::Result<()> {
     if ret == FALSE {
+        Err(anyhow::anyhow!(Error::last_os_error()))
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) fn result_dword(ret: DWORD) -> anyhow::Result<()> {
+    if ret == DWORD::MAX {
         Err(anyhow::anyhow!(Error::last_os_error()))
     } else {
         Ok(())
