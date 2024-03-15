@@ -7,7 +7,15 @@
  * of this source tree.
  */
 
-pub(crate) mod child_process;
-pub(crate) mod job_object;
-pub(crate) mod process_group;
-mod utils;
+use std::io::Error;
+
+use winapi::shared::minwindef::BOOL;
+use winapi::shared::minwindef::FALSE;
+
+pub(crate) fn result_bool(ret: BOOL) -> anyhow::Result<()> {
+    if ret == FALSE {
+        Err(anyhow::anyhow!(Error::last_os_error()))
+    } else {
+        Ok(())
+    }
+}
