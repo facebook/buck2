@@ -17,22 +17,22 @@ use crate::win::utils::result_bool;
 use crate::win::utils::result_handle;
 
 pub(crate) struct JobObject {
-    handle: WinapiHandle,
+    job_handle: WinapiHandle,
 }
 
 impl JobObject {
     pub(crate) fn new() -> anyhow::Result<Self> {
-        let handle = result_handle(unsafe {
+        let job_handle = result_handle(unsafe {
             WinapiHandle::new(jobapi2::CreateJobObjectW(ptr::null_mut(), ptr::null_mut()))
         })?;
-        Ok(Self { handle })
+        Ok(Self { job_handle })
     }
 
     pub(crate) fn assign_process(&self, process: HANDLE) -> anyhow::Result<()> {
-        result_bool(unsafe { jobapi2::AssignProcessToJobObject(self.handle.handle(), process) })
+        result_bool(unsafe { jobapi2::AssignProcessToJobObject(self.job_handle.handle(), process) })
     }
 
     pub(crate) fn terminate(&self, exit_code: u32) -> anyhow::Result<()> {
-        result_bool(unsafe { jobapi2::TerminateJobObject(self.handle.handle(), exit_code) })
+        result_bool(unsafe { jobapi2::TerminateJobObject(self.job_handle.handle(), exit_code) })
     }
 }
