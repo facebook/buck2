@@ -9,9 +9,9 @@ load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_syste
 load("@prelude//apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//decls/ios_rules.bzl", "AppleBundleExtension")
-load(":resource_group_map.bzl", "resource_group_map_attr")
 
 def _get_apple_resources_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
@@ -40,7 +40,7 @@ def _apple_resource_bundle_attrs():
         "privacy_manifest": attrs.option(attrs.source(), default = None),
         "product_name": attrs.option(attrs.string(), default = None),
         "resource_group": attrs.option(attrs.string(), default = None),
-        "resource_group_map": resource_group_map_attr(),
+        "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
         "_apple_toolchain": _get_apple_resources_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),

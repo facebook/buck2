@@ -37,13 +37,6 @@ load(
     "TargetRegexFilter",
 )
 
-# Label for special group mapping which makes every target associated with it to be included in all groups
-MATCH_ALL_LABEL = "MATCH_ALL"
-
-# Label for special group mapping which makes every target associated with it to be linked directly
-# against the final binary
-NO_MATCH_LABEL = "NO_MATCH"
-
 _VALID_ATTRS = [
     "enable_distributed_thinlto",
     "enable_if_node_count_exceeds",

@@ -10,7 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//cxx:groups_types.bzl", "Traversal")
+load("@prelude//apple:resource_groups.bzl", "INLINED_RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":apple_common.bzl", "apple_common")
@@ -373,7 +373,7 @@ apple_bundle = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "platform_binary": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.dep())), default = None),
             "resource_group": attrs.option(attrs.string(), default = None),
-            "resource_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "resource_group_map": attrs.option(INLINED_RESOURCE_GROUP_MAP_ATTR, default = None),
             "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
             "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
             "xcode_product_type": attrs.option(attrs.string(), default = None),

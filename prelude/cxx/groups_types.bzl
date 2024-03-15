@@ -11,6 +11,13 @@ load(
     "BuildTargetPattern",
 )
 
+# Label for special group mapping which makes every target associated with it to be included in all groups
+MATCH_ALL_LABEL = "MATCH_ALL"
+
+# Label for special group mapping which makes every target associated with it to be linked directly
+# against the final binary
+NO_MATCH_LABEL = "NO_MATCH"
+
 Traversal = enum(
     # Includes the target and all of it's transitive dependencies in the group.
     "tree",

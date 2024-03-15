@@ -9,11 +9,11 @@ load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_syste
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignType")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/user:apple_simulators.bzl", "apple_simulators_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
-load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_attr")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
@@ -138,7 +138,7 @@ def apple_bundle_extra_attrs():
     attribs = {
         "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "bundle_type": attrs.option(attrs.enum(AppleBundleTypeAttributeType.values()), default = None),
-        "resource_group_map": resource_group_map_attr(),
+        "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "split_arch_dsym": attrs.bool(default = False),
         "universal": attrs.option(attrs.bool(), default = None),

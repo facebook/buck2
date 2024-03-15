@@ -5,8 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:groups.bzl", "MATCH_ALL_LABEL")
-load("@prelude//cxx:groups_types.bzl", "Group")
+load("@prelude//cxx:groups_types.bzl", "Group", "MATCH_ALL_LABEL", "Traversal")
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
@@ -30,6 +29,21 @@ ResourceGroupInfo = provider(
         # actually desirable behavior.
         "implicit_deps": provider_field(list[Dependency]),
     },
+)
+
+RESOURCE_GROUP_MAP_ATTR = attrs.option(attrs.dep(providers = [ResourceGroupInfo]), default = None)
+
+INLINED_RESOURCE_GROUP_MAP_ATTR = attrs.list(
+    attrs.tuple(
+        attrs.string(),
+        attrs.list(
+            attrs.tuple(
+                attrs.dep(),
+                attrs.enum(Traversal.values()),
+                attrs.option(attrs.string()),
+            ),
+        ),
+    ),
 )
 
 ResourceGraphNode = record(

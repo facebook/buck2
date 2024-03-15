@@ -69,10 +69,13 @@ load(
 load(":cxx_toolchain_types.bzl", "PicBehavior")
 load(
     ":groups.bzl",
-    "MATCH_ALL_LABEL",
-    "NO_MATCH_LABEL",
     "compute_mappings",
     "parse_groups_definitions",
+)
+load(
+    ":groups_types.bzl",
+    "MATCH_ALL_LABEL",
+    "NO_MATCH_LABEL",
 )
 load(
     ":link.bzl",

@@ -7,6 +7,7 @@
 
 load(
     "@prelude//apple:resource_groups.bzl",
+    "INLINED_RESOURCE_GROUP_MAP_ATTR",
     "ResourceGraphNode",  # @unused Used as a type
     "ResourceGroupInfo",
     "create_resource_graph",
@@ -22,7 +23,6 @@ load(
 load(
     "@prelude//cxx:groups_types.bzl",
     "GroupMapping",  # @unused Used as a type
-    "Traversal",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
@@ -102,6 +102,6 @@ registration_spec = RuleRegistrationSpec(
     name = "resource_group_map",
     impl = _impl,
     attrs = {
-        "map": attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))),
+        "map": INLINED_RESOURCE_GROUP_MAP_ATTR,
     },
 )
