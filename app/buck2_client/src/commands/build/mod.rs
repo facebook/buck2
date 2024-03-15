@@ -21,7 +21,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
 use buck2_client_ctx::common::build::CommonOutputOptions;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -49,19 +49,10 @@ pub struct BuildCommand {
     common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
+    target_cfg: TargetCfgWithUniverseOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
-
-    #[clap(
-        long,
-        short = 'u',
-        use_delimiter = true,
-        help = "Comma separated list of targets at which to root the queryable universe.
-                 This is useful since targets can exist in multiple configurations."
-    )]
-    target_universe: Vec<String>,
 
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[clap(long = "deep")]
@@ -220,7 +211,7 @@ impl StreamingCommand for BuildCommand {
                     target_patterns: self
                         .patterns
                         .map(|p| buck2_data::TargetPattern { value: p.clone() }),
-                    target_cfg: Some(self.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: self.default_info() as i32,
                         run_info: self.run_info() as i32,
@@ -233,7 +224,7 @@ impl StreamingCommand for BuildCommand {
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
-                    target_universe: self.target_universe,
+                    target_universe: self.target_cfg.target_universe,
                     output_hashes_file: self
                         .output_hashes_file
                         .map(|p| {
