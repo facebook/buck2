@@ -177,8 +177,8 @@ struct ConfiguredTargetNodeData {
     resolved_configuration: ResolvedConfiguration,
     resolved_transition_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     execution_platform_resolution: ExecutionPlatformResolution,
-    // Deps includes regular deps and transitioned deps,
-    // but excludes exec deps or configuration deps.
+    // all_deps includes regular deps and transitioned deps,
+    // and includes exec deps and configuration deps.
     // TODO(cjhopman): Should this be a diff against the node's deps?
     all_deps: ConfiguredTargetNodeDeps,
     platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
@@ -507,6 +507,7 @@ impl ConfiguredTargetNode {
 /// (iteration, eq, and hash), but guarantees those aren't recursive of the dep nodes' data.
 #[derive(Allocative)]
 struct ConfiguredTargetNodeDeps {
+    /// Number of deps, excluding exec deps. Used as an index to retrieve exec_deps
     deps_count: usize,
     /// (target deps and toolchain deps) followed by `exec_deps`.
     all_deps: Box<[ConfiguredTargetNode]>,
