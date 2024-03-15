@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 
 use crate::AuditSubcommand;
@@ -23,7 +23,7 @@ pub struct AuditProvidersCommand {
     pub common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
-    pub target_cfg: TargetCfgOptions,
+    pub target_cfg: TargetCfgWithUniverseOptions,
 
     #[clap(long, conflicts_with_all=&["list", "print-debug"])]
     pub quiet: bool,
