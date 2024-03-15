@@ -146,7 +146,7 @@ impl StreamingCommand for CqueryCommand {
                     context: Some(context),
                     output_attributes,
                     target_universe: self.target_universe,
-                    target_cfg: Some(self.common_opts.config_opts.target_cfg()),
+                    target_cfg: Some(self.common_opts.config_opts.target_cfg.target_cfg()),
                     show_providers: self.show_providers,
                     unstable_output_format,
                     correct_owner,

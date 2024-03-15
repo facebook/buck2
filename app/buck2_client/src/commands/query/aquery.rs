@@ -95,7 +95,7 @@ impl StreamingCommand for AqueryCommand {
                 AqueryRequest {
                     query,
                     query_args,
-                    target_cfg: Some(self.common_opts.config_opts.target_cfg()),
+                    target_cfg: Some(self.common_opts.config_opts.target_cfg.target_cfg()),
                     context: Some(context),
                     output_attributes,
                     unstable_output_format,

@@ -49,7 +49,7 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                 )
                 .await?;
                 let global_cfg_options = global_cfg_options_from_client_context(
-                    &self.common_opts.config_opts.target_cfg(),
+                    &self.common_opts.config_opts.target_cfg.target_cfg(),
                     server_ctx,
                     &mut ctx,
                 )

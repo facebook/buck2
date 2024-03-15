@@ -208,6 +208,7 @@ impl StreamingCommand for ProfileSubcommand {
                         self.profile_common_opts
                             .common_opts
                             .config_opts
+                            .target_cfg
                             .target_cfg(),
                     ),
                     recursive: opts.recursive,
@@ -236,6 +237,7 @@ impl StreamingCommand for ProfileSubcommand {
                         self.profile_common_opts
                             .common_opts
                             .config_opts
+                            .target_cfg
                             .target_cfg(),
                     ),
                 };

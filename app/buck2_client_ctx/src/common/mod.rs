@@ -23,17 +23,18 @@
 //! ```
 
 pub mod build;
+pub mod target_cfg;
 pub mod ui;
 
 use std::path::Path;
 
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
-use buck2_cli_proto::TargetCfg;
 use buck2_core::fs::fs_util;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
+use crate::common::target_cfg::TargetCfgOptions;
 use crate::common::ui::CommonConsoleOptions;
 use crate::path_arg::PathArg;
 
@@ -128,26 +129,8 @@ pub struct CommonBuildConfigurationOptions {
     )]
     pub config_files: Vec<String>,
 
-    #[clap(
-        long = "target-platforms",
-        help = "Configuration target (one) to use to configure targets",
-        number_of_values = 1,
-        value_name = "PLATFORM"
-    )]
-    pub target_platforms: Option<String>,
-
-    #[clap(
-        value_name = "VALUE",
-        long = "modifier",
-        use_value_delimiter = true,
-        value_delimiter=',',
-        short = 'm',
-        help = "A configuration modifier to configure all targets on the command line. This may be a constraint value target.",
-        // Needs to be explicitly set, otherwise will treat `-c a b c` -> [a, b, c]
-        // rather than [a] and other positional arguments `b c`.
-        number_of_values = 1
-    )]
-    pub cli_modifiers: Vec<String>,
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgOptions,
 
     #[clap(long, ignore_case = true, value_name = "HOST", arg_enum)]
     fake_host: Option<HostPlatformOverride>,
@@ -291,19 +274,11 @@ impl CommonBuildConfigurationOptions {
         self.fake_xcode_version.to_owned()
     }
 
-    pub fn target_cfg(&self) -> TargetCfg {
-        TargetCfg {
-            target_platform: self.target_platforms.clone().unwrap_or_default(),
-            cli_modifiers: self.cli_modifiers.clone(),
-        }
-    }
-
     pub fn default_ref() -> &'static Self {
         static DEFAULT: CommonBuildConfigurationOptions = CommonBuildConfigurationOptions {
             config_values: vec![],
             config_files: vec![],
-            cli_modifiers: vec![],
-            target_platforms: None,
+            target_cfg: TargetCfgOptions::DEFAULT,
             fake_host: None,
             fake_arch: None,
             fake_xcode_version: None,
@@ -340,70 +315,4 @@ pub enum PrintOutputsFormat {
     Plain,
     Simple,
     Json,
-}
-
-#[cfg(test)]
-mod tests {
-    use assert_matches::assert_matches;
-    use clap::Parser;
-
-    use super::*;
-
-    fn parse(args: &[&str]) -> anyhow::Result<CommonBuildConfigurationOptions> {
-        Ok(CommonBuildConfigurationOptions::from_iter_safe(
-            std::iter::once("program").chain(args.iter().copied()),
-        )?)
-    }
-
-    #[test]
-    fn short_opt_multiple() -> anyhow::Result<()> {
-        let opts = parse(&["-m", "value1", "-m", "value2"])?;
-
-        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn short_opt_comma_separated() -> anyhow::Result<()> {
-        let opts = parse(&["-m", "value1,value2"])?;
-
-        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn long_opt_multiple() -> anyhow::Result<()> {
-        let opts = parse(&["--modifier", "value1", "--modifier", "value2"])?;
-
-        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn long_opt_comma_separated() -> anyhow::Result<()> {
-        let opts = parse(&["--modifier", "value1,value2"])?;
-
-        assert_eq!(opts.cli_modifiers, vec!["value1", "value2"]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn comma_separated_and_multiple() -> anyhow::Result<()> {
-        let opts = parse(&["--modifier", "value1,value2", "--modifier", "value3"])?;
-
-        assert_eq!(opts.cli_modifiers, vec!["value1", "value2", "value3"]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn space_separated_fails() -> anyhow::Result<()> {
-        assert_matches!(parse(&["-m", "value1", "value2"]), Err(..));
-
-        Ok(())
-    }
 }

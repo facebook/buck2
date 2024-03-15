@@ -317,7 +317,7 @@ impl StreamingCommand for TargetsCommand {
                     package_values,
                 })
             }),
-            target_cfg: Some(self.common_opts.config_opts.target_cfg()),
+            target_cfg: Some(self.common_opts.config_opts.target_cfg.target_cfg()),
             output: self
                 .output
                 .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
