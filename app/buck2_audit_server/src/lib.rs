@@ -36,6 +36,7 @@ mod providers;
 pub mod server;
 mod starlark;
 mod subtargets;
+mod target_resolution_config;
 mod visibility;
 
 /// `buck2 audit` subcommands have a somewhat unique approach to make it really easy to

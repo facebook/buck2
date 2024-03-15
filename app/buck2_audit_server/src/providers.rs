@@ -18,7 +18,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_and_resolve_provider_labels_from_cli_args;
-use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_util::indent::indent;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -27,6 +26,7 @@ use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
+use crate::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
 
 #[async_trait]
@@ -58,13 +58,8 @@ async fn server_execute_with_dice(
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
 ) -> anyhow::Result<()> {
-    let target_resolution_config = TargetResolutionConfig::from_args(
-        &mut ctx,
-        &command.target_cfg.target_cfg.target_cfg(),
-        server_ctx,
-        &command.target_cfg.target_universe,
-    )
-    .await?;
+    let target_resolution_config =
+        audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
 
     let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
         &mut ctx,
