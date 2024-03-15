@@ -393,7 +393,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     // have non-erroring implementations.
 
     /// A filter function that can be used in the query expression of `deps` query function.
-    /// Filters the output of deps function for the immediate dependencies of the given targets. Output is equivalent to `deps(<targets>, 1)`.
+    /// Returns the output of deps function for the immediate dependencies of the given targets. Output is equivalent to `deps(<targets>, 1)`.
     ///
     /// Example:
     /// `buck2 cquery "deps('//foo:bar', 1, first_order_deps())"`` is equivalent to `buck2 cquery "deps('//foo:bar', 1)"`
@@ -402,7 +402,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     }
 
     /// A filter function that can be used in the query expression of `deps` query function.
-    /// Filters the output of deps function for target dependencies. This excludes any configuration, toolchain and execution dependencies (build time dependencies)
+    /// Returns the target dependencies of each dependency of the given targets, excluding any configuration, toolchain and execution dependencies (build time dependencies)
     /// like compiler used as a part of the build.
     ///
     /// Example:
@@ -412,7 +412,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     }
 
     /// A filter function that can be used in the query expression of `deps` query function.
-    /// Filters the output of deps function for execution dependencies (build time dependencies), ex. compiler used as a part of the build.
+    /// Returns the output of deps function for execution dependencies (build time dependencies), ex. compiler used as a part of the build.
     ///
     /// Example:
     /// `buck2 cquery "deps('//foo:bar', 1, exec_deps())"``
