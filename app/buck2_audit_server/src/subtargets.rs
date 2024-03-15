@@ -17,11 +17,9 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_cli_proto::ClientContext;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_and_resolve_provider_labels_from_cli_args;
 use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use buck2_util::indent::indent;
@@ -30,6 +28,7 @@ use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
+use crate::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
 
 #[async_trait]
@@ -55,12 +54,8 @@ async fn server_execute_with_dice(
     mut ctx: DiceTransaction,
 ) -> anyhow::Result<()> {
     // TODO(raulgarcia4): Extract function where possible, shares a lot of code with audit providers.
-    let global_cfg_options = global_cfg_options_from_client_context(
-        &command.target_cfg.target_cfg(),
-        server_ctx,
-        &mut ctx,
-    )
-    .await?;
+    let target_resolution_config =
+        audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
 
     let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
         &mut ctx,
@@ -75,18 +70,19 @@ async fn server_execute_with_dice(
     let mut futs = FuturesOrdered::new();
 
     for label in provider_labels {
-        let providers_label = ctx
-            .get_configured_provider_label(&label, &global_cfg_options)
-            .await?;
-
-        // `.push` is deprecated in newer `futures`,
-        // but we did not updated vendored `futures` yet.
-        let mut ctx = ctx.clone();
-        #[allow(deprecated)]
-        futs.push(async move {
-            let result = ctx.get_providers(&providers_label).await;
-            (providers_label, result)
-        });
+        for providers_label in target_resolution_config
+            .get_configured_provider_label(&mut ctx, &label)
+            .await?
+        {
+            // `.push` is deprecated in newer `futures`,
+            // but we did not updated vendored `futures` yet.
+            let mut ctx = ctx.clone();
+            #[allow(deprecated)]
+            futs.push(async move {
+                let result = ctx.get_providers(&providers_label).await;
+                (providers_label, result)
+            });
+        }
     }
 
     let mut stdout = stdout.as_writer();
