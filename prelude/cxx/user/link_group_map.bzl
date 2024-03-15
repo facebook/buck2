@@ -35,23 +35,7 @@ load(
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//decls/common.bzl", "Linkage", "Traversal")
 
-def _v1_attrs(
-        optional_root: bool = False,
-        # Whether we should parse `root` fields as a `dependency`, instead of a `label`.
-        root_is_dep: bool = True):
-    if root_is_dep:
-        attrs_root = attrs.dep(providers = [
-            LinkGroupLibInfo,
-            LinkableGraph,
-            MergedLinkInfo,
-            SharedLibraryInfo,
-        ])
-    else:
-        attrs_root = attrs.label()
-
-    if optional_root:
-        attrs_root = attrs.option(attrs_root)
-
+def _v1_attrs(attrs_root):
     return attrs.list(
         attrs.tuple(
             # name
@@ -78,22 +62,19 @@ def _v1_attrs(
         ),
     )
 
-def link_group_map_attr():
-    v2_attrs = attrs.dep(providers = [LinkGroupInfo])
-    return attrs.option(
-        attrs.one_of(
-            v2_attrs,
-            _v1_attrs(
-                optional_root = True,
-                # Inlined `link_group_map` will parse roots as `label`s, to avoid
-                # bloating deps w/ unrelated mappings (e.g. it's common to use
-                # a default mapping for all rules, which would otherwise add
-                # unrelated deps to them).
-                root_is_dep = False,
-            ),
+LINK_GROUP_MAP_ATTR = attrs.option(
+    attrs.one_of(
+        attrs.dep(providers = [LinkGroupInfo]),
+        _v1_attrs(
+            # Inlined `link_group_map` will parse roots as `label`s, to avoid
+            # bloating deps w/ unrelated mappings (e.g. it's common to use
+            # a default mapping for all rules, which would otherwise add
+            # unrelated deps to them).
+            attrs_root = attrs.option(attrs.label()),
         ),
-        default = None,
-    )
+    ),
+    default = None,
+)
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     # Extract graphs from the roots via the raw attrs, as `parse_groups_definitions`
@@ -119,6 +100,15 @@ registration_spec = RuleRegistrationSpec(
     name = "link_group_map",
     impl = _impl,
     attrs = {
-        "map": _v1_attrs(),
+        "map": _v1_attrs(
+            attrs_root = attrs.dep(
+                providers = [
+                    LinkGroupLibInfo,
+                    LinkableGraph,
+                    MergedLinkInfo,
+                    SharedLibraryInfo,
+                ],
+            ),
+        ),
     },
 )

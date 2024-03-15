@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
+load("@prelude//cxx/user:link_group_map.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
@@ -102,7 +102,7 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     "enable_distributed_thinlto": attrs.bool(default = False),
     # Required by the rules but not supported, since Rust is auto-link groups only
     "link_group": attrs.default_only(attrs.option(attrs.string(), default = None)),
-    "link_group_map": link_group_map_attr(),
+    "link_group_map": LINK_GROUP_MAP_ATTR,
     "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
     "rpath": attrs.bool(default = False, doc = """
               Set the "rpath" in the executable when using a shared link style.

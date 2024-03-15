@@ -17,7 +17,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
-load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
+load("@prelude//cxx/user:link_group_map.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
 load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
@@ -277,7 +277,7 @@ def _python_executable_attrs():
         "executable_name": attrs.option(attrs.string(), default = None),
         "inplace_build_args": attrs.list(attrs.arg(), default = []),
         "link_group": attrs.option(attrs.string(), default = None),
-        "link_group_map": link_group_map_attr(),
+        "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "link_style": attrs.enum(LinkableDepType, default = "static"),
         "main_function": attrs.option(
@@ -348,7 +348,7 @@ def _cxx_binary_and_test_attrs():
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
-        "link_group_map": link_group_map_attr(),
+        "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_whole": attrs.default_only(attrs.bool(default = False)),
@@ -411,7 +411,7 @@ inlined_extra_attributes = {
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_deps_query_whole": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
-        "link_group_map": link_group_map_attr(),
+        "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
@@ -489,7 +489,7 @@ inlined_extra_attributes = {
     },
     "haskell_binary": {
         "auto_link_groups": attrs.bool(default = False),
-        "link_group_map": link_group_map_attr(),
+        "link_group_map": LINK_GROUP_MAP_ATTR,
         "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_haskell_toolchain": toolchains_common.haskell(),
