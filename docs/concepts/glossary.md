@@ -248,7 +248,7 @@ instantiating a [rule](#rule) with attributes. A target has
 #### Target label
 
 The identifier for a [target](#target). Structured as
-`cellAlias//path/to/package:target`, where `cellAlias//` maps to a
+`cell_alias//path/to/package:target`, where `cell_alias//` maps to a
 [cell root](#cell) path (as defined in the [./buckconfig](#buckconfig) of the
 cell this target belongs to), `path/to/package` is the [package](#package)
 directory that contains the [BUCK file](#buck-file) declaring the target
