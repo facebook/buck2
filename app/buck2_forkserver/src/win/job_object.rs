@@ -7,27 +7,35 @@
  * of this source tree.
  */
 
+#![allow(dead_code)]
+
 use std::mem;
 use std::ptr;
 
 use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
+use winapi::shared::basetsd::ULONG_PTR;
+use winapi::shared::minwindef::DWORD;
+use winapi::shared::minwindef::FALSE;
 use winapi::shared::minwindef::LPVOID;
 use winapi::um::handleapi;
 use winapi::um::ioapiset;
 use winapi::um::jobapi2;
+use winapi::um::minwinbase::OVERLAPPED;
+use winapi::um::winbase::INFINITE;
 use winapi::um::winnt::JobObjectAssociateCompletionPortInformation;
 use winapi::um::winnt::JobObjectExtendedLimitInformation;
 use winapi::um::winnt::HANDLE;
 use winapi::um::winnt::JOBOBJECT_ASSOCIATE_COMPLETION_PORT;
 use winapi::um::winnt::JOBOBJECT_EXTENDED_LIMIT_INFORMATION;
 use winapi::um::winnt::JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+use winapi::um::winnt::JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO;
 
 use crate::win::utils::result_bool;
 use crate::win::utils::result_handle;
+use crate::win::utils::UnownedHandle;
 
 pub(crate) struct JobObject {
     job_handle: WinapiHandle,
-    #[allow(dead_code)]
     completion_handle: WinapiHandle,
 }
 
@@ -62,6 +70,65 @@ impl JobObject {
     pub(crate) fn terminate(&self, exit_code: u32) -> anyhow::Result<()> {
         result_bool(unsafe { jobapi2::TerminateJobObject(self.job_handle.handle(), exit_code) })
     }
+
+    // waits until all processes in a job have exited
+    // https://devblogs.microsoft.com/oldnewthing/20130405-00/?p=4743
+    async fn wait(&self) -> anyhow::Result<()> {
+        const MAX_RETRY_ATTEMPT: usize = 10;
+        let job = UnownedHandle(self.job_handle.handle());
+        let completion_port = UnownedHandle(self.completion_handle.handle());
+
+        // try to wait all the processes exit before spawn a blocking task
+        for _ in 0..MAX_RETRY_ATTEMPT {
+            if let Ok(false) = has_active_processes(&job, &completion_port, 0) {
+                break;
+            }
+        }
+
+        tokio::task::spawn_blocking(move || {
+            while has_active_processes(&job, &completion_port, INFINITE)? {}
+            Ok(())
+        })
+        .await?
+    }
+}
+
+fn has_active_processes(
+    job: &UnownedHandle,
+    completion_port: &UnownedHandle,
+    timeout: DWORD,
+) -> anyhow::Result<bool> {
+    let mut completion_code: DWORD = 0;
+    let mut completion_key: ULONG_PTR = 0;
+    let mut overlapped = mem::MaybeUninit::<OVERLAPPED>::uninit();
+    let mut lp_overlapped = overlapped.as_mut_ptr();
+
+    let result = unsafe {
+        ioapiset::GetQueuedCompletionStatus(
+            completion_port.0,
+            &mut completion_code,
+            &mut completion_key,
+            &mut lp_overlapped,
+            timeout,
+        )
+    };
+
+    // ignore timeout errors unless the timeout was specified to INFINITE
+    // https://docs.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-getqueuedcompletionstatus
+    if timeout != INFINITE && result == FALSE && lp_overlapped.is_null() {
+        return Ok(true);
+    }
+
+    result_bool(result)?;
+
+    // we are interested only in the specific event from the job object
+    // ignore the rest in case some other I/O gets queued to our completion port
+    if completion_key != job.0 as ULONG_PTR || completion_code != JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO
+    {
+        return Ok(true);
+    }
+
+    Ok(false)
 }
 
 fn associate_job_with_completion_port(

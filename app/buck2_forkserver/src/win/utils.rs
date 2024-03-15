@@ -13,6 +13,11 @@ use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
 use winapi::shared::minwindef::BOOL;
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::minwindef::FALSE;
+use winapi::um::winnt::HANDLE;
+
+pub(crate) struct UnownedHandle(pub HANDLE);
+unsafe impl Send for UnownedHandle {}
+unsafe impl Sync for UnownedHandle {}
 
 pub(crate) fn result_bool(ret: BOOL) -> anyhow::Result<()> {
     if ret == FALSE {
