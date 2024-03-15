@@ -48,7 +48,7 @@ TargetRegexFilter = record(
 # Representation of a parsed group mapping
 GroupMapping = record(
     # The root to apply this mapping to.
-    root = field([Label, None], None),
+    roots = field(list[Label], []),
     # The type of traversal to use.
     traversal = field(Traversal, Traversal("tree")),
     # Optional filter type to apply to the traversal.

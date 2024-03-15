@@ -211,12 +211,22 @@ def get_link_group_info(
     )
 
 def get_link_group_preferred_linkage(link_groups: list[Group]) -> dict[Label, Linkage]:
-    return {
-        mapping.root: mapping.preferred_linkage
-        for group in link_groups
-        for mapping in group.mappings
-        if mapping.root != None and mapping.preferred_linkage != None
-    }
+    root_to_linkage = {}
+    for group in link_groups:
+        for mapping in group.mappings:
+            if not mapping.roots:
+                continue
+
+            if not mapping.preferred_linkage:
+                continue
+
+            for root in mapping.roots:
+                # TODO: There might be a bug here - if the same root is listed in
+                # two different link_group_map entries, we'll only use the preferred_linkage
+                # of the last style passed.
+                root_to_linkage[root] = mapping.preferred_linkage
+
+    return root_to_linkage
 
 LinkGroupContext = record(
     link_group_mappings = field([dict[Label, str], None]),
@@ -604,12 +614,14 @@ def _create_link_group(
         for mapping in spec.group.mappings:
             # If there's no explicit root, this means we need to search the entire
             # graph to find candidate nodes.
-            if mapping.root == None:
+            if not mapping.roots:
                 has_empty_root = True
-            elif spec.group.attrs.requires_root_node_exists or mapping.root in linkable_graph_node_map:
+            elif spec.group.attrs.requires_root_node_exists:
                 # If spec requires root to always exist (default True), always include to traversal to fail hard if it is not in deps.
                 # Otherwise add to traversal only if we sure it is in deps graph.
-                roots.append(mapping.root)
+                roots.extend(mapping.roots)
+            else:
+                roots.extend([root for root in mapping.roots if root in linkable_graph_node_map])
 
         # If this link group has an empty mapping, we need to search everything
         # -- even the additional roots -- to find potential nodes in the link

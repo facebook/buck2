@@ -94,7 +94,7 @@ def parse_groups_definitions(
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
             mapping = GroupMapping(
-                root = map_val(parse_root, entry[0]),
+                roots = filter(None, [map_val(parse_root, entry[0])]),
                 traversal = traversal,
                 filters = _parse_filter_from_mapping(entry[2]),
                 preferred_linkage = Linkage(entry[3]) if len(entry) > 3 and entry[3] else None,
@@ -173,14 +173,26 @@ def compute_mappings(groups_map: dict[str, Group], graph_map: dict[Label, typing
 
     return target_to_group_map
 
+def get_dedupped_roots_from_groups(groups: list[Group]) -> list[Label]:
+    roots = {}
+    for group in groups:
+        for mapping in group.mappings:
+            if not mapping.roots:
+                continue
+
+            for root in mapping.roots:
+                roots[root] = True
+
+    return list(roots.keys())
+
 def _find_targets_in_mapping(
         graph_map: dict[Label, typing.Any],
         mapping: GroupMapping) -> list[Label]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:
-        if mapping.root == None:
+        if not mapping.roots:
             fail("no filter or explicit root given: {}", mapping)
-        return [mapping.root]
+        return mapping.roots
 
     # Else find all dependencies that match the filter.
     matching_targets = {}
@@ -218,11 +230,11 @@ def _find_targets_in_mapping(
                 return []
         return graph_node.deps + graph_node.exported_deps
 
-    if mapping.root == None:
+    if not mapping.roots:
         for node in graph_map:
             find_matching_targets(node)
     else:
-        breadth_first_traversal_by(graph_map, [mapping.root], find_matching_targets)
+        breadth_first_traversal_by(graph_map, mapping.roots, find_matching_targets)
 
     return matching_targets.keys()
 
@@ -329,7 +341,7 @@ def _make_json_info_for_group_mapping(group_mapping: GroupMapping) -> dict[str, 
     return {
         "filters": _make_json_info_for_group_mapping_filters(group_mapping.filters),
         "preferred_linkage": group_mapping.preferred_linkage,
-        "root": group_mapping.root,
+        "roots": group_mapping.roots,
         "traversal": group_mapping.traversal,
     }
 

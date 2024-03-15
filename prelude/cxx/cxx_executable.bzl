@@ -115,6 +115,7 @@ load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
+load(":groups.bzl", "get_dedupped_roots_from_groups")
 load(
     ":link.bzl",
     "CxxLinkerMapData",
@@ -398,12 +399,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             public_nodes = get_transitive_deps_matching_labels(
                 linkable_graph_node_map = linkable_graph_node_map,
                 label = ctx.attrs.link_group_public_deps_label,
-                roots = [
-                    mapping.root
-                    for group in link_group_info.groups.values()
-                    for mapping in group.mappings
-                    if mapping.root != None
-                ],
+                roots = get_dedupped_roots_from_groups(link_group_info.groups.values()),
             )
 
         filtered_links = get_filtered_links(labels_to_links_map, set(public_nodes))

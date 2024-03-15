@@ -168,7 +168,7 @@ def _get_root_link_group_specs(
                     name = dep.linkable_root_info.name,
                     mappings = [
                         GroupMapping(
-                            root = dep.linkable_graph.nodes.value.label,
+                            roots = [dep.linkable_graph.nodes.value.label],
                             traversal = Traversal("node"),
                         ),
                     ],
@@ -191,7 +191,7 @@ def _get_root_link_group_specs(
                     name = name,
                     mappings = [
                         GroupMapping(
-                            root = extension.linkable_graph.nodes.value.label,
+                            roots = [extension.linkable_graph.nodes.value.label],
                             traversal = Traversal("node"),
                         ),
                     ],
@@ -231,7 +231,7 @@ def _get_shared_only_groups(shared_only_libs: list[LinkableProviders]) -> list[G
                 name = str(dep.linkable_graph.nodes.value.label.raw_target()),
                 mappings = [
                     GroupMapping(
-                        root = dep.linkable_graph.nodes.value.label,
+                        roots = [dep.linkable_graph.nodes.value.label],
                         traversal = Traversal("node"),
                         preferred_linkage = Linkage("shared"),
                     ),
