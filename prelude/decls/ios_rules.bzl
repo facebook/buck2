@@ -11,6 +11,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//cxx:groups_types.bzl", "Traversal")
+load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":apple_common.bzl", "apple_common")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "buck", "prelude_rule")
@@ -195,7 +196,7 @@ apple_binary = prelude_rule(
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "link_whole": attrs.option(attrs.bool(), default = None),
             "modular": attrs.bool(default = False),
             "module_name": attrs.option(attrs.string(), default = None),
@@ -488,7 +489,7 @@ apple_library = prelude_rule(
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "modular": attrs.bool(default = False),
             "module_name": attrs.option(attrs.string(), default = None),
             "module_requires_cxx": attrs.bool(default = False),
@@ -745,7 +746,7 @@ apple_test = prelude_rule(
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "link_whole": attrs.option(attrs.bool(), default = None),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
             "modular": attrs.bool(default = False),

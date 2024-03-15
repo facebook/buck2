@@ -10,7 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//cxx:groups_types.bzl", "Traversal")
+load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":apple_common.bzl", "apple_common")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
@@ -119,7 +119,7 @@ cxx_binary = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
@@ -572,7 +572,7 @@ cxx_library = prelude_rule(
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "module_name": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
@@ -880,7 +880,7 @@ cxx_test = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "link_style": attrs.option(attrs.enum(LinkableDepType), default = None),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
             "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),

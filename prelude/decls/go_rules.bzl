@@ -10,7 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//cxx:groups_types.bzl", "Traversal")
+load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
@@ -115,7 +115,7 @@ cgo_library = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
             "platform_srcs": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))), sorted = True)), default = []),

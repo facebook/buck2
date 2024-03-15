@@ -10,7 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//cxx:groups_types.bzl", "Traversal")
+load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 
@@ -99,7 +99,7 @@ halide_library = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": attrs.option(attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))), default = None),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
             "link_style": attrs.option(attrs.enum(LinkableDepType), default = None),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
