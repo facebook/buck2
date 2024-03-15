@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::iter;
-
 use allocative::Allocative;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -25,7 +23,11 @@ pub struct PackageFilePath {
 
 impl PackageFilePath {
     pub fn package_file_names() -> impl Iterator<Item = &'static FileName> {
-        iter::once(FileName::unchecked_new("PACKAGE"))
+        [
+            FileName::unchecked_new("BUCK_TREE"),
+            FileName::unchecked_new("PACKAGE"),
+        ]
+        .into_iter()
     }
 
     /// Files which could be `PACKAGE` files.
