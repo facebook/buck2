@@ -23,7 +23,6 @@ load(
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link_groups.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
     "LinkGroupLinkInfo",  # @unused Used as a type
     "create_link_groups",
     "get_filtered_labels_to_links_map",
@@ -32,6 +31,10 @@ load(
     "get_link_group",
     "get_link_group_info",
     "get_link_group_preferred_linkage",
+)
+load(
+    "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
 )
 load(
     "@prelude//linking:link_groups.bzl",

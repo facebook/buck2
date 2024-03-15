@@ -5,11 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(
-    "@prelude//cxx:groups.bzl",
-    "Group",
-    "MATCH_ALL_LABEL",
-)
+load("@prelude//cxx:groups.bzl", "MATCH_ALL_LABEL")
+load("@prelude//cxx:groups_types.bzl", "Group")
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",

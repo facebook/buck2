@@ -10,7 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//cxx:link_groups_types.bzl", "Traversal")
+load("@prelude//cxx:groups_types.bzl", "Traversal")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":apple_common.bzl", "apple_common")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "buck", "prelude_rule")

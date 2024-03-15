@@ -7,6 +7,10 @@
 
 load("@prelude//:artifact_tset.bzl", "ArtifactTSet")  # @unused Used as a type
 load(
+    "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "SwiftmoduleLinkable",
@@ -30,7 +34,6 @@ load(
 )
 load(
     ":link_groups.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
     "LinkGroupLibSpec",  # @unused Used as a type
 )
 load(

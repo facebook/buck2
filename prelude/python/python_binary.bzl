@@ -25,20 +25,23 @@ load(
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
-    "@prelude//cxx:groups.bzl",
+    "@prelude//cxx:groups_types.bzl",
     "Group",
     "GroupAttrs",
     "GroupMapping",
+    "Traversal",
 )
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load(
     "@prelude//cxx:link_groups.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
     "LinkGroupLibSpec",
     "build_link_group_info",
     "get_link_group_info",
 )
-load("@prelude//cxx:link_groups_types.bzl", "Traversal")
+load(
+    "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
+)
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//cxx:omnibus.bzl",
@@ -53,7 +56,10 @@ load(
     "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
 )
-load("@prelude//linking:link_info.bzl", "LinkedObject")
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkedObject",
+)
 load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",

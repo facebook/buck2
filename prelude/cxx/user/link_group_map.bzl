@@ -10,12 +10,16 @@ load(
     "make_info_subtarget_providers",
     "parse_groups_definitions",
 )
+load("@prelude//cxx:groups_types.bzl", "Traversal")
 load(
     "@prelude//cxx:link_groups.bzl",
-    "LinkGroupInfo",
     "build_link_group_info",
 )
-load("@prelude//cxx:link_groups_types.bzl", "Traversal")
+load(
+    "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
+    "link_group_inlined_map_attr",
+)
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLibInfo",
@@ -101,8 +105,8 @@ registration_spec = RuleRegistrationSpec(
     name = "link_group_map",
     impl = _impl,
     attrs = {
-        "map": _v1_attrs(
-            attrs_root = attrs.dep(
+        "map": link_group_inlined_map_attr(
+            root_attr = attrs.dep(
                 providers = [
                     LinkGroupLibInfo,
                     LinkableGraph,

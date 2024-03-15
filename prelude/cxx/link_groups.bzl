@@ -6,6 +6,14 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load(
+    "@prelude//cxx:groups_types.bzl",
+    "Group",  # @unused Used as a type
+)
+load(
+    "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupInfo",
+)
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -61,7 +69,6 @@ load(
 load(":cxx_toolchain_types.bzl", "PicBehavior")
 load(
     ":groups.bzl",
-    "Group",  # @unused Used as a type
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
     "compute_mappings",
@@ -106,22 +113,6 @@ LINK_GROUP_MAP_DATABASE_FILENAME = "link_group_map_database.json"
 # Returns a mapping from link group names to its constituent targets.
 LINK_GROUP_MAPPINGS_SUB_TARGET = "link-group-mappings"
 LINK_GROUP_MAPPINGS_FILENAME_SUFFIX = ".link_group_map.json"
-
-LinkGroupInfo = provider(
-    # @unsorted-dict-items
-    fields = {
-        "groups": provider_field(dict[str, Group]),
-        "groups_hash": provider_field(int),
-        "mappings": provider_field(dict[Label, str]),
-        # Additional graphs needed to cover labels referenced by the groups above.
-        # This is useful in cases where the consumer of this provider won't already
-        # have deps covering these.
-        # NOTE(agallagher): We do this to maintain existing behavior w/ the
-        # standalone `link_group_map()` rule, but it's not clear if it's actually
-        # desirable behavior.
-        "graph": provider_field(LinkableGraph),
-    },
-)
 
 LinkGroupLinkInfo = record(
     link_info = field(LinkInfo),

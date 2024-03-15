@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_bundle.bzl", "apple_bundle_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs")
-load("@prelude//cxx:link_groups_types.bzl", "Traversal")
+load("@prelude//cxx:groups_types.bzl", "Traversal")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//decls/ios_rules.bzl", "AppleBundleExtension")
 load(":watch_transition.bzl", "watch_transition")
