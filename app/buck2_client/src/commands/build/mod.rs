@@ -216,7 +216,7 @@ impl StreamingCommand for BuildCommand {
                     target_patterns: self
                         .patterns
                         .map(|p| buck2_data::TargetPattern { value: p.clone() }),
-                    target_cfg: Some(self.common_opts.config_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: self.default_info() as i32,
                         run_info: self.run_info() as i32,

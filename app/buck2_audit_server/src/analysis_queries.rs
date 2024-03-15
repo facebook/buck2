@@ -38,7 +38,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut ctx| {
                 let global_cfg_options = global_cfg_options_from_client_context(
-                    &self.common_opts.config_opts.target_cfg.target_cfg(),
+                    &self.common_opts.target_cfg.target_cfg(),
                     server_ctx,
                     &mut ctx,
                 )

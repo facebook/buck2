@@ -129,9 +129,6 @@ pub struct CommonBuildConfigurationOptions {
     )]
     pub config_files: Vec<String>,
 
-    #[clap(flatten)]
-    pub target_cfg: TargetCfgOptions,
-
     #[clap(long, ignore_case = true, value_name = "HOST", arg_enum)]
     fake_host: Option<HostPlatformOverride>,
 
@@ -278,7 +275,6 @@ impl CommonBuildConfigurationOptions {
         static DEFAULT: CommonBuildConfigurationOptions = CommonBuildConfigurationOptions {
             config_values: vec![],
             config_files: vec![],
-            target_cfg: TargetCfgOptions::DEFAULT,
             fake_host: None,
             fake_arch: None,
             fake_xcode_version: None,
@@ -300,6 +296,9 @@ pub struct CommonCommandOptions {
     /// Buckconfig and similar options.
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgOptions,
 
     /// UI options.
     #[clap(flatten)]

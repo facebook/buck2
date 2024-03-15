@@ -56,7 +56,7 @@ async fn server_execute_with_dice(
 ) -> anyhow::Result<()> {
     // TODO(raulgarcia4): Extract function where possible, shares a lot of code with audit providers.
     let global_cfg_options = global_cfg_options_from_client_context(
-        &command.common_opts.config_opts.target_cfg.target_cfg(),
+        &command.common_opts.target_cfg.target_cfg(),
         server_ctx,
         &mut ctx,
     )

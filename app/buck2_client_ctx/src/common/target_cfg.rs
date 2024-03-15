@@ -35,11 +35,6 @@ pub struct TargetCfgOptions {
 }
 
 impl TargetCfgOptions {
-    pub(crate) const DEFAULT: TargetCfgOptions = TargetCfgOptions {
-        target_platforms: None,
-        cli_modifiers: Vec::new(),
-    };
-
     pub fn target_cfg(&self) -> TargetCfg {
         TargetCfg {
             target_platform: self.target_platforms.clone().unwrap_or_default(),

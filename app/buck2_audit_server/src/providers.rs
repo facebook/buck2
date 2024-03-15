@@ -60,7 +60,7 @@ async fn server_execute_with_dice(
 ) -> anyhow::Result<()> {
     let target_resolution_config = TargetResolutionConfig::from_args(
         &mut ctx,
-        &command.common_opts.config_opts.target_cfg.target_cfg(),
+        &command.common_opts.target_cfg.target_cfg(),
         server_ctx,
         // TODO(nga): pass universe
         &[],

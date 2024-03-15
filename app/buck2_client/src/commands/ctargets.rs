@@ -60,7 +60,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                         value: pat.to_owned(),
                     }),
-                    target_cfg: Some(self.common_opts.config_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
                     skip_missing_targets: self.skip_missing_targets,
                 },
                 ctx.stdin()

@@ -59,7 +59,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
 
                 let target_resolution_config = TargetResolutionConfig::from_args(
                     &mut ctx,
-                    &self.common_opts.config_opts.target_cfg.target_cfg(),
+                    &self.common_opts.target_cfg.target_cfg(),
                     server_ctx,
                     // TODO(nga): pass universe
                     &[],
