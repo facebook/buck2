@@ -12,6 +12,7 @@ use buck2_cli_proto::InstallRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -27,6 +28,9 @@ use gazebo::prelude::*;
 pub struct InstallCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -182,7 +186,7 @@ impl StreamingCommand for InstallCommand {
                     target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                         value: pat.to_owned(),
                     }),
-                    target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg()),
                     build_opts: Some(self.build_opts.to_proto()),
                     installer_run_args: extra_run_args,
                     installer_debug: self.installer_debug,

@@ -19,6 +19,7 @@ use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::TargetProfile;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -139,6 +140,9 @@ pub struct ProfileCommonOptions {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
     /// Output file path for profile data.
     ///
     /// File will be created if it does not exist, and overwritten if it does.
@@ -204,7 +208,7 @@ impl StreamingCommand for ProfileSubcommand {
                     target_patterns: opts
                         .target_patterns
                         .into_map(|value| buck2_data::TargetPattern { value }),
-                    target_cfg: Some(self.profile_common_opts.common_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.profile_common_opts.target_cfg.target_cfg()),
                     recursive: opts.recursive,
                     action: action.into(),
                 };
@@ -227,7 +231,7 @@ impl StreamingCommand for ProfileSubcommand {
                 let bxl_opts = BxlProfile {
                     bxl_label: opts.bxl_label,
                     bxl_args: opts.bxl_args,
-                    target_cfg: Some(self.profile_common_opts.common_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.profile_common_opts.target_cfg.target_cfg()),
                 };
 
                 buckd

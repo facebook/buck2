@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -20,4 +21,8 @@ pub struct StarlarkModuleCommand {
 
     #[clap(flatten)]
     pub(crate) common_opts: CommonCommandOptions,
+
+    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgOptions,
 }

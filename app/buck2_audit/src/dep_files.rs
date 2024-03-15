@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 
 use crate::AuditSubcommand;
@@ -20,6 +21,9 @@ use crate::AuditSubcommand;
 pub struct AuditDepFilesCommand {
     #[clap(flatten)]
     pub common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgOptions,
 
     #[clap(help = "Target to query dep files for")]
     pub pattern: String,

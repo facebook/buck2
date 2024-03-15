@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::AqueryRequest;
 use buck2_cli_proto::AqueryResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -71,6 +72,9 @@ pub struct AqueryCommand {
     common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
     query_common: CommonQueryOptions,
 }
 
@@ -95,7 +99,7 @@ impl StreamingCommand for AqueryCommand {
                 AqueryRequest {
                     query,
                     query_args,
-                    target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg()),
                     context: Some(context),
                     output_attributes,
                     unstable_output_format,

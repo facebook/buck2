@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -27,6 +28,9 @@ use gazebo::prelude::SliceExt;
 pub struct ConfiguredTargetsCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
 
     /// Skip missing targets from `BUCK` files when non-glob pattern is specified.
     /// This option does not skip missing packages
@@ -60,7 +64,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                         value: pat.to_owned(),
                     }),
-                    target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg()),
                     skip_missing_targets: self.skip_missing_targets,
                 },
                 ctx.stdin()

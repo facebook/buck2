@@ -21,6 +21,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
 use buck2_client_ctx::common::build::CommonOutputOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -46,6 +47,9 @@ mod out;
 pub struct BuildCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -216,7 +220,7 @@ impl StreamingCommand for BuildCommand {
                     target_patterns: self
                         .patterns
                         .map(|p| buck2_data::TargetPattern { value: p.clone() }),
-                    target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: self.default_info() as i32,
                         run_info: self.run_info() as i32,

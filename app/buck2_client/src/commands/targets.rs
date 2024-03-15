@@ -13,6 +13,7 @@ use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::build::CommonOutputOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -78,6 +79,9 @@ enum TargetHashFunction {
 pub struct TargetsCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
 
     /// Print targets as JSON
     #[clap(long)]
@@ -317,7 +321,7 @@ impl StreamingCommand for TargetsCommand {
                     package_values,
                 })
             }),
-            target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
+            target_cfg: Some(self.target_cfg.target_cfg()),
             output: self
                 .output
                 .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,

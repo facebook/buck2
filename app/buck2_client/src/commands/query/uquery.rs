@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -75,9 +76,12 @@ When printed, values with `select()`s use a special json encoding.
     verbatim_doc_comment,
 )]
 pub struct UqueryCommand {
-    // TODO(nga): uquery does not need `--target-platforms=` flag.
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    /// Uquery doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
     query_common: CommonQueryOptions,

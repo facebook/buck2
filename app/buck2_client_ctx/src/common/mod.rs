@@ -34,7 +34,6 @@ use buck2_core::fs::fs_util;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::common::target_cfg::TargetCfgOptions;
 use crate::common::ui::CommonConsoleOptions;
 use crate::path_arg::PathArg;
 
@@ -296,9 +295,6 @@ pub struct CommonCommandOptions {
     /// Buckconfig and similar options.
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    pub target_cfg: TargetCfgOptions,
 
     /// UI options.
     #[clap(flatten)]

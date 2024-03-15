@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 
 use crate::AuditSubcommand;
@@ -20,6 +21,10 @@ use crate::AuditSubcommand;
 pub struct AuditParseCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgOptions,
 
     #[clap(
         name = "OUTPUT_PATH",

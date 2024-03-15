@@ -47,6 +47,7 @@ pub async fn upload_materializer_data(
                 serialized_opts: serde_json::to_string(&AuditCommand::DeferredMaterializer(
                     DeferredMaterializerCommand {
                         common_opts: Default::default(),
+                        _target_cfg: Default::default(),
                         subcommand: match materializer_data {
                             MaterializerRageUploadData::State => {
                                 DeferredMaterializerSubcommand::List

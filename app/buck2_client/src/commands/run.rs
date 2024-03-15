@@ -20,6 +20,7 @@ use buck2_cli_proto::BuildRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -51,6 +52,9 @@ use crate::commands::build::print_build_succeeded;
 pub struct RunCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -105,7 +109,7 @@ impl StreamingCommand for RunCommand {
                     target_patterns: vec![buck2_data::TargetPattern {
                         value: self.target.clone(),
                     }],
-                    target_cfg: Some(self.common_opts.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: build_providers::Action::Skip as i32,
                         run_info: build_providers::Action::Build as i32,

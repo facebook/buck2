@@ -14,6 +14,7 @@ use buck2_cli_proto::BxlRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -36,6 +37,9 @@ pub struct BxlCommand {
 
     #[clap(flatten)]
     common_ops: CommonCommandOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -93,7 +97,7 @@ impl StreamingCommand for BxlCommand {
                     bxl_label: self.bxl_opts.bxl_label,
                     bxl_args: self.bxl_opts.bxl_args,
                     build_opts: Some(self.bxl_opts.build_opts.to_proto()),
-                    target_cfg: Some(self.common_ops.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg()),
                     final_artifact_materializations: self.bxl_opts.materializations.to_proto()
                         as i32,
                     print_stacktrace: ctx.verbosity.print_success_stderr(),

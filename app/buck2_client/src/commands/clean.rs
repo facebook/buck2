@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -43,6 +44,10 @@ use crate::commands::kill::kill_command_impl;
 pub struct CleanCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgOptions,
 
     #[clap(
         long = "dry-run",

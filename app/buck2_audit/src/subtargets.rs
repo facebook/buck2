@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 
 use crate::AuditSubcommand;
@@ -18,6 +19,9 @@ use crate::AuditSubcommand;
 pub struct AuditSubtargetsCommand {
     #[clap(flatten)]
     pub common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgOptions,
 
     /// Do not recursively print all nested subtargets; print only
     /// the first level. This is set to false by default.
