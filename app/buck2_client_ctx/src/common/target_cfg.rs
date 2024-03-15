@@ -48,13 +48,11 @@ pub struct TargetCfgWithUniverseOptions {
     #[clap(flatten)]
     pub target_cfg: TargetCfgOptions,
 
-    #[clap(
-        long,
-        short = 'u',
-        use_delimiter = true,
-        help = "Comma separated list of targets at which to root the queryable universe.
-                 This is useful since targets can exist in multiple configurations."
-    )]
+    /// Comma separated list of targets to construct a configured target universe.
+    /// When the option is specified, command targets are be resolved in this universe.
+    /// Additionally, `--target-platforms=` and `--modifier=` flags
+    /// are be used to configure the universe targets, not the command targets.
+    #[clap(long, short = 'u', use_delimiter = true, verbatim_doc_comment)]
     pub target_universe: Vec<String>,
 }
 
