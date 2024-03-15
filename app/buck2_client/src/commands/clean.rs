@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -47,7 +47,7 @@ pub struct CleanCommand {
 
     /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
-    _target_cfg: TargetCfgOptions,
+    _target_cfg: TargetCfgUnusedOptions,
 
     #[clap(
         long = "dry-run",

@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 
 use crate::AuditSubcommand;
@@ -24,7 +24,7 @@ pub struct AuditIncludesCommand {
 
     /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
-    _target_cfg: TargetCfgOptions,
+    _target_cfg: TargetCfgUnusedOptions,
 
     /// Print json representation of outputs
     #[clap(long)]

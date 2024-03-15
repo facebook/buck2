@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -81,7 +81,7 @@ pub struct UqueryCommand {
 
     /// Uquery doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
-    _target_cfg: TargetCfgOptions,
+    _target_cfg: TargetCfgUnusedOptions,
 
     #[clap(flatten)]
     query_common: CommonQueryOptions,

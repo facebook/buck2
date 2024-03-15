@@ -34,6 +34,28 @@ pub struct TargetCfgOptions {
     pub cli_modifiers: Vec<String>,
 }
 
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+pub struct TargetCfgUnusedOptions {
+    /// This option is not used.
+    #[clap(
+        long = "target-platforms",
+        number_of_values = 1,
+        value_name = "PLATFORM"
+    )]
+    pub target_platforms: Option<String>,
+
+    /// This option is not used.
+    #[clap(
+        value_name = "VALUE",
+        long = "modifier",
+        use_value_delimiter = true,
+        value_delimiter = ',',
+        short = 'm',
+        number_of_values = 1
+    )]
+    pub cli_modifiers: Vec<String>,
+}
+
 impl TargetCfgOptions {
     pub fn target_cfg(&self) -> TargetCfg {
         TargetCfg {
@@ -59,6 +81,7 @@ pub struct TargetCfgWithUniverseOptions {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
+    use clap::CommandFactory;
     use clap::Parser;
 
     use super::*;
@@ -119,5 +142,34 @@ mod tests {
         assert_matches!(parse(&["-m", "value1", "value2"]), Err(..));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_target_cfg_unused() {
+        #[derive(Debug, Eq, PartialEq)]
+        struct ReducedArg {
+            name: String,
+            long: Option<String>,
+            value_delimiter: Option<char>,
+            number_of_values: Option<usize>,
+        }
+
+        fn args<C: CommandFactory>() -> Vec<ReducedArg> {
+            C::command()
+                .get_arguments()
+                .map(|a| ReducedArg {
+                    name: a.get_name().to_owned(),
+                    long: a.get_long().map(|s| s.to_owned()),
+                    value_delimiter: a.get_value_delimiter(),
+                    number_of_values: a.get_num_vals(),
+                })
+                .collect()
+        }
+
+        let a = args::<TargetCfgOptions>();
+        let b = args::<TargetCfgUnusedOptions>();
+
+        assert_eq!(a, b);
+        assert!(!a.is_empty());
     }
 }

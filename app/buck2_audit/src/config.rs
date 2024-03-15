@@ -10,7 +10,7 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use dupe::Dupe;
 
@@ -79,7 +79,7 @@ pub struct AuditConfigCommand {
 
     /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
-    _target_cfg: TargetCfgOptions,
+    _target_cfg: TargetCfgUnusedOptions,
 
     #[clap(long = "cell")]
     pub cell: Option<String>,
