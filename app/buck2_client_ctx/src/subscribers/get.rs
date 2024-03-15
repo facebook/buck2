@@ -16,8 +16,8 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
+use crate::common::ui::ConsoleType;
 use crate::common::CommonDaemonCommandOptions;
-use crate::common::ConsoleType;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::build_graph_stats::BuildGraphStats;
 use crate::subscribers::build_id_writer::BuildIdWriter;

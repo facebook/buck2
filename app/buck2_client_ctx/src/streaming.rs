@@ -16,8 +16,8 @@ use buck2_common::argv::SanitizedArgv;
 use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
+use crate::common::ui::CommonConsoleOptions;
 use crate::common::CommonBuildConfigurationOptions;
-use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
 use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::BuckdConnectOptions;

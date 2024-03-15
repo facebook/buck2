@@ -8,7 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::CommonConsoleOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitCode;

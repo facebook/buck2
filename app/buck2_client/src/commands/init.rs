@@ -12,7 +12,7 @@ use std::io::Write;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::CommonConsoleOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;

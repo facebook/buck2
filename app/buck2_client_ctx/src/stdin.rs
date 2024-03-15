@@ -26,7 +26,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::StreamReader;
 
-use crate::common::CommonConsoleOptions;
+use crate::common::ui::CommonConsoleOptions;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 
 #[pin_project]
