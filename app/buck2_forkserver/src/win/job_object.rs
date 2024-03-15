@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::io;
 use std::ptr;
 
 use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
@@ -15,6 +14,7 @@ use winapi::um::jobapi2;
 use winapi::um::winnt::HANDLE;
 
 use crate::win::utils::result_bool;
+use crate::win::utils::result_handle;
 
 pub(crate) struct JobObject {
     handle: WinapiHandle,
@@ -22,13 +22,9 @@ pub(crate) struct JobObject {
 
 impl JobObject {
     pub(crate) fn new() -> anyhow::Result<Self> {
-        let handle = unsafe {
-            let handle = jobapi2::CreateJobObjectW(ptr::null_mut(), ptr::null_mut());
-            WinapiHandle::new(handle)
-        };
-        if handle.handle().is_null() {
-            return Err(anyhow::anyhow!(io::Error::last_os_error()));
-        }
+        let handle = result_handle(unsafe {
+            WinapiHandle::new(jobapi2::CreateJobObjectW(ptr::null_mut(), ptr::null_mut()))
+        })?;
         Ok(Self { handle })
     }
 
