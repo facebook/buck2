@@ -23,13 +23,12 @@ pub struct AuditClasspathCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Target patterns to audit")]
-    pub patterns: Vec<String>,
-
     /// Output in JSON format
     #[clap(long)]
     pub json: bool,
     // TODO(scottcao): Add --show-targets, --dot, and other relevant flags
+    #[clap(name = "TARGET_PATTERNS", help = "Target patterns to audit")]
+    pub patterns: Vec<String>,
 }
 
 #[async_trait]

@@ -22,16 +22,16 @@ pub struct AuditAnalysisQueriesCommand {
     common_opts: CommonCommandOptions,
 
     #[clap(
-        name = "TARGET_PATTERNS",
-        help = "Patterns to evaluate. The query attributes for targets matching these patterns will be evaluated"
-    )]
-    pub patterns: Vec<String>,
-
-    #[clap(
         long,
         help = "Enable to print the outputs for the targets in the resolved queries"
     )]
     pub include_outputs: bool,
+
+    #[clap(
+        name = "TARGET_PATTERNS",
+        help = "Patterns to evaluate. The query attributes for targets matching these patterns will be evaluated"
+    )]
+    pub patterns: Vec<String>,
 }
 
 #[async_trait]
