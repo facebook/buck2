@@ -47,7 +47,7 @@ def _v1_attrs(attrs_root):
                     # root node
                     attrs_root,
                     # traversal
-                    attrs.enum(Traversal),
+                    attrs.enum(Traversal.values()),
                     # filters, either `None`, a single filter, or a list of filters
                     # (which must all match).
                     attrs.option(attrs.one_of(attrs.list(attrs.string()), attrs.string())),

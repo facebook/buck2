@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls:common.bzl", "Traversal")
 load(
     "@prelude//linking:link_info.bzl",
     "Linkage",
@@ -26,16 +27,6 @@ load(
     "@prelude//utils:utils.bzl",
     "map_val",
     "value_or",
-)
-
-# Types of group traversal
-Traversal = enum(
-    # Includes the target and all of it's transitive dependencies in the group.
-    "tree",
-    # Includes only the target in the group.
-    "node",
-    # Uses pattern and separates all targets by full folder path.
-    "subfolders",
 )
 
 # Optional type of filtering

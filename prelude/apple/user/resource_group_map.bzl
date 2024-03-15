@@ -79,6 +79,6 @@ registration_spec = RuleRegistrationSpec(
     name = "resource_group_map",
     impl = _impl,
     attrs = {
-        "map": attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()))))),
+        "map": attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal.values()), attrs.option(attrs.string()))))),
     },
 )

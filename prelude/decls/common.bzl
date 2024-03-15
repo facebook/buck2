@@ -49,7 +49,14 @@ SourceAbiVerificationMode = ["off", "log", "fail"]
 
 TestType = ["junit", "junit5", "testng"]
 
-Traversal = ["tree", "node", "subfolders"]
+Traversal = enum(
+    # Includes the target and all of it's transitive dependencies in the group.
+    "tree",
+    # Includes only the target in the group.
+    "node",
+    # Uses pattern and separates all targets by full folder path.
+    "subfolders",
+)
 
 UnusedDependenciesAction = ["unknown", "fail", "warn", "ignore", "unrecognized"]
 

@@ -29,7 +29,6 @@ load(
     "Group",
     "GroupAttrs",
     "GroupMapping",
-    "Traversal",
 )
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load(
@@ -53,6 +52,7 @@ load(
     "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
 )
+load("@prelude//decls:common.bzl", "Traversal")
 load(
     "@prelude//linking:link_info.bzl",
     "Linkage",
