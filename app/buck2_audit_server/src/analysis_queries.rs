@@ -16,15 +16,14 @@ use buck2_cli_proto::ClientContext;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
-use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use buck2_server_ctx::pattern::parse_and_resolve_patterns_from_cli_args;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
+use crate::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
 
 #[async_trait]
@@ -37,12 +36,9 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, mut ctx| {
-                let global_cfg_options = global_cfg_options_from_client_context(
-                    &self.target_cfg.target_cfg(),
-                    server_ctx,
-                    &mut ctx,
-                )
-                .await?;
+                let target_resolution_config =
+                    audit_command_target_resolution_config(&mut ctx, &self.target_cfg, server_ctx)
+                        .await?;
 
                 let resolved_pattern =
                     parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
@@ -61,25 +57,27 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                         buck2_core::pattern::PackageSpec::Targets(targets) => {
                             for (target, TargetPatternExtra) in targets {
                                 let label = TargetLabel::new(package.dupe(), target.as_ref());
-                                let configured_target = ctx
-                                    .get_configured_target(&label, &global_cfg_options)
-                                    .await?;
-                                let node =
-                                    ctx.get_configured_target_node(&configured_target).await?;
-                                let node = node.require_compatible()?;
-                                let query_results =
-                                    resolve_queries(&mut ctx, node.as_ref()).await?;
-                                writeln!(stdout, "{}:", label)?;
-                                for (query, result) in &query_results {
-                                    writeln!(stdout, "  {}", query)?;
-                                    for (target, providers) in &result.result {
-                                        writeln!(stdout, "    {}", target.unconfigured())?;
-                                        if self.include_outputs {
-                                            let outputs = providers
-                                                .provider_collection()
-                                                .default_info()
-                                                .default_outputs_raw();
-                                            writeln!(stdout, "        {}", outputs)?;
+                                for configured_target in target_resolution_config
+                                    .get_configured_target(&mut ctx, &label)
+                                    .await?
+                                {
+                                    let node =
+                                        ctx.get_configured_target_node(&configured_target).await?;
+                                    let node = node.require_compatible()?;
+                                    let query_results =
+                                        resolve_queries(&mut ctx, node.as_ref()).await?;
+                                    writeln!(stdout, "{}:", label)?;
+                                    for (query, result) in &query_results {
+                                        writeln!(stdout, "  {}", query)?;
+                                        for (target, providers) in &result.result {
+                                            writeln!(stdout, "    {}", target.unconfigured())?;
+                                            if self.include_outputs {
+                                                let outputs = providers
+                                                    .provider_collection()
+                                                    .default_info()
+                                                    .default_outputs_raw();
+                                                writeln!(stdout, "        {}", outputs)?;
+                                            }
                                         }
                                     }
                                 }
