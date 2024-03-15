@@ -18,10 +18,10 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use itertools::Itertools;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for AuditConfigurationsCommand {
+impl ServerAuditSubcommand for AuditConfigurationsCommand {
     async fn server_execute(
         &self,
         _server_ctx: &dyn ServerCommandContextTrait,

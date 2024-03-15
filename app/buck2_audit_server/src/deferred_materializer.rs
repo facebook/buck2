@@ -18,10 +18,10 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use futures::stream::StreamExt;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for DeferredMaterializerCommand {
+impl ServerAuditSubcommand for DeferredMaterializerCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

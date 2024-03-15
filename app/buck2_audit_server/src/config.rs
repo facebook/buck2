@@ -28,7 +28,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use gazebo::prelude::*;
 use serde_json::json;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 fn print_location_string(
     writer: &mut impl Write,
@@ -174,7 +174,7 @@ impl<'a> Matches<'a> {
 }
 
 #[async_trait]
-impl AuditSubcommand for AuditConfigCommand {
+impl ServerAuditSubcommand for AuditConfigCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

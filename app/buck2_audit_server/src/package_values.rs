@@ -25,10 +25,10 @@ use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for PackageValuesCommand {
+impl ServerAuditSubcommand for PackageValuesCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

@@ -26,7 +26,7 @@ use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use gazebo::prelude::SliceExt;
 use indent_write::io::IndentWriter;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
 enum AuditExecutionPlatformResolutionCommandError {
@@ -39,7 +39,7 @@ enum AuditExecutionPlatformResolutionCommandError {
 }
 
 #[async_trait]
-impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
+impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

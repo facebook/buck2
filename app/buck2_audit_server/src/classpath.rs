@@ -27,10 +27,10 @@ use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use indexmap::IndexMap;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for AuditClasspathCommand {
+impl ServerAuditSubcommand for AuditClasspathCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

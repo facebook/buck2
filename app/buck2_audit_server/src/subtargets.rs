@@ -30,10 +30,10 @@ use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for AuditSubtargetsCommand {
+impl ServerAuditSubcommand for AuditSubtargetsCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

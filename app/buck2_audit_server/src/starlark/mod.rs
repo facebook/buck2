@@ -18,10 +18,10 @@ use buck2_cli_proto::ClientContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for StarlarkCommand {
+impl ServerAuditSubcommand for StarlarkCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

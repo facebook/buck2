@@ -50,7 +50,7 @@ use serde::ser::SerializeMap;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
 enum AuditIncludesError {
@@ -191,7 +191,7 @@ fn resolve_path(
 }
 
 #[async_trait]
-impl AuditSubcommand for AuditIncludesCommand {
+impl ServerAuditSubcommand for AuditIncludesCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

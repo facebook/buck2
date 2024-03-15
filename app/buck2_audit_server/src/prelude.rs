@@ -21,10 +21,10 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for AuditPreludeCommand {
+impl ServerAuditSubcommand for AuditPreludeCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

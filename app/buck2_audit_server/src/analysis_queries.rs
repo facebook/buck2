@@ -25,10 +25,10 @@ use buck2_server_ctx::pattern::parse_and_resolve_patterns_from_cli_args;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for AuditAnalysisQueriesCommand {
+impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

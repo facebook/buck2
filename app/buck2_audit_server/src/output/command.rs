@@ -30,7 +30,7 @@ use dice::DiceComputations;
 
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum AuditOutputError {
@@ -109,7 +109,7 @@ pub(crate) fn init_audit_output() {
 }
 
 #[async_trait]
-impl AuditSubcommand for AuditOutputCommand {
+impl ServerAuditSubcommand for AuditOutputCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

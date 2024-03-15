@@ -27,7 +27,7 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[derive(buck2_error::Error, Debug)]
 enum VisibilityCommandError {
@@ -99,7 +99,7 @@ async fn verify_visibility(
 }
 
 #[async_trait]
-impl AuditSubcommand for AuditVisibilityCommand {
+impl ServerAuditSubcommand for AuditVisibilityCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

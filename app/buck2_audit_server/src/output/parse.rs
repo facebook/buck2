@@ -17,10 +17,10 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use super::buck_out_path_parser::BuckOutPathParser;
 use super::buck_out_path_type_printer::BuckOutPathTypePrinter;
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for AuditParseCommand {
+impl ServerAuditSubcommand for AuditParseCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

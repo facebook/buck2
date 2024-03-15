@@ -23,10 +23,10 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use indexmap::IndexMap;
 
-use crate::AuditSubcommand;
+use crate::ServerAuditSubcommand;
 
 #[async_trait]
-impl AuditSubcommand for AuditCellCommand {
+impl ServerAuditSubcommand for AuditCellCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

@@ -47,7 +47,7 @@ mod visibility;
 /// Audit subcommands implement this trait so that we can handle the entire client side
 /// logic here and to support that serialization to the daemon.
 #[async_trait]
-pub trait AuditSubcommand: Send + Sync + 'static {
+pub trait ServerAuditSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
@@ -64,7 +64,7 @@ pub trait AuditCommandExt {
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
-    fn as_subcommand(&self) -> &dyn AuditSubcommand;
+    fn as_subcommand(&self) -> &dyn ServerAuditSubcommand;
 }
 
 #[async_trait]
@@ -79,7 +79,7 @@ impl AuditCommandExt for AuditCommand {
             .server_execute(server_ctx, stdout, client_server_ctx)
             .await
     }
-    fn as_subcommand(&self) -> &dyn AuditSubcommand {
+    fn as_subcommand(&self) -> &dyn ServerAuditSubcommand {
         match self {
             AuditCommand::Cell(cmd) => cmd,
             AuditCommand::Classpath(cmd) => cmd,
