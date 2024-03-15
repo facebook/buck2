@@ -402,7 +402,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     }
 
     /// A filter function that can be used in the query expression of `deps` query function.
-    /// Filters the output of deps function for target dependencies. This excludes any execution dependencies (build time dependencies)
+    /// Filters the output of deps function for target dependencies. This excludes any configuration, toolchain and execution dependencies (build time dependencies)
     /// like compiler used as a part of the build.
     ///
     /// Example:

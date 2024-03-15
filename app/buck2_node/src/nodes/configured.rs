@@ -364,7 +364,11 @@ impl ConfiguredTargetNode {
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
-        self.0.all_deps.deps().iter()
+        self.0
+            .all_deps
+            .deps()
+            .iter()
+            .filter(|x| x.rule_kind() == RuleKind::Normal)
     }
 
     pub fn exec_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
