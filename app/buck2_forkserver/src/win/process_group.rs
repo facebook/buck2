@@ -14,6 +14,7 @@ use std::process::Child;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
+use std::time::Duration;
 
 use anyhow::Context;
 use tokio::io;
@@ -141,21 +142,9 @@ impl ProcessGroupImpl {
         &mut self,
         _graceful_shutdown_timeout_s: Option<u32>,
     ) -> anyhow::Result<()> {
-        self.job.terminate(0)?;
-        // There is no official MSFT docs on this, but `TerminateJobObject` is suspected to be
-        // asynchronous, meaning that it may return before all processes in the job are terminated.
-        // (Context: https://stackoverflow.com/questions/23173804/is-terminatejobobject-asynchronous)
-        // This means that all fds used by the process may not be closed when `TerminateJobObject` returns,
-        // and buck2 may fail if it attempts to delete these files, and producing errors like
-        // "The process cannot access the file because it is being used by another process. (os error 32)".
-        // Work around this by explicitly waiting for the child process to finish before killing it.
-        // Note this is not a 100% correct because the child processes of the child process may still
-        // not be finished when the child process is finished. However, waiting for all processes in a job to finish
-        // is significantly more involved on windows. Waiting for the child process to finish is much simpler.
-        // See https://devblogs.microsoft.com/oldnewthing/20130405-00/?p=4743 for more details on how to wait for all
-        // processes in a job to finish.
-        drop(self.wait().await);
-        Ok(())
+        tokio::time::timeout(Duration::from_secs(10), self.job.terminate(0))
+            .await
+            .map_err(|_| anyhow::anyhow!("Timed out on job object termination"))?
     }
 
     fn resume(&self) -> anyhow::Result<()> {

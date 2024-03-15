@@ -67,8 +67,9 @@ impl JobObject {
         result_bool(unsafe { jobapi2::AssignProcessToJobObject(self.job_handle.handle(), process) })
     }
 
-    pub(crate) fn terminate(&self, exit_code: u32) -> anyhow::Result<()> {
-        result_bool(unsafe { jobapi2::TerminateJobObject(self.job_handle.handle(), exit_code) })
+    pub(crate) async fn terminate(&self, exit_code: u32) -> anyhow::Result<()> {
+        result_bool(unsafe { jobapi2::TerminateJobObject(self.job_handle.handle(), exit_code) })?;
+        self.wait().await
     }
 
     // waits until all processes in a job have exited
