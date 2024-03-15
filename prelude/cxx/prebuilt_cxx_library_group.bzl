@@ -13,6 +13,7 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -25,7 +26,6 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStrategy",
-    "Linkage",
     "LinkedObject",
     "SharedLibLinkable",
     "create_merged_link_info",

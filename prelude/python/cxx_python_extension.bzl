@@ -32,6 +32,7 @@ load(
     "create_linkable_root",
     "get_roots",
 )
+load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -41,7 +42,6 @@ load(
     "LibOutputStyle",
     "LinkInfo",
     "LinkInfos",
-    "Linkage",
     "create_merged_link_info",
     "wrap_link_infos",
 )

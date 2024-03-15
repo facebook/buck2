@@ -30,10 +30,10 @@ load(
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
 )
+load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
-    "Linkage",
     "MergedLinkInfo",
     "create_merged_link_info_for_propagation",
 )

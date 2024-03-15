@@ -52,12 +52,8 @@ load(
     "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
 )
-load("@prelude//decls:common.bzl", "Traversal")
-load(
-    "@prelude//linking:link_info.bzl",
-    "Linkage",
-    "LinkedObject",
-)
+load("@prelude//decls:common.bzl", "Linkage", "Traversal")
+load("@prelude//linking:link_info.bzl", "LinkedObject")
 load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",

@@ -47,6 +47,7 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//haskell:compile.bzl",
     "CompileResultInfo",
@@ -100,7 +101,6 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
-    "Linkage",
     "LinkedObject",
     "MergedLinkInfo",
     "SharedLibLinkable",

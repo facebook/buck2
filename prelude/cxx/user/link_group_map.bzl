@@ -52,7 +52,7 @@ def _v1_attrs(attrs_root):
                     # (which must all match).
                     attrs.option(attrs.one_of(attrs.list(attrs.string()), attrs.string())),
                     # linkage
-                    attrs.option(attrs.enum(Linkage)),
+                    attrs.option(attrs.enum(Linkage.values())),
                 ),
             ),
             # attributes

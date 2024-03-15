@@ -35,6 +35,7 @@ load(
     "@prelude//apple/swift:swift_runtime.bzl",
     "create_swift_runtime_linkable",
 )
+load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
@@ -64,7 +65,6 @@ load(
     "LinkInfos",
     "LinkOrdering",
     "LinkStrategy",
-    "Linkage",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "SharedLibLinkable",

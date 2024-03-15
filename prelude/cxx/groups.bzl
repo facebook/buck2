@@ -5,11 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//decls:common.bzl", "Traversal")
-load(
-    "@prelude//linking:link_info.bzl",
-    "Linkage",
-)
+load("@prelude//decls:common.bzl", "Linkage", "Traversal")
 load(
     "@prelude//utils:build_target_pattern.bzl",
     "BuildTargetPattern",

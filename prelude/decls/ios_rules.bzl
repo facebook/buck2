@@ -204,7 +204,7 @@ apple_binary = prelude_rule(
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.source(), default = None),
-            "preferred_linkage": attrs.option(attrs.enum(Linkage), default = None),
+            "preferred_linkage": attrs.option(attrs.enum(Linkage.values()), default = None),
             "prefix_header": attrs.option(attrs.source(), default = None),
             "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
@@ -441,7 +441,7 @@ apple_library = prelude_rule(
         cxx_common.exported_linker_flags_arg() |
         cxx_common.exported_platform_linker_flags_arg() |
         apple_common.target_sdk_version() |
-        native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage), default = None)) |
+        native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None)) |
         native_common.link_style() |
         native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
         cxx_common.reexport_all_header_dependencies_arg() |
@@ -756,7 +756,7 @@ apple_test = prelude_rule(
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.source(), default = None),
-            "preferred_linkage": attrs.option(attrs.enum(Linkage), default = None),
+            "preferred_linkage": attrs.option(attrs.enum(Linkage.values()), default = None),
             "prefix_header": attrs.option(attrs.source(), default = None),
             "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
@@ -905,7 +905,7 @@ prebuilt_apple_framework = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "preferred_linkage": attrs.enum(Linkage, doc = """
+            "preferred_linkage": attrs.enum(Linkage.values(), doc = """
                 How to link to a binary: use `dynamic` for a dynamic
                  framework, and `static` for old universal static
                  frameworks manually lipo-ed together. `dynamic` will
@@ -967,7 +967,7 @@ swift_library = prelude_rule(
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "module_name": attrs.option(attrs.string(), default = None),
-            "preferred_linkage": attrs.option(attrs.enum(Linkage), default = None),
+            "preferred_linkage": attrs.option(attrs.enum(Linkage.values()), default = None),
             "sdk_modules": attrs.list(attrs.string(), default = []),
             "serialize_debugging_options": attrs.bool(default = False),
             "soname": attrs.option(attrs.string(), default = None),

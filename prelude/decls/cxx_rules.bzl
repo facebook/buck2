@@ -542,7 +542,7 @@ cxx_library = prelude_rule(
         } |
         cxx_common.supported_platforms_regex_arg() |
         cxx_common.force_static(force_static_type = attrs.option(attrs.bool(), default = None)) |
-        native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage), default = None)) |
+        native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None)) |
         cxx_common.reexport_all_header_dependencies_arg() |
         cxx_common.exported_deps_arg() |
         cxx_common.exported_platform_deps_arg() |
@@ -1112,7 +1112,7 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.exported_platform_preprocessor_flags_arg() |
         cxx_common.exported_linker_flags_arg() |
         cxx_common.force_static(force_static_type = attrs.bool(default = False)) |
-        native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage), default = None)) |
+        native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None)) |
         cxx_common.exported_deps_arg() |
         cxx_common.exported_platform_deps_arg() |
         cxx_common.supports_merged_linking() |

@@ -51,7 +51,7 @@ prebuilt_rust_library = prelude_rule(
                 'libfoo-abc123def456.rlib' if it has symbol versioning metadata.
             """),
         } |
-        native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage, default = "any")) |
+        native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any")) |
         rust_common.crate(crate_type = attrs.string(default = "")) |
         rust_common.deps_arg(is_binary = False) |
         {
@@ -239,7 +239,7 @@ rust_library = prelude_rule(
         rust_common.env_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
-        native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage, default = "any")) |
+        native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any")) |
         _rust_common_attributes(is_binary = False) |
         {
             "crate_dynamic": attrs.option(attrs.dep(), default = None),

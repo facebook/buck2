@@ -34,6 +34,10 @@ load(
     "get_link_group_preferred_linkage",
 )
 load(
+    "@prelude//decls:common.bzl",
+    "Linkage",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
     "LinkGroupLibInfo",  # @unused Used as a type
@@ -42,7 +46,6 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkInfo",
     "LinkStrategy",
-    "Linkage",  # @unused Used as a type
     "MergedLinkInfo",
     "get_link_args_for_strategy",
     "unpack_external_debug_info",

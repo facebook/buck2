@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -18,7 +19,6 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStrategy",
-    "Linkage",
     "LinkedObject",  # @unused Used as a type
     "SharedLibLinkable",
     "get_lib_output_style",

@@ -17,6 +17,7 @@ load(
     "get_no_as_needed_shared_libs_flags",
     "get_objects_as_library_args",
 )
+load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:utils.bzl",
@@ -73,16 +74,6 @@ def default_output_style_for_link_strategy(link_strategy: LinkStrategy) -> LibOu
     if link_strategy == LinkStrategy("static_pic"):
         return LibOutputStyle("pic_archive")
     return LibOutputStyle("shared_lib")
-
-# Ways a library can request to be linked (e.g. usually specific via a rule
-# param like `preferred_linkage`.  The actual link style used for a library is
-# usually determined by a combination of this and the link style being exported
-# via a provider.
-Linkage = enum(
-    "static",
-    "shared",
-    "any",
-)
 
 # An archive.
 ArchiveLinkable = record(

@@ -11,11 +11,11 @@ load(
     "single_artifact",
 )
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//decls:common.bzl", "Linkage")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStrategy",
     "LinkStyle",
-    "Linkage",
     "LinkerFlags",
     "MergedLinkInfo",
 )

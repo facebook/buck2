@@ -88,7 +88,7 @@ def _apple_binary_extra_attrs():
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
-        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
         "stripped": attrs.option(attrs.bool(), default = None),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
@@ -110,7 +110,7 @@ def _apple_library_extra_attrs():
         "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "serialize_debugging_options": attrs.bool(default = True),
         # Mach-O file type for binary when the target is built as a shared library.
         "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
@@ -227,14 +227,14 @@ extra_attributes = {
     },
     "prebuilt_apple_framework": {
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
-        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
     },
     "scene_kit_assets": {
         "path": attrs.source(allow_directory = True),
     },
     "swift_library": {
-        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
     },
     "swift_toolchain": {
         "architecture": attrs.option(attrs.string(), default = None),  # TODO(T115173356): Make field non-optional

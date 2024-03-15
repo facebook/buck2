@@ -96,7 +96,7 @@ def apple_test_extra_attrs():
         "link_style": attrs.enum(LinkableDepType, default = "static"),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         # The test source code and lib dependencies should be built into a shared library.
-        "preferred_linkage": attrs.enum(Linkage, default = "shared"),
+        "preferred_linkage": attrs.enum(Linkage.values(), default = "shared"),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.

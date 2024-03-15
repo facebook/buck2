@@ -28,6 +28,7 @@ load(
     "extract_global_syms",
     "extract_undefined_syms",
 )
+load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")  # @unused
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
@@ -37,7 +38,6 @@ load(
     "LinkArgs",
     "LinkInfo",
     "LinkOrdering",
-    "Linkage",
     "SharedLibLinkable",
     "get_lib_output_style",
     "set_link_info_link_whole",
