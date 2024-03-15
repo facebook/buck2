@@ -10,7 +10,8 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "Traversal", "prelude_rule")
+load("@prelude//cxx:link_groups_types.bzl", "Traversal")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 
 halide_library = prelude_rule(

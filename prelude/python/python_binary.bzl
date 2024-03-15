@@ -38,6 +38,7 @@ load(
     "build_link_group_info",
     "get_link_group_info",
 )
+load("@prelude//cxx:link_groups_types.bzl", "Traversal")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//cxx:omnibus.bzl",
@@ -52,7 +53,7 @@ load(
     "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
 )
-load("@prelude//decls:common.bzl", "Linkage", "Traversal")
+load("@prelude//decls:common.bzl", "Linkage")
 load("@prelude//linking:link_info.bzl", "LinkedObject")
 load(
     "@prelude//linking:linkable_graph.bzl",

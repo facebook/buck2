@@ -18,8 +18,8 @@ load(
     "make_info_subtarget_providers",
     "parse_groups_definitions",
 )
+load("@prelude//cxx:link_groups_types.bzl", "Traversal")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
-load("@prelude//decls/common.bzl", "Traversal")
 
 def resource_group_map_attr():
     return attrs.option(attrs.dep(providers = [ResourceGroupInfo]), default = None)

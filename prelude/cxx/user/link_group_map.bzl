@@ -15,6 +15,7 @@ load(
     "LinkGroupInfo",
     "build_link_group_info",
 )
+load("@prelude//cxx:link_groups_types.bzl", "Traversal")
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLibInfo",
@@ -33,7 +34,7 @@ load(
     "SharedLibraryInfo",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
-load("@prelude//decls/common.bzl", "Linkage", "Traversal")
+load("@prelude//decls/common.bzl", "Linkage")
 
 def _v1_attrs(attrs_root):
     return attrs.list(
