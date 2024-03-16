@@ -67,14 +67,27 @@ impl PerThreadInstructionCounter {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use three_billion_instructions::three_billion_instructions;
 
     use crate::per_thread_instruction_counter::PerThreadInstructionCounter;
+
+    fn is_github_actions() -> bool {
+        // Set by GitHub Actions:
+        // https://docs.github.com/en/actions/learn-github-actions/variables
+        env::var("GITHUB_ACTIONS").is_ok()
+    }
 
     #[allow(unreachable_code)] // Compiler says it is uninhabited on non-linux platforms.
     #[allow(unused_variables)] // This seems like a compiler bug.
     #[test]
     fn test_perf_thread_instruction_counter() {
+        if is_github_actions() {
+            // Fails with permission denied on GitHub Actions CI.
+            return;
+        }
+
         if !cfg!(target_os = "linux") {
             assert!(PerThreadInstructionCounter::init().unwrap().is_none());
         } else {
