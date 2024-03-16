@@ -40,6 +40,9 @@ rust_toolchain_attrs = {
     "rustc_target_triple": provider_field(str | None, default = None),
     # Baseline compiler config
     "rustc_flags": provider_field(list[typing.Any], default = []),
+    # Rustc flags, except that they are applied on the command line after the
+    # target's rustc flags
+    "extra_rustc_flags": provider_field(list[typing.Any], default = []),
     # Extra flags when building binaries
     "rustc_binary_flags": provider_field(list[typing.Any], default = []),
     # Extra flags for doing check builds
