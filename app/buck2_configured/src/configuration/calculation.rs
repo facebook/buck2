@@ -117,7 +117,7 @@ async fn get_target_platform_detector(
 }
 
 /// Returns the configured [ExecutionPlatforms] or None if `build.execution_platforms` is not configured.
-async fn get_execution_platforms(
+async fn compute_execution_platforms(
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
     let cells = ctx.get_cell_resolver().await?;
@@ -627,7 +627,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                get_execution_platforms(ctx).await
+                compute_execution_platforms(ctx).await
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
