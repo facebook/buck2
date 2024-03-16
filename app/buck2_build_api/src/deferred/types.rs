@@ -33,9 +33,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
-use indexmap::indexset;
 use indexmap::IndexSet;
-use itertools::Itertools;
 use once_cell::sync::Lazy;
 
 /// An asynchronous chunk of work that will be executed when requested.
@@ -460,70 +458,6 @@ impl DeferredRegistry {
         DeferredData::unchecked_new(self.base_key.make_key(id))
     }
 
-    /// performs a mapping function over an 'DeferredData'
-    pub fn map<T, U, F>(&mut self, orig: &DeferredData<T>, f: F) -> DeferredData<U>
-    where
-        T: Allocative + Clone + Debug + Send + Sync + 'static,
-        U: Allocative + Clone + Debug + Send + Sync + 'static,
-        F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + Send + Sync + 'static,
-    {
-        #[derive(Allocative)]
-        #[allocative(bound = "")]
-        struct Map<T, U, F> {
-            orig: IndexSet<DeferredInput>,
-            #[allocative(skip)]
-            f: F,
-            p: PhantomData<(T, U)>,
-        }
-
-        impl<T, U, F> provider::Provider for Map<T, U, F>
-        where
-            T: Allocative + Send + Sync + 'static,
-            F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + Send + Sync + 'static,
-            U: Allocative + 'static,
-        {
-            fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
-        }
-
-        #[async_trait]
-        impl<T, U, F> Deferred for Map<T, U, F>
-        where
-            T: Allocative + Send + Sync + 'static,
-            F: Fn(&T, &mut dyn DeferredCtx) -> DeferredValue<U> + Send + Sync + 'static,
-            U: Allocative + Send + Sync + 'static,
-        {
-            type Output = U;
-
-            fn inputs(&self) -> &IndexSet<DeferredInput> {
-                &self.orig
-            }
-
-            async fn execute(
-                &self,
-                ctx: &mut dyn DeferredCtx,
-                _dice: &mut DiceComputations,
-            ) -> anyhow::Result<DeferredValue<Self::Output>> {
-                let orig = match self.orig.iter().exactly_one() {
-                    Ok(DeferredInput::Deferred(orig)) => orig,
-                    _ => unreachable!(),
-                };
-                Ok((self.f)(
-                    ctx.get_deferred_data(orig)
-                        .unwrap()
-                        .downcast::<T>()
-                        .unwrap(),
-                    ctx,
-                ))
-            }
-        }
-
-        self.defer(Map {
-            orig: indexset![DeferredInput::Deferred(orig.deferred_key().dupe())],
-            f,
-            p: PhantomData,
-        })
-    }
-
     pub fn take_result(self) -> anyhow::Result<Vec<DeferredTableEntry>> {
         self.registry
             .into_iter()
@@ -895,7 +829,6 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
-    use buck2_artifact::deferred::data::DeferredData;
     use buck2_artifact::deferred::id::DeferredId;
     use buck2_artifact::deferred::key::DeferredKey;
     use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -910,7 +843,6 @@ mod tests {
     use dice::DiceComputations;
     use dice::DiceTransaction;
     use dupe::Dupe;
-    use indexmap::indexset;
     use indexmap::IndexSet;
 
     use super::AnyValue;
@@ -1004,16 +936,6 @@ mod tests {
         }
     }
 
-    fn make_resolved<T: Clone + Debug + Allocative + Send + Sync + 'static>(
-        data: &DeferredData<T>,
-        deferred: &FakeDeferred<T>,
-    ) -> (DeferredKey, DeferredValueAnyReady) {
-        (
-            data.deferred_key().dupe(),
-            DeferredValueAnyReady::AnyValue(Arc::new(deferred.val.clone())),
-        )
-    }
-
     fn dummy_base() -> BaseDeferredKey {
         BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
@@ -1080,65 +1002,6 @@ mod tests {
                         .assert_ready()
                         .resolve(&deferred_data)?,
                     2
-                );
-                Ok(())
-            })
-            .await
-    }
-
-    #[tokio::test]
-    async fn mapping_async_data() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
-            "cell//pkg:foo",
-            ConfigurationData::testing_new(),
-        ));
-        let mut registry = DeferredRegistry::new(BaseKey::Base(base.dupe()));
-
-        let deferred = FakeDeferred {
-            inputs: IndexSet::new(),
-            val: 0,
-        };
-
-        let deferred_data = registry.defer(deferred.clone());
-        let mapped = registry.map(&deferred_data, |x, _ctx| DeferredValue::Ready(x + 1));
-
-        let result = registry.take_result()?;
-        let mapped_deferred = result.get(mapped.deferred_key().id().as_usize()).unwrap();
-
-        assert_eq!(
-            mapped_deferred.inputs(),
-            &indexset![DeferredInput::Deferred(deferred_data.deferred_key().dupe())]
-        );
-
-        let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
-            deferred_data.deferred_key().dupe(),
-        )));
-
-        let mut dummy_dice_transaction = dummy_dice_transaction().await?;
-
-        CancellationContext::testing()
-            .with_structured_cancellation(|observer| async move {
-                let mut resolved = ResolveDeferredCtx::new(
-                    deferred_data.deferred_key().dupe(),
-                    Default::default(),
-                    vec![make_resolved(&deferred_data, &deferred)]
-                        .into_iter()
-                        .collect(),
-                    Default::default(),
-                    &mut registry,
-                    dummy_project_filesystem(),
-                    DigestConfig::testing_default(),
-                    observer,
-                );
-
-                assert_eq!(
-                    *mapped_deferred
-                        .execute(&mut resolved, &mut dummy_dice_transaction)
-                        .await
-                        .unwrap()
-                        .assert_ready()
-                        .downcast::<i32>()?,
-                    1
                 );
                 Ok(())
             })
