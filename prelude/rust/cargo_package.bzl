@@ -8,7 +8,7 @@
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//utils:selects.bzl", "selects")
 
-_DEFAULT_PLATFORM_TEMPLATES = {
+DEFAULT_PLATFORM_TEMPLATES = {
     "linux-arm64": select({
         "DEFAULT": False,
         "config//os:linux": select({
@@ -68,10 +68,10 @@ _DEFAULT_PLATFORM_TEMPLATES = {
     }),
 }
 
-def _apply_platform_attrs(
+def apply_platform_attrs(
         platform_attrs,
         universal_attrs = {},
-        templates = _DEFAULT_PLATFORM_TEMPLATES):
+        templates = DEFAULT_PLATFORM_TEMPLATES):
     combined_attrs = dict(universal_attrs)
 
     for platform, attrs in platform_attrs.items():
@@ -88,7 +88,7 @@ def _apply_platform_attrs(
     return combined_attrs
 
 def _cargo_rust_binary(name, platform = {}, **kwargs):
-    kwargs = _apply_platform_attrs(platform, kwargs)
+    kwargs = apply_platform_attrs(platform, kwargs)
 
     rustc_flags = kwargs.get("rustc_flags", [])
     kwargs["rustc_flags"] = ["--cap-lints=allow"] + rustc_flags
@@ -96,7 +96,7 @@ def _cargo_rust_binary(name, platform = {}, **kwargs):
     native.rust_binary(name = name, **kwargs)
 
 def _cargo_rust_library(name, platform = {}, **kwargs):
-    kwargs = _apply_platform_attrs(platform, kwargs)
+    kwargs = apply_platform_attrs(platform, kwargs)
 
     rustc_flags = kwargs.get("rustc_flags", [])
     kwargs["rustc_flags"] = ["--cap-lints=allow"] + rustc_flags
