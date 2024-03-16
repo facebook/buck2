@@ -482,11 +482,11 @@ pub enum DeferredErrors {
 
 pub enum DeferredLookup<'a> {
     Trivial(&'a TrivialDeferredValue),
-    Complex(&'a (dyn DeferredAny + 'static)),
+    Complex(&'a dyn DeferredAny),
 }
 
 impl<'a> DeferredLookup<'a> {
-    pub fn as_complex(&self) -> &'a (dyn DeferredAny + 'static) {
+    pub fn as_complex(&self) -> &'a dyn DeferredAny {
         match self {
             Self::Trivial(v) => *v as _,
             Self::Complex(v) => *v,
@@ -686,7 +686,7 @@ impl dyn AnyValue {
 
 /// untyped deferred
 #[async_trait]
-pub trait DeferredAny: Allocative + provider::Provider + Send + Sync {
+pub trait DeferredAny: Allocative + provider::Provider + Send + Sync + 'static {
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
     fn inputs(&self) -> &IndexSet<DeferredInput>;
 
