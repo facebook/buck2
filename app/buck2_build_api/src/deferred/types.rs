@@ -253,48 +253,6 @@ impl provider::Provider for DeferredTableEntry {
     }
 }
 
-#[async_trait]
-impl DeferredAny for DeferredTableEntry {
-    fn inputs(&self) -> &IndexSet<DeferredInput> {
-        match self {
-            Self::Trivial(v) => v.inputs(),
-            Self::Complex(v) => v.inputs(),
-        }
-    }
-
-    async fn execute(
-        &self,
-        ctx: &mut dyn DeferredCtx,
-        dice: &mut DiceComputations,
-    ) -> anyhow::Result<DeferredValueAny> {
-        match self {
-            Self::Trivial(v) => v.execute(ctx, dice).await,
-            Self::Complex(v) => v.execute(ctx, dice).await,
-        }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        match self {
-            Self::Trivial(v) => v.as_any(),
-            Self::Complex(v) => v.as_any(),
-        }
-    }
-
-    fn type_name(&self) -> &str {
-        match self {
-            Self::Trivial(v) => v.type_name(),
-            Self::Complex(v) => v.type_name(),
-        }
-    }
-
-    fn span(&self) -> Option<buck2_data::span_start_event::Data> {
-        match self {
-            Self::Trivial(..) => None,
-            Self::Complex(v) => v.span(),
-        }
-    }
-}
-
 #[derive(Allocative)]
 enum DeferredRegistryEntry {
     Set(DeferredTableEntry),
@@ -846,11 +804,12 @@ mod tests {
     use indexmap::IndexSet;
 
     use super::AnyValue;
+    use super::DeferredAny;
+    use super::DeferredTableEntry;
     use super::TrivialDeferred;
     use crate::deferred::types::testing::DeferredValueAnyExt;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;
-    use crate::deferred::types::DeferredAny;
     use crate::deferred::types::DeferredCtx;
     use crate::deferred::types::DeferredInput;
     use crate::deferred::types::DeferredRegistry;
@@ -901,6 +860,19 @@ mod tests {
         }
 
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
+    }
+
+    impl DeferredTableEntry {
+        async fn test_execute(
+            &self,
+            ctx: &mut dyn DeferredCtx,
+            dice: &mut DiceComputations<'_>,
+        ) -> anyhow::Result<DeferredValueAny> {
+            match self {
+                Self::Trivial(v) => v.execute(ctx, dice).await,
+                Self::Complex(v) => v.execute(ctx, dice).await,
+            }
+        }
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Allocative)]
@@ -984,7 +956,7 @@ mod tests {
                     *result
                         .get(deferred_data.deferred_key().id().as_usize())
                         .unwrap()
-                        .execute(
+                        .test_execute(
                             &mut ResolveDeferredCtx::new(
                                 deferred_data.deferred_key().dupe(),
                                 Default::default(),
@@ -1044,7 +1016,7 @@ mod tests {
                 let exec_result = result
                     .get(deferring_deferred_data.deferred_key().id().as_usize())
                     .unwrap()
-                    .execute(
+                    .test_execute(
                         &mut ResolveDeferredCtx::new(
                             deferring_deferred_data.deferred_key().dupe(),
                             Default::default(),
@@ -1083,7 +1055,7 @@ mod tests {
                     DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_key.dupe())));
                 assert_eq!(
                     *deferred
-                        .execute(
+                        .test_execute(
                             &mut ResolveDeferredCtx::new(
                                 deferred_key,
                                 Default::default(),
@@ -1144,7 +1116,7 @@ mod tests {
                     *result
                         .get(deferred_data.deferred_key().id().as_usize())
                         .unwrap()
-                        .execute(
+                        .test_execute(
                             &mut ResolveDeferredCtx::new(
                                 key,
                                 Default::default(),
