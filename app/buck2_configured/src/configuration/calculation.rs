@@ -648,12 +648,12 @@ impl ConfigurationCalculation for DiceComputations<'_> {
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display(fmt = "{:?}", self)]
-        struct ExecutionPlatformResolutionKey(
-            CellName,
-            Arc<[TargetLabel]>,
-            Arc<[TargetLabel]>,
-            Arc<[ToolchainConstraints]>,
-        );
+        struct ExecutionPlatformResolutionKey {
+            target_node_cell: CellName,
+            exec_compatible_with: Arc<[TargetLabel]>,
+            exec_deps: Arc<[TargetLabel]>,
+            toolchain_allows: Arc<[ToolchainConstraints]>,
+        }
 
         #[async_trait]
         impl Key for ExecutionPlatformResolutionKey {
@@ -664,8 +664,14 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                resolve_execution_platform_from_constraints(ctx, self.0, &self.1, &self.2, &self.3)
-                    .await
+                resolve_execution_platform_from_constraints(
+                    ctx,
+                    self.target_node_cell,
+                    &self.exec_compatible_with,
+                    &self.exec_deps,
+                    &self.toolchain_allows,
+                )
+                .await
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -675,12 +681,12 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 }
             }
         }
-        self.compute(&ExecutionPlatformResolutionKey(
+        self.compute(&ExecutionPlatformResolutionKey {
             target_node_cell,
             exec_compatible_with,
             exec_deps,
             toolchain_allows,
-        ))
+        })
         .await?
     }
 }
