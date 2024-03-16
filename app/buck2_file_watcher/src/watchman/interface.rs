@@ -16,6 +16,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
@@ -323,16 +324,25 @@ impl WatchmanFileWatcher {
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Self> {
         let watchman_merge_base = root_config
-            .get("project", "watchman_merge_base")
+            .get(BuckconfigKeyRef {
+                section: "project",
+                property: "watchman_merge_base",
+            })
             .map(|s| s.to_owned());
 
         let retain_dep_files_on_watchman_fresh_instance = root_config
-            .parse::<RolloutPercentage>("buck2", "retain_dep_files_on_watchman_fresh_instance")?
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "retain_dep_files_on_watchman_fresh_instance",
+            })?
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
         let report_global_rev = root_config
-            .parse::<bool>("buck2", "watchman_report_global_rev")?
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "watchman_report_global_rev",
+            })?
             .unwrap_or(false);
 
         let query = SyncableQuery::new(

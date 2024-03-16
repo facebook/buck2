@@ -19,6 +19,7 @@ use gazebo::prelude::SliceExt as _;
 use gazebo::prelude::VecExt as _;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
 const DEFAULT_BUILDFILES: &[&str] = &["BUCK.v2", "BUCK"];
@@ -33,21 +34,30 @@ fn parse_buildfile_name(mut config: impl LegacyBuckConfigView) -> anyhow::Result
     // If neither of those is provided, we will use the default of `["BUCK.v2", "BUCK"]`.
     // This scheme provides a natural progression to buckv2, with the ability to use separate
     // buildfiles for the two where necessary.
-    let mut base =
-        if let Some(buildfiles_value) = config.parse_list::<String>("buildfile", "name_v2")? {
-            buildfiles_value.into_try_map(FileNameBuf::try_from)?
-        } else if let Some(buildfiles_value) = config.parse_list::<String>("buildfile", "name")? {
-            let mut buildfiles = Vec::new();
-            for buildfile in buildfiles_value {
-                buildfiles.push(FileNameBuf::try_from(format!("{}.v2", buildfile))?);
-                buildfiles.push(FileNameBuf::try_from(buildfile)?);
-            }
-            buildfiles
-        } else {
-            DEFAULT_BUILDFILES.map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
-        };
+    let mut base = if let Some(buildfiles_value) =
+        config.parse_list::<String>(BuckconfigKeyRef {
+            section: "buildfile",
+            property: "name_v2",
+        })? {
+        buildfiles_value.into_try_map(FileNameBuf::try_from)?
+    } else if let Some(buildfiles_value) = config.parse_list::<String>(BuckconfigKeyRef {
+        section: "buildfile",
+        property: "name",
+    })? {
+        let mut buildfiles = Vec::new();
+        for buildfile in buildfiles_value {
+            buildfiles.push(FileNameBuf::try_from(format!("{}.v2", buildfile))?);
+            buildfiles.push(FileNameBuf::try_from(buildfile)?);
+        }
+        buildfiles
+    } else {
+        DEFAULT_BUILDFILES.map(|&n| FileNameBuf::try_from(n.to_owned()).unwrap())
+    };
 
-    if let Some(buildfile) = config.parse::<String>("buildfile", "extra_for_test")? {
+    if let Some(buildfile) = config.parse::<String>(BuckconfigKeyRef {
+        section: "buildfile",
+        property: "extra_for_test",
+    })? {
         base.push(FileNameBuf::try_from(buildfile)?);
     }
 

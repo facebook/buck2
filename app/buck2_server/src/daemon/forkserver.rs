@@ -19,10 +19,14 @@ pub async fn maybe_launch_forkserver(
     resource_control: &ResourceControlConfig,
 ) -> anyhow::Result<Option<ForkserverClient>> {
     use anyhow::Context;
+    use buck2_common::legacy_configs::key::BuckconfigKeyRef;
     use buck2_core::rollout_percentage::RolloutPercentage;
 
     let config = root_config
-        .parse::<RolloutPercentage>("buck2", "forkserver")?
+        .parse::<RolloutPercentage>(BuckconfigKeyRef {
+            section: "buck2",
+            property: "forkserver",
+        })?
         .unwrap_or_else(RolloutPercentage::always);
 
     if !config.roll() {

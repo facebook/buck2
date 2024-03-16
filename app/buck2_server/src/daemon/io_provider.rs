@@ -25,13 +25,17 @@ pub async fn create_io_provider(
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
     #[cfg(fbcode_build)]
     {
+        use buck2_common::legacy_configs::key::BuckconfigKeyRef;
         use buck2_core::rollout_percentage::RolloutPercentage;
 
         let allow_eden_io_default =
             RolloutPercentage::from_bool(cfg!(any(target_os = "macos", target_os = "windows")));
 
         let allow_eden_io = root_config
-            .parse("buck2", "allow_eden_io")?
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "allow_eden_io",
+            })?
             .unwrap_or(allow_eden_io_default)
             .roll();
 

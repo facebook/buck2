@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
@@ -667,12 +668,15 @@ impl InterpreterForCell {
 
         let internals = eval_result.additional.into_build()?;
         let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
+        let buckconfig_key = BuckconfigKeyRef {
+            section: "buck2",
+            property: "check_starlark_peak_memory",
+        };
         let starlark_peak_mem_check_enabled = !eval_result.is_profiling_enabled
             && LegacyBuckConfig::parse_value(
-                "buck2",
-                "check_starlark_peak_memory",
+                buckconfig_key,
                 buckconfigs
-                    .read_root_cell_config("buck2", "check_starlark_peak_memory")?
+                    .read_root_cell_config(buckconfig_key)?
                     .as_deref(),
             )?
             .unwrap_or(false);

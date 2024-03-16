@@ -29,6 +29,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
@@ -285,7 +286,13 @@ async fn test(
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.
     let test_executor_config = ctx
-        .get_legacy_config_property(cell_resolver.root_cell(), "test", "v2_test_executor")
+        .get_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "test",
+                property: "v2_test_executor",
+            },
+        )
         .await?
         .filter(|s| !s.is_empty());
 

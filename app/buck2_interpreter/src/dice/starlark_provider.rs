@@ -10,6 +10,7 @@
 use std::ops::DerefMut;
 
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use dice::DiceComputations;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
@@ -39,9 +40,13 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
 ) -> anyhow::Result<R> {
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
 
-    let starlark_max_callstack_size = root_buckconfig
-        .view(&mut ctx)
-        .parse::<usize>("buck2", "starlark_max_callstack_size")?;
+    let starlark_max_callstack_size =
+        root_buckconfig
+            .view(&mut ctx)
+            .parse::<usize>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "starlark_max_callstack_size",
+            })?;
 
     let debugger_handle = ctx.get_starlark_debugger_handle();
     let debugger = match debugger_handle {

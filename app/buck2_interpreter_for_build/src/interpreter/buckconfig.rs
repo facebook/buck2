@@ -13,6 +13,7 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use dice::DiceComputations;
 use hashbrown::raw::RawTable;
@@ -30,15 +31,10 @@ struct BuckConfigEntry {
 pub trait BuckConfigsViewForStarlark {
     fn read_current_cell_config(
         &mut self,
-        section: &str,
-        key: &str,
+        key: BuckconfigKeyRef,
     ) -> anyhow::Result<Option<Arc<str>>>;
 
-    fn read_root_cell_config(
-        &mut self,
-        section: &str,
-        key: &str,
-    ) -> anyhow::Result<Option<Arc<str>>>;
+    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>>;
 }
 
 struct BuckConfigsInner<'a> {
@@ -122,9 +118,15 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         }
 
         let value = if from_root_cell {
-            configs_view.read_root_cell_config(section.key(), key.key())?
+            configs_view.read_root_cell_config(BuckconfigKeyRef {
+                section: section.key(),
+                property: key.key(),
+            })?
         } else {
-            configs_view.read_current_cell_config(section.key(), key.key())?
+            configs_view.read_current_cell_config(BuckconfigKeyRef {
+                section: section.key(),
+                property: key.key(),
+            })?
         }
         .map(|v| self.module.frozen_heap().alloc_str(&v));
 
@@ -188,18 +190,13 @@ impl<'a, 'd> ConfigsOnDiceViewForStarlark<'a, 'd> {
 impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
     fn read_current_cell_config(
         &mut self,
-        section: &str,
-        key: &str,
+        key: BuckconfigKeyRef,
     ) -> anyhow::Result<Option<Arc<str>>> {
-        self.buckconfig.lookup(self.ctx, section, key)
+        self.buckconfig.lookup(self.ctx, key)
     }
 
-    fn read_root_cell_config(
-        &mut self,
-        section: &str,
-        key: &str,
-    ) -> anyhow::Result<Option<Arc<str>>> {
-        self.root_buckconfig.lookup(self.ctx, section, key)
+    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+        self.root_buckconfig.lookup(self.ctx, key)
     }
 }
 
@@ -220,23 +217,15 @@ impl LegacyConfigsViewForStarlark {
 impl BuckConfigsViewForStarlark for LegacyConfigsViewForStarlark {
     fn read_current_cell_config(
         &mut self,
-        section: &str,
-        key: &str,
+        key: BuckconfigKeyRef,
     ) -> anyhow::Result<Option<Arc<str>>> {
         Ok(self
             .current_cell_config
-            .get(section, key)
+            .get(key)
             .map(|v| v.to_owned().into()))
     }
 
-    fn read_root_cell_config(
-        &mut self,
-        section: &str,
-        key: &str,
-    ) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(self
-            .root_cell_config
-            .get(section, key)
-            .map(|v| v.to_owned().into()))
+    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+        Ok(self.root_cell_config.get(key).map(|v| v.to_owned().into()))
     }
 }

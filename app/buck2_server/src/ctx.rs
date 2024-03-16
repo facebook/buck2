@@ -44,6 +44,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
@@ -541,34 +542,54 @@ impl DiceDataProvider for DiceCommandDataProvider {
             .get(cell_resolver.root_cell())
             .context("No config for root cell")?;
 
-        let config_threads = root_config.parse("build", "threads")?.unwrap_or(0);
+        let config_threads = root_config
+            .parse(BuckconfigKeyRef {
+                section: "build",
+                property: "threads",
+            })?
+            .unwrap_or(0);
 
         let concurrency = match self.concurrency.as_ref() {
             Some(v) => v.dupe()?,
             None => parse_concurrency(config_threads)?,
         };
 
-        if let Some(max_lines) = root_config.parse("ui", "thread_line_limit")? {
+        if let Some(max_lines) = root_config.parse(BuckconfigKeyRef {
+            section: "ui",
+            property: "thread_line_limit",
+        })? {
             self.events
                 .instant_event(buck2_data::ConsolePreferences { max_lines });
         }
 
         let enable_miniperf = root_config
-            .parse::<RolloutPercentage>("buck2", "miniperf2")?
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "miniperf2",
+            })?
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
         let log_action_keys = root_config
-            .parse::<RolloutPercentage>("buck2", "log_action_keys")?
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_action_keys",
+            })?
             .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
         let log_configured_graph_size = root_config
-            .parse::<bool>("buck2", "log_configured_graph_size")?
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_configured_graph_size",
+            })?
             .unwrap_or(false);
 
         let persistent_worker_shutdown_timeout_s = root_config
-            .parse::<u32>("build", "persistent_worker_shutdown_timeout_s")?
+            .parse::<u32>(BuckconfigKeyRef {
+                section: "build",
+                property: "persistent_worker_shutdown_timeout_s",
+            })?
             .or(Some(10));
 
         let executor_global_knobs = ExecutorGlobalKnobs {
@@ -590,7 +611,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set(self.events.dupe());
 
         let cycle_detector = if root_config
-            .parse::<bool>("build", "lazy_cycle_detector")?
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "build",
+                property: "lazy_cycle_detector",
+            })?
             .unwrap_or(true)
         {
             Some(create_cycle_detector())
@@ -601,7 +625,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
         let mut run_action_knobs = self.run_action_knobs.dupe();
         run_action_knobs.use_network_action_output_cache |= root_config
-            .parse::<bool>("buck2", "use_network_action_output_cache")?
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "use_network_action_output_cache",
+            })?
             .unwrap_or(false);
 
         let mut data = UserComputationData {
@@ -615,7 +642,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
         let worker_pool = Arc::new(WorkerPool::new(persistent_worker_shutdown_timeout_s));
 
         let critical_path_backend = root_config
-            .parse("buck2", "critical_path_backend2")?
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "critical_path_backend2",
+            })?
             .unwrap_or(CriticalPathBackendName::Default);
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
@@ -861,11 +891,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         fn add_config(
             map: &mut HashMap<String, String>,
             cfg: &LegacyBuckConfig,
-            section: &'static str,
-            key: &'static str,
+            key: BuckconfigKeyRef<'static>,
             field_name: &'static str,
         ) {
-            if let Some(value) = cfg.get(section, key) {
+            if let Some(value) = cfg.get(key) {
                 map.insert(field_name.to_owned(), value.to_owned());
             }
         }
@@ -873,7 +902,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         fn extract_scuba_defaults(
             config: &LegacyBuckConfig,
         ) -> Option<serde_json::Map<String, serde_json::Value>> {
-            let config = config.get("scuba", "defaults")?;
+            let config = config.get(BuckconfigKeyRef {
+                section: "scuba",
+                property: "defaults",
+            })?;
             let unescaped_config = shlex::split(config)?.join("");
             let sample_json: serde_json::Value = serde_json::from_str(&unescaped_config).ok()?;
             sample_json.get("normals")?.as_object().cloned()
@@ -884,7 +916,15 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         let cells = ctx.get_cell_resolver().await?;
 
         let config = ctx.get_legacy_config_for_cell(cells.root_cell()).await?;
-        add_config(&mut metadata, &config, "log", "repository", "repository");
+        add_config(
+            &mut metadata,
+            &config,
+            BuckconfigKeyRef {
+                section: "log",
+                property: "repository",
+            },
+            "repository",
+        );
 
         // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
         // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
@@ -916,12 +956,22 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
             // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
             // the root cell.
-            add_config(&mut metadata, &config, "client", "id", "client");
             add_config(
                 &mut metadata,
                 &config,
-                "cache",
-                "schedule_type",
+                BuckconfigKeyRef {
+                    section: "client",
+                    property: "id",
+                },
+                "client",
+            );
+            add_config(
+                &mut metadata,
+                &config,
+                BuckconfigKeyRef {
+                    section: "cache",
+                    property: "schedule_type",
+                },
                 "schedule_type",
             );
         }

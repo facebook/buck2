@@ -28,6 +28,7 @@ use dupe::Dupe;
 use ref_cast::RefCast;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 
 #[derive(PartialEq, Allocative)]
 pub struct PackageBoundaryExceptions(HashMap<CellName, CellPackageBoundaryExceptions>);
@@ -107,7 +108,13 @@ impl Key for CellPackageBoundaryExceptionsKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let s = ctx
-            .get_legacy_config_property(self.0, "project", "package_boundary_exceptions")
+            .get_legacy_config_property(
+                self.0,
+                BuckconfigKeyRef {
+                    section: "project",
+                    property: "package_boundary_exceptions",
+                },
+            )
             .await?;
         if let Some(s) = s {
             Ok(Some(Arc::new(CellPackageBoundaryExceptions::new(&s)?)))

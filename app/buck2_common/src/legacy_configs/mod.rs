@@ -14,6 +14,7 @@ pub mod buildfiles;
 pub mod cells;
 pub mod dice;
 pub mod init;
+pub mod key;
 pub(crate) mod path;
 pub mod view;
 
@@ -46,6 +47,7 @@ use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::target_aliases::BuckConfigTargetAliasResolver;
 
@@ -164,8 +166,8 @@ impl LegacyBuckConfig {
 }
 
 impl LegacyBuckConfigView for &LegacyBuckConfig {
-    fn get(&mut self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(LegacyBuckConfig::get(self, section, key).map(|v| v.to_owned().into()))
+    fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+        Ok(LegacyBuckConfig::get(self, key).map(|v| v.to_owned().into()))
     }
 }
 
@@ -1209,12 +1211,16 @@ impl LegacyBuckConfig {
         parser.finish()
     }
 
-    fn get_config_value(&self, section: &str, key: &str) -> Option<&ConfigValue> {
-        self.0.values.get(section).and_then(|s| s.values.get(key))
+    fn get_config_value(&self, key: BuckconfigKeyRef) -> Option<&ConfigValue> {
+        let BuckconfigKeyRef { section, property } = key;
+        self.0
+            .values
+            .get(section)
+            .and_then(|s| s.values.get(property))
     }
 
-    pub fn get(&self, section: &str, key: &str) -> Option<&str> {
-        self.get_config_value(section, key).map(|s| s.as_str())
+    pub fn get(&self, key: BuckconfigKeyRef) -> Option<&str> {
+        self.get_config_value(key).map(|s| s.as_str())
     }
 
     /// Iterate all entries.
@@ -1230,28 +1236,29 @@ impl LegacyBuckConfig {
         })
     }
 
-    fn parse_impl<T: FromStr>(section: &str, key: &str, value: &str) -> anyhow::Result<T>
+    fn parse_impl<T: FromStr>(key: BuckconfigKeyRef, value: &str) -> anyhow::Result<T>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
+        let BuckconfigKeyRef { section, property } = key;
         value
             .parse()
             .map_err(anyhow::Error::from)
             .with_context(|| ConfigError::ParseFailed {
                 section: section.to_owned(),
-                key: key.to_owned(),
+                key: property.to_owned(),
                 value: value.to_owned(),
                 ty: std::any::type_name::<T>(),
             })
     }
 
-    pub fn parse<T: FromStr>(&self, section: &str, key: &str) -> anyhow::Result<Option<T>>
+    pub fn parse<T: FromStr>(&self, key: BuckconfigKeyRef) -> anyhow::Result<Option<T>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        self.get_config_value(section, key)
+        self.get_config_value(key)
             .map(|s| {
-                Self::parse_impl(section, key, s.as_str()).with_context(|| {
+                Self::parse_impl(key, s.as_str()).with_context(|| {
                     format!("Defined {}", s.source.as_legacy_buck_config_location())
                 })
             })
@@ -1259,26 +1266,24 @@ impl LegacyBuckConfig {
     }
 
     pub fn parse_value<T: FromStr>(
-        section: &str,
-        key: &str,
+        key: BuckconfigKeyRef,
         value: Option<&str>,
     ) -> anyhow::Result<Option<T>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        value.map(|s| Self::parse_impl(section, key, s)).transpose()
+        value.map(|s| Self::parse_impl(key, s)).transpose()
     }
 
-    pub fn parse_list<T: FromStr>(&self, section: &str, key: &str) -> anyhow::Result<Option<Vec<T>>>
+    pub fn parse_list<T: FromStr>(&self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Vec<T>>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        Self::parse_list_value(section, key, self.get(section, key))
+        Self::parse_list_value(key, self.get(key))
     }
 
     pub fn parse_list_value<T: FromStr>(
-        section: &str,
-        key: &str,
+        key: BuckconfigKeyRef,
         value: Option<&str>,
     ) -> anyhow::Result<Option<Vec<T>>>
     where
@@ -1300,7 +1305,7 @@ impl LegacyBuckConfig {
             }
         }
 
-        Ok(Self::parse_value::<ParseList<T>>(section, key, value)?.map(|l| l.0))
+        Ok(Self::parse_value::<ParseList<T>>(key, value)?.map(|l| l.0))
     }
 
     pub fn sections(&self) -> impl Iterator<Item = &String> {
@@ -1557,8 +1562,20 @@ mod tests {
             "/config",
         )?;
 
-        assert_eq!(None, config.get("section", "missing"));
-        assert_eq!(None, config.get("missing", "int"));
+        assert_eq!(
+            None,
+            config.get(BuckconfigKeyRef {
+                section: "section",
+                property: "missing"
+            })
+        );
+        assert_eq!(
+            None,
+            config.get(BuckconfigKeyRef {
+                section: "missing",
+                property: "int"
+            })
+        );
         assert_config_value(&config, "section", "int", "1");
         assert_config_value(&config, "section", "string", "hello");
         // Note that lines are all trimmed, so leading whitespace after a newline is

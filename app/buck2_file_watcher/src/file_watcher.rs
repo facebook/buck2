@@ -14,6 +14,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::ignores::ignore_set::IgnoreSet;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
@@ -49,7 +50,13 @@ impl dyn FileWatcher {
             "watchman"
         };
 
-        match root_config.get("buck2", "file_watcher").unwrap_or(default) {
+        match root_config
+            .get(BuckconfigKeyRef {
+                section: "buck2",
+                property: "file_watcher",
+            })
+            .unwrap_or(default)
+        {
             "watchman" => Ok(Arc::new(
                 WatchmanFileWatcher::new(project_root.root(), root_config, cells, ignore_specs)
                     .context("Creating watchman file watcher")?,

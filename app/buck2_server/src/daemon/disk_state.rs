@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -45,7 +46,10 @@ impl DiskStateOptions {
             materialization_method,
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts
         ) && root_config
-            .parse::<RolloutPercentage>("buck2", "sqlite_materializer_state")?
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "sqlite_materializer_state",
+            })?
             .unwrap_or_else(RolloutPercentage::never)
             .roll();
         Ok(Self {
@@ -84,9 +88,10 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
                 .to_string(),
         ),
     ]);
-    if let Some(buckconfig_version) =
-        root_config.parse("buck2", "sqlite_materializer_state_version")?
-    {
+    if let Some(buckconfig_version) = root_config.parse(BuckconfigKeyRef {
+        section: "buck2",
+        property: "sqlite_materializer_state_version",
+    })? {
         versions.insert("buckconfig_version".to_owned(), buckconfig_version);
     }
     if let Some(hostname) = metadata.get("hostname") {

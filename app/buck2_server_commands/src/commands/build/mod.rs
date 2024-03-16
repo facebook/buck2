@@ -38,6 +38,7 @@ use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::directory::Directory;
@@ -237,8 +238,10 @@ async fn build(
     let want_configured_graph_size = ctx
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
-            "buck2",
-            "log_configured_graph_size",
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_configured_graph_size",
+            },
         )
         .await?
         .unwrap_or_default();
@@ -293,16 +296,20 @@ async fn process_build_result(
             print_unconfigured_section: ctx
                 .parse_legacy_config_property(
                     cell_resolver.root_cell(),
-                    "build_report",
-                    "print_unconfigured_section",
+                    BuckconfigKeyRef {
+                        section: "build_report",
+                        property: "print_unconfigured_section",
+                    },
                 )
                 .await?
                 .unwrap_or(true),
             unstable_include_other_outputs: ctx
                 .parse_legacy_config_property(
                     cell_resolver.root_cell(),
-                    "build_report",
-                    "unstable_include_other_outputs",
+                    BuckconfigKeyRef {
+                        section: "build_report",
+                        property: "unstable_include_other_outputs",
+                    },
                 )
                 .await?
                 .unwrap_or(false),
@@ -351,7 +358,13 @@ async fn process_build_result(
     }
 
     let should_create_unhashed_links = ctx
-        .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "create_unhashed_links",
+            },
+        )
         .await?;
 
     if should_create_unhashed_links.unwrap_or(false) {

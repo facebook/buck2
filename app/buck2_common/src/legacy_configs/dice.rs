@@ -28,6 +28,7 @@ use dice::ProjectionKey;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
@@ -50,9 +51,9 @@ impl OpaqueLegacyBuckConfigOnDice {
     pub fn lookup(
         &self,
         ctx: &mut DiceComputations,
-        section: &str,
-        property: &str,
+        key: BuckconfigKeyRef,
     ) -> anyhow::Result<Option<Arc<str>>> {
+        let BuckconfigKeyRef { section, property } = key;
         Ok(ctx.projection(
             &*self.config,
             &LegacyBuckConfigPropertyProjectionKey {
@@ -76,11 +77,11 @@ pub struct LegacyBuckConfigOnDice<'a, 'd> {
 }
 
 impl LegacyBuckConfigOnDice<'_, '_> {
-    pub fn parse<T: FromStr>(&mut self, section: &str, key: &str) -> anyhow::Result<Option<T>>
+    pub fn parse<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<T>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        LegacyBuckConfig::parse_value(section, key, self.get(section, key)?.as_deref())
+        LegacyBuckConfig::parse_value(key, self.get(key)?.as_deref())
     }
 }
 
@@ -93,8 +94,8 @@ impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
 }
 
 impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
-    fn get(&mut self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
-        self.config.lookup(self.ctx, section, key)
+    fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+        self.config.lookup(self.ctx, key)
     }
 }
 
@@ -138,15 +139,13 @@ pub trait HasLegacyConfigs {
     async fn get_legacy_config_property(
         &mut self,
         cell_name: CellName,
-        section: &str,
-        property: &str,
+        key: BuckconfigKeyRef<'_>,
     ) -> anyhow::Result<Option<Arc<str>>>;
 
     async fn parse_legacy_config_property<T: FromStr>(
         &mut self,
         cell_name: CellName,
-        section: &str,
-        key: &str,
+        key: BuckconfigKeyRef<'_>,
     ) -> anyhow::Result<Option<T>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
@@ -225,7 +224,10 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
         // which is known to be constructed from a valid cell.
         let config = config.as_ref().unwrap();
         config
-            .get(&self.section, &self.property)
+            .get(BuckconfigKeyRef {
+                section: &self.section,
+                property: &self.property,
+            })
             .map(|s| s.to_owned().into())
     }
 
@@ -279,28 +281,25 @@ impl HasLegacyConfigs for DiceComputations<'_> {
     async fn get_legacy_config_property(
         &mut self,
         cell_name: CellName,
-        section: &str,
-        property: &str,
+        key: BuckconfigKeyRef<'_>,
     ) -> anyhow::Result<Option<Arc<str>>> {
         self.get_legacy_config_on_dice(cell_name)
             .await?
-            .lookup(self, section, property)
+            .lookup(self, key)
     }
 
     async fn parse_legacy_config_property<T: FromStr>(
         &mut self,
         cell_name: CellName,
-        section: &str,
-        key: &str,
+        key: BuckconfigKeyRef<'_>,
     ) -> anyhow::Result<Option<T>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
         T: Send + Sync + 'static,
     {
         LegacyBuckConfig::parse_value(
-            section,
             key,
-            self.get_legacy_config_property(cell_name, section, key)
+            self.get_legacy_config_property(cell_name, key)
                 .await?
                 .as_deref(),
         )

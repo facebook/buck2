@@ -26,6 +26,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::legacy_configs::init::Timeout;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
@@ -295,7 +296,12 @@ impl DaemonState {
                     Ok((
                         cell,
                         IgnoreSet::from_ignore_spec(
-                            config.get("project", "ignore").unwrap_or(""),
+                            config
+                                .get(BuckconfigKeyRef {
+                                    section: "project",
+                                    property: "ignore",
+                                })
+                                .unwrap_or(""),
                             cells.is_root_cell(cell),
                         )?,
                     ))
@@ -310,31 +316,49 @@ impl DaemonState {
 
             let deferred_materializer_configs = {
                 let defer_write_actions = root_config
-                    .parse::<RolloutPercentage>("buck2", "defer_write_actions")?
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "defer_write_actions",
+                    })?
                     .unwrap_or_else(RolloutPercentage::never)
                     .roll();
 
                 // RE will refresh any TTL < 1 hour, so we check twice an hour and refresh any TTL
                 // < 1 hour.
                 let ttl_refresh_frequency = root_config
-                    .parse("buck2", "ttl_refresh_frequency_seconds")?
+                    .parse(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "ttl_refresh_frequency_seconds",
+                    })?
                     .unwrap_or(1800);
 
                 let ttl_refresh_min_ttl = root_config
-                    .parse("buck2", "ttl_refresh_min_ttl_seconds")?
+                    .parse(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "ttl_refresh_min_ttl_seconds",
+                    })?
                     .unwrap_or(3600);
 
                 let ttl_refresh_enabled = root_config
-                    .parse::<RolloutPercentage>("buck2", "ttl_refresh_enabled")?
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "ttl_refresh_enabled",
+                    })?
                     .unwrap_or_else(RolloutPercentage::never)
                     .roll();
 
                 let update_access_times = AccessTimesUpdates::try_new_from_config_value(
-                    root_config.get("buck2", "update_access_times"),
+                    root_config.get(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "update_access_times",
+                    }),
                 )?;
 
                 let verbose_materializer_log = root_config
-                    .parse("buck2", "verbose_materializer_event_log")?
+                    .parse(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "verbose_materializer_event_log",
+                    })?
                     .unwrap_or(false);
 
                 DeferredMaterializerConfigs {
@@ -441,28 +465,46 @@ impl DaemonState {
             })?;
 
             let hash_all_commands = root_config
-                .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "hash_all_commands",
+                })?
                 .unwrap_or_else(RolloutPercentage::never)
                 .roll();
 
             let use_network_action_output_cache = root_config
-                .parse("buck2", "use_network_action_output_cache")?
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "use_network_action_output_cache",
+                })?
                 .unwrap_or(false);
 
             let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
 
             let buffer_size = root_config
-                .parse("buck2", "event_log_buffer_size")?
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "event_log_buffer_size",
+                })?
                 .unwrap_or(10000);
             let retry_backoff = Duration::from_millis(
                 root_config
-                    .parse("buck2", "event_log_retry_backoff_duration_ms")?
+                    .parse(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "event_log_retry_backoff_duration_ms",
+                    })?
                     .unwrap_or(500),
             );
             let retry_attempts = root_config
-                .parse("buck2", "event_log_retry_attempts")?
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "event_log_retry_attempts",
+                })?
                 .unwrap_or(5);
-            let message_batch_size = root_config.parse("buck2", "event_log_message_batch_size")?;
+            let message_batch_size = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "event_log_message_batch_size",
+            })?;
             let scribe_sink = Self::init_scribe_sink(
                 fb,
                 buffer_size,
@@ -473,7 +515,10 @@ impl DaemonState {
             .context("failed to init scribe sink")?;
 
             let enable_restarter = root_config
-                .parse::<RolloutPercentage>("buck2", "restarter")?
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "restarter",
+                })?
                 .unwrap_or_else(RolloutPercentage::never)
                 .roll();
 

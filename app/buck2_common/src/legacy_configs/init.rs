@@ -16,6 +16,7 @@ use buck2_core::buck2_env;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::LegacyBuckConfig;
 
 /// Helper enum to categorize the kind of timeout we get from the startup config.
@@ -59,11 +60,28 @@ pub struct HttpConfig {
 
 impl HttpConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        let connect_timeout_ms = config.parse("http", "connect_timeout_ms")?;
-        let read_timeout_ms = config.parse("http", "read_timeout_ms")?;
-        let write_timeout_ms = config.parse("http", "write_timeout_ms")?;
-        let max_redirects = config.parse("http", "max_redirects")?;
-        let http2 = config.parse("http", "http2")?.unwrap_or(true);
+        let connect_timeout_ms = config.parse(BuckconfigKeyRef {
+            section: "http",
+            property: "connect_timeout_ms",
+        })?;
+        let read_timeout_ms = config.parse(BuckconfigKeyRef {
+            section: "http",
+            property: "read_timeout_ms",
+        })?;
+        let write_timeout_ms = config.parse(BuckconfigKeyRef {
+            section: "http",
+            property: "write_timeout_ms",
+        })?;
+        let max_redirects = config.parse(BuckconfigKeyRef {
+            section: "http",
+            property: "max_redirects",
+        })?;
+        let http2 = config
+            .parse(BuckconfigKeyRef {
+                section: "http",
+                property: "http2",
+            })?
+            .unwrap_or(true);
 
         Ok(Self {
             connect_timeout_ms,
@@ -161,9 +179,15 @@ impl ResourceControlConfig {
             Ok(Self::deserialize(env_conf)?)
         } else {
             let status = config
-                .parse("buck2_resource_control", "status")?
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "status",
+                })?
                 .unwrap_or(ResourceControlStatus::Off);
-            let memory_max = config.parse("buck2_resource_control", "memory_max")?;
+            let memory_max = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "memory_max",
+            })?;
             Ok(Self { status, memory_max })
         }
     }
@@ -202,20 +226,39 @@ pub struct DaemonStartupConfig {
 impl DaemonStartupConfig {
     pub fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
         // Intepreted client side because we need the value here.
-        let allow_vpnless = config.parse("buck2", "allow_vpnless")?.unwrap_or(true);
+        let allow_vpnless = config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "allow_vpnless",
+            })?
+            .unwrap_or(true);
 
         Ok(Self {
-            daemon_buster: config.get("buck2", "daemon_buster").map(ToOwned::to_owned),
+            daemon_buster: config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "daemon_buster",
+                })
+                .map(ToOwned::to_owned),
             digest_algorithms: config
-                .get("buck2", "digest_algorithms")
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "digest_algorithms",
+                })
                 .map(ToOwned::to_owned),
             source_digest_algorithm: config
-                .get("buck2", "source_digest_algorithm")
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "source_digest_algorithm",
+                })
                 .map(ToOwned::to_owned),
             allow_vpnless,
             paranoid: false, // Setup later in ImmediateConfig
             materializations: config
-                .get("buck2", "materializations")
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializations",
+                })
                 .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,

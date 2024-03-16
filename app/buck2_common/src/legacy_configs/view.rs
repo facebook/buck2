@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::LegacyBuckConfig;
 
 /// Buckconfig trait.
@@ -19,19 +20,19 @@ use crate::legacy_configs::LegacyBuckConfig;
 /// * simple implementation which is backed by a buckconfig object, used in tests
 /// * DICE-backed implementation which records a dependency on buckconfig property in DICE
 pub trait LegacyBuckConfigView: Debug {
-    fn get(&mut self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>>;
+    fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>>;
 
-    fn parse<T: FromStr>(&mut self, section: &str, key: &str) -> anyhow::Result<Option<T>>
+    fn parse<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<T>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        LegacyBuckConfig::parse_value(section, key, self.get(section, key)?.as_deref())
+        LegacyBuckConfig::parse_value(key, self.get(key)?.as_deref())
     }
 
-    fn parse_list<T: FromStr>(&mut self, section: &str, key: &str) -> anyhow::Result<Option<Vec<T>>>
+    fn parse_list<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Vec<T>>>
     where
         anyhow::Error: From<<T as FromStr>::Err>,
     {
-        LegacyBuckConfig::parse_list_value(section, key, self.get(section, key)?.as_deref())
+        LegacyBuckConfig::parse_list_value(key, self.get(key)?.as_deref())
     }
 }

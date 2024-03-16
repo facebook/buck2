@@ -45,6 +45,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum ConfigurationError {
@@ -89,8 +90,10 @@ async fn get_target_platform_detector(
                 match ctx
                     .get_legacy_config_property(
                         root_cell,
-                        "parser",
-                        "target_platform_detector_spec",
+                        BuckconfigKeyRef {
+                            section: "parser",
+                            property: "target_platform_detector_spec",
+                        },
                     )
                     .await?
                 {
@@ -124,7 +127,13 @@ async fn compute_execution_platforms(
     let cell_alias_resolver = ctx.get_cell_alias_resolver(cells.root_cell()).await?;
 
     let execution_platforms_target = ctx
-        .get_legacy_config_property(cells.root_cell(), "build", "execution_platforms")
+        .get_legacy_config_property(
+            cells.root_cell(),
+            BuckconfigKeyRef {
+                section: "build",
+                property: "execution_platforms",
+            },
+        )
         .await?;
 
     let execution_platforms_target = match execution_platforms_target {
@@ -308,8 +317,10 @@ async fn configuration_matches(
         let v = ctx
             .get_legacy_config_property(
                 target_node_cell,
-                &config_section_and_key.section,
-                &config_section_and_key.key,
+                BuckconfigKeyRef {
+                    section: &config_section_and_key.section,
+                    property: &config_section_and_key.key,
+                },
             )
             .await?;
         match v {

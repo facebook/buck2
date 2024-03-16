@@ -13,6 +13,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -42,7 +43,10 @@ impl ImplicitImportPaths {
         // normal imports. e.g. it uses `cell//path/to/file.bzl` instead of
         // `cell//path/to:file.bzl`.
         let root_import = config
-            .get("buildfile", "includes")?
+            .get(BuckconfigKeyRef {
+                section: "buildfile",
+                property: "includes",
+            })?
             .map(|i| {
                 let (cell_alias, path): (&str, &str) = i.split_once("//").unwrap_or(("", &*i));
                 let path = CellRelativePathBuf::try_from(path.to_owned())?;
@@ -56,7 +60,12 @@ impl ImplicitImportPaths {
         let package_imports = PackageImplicitImports::new(
             cell_name,
             cell_alias_resolver.dupe(),
-            config.get("buildfile", "package_includes")?.as_deref(),
+            config
+                .get(BuckconfigKeyRef {
+                    section: "buildfile",
+                    property: "package_includes",
+                })?
+                .as_deref(),
         )?;
         Ok(ImplicitImportPaths {
             root_import,

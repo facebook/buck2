@@ -13,6 +13,7 @@ use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::SetIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
@@ -33,8 +34,11 @@ pub async fn configure_dice_for_buck(
         || {
             root_config
                 .and_then(|c| {
-                    c.parse::<DetectCycles>("buck2", "detect_cycles")
-                        .transpose()
+                    c.parse::<DetectCycles>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "detect_cycles",
+                    })
+                    .transpose()
                 })
                 .unwrap_or(Ok(DetectCycles::Enabled))
         },
@@ -44,7 +48,13 @@ pub async fn configure_dice_for_buck(
     let which_dice = which_dice.map_or_else(
         || {
             root_config
-                .and_then(|c| c.parse::<WhichDice>("buck2", "dice").transpose())
+                .and_then(|c| {
+                    c.parse::<WhichDice>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "dice",
+                    })
+                    .transpose()
+                })
                 .unwrap_or(Ok(WhichDice::Legacy))
         },
         Ok,

@@ -405,6 +405,7 @@ mod tests {
 
     use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
+    use crate::legacy_configs::key::BuckconfigKeyRef;
     use crate::legacy_configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::tests::assert_config_value;
     use crate::legacy_configs::LegacyConfigCmdArg;
@@ -551,9 +552,27 @@ mod tests {
         let other_config = configs.get(CellName::testing_new("other")).unwrap();
         let tp_config = configs.get(CellName::testing_new("third_party")).unwrap();
 
-        assert_eq!(root_config.get("foo", "bar"), Some("blah"));
-        assert_eq!(other_config.get("foo", "bar"), Some("blah"));
-        assert_eq!(tp_config.get("foo", "bar"), Some("blah"));
+        assert_eq!(
+            root_config.get(BuckconfigKeyRef {
+                section: "foo",
+                property: "bar"
+            }),
+            Some("blah")
+        );
+        assert_eq!(
+            other_config.get(BuckconfigKeyRef {
+                section: "foo",
+                property: "bar"
+            }),
+            Some("blah")
+        );
+        assert_eq!(
+            tp_config.get(BuckconfigKeyRef {
+                section: "foo",
+                property: "bar"
+            }),
+            Some("blah")
+        );
 
         Ok(())
     }
@@ -594,7 +613,13 @@ mod tests {
 
         let other_config = configs.get(CellName::testing_new("other")).unwrap();
 
-        assert_eq!(other_config.get("foo", "bar"), Some("baz"));
+        assert_eq!(
+            other_config.get(BuckconfigKeyRef {
+                section: "foo",
+                property: "bar"
+            }),
+            Some("baz")
+        );
 
         Ok(())
     }
@@ -658,8 +683,20 @@ mod tests {
         let configs = &cells.configs_by_name;
         let other_config = configs.get(CellName::testing_new("other")).unwrap();
 
-        assert_eq!(other_config.get("apple", "ide"), Some("Xcode"));
-        assert_eq!(other_config.get("apple", "test_tool"), Some("xctool"));
+        assert_eq!(
+            other_config.get(BuckconfigKeyRef {
+                section: "apple",
+                property: "ide"
+            }),
+            Some("Xcode")
+        );
+        assert_eq!(
+            other_config.get(BuckconfigKeyRef {
+                section: "apple",
+                property: "test_tool"
+            }),
+            Some("xctool")
+        );
 
         Ok(())
     }
