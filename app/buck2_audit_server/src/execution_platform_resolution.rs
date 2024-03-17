@@ -28,7 +28,7 @@ use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use gazebo::prelude::SliceExt;
 use indent_write::io::IndentWriter;
 
-use crate::target_resolution_config::audit_command_target_resolution_config;
+use crate::common::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]

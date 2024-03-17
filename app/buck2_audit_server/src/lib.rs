@@ -23,6 +23,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 mod analysis_queries;
 mod cell;
 mod classpath;
+mod common;
 mod config;
 mod configurations;
 pub mod deferred_materializer;
@@ -36,7 +37,6 @@ mod providers;
 pub mod server;
 mod starlark;
 mod subtargets;
-mod target_resolution_config;
 mod visibility;
 
 /// `buck2 audit` subcommands have a somewhat unique approach to make it really easy to

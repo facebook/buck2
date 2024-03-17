@@ -23,7 +23,7 @@ use buck2_server_ctx::pattern::parse_and_resolve_patterns_from_cli_args;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::target_resolution_config::audit_command_target_resolution_config;
+use crate::common::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
 
 #[async_trait]

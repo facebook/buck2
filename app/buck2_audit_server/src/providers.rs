@@ -26,7 +26,7 @@ use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::target_resolution_config::audit_command_target_resolution_config;
+use crate::common::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
 
 #[async_trait]
