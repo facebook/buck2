@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 
 use crate::execution_types::execution::ExecutionPlatform;
+use crate::target::label::TargetLabel;
 
 pub type ExecutionPlatforms = Arc<ExecutionPlatformsData>;
 
@@ -24,16 +25,26 @@ pub enum ExecutionPlatformFallback {
 
 #[derive(Debug, Allocative)]
 pub struct ExecutionPlatformsData {
+    execution_platforms_target: TargetLabel,
     platforms: Vec<ExecutionPlatform>,
     fallback: ExecutionPlatformFallback,
 }
 
 impl ExecutionPlatformsData {
-    pub fn new(platforms: Vec<ExecutionPlatform>, fallback: ExecutionPlatformFallback) -> Self {
+    pub fn new(
+        execution_platforms_target: TargetLabel,
+        platforms: Vec<ExecutionPlatform>,
+        fallback: ExecutionPlatformFallback,
+    ) -> Self {
         Self {
+            execution_platforms_target,
             platforms,
             fallback,
         }
+    }
+
+    pub fn execution_platforms_target(&self) -> &TargetLabel {
+        &self.execution_platforms_target
     }
 
     pub fn candidates(&self) -> impl Iterator<Item = &ExecutionPlatform> {

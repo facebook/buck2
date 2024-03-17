@@ -17,6 +17,8 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_node::execution::GetExecutionPlatforms;
+use buck2_node::execution::EXECUTION_PLATFORMS_BUCKCONFIG;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -98,6 +100,16 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 }
 
                 let mut stdout = stdout.as_writer();
+
+                match ctx.get_execution_platforms().await? {
+                    None => {
+                        writeln!(stdout, "Execution platforms are not configured: {} unset", EXECUTION_PLATFORMS_BUCKCONFIG)?;
+                        writeln!(stdout, "Using legacy execution platform")?;
+                    }
+                    Some(platforms) => {
+                        writeln!(stdout, "Checking each target against execution platforms defined by {}", platforms.execution_platforms_target())?;
+                    }
+                }
 
                 for configured_target in configured_patterns {
                     let configured_node = ctx.get_configured_target_node(&configured_target).await?;

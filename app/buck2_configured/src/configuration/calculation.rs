@@ -46,6 +46,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_node::execution::{GetExecutionPlatformsImpl, GET_EXECUTION_PLATFORMS, GetExecutionPlatforms, EXECUTION_PLATFORMS_BUCKCONFIG};
 
 #[derive(Debug, buck2_error::Error)]
 pub enum ConfigurationError {
@@ -127,13 +128,7 @@ async fn compute_execution_platforms(
     let cell_alias_resolver = ctx.get_cell_alias_resolver(cells.root_cell()).await?;
 
     let execution_platforms_target = ctx
-        .get_legacy_config_property(
-            cells.root_cell(),
-            BuckconfigKeyRef {
-                section: "build",
-                property: "execution_platforms",
-            },
-        )
+        .get_legacy_config_property(cells.root_cell(), EXECUTION_PLATFORMS_BUCKCONFIG)
         .await?;
 
     let execution_platforms_target = match execution_platforms_target {
@@ -154,7 +149,7 @@ async fn compute_execution_platforms(
         .ok_or_else(|| {
             anyhow::anyhow!(
                 ConfigurationError::MissingExecutionPlatformRegistrationInfo(
-                    execution_platforms_target
+                    execution_platforms_target.dupe()
                 )
             )
         })?;
@@ -164,6 +159,7 @@ async fn compute_execution_platforms(
         platforms.push(platform.to_execution_platform()?);
     }
     Ok(Some(Arc::new(ExecutionPlatformsData::new(
+        execution_platforms_target,
         platforms,
         result.fallback()?,
     ))))
@@ -382,12 +378,6 @@ pub trait ConfigurationCalculation {
         target_cell: CellName,
         cfg_target: &TargetLabel,
     ) -> buck2_error::Result<ConfigurationNode>;
-
-    /// Returns a list of the configured execution platforms. This looks up the providers on the target
-    /// configured **in the root cell's buckconfig** with key `build.execution_platforms`. If there's no
-    /// value configured, it will return `None` which indicates we should fallback to the legacy execution
-    /// platform behavior.
-    async fn get_execution_platforms(&mut self) -> buck2_error::Result<Option<ExecutionPlatforms>>;
 
     /// Gets the compatible execution platforms for a give list of compatible_with constraints and execution deps.
     ///
@@ -629,27 +619,6 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         .map_err(buck2_error::Error::from)
     }
 
-    async fn get_execution_platforms(&mut self) -> buck2_error::Result<Option<ExecutionPlatforms>> {
-        #[async_trait]
-        impl Key for ExecutionPlatformsKey {
-            type Value = buck2_error::Result<Option<ExecutionPlatforms>>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                compute_execution_platforms(ctx).await
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                // TODO(cjhopman) should these be comparable for caching
-                false
-            }
-        }
-
-        self.compute(&ExecutionPlatformsKey).await?
-    }
-
     async fn resolve_execution_platform_from_constraints(
         &mut self,
         target_node_cell: CellName,
@@ -700,4 +669,37 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         })
         .await?
     }
+}
+
+struct GetExecutionPlatformsInstance;
+
+#[async_trait]
+impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
+    async fn get_execution_platforms_impl(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
+        #[async_trait]
+        impl Key for ExecutionPlatformsKey {
+            type Value = buck2_error::Result<Option<ExecutionPlatforms>>;
+            async fn compute(
+                &self,
+                ctx: &mut DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
+                compute_execution_platforms(ctx).await
+            }
+
+            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+                // TODO(cjhopman) should these be comparable for caching
+                false
+            }
+        }
+
+        ctx.compute(&ExecutionPlatformsKey).await?
+    }
+}
+
+pub(crate) fn init_get_execution_platforms() {
+    GET_EXECUTION_PLATFORMS.init(&GetExecutionPlatformsInstance);
 }

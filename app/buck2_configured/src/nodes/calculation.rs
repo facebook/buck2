@@ -51,6 +51,7 @@ use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
+use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculationImpl;

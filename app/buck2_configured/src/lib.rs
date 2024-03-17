@@ -17,5 +17,6 @@ pub mod target;
 
 pub fn init_late_bindings() {
     calculation::init_configured_target_calculation();
+    configuration::calculation::init_get_execution_platforms();
     nodes::calculation::init_configured_target_node_calculation();
 }
