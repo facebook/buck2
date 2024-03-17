@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub mod configured_target_labels;
 pub mod target_resolution_config;
