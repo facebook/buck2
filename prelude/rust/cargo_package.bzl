@@ -5,6 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# This file exports utilities for use with with reindeer.
+# These are not used anywhere else in prelude and are not exported as prelude globals.
+
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//utils:selects.bzl", "selects")
 
