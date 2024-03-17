@@ -31,10 +31,14 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
+use dupe::Clone_;
 use dupe::Dupe;
+use dupe::Dupe_;
 use gazebo::variants::VariantName;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
+
+use crate::deferred::arc_borrow::ArcBorrow;
 
 /// An asynchronous chunk of work that will be executed when requested.
 /// The 'Deferred' can have "inputs" which are values that will be guaranteed to be ready to use
@@ -44,7 +48,7 @@ use once_cell::sync::Lazy;
 ///
 /// `any::Provider` can be used to obtain data for introspection.
 #[async_trait]
-pub trait Deferred: Allocative + provider::Provider {
+pub trait Deferred: Debug + Allocative + provider::Provider {
     type Output;
 
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
@@ -198,17 +202,18 @@ pub trait TrivialDeferred: Allocative + AnyValue + Debug + Send + Sync {
     fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>);
 }
 
-#[derive(Allocative)]
-pub struct TrivialDeferredValue(pub Arc<dyn TrivialDeferred>);
+#[derive(Allocative, Debug)]
+#[repr(transparent)]
+pub struct TrivialDeferredValue<T: TrivialDeferred>(pub T);
 
-impl provider::Provider for TrivialDeferredValue {
+impl<T: TrivialDeferred> provider::Provider for TrivialDeferredValue<T> {
     fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
         self.0.provide(demand)
     }
 }
 
 #[async_trait]
-impl DeferredAny for TrivialDeferredValue {
+impl<T: TrivialDeferred> DeferredAny for TrivialDeferredValue<T> {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         static INPUTS: Lazy<IndexSet<DeferredInput>> = Lazy::new(IndexSet::new);
         &INPUTS
@@ -218,10 +223,8 @@ impl DeferredAny for TrivialDeferredValue {
         &self,
         _ctx: &mut dyn DeferredCtx,
         _dice: &mut DiceComputations,
-    ) -> anyhow::Result<DeferredValueAny> {
-        Ok(DeferredValueAny::Ready(
-            DeferredValueAnyReady::TrivialDeferred(self.0.dupe()),
-        ))
+    ) -> anyhow::Result<Result<DeferredValueAny, IsTriviallyDeferred>> {
+        Ok(Err(IsTriviallyDeferred))
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -239,17 +242,13 @@ impl DeferredAny for TrivialDeferredValue {
 }
 
 #[derive(Allocative)]
-pub enum DeferredTableEntry {
-    Trivial(TrivialDeferredValue),
-    Complex(Box<dyn DeferredAny>),
+pub struct DeferredTableEntry {
+    any: Arc<dyn DeferredAny>,
 }
 
 impl provider::Provider for DeferredTableEntry {
     fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
-        match self {
-            Self::Trivial(v) => v.provide(demand),
-            Self::Complex(v) => v.provide(demand),
-        }
+        self.any.provide(demand)
     }
 }
 
@@ -289,7 +288,7 @@ pub struct ReservedTrivialDeferredData<T>(DeferredData<T>);
 
 impl<'a, T> ReservedTrivialDeferredData<T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Send + Sync + 'static,
 {
     fn new(id: DeferredData<T>) -> Self {
         Self(id)
@@ -326,7 +325,7 @@ impl DeferredRegistry {
     /// to a 'Deferred' before 'take_result' is called.
     pub fn reserve_trivial<D>(&mut self) -> ReservedTrivialDeferredData<D>
     where
-        D: Clone + Send + Sync + 'static,
+        D: Send + Sync + 'static,
     {
         let id = DeferredId {
             id: self.registry.len().try_into().unwrap(),
@@ -346,7 +345,7 @@ impl DeferredRegistry {
 
         match self.registry.get_mut(id) {
             Some(entry @ DeferredRegistryEntry::Pending) => {
-                *entry = DeferredRegistryEntry::Set(DeferredTableEntry::Complex(Box::new(d)));
+                *entry = DeferredRegistryEntry::Set(DeferredTableEntry { any: Arc::new(d) });
             }
             _ => {
                 panic!("the reserved should always be in pending");
@@ -363,15 +362,15 @@ impl DeferredRegistry {
         d: D,
     ) -> DeferredData<D>
     where
-        D: TrivialDeferred + Clone + 'static,
+        D: TrivialDeferred + 'static,
     {
         let id = reserved.0.deferred_key().id().as_usize();
 
         match self.registry.get_mut(id) {
             Some(entry @ DeferredRegistryEntry::Pending) => {
-                *entry = DeferredRegistryEntry::Set(DeferredTableEntry::Trivial(
-                    TrivialDeferredValue(Arc::new(d) as _),
-                ));
+                *entry = DeferredRegistryEntry::Set(DeferredTableEntry {
+                    any: Arc::new(TrivialDeferredValue(d)),
+                });
             }
             _ => {
                 panic!("the reserved should always be in pending");
@@ -384,7 +383,7 @@ impl DeferredRegistry {
     /// creates a new 'DeferredData'
     pub fn defer<
         D: Deferred<Output = T> + Send + Sync + 'static,
-        T: Allocative + Clone + Debug + Send + Sync + 'static,
+        T: Allocative + Debug + Send + Sync + 'static,
     >(
         &mut self,
         d: D,
@@ -394,9 +393,9 @@ impl DeferredRegistry {
             trivial: false,
         };
         self.registry
-            .push(DeferredRegistryEntry::Set(DeferredTableEntry::Complex(
-                Box::new(d),
-            )));
+            .push(DeferredRegistryEntry::Set(DeferredTableEntry {
+                any: Arc::new(d),
+            }));
         DeferredData::unchecked_new(self.base_key.make_key(id))
     }
 
@@ -410,9 +409,9 @@ impl DeferredRegistry {
             trivial: true,
         };
         self.registry
-            .push(DeferredRegistryEntry::Set(DeferredTableEntry::Trivial(
-                TrivialDeferredValue(Arc::new(d) as _),
-            )));
+            .push(DeferredRegistryEntry::Set(DeferredTableEntry {
+                any: Arc::new(TrivialDeferredValue(d)),
+            }));
         DeferredData::unchecked_new(self.base_key.make_key(id))
     }
 
@@ -438,24 +437,13 @@ pub enum DeferredErrors {
     UnboundReservedDeferred(usize),
 }
 
-pub enum DeferredLookup<'a> {
-    Trivial(&'a TrivialDeferredValue),
-    Complex(&'a dyn DeferredAny),
+pub struct DeferredLookup<'a> {
+    pub(crate) any: ArcBorrow<'a, dyn DeferredAny>,
 }
 
 impl<'a> DeferredLookup<'a> {
     pub fn as_complex(&self) -> &'a dyn DeferredAny {
-        match self {
-            Self::Trivial(v) => *v as _,
-            Self::Complex(v) => *v,
-        }
-    }
-
-    pub fn as_trivial(&self) -> Option<&'a Arc<dyn TrivialDeferred>> {
-        match self {
-            Self::Trivial(v) => Some(&v.0),
-            Self::Complex(..) => None,
-        }
+        ArcBorrow::get(self.any)
     }
 }
 
@@ -497,17 +485,17 @@ impl DeferredTable {
     /// looks up an 'Deferred' given the id
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         match self.0.get(id.as_usize()) {
-            Some(DeferredTableEntry::Complex(deferred)) => Ok(DeferredLookup::Complex(&**deferred)),
-            Some(DeferredTableEntry::Trivial(value)) => Ok(DeferredLookup::Trivial(value)),
+            Some(value) => Ok(DeferredLookup {
+                any: ArcBorrow::borrow(&value.any),
+            }),
             None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.id))),
         }
     }
 
     /// Iterator on the DeferredTable which converts a `DeferredTableEntry` to a `DeferredLookup`
     pub fn iter(&self) -> impl Iterator<Item = DeferredLookup<'_>> {
-        self.0.iter().map(|deferred| match deferred {
-            DeferredTableEntry::Complex(deferred) => DeferredLookup::Complex(&**deferred),
-            DeferredTableEntry::Trivial(value) => DeferredLookup::Trivial(value),
+        self.0.iter().map(|deferred| DeferredLookup {
+            any: ArcBorrow::borrow(&deferred.any),
         })
     }
 }
@@ -520,8 +508,9 @@ impl DeferredResult {
     /// looks up an 'Deferred' given the id
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         match self.0.deferreds.get(id.as_usize()) {
-            Some(DeferredTableEntry::Complex(deferred)) => Ok(DeferredLookup::Complex(&**deferred)),
-            Some(DeferredTableEntry::Trivial(value)) => Ok(DeferredLookup::Trivial(value)),
+            Some(value) => Ok(DeferredLookup {
+                any: ArcBorrow::borrow(&value.any),
+            }),
             None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.id))),
         }
     }
@@ -543,14 +532,24 @@ pub enum DeferredValue<T> {
 #[derive(Allocative, Debug, Dupe, Clone)]
 pub enum DeferredValueAnyReady {
     AnyValue(Arc<dyn AnyValue>),
-    TrivialDeferred(Arc<dyn TrivialDeferred>),
+    TrivialDeferred(
+        // This must be `TriviallyDeferred`.
+        Arc<dyn DeferredAny>,
+    ),
 }
 
 impl DeferredValueAnyReady {
     pub fn downcast<T: Send + 'static>(&self) -> anyhow::Result<&T> {
         match self {
             Self::AnyValue(v) => v.downcast(),
-            Self::TrivialDeferred(v) => v.as_any_value().downcast(),
+            Self::TrivialDeferred(v) => v.downcast(),
+        }
+    }
+
+    pub fn downcast_into_arc<T: Send + 'static>(self) -> anyhow::Result<Arc<T>> {
+        match self {
+            DeferredValueAnyReady::AnyValue(any) => any.downcast_arc(),
+            DeferredValueAnyReady::TrivialDeferred(any) => any.downcast_arc(),
         }
     }
 
@@ -573,10 +572,19 @@ impl DeferredValueAnyReady {
 }
 
 /// This is a `Any` that has been checked to contain a T and can therefore provide &T infallibly
-#[derive(Allocative, Debug, Dupe, Clone)]
+#[derive(Allocative, Debug, Dupe_, Clone_)]
 pub struct DeferredValueReady<T> {
     inner: DeferredValueAnyReady,
     _type: PhantomData<T>,
+}
+
+impl<T> DeferredValueReady<T> {
+    pub(crate) fn downcast(self) -> Arc<T>
+    where
+        T: Send + 'static,
+    {
+        self.inner.downcast_into_arc().unwrap()
+    }
 }
 
 impl<T> std::ops::Deref for DeferredValueReady<T>
@@ -600,7 +608,7 @@ pub enum DeferredValueAny {
 }
 
 impl DeferredValueAny {
-    fn ready<T: Allocative + Clone + Debug + Send + Sync + 'static>(t: T) -> Self {
+    fn ready<T: Allocative + Debug + Send + Sync + 'static>(t: T) -> Self {
         Self::Ready(DeferredValueAnyReady::AnyValue(Arc::new(t)))
     }
 
@@ -640,11 +648,21 @@ impl dyn AnyValue {
             )),
         }
     }
+
+    pub(crate) fn downcast_arc<T: Send + 'static>(
+        self: Arc<dyn AnyValue>,
+    ) -> anyhow::Result<Arc<T>> {
+        self.downcast::<T>()?;
+        // SAFETY: just checked type.
+        Ok(unsafe { Arc::from_raw(Arc::into_raw(self) as *const T) })
+    }
 }
+
+pub struct IsTriviallyDeferred;
 
 /// untyped deferred
 #[async_trait]
-pub trait DeferredAny: Allocative + provider::Provider + Send + Sync + 'static {
+pub trait DeferredAny: Debug + Allocative + provider::Provider + Send + Sync + 'static {
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
     fn inputs(&self) -> &IndexSet<DeferredInput>;
 
@@ -653,7 +671,7 @@ pub trait DeferredAny: Allocative + provider::Provider + Send + Sync + 'static {
         &self,
         ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations,
-    ) -> anyhow::Result<DeferredValueAny>;
+    ) -> anyhow::Result<Result<DeferredValueAny, IsTriviallyDeferred>>;
 
     fn as_any(&self) -> &dyn Any;
 
@@ -663,8 +681,21 @@ pub trait DeferredAny: Allocative + provider::Provider + Send + Sync + 'static {
     fn span(&self) -> Option<buck2_data::span_start_event::Data>;
 }
 
+pub(crate) async fn deferred_execute(
+    deferred: ArcBorrow<'_, dyn DeferredAny>,
+    ctx: &mut dyn DeferredCtx,
+    dice: &mut DiceComputations<'_>,
+) -> anyhow::Result<DeferredValueAny> {
+    match deferred.execute(ctx, dice).await? {
+        Ok(any) => Ok(any),
+        Err(IsTriviallyDeferred) => Ok(DeferredValueAny::Ready(
+            DeferredValueAnyReady::TrivialDeferred(ArcBorrow::clone_arc(deferred)),
+        )),
+    }
+}
+
 impl dyn DeferredAny {
-    pub fn downcast<T: Deferred + Send + 'static>(&self) -> anyhow::Result<&T> {
+    pub fn downcast<T: Send + 'static>(&self) -> anyhow::Result<&T> {
         match self.as_any().downcast_ref::<T>() {
             Some(t) => Ok(t),
             None => Err(anyhow::anyhow!(
@@ -674,13 +705,21 @@ impl dyn DeferredAny {
             )),
         }
     }
+
+    pub(crate) fn downcast_arc<T: Send + 'static>(
+        self: Arc<dyn DeferredAny>,
+    ) -> anyhow::Result<Arc<T>> {
+        self.downcast::<T>()?;
+        // SAFETY: just checked type.
+        Ok(unsafe { Arc::from_raw(Arc::into_raw(self) as *const T) })
+    }
 }
 
 #[async_trait]
 impl<D, T> DeferredAny for D
 where
     D: Deferred<Output = T> + Send + Sync + Any + 'static,
-    T: Allocative + Clone + Debug + Send + Sync + 'static,
+    T: Allocative + Debug + Send + Sync + 'static,
 {
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         self.inputs()
@@ -690,10 +729,10 @@ where
         &self,
         ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations,
-    ) -> anyhow::Result<DeferredValueAny> {
+    ) -> anyhow::Result<Result<DeferredValueAny, IsTriviallyDeferred>> {
         match self.execute(ctx, dice).await? {
-            DeferredValue::Ready(t) => Ok(DeferredValueAny::ready(t)),
-            DeferredValue::Deferred(d) => Ok(DeferredValueAny::defer(d)),
+            DeferredValue::Ready(t) => Ok(Ok(DeferredValueAny::ready(t))),
+            DeferredValue::Deferred(d) => Ok(Ok(DeferredValueAny::defer(d))),
         }
     }
 
@@ -803,10 +842,11 @@ mod tests {
     use dupe::Dupe;
     use indexmap::IndexSet;
 
+    use super::deferred_execute;
     use super::AnyValue;
-    use super::DeferredAny;
     use super::DeferredTableEntry;
     use super::TrivialDeferred;
+    use crate::deferred::arc_borrow::ArcBorrow;
     use crate::deferred::types::testing::DeferredValueAnyExt;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;
@@ -868,10 +908,7 @@ mod tests {
             ctx: &mut dyn DeferredCtx,
             dice: &mut DiceComputations<'_>,
         ) -> anyhow::Result<DeferredValueAny> {
-            match self {
-                Self::Trivial(v) => v.execute(ctx, dice).await,
-                Self::Complex(v) => v.execute(ctx, dice).await,
-            }
+            deferred_execute(ArcBorrow::borrow(&self.any), ctx, dice).await
         }
     }
 
@@ -1179,25 +1216,21 @@ mod tests {
         let result = DeferredTable::new(registry.take_result()?);
 
         assert_eq!(
-            *DeferredValueAnyReady::TrivialDeferred(
+            *DeferredValueAnyReady::TrivialDeferred(ArcBorrow::clone_arc(
                 result
                     .lookup_deferred(deferred_data0.deferred_key().id())?
-                    .as_trivial()
-                    .unwrap()
-                    .dupe()
-            )
+                    .any
+            ))
             .resolve(&deferred_data0)?,
             deferred0
         );
 
         assert_eq!(
-            *DeferredValueAnyReady::TrivialDeferred(
+            *DeferredValueAnyReady::TrivialDeferred(ArcBorrow::clone_arc(
                 result
                     .lookup_deferred(deferred_data1.deferred_key().id())?
-                    .as_trivial()
-                    .unwrap()
-                    .dupe()
-            )
+                    .any
+            ))
             .resolve(&deferred_data1)?,
             deferred1
         );

@@ -15,7 +15,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::data::DeferredData;
@@ -51,6 +50,8 @@ use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
+use crate::deferred::arc_borrow::ArcBorrow;
+use crate::deferred::types::deferred_execute;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredLookup;
@@ -86,12 +87,9 @@ impl DeferredCalculation for DiceComputations<'_> {
     ) -> anyhow::Result<DeferredValueReady<T>> {
         if data.deferred_key().id().is_trivial() {
             let deferred = lookup_deferred(self, data.deferred_key()).await?;
-            let deferred = deferred
-                .get()?
-                .as_trivial()
-                .context("Invalid deferred")?
-                .dupe();
-            return DeferredValueAnyReady::TrivialDeferred(deferred).resolve(data);
+            let deferred = deferred.get()?.any;
+            return DeferredValueAnyReady::TrivialDeferred(ArcBorrow::clone_arc(deferred))
+                .resolve(data);
         }
 
         let deferred = resolve_deferred(self, data.deferred_key()).await?;
@@ -223,7 +221,7 @@ async fn compute_deferred(
             cancellation: &CancellationContext,
         ) -> Self::Value {
             let deferred = lookup_deferred(ctx, &self.0).await?;
-            let deferred = deferred.get()?.as_complex();
+            let deferred = deferred.get()?.any;
 
             // We'll create the Span lazily when materialization hits it.
             let span = Lazy::new(|| deferred.span().map(create_span));
@@ -304,7 +302,7 @@ async fn compute_deferred(
                             observer,
                         );
 
-                        let execute = deferred.execute(&mut deferred_ctx, ctx);
+                        let execute = deferred_execute(deferred, &mut deferred_ctx, ctx);
 
                         let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
                             Some(span) => {

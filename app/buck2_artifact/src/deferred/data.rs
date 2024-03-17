@@ -12,12 +12,12 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Clone_;
-use dupe::Dupe;
+use dupe::Dupe_;
 
 use crate::deferred::key::DeferredKey;
 
 /// A value to be stored in 'Provider' fields representing an asynchronously computed value
-#[derive(Clone_, Dupe, derive_more::Display, Derivative, Allocative)]
+#[derive(Clone_, Dupe_, derive_more::Display, Derivative, Allocative)]
 #[derivative(Debug, Eq, Hash, PartialEq)]
 #[display(fmt = "{}", key)]
 #[allocative(bound = "")]

@@ -48,7 +48,7 @@ mod tests {
     use crate::bxl::eval::mk_stream_cache;
     use crate::bxl::key::BxlKey;
 
-    #[derive(Allocative)]
+    #[derive(Debug, Allocative)]
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
     impl provider::Provider for FakeDeferred {

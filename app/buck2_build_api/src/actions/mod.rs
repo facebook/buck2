@@ -309,7 +309,7 @@ pub struct RegisteredAction {
     executor_config: Arc<CommandExecutorConfig>,
 }
 
-impl TrivialDeferred for Arc<RegisteredAction> {
+impl TrivialDeferred for RegisteredAction {
     fn as_any_value(&self) -> &dyn AnyValue {
         self
     }

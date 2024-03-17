@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::deferred::data::DeferredData;
 
@@ -16,16 +14,16 @@ use crate::actions::RegisteredAction;
 
 pub trait ActionKeyExt {
     #[allow(clippy::new_ret_no_self)]
-    fn new(key: DeferredData<Arc<RegisteredAction>>) -> ActionKey;
-    fn deferred_data(&self) -> &DeferredData<Arc<RegisteredAction>>;
+    fn new(key: DeferredData<RegisteredAction>) -> ActionKey;
+    fn deferred_data(&self) -> &DeferredData<RegisteredAction>;
 }
 
 impl ActionKeyExt for ActionKey {
-    fn new(key: DeferredData<Arc<RegisteredAction>>) -> ActionKey {
+    fn new(key: DeferredData<RegisteredAction>) -> ActionKey {
         ActionKey::unchecked_new(key.into_deferred_key())
     }
 
-    fn deferred_data(&self) -> &DeferredData<Arc<RegisteredAction>> {
+    fn deferred_data(&self) -> &DeferredData<RegisteredAction> {
         DeferredData::unchecked_new_ref(self.deferred_key())
     }
 }

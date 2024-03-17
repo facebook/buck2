@@ -147,7 +147,7 @@ impl provider::Provider for DynamicAction {
 
 #[async_trait]
 impl Deferred for DynamicAction {
-    type Output = Arc<RegisteredAction>;
+    type Output = RegisteredAction;
 
     fn inputs(&self) -> &IndexSet<DeferredInput> {
         &self.inputs

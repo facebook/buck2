@@ -45,7 +45,7 @@ use indoc::indoc;
 
 use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt;
 
-#[derive(Allocative)]
+#[derive(Debug, Allocative)]
 struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
 impl provider::Provider for FakeDeferred {
@@ -141,7 +141,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
-    #[derive(Allocative)]
+    #[derive(Debug, Allocative)]
     struct DeferringDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
     impl provider::Provider for DeferringDeferred {

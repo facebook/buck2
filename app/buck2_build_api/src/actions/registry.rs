@@ -51,7 +51,7 @@ pub struct ActionsRegistry {
     action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
     pending: Vec<(
-        ReservedTrivialDeferredData<Arc<RegisteredAction>>,
+        ReservedTrivialDeferredData<RegisteredAction>,
         ActionToBeRegistered,
     )>,
     execution_platform: ExecutionPlatformResolution,
@@ -178,7 +178,7 @@ impl ActionsRegistry {
         outputs: IndexSet<OutputArtifact>,
         action: A,
     ) -> anyhow::Result<DeferredId> {
-        let reserved = registry.reserve_trivial::<Arc<RegisteredAction>>();
+        let reserved = registry.reserve_trivial::<RegisteredAction>();
 
         let mut bound_outputs = IndexSet::with_capacity(outputs.len());
         for output in outputs {
@@ -246,11 +246,11 @@ impl ActionsRegistry {
 
             registry.bind_trivial(
                 key,
-                Arc::new(RegisteredAction::new(
+                RegisteredAction::new(
                     action_key,
                     action,
                     (*self.execution_platform.executor_config()?).dupe(),
-                )),
+                ),
             );
         }
 
@@ -263,7 +263,7 @@ impl ActionsRegistry {
 
     pub fn testing_pending(
         &self,
-    ) -> impl Iterator<Item = &ReservedTrivialDeferredData<Arc<RegisteredAction>>> {
+    ) -> impl Iterator<Item = &ReservedTrivialDeferredData<RegisteredAction>> {
         self.pending.iter().map(|(reserved, _)| reserved)
     }
 

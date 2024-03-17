@@ -393,7 +393,7 @@ impl ActionCalculation for DiceComputations<'_> {
         // TODO add async/deferred stuff
         self.compute_deferred_data(action_key.deferred_data())
             .await
-            .map(|a| (*a).dupe())
+            .map(|a| a.dupe().downcast())
             .with_context(|| format!("for action key `{}`", action_key))
     }
 
