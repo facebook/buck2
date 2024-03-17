@@ -98,8 +98,6 @@ use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
-    #[error("List of dynamic inputs may not be empty")]
-    EmptyDynamic,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -1017,6 +1015,15 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///   * The function will usually be a `def`, as `lambda` in Starlark does not allow statements,
     /// making it quite underpowered. For full details see
     /// https://buck2.build/docs/rule_authors/dynamic_dependencies/.
+    ///
+    /// Besides dynamic dependencies, there is a second use case for `dynamic_output`: say that you
+    /// have some output artifact, and that the analysis to produce the action that outputs that
+    /// artifact is expensive, ie takes a lot of CPU time; you would like to skip that work in
+    /// builds that do not actually use that artifact.
+    ///
+    /// This can be accomplished by putting the analysis for that artifact behind a `dynamic_output`
+    /// with an empty `dynamic` list. The `dynamic_output`'s function will not be run unless one of
+    /// the actions it outputs is actually requested as part of the build.
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = named)] dynamic: UnpackListOrTuple<StarlarkArtifact>,
@@ -1026,9 +1033,6 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
-        if dynamic.items.is_empty() {
-            return Err(DynamicOutputError::EmptyDynamic.into());
-        }
         if outputs.items.is_empty() {
             return Err(DynamicOutputError::EmptyOutput.into());
         }
