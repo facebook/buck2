@@ -85,7 +85,9 @@ impl std::error::Error for BuckStarlarkError {
             request,
             category,
             None, /* typ */
-            tags.iter().copied(),
+            tags.iter()
+                .copied()
+                .chain([buck2_error::ErrorTag::AnyStarlarkEvaluation]),
             std::file!(),
             Some(variant_name),
             None, /* action error */

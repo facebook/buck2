@@ -68,7 +68,7 @@ impl std::error::Error for ActionError {
             request,
             category,
             typ,
-            [],
+            [buck2_error::ErrorTag::AnyActionExecution],
             std::file!(),
             Some("ActionError"),
             Some(self.as_proto_event()),
