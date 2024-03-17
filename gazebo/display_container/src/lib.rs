@@ -199,6 +199,33 @@ pub fn fmt_container<T: Display, Iter: IntoIterator<Item = T>>(
     helper.end(suffix)
 }
 
+/// Helper for display implementation of container-y types (like list, tuple).
+pub fn display_container<'a, C: 'a>(prefix: &'a str, suffix: &'a str, items: C) -> impl Display + 'a
+where
+    C: Copy + IntoIterator,
+    <C as IntoIterator>::Item: Display,
+{
+    struct Impl<'a, C> {
+        prefix: &'a str,
+        suffix: &'a str,
+        items: C,
+    }
+    impl<'a, C> Display for Impl<'a, C>
+    where
+        C: Copy + IntoIterator,
+        <C as IntoIterator>::Item: Display,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fmt_container(f, self.prefix, self.suffix, self.items)
+        }
+    }
+    Impl {
+        prefix,
+        suffix,
+        items,
+    }
+}
+
 /// Helper for display implementation of container-y types (like dict, struct).
 ///
 /// Equivalent to [`fmt_container`] where the items have [`display_pair`] applied to them.
@@ -327,5 +354,10 @@ mod tests {
             MyItems(vec![("hello".to_owned(), 1), ("world".to_owned(), 2)]).to_string(),
             "{magic, hello=1, world=2}"
         );
+    }
+
+    #[test]
+    fn test_display_container() {
+        assert_eq!("[1]", display_container("[", "]", &vec![1]).to_string());
     }
 }
