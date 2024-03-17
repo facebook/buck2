@@ -65,9 +65,9 @@ impl std::error::Error for BuckStarlarkError {
             _ => None,
         };
         let tags = match self.e.kind() {
-            starlark::ErrorKind::Fail(_) => &[Some(buck2_error::ErrorTag::StarlarkFail)][..],
+            starlark::ErrorKind::Fail(_) => &[buck2_error::ErrorTag::StarlarkFail][..],
             starlark::ErrorKind::StackOverflow(_) => {
-                &[Some(buck2_error::ErrorTag::StarlarkStackOverflow)][..]
+                &[buck2_error::ErrorTag::StarlarkStackOverflow][..]
             }
             _ => &[][..],
         };
@@ -85,7 +85,7 @@ impl std::error::Error for BuckStarlarkError {
             request,
             category,
             None, /* typ */
-            tags,
+            tags.iter().copied(),
             std::file!(),
             Some(variant_name),
             None, /* action error */

@@ -104,7 +104,7 @@ pub fn provide_metadata<'a, 'b>(
     request: &'b mut Request<'a>,
     category: Option<crate::Category>,
     typ: Option<crate::ErrorType>,
-    tags: &[Option<crate::ErrorTag>],
+    tags: impl IntoIterator<Item = crate::ErrorTag>,
     source_file: &'static str,
     source_location_extra: Option<&'static str>,
     action_error: Option<buck2_data::ActionError>,
@@ -113,7 +113,7 @@ pub fn provide_metadata<'a, 'b>(
         typ,
         action_error,
         category,
-        tags: tags.iter().copied().flatten().collect(),
+        tags: tags.into_iter().collect(),
         source_file,
         source_location_extra,
     };

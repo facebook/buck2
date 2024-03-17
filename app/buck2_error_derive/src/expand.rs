@@ -340,13 +340,14 @@ fn gen_provide_contents(
             OptionStyle::ByExpr(e) => e.clone(),
         })
         .collect();
+    let num_tags = syn::LitInt::new(&format!("{}", tags.len()), Span::call_site());
 
     let metadata: syn::Stmt = syn::parse_quote! {
         buck2_error::provide_metadata(
             __request,
             #category,
             #typ,
-            &[#(#tags,)*],
+            <[Option<buck2_error::ErrorTag>; #num_tags] as IntoIterator>::into_iter([#(#tags,)*]).flatten(),
             core::file!(),
             core::option::Option::Some(#source_location_extra),
             core::option::Option::None,
