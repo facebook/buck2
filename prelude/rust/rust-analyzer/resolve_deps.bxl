@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//linking:link_info.bzl", "LinkStrategy")
+load("@prelude//rust:build_params.bzl", "MetadataKind")
 load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 
 def materialize(ctx, target):
@@ -171,7 +172,7 @@ def expand_proc_macros(ctx, targets):
         proc_macro = getattr(attrs, "proc_macro", False)
         if proc_macro:
             analysis = ctx.analysis(target)
-            rlib = analysis.providers()[RustLinkInfo].strategies[LinkStrategy("shared")].rlib
+            rlib = analysis.providers()[RustLinkInfo].strategies[LinkStrategy("shared")].outputs[MetadataKind("link")]
             label = target.label.raw_target()
             out[label] = {"actual": label, "dylib": ctx.output.ensure(rlib).abs_path()}
     return out
