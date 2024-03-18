@@ -196,7 +196,9 @@ def _rust_binary_common(
         link, meta = rust_compile_multi(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emits = [Emit("link"), Emit("metadata")],
+            # Use metadata-full to ensure that we share dependencies with the
+            # link variant
+            emits = [Emit("link"), Emit("metadata-full")],
             params = params,
             default_roots = default_roots,
             extra_link_args = executable_args.extra_link_args,

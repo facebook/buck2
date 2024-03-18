@@ -64,11 +64,17 @@ Emit = enum(
     "llvm-bc",
     "llvm-ir",
     "obj",
-    "metadata",
     "link",
     "dep-info",
     "mir",
     "expand",  # pseudo emit alias for -Zunpretty=expanded
+    # Rustc actually has two different forms of metadata:
+    #  - The full flavor, which is what's outputted when passing
+    #    `--emit link,metadata` and can be used as a part of pipelined builds
+    #  - The fast flavor, which is emitted from `--emit metadata`, is faster to
+    #    build, but cannot be used in pipelined builds.
+    "metadata-full",
+    "metadata-fast",
 )
 
 # Emitting this artifact generates code
@@ -100,7 +106,8 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("llvm-bc"): ("", ".bc"),
     Emit("llvm-ir"): ("", ".ll"),
     Emit("obj"): ("", ".o"),
-    Emit("metadata"): ("lib", ".rmeta"),  # even binaries get called 'libfoo.rmeta'
+    Emit("metadata-fast"): ("lib", ".rmeta"),  # even binaries get called 'libfoo.rmeta'
+    Emit("metadata-full"): (None, None),  # Hollow rlibs, so they get the same name
     Emit("link"): (None, None),  # crate type and reloc model dependent
     Emit("dep-info"): ("", ".d"),
     Emit("mir"): (None, ".mir"),

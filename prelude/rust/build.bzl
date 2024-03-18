@@ -176,7 +176,7 @@ def generate_rustdoc(
         dep_ctx = compile_ctx.dep_ctx,
         # to make sure we get the rmeta's generated for the crate dependencies,
         # rather than full .rlibs
-        emit = Emit("metadata"),
+        emit = Emit("metadata-full"),
         params = params,
         default_roots = default_roots,
         is_rustdoc_test = False,
@@ -255,7 +255,7 @@ def generate_rustdoc_coverage(
         dep_ctx = compile_ctx.dep_ctx,
         # to make sure we get the rmeta's generated for the crate dependencies,
         # rather than full .rlibs
-        emit = Emit("metadata"),
+        emit = Emit("metadata-full"),
         params = params,
         default_roots = default_roots,
         is_rustdoc_test = False,
@@ -1151,17 +1151,6 @@ def _rustc_emit(
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
 
-    # Metadata for pipelining needs has enough info to be used as an input
-    # for dependents. To do this reliably, we actually emit "link" but
-    # suppress actual codegen with -Zno-codegen.
-    #
-    # We don't bother to do this with "codegen" crates - ie, ones which are
-    # linked into an artifact like binaries and dylib, since they're not
-    # used as a pipelined dependency input.
-    pipeline_meta = emit == Emit("metadata") and \
-                    toolchain_info.pipelined and \
-                    not crate_type_codegen(crate_type)
-
     emit_args = cmd_args()
     emit_env = {}
     extra_out = None
@@ -1171,11 +1160,7 @@ def _rustc_emit(
     else:
         extra_hash = "-" + _metadata(ctx.label, False)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
-        if pipeline_meta:
-            # Make sure hollow rlibs are distinct from real ones
-            filename = subdir + "/hollow/" + output_filename(simple_crate, Emit("link"), params, extra_hash)
-        else:
-            filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
+        filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
 
         emit_output = ctx.actions.declare_output(filename)
 
@@ -1192,7 +1177,11 @@ def _rustc_emit(
             # command or else there are "found possibly newer version of crate" errors.
             emit_env["RUSTC_BOOTSTRAP"] = "1"
 
-        if pipeline_meta:
+        # We don't ever have metadata-only deps on codegen crates, so no need to do
+        # the slower thing
+        if emit == Emit("metadata-full") and \
+           not crate_type_codegen(crate_type) and \
+           toolchain_info.pipelined:
             # If we're doing a pipelined build, instead of emitting an actual rmeta
             # we emit a "hollow" .rlib - ie, it only contains lib.rmeta and no object
             # code. It should contain full information needed by any dependent
@@ -1202,11 +1191,13 @@ def _rustc_emit(
             # Emit("link") operations are allowed to diverge without causing them to
             # get different crate hashes.
             emit_args.add("-Zno-codegen")
-            effective_emit = Emit("link")
+            effective_emit = "link"
+        elif emit == Emit("metadata-full") or emit == Emit("metadata-fast"):
+            effective_emit = "metadata"
         else:
-            effective_emit = emit
+            effective_emit = emit.value
 
-        emit_args.add(cmd_args("--emit=", effective_emit.value, "=", emit_output.as_output(), delimiter = ""))
+        emit_args.add(cmd_args("--emit=", effective_emit, "=", emit_output.as_output(), delimiter = ""))
 
         # Strip file extension from directory name.
         base, _ext = paths.split_extension(output_filename(simple_crate, emit, params))
