@@ -12,12 +12,12 @@ load(":apple_sdk_metadata.bzl", "IPhoneSimulatorSdkMetadata", "MacOSXCatalystSdk
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 def get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType) -> list[ArgLike]:
-    include_entitlements = _should_include_entitlements(ctx, codesign_type)
+    include_entitlements = should_include_entitlements(ctx, codesign_type)
     maybe_entitlements = _entitlements_file(ctx) if include_entitlements else None
     entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []
     return entitlements_args
 
-def _should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignType) -> bool:
+def should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignType) -> bool:
     if codesign_type.value == "distribution":
         return True
 
