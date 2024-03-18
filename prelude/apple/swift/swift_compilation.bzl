@@ -566,7 +566,8 @@ def _get_shared_flags(
     # 3. Transitive SDK deps of user-defined deps.
     # (This is the case, when a user-defined dep exports a type from SDK module,
     # thus such SDK module should be implicitly visible to consumers of that custom dep)
-    _add_swift_module_map_args(ctx, sdk_swift_deps_tset, pcm_deps_tset, sdk_clang_deps_tset, cmd)
+    if uses_explicit_modules(ctx):
+        _add_swift_module_map_args(ctx, sdk_swift_deps_tset, pcm_deps_tset, sdk_clang_deps_tset, cmd)
 
     _add_clang_deps_flags(ctx, pcm_deps_tset, cmd)
     _add_swift_deps_flags(ctx, cmd)
