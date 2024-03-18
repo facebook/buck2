@@ -756,7 +756,7 @@ def dependency_args(
         # The benefit of doing this is that there's no requirment that the
         # dependency's generated code be provided to the linker via an rlib. It
         # could be provided by other means, say, a link group
-        use_rmeta = is_check or compile_ctx.dep_ctx.advanced_unstable_linking or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test)
+        use_rmeta = is_check or compile_ctx.dep_ctx.advanced_unstable_linking or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type))
 
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
