@@ -559,14 +559,21 @@ impl<'v> StarlarkCmdArgs<'v> {
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
         quote: Option<QuoteStyle>,
+        ignore_artifacts: bool,
     ) -> anyhow::Result<Self> {
         let mut builder = StarlarkCommandLineData::default();
-        if delimiter.is_some() || format.is_some() || prepend.is_some() || quote.is_some() {
+        if delimiter.is_some()
+            || format.is_some()
+            || prepend.is_some()
+            || quote.is_some()
+            || ignore_artifacts
+        {
             let opts = builder.options_mut();
             opts.delimiter = delimiter;
             opts.format = format;
             opts.prepend = prepend;
             opts.quote = quote;
+            opts.ignore_artifacts = ignore_artifacts;
         }
         for v in value {
             builder.add_value(*v)?;
@@ -847,12 +854,14 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `delimiter` - added between arguments to join them together. For example, `cmd_args(["--args=",x], delimiter="")` would produce a single argument to the underlying tool.
     /// * `prepend` - added as a separate argument before each argument.
     /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
+    /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
         quote: Option<&str>,
+        #[starlark(default = false)] ignore_artifacts: bool,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         StarlarkCmdArgs::try_from_values_with_options(
             &args.items,
@@ -860,6 +869,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             format,
             prepend,
             quote.try_map(QuoteStyle::parse)?,
+            ignore_artifacts,
         )
     }
 }
