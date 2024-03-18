@@ -56,6 +56,7 @@ load(
     "compile_context",
     "generate_rustdoc",
     "rust_compile",
+    "rust_compile_multi",
 )
 load(
     ":build_params.bzl",
@@ -75,7 +76,7 @@ load(
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
 )
-load(":outputs.bzl", "output_as_diag_subtargets")
+load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
 load(":resources.bzl", "rust_attr_resources")
 
 _CompileOutputs = record(
@@ -299,17 +300,22 @@ def _rust_binary_common(
     # FIXME(JakobDegen): It's a bit weird that this uses the specified link
     # strategy but rustdoc and expand use the default link strategy. Figure out
     # what's going on there.
-    meta_full = rust_compile(
+    meta_full, meta_fast = rust_compile_multi(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        # Use metadata-full to ensure that we share dependencies with the link
-        # variant
-        emit = Emit("metadata-full"),
+        emits = [Emit("metadata-full"), Emit("metadata-fast")],
         params = strategy_param[specified_link_strategy],
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
 
+    providers = [RustcExtraOutputsInfo(
+        metadata_full = meta_full,
+        metadata_fast = meta_fast,
+    )]
+
+    # Use metadata-full to ensure that we share dependencies with the link
+    # variant
     extra_meta_targets = output_as_diag_subtargets(meta_full).items()
 
     expand = rust_compile(
@@ -361,7 +367,7 @@ def _rust_binary_common(
     if dupmbin_toolchain:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, compiled_outputs.link, dupmbin_toolchain)
 
-    providers = [
+    providers += [
         DefaultInfo(
             default_output = compiled_outputs.link,
             other_outputs = compiled_outputs.runtime_files + compiled_outputs.external_debug_info,

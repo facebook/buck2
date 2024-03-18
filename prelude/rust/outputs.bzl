@@ -34,3 +34,15 @@ def output_as_diag_subtargets(o: RustcOutput) -> dict[str, Artifact]:
         "diag.json": o.diag_json,
         "diag.txt": o.diag_txt,
     }
+
+# Access to additional outputs from Rust compilation.
+#
+# This provider is intended to be available from all rules that compile Rust
+# code. As a result, it must be different from `RustLinkInfo`, since it should
+# not exist on a prebuilt Rust library, but should exist on a binary.
+RustcExtraOutputsInfo = provider(
+    fields = {
+        "metadata_fast": RustcOutput,
+        "metadata_full": RustcOutput,
+    },
+)
