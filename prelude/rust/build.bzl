@@ -7,7 +7,6 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",  # @unused Used as a type
     "project_artifacts",
 )
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
@@ -84,20 +83,9 @@ load(
     "resolve_rust_deps",
     "strategy_info",
 )
+load(":outputs.bzl", "RustcOutput")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
-
-RustcOutput = record(
-    output = field(Artifact),
-    stripped_output = field(Artifact),
-    diag = field(dict[str, Artifact]),
-    pdb = field([Artifact, None]),
-    dwp_output = field([Artifact, None]),
-    # Zero or more Split DWARF debug info files are emitted into this directory
-    # with unpredictable filenames.
-    dwo_output_directory = field([Artifact, None]),
-    extra_external_debug_info = field(list[ArtifactTSet]),
-)
 
 def compile_context(ctx: AnalysisContext) -> CompileContext:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
@@ -573,7 +561,7 @@ def rust_compile(
         rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
         rustc_cmd.hidden(link_args_output.hidden)
 
-    (diag, build_status) = _rustc_invoke(
+    diag_txt, diag_json, build_status = _rustc_invoke(
         ctx = ctx,
         compile_ctx = compile_ctx,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
@@ -610,7 +598,7 @@ def rust_compile(
                 {"clippy.toml": toolchain_info.clippy_toml},
             )
             clippy_env["CLIPPY_CONF_DIR"] = clippy_conf_dir
-        (clippy_diag, _) = _rustc_invoke(
+        clippy_txt, clippy_json, _ = _rustc_invoke(
             ctx = ctx,
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
@@ -624,17 +612,18 @@ def rust_compile(
             allow_cache_upload = False,
             crate_map = common_args.crate_map,
         )
-        diag.update(clippy_diag)
+    else:
+        clippy_txt = None
+        clippy_json = None
 
     if toolchain_info.failure_filter:
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
         # asked for explicitly).
-        stderr = diag["diag.txt"]
         filter_prov = RustFailureFilter(
             buildstatus = build_status,
             required = emit_op.output,
-            stderr = stderr,
+            stderr = diag_txt,
         )
 
         filtered_output = failure_filter(
@@ -706,7 +695,11 @@ def rust_compile(
     return RustcOutput(
         output = filtered_output,
         stripped_output = stripped_output,
-        diag = diag,
+        diag_txt = diag_txt,
+        diag_json = diag_json,
+        # Only available on metadata-like emits
+        clippy_txt = clippy_txt,
+        clippy_json = clippy_json,
         pdb = pdb_artifact,
         dwp_output = dwp_output,
         dwo_output_directory = dwo_output_directory,
@@ -1225,7 +1218,7 @@ def _rustc_invoke(
         is_binary: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
-        env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> (dict[str, Artifact], [Artifact, None]):
+        env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> (Artifact, Artifact, [Artifact, None]):
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -1291,7 +1284,7 @@ def _rustc_invoke(
         allow_cache_upload = allow_cache_upload,
     )
 
-    return ({diag + ".json": json_diag, diag + ".txt": txt_diag}, build_status)
+    return (txt_diag, json_diag, build_status)
 
 # Our rustc and rustdoc commands can have arbitrarily large number of `--extern`
 # flags, so write to file to avoid hitting the platform's limit on command line

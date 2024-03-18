@@ -76,6 +76,7 @@ load(
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
 )
+load(":outputs.bzl", "output_as_diag_subtargets")
 load(":resources.bzl", "rust_attr_resources")
 
 _CompileOutputs = record(
@@ -210,7 +211,7 @@ def _rust_binary_common(
         )
 
         args = cmd_args(link.output).hidden(executable_args.runtime_files)
-        extra_targets = [("check", meta.output)] + meta.diag.items()
+        extra_targets = output_as_diag_subtargets(meta).items()
         external_debug_info = project_artifacts(
             actions = ctx.actions,
             tsets = [inherited_external_debug_info(

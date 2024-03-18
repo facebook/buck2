@@ -69,7 +69,6 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     ":build.bzl",
-    "RustcOutput",  # @unused Used as a type
     "compile_context",
     "generate_rustdoc",
     "generate_rustdoc_coverage",
@@ -108,6 +107,11 @@ load(
     "resolve_deps",
     "resolve_rust_deps",
     "strategy_info",
+)
+load(
+    ":outputs.bzl",
+    "RustcOutput",  # @unused Used as a type
+    "output_as_diag_subtargets",
 )
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
 load(":resources.bzl", "rust_attr_resources")
@@ -220,8 +224,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             # in the check subtarget. The link style doesn't matter
             # so pick the first.
             if check_artifacts == None:
-                check_artifacts = {"check": outputs[MetadataKind("full")].output}
-                check_artifacts.update(outputs[MetadataKind("full")].diag)
+                check_artifacts = output_as_diag_subtargets(outputs[MetadataKind("full")])
 
             rust_param_artifact[params] = outputs
         if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
