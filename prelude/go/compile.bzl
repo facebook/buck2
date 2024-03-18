@@ -39,19 +39,21 @@ GoTestInfo = provider(
 def get_inherited_compile_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
     return merge_pkgs([d[GoPkgCompileInfo].pkgs for d in deps if GoPkgCompileInfo in d])
 
-def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = False, force_disable_cgo: bool = False) -> cmd_args:
+def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], package_root: str | None, tests: bool = False, force_disable_cgo: bool = False) -> cmd_args:
     """
     Filter the input sources based on build pragma
     """
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
+    package_root = package_root if package_root != None else infer_package_root(srcs)
+
     # Delegate to `go list` to filter out srcs with incompatible `// +build`
     # pragmas.
     filtered_srcs = ctx.actions.declare_output("__filtered_srcs__.txt")
     srcs_dir = ctx.actions.symlinked_dir(
         "__srcs__",
-        {src.short_path: src for src in srcs},
+        {paths.relativize(src.short_path, package_root): src for src in srcs},
     )
     filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = True, force_disable_cgo = force_disable_cgo)
     filter_cmd.add(go_toolchain.filter_srcs)
@@ -65,6 +67,19 @@ def get_filtered_srcs(ctx: AnalysisContext, srcs: list[Artifact], tests: bool = 
 
     # Add filtered srcs to compile command.
     return cmd_args(filtered_srcs, format = "@{}").hidden(srcs).hidden(srcs_dir)
+
+def infer_package_root(srcs: list[Artifact]) -> str:
+    go_sources = [s for s in srcs if s.extension == ".go"]
+    if len(go_sources) == 0:
+        return ""
+    dir_set = {paths.dirname(s.short_path): None for s in go_sources}
+    if len(dir_set) > 1:
+        fail("Provide `package_root` target attribute. Can't infer it when there are multiple directories containing .go files: {}. Sources: {}".format(
+            dir_set.keys(),
+            [s.short_path for s in go_sources],
+        ))
+
+    return dir_set.keys()[0]
 
 def _assemble_cmd(
         ctx: AnalysisContext,

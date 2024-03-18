@@ -76,6 +76,7 @@ cgo_library = prelude_rule(
         cxx_common.platform_preprocessor_flags_arg() |
         go_common.cgo_compiler_flags_arg() |
         go_common.embedcfg_arg() |
+        go_common.package_root_arg() |
         cxx_common.compiler_flags_arg() |
         cxx_common.platform_compiler_flags_arg() |
         cxx_common.linker_extra_outputs_arg() |
@@ -185,6 +186,7 @@ go_binary = prelude_rule(
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.embedcfg_arg() |
+        go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.tags_arg() |
@@ -272,6 +274,7 @@ go_exported_library = prelude_rule(
         go_common.assembler_flags_arg() |
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
+        go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.tags_arg() |
@@ -324,6 +327,7 @@ go_library = prelude_rule(
         go_common.compiler_flags_arg() |
         go_common.assembler_flags_arg() |
         go_common.embedcfg_arg() |
+        go_common.package_root_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -424,6 +428,7 @@ go_test = prelude_rule(
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.embedcfg_arg() |
+        go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.tags_arg() |

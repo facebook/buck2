@@ -67,7 +67,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         # TODO: should we assert that pkg_name != None here?
         pkg_name = lib.pkg_name
 
-    srcs = get_filtered_srcs(ctx, srcs, tests = True)
+    srcs = get_filtered_srcs(ctx, srcs, ctx.attrs.package_root, tests = True)
 
     # If coverage is enabled for this test, we need to preprocess the sources
     # with the Go cover tool.

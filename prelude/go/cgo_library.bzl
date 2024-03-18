@@ -221,7 +221,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Merge all sources together to pass to the Go compile step.
     all_srcs = cmd_args(go_srcs + compiled_objects)
     if ctx.attrs.go_srcs:
-        all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs))
+        all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs, ctx.attrs.package_root))
 
     shared = ctx.attrs._compile_shared
     race = ctx.attrs._race

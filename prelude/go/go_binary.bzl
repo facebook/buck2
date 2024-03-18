@@ -23,7 +23,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     lib = compile(
         ctx,
         "main",
-        get_filtered_srcs(ctx, ctx.attrs.srcs),
+        get_filtered_srcs(ctx, ctx.attrs.srcs, ctx.attrs.package_root),
         deps = ctx.attrs.deps,
         compile_flags = ctx.attrs.compiler_flags,
         race = ctx.attrs._race,

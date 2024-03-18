@@ -36,7 +36,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         pkg_name = go_attr_pkg_name(ctx)
 
         # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        srcs = get_filtered_srcs(ctx, ctx.attrs.srcs, force_disable_cgo = True)
+        srcs = get_filtered_srcs(ctx, ctx.attrs.srcs, ctx.attrs.package_root, force_disable_cgo = True)
         shared = ctx.attrs._compile_shared
         race = ctx.attrs._race
         coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
