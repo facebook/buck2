@@ -168,6 +168,7 @@ extra_attributes = {
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
     },
     "apple_resource": {
+        "codesign_entitlements": attrs.option(attrs.source(), default = None),
         "codesign_on_copy": attrs.bool(default = False),
         "content_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),

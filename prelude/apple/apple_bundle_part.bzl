@@ -30,6 +30,8 @@ AppleBundlePart = record(
     new_name = field([str, None], None),
     # Marks parts which should be code signed separately from the whole bundle.
     codesign_on_copy = field(bool, False),
+    # Entitlements to use when this part is code signed separately.
+    codesign_entitlements = field([Artifact, None], None),
 )
 
 SwiftStdlibArguments = record(
@@ -148,6 +150,7 @@ def assemble_bundle(
         spec_file,
     ] + codesign_args + platform_args + swift_args)
     command.hidden([part.source for part in all_parts])
+    command.hidden([part.codesign_entitlements for part in all_parts if part.codesign_entitlements])
     run_incremental_args = {}
     incremental_state = ctx.actions.declare_output("incremental_state.json").as_output()
 

@@ -18,6 +18,7 @@ def apple_resource_impl(ctx: AnalysisContext) -> list[Provider]:
         variant_files = ctx.attrs.variants or [],
         named_variant_files = ctx.attrs.named_variants or {},
         codesign_files_on_copy = ctx.attrs.codesign_on_copy,
+        codesign_entitlements = ctx.attrs.codesign_entitlements,
     )
 
     # `files` can contain `apple_library()` which in turn can have `apple_resource()` deps

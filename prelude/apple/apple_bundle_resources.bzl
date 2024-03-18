@@ -186,6 +186,7 @@ def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> lis
             destination = bundle_destination,
             destination_relative_path = None,
             codesign_on_copy = spec.codesign_files_on_copy,
+            codesign_entitlements = spec.codesign_entitlements,
         ) for x in spec.files]
         result += _bundle_parts_for_dirs(spec.dirs, bundle_destination, False)
         result += _bundle_parts_for_dirs(spec.content_dirs, bundle_destination, True)
@@ -352,7 +353,8 @@ def _process_apple_resource_file_if_needed(
         file: Artifact,
         destination: AppleBundleDestination,
         destination_relative_path: [str, None],
-        codesign_on_copy: bool = False) -> AppleBundlePart:
+        codesign_on_copy: bool = False,
+        codesign_entitlements: [Artifact, None] = None) -> AppleBundlePart:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
@@ -383,7 +385,7 @@ def _process_apple_resource_file_if_needed(
     # When name is empty string only content of the directory will be copied, as opposed to the directory itself.
     # When name is `None`, directory or file will be copied as it is, without renaming.
     new_name = destination_relative_path if destination_relative_path else ("" if output_is_contents_dir else None)
-    return AppleBundlePart(source = processed, destination = destination, new_name = new_name, codesign_on_copy = codesign_on_copy)
+    return AppleBundlePart(source = processed, destination = destination, new_name = new_name, codesign_on_copy = codesign_on_copy, codesign_entitlements = codesign_entitlements)
 
 # Returns a path relative to the _parent_ of the lproj dir.
 # For example, given a variant file with a short path of`XX/YY.lproj/ZZ`
