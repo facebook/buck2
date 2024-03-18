@@ -52,7 +52,7 @@ load(
     "get_incremental_swiftmodule_compilation_flags",
     "should_build_swift_incrementally",
 )
-load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
+load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
     ":swift_pcm_compilation_types.bzl",
@@ -560,9 +560,16 @@ def _get_shared_flags(
     sdk_clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, deps_providers)
     sdk_swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, deps_providers)
 
-    # Add flags required to import ObjC module dependencies
-    _add_clang_deps_flags(ctx, pcm_deps_tset, sdk_clang_deps_tset, cmd)
-    _add_swift_deps_flags(ctx, sdk_swift_deps_tset, cmd)
+    # If Swift Explicit Modules are enabled, a few things must be provided to a compilation job:
+    # 1. Direct and transitive SDK deps from `sdk_modules` attribute.
+    # 2. Direct and transitive user-defined deps.
+    # 3. Transitive SDK deps of user-defined deps.
+    # (This is the case, when a user-defined dep exports a type from SDK module,
+    # thus such SDK module should be implicitly visible to consumers of that custom dep)
+    _add_swift_module_map_args(ctx, sdk_swift_deps_tset, pcm_deps_tset, sdk_clang_deps_tset, cmd)
+
+    _add_clang_deps_flags(ctx, pcm_deps_tset, cmd)
+    _add_swift_deps_flags(ctx, cmd)
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(ctx, cmd, underlying_module, objc_headers, objc_modulemap_pp_info)
@@ -574,28 +581,34 @@ def _get_shared_flags(
 
     return cmd
 
-def _add_swift_deps_flags(
+def _add_swift_module_map_args(
         ctx: AnalysisContext,
+        sdk_swiftmodule_deps_tset: SwiftCompiledModuleTset,
+        pcm_deps_tset: SwiftCompiledModuleTset,
         sdk_deps_tset: SwiftCompiledModuleTset,
         cmd: cmd_args):
-    # If Explicit Modules are enabled, a few things must be provided to a compilation job:
-    # 1. Direct and transitive SDK deps from `sdk_modules` attribute.
-    # 2. Direct and transitive user-defined deps.
-    # 3. Transitive SDK deps of user-defined deps.
-    # (This is the case, when a user-defined dep exports a type from SDK module,
-    # thus such SDK module should be implicitly visible to consumers of that custom dep)
+    module_name = get_module_name(ctx)
+    sdk_swiftmodule_deps_tset = [sdk_swiftmodule_deps_tset] if sdk_swiftmodule_deps_tset else []
+    all_deps_tset = ctx.actions.tset(
+        SwiftCompiledModuleTset,
+        children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tset,
+    )
+    swift_module_map_artifact = write_swift_module_map_with_deps(
+        ctx,
+        module_name,
+        all_deps_tset,
+    )
+    cmd.add([
+        "-Xfrontend",
+        "-explicit-swift-module-map-file",
+        "-Xfrontend",
+        swift_module_map_artifact,
+    ])
+
+def _add_swift_deps_flags(
+        ctx: AnalysisContext,
+        cmd: cmd_args):
     if uses_explicit_modules(ctx):
-        module_name = get_module_name(ctx)
-        swift_deps_tset = ctx.actions.tset(
-            SwiftCompiledModuleTset,
-            children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
-        )
-        swift_module_map_artifact = write_swift_module_map_with_swift_deps(
-            ctx,
-            module_name,
-            sdk_deps_tset,
-            swift_deps_tset,
-        )
         cmd.add([
             "-Xcc",
             "-fno-implicit-modules",
@@ -603,10 +616,6 @@ def _add_swift_deps_flags(
             "-fno-implicit-module-maps",
             "-Xfrontend",
             "-disable-implicit-swift-modules",
-            "-Xfrontend",
-            "-explicit-swift-module-map-file",
-            "-Xfrontend",
-            swift_module_map_artifact,
         ])
     else:
         depset = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps))
@@ -615,15 +624,9 @@ def _add_swift_deps_flags(
 def _add_clang_deps_flags(
         ctx: AnalysisContext,
         pcm_deps_tset: SwiftCompiledModuleTset,
-        sdk_deps_tset: SwiftCompiledModuleTset,
         cmd: cmd_args) -> None:
-    # If a module uses Explicit Modules, all direct and
-    # transitive Clang deps have to be explicitly added.
     if uses_explicit_modules(ctx):
-        cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
-
-        # Add Clang sdk modules which do not go to swift modulemap
-        cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
+        cmd.add(pcm_deps_tset.project_as_args("clang_importer_flags"))
     else:
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + ctx.attrs.exported_deps)
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
@@ -640,6 +643,7 @@ def _add_mixed_library_flags_to_cmd(
     if uses_explicit_modules(ctx):
         if underlying_module:
             cmd.add(underlying_module.clang_importer_args)
+            cmd.add(underlying_module.clang_module_file_args)
             cmd.add("-import-underlying-module")
         return
 

@@ -143,7 +143,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
                 "-I.",
             ])
 
-        cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
+        cmd.add(sdk_deps_tset.project_as_args("clang_module_file_flags"))
 
         expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
             cmd_args(swift_toolchain.sdk_path),
@@ -183,9 +183,9 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         )
 
         # Construct the args needed to be passed to the clang importer
-        clang_importer_args = cmd_args()
-        clang_importer_args.add("-Xcc")
-        clang_importer_args.add(
+        clang_deps_args = cmd_args()
+        clang_deps_args.add("-Xcc")
+        clang_deps_args.add(
             cmd_args(
                 [
                     "-fmodule-file=",
@@ -196,8 +196,8 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
                 delimiter = "",
             ),
         )
-        clang_importer_args.add("-Xcc")
-        clang_importer_args.add(
+        clang_deps_args.add("-Xcc")
+        clang_deps_args.add(
             cmd_args(
                 [
                     "-fmodule-map-file=",
@@ -208,11 +208,12 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         )
 
         compiled_sdk = SwiftCompiledModuleInfo(
-            clang_importer_args = clang_importer_args,
+            clang_module_file_args = clang_deps_args,
             is_framework = uncompiled_sdk_module_info.is_framework,
             is_swiftmodule = False,
             module_name = module_name,
             output_artifact = pcm_output,
+            clang_modulemap = expanded_modulemap_path_cmd,
         )
 
         return [

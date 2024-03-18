@@ -77,9 +77,9 @@ def _compiled_module_info(
         module_name: str,
         pcm_output: Artifact,
         pcm_info: SwiftPCMUncompiledInfo) -> SwiftCompiledModuleInfo:
-    clang_importer_args = cmd_args()
-    clang_importer_args.add("-Xcc")
-    clang_importer_args.add(
+    clang_deps_args = cmd_args()
+    clang_deps_args.add("-Xcc")
+    clang_deps_args.add(
         cmd_args(
             [
                 "-fmodule-file=",
@@ -90,8 +90,8 @@ def _compiled_module_info(
             delimiter = "",
         ),
     )
-    clang_importer_args.add("-Xcc")
-    clang_importer_args.add(
+    clang_deps_args.add("-Xcc")
+    clang_deps_args.add(
         cmd_args(
             [
                 "-fmodule-map-file=",
@@ -100,16 +100,19 @@ def _compiled_module_info(
             delimiter = "",
         ),
     )
-    clang_importer_args.add("-Xcc")
+
+    clang_importer_args = cmd_args("-Xcc")
     clang_importer_args.add(pcm_info.exported_preprocessor.relative_args.args)
     clang_importer_args.hidden(pcm_info.exported_preprocessor.modular_args)
 
     return SwiftCompiledModuleInfo(
+        clang_module_file_args = clang_deps_args,
         clang_importer_args = clang_importer_args,
         is_framework = False,
         is_swiftmodule = False,
         module_name = module_name,
         output_artifact = pcm_output,
+        clang_modulemap = pcm_info.exported_preprocessor.modulemap_path,
     )
 
 def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
@@ -273,8 +276,9 @@ def _get_base_pcm_flags(
             swift_toolchain.resource_dir,
         ])
 
-    cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
-    cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
+    cmd.add(sdk_deps_tset.project_as_args("clang_module_file_flags"))
+    cmd.add(pcm_deps_tset.project_as_args("clang_module_file_flags"))
+    cmd.add(pcm_deps_tset.project_as_args("clang_importer_flags"))
 
     modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
     pcm_output = ctx.actions.declare_output(module_name + ".pcm")

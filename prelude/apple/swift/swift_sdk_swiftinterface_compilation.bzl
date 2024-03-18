@@ -14,7 +14,7 @@ load(
     "extract_and_merge_clang_debug_infos",
     "extract_and_merge_swift_debug_infos",
 )
-load(":swift_module_map.bzl", "write_swift_module_map")
+load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
@@ -52,12 +52,12 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
 
         clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_deps_providers)
         swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, sdk_deps_providers)
-        swift_module_map_artifact = write_swift_module_map(ctx, uncompiled_module_info_name, swift_deps_tset)
+        swift_module_map_artifact = write_swift_module_map_with_deps(ctx, uncompiled_module_info_name, swift_deps_tset)
         cmd.add([
             "-explicit-swift-module-map-file",
             swift_module_map_artifact,
         ])
-        cmd.add(clang_deps_tset.project_as_args("clang_deps"))
+        cmd.add(clang_deps_tset.project_as_args("clang_module_file_flags"))
 
         swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + SWIFTMODULE_EXTENSION)
         expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(

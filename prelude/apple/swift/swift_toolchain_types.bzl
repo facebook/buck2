@@ -66,7 +66,9 @@ SdkSwiftOverlayInfo = provider(fields = {
 })
 
 SwiftCompiledModuleInfo = provider(fields = {
-    "clang_importer_args": provider_field(typing.Any, default = None),  # cmd_args of include flags for the clang importer.
+    "clang_importer_args": provider_field(typing.Any, default = None),  # cmd_args of additional flags for the clang importer.
+    "clang_module_file_args": provider_field(typing.Any, default = None),  # cmd_args of include flags for the clang importer.
+    "clang_modulemap": provider_field(typing.Any, default = None),  # Clang modulemap file which is required for generation of swift_module_map.
     "is_framework": provider_field(typing.Any, default = None),
     "is_swiftmodule": provider_field(typing.Any, default = None),  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
     "module_name": provider_field(typing.Any, default = None),  # A real name of a module, without distinguishing suffixes.
@@ -77,22 +79,37 @@ def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
     # We need to import the containing folder, not the file itself.
     return ["-I", cmd_args(module_info.output_artifact).parent()] if module_info.is_swiftmodule else []
 
-def _add_clang_import_flags(module_info: SwiftCompiledModuleInfo):
+def _add_clang_module_file_flags(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:
         return []
     else:
-        return [module_info.clang_importer_args]
+        return [module_info.clang_module_file_args]
+
+def _add_clang_importer_flags(module_info: SwiftCompiledModuleInfo):
+    if module_info.is_swiftmodule:
+        return []
+    else:
+        return [module_info.clang_importer_args] if module_info.clang_importer_args else []
 
 def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo):
-    return struct(
-        isFramework = module_info.is_framework,
-        moduleName = module_info.module_name,
-        modulePath = module_info.output_artifact,
-    )
+    if module_info.is_swiftmodule:
+        return struct(
+            isFramework = module_info.is_framework,
+            moduleName = module_info.module_name,
+            modulePath = module_info.output_artifact,
+        )
+    else:
+        return struct(
+            isFramework = module_info.is_framework,
+            moduleName = module_info.module_name,
+            clangModulePath = module_info.output_artifact,
+            clangModuleMapPath = cmd_args([module_info.clang_modulemap], delimiter = ""),
+        )
 
 SwiftCompiledModuleTset = transitive_set(
     args_projections = {
-        "clang_deps": _add_clang_import_flags,
+        "clang_importer_flags": _add_clang_importer_flags,  # Additional clang flags required for compilation.
+        "clang_module_file_flags": _add_clang_module_file_flags,  # Projects pcm modules as cli flags.
         "module_search_path": _add_swiftmodule_search_path,
     },
     json_projections = {
