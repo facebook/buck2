@@ -20,8 +20,8 @@ pub(crate) struct ArcBorrow<'a, T: ?Sized> {
     _phantom: PhantomData<&'a T>,
 }
 
-unsafe impl<'a, T: Send + ?Sized> Send for ArcBorrow<'a, T> {}
-unsafe impl<'a, T: Sync + ?Sized> Sync for ArcBorrow<'a, T> {}
+unsafe impl<'a, T: ?Sized> Send for ArcBorrow<'a, T> where Arc<T>: Send {}
+unsafe impl<'a, T: ?Sized> Sync for ArcBorrow<'a, T> where Arc<T>: Sync {}
 
 impl<'a, T: ?Sized> Copy for ArcBorrow<'a, T> {}
 
