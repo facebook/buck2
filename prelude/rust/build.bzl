@@ -49,9 +49,10 @@ load(
     "BuildParams",  # @unused Used as a type
     "CrateType",
     "Emit",
+    "MetadataKind",
     "crate_type_codegen",
     "crate_type_linked",
-    "emit_needs_codegen",
+    "dep_metadata_of_emit",
     "output_filename",
 )
 load(
@@ -724,9 +725,8 @@ def dependency_args(
         compile_ctx: CompileContext | None,
         deps: list[RustDependency],
         subdir: str,
-        crate_type: CrateType,
         dep_link_strategy: LinkStrategy,
-        is_check: bool,
+        dep_metadata_kind: MetadataKind,
         is_rustdoc_test: bool) -> (cmd_args, list[(CrateName, Label)]):
     args = cmd_args()
     transitive_deps = {}
@@ -743,24 +743,9 @@ def dependency_args(
 
         strategy = strategy_info(dep.info, dep_link_strategy)
 
-        # With `advanced_unstable_linking`, we unconditionally pass the metadata
-        # artifacts. There are two things that work together to make this possible
-        # in the case of binaries:
-        #
-        #  1. The actual rlibs appear in the link providers, so they'll still be
-        #     available for the linker to link in
-        #  2. The metadata artifacts aren't rmetas, but rather rlibs that just
-        #     don't contain any generated code. Rustc can't distinguish these
-        #     from real rlibs, and so doesn't throw an error
-        #
-        # The benefit of doing this is that there's no requirment that the
-        # dependency's generated code be provided to the linker via an rlib. It
-        # could be provided by other means, say, a link group
-        use_rmeta = is_check or compile_ctx.dep_ctx.advanced_unstable_linking or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type))
-
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
-        if use_rmeta:
+        if dep_metadata_kind == MetadataKind("full"):
             artifact = strategy.rmeta
             transitive_artifacts = strategy.transitive_rmeta_deps
         else:
@@ -791,7 +776,7 @@ def dependency_args(
         else:
             simple_artifacts[artifact] = None
 
-    prefix = "{}-deps{}".format(subdir, "-check" if is_check else "")
+    prefix = "{}-deps{}".format(subdir, dep_metadata_kind.value)
     if simple_artifacts:
         args.add(simple_symlinked_dirs(ctx, prefix, simple_artifacts))
     if dynamic_artifacts:
@@ -921,16 +906,32 @@ def _compute_common_args(
     if exec_is_windows:
         crate_root = crate_root.replace("/", "\\")
 
-    is_check = not emit_needs_codegen(emit)
+    # With `advanced_unstable_linking`, we unconditionally pass the metadata
+    # artifacts. There are two things that work together to make this possible
+    # in the case of binaries:
+    #
+    #  1. The actual rlibs appear in the link providers, so they'll still be
+    #     available for the linker to link in
+    #  2. The metadata artifacts aren't rmetas, but rather rlibs that just
+    #     don't contain any generated code. Rustc can't distinguish these
+    #     from real rlibs, and so doesn't throw an error
+    #
+    # The benefit of doing this is that there's no requirment that the
+    # dependency's generated code be provided to the linker via an rlib. It
+    # could be provided by other means, say, a link group
+    dep_metadata_kind = dep_metadata_of_emit(emit)
+    is_check = dep_metadata_kind != MetadataKind("link")
+    if compile_ctx.dep_ctx.advanced_unstable_linking or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type)):
+        if dep_metadata_kind == MetadataKind("link"):
+            dep_metadata_kind = MetadataKind("full")
 
     dep_args, crate_map = dependency_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
         deps = resolve_rust_deps(ctx, dep_ctx),
         subdir = subdir,
-        crate_type = crate_type,
         dep_link_strategy = params.dep_link_strategy,
-        is_check = is_check,
+        dep_metadata_kind = dep_metadata_kind,
         is_rustdoc_test = is_rustdoc_test,
     )
 

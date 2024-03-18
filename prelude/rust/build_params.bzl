@@ -77,9 +77,20 @@ Emit = enum(
     "metadata-fast",
 )
 
+# The different quantities of Rust metadata that can be requested from
+# dependencies. Each one corresponds to an `Emit` variant, but not all `Emit`
+# variants output metadata
+MetadataKind = enum(
+    "full",
+    "link",
+)
+
 # Emitting this artifact generates code
-def emit_needs_codegen(emit: Emit) -> bool:
-    return emit.value in ("asm", "llvm-bc", "llvm-ir", "obj", "link", "mir")
+def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
+    if emit.value in ("asm", "llvm-bc", "llvm-ir", "obj", "link", "mir"):
+        return MetadataKind("link")
+    else:
+        return MetadataKind("full")
 
 # Represents a way of invoking rustc to produce an artifact. These values are computed from
 # information such as the rule type, linkstyle, crate type, etc.

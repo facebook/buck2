@@ -26,7 +26,7 @@ load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":build.bzl", "dependency_args")
-load(":build_params.bzl", "CrateType")
+load(":build_params.bzl", "MetadataKind")
 load(":context.bzl", "DepCollectionContext")
 load(":link_info.bzl", "RustProcMacroPlugin", "gather_explicit_sysroot_deps", "resolve_rust_deps_inner")
 load(":rust_toolchain.bzl", "PanicRuntime")
@@ -52,9 +52,8 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             None,  # compile_ctx
             deps,
             "any",  # subdir
-            CrateType("rlib"),
             LinkStrategy("static_pic"),
-            True,  # is_check
+            MetadataKind("full"),
             False,  # is_rustdoc_test
         )
 
