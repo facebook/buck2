@@ -163,7 +163,7 @@ impl SuperConsole {
     pub(crate) fn clear_canvas_pre(writer: &mut Vec<u8>, mut height: usize) -> anyhow::Result<()> {
         while height > 0 {
             // We can only move up at most u16 at a time, so repeat until we move up enough
-            let step = std::cmp::min(height, u16::MAX as usize) as u16;
+            let step = height.try_into().unwrap_or(u16::MAX);
             writer.queue(MoveUp(step))?;
             height -= step as usize;
         }
