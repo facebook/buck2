@@ -64,6 +64,10 @@ load(
     "Linkage",  # @unused Used as a type
 )
 load(
+    ":build_params.bzl",
+    "MetadataKind",  # @unused Used as a type
+)
+load(
     ":context.bzl",
     "CrateName",  # @unused Used as a type
     "DepCollectionContext",  # @unused Used as a type
@@ -92,18 +96,12 @@ RustProcMacroMarker = provider(fields = {
 
 # Information which is keyed on link_style
 RustLinkStrategyInfo = record(
-    # Path to library or binary
-    rlib = field(Artifact),
+    # Path to the rlib, rmeta, dylib, etc.
+    outputs = field(dict[MetadataKind, Artifact]),
     # Transitive dependencies which are relevant to the consumer. For crate types which do not
     # propagate their deps (specifically proc macros), this set is empty
     # This does not include the proc macros, which are passed separately in `RustLinkInfo`
-    transitive_deps = field(dict[Artifact, CrateName]),
-
-    # Path for library metadata (used for check or pipelining)
-    rmeta = field(Artifact),
-    # Transitive rmeta deps. This is the same dict as `transitive_deps`, except that it has the
-    # rmeta and not the rlib artifact
-    transitive_rmeta_deps = field(dict[Artifact, CrateName]),
+    transitive_deps = field(dict[MetadataKind, dict[Artifact, CrateName]]),
     transitive_proc_macro_deps = field(dict[RustProcMacroMarker, ()]),
 
     # Path to PDB file with Windows debug data.

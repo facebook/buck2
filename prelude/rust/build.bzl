@@ -743,19 +743,13 @@ def dependency_args(
 
         strategy = strategy_info(dep.info, dep_link_strategy)
 
-        # Use rmeta dependencies whenever possible because they
-        # should be cheaper to produce.
-        if dep_metadata_kind == MetadataKind("full"):
-            artifact = strategy.rmeta
-            transitive_artifacts = strategy.transitive_rmeta_deps
-        else:
-            artifact = strategy.rlib
-            transitive_artifacts = strategy.transitive_deps
+        artifact = strategy.outputs[dep_metadata_kind]
+        transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
         for marker in strategy.transitive_proc_macro_deps.keys():
             info = available_proc_macros[marker.label][RustLinkInfo]
             strategy = strategy_info(info, dep_link_strategy)
-            transitive_deps[strategy.rlib] = info.crate
+            transitive_deps[strategy.outputs[MetadataKind("link")]] = info.crate
 
         args.add(extern_arg(dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))

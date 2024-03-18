@@ -83,6 +83,7 @@ load(
     "CrateType",
     "Emit",
     "LinkageLang",
+    "MetadataKind",
     "RuleType",
     "build_params",
 )
@@ -165,16 +166,14 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     crate = attr_crate(ctx)
     strategies = {}
     for link_strategy in LinkStrategy:
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
+        tdeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             children = external_debug_info,
         )
         strategies[link_strategy] = RustLinkStrategyInfo(
-            rlib = ctx.attrs.rlib,
+            outputs = {m: ctx.attrs.rlib for m in MetadataKind},
             transitive_deps = tdeps,
-            rmeta = ctx.attrs.rlib,
-            transitive_rmeta_deps = tmetadeps,
             transitive_proc_macro_deps = tprocmacrodeps,
             pdb = None,
             external_debug_info = external_debug_info,
@@ -215,18 +214,18 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     native_param_artifact = {}
     check_artifacts = None
 
-    for params, (link, meta) in artifacts.items():
+    for params, outputs in artifacts.items():
         if LinkageLang("rust") in param_lang[params]:
             # Grab the check output for all kinds of builds to use
             # in the check subtarget. The link style doesn't matter
             # so pick the first.
             if check_artifacts == None:
-                check_artifacts = {"check": meta.output}
-                check_artifacts.update(meta.diag)
+                check_artifacts = {"check": outputs[MetadataKind("full")].output}
+                check_artifacts.update(outputs[MetadataKind("full")].diag)
 
-            rust_param_artifact[params] = (link, meta)
+            rust_param_artifact[params] = outputs
         if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
-            native_param_artifact[params] = link
+            native_param_artifact[params] = outputs[MetadataKind("link")]
 
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
@@ -304,7 +303,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         compile_ctx = compile_ctx,
         link_strategy = rustdoc_test_params.dep_link_strategy,
-        rlib = rust_param_artifact[static_library_params][0].output,
+        rlib = rust_param_artifact[static_library_params][MetadataKind("link")].output,
         params = rustdoc_test_params,
         default_roots = default_roots,
     )
@@ -407,7 +406,7 @@ def _build_params_for_styles(
 def _build_library_artifacts(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        params: list[BuildParams]) -> dict[BuildParams, (RustcOutput, RustcOutput)]:
+        params: list[BuildParams]) -> dict[BuildParams, dict[MetadataKind, RustcOutput]]:
     """
     Generate the actual actions to build various output artifacts. Given the set
     parameters we need, return a mapping to the linkable and metadata artifacts.
@@ -426,7 +425,10 @@ def _build_library_artifacts(
             default_roots = ["lib.rs"],
         )
 
-        param_artifact[params] = (link, meta)
+        param_artifact[params] = {
+            MetadataKind("link"): link,
+            MetadataKind("full"): meta,
+        }
 
     return param_artifact
 
@@ -435,8 +437,7 @@ def _handle_rust_artifact(
         dep_ctx: DepCollectionContext,
         crate_type: CrateType,
         link_strategy: LinkStrategy,
-        link: RustcOutput,
-        meta: RustcOutput) -> RustLinkStrategyInfo:
+        outputs: dict[MetadataKind, RustcOutput]) -> RustLinkStrategyInfo:
     """
     Return the RustLinkInfo for a given set of artifacts. The main consideration
     is computing the right set of dependencies.
@@ -445,41 +446,38 @@ def _handle_rust_artifact(
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
     if crate_type != CrateType("proc-macro"):
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
+        tdeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
     else:
-        tdeps, tmetadeps, external_debug_info, tprocmacrodeps = {}, {}, [], {}
+        tdeps, external_debug_info, tprocmacrodeps = {e: {} for e in MetadataKind}, [], {}
 
+    link_output = outputs[MetadataKind("link")]
     if not ctx.attrs.proc_macro:
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            artifacts = filter(None, [link.dwo_output_directory]),
+            artifacts = filter(None, [link_output.dwo_output_directory]),
             children = external_debug_info,
         )
         return RustLinkStrategyInfo(
-            rlib = link.output,
+            outputs = {m: x.output for m, x in outputs.items()},
             transitive_deps = tdeps,
-            rmeta = meta.output,
-            transitive_rmeta_deps = tmetadeps,
             transitive_proc_macro_deps = tprocmacrodeps,
-            pdb = link.pdb,
+            pdb = link_output.pdb,
             external_debug_info = external_debug_info,
         )
     else:
         # Proc macro deps are always the real thing
         return RustLinkStrategyInfo(
-            rlib = link.output,
+            outputs = {m: link_output.output for m in MetadataKind},
             transitive_deps = tdeps,
-            rmeta = link.output,
-            transitive_rmeta_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
-            pdb = link.pdb,
+            pdb = link_output.pdb,
             external_debug_info = ArtifactTSet(),
         )
 
 def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, (RustcOutput, RustcOutput)],
+        param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
         rustdoc: Artifact,
         rustdoc_test: cmd_args,
         doctests_enabled: bool,
@@ -503,7 +501,7 @@ def _default_providers(
     # determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
     # Do we want to do the same?
     for output_style in LibOutputStyle:
-        link, _ = param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]]
+        link = param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]][MetadataKind("link")]
         nested_sub_targets = {}
         if link.pdb:
             nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = link.output)
@@ -644,7 +642,7 @@ def _rust_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, (RustcOutput, RustcOutput)],
+        param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
         link_infos: dict[LibOutputStyle, LinkInfos]) -> RustLinkInfo:
     """
     Return the set of providers for Rust linkage.
@@ -657,8 +655,7 @@ def _rust_providers(
     strategy_info = {}
     for link_strategy in LinkStrategy:
         params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
-        link, meta = param_artifact[params]
-        strategy_info[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params.crate_type, link_strategy, link, meta)
+        strategy_info[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params.crate_type, link_strategy, param_artifact[params])
 
     merged_link_info, shared_libs, inherited_graphs, inherited_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx, compile_ctx.cxx_toolchain_info, link_infos, Linkage(ctx.attrs.preferred_linkage))
 
@@ -859,13 +856,11 @@ def _compute_transitive_deps(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         dep_link_strategy: LinkStrategy) -> (
-    dict[Artifact, CrateName],
-    dict[Artifact, CrateName],
+    dict[MetadataKind, dict[Artifact, CrateName]],
     list[ArtifactTSet],
     dict[RustProcMacroMarker, ()],
 ):
-    transitive_deps = {}
-    transitive_rmeta_deps = {}
+    transitive_deps = {m: {} for m in MetadataKind}
     external_debug_info = []
     transitive_proc_macro_deps = {}
 
@@ -876,17 +871,15 @@ def _compute_transitive_deps(
             # We don't want to propagate proc macros directly, and they have no transitive deps
             continue
         strategy = strategy_info(dep.info, dep_link_strategy)
-        transitive_deps[strategy.rlib] = dep.info.crate
-        transitive_deps.update(strategy.transitive_deps)
-
-        transitive_rmeta_deps[strategy.rmeta] = dep.info.crate
-        transitive_rmeta_deps.update(strategy.transitive_rmeta_deps)
+        for m in MetadataKind:
+            transitive_deps[m][strategy.outputs[m]] = dep.info.crate
+            transitive_deps[m].update(strategy.transitive_deps[m])
 
         external_debug_info.append(strategy.external_debug_info)
 
         transitive_proc_macro_deps.update(strategy.transitive_proc_macro_deps)
 
-    return transitive_deps, transitive_rmeta_deps, external_debug_info, transitive_proc_macro_deps
+    return transitive_deps, external_debug_info, transitive_proc_macro_deps
 
 def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable:
     def wrapper(**kwargs):
