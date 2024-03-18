@@ -56,7 +56,6 @@ load(
     "compile_context",
     "generate_rustdoc",
     "rust_compile",
-    "rust_compile_multi",
 )
 load(
     ":build_params.bzl",
@@ -82,7 +81,6 @@ load(":resources.bzl", "rust_attr_resources")
 _CompileOutputs = record(
     link = field(Artifact),
     args = field(ArgLike),
-    extra_targets = field(list[(str, Artifact)]),
     runtime_files = field(list[ArgLike]),
     external_debug_info = field(list[TransitiveSetArgsProjection]),
     sub_targets = field(dict[str, list[DefaultInfo]]),
@@ -115,6 +113,8 @@ def _rust_binary_common(
         resources = rust_attr_resources(ctx),
         deps = cxx_attr_deps(ctx),
     ).values())
+
+    extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
 
     for link_strategy in LinkStrategy:
         # Unlike for libraries, there's no possibility of different link styles
@@ -191,15 +191,11 @@ def _rust_binary_common(
             shared_libs,
         )
 
-        extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
-
         # Compile rust binary.
-        link, meta = rust_compile_multi(
+        link = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            # Use metadata-full to ensure that we share dependencies with the
-            # link variant
-            emits = [Emit("link"), Emit("metadata-full")],
+            emit = Emit("link"),
             params = params,
             default_roots = default_roots,
             extra_link_args = executable_args.extra_link_args,
@@ -211,7 +207,6 @@ def _rust_binary_common(
         )
 
         args = cmd_args(link.output).hidden(executable_args.runtime_files)
-        extra_targets = output_as_diag_subtargets(meta).items()
         external_debug_info = project_artifacts(
             actions = ctx.actions,
             tsets = [inherited_external_debug_info(
@@ -287,7 +282,6 @@ def _rust_binary_common(
         styles[link_strategy] = _CompileOutputs(
             link = link.output,
             args = args,
-            extra_targets = extra_targets,
             runtime_files = runtime_files,
             external_debug_info = executable_args.external_debug_info + external_debug_info,
             sub_targets = sub_targets_for_link_strategy,
@@ -302,6 +296,22 @@ def _rust_binary_common(
         if link_strategy == specified_link_strategy and link.pdb:
             pdb = link.pdb
 
+    # FIXME(JakobDegen): It's a bit weird that this uses the specified link
+    # strategy but rustdoc and expand use the default link strategy. Figure out
+    # what's going on there.
+    meta_full = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        # Use metadata-full to ensure that we share dependencies with the link
+        # variant
+        emit = Emit("metadata-full"),
+        params = strategy_param[specified_link_strategy],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+    )
+
+    extra_meta_targets = output_as_diag_subtargets(meta_full).items()
+
     expand = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -312,7 +322,7 @@ def _rust_binary_common(
     )
 
     compiled_outputs = styles[specified_link_strategy]
-    extra_compiled_targets = (compiled_outputs.extra_targets + [
+    extra_compiled_targets = (extra_meta_targets + [
         ("doc", generate_rustdoc(
             ctx = ctx,
             compile_ctx = compile_ctx,

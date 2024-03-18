@@ -216,19 +216,18 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     rust_param_artifact = {}
     native_param_artifact = {}
-    check_artifacts = None
 
     for params, outputs in artifacts.items():
         if LinkageLang("rust") in param_lang[params]:
-            # Grab the check output for all kinds of builds to use
-            # in the check subtarget. The link style doesn't matter
-            # so pick the first.
-            if check_artifacts == None:
-                check_artifacts = output_as_diag_subtargets(outputs[MetadataKind("full")])
-
             rust_param_artifact[params] = outputs
         if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
             native_param_artifact[params] = outputs[MetadataKind("link")]
+
+    # Grab the artifacts to use for the check subtargets. Picking a good
+    # `LibOutputStyle` ensures that the subtarget shares work with the main
+    # build if possible
+    check_params = lang_style_param[(LinkageLang("rust"), LibOutputStyle("archive"))]
+    check_artifacts = output_as_diag_subtargets(artifacts[check_params][MetadataKind("full")])
 
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
