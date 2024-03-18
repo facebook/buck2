@@ -417,17 +417,18 @@ def _build_library_artifacts(
         # Separate actions for each emit type
         #
         # In principle we don't really need metadata for C++-only artifacts, but I don't think it hurts
-        link, meta = rust_compile_multi(
+        link, meta_full, meta_fast = rust_compile_multi(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emits = [Emit("link"), Emit("metadata-full")],
+            emits = [Emit("link"), Emit("metadata-full"), Emit("metadata-fast")],
             params = params,
             default_roots = ["lib.rs"],
         )
 
         param_artifact[params] = {
             MetadataKind("link"): link,
-            MetadataKind("full"): meta,
+            MetadataKind("full"): meta_full,
+            MetadataKind("fast"): meta_fast,
         }
 
     return param_artifact

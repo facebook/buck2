@@ -81,6 +81,7 @@ Emit = enum(
 # dependencies. Each one corresponds to an `Emit` variant, but not all `Emit`
 # variants output metadata
 MetadataKind = enum(
+    "fast",
     "full",
     "link",
 )
@@ -89,6 +90,8 @@ MetadataKind = enum(
 def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
     if emit.value in ("asm", "llvm-bc", "llvm-ir", "obj", "link", "mir"):
         return MetadataKind("link")
+    elif emit.value == "metadata-fast":
+        return MetadataKind("fast")
     else:
         return MetadataKind("full")
 
