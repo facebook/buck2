@@ -109,7 +109,7 @@ load_test_info(TestInfoFile) ->
         common_app_env = CommonAppEnv
     }.
 
--spec parse_mfa(string()) -> {ok, artifact_annotations:annotation_function()} | {error, term()}.
+-spec parse_mfa(string()) -> artifact_annotations:annotation_function() | {error, term()}.
 parse_mfa(MFA) ->
     case erl_scan:string(MFA) of
         {ok,
