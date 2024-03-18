@@ -770,7 +770,7 @@ def dependency_args(
         for marker in strategy.transitive_proc_macro_deps.keys():
             info = available_proc_macros[marker.label][RustLinkInfo]
             strategy = strategy_info(info, dep_link_strategy)
-            transitive_deps[strategy.rmeta if use_rmeta else strategy.rlib] = info.crate
+            transitive_deps[strategy.rlib] = info.crate
 
         args.add(extern_arg(dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
