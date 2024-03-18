@@ -10,7 +10,7 @@ load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignType")
-load(":apple_entitlements.bzl", "get_entitlements_codesign_args")
+load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
 load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
@@ -55,13 +55,13 @@ def assemble_bundle(
     Returns extra subtargets related to bundling.
     """
     all_parts = parts + [info_plist_part] if info_plist_part else []
-    spec_file = _bundle_spec_json(ctx, all_parts)
+    codesign_type = _detect_codesign_type(ctx, skip_adhoc_signing)
+    spec_file = _bundle_spec_json(ctx, all_parts, codesign_type)
 
     tools = ctx.attrs._apple_tools[AppleToolsInfo]
     tool = tools.assemble_bundle
 
     codesign_args = []
-    codesign_type = _detect_codesign_type(ctx, skip_adhoc_signing)
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
     if ctx.attrs._dry_run_code_signing:
@@ -222,8 +222,9 @@ def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: 
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
-def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart]) -> Artifact:
+def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart], codesign_type: CodeSignType) -> Artifact:
     specs = []
+    include_entitlements = should_include_entitlements(ctx, codesign_type)
 
     for part in parts:
         part_spec = {
@@ -232,6 +233,8 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart]) -> Art
         }
         if part.codesign_on_copy:
             part_spec["codesign_on_copy"] = True
+            if include_entitlements and part.codesign_entitlements:
+                part_spec["codesign_entitlements"] = part.codesign_entitlements
         specs.append(part_spec)
 
     return ctx.actions.write_json("bundle_spec.json", specs)
