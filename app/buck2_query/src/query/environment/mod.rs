@@ -352,6 +352,11 @@ pub trait QueryEnvironment: Send + Sync {
     }
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>>;
+
+    async fn targets_in_buildfile(
+        &self,
+        paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Self::Target>>;
 }
 
 pub async fn deps<Env: QueryEnvironment + ?Sized>(

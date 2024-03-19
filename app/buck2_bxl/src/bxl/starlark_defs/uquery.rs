@@ -410,6 +410,35 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    /// Given a set of buildfiles, return all targets within those buildfiles.
+    ///
+    /// Usage:
+    /// ```text
+    /// def _targets_in_buildfile_impl(ctx):
+    ///     targets = ctx.uquery().targets_in_buildfile("bin/TARGETS.fixture")
+    ///     ctx.output.print(targets)
+    /// ```
+    ///
+    /// This is subject to be removed in future in favor of a more general `targets_in_packages`.
+    fn targets_in_buildfile<'v>(
+        this: &StarlarkUQueryCtx,
+        files: FileSetExpr,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx
+            .via_dice(|dice, ctx| {
+                dice.via(|dice| {
+                    async {
+                        get_uquery_env(ctx)
+                            .await?
+                            .targets_in_buildfile(dice, (files.get(&this.ctx.data).await?).as_ref())
+                            .await
+                    }
+                    .boxed_local()
+                })
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     /// The attrregexfilter query for rule attribute filtering with regex.
     ///
     /// Sample usage:

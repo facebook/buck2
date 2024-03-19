@@ -164,6 +164,13 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         Err(QueryError::NotAvailableInContext("owner").into())
     }
+
+    async fn targets_in_buildfile(
+        &self,
+        _paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        Err(QueryError::NotAvailableInContext("targets_in_buildfile").into())
+    }
 }
 
 struct AqueryNodeLookup<'a, 'c> {

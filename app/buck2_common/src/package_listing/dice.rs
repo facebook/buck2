@@ -79,7 +79,7 @@ pub struct DicePackageListingResolver<'compute, 'dice>(pub &'compute mut DiceCom
 #[async_trait]
 impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
     async fn resolve(&mut self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
-        self.0.compute(&PackageListingKey(package.dupe())).await?
+        self.0.compute(&PackageListingKey(package)).await?
     }
 
     async fn get_enclosing_package(

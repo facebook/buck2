@@ -175,6 +175,21 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         })
         .await
     }
+    async fn targets_in_buildfile(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        file_set: &FileSet,
+    ) -> anyhow::Result<TargetSet<TargetNode>> {
+        dice.with_linear_recompute(|dice| async move {
+            uquery_functions()
+                .targets_in_buildfile(
+                    &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
+                    file_set,
+                )
+                .await
+        })
+        .await
+    }
 }
 
 pub(crate) fn init_new_bxl_uquery_functions() {

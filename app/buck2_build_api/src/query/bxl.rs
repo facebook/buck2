@@ -112,6 +112,11 @@ pub trait BxlUqueryFunctions: Send {
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
+    async fn targets_in_buildfile(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        file_set: &FileSet,
+    ) -> anyhow::Result<TargetSet<TargetNode>>;
 }
 
 #[async_trait]

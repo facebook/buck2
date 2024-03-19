@@ -161,6 +161,13 @@ impl QueryEnvironment for Env {
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         unimplemented!()
     }
+
+    async fn targets_in_buildfile(
+        &self,
+        _paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        unimplemented!()
+    }
 }
 
 #[tokio::test]

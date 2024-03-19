@@ -248,6 +248,13 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
         Err(QueryError::FunctionUnimplemented("owner").into())
     }
 
+    async fn targets_in_buildfile(
+        &self,
+        _paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        Err(QueryError::FunctionUnimplemented("targets_in_buildfile").into())
+    }
+
     async fn deps(
         &self,
         targets: &TargetSet<Self::Target>,

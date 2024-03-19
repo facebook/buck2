@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::package_listing::dice::DicePackageListingResolver;
+use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
@@ -44,6 +46,7 @@ use buck2_query::query::traversal::ChildVisitor;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
@@ -316,6 +319,53 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
                 warn!("No owner was found for {}", path);
             }
         }
+        Ok(result)
+    }
+
+    /// Finds all targets in some buildfiles.
+    ///
+    /// todo(dbarsky): instead of having this be a trait method, this should be implemented as a uquery-specific module
+    /// similar to [crate::aquery::functions::AqueryFunctions].
+    async fn targets_in_buildfile(
+        &self,
+        paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        let mut result: TargetSet<Self::Target> = TargetSet::new();
+
+        let compute = &mut self.delegate.ctx();
+        let mut resolver = DicePackageListingResolver(compute);
+
+        let mut buildfiles = vec![];
+        for path in paths.iter() {
+            let package_label = resolver.get_enclosing_package(path.as_ref()).await?;
+            let listing = resolver.resolve(package_label.dupe()).await?;
+
+            // the listing's buildfile is relative to the package (the BUCK/TARGETS file).
+            // this makes it actually relative to the cell.
+            let buildfile = package_label.as_cell_path().join(listing.buildfile());
+            if buildfile != *path {
+                // file is a not a buildfile.
+                continue;
+            }
+            buildfiles.push(package_label);
+        }
+
+        let mut evaluations = vec![];
+        for buildfile in buildfiles {
+            let fut = self.delegate.eval_build_file(buildfile);
+            evaluations.push(fut);
+        }
+
+        let targets = try_join_all(evaluations).await?;
+        for evaluation_result in targets {
+            result.extend(
+                evaluation_result
+                    .targets()
+                    .values()
+                    .map(|target_ref| target_ref.to_owned()),
+            );
+        }
+
         Ok(result)
     }
 }

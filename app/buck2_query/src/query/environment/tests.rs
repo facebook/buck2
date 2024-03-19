@@ -189,6 +189,13 @@ impl QueryEnvironment for TestEnv {
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         unimplemented!()
     }
+
+    async fn targets_in_buildfile(
+        &self,
+        _paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        unimplemented!()
+    }
 }
 
 impl TestEnv {

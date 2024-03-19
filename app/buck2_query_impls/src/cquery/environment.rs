@@ -27,6 +27,7 @@ use buck2_query::query::environment::QueryEnvironmentAsNodeLookup;
 use buck2_query::query::environment::TraversalFilter;
 use buck2_query::query::graph::dfs::dfs_postorder;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
@@ -275,6 +276,13 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
             result.extend(owners);
         }
         Ok(result)
+    }
+
+    async fn targets_in_buildfile(
+        &self,
+        _paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        Err(QueryError::FunctionUnimplemented("targets_in_buildfile").into())
     }
 
     async fn deps(

@@ -370,6 +370,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self.implementation.owner(env, &files).await?.into())
     }
 
+    async fn targets_in_buildfile(&self, env: &Env, files: FileSet) -> QueryFuncResult<Env> {
+        Ok(self
+            .implementation
+            .targets_in_buildfile(env, &files)
+            .await?
+            .into())
+    }
+
     async fn rdeps(
         &self,
         env: &Env,
@@ -631,6 +639,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         files: &FileSet,
     ) -> anyhow::Result<TargetSet<Env::Target>> {
         env.owner(files).await
+    }
+
+    pub async fn targets_in_buildfile(
+        &self,
+        env: &Env,
+        paths: &FileSet,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        env.targets_in_buildfile(paths).await
     }
 
     pub async fn rdeps(
