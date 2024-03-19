@@ -183,11 +183,10 @@ class CodesignConfiguration(str, Enum):
 
 
 def codesign_bundle(
-    bundle_path: Path,
+    bundle_path: CodesignedPath,
     signing_context: Union[AdhocSigningContext, SigningContextWithProfileSelection],
-    entitlements_path: Optional[Path],
     platform: ApplePlatform,
-    codesign_on_copy_paths: List[str],
+    codesign_on_copy_paths: List[CodesignedPath],
     codesign_args: List[str],
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
@@ -203,12 +202,13 @@ def codesign_bundle(
             )
 
         if selection_profile_context:
-            prepared_entitlements_path = _prepare_entitlements_and_info_plist(
-                bundle_path=bundle_path,
-                entitlements_path=entitlements_path,
-                platform=platform,
-                signing_context=selection_profile_context,
-                tmp_dir=tmp_dir,
+            bundle_path_with_prepared_entitlements = (
+                _prepare_entitlements_and_info_plist(
+                    bundle_path=bundle_path,
+                    platform=platform,
+                    signing_context=selection_profile_context,
+                    tmp_dir=tmp_dir,
+                )
             )
             selected_identity_fingerprint = (
                 selection_profile_context.selected_profile_info.identity.fingerprint
@@ -222,14 +222,8 @@ def codesign_bundle(
                 raise AssertionError(
                     "Expected no profile selection context in `AdhocSigningContext` when `selection_profile_context` is `None`."
                 )
-            prepared_entitlements_path = entitlements_path
+            bundle_path_with_prepared_entitlements = bundle_path
             selected_identity_fingerprint = signing_context.codesign_identity
-
-        root = CodesignedPath(path=bundle_path, entitlements=prepared_entitlements_path)
-        codesigned_on_copy = [
-            CodesignedPath(path=bundle_path / path, entitlements=None)
-            for path in codesign_on_copy_paths
-        ]
 
         if codesign_configuration is CodesignConfiguration.dryRun:
             if codesign_tool is None:
@@ -237,8 +231,8 @@ def codesign_bundle(
                     "Expected codesign tool not to be the default one when dry run codesigning is requested."
                 )
             _dry_codesign_everything(
-                root=root,
-                codesign_on_copy_paths=codesigned_on_copy,
+                root=bundle_path_with_prepared_entitlements,
+                codesign_on_copy_paths=codesign_on_copy_paths,
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_tool=codesign_tool,
@@ -252,8 +246,8 @@ def codesign_bundle(
             )
             _LOGGER.info(f"Fast adhoc signing enabled: {fast_adhoc_signing_enabled}")
             _codesign_everything(
-                root=root,
-                codesign_on_copy_paths=codesigned_on_copy,
+                root=bundle_path_with_prepared_entitlements,
+                codesign_on_copy_paths=codesign_on_copy_paths,
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_command_factory=DefaultCodesignCommandFactory(codesign_tool),
@@ -264,16 +258,15 @@ def codesign_bundle(
 
 
 def _prepare_entitlements_and_info_plist(
-    bundle_path: Path,
-    entitlements_path: Optional[Path],
+    bundle_path: CodesignedPath,
     platform: ApplePlatform,
     signing_context: SigningContextWithProfileSelection,
     tmp_dir: str,
-) -> Path:
+) -> CodesignedPath:
     info_plist_metadata = signing_context.info_plist_metadata
     selected_profile = signing_context.selected_profile_info.profile
     prepared_entitlements_path = prepare_code_signing_entitlements(
-        entitlements_path,
+        bundle_path.entitlements,
         info_plist_metadata.bundle_id,
         selected_profile,
         tmp_dir,
@@ -286,13 +279,15 @@ def _prepare_entitlements_and_info_plist(
     )
     os.replace(
         prepared_info_plist_path,
-        bundle_path / signing_context.info_plist_destination,
+        bundle_path.path / signing_context.info_plist_destination,
     )
     shutil.copy2(
         selected_profile.file_path,
-        bundle_path / platform.embedded_provisioning_profile_path(),
+        bundle_path.path / platform.embedded_provisioning_profile_path(),
     )
-    return prepared_entitlements_path
+    return CodesignedPath(
+        path=bundle_path.path, entitlements=prepared_entitlements_path
+    )
 
 
 async def _fast_read_provisioning_profiles_async(
