@@ -216,9 +216,7 @@ def get_ignore_undefined_symbols_flags(linker_type: str) -> list[str]:
         args.append("-Wl,--allow-shlib-undefined")
         args.append("-Wl,--unresolved-symbols=ignore-all")
     elif linker_type == "darwin":
-        # dynamic_lookup is incompatible with fixup chains
         args.append("-Wl,-undefined,dynamic_lookup")
-        args.append("-Wl,-no_fixup_chains")
     else:
         fail("Linker type {} not supported".format(linker_type))
 
