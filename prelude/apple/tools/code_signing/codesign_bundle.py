@@ -247,12 +247,16 @@ def codesign_bundle(
             )
             _LOGGER.info(f"Fast adhoc signing enabled: {fast_adhoc_signing_enabled}")
             _codesign_everything(
-                bundle_path=bundle_path,
-                codesign_on_copy_paths=codesign_on_copy_paths,
+                root=CodesignedPath(
+                    path=bundle_path, entitlements=prepared_entitlements_path
+                ),
+                codesign_on_copy_paths=[
+                    CodesignedPath(path=bundle_path / path, entitlements=None)
+                    for path in codesign_on_copy_paths
+                ],
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_command_factory=DefaultCodesignCommandFactory(codesign_tool),
-                entitlements=prepared_entitlements_path,
                 platform=platform,
                 fast_adhoc_signing=fast_adhoc_signing_enabled,
                 codesign_args=codesign_args,
@@ -442,22 +446,18 @@ def _dry_codesign_everything(
 
 
 def _codesign_everything(
-    bundle_path: Path,
-    codesign_on_copy_paths: List[str],
+    root: CodesignedPath,
+    codesign_on_copy_paths: List[CodesignedPath],
     identity_fingerprint: str,
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
-    entitlements: Optional[Path],
     platform: ApplePlatform,
     fast_adhoc_signing: bool,
     codesign_args: List[str],
 ) -> None:
     # First sign codesign-on-copy paths
     codesign_on_copy_filtered_paths = _filter_out_fast_adhoc_paths(
-        paths=[
-            CodesignedPath(path=bundle_path / path, entitlements=None)
-            for path in codesign_on_copy_paths
-        ],
+        paths=codesign_on_copy_paths,
         identity_fingerprint=identity_fingerprint,
         platform=platform,
         fast_adhoc_signing=fast_adhoc_signing,
@@ -471,14 +471,14 @@ def _codesign_everything(
         codesign_args,
     )
     # Lastly sign whole bundle
-    root_bundle_paths = _filter_out_fast_adhoc_paths(
-        paths=[CodesignedPath(path=bundle_path, entitlements=entitlements)],
+    root_filtered_paths = _filter_out_fast_adhoc_paths(
+        paths=[root],
         identity_fingerprint=identity_fingerprint,
         platform=platform,
         fast_adhoc_signing=fast_adhoc_signing,
     )
     _codesign_paths(
-        root_bundle_paths,
+        root_filtered_paths,
         identity_fingerprint,
         tmp_dir,
         codesign_command_factory,
