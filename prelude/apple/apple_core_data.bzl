@@ -13,6 +13,7 @@ load(":resource_groups.bzl", "create_resource_graph")
 
 def apple_core_data_impl(ctx: AnalysisContext) -> list[Provider]:
     spec = AppleCoreDataSpec(
+        module = ctx.attrs.module,
         path = ctx.attrs.path,
     )
     graph = create_resource_graph(
@@ -64,7 +65,7 @@ def _get_momc_command(ctx: AnalysisContext, core_data_spec: AppleCoreDataSpec, p
         "--" + get_apple_sdk_name(ctx) + "-deployment-target",
         get_bundle_min_target_version(ctx, ctx.attrs.binary),
         "--module",
-        product_name,
+        core_data_spec.module if core_data_spec.module else product_name,
         core_data_spec.path,
         output_directory,
     ], delimiter = " ")

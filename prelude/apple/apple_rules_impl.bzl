@@ -224,6 +224,7 @@ extra_attributes = {
     "apple_universal_executable": _apple_universal_executable_extra_attrs(),
     "apple_xcuitest": apple_xcuitest_extra_attrs(),
     "core_data_model": {
+        "module": attrs.option(attrs.string(), default = None),
         "path": attrs.source(allow_directory = True),
     },
     "prebuilt_apple_framework": {

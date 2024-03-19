@@ -6,5 +6,6 @@
 # of this source tree.
 
 AppleCoreDataSpec = record(
+    module = field(str | None),
     path = field(Artifact),
 )
