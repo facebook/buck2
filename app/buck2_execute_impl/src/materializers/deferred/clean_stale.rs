@@ -16,12 +16,10 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
 use chrono::Utc;
@@ -153,7 +151,7 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
         };
 
         StaleFinder {
-            fs: io.fs(),
+            io: io.dupe(),
             dispatcher,
             keep_since_time,
             stats: &mut stats,
@@ -201,12 +199,11 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
 
             // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
             // do this to get parallelism.
-            futures::future::try_join_all(paths_to_remove.into_iter().map(|path| {
-                io.io_executor().execute_io(
-                    Box::new(CleanOutputPaths { paths: vec![path] }),
-                    cancellations,
-                )
-            }))
+            futures::future::try_join_all(
+                paths_to_remove
+                    .into_iter()
+                    .map(|path| io.clean_invalidated_path(path, cancellations)),
+            )
             .await?;
 
             anyhow::Ok(())
@@ -236,8 +233,8 @@ pub fn get_size(path: &AbsNormPath) -> anyhow::Result<u64> {
     Ok(result)
 }
 
-struct StaleFinder<'a> {
-    fs: &'a ProjectRoot,
+struct StaleFinder<'a, T: IoHandler> {
+    io: Arc<T>,
     dispatcher: &'a EventDispatcher,
     keep_since_time: DateTime<Utc>,
     stats: &'a mut buck2_data::CleanStaleStats,
@@ -247,7 +244,7 @@ struct StaleFinder<'a> {
     paths_to_invalidate: &'a mut Vec<ProjectRelativePathBuf>,
 }
 
-impl<'a> StaleFinder<'a> {
+impl<'a, T: IoHandler> StaleFinder<'a, T> {
     /// Start from `path` and `subtree` and visit everything below.
     fn visit_recursively<'t>(
         &mut self,
@@ -273,9 +270,9 @@ impl<'a> StaleFinder<'a> {
             &'t HashMap<FileNameBuf, ArtifactTree>,
         )>,
     ) -> anyhow::Result<()> {
-        let abs_path = self.fs.resolve(path);
+        let abs_path = self.io.fs().resolve(path);
 
-        for child in fs_util::read_dir(&abs_path)? {
+        for child in self.io.read_dir(&abs_path)? {
             let child = child?;
 
             let file_name = child.file_name();

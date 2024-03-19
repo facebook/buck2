@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use buck2_common::file_ops::FileMetadata;
+use buck2_core::fs::fs_util::IoError;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -91,6 +92,9 @@ mod state_machine {
 
     use anyhow::Context;
     use assert_matches::assert_matches;
+    use buck2_core::fs::fs_util;
+    use buck2_core::fs::fs_util::ReadDir;
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
@@ -153,6 +157,13 @@ mod state_machine {
             unimplemented!()
         }
 
+        async fn immediate_write<'a>(
+            self: &Arc<Self>,
+            _gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+        ) -> anyhow::Result<Vec<ArtifactValue>> {
+            unimplemented!()
+        }
+
         fn clean_path<'a>(
             self: &Arc<Self>,
             path: ProjectRelativePathBuf,
@@ -173,6 +184,14 @@ mod state_machine {
                 Ok(())
             }
             .boxed()
+        }
+
+        async fn clean_invalidated_path<'a>(
+            self: &Arc<Self>,
+            _path: ProjectRelativePathBuf,
+            _cancellations: &'a CancellationContext,
+        ) -> anyhow::Result<()> {
+            Ok(())
         }
 
         async fn materialize_entry(
@@ -208,11 +227,11 @@ mod state_machine {
             unimplemented!()
         }
 
-        fn buck_out_path(&self) -> &ProjectRelativePathBuf {
-            unimplemented!()
+        fn read_dir(&self, path: &AbsNormPathBuf) -> Result<ReadDir, IoError> {
+            fs_util::read_dir(path)
         }
 
-        fn io_executor(&self) -> &dyn BlockingExecutor {
+        fn buck_out_path(&self) -> &ProjectRelativePathBuf {
             unimplemented!()
         }
 

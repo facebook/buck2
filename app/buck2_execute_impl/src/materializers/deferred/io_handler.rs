@@ -19,9 +19,14 @@ use buck2_common::file_ops::FileDigest;
 use buck2_core::buck2_env;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::fs_util::IoError;
+use buck2_core::fs::fs_util::ReadDir;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
@@ -31,7 +36,9 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
+use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::http::http_download;
+use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_futures::cancellation::CancellationContext;
@@ -62,6 +69,7 @@ use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::Version;
 use crate::materializers::deferred::WriteFile;
+use crate::materializers::immediate;
 use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
 
@@ -92,6 +100,11 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         cancellations: &'a CancellationContext<'a>,
     ) -> BoxFuture<'a, Result<(), SharedMaterializingError>>;
 
+    async fn immediate_write<'a>(
+        self: &Arc<Self>,
+        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> anyhow::Result<Vec<ArtifactValue>>;
+
     fn clean_path<'a>(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
@@ -99,6 +112,12 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         command_sender: MaterializerSender<Self>,
         cancellations: &'a CancellationContext,
     ) -> BoxFuture<'a, Result<(), buck2_error::Error>>;
+
+    async fn clean_invalidated_path<'a>(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        cancellations: &'a CancellationContext,
+    ) -> anyhow::Result<()>;
 
     async fn materialize_entry(
         self: &Arc<Self>,
@@ -115,8 +134,8 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         min_ttl: Duration,
     ) -> Option<BoxFuture<'static, anyhow::Result<()>>>;
 
+    fn read_dir(&self, path: &AbsNormPathBuf) -> Result<ReadDir, IoError>;
     fn buck_out_path(&self) -> &ProjectRelativePathBuf;
-    fn io_executor(&self) -> &dyn BlockingExecutor;
     fn re_client_manager(&self) -> &Arc<ReConnectionManager>;
     fn fs(&self) -> &ProjectRoot;
     fn digest_config(&self) -> DigestConfig;
@@ -316,6 +335,19 @@ impl IoHandler for DefaultIoHandler {
             .boxed()
     }
 
+    async fn immediate_write<'a>(
+        self: &Arc<Self>,
+        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> anyhow::Result<Vec<ArtifactValue>> {
+        immediate::write_to_disk(
+            self.fs(),
+            self.io_executor.as_ref(),
+            self.digest_config(),
+            gen,
+        )
+        .await
+    }
+
     fn clean_path<'a>(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
@@ -334,6 +366,20 @@ impl IoHandler for DefaultIoHandler {
             )
             .map(|r| r.map_err(buck2_error::Error::from))
             .boxed()
+    }
+
+    /// Used to clean paths that are already invalidated and don't need to notify the materializer
+    async fn clean_invalidated_path<'a>(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        cancellations: &'a CancellationContext,
+    ) -> anyhow::Result<()> {
+        self.io_executor
+            .execute_io(
+                Box::new(CleanOutputPaths { paths: vec![path] }),
+                cancellations,
+            )
+            .await
     }
 
     /// Materializes an `entry` at `path`, using the materialization `method`
@@ -392,12 +438,12 @@ impl IoHandler for DefaultIoHandler {
             .map(|f| f.boxed())
     }
 
-    fn buck_out_path(&self) -> &ProjectRelativePathBuf {
-        &self.buck_out_path
+    fn read_dir(&self, path: &AbsNormPathBuf) -> Result<ReadDir, IoError> {
+        fs_util::read_dir(path)
     }
 
-    fn io_executor(&self) -> &dyn BlockingExecutor {
-        self.io_executor.as_ref()
+    fn buck_out_path(&self) -> &ProjectRelativePathBuf {
+        &self.buck_out_path
     }
 
     fn re_client_manager(&self) -> &Arc<ReConnectionManager> {

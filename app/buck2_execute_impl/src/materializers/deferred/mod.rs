@@ -104,7 +104,6 @@ use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptions;
-use crate::materializers::immediate;
 use crate::materializers::sqlite::MaterializerState;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
@@ -797,13 +796,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> anyhow::Result<Vec<ArtifactValue>> {
         if !self.defer_write_actions {
-            return immediate::write_to_disk(
-                self.io.fs(),
-                self.io.io_executor(),
-                self.io.digest_config(),
-                gen,
-            )
-            .await;
+            return self.io.immediate_write(gen).await;
         }
 
         let contents = gen()?;
