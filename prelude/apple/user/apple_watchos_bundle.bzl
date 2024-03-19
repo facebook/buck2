@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_bundle.bzl", "apple_bundle_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs")
-load("@prelude//apple:resource_groups.bzl", "INLINED_RESOURCE_GROUP_MAP_ATTR")
+load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//decls/ios_rules.bzl", "AppleBundleExtension")
 load(":watch_transition.bzl", "watch_transition")
@@ -34,7 +34,7 @@ def _apple_bundle_base_attrs():
         "platform_binary": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.dep())), default = None),
         "product_name": attrs.option(attrs.string(), default = None),
         "resource_group": attrs.option(attrs.string(), default = None),
-        "resource_group_map": attrs.option(INLINED_RESOURCE_GROUP_MAP_ATTR, default = None),
+        "resource_group_map": attrs.option(RESOURCE_GROUP_MAP_ATTR, default = None),
         "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
         "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
         "xcode_product_type": attrs.option(attrs.string(), default = None),
