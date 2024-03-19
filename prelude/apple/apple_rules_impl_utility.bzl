@@ -105,7 +105,6 @@ def apple_test_extra_attrs():
         "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
         "stripped": attrs.bool(default = False),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
-        "use_m1_simulator": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_ios_booted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
         "_ios_unbooted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),

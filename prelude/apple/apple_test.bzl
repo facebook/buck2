@@ -206,10 +206,10 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
 
     else:
         # @oss-disable: requires_ios_booted_simulator = ctx.attrs.test_host_app != None or ctx.attrs.ui_test_target_app != None 
-        # @oss-disable: remote_execution_properties = ios_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator, use_m1_simulator = ctx.attrs.use_m1_simulator) 
+        # @oss-disable: remote_execution_properties = ios_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator) 
         remote_execution_properties = None # @oss-enable
 
-    # @oss-disable: remote_execution_use_case = apple_test_re_use_case(macos_test = sdk_name == MacOSXSdkMetadata.name, use_m1_simulator = ctx.attrs.use_m1_simulator) 
+    # @oss-disable: remote_execution_use_case = apple_test_re_use_case(macos_test = sdk_name == MacOSXSdkMetadata.name) 
 
     remote_execution_use_case = None # @oss-enable
     local_enabled = remote_execution_use_case == None
