@@ -366,8 +366,7 @@ def cxx_dist_link(
             index_cmd = index_cmd_parts.link_cmd
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
 
-            output_as_string = cmd_args(output)
-            output_as_string.ignore_artifacts()
+            output_as_string = cmd_args(output, ignore_artifacts = True)
             index_cmd.add("-o", output_as_string)
             index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
             index_cmd.add("-Wl,--thinlto-emit-imports-files")

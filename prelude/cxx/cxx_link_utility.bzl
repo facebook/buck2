@@ -178,7 +178,8 @@ def cxx_sanitizer_runtime_arguments(
         fail("C++ sanitizer runtime enabled but there are no runtime files")
 
     if linker_info.type == "darwin":
-        runtime_rpath = cmd_args()
+        # ignore_artifacts as the runtime directory is not required at _link_ time
+        runtime_rpath = cmd_args(ignore_artifacts = True)
         runtime_files = linker_info.sanitizer_runtime_files
         for runtime_shared_lib in runtime_files:
             # Rpath-relative dylibs have an install name of `@rpath/libName.dylib`,
@@ -191,8 +192,6 @@ def cxx_sanitizer_runtime_arguments(
             runtime_shared_lib_rpath = cmd_args(runtime_shared_lib_dir, format = "-Wl,-rpath,@executable_path/{}").relative_to(output, parent = 1)
             runtime_rpath.add(runtime_shared_lib_rpath)
 
-        # Ignore_artifacts() as the runtime directory is not required at _link_ time
-        runtime_rpath = runtime_rpath.ignore_artifacts()
         return CxxSanitizerRuntimeArguments(
             extra_link_args = [
                 runtime_rpath,
@@ -245,8 +244,8 @@ def executable_shared_lib_arguments(
             runtime_files.append(shared_libs_symlink_tree)
             rpath_reference = get_rpath_origin(linker_type)
 
-            # We ignore_artifacts() here since we don't want the symlink tree to actually be there for the link.
-            rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference)).relative_to(output, parent = 1).ignore_artifacts()
+            # We ignore_artifacts here since we don't want the symlink tree to actually be there for the link.
+            rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference), ignore_artifacts = True).relative_to(output, parent = 1)
             extra_link_args.append(rpath_arg)
 
     return ExecutableSharedLibArguments(

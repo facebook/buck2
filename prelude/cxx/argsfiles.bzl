@@ -35,7 +35,7 @@ def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, Compil
     dependent_outputs = []
     for _, argsfile in argsfile_by_ext.items():
         argsfiles.append(argsfile.file)
-        argsfile_names.add(cmd_args(argsfile.file).ignore_artifacts())
+        argsfile_names.add(cmd_args(argsfile.file, ignore_artifacts = True))
         dependent_outputs.extend(argsfile.input_args)
 
     argsfiles_summary = ctx.actions.write(summary_name, argsfile_names)
