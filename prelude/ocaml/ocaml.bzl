@@ -321,7 +321,7 @@ def _preprocess(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMod
             parser_sig = ctx.actions.declare_output(name + ".mli")
             result.extend((parser_sig, parser))
 
-            cmd = cmd_args([menhir, "--fixed-exception", "-b", cmd_args(prefix).ignore_artifacts(), src])
+            cmd = cmd_args([menhir, "--fixed-exception", "-b", cmd_args(prefix, ignore_artifacts = True), src])
             cmd.hidden(parser.as_output(), parser_sig.as_output())
             ctx.actions.run(cmd, category = "ocaml_yacc_" + build_mode.value, identifier = src.short_path)
 
