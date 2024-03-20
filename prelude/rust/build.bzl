@@ -64,7 +64,6 @@ load(
 load(":extern.bzl", "crate_map_arg", "extern_arg")
 load(
     ":failure_filter.bzl",
-    "RustFailureFilter",
     "failure_filter",
 )
 load(
@@ -587,18 +586,14 @@ def rust_compile(
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
         # asked for explicitly).
-        filter_prov = RustFailureFilter(
-            buildstatus = build_status,
-            required = emit_op.output,
-            stderr = diag_txt,
-        )
-
         filtered_output = failure_filter(
             ctx = ctx,
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, emit.value),
             predecl_out = predeclared_outputs.get(emit),
-            failprov = filter_prov,
+            build_status = build_status,
+            required = emit_op.output,
+            stderr = diag_txt,
             short_cmd = common_args.short_cmd,
         )
     else:

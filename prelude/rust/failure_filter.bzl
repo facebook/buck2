@@ -7,16 +7,6 @@
 
 load(":context.bzl", "CompileContext")
 
-# Inputs to the fail filter
-RustFailureFilter = provider(fields = {
-    # Build status json
-    "buildstatus": typing.Any,
-    # Required files
-    "required": typing.Any,
-    # stderr
-    "stderr": typing.Any,
-})
-
 # This creates an action which takes a buildstatus json artifact as an input, and a list of other
 # artifacts. If all those artifacts are present in the buildstatus as successfully generated, then
 # the action will succeed with those artifacts as outputs. Otherwise it fails.
@@ -26,14 +16,12 @@ def failure_filter(
         compile_ctx: CompileContext,
         prefix: str,
         predecl_out: [Artifact, None],
-        failprov: RustFailureFilter,
+        build_status: Artifact,
+        required: Artifact,
+        stderr: Artifact,
         short_cmd: str) -> Artifact:
     toolchain_info = compile_ctx.toolchain_info
     failure_filter_action = toolchain_info.failure_filter_action
-
-    buildstatus = failprov.buildstatus
-    required = failprov.required
-    stderr = failprov.stderr
 
     if predecl_out:
         output = predecl_out
@@ -49,7 +37,7 @@ def failure_filter(
         required,
         output.as_output(),
         "--build-status",
-        buildstatus,
+        build_status,
     )
 
     ctx.actions.run(cmd, category = "failure_filter", identifier = "{} {}".format(prefix, short_cmd))
