@@ -230,9 +230,9 @@ fn golden_docs_starlark() {
 }
 
 #[test]
-fn golden_docs_module() {
+fn native_docs_module() {
     let res = docs_golden_test(
-        "module.golden.md",
+        "native.golden.md",
         DocItem::Module(GlobalsBuilder::new().with(module).build().documentation()),
     );
     assert!(!res.contains("starlark::assert::all_true"));
