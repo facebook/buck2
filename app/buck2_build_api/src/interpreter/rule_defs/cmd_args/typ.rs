@@ -554,7 +554,7 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 
     fn try_from_values_with_options(
-        value: &[Value<'v>],
+        value: Vec<StarlarkCommandLineValueUnpack<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
@@ -576,7 +576,7 @@ impl<'v> StarlarkCmdArgs<'v> {
             opts.ignore_artifacts = ignore_artifacts;
         }
         for v in value {
-            builder.add_value(*v)?;
+            builder.add_value_typed(v)?;
         }
         Ok(Self(RefCell::new(builder)))
     }
@@ -591,7 +591,11 @@ enum StarlarkCommandLineValueUnpack<'v> {
 
 impl<'v> StarlarkCommandLineData<'v> {
     fn add_value(&mut self, value: Value<'v>) -> anyhow::Result<()> {
-        match StarlarkCommandLineValueUnpack::unpack_value_err(value)? {
+        self.add_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)
+    }
+
+    fn add_value_typed(&mut self, value: StarlarkCommandLineValueUnpack<'v>) -> anyhow::Result<()> {
+        match value {
             StarlarkCommandLineValueUnpack::List(values) => self.add_values(values.content())?,
             StarlarkCommandLineValueUnpack::CommandLineArg(value) => self.items.push(value),
         }
@@ -862,7 +866,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
     /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
     fn cmd_args<'v>(
-        #[starlark(args)] args: UnpackTuple<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
@@ -870,7 +874,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         #[starlark(default = false)] ignore_artifacts: bool,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         StarlarkCmdArgs::try_from_values_with_options(
-            &args.items,
+            args.items,
             delimiter,
             format,
             prepend,
