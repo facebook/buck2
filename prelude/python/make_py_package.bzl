@@ -369,7 +369,7 @@ def _pex_bootstrap_args(
     else:
         cmd.add(["--main-function", main[1]])
     if symlink_tree_path != None:
-        cmd.add(cmd_args(["--modules-dir", symlink_tree_path]).ignore_artifacts())
+        cmd.add(cmd_args(["--modules-dir", symlink_tree_path], ignore_artifacts = True))
 
     if toolchain.main_runner:
         cmd.add(["--main-runner", toolchain.main_runner])
