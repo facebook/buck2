@@ -225,23 +225,18 @@ def codesign_bundle(
             prepared_entitlements_path = entitlements_path
             selected_identity_fingerprint = signing_context.codesign_identity
 
-        root = CodesignedPath(path=bundle_path, entitlements=prepared_entitlements_path)
-        codesigned_on_copy = [
-            CodesignedPath(path=bundle_path / path, entitlements=None)
-            for path in codesign_on_copy_paths
-        ]
-
         if codesign_configuration is CodesignConfiguration.dryRun:
             if codesign_tool is None:
                 raise RuntimeError(
                     "Expected codesign tool not to be the default one when dry run codesigning is requested."
                 )
             _dry_codesign_everything(
-                root=root,
-                codesign_on_copy_paths=codesigned_on_copy,
+                bundle_path=bundle_path,
+                codesign_on_copy_paths=codesign_on_copy_paths,
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_tool=codesign_tool,
+                entitlements=prepared_entitlements_path,
                 platform=platform,
                 codesign_args=codesign_args,
             )
@@ -252,8 +247,13 @@ def codesign_bundle(
             )
             _LOGGER.info(f"Fast adhoc signing enabled: {fast_adhoc_signing_enabled}")
             _codesign_everything(
-                root=root,
-                codesign_on_copy_paths=codesigned_on_copy,
+                root=CodesignedPath(
+                    path=bundle_path, entitlements=prepared_entitlements_path
+                ),
+                codesign_on_copy_paths=[
+                    CodesignedPath(path=bundle_path / path, entitlements=None)
+                    for path in codesign_on_copy_paths
+                ],
                 identity_fingerprint=selected_identity_fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_command_factory=DefaultCodesignCommandFactory(codesign_tool),
@@ -396,23 +396,28 @@ def _read_entitlements_file(path: Optional[Path]) -> Optional[Dict[str, Any]]:
 
 
 def _dry_codesign_everything(
-    root: CodesignedPath,
-    codesign_on_copy_paths: List[CodesignedPath],
+    bundle_path: Path,
+    codesign_on_copy_paths: List[str],
     identity_fingerprint: str,
     tmp_dir: str,
     codesign_tool: Path,
+    entitlements: Optional[Path],
     platform: ApplePlatform,
     codesign_args: List[str],
 ) -> None:
     codesign_command_factory = DryRunCodesignCommandFactory(codesign_tool)
 
+    codesign_on_copy_abs_paths = [bundle_path / path for path in codesign_on_copy_paths]
     codesign_on_copy_directory_paths = [
-        p for p in codesign_on_copy_paths if p.path.is_dir()
+        p for p in codesign_on_copy_abs_paths if p.is_dir()
     ]
 
     # First sign codesign-on-copy directory paths
     _codesign_paths(
-        paths=codesign_on_copy_directory_paths,
+        paths=[
+            CodesignedPath(path=p, entitlements=None)
+            for p in codesign_on_copy_directory_paths
+        ],
         identity_fingerprint=identity_fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
@@ -423,9 +428,7 @@ def _dry_codesign_everything(
     # Dry codesigning creates a .plist inside every directory it signs.
     # That approach doesn't work for files so those files are written into .plist for root bundle.
     codesign_on_copy_file_paths = [
-        p.path.relative_to(root.path)
-        for p in codesign_on_copy_paths
-        if p.path.is_file()
+        p.relative_to(bundle_path) for p in codesign_on_copy_abs_paths if p.is_file()
     ]
     codesign_command_factory.set_codesign_on_copy_file_paths(
         codesign_on_copy_file_paths
@@ -433,7 +436,7 @@ def _dry_codesign_everything(
 
     # Lastly sign whole bundle
     _codesign_paths(
-        paths=[root],
+        paths=[CodesignedPath(path=bundle_path, entitlements=entitlements)],
         identity_fingerprint=identity_fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
