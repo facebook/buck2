@@ -14,6 +14,8 @@ use dupe::Dupe;
 use serde::Serializer;
 use starlark::__derive_refs::serde::Serialize;
 use starlark::coerce::Coerce;
+use starlark::typing::Ty;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -61,20 +63,27 @@ impl<'v> Freeze for CommandLineArg<'v> {
     }
 }
 
+impl<'v> StarlarkTypeRepr for CommandLineArg<'v> {
+    fn starlark_type_repr() -> Ty {
+        ValueAsCommandLineLike::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for CommandLineArg<'v> {
+    fn expected() -> String {
+        ValueAsCommandLineLike::expected()
+    }
+
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        ValueAsCommandLineLike::unpack_value(value)?;
+        Some(CommandLineArg(value))
+    }
+}
+
 impl<'v> CommandLineArg<'v> {
     pub fn from_cmd_args(cmd_args: ValueTyped<'v, StarlarkCmdArgs<'v>>) -> Self {
         let _no_check_needed: &dyn CommandLineArgLike = cmd_args.as_ref();
         CommandLineArg(cmd_args.to_value())
-    }
-
-    pub fn from_value(value: Value<'v>) -> Option<Self> {
-        ValueAsCommandLineLike::unpack_value(value)?;
-        Some(Self(value))
-    }
-
-    pub(crate) fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
-        ValueAsCommandLineLike::unpack_value_err(value)?;
-        Ok(Self(value))
     }
 
     pub fn as_command_line_arg(self) -> &'v dyn CommandLineArgLike {

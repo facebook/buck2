@@ -587,7 +587,7 @@ impl<'v> StarlarkCommandLineData<'v> {
         if let Some(values) = ListRef::from_value(value) {
             self.add_values(values.content())?;
         } else {
-            self.items.push(CommandLineArg::try_from_value(value)?);
+            self.items.push(CommandLineArg::unpack_value_err(value)?);
         }
         Ok(())
     }
@@ -609,7 +609,7 @@ impl<'v> StarlarkCommandLineData<'v> {
             if let Some(values) = ListRef::from_value(*value) {
                 self.add_hidden(values.content())?;
             } else {
-                self.hidden.push(CommandLineArg::try_from_value(*value)?);
+                self.hidden.push(CommandLineArg::unpack_value_err(*value)?);
             }
         }
         Ok(())

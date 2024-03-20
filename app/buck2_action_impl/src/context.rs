@@ -407,7 +407,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
         let (content_cli, written_macro_count, mut associated_artifacts) =
-            if let Some(content) = CommandLineArg::from_value(content) {
+            if let Some(content) = CommandLineArg::unpack_value(content) {
                 let content_arg = content.as_command_line_arg();
                 let count = count_write_to_file_macros(allow_args, content_arg)?;
                 let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
