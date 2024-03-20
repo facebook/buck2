@@ -801,9 +801,8 @@ def dynamic_symlinked_dirs(
     # Pass the list of rlibs to transitive_dependency_symlinks.py through a file
     # because there can be a lot of them. This avoids running out of command
     # line length, particularly on Windows.
-    relative_path = lambda artifact: (cmd_args(artifact, delimiter = "")
-        .relative_to(transitive_dependency_dir.project("i"))
-        .ignore_artifacts())
+    relative_path = lambda artifact: (cmd_args(artifact, delimiter = "", ignore_artifacts = True)
+        .relative_to(transitive_dependency_dir.project("i")))
     artifacts_json = ctx.actions.write_json(
         ctx.actions.declare_output("{}-dyn.json".format(prefix)),
         [
