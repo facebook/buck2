@@ -9,6 +9,7 @@ load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary
 load("@prelude//android:android_library.bzl", "build_android_library")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo")
 load("@prelude//java:java_test.bzl", "build_junit_test")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect")
@@ -102,5 +103,12 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if ctx.attrs.used_as_dependency_deprecated_do_not_use:
         providers.append(java_providers.java_library_info)
+    else:
+        java_library_without_compiling_deps = JavaLibraryInfo(
+            compiling_deps = None,
+            library_output = java_providers.java_library_info.library_output,
+            output_for_classpath_macro = java_providers.java_library_info.output_for_classpath_macro,
+        )
+        providers.append(java_library_without_compiling_deps)
 
     return providers
