@@ -254,12 +254,12 @@ fn command_line_builder() -> buck2_error::Result<()> {
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_1),
         content_invalid_type_1,
-        "value implementing CommandLineArgLike",
+        "Expected `artifact | cell_root",
     );
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_3),
         content_invalid_type_3,
-        "value implementing CommandLineArgLike",
+        "Expected `artifact | cell_root",
     );
 
     Ok(())

@@ -582,12 +582,18 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 }
 
+#[derive(UnpackValue, StarlarkTypeRepr)]
+enum StarlarkCommandLineValueUnpack<'v> {
+    // This should be `list[Self]`, but we cannot express it.
+    List(&'v ListRef<'v>),
+    CommandLineArg(CommandLineArg<'v>),
+}
+
 impl<'v> StarlarkCommandLineData<'v> {
     fn add_value(&mut self, value: Value<'v>) -> anyhow::Result<()> {
-        if let Some(values) = ListRef::from_value(value) {
-            self.add_values(values.content())?;
-        } else {
-            self.items.push(CommandLineArg::unpack_value_err(value)?);
+        match StarlarkCommandLineValueUnpack::unpack_value_err(value)? {
+            StarlarkCommandLineValueUnpack::List(values) => self.add_values(values.content())?,
+            StarlarkCommandLineValueUnpack::CommandLineArg(value) => self.items.push(value),
         }
         Ok(())
     }
