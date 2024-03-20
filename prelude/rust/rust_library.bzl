@@ -214,10 +214,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     param_lang, lang_style_param = _build_params_for_styles(ctx, compile_ctx)
 
     # Generate the actions to build various output artifacts. Given the set of
-    # parameters we need, populate a mapping to the linkable and metadata
-    # artifacts.
-    artifacts = {}
-    for params in param_lang.keys():
+    # parameters we need, populate maps to the linkable and metadata
+    # artifacts by linkage lang.
+    rust_param_artifact = {}
+    native_param_artifact = {}
+    for params, langs in param_lang.items():
         # Separate actions for each emit type.
         #
         # In principle we don't need metadata for C++-only artifacts, but I
@@ -230,26 +231,20 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             default_roots = ["lib.rs"],
         )
 
-        artifacts[params] = {
-            MetadataKind("link"): link,
-            MetadataKind("full"): meta_full,
-            MetadataKind("fast"): meta_fast,
-        }
-
-    rust_param_artifact = {}
-    native_param_artifact = {}
-
-    for params, outputs in artifacts.items():
-        if LinkageLang("rust") in param_lang[params]:
-            rust_param_artifact[params] = outputs
-        if LinkageLang("native") in param_lang[params] or LinkageLang("native-unbundled") in param_lang[params]:
-            native_param_artifact[params] = outputs[MetadataKind("link")]
+        if LinkageLang("rust") in langs:
+            rust_param_artifact[params] = {
+                MetadataKind("link"): link,
+                MetadataKind("full"): meta_full,
+                MetadataKind("fast"): meta_fast,
+            }
+        if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
+            native_param_artifact[params] = link
 
     # Grab the artifacts to use for the check subtargets. Picking a good
     # `LibOutputStyle` ensures that the subtarget shares work with the main
     # build if possible
     check_params = lang_style_param[(LinkageLang("rust"), LibOutputStyle("archive"))]
-    check_artifacts = artifacts[check_params]
+    check_artifacts = rust_param_artifact[check_params]
 
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
