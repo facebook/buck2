@@ -489,6 +489,12 @@ def _get_shared_flags(
             "-parse-as-library",
         ])
 
+    if ctx.attrs.swift_package_name != None:
+        cmd.add([
+            "-package-name",
+            ctx.attrs.swift_package_name,
+        ])
+
     if uses_explicit_modules(ctx):
         cmd.add([
             "-Xcc",
