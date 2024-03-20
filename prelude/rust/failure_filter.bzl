@@ -14,12 +14,11 @@ load(":context.bzl", "CompileContext")
 def failure_filter(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        prefix: str,
         predecl_out: [Artifact, None],
         build_status: Artifact,
         required: Artifact,
         stderr: Artifact,
-        short_cmd: str) -> Artifact:
+        identifier: str) -> Artifact:
     toolchain_info = compile_ctx.toolchain_info
     failure_filter_action = toolchain_info.failure_filter_action
 
@@ -40,6 +39,6 @@ def failure_filter(
         build_status,
     )
 
-    ctx.actions.run(cmd, category = "failure_filter", identifier = "{} {}".format(prefix, short_cmd))
+    ctx.actions.run(cmd, category = "failure_filter", identifier = identifier)
 
     return output

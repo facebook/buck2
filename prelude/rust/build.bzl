@@ -530,10 +530,10 @@ def rust_compile(
     invoke = _rustc_invoke(
         ctx = ctx,
         compile_ctx = compile_ctx,
+        common_args = common_args,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
         rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_op.args),
         required_outputs = [emit_op.output],
-        short_cmd = common_args.short_cmd,
         is_binary = is_binary,
         is_clippy = False,
         allow_cache_upload = allow_cache_upload,
@@ -567,12 +567,12 @@ def rust_compile(
         clippy_invoke = _rustc_invoke(
             ctx = ctx,
             compile_ctx = compile_ctx,
+            common_args = common_args,
             prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
             # Lints go first to allow other args to override them.
             rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_op.args),
             env = clippy_env,
             required_outputs = [clippy_emit_op.output],
-            short_cmd = common_args.short_cmd,
             is_binary = False,
             is_clippy = True,
             allow_cache_upload = False,
@@ -588,12 +588,11 @@ def rust_compile(
         filtered_output = failure_filter(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            prefix = "{}/{}".format(common_args.subdir, emit.value),
             predecl_out = predeclared_outputs.get(emit),
             build_status = invoke.build_status,
             required = emit_op.output,
             stderr = invoke.diag_txt,
-            short_cmd = common_args.short_cmd,
+            identifier = invoke.identifier,
         )
     else:
         filtered_output = emit_op.output
@@ -780,7 +779,7 @@ def dynamic_symlinked_dirs(
             cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
             cmd_args(artifacts_json, format = "--artifacts={}"),
         ],
-        category = "tdep_symlinks",
+        category = "deps",
         identifier = str(len(compile_ctx.transitive_dependency_dirs)),
     )
 
@@ -972,7 +971,9 @@ def _compute_common_args(
         args = args,
         subdir = subdir,
         tempfile = tempfile,
-        short_cmd = "{},{},{}".format(crate_type.value, params.reloc_model.value, emit.value),
+        crate_type = crate_type,
+        params = params,
+        emit = emit,
         is_check = is_check,
         crate_map = crate_map,
     )
@@ -1080,6 +1081,38 @@ def _crate_root(
 
     fail("Could not infer crate_root. candidates=%s\nAdd 'crate_root = \"src/example.rs\"' to your attributes to disambiguate." % candidates.list())
 
+def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit) -> str:
+    link_strategy_suffix = {
+        LinkStrategy("static"): "",
+        LinkStrategy("static_pic"): " [pic]",
+        LinkStrategy("shared"): " [shared]",
+    }[link_strategy]
+
+    if emit == Emit("metadata-full"):
+        return "check" + link_strategy_suffix
+
+    if emit == Emit("metadata-fast"):
+        return "check [fast]"
+
+    if emit == Emit("link"):
+        if crate_type == CrateType("bin"):
+            return "link" + link_strategy_suffix
+        if crate_type == CrateType("rlib"):
+            return "rlib" + link_strategy_suffix
+        if crate_type == CrateType("dylib"):
+            return "dylib"  # always shared
+        if crate_type == CrateType("proc-macro"):
+            return "proc-macro"  # always static_pic
+        if crate_type == CrateType("cdylib"):
+            return "cdylib"  # always shared
+        if crate_type == CrateType("staticlib"):
+            return "staticlib" + link_strategy_suffix
+
+    if emit == Emit("expand"):
+        return "expand"
+
+    fail("unrecognized rustc action:", crate_type, link_strategy, emit)
+
 EmitOperation = record(
     output = field(Artifact),
     args = field(cmd_args),
@@ -1170,16 +1203,17 @@ Invoke = record(
     diag_txt = field(Artifact),
     diag_json = field(Artifact),
     build_status = field([Artifact, None]),
+    identifier = field([str, None]),
 )
 
 # Invoke rustc and capture outputs
 def _rustc_invoke(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
+        common_args: CommonArgsInfo,
         prefix: str,
         rustc_cmd: cmd_args,
         required_outputs: list[Artifact],
-        short_cmd: str,
         is_binary: bool,
         is_clippy: bool,
         allow_cache_upload: bool,
@@ -1245,7 +1279,11 @@ def _rustc_invoke(
         identifier = None
     else:
         category = "rustc"
-        identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
+        identifier = _explain(
+            crate_type = common_args.crate_type,
+            link_strategy = common_args.params.dep_link_strategy,
+            emit = common_args.emit,
+        )
 
     ctx.actions.run(
         compile_cmd,
@@ -1261,6 +1299,7 @@ def _rustc_invoke(
         diag_txt = diag_txt,
         diag_json = diag_json,
         build_status = build_status,
+        identifier = identifier,
     )
 
 # Our rustc and rustdoc commands can have arbitrarily large number of `--extern`

@@ -7,7 +7,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:link_info.bzl", "LinkStrategy")
-load(":build_params.bzl", "CrateType", "Emit")
+load(":build_params.bzl", "BuildParams", "CrateType", "Emit")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
 
 CrateName = record(
@@ -21,7 +21,9 @@ CommonArgsInfo = record(
     args = field(cmd_args),
     subdir = field(str),
     tempfile = field(str),
-    short_cmd = field(str),
+    crate_type = field(CrateType),
+    params = field(BuildParams),
+    emit = field(Emit),
     is_check = field(bool),
     crate_map = field(list[(CrateName, Label)]),
 )
