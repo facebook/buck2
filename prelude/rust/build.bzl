@@ -426,6 +426,7 @@ def rust_compile_multi(
         predeclared_outputs: dict[Emit, Artifact] = {},
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         is_binary: bool = False,
+        designated_clippy: bool = False,
         allow_cache_upload: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> list[RustcOutput]:
     outputs = []
@@ -441,6 +442,7 @@ def rust_compile_multi(
             predeclared_outputs = predeclared_outputs,
             extra_flags = extra_flags,
             is_binary = is_binary,
+            designated_clippy = designated_clippy and emit == Emit("metadata-full"),
             allow_cache_upload = allow_cache_upload,
             rust_cxx_link_group_info = rust_cxx_link_group_info,
         )
@@ -461,6 +463,7 @@ def rust_compile(
         predeclared_outputs: dict[Emit, Artifact] = {},
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         is_binary: bool = False,
+        designated_clippy: bool = False,
         allow_cache_upload: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> RustcOutput:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
@@ -575,8 +578,8 @@ def rust_compile(
         env = emit_op.env,
     )
 
-    # Add clippy diagnostic targets for check builds
-    if common_args.is_check:
+    # Add clippy diagnostic targets next to the designated check build
+    if designated_clippy:
         # We don't really need the outputs from this build, just to keep the artifact accounting straight
         clippy_emit_op = _rustc_emit(
             ctx = ctx,

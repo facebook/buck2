@@ -213,6 +213,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # distinct kinds of build we actually need to deal with.
     param_lang, lang_style_param = _build_params_for_styles(ctx, compile_ctx)
 
+    # Grab the artifacts to use for the check subtargets. Picking a good
+    # `LibOutputStyle` ensures that the subtarget shares work with the main
+    # build if possible
+    check_params = lang_style_param[(LinkageLang("rust"), LibOutputStyle("archive"))]
+
     # Generate the actions to build various output artifacts. Given the set of
     # parameters we need, populate maps to the linkable and metadata
     # artifacts by linkage lang.
@@ -232,6 +237,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             emits = emits,
             params = params,
             default_roots = ["lib.rs"],
+            designated_clippy = params == check_params,
         )
 
         if link_rust:
@@ -242,12 +248,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             }
         if link_native:
             native_param_artifact[params] = outputs[0]
-
-    # Grab the artifacts to use for the check subtargets. Picking a good
-    # `LibOutputStyle` ensures that the subtarget shares work with the main
-    # build if possible
-    check_params = lang_style_param[(LinkageLang("rust"), LibOutputStyle("archive"))]
-    check_artifacts = rust_param_artifact[check_params]
 
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
@@ -339,6 +339,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         param_artifact = native_param_artifact,
     )
 
+    check_artifacts = rust_param_artifact[check_params]
     providers += _default_providers(
         lang_style_param = lang_style_param,
         param_artifact = rust_param_artifact,

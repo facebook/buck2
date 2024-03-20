@@ -307,6 +307,7 @@ def _rust_binary_common(
         params = strategy_param[specified_link_strategy],
         default_roots = default_roots,
         extra_flags = extra_flags,
+        designated_clippy = True,
     )
 
     providers = [RustcExtraOutputsInfo(
