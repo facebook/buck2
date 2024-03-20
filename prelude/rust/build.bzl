@@ -569,10 +569,10 @@ def rust_compile(
         compile_ctx = compile_ctx,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
         rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_op.args),
-        diag = "diag",
         required_outputs = [emit_op.output],
         short_cmd = common_args.short_cmd,
         is_binary = is_binary,
+        is_clippy = False,
         allow_cache_upload = allow_cache_upload,
         crate_map = common_args.crate_map,
         env = emit_op.env,
@@ -608,10 +608,10 @@ def rust_compile(
             # Lints go first to allow other args to override them.
             rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_op.args),
             env = clippy_env,
-            diag = "clippy",
             required_outputs = [clippy_emit_op.output],
             short_cmd = common_args.short_cmd,
             is_binary = False,
+            is_clippy = True,
             allow_cache_upload = False,
             crate_map = common_args.crate_map,
         )
@@ -1214,10 +1214,10 @@ def _rustc_invoke(
         compile_ctx: CompileContext,
         prefix: str,
         rustc_cmd: cmd_args,
-        diag: str,
         required_outputs: list[Artifact],
         short_cmd: str,
         is_binary: bool,
+        is_clippy: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
         env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> (Artifact, Artifact, [Artifact, None]):
@@ -1232,6 +1232,7 @@ def _rustc_invoke(
     path_env.update(more_path_env)
 
     # Save diagnostic outputs
+    diag = "clippy" if is_clippy else "diag"
     json_diag = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
     txt_diag = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag))
 
@@ -1275,12 +1276,18 @@ def _rustc_invoke(
     elif is_binary and link_cxx_binary_locally(ctx):
         prefer_local = True
 
-    identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
+    if is_clippy:
+        category = "clippy"
+        identifier = None
+    else:
+        category = "rustc"
+        identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
+
     ctx.actions.run(
         compile_cmd,
         local_only = local_only,
         prefer_local = prefer_local,
-        category = "rustc",
+        category = category,
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
         allow_cache_upload = allow_cache_upload,
