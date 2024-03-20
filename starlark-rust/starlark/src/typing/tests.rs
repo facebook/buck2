@@ -20,6 +20,7 @@ use std::fmt::Write;
 
 use dupe::Dupe;
 use starlark_derive::starlark_module;
+use starlark_map::small_map::SmallMap;
 use starlark_syntax::golden_test_template::golden_test_template;
 
 use crate as starlark;
@@ -49,7 +50,14 @@ fn register_typecheck_globals(globals: &mut GlobalsBuilder) {
     fn accepts_iterable<'v>(
         #[starlark(require = pos)] xs: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
     ) -> anyhow::Result<NoneType> {
-        let _ = xs;
+        let _ignore = xs;
+        Ok(NoneType)
+    }
+
+    fn accepts_typed_kwargs(
+        #[starlark(kwargs)] x: SmallMap<String, u32>,
+    ) -> anyhow::Result<NoneType> {
+        let _ignore = x;
         Ok(NoneType)
     }
 }
@@ -245,6 +253,20 @@ fn test_types_of_args_kwargs() {
         r#"
 def foo(*args: str, **kwargs: int):
     pass
+"#,
+    );
+}
+
+#[test]
+fn test_kwargs_in_native_code() {
+    TypeCheck::new().check(
+        "kwargs_in_native_code",
+        r#"
+def test():
+    # Good.
+    accepts_typed_kwargs(x=1)
+    # Bad.
+    accepts_typed_kwargs(x=None)
 "#,
     );
 }
