@@ -213,7 +213,28 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # distinct kinds of build we actually need to deal with.
     param_lang, lang_style_param = _build_params_for_styles(ctx, compile_ctx)
 
-    artifacts = _build_library_artifacts(ctx, compile_ctx, param_lang.keys())
+    # Generate the actions to build various output artifacts. Given the set of
+    # parameters we need, populate a mapping to the linkable and metadata
+    # artifacts.
+    artifacts = {}
+    for params in param_lang.keys():
+        # Separate actions for each emit type.
+        #
+        # In principle we don't need metadata for C++-only artifacts, but I
+        # don't think it hurts.
+        link, meta_full, meta_fast = rust_compile_multi(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emits = [Emit("link"), Emit("metadata-full"), Emit("metadata-fast")],
+            params = params,
+            default_roots = ["lib.rs"],
+        )
+
+        artifacts[params] = {
+            MetadataKind("link"): link,
+            MetadataKind("full"): meta_full,
+            MetadataKind("fast"): meta_fast,
+        }
 
     rust_param_artifact = {}
     native_param_artifact = {}
@@ -407,36 +428,6 @@ def _build_params_for_styles(
             style_param[(linkage_lang, lib_output_style)] = params
 
     return (param_lang, style_param)
-
-def _build_library_artifacts(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        params: list[BuildParams]) -> dict[BuildParams, dict[MetadataKind, RustcOutput]]:
-    """
-    Generate the actual actions to build various output artifacts. Given the set
-    parameters we need, return a mapping to the linkable and metadata artifacts.
-    """
-    param_artifact = {}
-
-    for params in params:
-        # Separate actions for each emit type
-        #
-        # In principle we don't really need metadata for C++-only artifacts, but I don't think it hurts
-        link, meta_full, meta_fast = rust_compile_multi(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            emits = [Emit("link"), Emit("metadata-full"), Emit("metadata-fast")],
-            params = params,
-            default_roots = ["lib.rs"],
-        )
-
-        param_artifact[params] = {
-            MetadataKind("link"): link,
-            MetadataKind("full"): meta_full,
-            MetadataKind("fast"): meta_fast,
-        }
-
-    return param_artifact
 
 def _handle_rust_artifact(
         ctx: AnalysisContext,
