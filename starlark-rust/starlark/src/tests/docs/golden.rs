@@ -22,13 +22,13 @@ use crate::docs::DocItem;
 use crate::docs::MarkdownFlavor;
 use crate::docs::RenderMarkdown;
 
-pub(crate) fn docs_golden_test(test_name: &str, doc: DocItem) -> String {
+pub(crate) fn docs_golden_test(test_file_name: &str, doc: DocItem) -> String {
+    assert!(test_file_name.ends_with(".golden.md"));
+    assert!(!test_file_name.contains('/'));
+
     let output = Doc::named_item("name".to_owned(), doc).render_markdown(MarkdownFlavor::DocFile);
 
-    golden_test_template(
-        &format!("src/tests/docs/golden/{test_name}.golden.md"),
-        &output,
-    );
+    golden_test_template(&format!("src/tests/docs/golden/{test_file_name}"), &output);
 
     output
 }

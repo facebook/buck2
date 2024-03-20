@@ -223,7 +223,7 @@ fn object(builder: &mut MethodsBuilder) {
 #[test]
 fn golden_docs_starlark() {
     let res = docs_golden_test(
-        "starlark",
+        "starlark.golden.md",
         DocItem::Module(assert::pass_module(STARLARK_CODE).documentation()),
     );
     assert!(!res.contains("_do_not_export"));
@@ -232,7 +232,7 @@ fn golden_docs_starlark() {
 #[test]
 fn golden_docs_module() {
     let res = docs_golden_test(
-        "module",
+        "module.golden.md",
         DocItem::Module(GlobalsBuilder::new().with(module).build().documentation()),
     );
     assert!(!res.contains("starlark::assert::all_true"));
@@ -241,7 +241,7 @@ fn golden_docs_module() {
 
 #[test]
 fn golden_docs_object() {
-    let res = docs_golden_test("object", Obj.documentation().unwrap());
+    let res = docs_golden_test("object.golden.md", Obj.documentation().unwrap());
     assert!(res.contains(r#"name.\_\_exported\_\_"#));
 }
 
