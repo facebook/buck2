@@ -21,6 +21,7 @@ use serde::Serialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -36,6 +37,7 @@ use crate::environment::MethodsStatic;
 use crate::tests::docs::golden::docs_golden_test;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
+use crate::values::tuple::UnpackTuple;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -167,6 +169,21 @@ fn module(builder: &mut GlobalsBuilder) {
 
     fn notypes<'v>(a: Value<'v>) -> anyhow::Result<Value<'v>> {
         Ok(a)
+    }
+
+    // TODO(nga): generated signature should be `*args: str`. Currently type is omitted.
+    fn starlark_args(#[starlark(args)] args: UnpackTuple<String>) -> anyhow::Result<NoneType> {
+        let _ignore = args;
+        Ok(NoneType)
+    }
+
+    // TODO(nga): generated signature should be `**kwargs: int`.
+    //   Currently it is generated as `**kwargs: dict[str, int]`.
+    fn starlark_kwargs(
+        #[starlark(kwargs)] kwargs: SmallMap<String, u32>,
+    ) -> anyhow::Result<NoneType> {
+        let _ignore = kwargs;
+        Ok(NoneType)
     }
 }
 

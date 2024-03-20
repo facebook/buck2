@@ -98,6 +98,22 @@ def pos_either_named(
 
 ---
 
+## starlark\_args
+
+```python
+def starlark_args(*args) -> None
+```
+
+---
+
+## starlark\_kwargs
+
+```python
+def starlark_kwargs(**kwargs: dict[str, int]) -> None
+```
+
+---
+
 ## with\_defaults
 
 ```python
