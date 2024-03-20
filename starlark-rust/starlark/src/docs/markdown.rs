@@ -342,11 +342,19 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                         }
                         DocParam::NoArgs => "*".to_owned(),
                         DocParam::OnlyPosBefore => "/".to_owned(),
-                        DocParam::Args { typ, name, .. } => {
-                            format!("{}{}", name, raw_type_prefix(": ", typ))
+                        DocParam::Args {
+                            tuple_elem_ty,
+                            name,
+                            ..
+                        } => {
+                            format!("{}{}", name, raw_type_prefix(": ", tuple_elem_ty))
                         }
-                        DocParam::Kwargs { typ, name, .. } => {
-                            format!("{}{}", name, raw_type_prefix(": ", typ))
+                        DocParam::Kwargs {
+                            dict_value_ty,
+                            name,
+                            ..
+                        } => {
+                            format!("{}{}", name, raw_type_prefix(": ", dict_value_ty))
                         }
                     });
 

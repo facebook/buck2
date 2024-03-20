@@ -520,11 +520,13 @@ impl Ty {
                     }
                 }
                 DocParam::NoArgs => seen_no_args = true,
-                DocParam::Args { typ, .. } => {
+                DocParam::Args { tuple_elem_ty, .. } => {
                     seen_no_args = true;
-                    params.push(Param::args(typ.clone()))
+                    params.push(Param::args(tuple_elem_ty.clone()))
                 }
-                DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(typ.clone())),
+                DocParam::Kwargs { dict_value_ty, .. } => {
+                    params.push(Param::kwargs(dict_value_ty.clone()))
+                }
             }
         }
         let result = function.ret.typ.clone();

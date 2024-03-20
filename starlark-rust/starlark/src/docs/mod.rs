@@ -622,14 +622,14 @@ pub enum DocParam {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Ty,
+        tuple_elem_ty: Ty,
     },
     /// Represents the "**kwargs" style of argument.
     Kwargs {
         name: String,
         docs: Option<DocString>,
         #[serde(rename = "type")]
-        typ: Ty,
+        dict_value_ty: Ty,
     },
 }
 
@@ -662,7 +662,16 @@ impl DocParam {
             },
             DocParam::NoArgs => "*".to_owned(),
             DocParam::OnlyPosBefore => "/".to_owned(),
-            DocParam::Args { name, typ, .. } | DocParam::Kwargs { name, typ, .. } => match typ {
+            DocParam::Args {
+                name,
+                tuple_elem_ty: typ,
+                ..
+            }
+            | DocParam::Kwargs {
+                name,
+                dict_value_ty: typ,
+                ..
+            } => match typ {
                 t if t.is_any() => name.clone(),
                 typ => format!("{}: {}", name, typ),
             },

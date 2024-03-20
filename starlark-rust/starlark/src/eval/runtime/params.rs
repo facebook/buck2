@@ -715,8 +715,16 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                         typ,
                         default_value: Some(v.to_value().to_repr()),
                     },
-                    ParameterKind::Args => DocParam::Args { name, docs, typ },
-                    ParameterKind::KWargs => DocParam::Kwargs { name, docs, typ },
+                    ParameterKind::Args => DocParam::Args {
+                        name,
+                        docs,
+                        tuple_elem_ty: typ,
+                    },
+                    ParameterKind::KWargs => DocParam::Kwargs {
+                        name,
+                        docs,
+                        dict_value_ty: typ,
+                    },
                 };
                 only_pos_before
                     .into_iter()
@@ -883,7 +891,7 @@ mod tests {
             DocParam::Args {
                 name: "*args".to_owned(),
                 docs: None,
-                typ: Ty::any(),
+                tuple_elem_ty: Ty::any(),
             },
             DocParam::Arg {
                 name: "a".to_owned(),
