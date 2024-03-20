@@ -253,6 +253,15 @@ fn test_types_of_args_kwargs() {
         r#"
 def foo(*args: str, **kwargs: int):
     pass
+
+def test():
+    # Good
+    foo("a")
+    foo(b=1)
+    # Bad
+    foo(1)
+    # TODO(nga): this should fail.
+    foo(c="x")
 "#,
     );
 }
