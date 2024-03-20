@@ -82,9 +82,8 @@ def main(argv):
             types.extend(["SFiles"])
         for typ in types:
             for src in obj.get(typ, []):
-                src = Path(obj["Dir"]) / src
-                # Resolve the symlink
-                src = Path(os.path.normpath(str(src.parent / os.readlink(str(src)))))
+                # Absolute path to the source file.
+                src = (args.srcdir / src).resolve()
                 # Relativize to the CWD.
                 src = src.relative_to(os.getcwd())
                 print(src, file=args.output)
