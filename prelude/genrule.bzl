@@ -173,7 +173,7 @@ def process_genrule(
         cmd = ctx.attrs.bash if ctx.attrs.bash != None else ctx.attrs.cmd
         if cmd == None:
             fail("One of `cmd` or `bash` should be set.")
-    cmd = cmd_args(cmd)
+    cmd = cmd_args(cmd, ignore_artifacts = _ignore_artifacts(ctx))
 
     # For backwards compatibility with Buck1.
     if is_windows:
@@ -182,9 +182,6 @@ def process_genrule(
 
         for extra_env_var in extra_env_vars:
             cmd.replace_regex(regex("\\$(%s\\b|\\{%s\\})" % (extra_env_var, extra_env_var)), "%%%s%%" % extra_env_var)
-
-    if _ignore_artifacts(ctx):
-        cmd = cmd.ignore_artifacts()
 
     if type(ctx.attrs.srcs) == type([]):
         # FIXME: We should always use the short_path, but currently that is sometimes blank.
