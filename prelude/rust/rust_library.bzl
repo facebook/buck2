@@ -219,26 +219,29 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     rust_param_artifact = {}
     native_param_artifact = {}
     for params, langs in param_lang.items():
-        # Separate actions for each emit type.
-        #
-        # In principle we don't need metadata for C++-only artifacts, but I
-        # don't think it hurts.
-        link, meta_full, meta_fast = rust_compile_multi(
+        link_rust = LinkageLang("rust") in langs
+        link_native = LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs
+
+        # We don't need metadata to go with C++-only artifacts.
+        emits = [Emit("link")] + \
+                ([Emit("metadata-full"), Emit("metadata-fast")] if link_rust else [])
+
+        outputs = rust_compile_multi(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emits = [Emit("link"), Emit("metadata-full"), Emit("metadata-fast")],
+            emits = emits,
             params = params,
             default_roots = ["lib.rs"],
         )
 
-        if LinkageLang("rust") in langs:
+        if link_rust:
             rust_param_artifact[params] = {
-                MetadataKind("link"): link,
-                MetadataKind("full"): meta_full,
-                MetadataKind("fast"): meta_fast,
+                MetadataKind("link"): outputs[0],
+                MetadataKind("full"): outputs[1],
+                MetadataKind("fast"): outputs[2],
             }
-        if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
-            native_param_artifact[params] = link
+        if link_native:
+            native_param_artifact[params] = outputs[0]
 
     # Grab the artifacts to use for the check subtargets. Picking a good
     # `LibOutputStyle` ensures that the subtarget shares work with the main
