@@ -33,6 +33,7 @@ extra_attributes = {
     },
     "kotlin_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
+        "java_agents": attrs.list(attrs.source(), default = []),
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "test_class_names_file": attrs.option(attrs.source(), default = None),

@@ -60,6 +60,8 @@ def build_junit_test(
         cmd.extend(java_test_toolchain.java_custom_class_loader_vm_args)
         classpath.append(java_test_toolchain.java_custom_class_loader_library_jar)
 
+    cmd.append(cmd_args(ctx.attrs.java_agents, format = "-javaagent:{}"))
+
     classpath.extend(
         [java_test_toolchain.test_runner_library_jar] +
         [
