@@ -48,7 +48,7 @@ build_paths = struct(
     linktree = linktree,
 )
 
-def convert(data: typing.Any) -> cmd_args:
+def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
     """ converts a lists/tuple/map data structure to a sub-term that can be embedded in another to_term_args or convert
     """
     if type(data) == "list":
@@ -64,7 +64,7 @@ def convert(data: typing.Any) -> cmd_args:
     elif type(data) == "bool":
         return convert_bool(data)
 
-    args = cmd_args([])
+    args = cmd_args([], ignore_artifacts = ignore_artifacts)
     args.add(cmd_args(["\"", data, "\""], delimiter = ""))
     return args
 

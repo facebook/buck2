@@ -648,7 +648,7 @@ def _erlc_dependency_args(
     # A: the whole string would get passed as a single argument, as if it was quoted in CLI e.g. '-I include_path'
     # ...which the escript cannot parse, as it expects two separate arguments, e.g. '-I' 'include_path'
 
-    args = cmd_args([])
+    args = cmd_args([], ignore_artifacts = True)
 
     # build -I options
     if path_in_arg:
@@ -667,8 +667,6 @@ def _erlc_dependency_args(
         for code_path in code_paths:
             args.add("-pa")
             args.add(code_path)
-
-    args.ignore_artifacts()
 
     return args
 

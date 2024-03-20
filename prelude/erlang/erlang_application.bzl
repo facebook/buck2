@@ -298,8 +298,7 @@ def _app_info_content(
         srcs: list[Artifact],
         output: Artifact) -> Artifact:
     """build an app_info.term file that contains the meta information for building the .app file"""
-    sources_args = convert(srcs)
-    sources_args.ignore_artifacts()
+    sources_args = convert(srcs, ignore_artifacts = True)
     data = {
         "applications": [
             app[ErlangAppInfo].name
