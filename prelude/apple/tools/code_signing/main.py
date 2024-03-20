@@ -15,7 +15,6 @@ from .apple_platform import ApplePlatform
 from .codesign_bundle import (
     AdhocSigningContext,
     codesign_bundle,
-    CodesignedPath,
     signing_context_with_profile_selection,
 )
 from .list_codesign_identities import ListCodesignIdentities
@@ -115,20 +114,12 @@ def _main() -> None:
                 platform=args.platform,
                 should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
             )
-
-        bundle_path = CodesignedPath(
-            path=args.bundle_path, entitlements=args.entitlements
-        )
-        codesign_on_copy_paths = [
-            CodesignedPath(path=bundle_path.path / path, entitlements=None)
-            for path in args.codesign_on_copy
-        ]
-
         codesign_bundle(
             bundle_path=args.bundle_path,
             signing_context=signing_context,
+            entitlements_path=args.entitlements,
             platform=args.platform,
-            codesign_on_copy_paths=codesign_on_copy_paths,
+            codesign_on_copy_paths=args.codesign_on_copy or [],
             codesign_args=[],
         )
     except CodeSignProvisioningError as e:
