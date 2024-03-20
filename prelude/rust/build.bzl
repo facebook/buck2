@@ -527,7 +527,7 @@ def rust_compile(
         rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
         rustc_cmd.hidden(link_args_output.hidden)
 
-    diag_txt, diag_json, build_status = _rustc_invoke(
+    invoke = _rustc_invoke(
         ctx = ctx,
         compile_ctx = compile_ctx,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
@@ -564,7 +564,7 @@ def rust_compile(
                 {"clippy.toml": toolchain_info.clippy_toml},
             )
             clippy_env["CLIPPY_CONF_DIR"] = clippy_conf_dir
-        clippy_txt, clippy_json, _ = _rustc_invoke(
+        clippy_invoke = _rustc_invoke(
             ctx = ctx,
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
@@ -579,8 +579,7 @@ def rust_compile(
             crate_map = common_args.crate_map,
         )
     else:
-        clippy_txt = None
-        clippy_json = None
+        clippy_invoke = None
 
     if toolchain_info.failure_filter:
         # This is only needed when this action's output is being used as an
@@ -591,9 +590,9 @@ def rust_compile(
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, emit.value),
             predecl_out = predeclared_outputs.get(emit),
-            build_status = build_status,
+            build_status = invoke.build_status,
             required = emit_op.output,
-            stderr = diag_txt,
+            stderr = invoke.diag_txt,
             short_cmd = common_args.short_cmd,
         )
     else:
@@ -657,11 +656,11 @@ def rust_compile(
     return RustcOutput(
         output = filtered_output,
         stripped_output = stripped_output,
-        diag_txt = diag_txt,
-        diag_json = diag_json,
+        diag_txt = invoke.diag_txt,
+        diag_json = invoke.diag_json,
         # Only available on metadata-like emits
-        clippy_txt = clippy_txt,
-        clippy_json = clippy_json,
+        clippy_txt = clippy_invoke.diag_txt if clippy_invoke else None,
+        clippy_json = clippy_invoke.diag_json if clippy_invoke else None,
         pdb = pdb_artifact,
         dwp_output = dwp_output,
         dwo_output_directory = dwo_output_directory,
@@ -1167,6 +1166,12 @@ def _rustc_emit(
         extra_out = extra_out,
     )
 
+Invoke = record(
+    diag_txt = field(Artifact),
+    diag_json = field(Artifact),
+    build_status = field([Artifact, None]),
+)
+
 # Invoke rustc and capture outputs
 def _rustc_invoke(
         ctx: AnalysisContext,
@@ -1179,7 +1184,7 @@ def _rustc_invoke(
         is_clippy: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
-        env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> (Artifact, Artifact, [Artifact, None]):
+        env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> Invoke:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -1192,12 +1197,12 @@ def _rustc_invoke(
 
     # Save diagnostic outputs
     diag = "clippy" if is_clippy else "diag"
-    json_diag = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
-    txt_diag = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag))
+    diag_json = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
+    diag_txt = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag))
 
     compile_cmd = cmd_args(
-        cmd_args(json_diag.as_output(), format = "--diag-json={}"),
-        cmd_args(txt_diag.as_output(), format = "--diag-txt={}"),
+        cmd_args(diag_json.as_output(), format = "--diag-json={}"),
+        cmd_args(diag_txt.as_output(), format = "--diag-txt={}"),
         "--remap-cwd-prefix=.",
         "--buck-target={}".format(ctx.label.raw_target()),
     )
@@ -1252,7 +1257,11 @@ def _rustc_invoke(
         allow_cache_upload = allow_cache_upload,
     )
 
-    return (txt_diag, json_diag, build_status)
+    return Invoke(
+        diag_txt = diag_txt,
+        diag_json = diag_json,
+        build_status = build_status,
+    )
 
 # Our rustc and rustdoc commands can have arbitrarily large number of `--extern`
 # flags, so write to file to avoid hitting the platform's limit on command line
