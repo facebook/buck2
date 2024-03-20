@@ -56,7 +56,6 @@ load(
     "compile_context",
     "generate_rustdoc",
     "rust_compile",
-    "rust_compile_multi",
 )
 load(
     ":build_params.bzl",
@@ -300,14 +299,23 @@ def _rust_binary_common(
     # FIXME(JakobDegen): It's a bit weird that this uses the specified link
     # strategy but rustdoc and expand use the default link strategy. Figure out
     # what's going on there.
-    meta_full, meta_fast = rust_compile_multi(
+    meta_full = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        emits = [Emit("metadata-full"), Emit("metadata-fast")],
+        emit = Emit("metadata-full"),
         params = strategy_param[specified_link_strategy],
         default_roots = default_roots,
         extra_flags = extra_flags,
         designated_clippy = True,
+    )
+
+    meta_fast = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("metadata-fast"),
+        params = strategy_param[LinkStrategy("static")],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
     )
 
     providers = [RustcExtraOutputsInfo(

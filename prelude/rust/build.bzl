@@ -414,42 +414,6 @@ def generate_rustdoc_test(
         argfile_name = "{}.args".format(common_args.subdir),
     )
 
-# Generate multiple compile artifacts so that distinct sets of artifacts can be
-# generated concurrently.
-def rust_compile_multi(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        emits: list[Emit],
-        params: BuildParams,
-        default_roots: list[str],
-        extra_link_args: list[typing.Any] = [],
-        predeclared_outputs: dict[Emit, Artifact] = {},
-        extra_flags: list[[str, ResolvedStringWithMacros]] = [],
-        is_binary: bool = False,
-        designated_clippy: bool = False,
-        allow_cache_upload: bool = False,
-        rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> list[RustcOutput]:
-    outputs = []
-
-    for emit in emits:
-        outs = rust_compile(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            emit = emit,
-            params = params,
-            default_roots = default_roots,
-            extra_link_args = extra_link_args,
-            predeclared_outputs = predeclared_outputs,
-            extra_flags = extra_flags,
-            is_binary = is_binary,
-            designated_clippy = designated_clippy and emit == Emit("metadata-full"),
-            allow_cache_upload = allow_cache_upload,
-            rust_cxx_link_group_info = rust_cxx_link_group_info,
-        )
-        outputs.append(outs)
-
-    return outputs
-
 # Generate a compilation action. A single instance of rustc can emit
 # numerous output artifacts, so return an artifact object for each of
 # them.

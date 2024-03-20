@@ -74,7 +74,6 @@ load(
     "generate_rustdoc_coverage",
     "generate_rustdoc_test",
     "rust_compile",
-    "rust_compile_multi",
 )
 load(
     ":build_params.bzl",
@@ -218,36 +217,44 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # build if possible
     check_params = lang_style_param[(LinkageLang("rust"), LibOutputStyle("archive"))]
 
+    meta_fast = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("metadata-fast"),
+        params = check_params,
+        default_roots = ["lib.rs"],
+    )
+
     # Generate the actions to build various output artifacts. Given the set of
     # parameters we need, populate maps to the linkable and metadata
     # artifacts by linkage lang.
     rust_param_artifact = {}
     native_param_artifact = {}
     for params, langs in param_lang.items():
-        link_rust = LinkageLang("rust") in langs
-        link_native = LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs
-
-        # We don't need metadata to go with C++-only artifacts.
-        emits = [Emit("link")] + \
-                ([Emit("metadata-full"), Emit("metadata-fast")] if link_rust else [])
-
-        outputs = rust_compile_multi(
+        link = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emits = emits,
+            emit = Emit("link"),
             params = params,
             default_roots = ["lib.rs"],
-            designated_clippy = params == check_params,
         )
 
-        if link_rust:
+        if LinkageLang("rust") in langs:
             rust_param_artifact[params] = {
-                MetadataKind("link"): outputs[0],
-                MetadataKind("full"): outputs[1],
-                MetadataKind("fast"): outputs[2],
+                MetadataKind("link"): link,
+                MetadataKind("full"): rust_compile(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = Emit("metadata-full"),
+                    params = params,
+                    default_roots = ["lib.rs"],
+                    designated_clippy = params == check_params,
+                ),
+                MetadataKind("fast"): meta_fast,
             }
-        if link_native:
-            native_param_artifact[params] = outputs[0]
+
+        if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
+            native_param_artifact[params] = link
 
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
