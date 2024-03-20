@@ -56,18 +56,6 @@ _default_read_provisioning_profile_command_factory = (
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass
-class CodesignedPath:
-    path: Path
-    """
-    Path relative to bundle root which needs to be codesigned
-    """
-    entitlements: Optional[Path]
-    """
-    Path to entitlements to be used when codesigning, relative to buck project
-    """
-
-
 def _select_provisioning_profile(
     info_plist_metadata: InfoPlistMetadata,
     provisioning_profiles_dir: Path,
@@ -410,13 +398,11 @@ def _dry_codesign_everything(
 
     # First sign codesign-on-copy directory paths
     _codesign_paths(
-        paths=[
-            CodesignedPath(path=p, entitlements=None)
-            for p in codesign_on_copy_directory_paths
-        ],
+        paths=codesign_on_copy_directory_paths,
         identity_fingerprint=identity_fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
+        entitlements=None,
         platform=platform,
         codesign_args=codesign_args,
     )
@@ -432,10 +418,11 @@ def _dry_codesign_everything(
 
     # Lastly sign whole bundle
     _codesign_paths(
-        paths=[CodesignedPath(path=bundle_path, entitlements=entitlements)],
+        paths=[bundle_path],
         identity_fingerprint=identity_fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
+        entitlements=entitlements,
         platform=platform,
         codesign_args=codesign_args,
     )
@@ -454,11 +441,9 @@ def _codesign_everything(
 ) -> None:
     # First sign codesign-on-copy paths
     codesign_on_copy_filtered_paths = _filter_out_fast_adhoc_paths(
-        paths=[
-            CodesignedPath(path=bundle_path / path, entitlements=None)
-            for path in codesign_on_copy_paths
-        ],
+        paths=[bundle_path / path for path in codesign_on_copy_paths],
         identity_fingerprint=identity_fingerprint,
+        entitlements=entitlements,
         platform=platform,
         fast_adhoc_signing=fast_adhoc_signing,
     )
@@ -467,13 +452,15 @@ def _codesign_everything(
         identity_fingerprint,
         tmp_dir,
         codesign_command_factory,
+        None,
         platform,
         codesign_args,
     )
     # Lastly sign whole bundle
     root_bundle_paths = _filter_out_fast_adhoc_paths(
-        paths=[CodesignedPath(path=bundle_path, entitlements=entitlements)],
+        paths=[bundle_path],
         identity_fingerprint=identity_fingerprint,
+        entitlements=entitlements,
         platform=platform,
         fast_adhoc_signing=fast_adhoc_signing,
     )
@@ -482,6 +469,7 @@ def _codesign_everything(
         identity_fingerprint,
         tmp_dir,
         codesign_command_factory,
+        entitlements,
         platform,
         codesign_args,
     )
@@ -547,10 +535,11 @@ def _spawn_codesign_process(
 
 
 def _codesign_paths(
-    paths: List[CodesignedPath],
+    paths: List[Path],
     identity_fingerprint: str,
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
+    entitlements: Optional[Path],
     platform: ApplePlatform,
     codesign_args: List[str],
 ) -> None:
@@ -559,11 +548,11 @@ def _codesign_paths(
     with ExitStack() as stack:
         for path in paths:
             process = _spawn_codesign_process(
-                path=path.path,
+                path=path,
                 identity_fingerprint=identity_fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_command_factory=codesign_command_factory,
-                entitlements=path.entitlements,
+                entitlements=entitlements,
                 stack=stack,
                 codesign_args=codesign_args,
             )
@@ -575,11 +564,12 @@ def _codesign_paths(
 
 
 def _filter_out_fast_adhoc_paths(
-    paths: List[CodesignedPath],
+    paths: List[Path],
     identity_fingerprint: str,
+    entitlements: Optional[Path],
     platform: ApplePlatform,
     fast_adhoc_signing: bool,
-) -> List[CodesignedPath]:
+) -> List[Path]:
     if not fast_adhoc_signing:
         return paths
     # TODO(T149863217): Make skip checks run in parallel, they're usually fast (~15ms)
@@ -588,6 +578,6 @@ def _filter_out_fast_adhoc_paths(
         p
         for p in paths
         if not should_skip_adhoc_signing_path(
-            p.path, identity_fingerprint, p.entitlements, platform
+            p, identity_fingerprint, entitlements, platform
         )
     ]
