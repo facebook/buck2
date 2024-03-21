@@ -201,7 +201,6 @@ def _rust_binary_common(
             extra_link_args = executable_args.extra_link_args,
             predeclared_output = output,
             extra_flags = extra_flags,
-            is_binary = True,
             allow_cache_upload = allow_cache_upload,
             rust_cxx_link_group_info = rust_cxx_link_group_info,
         )

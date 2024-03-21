@@ -425,7 +425,6 @@ def rust_compile(
         extra_link_args: list[typing.Any] = [],
         predeclared_output: [Artifact, None] = None,
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
-        is_binary: bool = False,
         designated_clippy: bool = False,
         allow_cache_upload: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> RustcOutput:
@@ -533,7 +532,6 @@ def rust_compile(
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
         rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_op.args),
         required_outputs = [emit_op.output],
-        is_binary = is_binary,
         is_clippy = False,
         allow_cache_upload = allow_cache_upload,
         crate_map = common_args.crate_map,
@@ -571,7 +569,6 @@ def rust_compile(
             rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_op.args),
             env = clippy_env,
             required_outputs = [clippy_emit_op.output],
-            is_binary = False,
             is_clippy = True,
             allow_cache_upload = False,
             crate_map = common_args.crate_map,
@@ -624,7 +621,9 @@ def rust_compile(
         dwo_output_directory = None
         extra_external_debug_info = []
 
-    if is_binary and dwp_available(compile_ctx.cxx_toolchain_info):
+    if params.crate_type == CrateType("bin") and \
+       emit == Emit("link") and \
+       dwp_available(compile_ctx.cxx_toolchain_info):
         dwp_output = dwp(
             ctx,
             compile_ctx.cxx_toolchain_info,
@@ -1212,7 +1211,6 @@ def _rustc_invoke(
         prefix: str,
         rustc_cmd: cmd_args,
         required_outputs: list[Artifact],
-        is_binary: bool,
         is_clippy: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
@@ -1269,7 +1267,9 @@ def _rustc_invoke(
     prefer_local = False
     if incremental_enabled:
         local_only = True
-    elif is_binary and link_cxx_binary_locally(ctx):
+    elif common_args.crate_type == CrateType("bin") and \
+         common_args.emit == Emit("link") and \
+         link_cxx_binary_locally(ctx):
         prefer_local = True
 
     if is_clippy:
