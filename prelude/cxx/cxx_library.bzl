@@ -1424,6 +1424,9 @@ def _shared_library(
         mode = get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces
         if mode == ShlibInterfacesMode("stub_from_library"):
             shlib_for_interface = exported_shlib
+        elif mode == ShlibInterfacesMode("stub_from_headers"):
+            # TODO: collect tbd output from providers and merge
+            shlib_for_interface = None
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link
             # groups, where we don't include the symbols we're meant to export from

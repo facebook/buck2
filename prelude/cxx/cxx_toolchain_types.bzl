@@ -9,7 +9,7 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 LinkerType = ["gnu", "darwin", "windows", "wasm"]
 
-ShlibInterfacesMode = enum("disabled", "enabled", "defined_only", "stub_from_library")
+ShlibInterfacesMode = enum("disabled", "enabled", "defined_only", "stub_from_library", "stub_from_headers")
 
 # TODO(T110378149): Consider whether it makes sense to move these things to
 # configurations/constraints rather than part of the toolchain.

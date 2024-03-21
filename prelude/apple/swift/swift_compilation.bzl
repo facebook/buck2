@@ -21,6 +21,9 @@ load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "ShlibInterfacesMode")
 load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//cxx:link_groups.bzl",
@@ -113,6 +116,8 @@ SwiftCompilationOutput = record(
     compilation_database = field(SwiftCompilationDatabase),
     # An artifact that represent the Swift module map for this target.
     output_map_artifact = field([Artifact, None]),
+    # An optional artifact of the partial tbd file emitted for this module.
+    tbd = field([Artifact, None]),
 )
 
 SwiftDebugInfo = record(
@@ -255,12 +260,17 @@ def compile_swift(
 
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
+    output_tbd = None
+
+    if cxx_use_shlib_intfs(ctx) and \
+       get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces == ShlibInterfacesMode("stub_from_headers"):
+        output_tbd = ctx.actions.declare_output(module_name + ".tbd")
 
     if toolchain.can_toolchain_emit_obj_c_header_textually:
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header)
+        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_tbd)
     else:
         unprocessed_header = ctx.actions.declare_output(module_name + "-SwiftUnprocessed.h")
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header)
+        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header, output_tbd)
         _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
     object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
@@ -303,6 +313,7 @@ def compile_swift(
         swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
         clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.absolute[SWIFT_EXTENSION]),
+        tbd = output_tbd,
     ), swift_interface_info)
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -339,7 +350,8 @@ def _compile_swiftmodule(
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
-        output_header: Artifact) -> CompileArgsfiles:
+        output_header: Artifact,
+        output_tbd: [Artifact, None]) -> CompileArgsfiles:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-emit-module",
@@ -364,6 +376,13 @@ def _compile_swiftmodule(
     else:
         argfile_cmd.add([
             "-wmo",
+        ])
+
+    if output_tbd != None:
+        cmd.add([
+            "-emit-tbd",
+            "-emit-tbd-path",
+            output_tbd.as_output(),
         ])
 
     return _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain)
