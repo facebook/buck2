@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
     "@prelude//java:java_providers.bzl",
@@ -502,7 +503,11 @@ def java_library_impl(ctx: AnalysisContext) -> list[Provider]:
         _check_dep_types(ctx.attrs.exported_provided_deps)
         _check_dep_types(ctx.attrs.runtime_deps)
 
-    java_providers = build_java_library(ctx, ctx.attrs.srcs)
+    java_providers = build_java_library(
+        ctx = ctx,
+        srcs = ctx.attrs.srcs,
+        validation_deps_outputs = get_validation_deps_outputs(ctx),
+    )
 
     return to_list(java_providers) + [android_packageable_info]
 
@@ -515,7 +520,8 @@ def build_java_library(
         additional_compiled_srcs: [Artifact, None] = None,
         generated_sources: list[Artifact] = [],
         override_abi_generation_mode: [AbiGenerationMode, None] = None,
-        extra_sub_targets: dict = {}) -> JavaProviders:
+        extra_sub_targets: dict = {},
+        validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
     expect(
         not getattr(ctx.attrs, "_build_only_native_code", False),
         "Shouldn't call build_java_library if we're only building native code!",
@@ -577,10 +583,16 @@ def build_java_library(
             "target_level": target_level,
         }
 
+        # The outputs of validation_deps need to be added as hidden arguments
+        # to an action for the validation_deps targets to be built and enforced.
+        extra_arguments = cmd_args(ctx.attrs.extra_arguments)
+        if validation_deps_outputs:
+            extra_arguments.hidden(validation_deps_outputs)
+
         outputs = compile_to_jar(
             ctx,
             plugin_params = plugin_params,
-            extra_arguments = cmd_args(ctx.attrs.extra_arguments),
+            extra_arguments = extra_arguments,
             **common_compile_kwargs
         )
 

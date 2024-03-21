@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
     "@prelude//java:java_library.bzl",
@@ -264,14 +265,18 @@ def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
             android_packageable_info,
         ]
 
-    java_providers = build_kotlin_library(ctx)
+    java_providers = build_kotlin_library(
+        ctx = ctx,
+        validation_deps_outputs = get_validation_deps_outputs(ctx),
+    )
     return to_list(java_providers) + [android_packageable_info]
 
 def build_kotlin_library(
         ctx: AnalysisContext,
         additional_classpath_entries: list[Artifact] = [],
         bootclasspath_entries: list[Artifact] = [],
-        extra_sub_targets: dict = {}) -> JavaProviders:
+        extra_sub_targets: dict = {},
+        validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
     srcs = ctx.attrs.srcs
     has_kotlin_srcs = lazy.is_any(lambda src: src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
 
@@ -284,6 +289,7 @@ def build_kotlin_library(
             # Match buck1, which always does class ABI generation for Kotlin targets unless explicitly specified.
             override_abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode) or AbiGenerationMode("class"),
             extra_sub_targets = extra_sub_targets,
+            validation_deps_outputs = validation_deps_outputs,
         )
 
     else:
@@ -331,11 +337,17 @@ def build_kotlin_library(
                 additional_compiled_srcs = kotlinc_classes,
                 generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
                 extra_sub_targets = extra_sub_targets,
+                validation_deps_outputs = validation_deps_outputs,
             )
             return java_lib
         elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
             source_level, target_level = get_java_version_attributes(ctx)
             extra_arguments = cmd_args(ctx.attrs.extra_arguments)
+
+            # The outputs of validation_deps need to be added as hidden arguments
+            # to an action for the validation_deps targets to be built and enforced.
+            if validation_deps_outputs:
+                extra_arguments.hidden(validation_deps_outputs)
             common_kotlincd_kwargs = {
                 "abi_generation_mode": get_abi_generation_mode(ctx.attrs.abi_generation_mode),
                 "actions": ctx.actions,

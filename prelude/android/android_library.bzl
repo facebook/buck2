@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load(
     "@prelude//android:android_providers.bzl",
     "AndroidLibraryIntellijInfo",
@@ -39,7 +40,10 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             }),
         ]
 
-    java_providers, android_library_intellij_info = build_android_library(ctx)
+    java_providers, android_library_intellij_info = build_android_library(
+        ctx = ctx,
+        validation_deps_outputs = get_validation_deps_outputs(ctx),
+    )
     android_providers = [android_library_intellij_info] if android_library_intellij_info else []
 
     return to_list(java_providers) + [
@@ -55,7 +59,8 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
 def build_android_library(
         ctx: AnalysisContext,
         r_dot_java: [Artifact, None] = None,
-        extra_sub_targets = {}) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
+        extra_sub_targets = {},
+        validation_deps_outputs: [list[Artifact], None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []
 
@@ -74,6 +79,7 @@ def build_android_library(
             additional_classpath_entries = additional_classpath_entries,
             bootclasspath_entries = bootclasspath_entries,
             extra_sub_targets = extra_sub_targets,
+            validation_deps_outputs = validation_deps_outputs,
         ), android_library_intellij_info
     else:
         return build_java_library(
@@ -82,6 +88,7 @@ def build_android_library(
             additional_classpath_entries = additional_classpath_entries,
             bootclasspath_entries = bootclasspath_entries,
             extra_sub_targets = extra_sub_targets,
+            validation_deps_outputs = validation_deps_outputs,
         ), android_library_intellij_info
 
 def _get_dummy_r_dot_java(
