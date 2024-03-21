@@ -14,7 +14,7 @@ load(":context.bzl", "CompileContext")
 def failure_filter(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        predecl_out: [Artifact, None],
+        predeclared_output: [Artifact, None],
         build_status: Artifact,
         required: Artifact,
         stderr: Artifact,
@@ -22,8 +22,8 @@ def failure_filter(
     toolchain_info = compile_ctx.toolchain_info
     failure_filter_action = toolchain_info.failure_filter_action
 
-    if predecl_out:
-        output = predecl_out
+    if predeclared_output:
+        output = predeclared_output
     else:
         output = ctx.actions.declare_output("out/" + required.short_path)
 

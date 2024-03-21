@@ -199,7 +199,7 @@ def _rust_binary_common(
             params = params,
             default_roots = default_roots,
             extra_link_args = executable_args.extra_link_args,
-            predeclared_outputs = {Emit("link"): output},
+            predeclared_output = output,
             extra_flags = extra_flags,
             is_binary = True,
             allow_cache_upload = allow_cache_upload,

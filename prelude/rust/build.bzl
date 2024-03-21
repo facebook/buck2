@@ -423,7 +423,7 @@ def rust_compile(
         params: BuildParams,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
-        predeclared_outputs: dict[Emit, Artifact] = {},
+        predeclared_output: [Artifact, None] = None,
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         is_binary: bool = False,
         designated_clippy: bool = False,
@@ -468,7 +468,6 @@ def rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
-            predeclared_outputs = {},
             subdir = common_args.subdir,
             params = params,
         )
@@ -477,9 +476,9 @@ def rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
-            predeclared_outputs = predeclared_outputs,
             subdir = common_args.subdir,
             params = params,
+            predeclared_output = predeclared_output,
         )
 
     pdb_artifact = None
@@ -548,7 +547,6 @@ def rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
-            predeclared_outputs = {},
             subdir = common_args.subdir + "-clippy",
             params = params,
         )
@@ -588,7 +586,7 @@ def rust_compile(
         filtered_output = failure_filter(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            predecl_out = predeclared_outputs.get(emit),
+            predeclared_output = predeclared_output,
             build_status = invoke.build_status,
             required = emit_op.output,
             stderr = invoke.diag_txt,
@@ -1125,9 +1123,9 @@ def _rustc_emit(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         emit: Emit,
-        predeclared_outputs: dict[Emit, Artifact],
         subdir: str,
-        params: BuildParams) -> EmitOperation:
+        params: BuildParams,
+        predeclared_output: [Artifact, None] = None) -> EmitOperation:
     toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -1136,8 +1134,8 @@ def _rustc_emit(
     emit_env = {}
     extra_out = None
 
-    if emit in predeclared_outputs:
-        emit_output = predeclared_outputs[emit]
+    if predeclared_output:
+        emit_output = predeclared_output
     else:
         extra_hash = "-" + _metadata(ctx.label, False)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
