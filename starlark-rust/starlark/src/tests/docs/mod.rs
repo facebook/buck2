@@ -171,14 +171,11 @@ fn module(builder: &mut GlobalsBuilder) {
         Ok(a)
     }
 
-    // TODO(nga): generated signature should be `*args: str`. Currently type is omitted.
     fn starlark_args(#[starlark(args)] args: UnpackTuple<String>) -> anyhow::Result<NoneType> {
         let _ignore = args;
         Ok(NoneType)
     }
 
-    // TODO(nga): generated signature should be `**kwargs: int`.
-    //   Currently it is generated as `**kwargs: dict[str, int]`.
     fn starlark_kwargs(
         #[starlark(kwargs)] kwargs: SmallMap<String, u32>,
     ) -> anyhow::Result<NoneType> {

@@ -578,14 +578,16 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
                     vec![]
                 }
                 StarArgPassStyle::Args => {
-                    // TODO(nga): type is not as precise as it could be.
-                    // If parameter type is declared as `Vec<String>` for example,
-                    // we should pass repr of `String`, not repr of `Vec<String>`.
-                    // We cannot do it yet, so we pass any.
-                    vec![syn::parse_quote_spanned! { span=> starlark::typing::Ty::any() }]
+                    let typ_str = render_starlark_type(span, &arg.ty);
+                    vec![syn::parse_quote_spanned! { span=>
+                    starlark::typing::macro_support::unpack_args_item_ty(#typ_str) }]
                 }
-                StarArgPassStyle::Kwargs
-                | StarArgPassStyle::PosOnly
+                StarArgPassStyle::Kwargs => {
+                    let typ_str = render_starlark_type(span, &arg.ty);
+                    vec![syn::parse_quote_spanned! { span=>
+                    starlark::typing::macro_support::unpack_kwargs_value_ty(#typ_str) }]
+                }
+                StarArgPassStyle::PosOnly
                 | StarArgPassStyle::PosOrNamed
                 | StarArgPassStyle::NamedOnly => {
                     let typ_str = render_starlark_type(span, arg.without_option());

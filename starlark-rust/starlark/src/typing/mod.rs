@@ -43,6 +43,8 @@ pub(crate) mod ty;
 pub(crate) mod typecheck;
 pub(crate) mod user;
 
+pub mod macro_support;
+
 #[cfg(test)]
 mod tests;
 

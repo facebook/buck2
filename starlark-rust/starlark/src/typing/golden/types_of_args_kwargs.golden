@@ -14,7 +14,6 @@ def test():
     foo(b=1)
     # Bad
     foo(1)
-    # TODO(nga): this should fail.
     foo(c="x")
 
 Error:
@@ -23,6 +22,14 @@ error: Expected type `str` but got `int`
    |
 10 |     foo(1)
    |         ^
+   |
+
+Error:
+error: Expected type `int` but got `str`
+  --> filename:11:9
+   |
+11 |     foo(c="x")
+   |         ^^^^^
    |
 
 Types:

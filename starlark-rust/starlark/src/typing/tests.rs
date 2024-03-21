@@ -260,7 +260,6 @@ def test():
     foo(b=1)
     # Bad
     foo(1)
-    # TODO(nga): this should fail.
     foo(c="x")
 "#,
     );

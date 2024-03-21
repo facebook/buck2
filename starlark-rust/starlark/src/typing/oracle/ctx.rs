@@ -233,20 +233,8 @@ impl<'a> TypingOracleCtx<'a> {
                     }
                 }
                 ParamMode::Kwargs => {
-                    let val_types: Vec<_> = param
-                        .ty
-                        .iter_union()
-                        .iter()
-                        .filter_map(|x| match x {
-                            TyBasic::Dict(_k, v) => Some(v.to_ty()),
-                            _ => None,
-                        })
-                        .collect();
-                    if !val_types.is_empty() {
-                        let require = Ty::unions(val_types);
-                        for ty in args {
-                            self.validate_type(ty, &require)?;
-                        }
+                    for ty in args {
+                        self.validate_type(ty, &param.ty)?;
                     }
                 }
             }
