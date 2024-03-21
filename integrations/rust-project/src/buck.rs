@@ -374,7 +374,13 @@ impl Buck {
 
     pub fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command("audit");
-        command.args(["config", "--json", "--", "rust.sysroot_src_path"]);
+        command.args([
+            "config",
+            "-c=rust.failure_filter=true",
+            "--json",
+            "--",
+            "rust.sysroot_src_path",
+        ]);
         command
             .stderr(Stdio::null())
             .stdout(Stdio::piped())
@@ -468,7 +474,11 @@ impl Buck {
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
-        command.args(["--output-all-attributes", "kind('^alias$', deps(%Ss))"]);
+        command.args([
+            "-c=rust.failure_filter=true",
+            "--output-all-attributes",
+            "kind('^alias$', deps(%Ss))",
+        ]);
         command.args(targets);
 
         info!("resolving aliased libraries");
