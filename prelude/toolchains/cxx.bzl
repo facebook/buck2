@@ -118,7 +118,6 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 static_library_extension = static_library_extension,
                 force_full_hybrid_if_capable = False,
                 is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
-                produce_interface_from_stub_shared_library = True,
                 link_ordering = ctx.attrs.link_ordering,
             ),
             bolt_enabled = False,

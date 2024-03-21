@@ -146,7 +146,7 @@ load(
     "cxx_platform_supported",
     "cxx_use_shlib_intfs",
 )
-load(":cxx_toolchain_types.bzl", "is_bitcode_format")
+load(":cxx_toolchain_types.bzl", "ShlibInterfacesMode", "is_bitcode_format")
 load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
@@ -1421,7 +1421,8 @@ def _shared_library(
     # If shared library interfaces are enabled, link that and use it as
     # the shared lib that dependents will link against.
     if cxx_use_shlib_intfs(ctx):
-        if not linker_info.produce_interface_from_stub_shared_library:
+        mode = get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces
+        if mode == ShlibInterfacesMode("stub_from_library"):
             shlib_for_interface = exported_shlib
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link

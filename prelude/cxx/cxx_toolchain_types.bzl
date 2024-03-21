@@ -9,7 +9,7 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 LinkerType = ["gnu", "darwin", "windows", "wasm"]
 
-ShlibInterfacesMode = enum("disabled", "enabled", "defined_only")
+ShlibInterfacesMode = enum("disabled", "enabled", "defined_only", "stub_from_library")
 
 # TODO(T110378149): Consider whether it makes sense to move these things to
 # configurations/constraints rather than part of the toolchain.
@@ -65,7 +65,6 @@ LinkerInfo = provider(
         "use_archiver_flags": provider_field(typing.Any, default = None),
         "force_full_hybrid_if_capable": provider_field(typing.Any, default = None),
         "is_pdb_generated": provider_field(typing.Any, default = None),  # bool
-        "produce_interface_from_stub_shared_library": provider_field(typing.Any, default = None),  # bool
     },
 )
 

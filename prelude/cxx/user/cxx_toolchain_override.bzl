@@ -116,7 +116,6 @@ def _cxx_toolchain_override(ctx):
         use_archiver_flags = value_or(ctx.attrs.use_archiver_flags, base_linker_info.use_archiver_flags),
         force_full_hybrid_if_capable = value_or(ctx.attrs.force_full_hybrid_if_capable, base_linker_info.force_full_hybrid_if_capable),
         is_pdb_generated = pdb_expected,
-        produce_interface_from_stub_shared_library = value_or(ctx.attrs.produce_interface_from_stub_shared_library, base_linker_info.produce_interface_from_stub_shared_library),
     )
 
     base_binary_utilities_info = base_toolchain.binary_utilities_info
@@ -212,7 +211,6 @@ def _cxx_toolchain_override_inheriting_target_platform_attrs(is_toolchain_rule):
         "platform_deps_aliases": attrs.option(attrs.list(attrs.string()), default = None),
         "platform_name": attrs.option(attrs.string(), default = None),
         "post_linker_flags": attrs.option(attrs.list(attrs.arg()), default = None),
-        "produce_interface_from_stub_shared_library": attrs.option(attrs.bool(), default = None),
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "sanitizer_runtime_enabled": attrs.bool(default = False),
         "sanitizer_runtime_files": attrs.option(attrs.set(attrs.dep(), sorted = True, default = []), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
