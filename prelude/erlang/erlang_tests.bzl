@@ -43,7 +43,7 @@ def erlang_tests_macro(
         property_tests: list[str] = [],
         srcs: list[str] = [],
         prefix: str | None = None,
-        **common_attributes: dict) -> None:
+        **common_attributes) -> None:
     """
     Generate multiple erlang_test targets based on the `suites` field.
     Also adds the default 'config' and 'deps' from the buck2 config.
