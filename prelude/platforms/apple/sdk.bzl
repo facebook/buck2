@@ -5,6 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-AppleSdks = ["iphoneos", "iphonesimulator", "maccatalyst", "macosx", "visionos", "visionsimulator", "watchos", "watchsimulator"]
+_APPLE_SDKS = [
+    "iphoneos",
+    "iphonesimulator",
+    "maccatalyst",
+    "macosx",
+    "visionos",
+    "visionsimulator",
+    "watchos",
+    "watchsimulator",
+]
 
-AppleSdk = enum(*AppleSdks)
+AppleSdk = enum(*_APPLE_SDKS)

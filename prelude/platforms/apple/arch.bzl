@@ -5,6 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-AppleArches = ["i386", "x86_64", "arm64", "arm64_32", "armv7k"]
+_APPLE_ARCHES = [
+    "arm64",
+    "arm64_32",
+    "armv7k",
+    "i386",
+    "x86_64",
+]
 
-AppleArch = enum(*AppleArches)
+AppleArch = enum(*_APPLE_ARCHES)
