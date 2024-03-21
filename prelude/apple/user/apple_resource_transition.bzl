@@ -32,8 +32,8 @@ apple_resource_transition = transition(
     impl = _impl,
     refs = {
         "cpu": "config//cpu/constraints:cpu",
-        "universal": "config//build_mode/apple/constraints:universal",
-        "universal_enabled": "config//build_mode/apple/constraints:universal-enabled",
+        "universal": "config//cpu/constraints:universal",
+        "universal_enabled": "config//cpu/constraints:universal-enabled",
     },
     attrs = [
         "skip_universal_resource_dedupe",
