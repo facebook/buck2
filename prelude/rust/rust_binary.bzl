@@ -295,14 +295,11 @@ def _rust_binary_common(
         if link_strategy == specified_link_strategy and link.pdb:
             pdb = link.pdb
 
-    # FIXME(JakobDegen): It's a bit weird that this uses the specified link
-    # strategy but rustdoc and expand use the default link strategy. Figure out
-    # what's going on there.
     meta_full = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("metadata-full"),
-        params = strategy_param[specified_link_strategy],
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
         designated_clippy = True,
