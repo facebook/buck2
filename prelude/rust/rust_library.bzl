@@ -93,6 +93,7 @@ load(
 )
 load(
     ":link_info.bzl",
+    "DEFAULT_STATIC_LIB_OUTPUT_STYLE",
     "DEFAULT_STATIC_LINK_STRATEGY",
     "RustLinkInfo",
     "RustLinkStrategyInfo",
@@ -215,7 +216,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Grab the artifacts to use for the check subtargets. Picking a good
     # `LibOutputStyle` ensures that the subtarget shares work with the main
     # build if possible
-    check_params = lang_style_param[(LinkageLang("rust"), LibOutputStyle("archive"))]
+    check_params = lang_style_param[(LinkageLang("rust"), DEFAULT_STATIC_LIB_OUTPUT_STYLE)]
 
     meta_fast = rust_compile(
         ctx = ctx,
@@ -278,12 +279,12 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # being built in a "shared" way well, so this must be a static output style.
     if ctx.attrs.doc_link_style:
         doc_output_style = {
-            "shared": LibOutputStyle("pic_archive"),
+            "shared": DEFAULT_STATIC_LIB_OUTPUT_STYLE,
             "static": LibOutputStyle("archive"),
             "static_pic": LibOutputStyle("pic_archive"),
         }[ctx.attrs.doc_link_style]
     else:
-        doc_output_style = LibOutputStyle("pic_archive")
+        doc_output_style = DEFAULT_STATIC_LIB_OUTPUT_STYLE
     static_library_params = lang_style_param[(LinkageLang("rust"), doc_output_style)]
 
     # Among {rustdoc, doctests, macro expand}, doctests are the only one which

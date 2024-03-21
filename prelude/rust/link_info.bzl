@@ -43,6 +43,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkInfo",
     "LinkStrategy",
     "MergedLinkInfo",
@@ -75,7 +76,15 @@ load(
 load(":rust_toolchain.bzl", "PanicRuntime")
 
 # Link strategy for targets which do not set an explicit `link_style` attribute.
+#
+# These values are also used as the defaults for check/clippy subtargets on
+# libraries, and are the only way in which metadata-fast output can be built.
+#
+# Internally at Meta, these are a good choice for a default because they allow
+# sharing work between check builds and dev mode builds, which have shared link
+# strategy, and so consume their dependencies as `static_pic`.
 DEFAULT_STATIC_LINK_STRATEGY = LinkStrategy("static_pic")
+DEFAULT_STATIC_LIB_OUTPUT_STYLE = LibOutputStyle("pic_archive")
 
 # Override dylib crates to static_pic, so that Rust code is always
 # statically linked.

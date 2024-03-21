@@ -312,7 +312,7 @@ def _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("metadata-fast"),
-        params = strategy_param[LinkStrategy("static")],
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
