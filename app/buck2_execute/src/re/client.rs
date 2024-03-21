@@ -40,7 +40,7 @@ use remote_execution::DownloadRequest;
 use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteResponse;
 use remote_execution::ExecuteWithProgressResponse;
-use remote_execution::ExtendDigestTtlRequest;
+use remote_execution::ExtendDigestsTtlRequest;
 use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
@@ -1171,24 +1171,18 @@ impl RemoteExecutionClientImpl {
     ) -> anyhow::Result<()> {
         let use_case = &use_case;
         // TODO(arr): use batch API from RE when it becomes available
-        let futs = digests.into_iter().map(|digest| async move {
-            self.client()
-                .get_cas_client()
-                .extend_digest_ttl(
-                    use_case.metadata(None),
-                    ExtendDigestTtlRequest {
-                        digest,
-                        ttl: ttl.as_secs() as i64,
-                        ..Default::default()
-                    },
-                )
-                .await?;
-
-            anyhow::Ok(())
-        });
-
-        futures::future::try_join_all(futs).await?;
-
+        let _unused = self
+            .client()
+            .get_cas_client()
+            .extend_digest_ttl(
+                use_case.metadata(None),
+                ExtendDigestsTtlRequest {
+                    digests,
+                    ttl: ttl.as_secs() as i64,
+                    ..Default::default()
+                },
+            )
+            .await?;
         Ok(())
     }
 

@@ -74,9 +74,10 @@ pub struct GetDigestsTtlRequest {
 }
 
 #[derive(Default)]
-pub struct ExtendDigestTtlRequest {
-    pub digest: TDigest,
+pub struct ExtendDigestsTtlRequest {
+    pub digests: Vec<TDigest>,
     pub ttl: i64,
+    pub _dot_dot: (),
 }
 
 #[derive(Clone, Default)]
