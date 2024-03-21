@@ -75,7 +75,7 @@ def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> li
 
 def _build_release(ctx: AnalysisContext, toolchain: Toolchain, apps: ErlAppDependencies) -> dict[str, Artifact]:
     # OTP base structure
-    lib_dir = _build_lib_dir(ctx, toolchain, apps)
+    lib_dir = build_lib_dir(ctx, toolchain, _relname(ctx), apps)
     boot_scripts = _build_boot_script(ctx, toolchain, lib_dir["lib"])
 
     # release specific variables in bin/release_variables
@@ -100,12 +100,15 @@ def _build_release(ctx: AnalysisContext, toolchain: Toolchain, apps: ErlAppDepen
 
     return all_outputs
 
-def _build_lib_dir(ctx: AnalysisContext, toolchain: Toolchain, all_apps: ErlAppDependencies) -> dict[str, Artifact]:
+def build_lib_dir(
+        ctx: AnalysisContext,
+        toolchain: Toolchain,
+        release_name: str,
+        all_apps: ErlAppDependencies) -> dict[str, Artifact]:
     """Build lib dir according to OTP specifications.
 
     .. seealso:: `OTP Design Principles Release Structure <https://www.erlang.org/doc/design_principles/release_structure.html>`_
     """
-    release_name = _relname(ctx)
     build_dir = erlang_build.utils.build_dir(toolchain)
 
     link_spec = {

@@ -7,8 +7,9 @@
 
 load("@prelude//:paths.bzl", "paths")
 load(":erlang_build.bzl", "erlang_build")
-load(":erlang_dependencies.bzl", "check_dependencies", "flatten_dependencies")
+load(":erlang_dependencies.bzl", "ErlAppDependencies", "check_dependencies", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
+load(":erlang_release.bzl", "build_lib_dir")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
@@ -17,43 +18,56 @@ load(
 )
 load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 
-def create_escript(
-        ctx: AnalysisContext,
-        spec_file: Artifact,
-        toolchain: Toolchain,
-        files: list[Artifact],
-        output: Artifact,
-        escript_name: str) -> None:
-    """ build the escript with the escript builder tool
-    """
-    script = toolchain.escript_builder
-
-    escript_build_cmd = cmd_args(
-        [
-            toolchain.otp_binaries.escript,
-            script,
-            spec_file,
-        ],
-    )
-    escript_build_cmd.hidden(output.as_output())
-    escript_build_cmd.hidden(files)
-    erlang_build.utils.run_with_env(
-        ctx,
-        toolchain,
-        escript_build_cmd,
-        category = "escript",
-        identifier = action_identifier(toolchain, escript_name),
-    )
-    return None
-
 def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
     # select the correct tools from the toolchain
-    toolchain_name = get_primary(ctx)
     toolchain = select_toolchains(ctx)[get_primary(ctx)]
 
     # collect all dependencies
     dependencies = flatten_dependencies(ctx, check_dependencies(ctx.attrs.deps, [ErlangAppInfo]))
 
+    if ctx.attrs.bundled:
+        return _bundled_escript_impl(ctx, dependencies, toolchain)
+    else:
+        return _unbundles_escript_impl(ctx, dependencies, toolchain)
+
+def _unbundles_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies, toolchain: Toolchain) -> list[Provider]:
+    if ctx.attrs.resources:
+        fail("resources are not supported with unbundled escripts, add them to an applications priv/ directory instead")
+
+    escript_name = _escript_name(ctx)
+
+    lib_dir = build_lib_dir(
+        ctx,
+        toolchain,
+        escript_name,
+        dependencies,
+    )
+
+    escript_trampoline = build_escript_trampoline(ctx, toolchain)
+
+    trampoline = {
+        "run.escript": escript_trampoline,
+    }
+
+    all_outputs = {}
+    for outputs in [lib_dir, trampoline]:
+        all_outputs.update(outputs)
+
+    output = ctx.actions.symlinked_dir(
+        escript_name,
+        all_outputs,
+    )
+
+    cmd = cmd_args([
+        toolchain.escript_trampoline,
+        output,
+        toolchain.otp_binaries.escript,
+    ])
+
+    return [DefaultInfo(default_output = output), RunInfo(cmd)]
+
+def _bundled_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies, toolchain: Toolchain) -> list[Provider]:
+    toolchain_name = get_primary(ctx)
     artifacts = {}
 
     for dep in dependencies.values():
@@ -81,10 +95,7 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
                 fail("multiple artifacts defined for path %s", (artifact.short_path))
             artifacts[artifact.short_path] = artifact
 
-    if ctx.attrs.script_name:
-        escript_name = ctx.attrs.script_name
-    else:
-        escript_name = ctx.attrs.name + ".escript"
+    escript_name = _escript_name(ctx)
     output = ctx.actions.declare_output(escript_name)
 
     args = ctx.attrs.emu_args
@@ -115,6 +126,68 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = output),
         RunInfo(escript_cmd),
     ]
+
+def create_escript(
+        ctx: AnalysisContext,
+        spec_file: Artifact,
+        toolchain: Toolchain,
+        files: list[Artifact],
+        output: Artifact,
+        escript_name: str) -> None:
+    """ build the escript with the escript builder tool
+    """
+    script = toolchain.escript_builder
+
+    escript_build_cmd = cmd_args(
+        [
+            toolchain.otp_binaries.escript,
+            script,
+            spec_file,
+        ],
+    )
+    escript_build_cmd.hidden(output.as_output())
+    escript_build_cmd.hidden(files)
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
+        escript_build_cmd,
+        category = "escript",
+        identifier = action_identifier(toolchain, escript_name),
+    )
+    return None
+
+def _escript_name(ctx: AnalysisContext) -> str:
+    if ctx.attrs.script_name:
+        return ctx.attrs.script_name
+    else:
+        return ctx.attrs.name + ".escript"
+
+def _main_module(ctx: AnalysisContext) -> str:
+    if ctx.attrs.main_module:
+        return ctx.attrs.main_module
+    else:
+        return ctx.attrs.name
+
+def build_escript_trampoline(ctx: AnalysisContext, toolchain) -> Artifact:
+    data = cmd_args()
+
+    data.add("#!/usr/bin/env escript")
+    data.add("%% -*- erlang -*-")
+    data.add("%%! {}".format(" ".join(ctx.attrs.emu_args)))
+
+    data.add("-module('{}').".format(_escript_name(ctx)))
+    data.add("-export([main/1]).")
+    data.add("main(Args) ->")
+    data.add("    ScriptDir = filename:dirname(escript:script_name()),")
+    data.add('    EBinDirs = filelib:wildcard(filename:join([ScriptDir, "lib", "*", "ebin"])),')
+    data.add("    code:add_paths(EBinDirs),")
+    data.add("    {}:main(Args).".format(_main_module(ctx)))
+
+    return ctx.actions.write(
+        paths.join(erlang_build.utils.build_dir(toolchain), "run.escript"),
+        data,
+        is_executable = True,
+    )
 
 def _ebin_path(file: Artifact, app_name: str) -> str:
     return paths.join(app_name, "ebin", file.basename)

@@ -27,6 +27,7 @@ toolchain_utilities(
     edoc = "edoc_cli.escript",
     erlc_trampoline = "erlc_trampoline.sh",
     escript_builder = "escript_builder.escript",
+    escript_trampoline = "escript_trampoline.sh",
     include_erts = "include_erts.escript",
     release_variables_builder = "release_variables_builder.escript",
     utility_modules = [

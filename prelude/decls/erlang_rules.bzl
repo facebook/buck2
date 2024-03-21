@@ -160,6 +160,9 @@ rules_attributes = {
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_escript": {
+        "bundled": attrs.bool(default = True, doc = """
+                Setting bundled to `True` does generate a folder structure and escript trampoline instead of an archive.
+        """),
         "deps": attrs.list(attrs.dep(), doc = """
                 List of Erlang applications that are bundled in the escript. This includes all transitive dependencies as well.
             """),
