@@ -590,13 +590,8 @@ def _convert_python_library_to_executable(
         # Set rpaths to find 1) the shared libs dir and the 2) runtime libs dir.
         rpath_ref = get_rpath_origin(get_cxx_toolchain_info(ctx).linker_info.type)
         rpath_ldflag = "-Wl,-rpath,{}/".format(rpath_ref)
-        if package_style == PackageStyle("standalone"):
-            extra_binary_link_flags.append(rpath_ldflag + "../..")
-            extra_binary_link_flags.append(rpath_ldflag + "../lib")
-        else:
-            rpath_ldflag_prefix = rpath_ldflag + "{}#link-tree".format(ctx.attrs.name)
-            extra_binary_link_flags.append(rpath_ldflag_prefix + "/runtime/lib")
-            extra_binary_link_flags.append(rpath_ldflag_prefix)
+        extra_binary_link_flags.append(rpath_ldflag + "../..")
+        extra_binary_link_flags.append(rpath_ldflag + "../lib")
 
         impl_params = CxxRuleConstructorParams(
             rule_type = "python_binary",
