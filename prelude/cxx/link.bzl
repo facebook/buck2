@@ -166,9 +166,6 @@ def cxx_link_into(
     all_link_args = cmd_args(link_cmd_parts.linker_flags)
     all_link_args.add(get_output_flags(linker_info.type, output))
 
-    sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
-    all_link_args.add(sanitizer_runtime_args.extra_link_args)
-
     # Darwin LTO requires extra link outputs to preserve debug info
     split_debug_output = None
     split_debug_lto_info = get_split_debug_lto_info(ctx.actions, cxx_toolchain_info, output.short_path)
@@ -199,6 +196,12 @@ def cxx_link_into(
         ),
     )
     all_link_args.add(link_args_output.link_args)
+
+    # Sanitizer runtime args must appear at the end because it can affect
+    # behavior of Swift runtime loading when the app also has an embedded
+    # Swift runtime.
+    sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
+    all_link_args.add(sanitizer_runtime_args.extra_link_args)
 
     bitcode_linkables = []
     for link_item in opts.links:
