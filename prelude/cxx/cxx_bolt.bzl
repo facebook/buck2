@@ -21,11 +21,10 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, identifier: [str, None]
 
     if not bolt_msdk or not cxx_use_bolt(ctx):
         fail("Cannot use bolt if bolt_msdk is not available or bolt profile is not available")
-    args = cmd_args()
 
     # bolt command format:
     # {llvm_bolt} {input_bin} -o $OUT -data={fdata} {args}
-    args.add(
+    args = cmd_args(
         cmd_args(bolt_msdk, format = "{}/bin/llvm-bolt"),
         prebolt_output,
         "-o",
