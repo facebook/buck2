@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use buck2_interpreter::types::regex::BuckStarlarkRegex;
 use dupe::Dupe;
+use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -38,6 +39,19 @@ pub(crate) enum CmdArgsRegex<'v> {
     // TODO(nga): migrate, soft error, remove.
     Str(StringValue<'v>),
     Regex(ValueTyped<'v, BuckStarlarkRegex>),
+}
+
+impl<'v> CmdArgsRegex<'v> {
+    pub(crate) fn validate(&self) -> anyhow::Result<()> {
+        match self {
+            CmdArgsRegex::Str(pattern) => {
+                // Validate that regex is valid
+                Regex::new(pattern.as_str())?;
+            }
+            CmdArgsRegex::Regex(_) => {}
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Dupe, Copy, Allocative)]

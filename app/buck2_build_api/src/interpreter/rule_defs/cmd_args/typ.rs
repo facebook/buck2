@@ -26,7 +26,6 @@ use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
-use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -741,13 +740,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] replacement: StringValue<'v>,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
         let options = this.borrow.options_mut();
-        match &pattern {
-            CmdArgsRegex::Str(pattern) => {
-                // Validate that regex is valid
-                Regex::new(pattern.as_str())?;
-            }
-            CmdArgsRegex::Regex(_) => {}
-        }
+        pattern.validate()?;
         if let Some(replacements) = &mut options.replacements {
             replacements.push((pattern, replacement));
         } else {
