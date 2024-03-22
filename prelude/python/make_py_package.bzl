@@ -20,8 +20,6 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
-    "gen_shared_libs_action",
-    "zip_shlibs",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -150,7 +148,7 @@ def make_py_package(
     preload_libraries = _preload_libraries_args(
         ctx = ctx,
         shared_libraries = [
-            (shlib, libdir)
+            (libdir, shlib)
             for libdir, shlib, preload in shared_libraries
             if preload
         ],
@@ -347,18 +345,13 @@ def _debuginfo_subtarget(ctx: AnalysisContext, debug_artifacts: list[ArgLike]) -
     out = ctx.actions.write_json("debuginfo.manifest.json", debug_artifacts)
     return [DefaultInfo(default_output = out, other_outputs = debug_artifacts)]
 
-def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: list[(SharedLibrary, str)]) -> cmd_args:
-    preload_libraries_path = gen_shared_libs_action(
-        actions = ctx.actions,
-        out = "__preload_libraries.txt",
-        shared_libs = [shlib for shlib, _ in shared_libraries],
-        gen_action = lambda actions, output, shared_libs: actions.write(
-            output,
-            [
-                "--preload={}".format(paths.join(libdir, soname))
-                for soname, _, libdir in zip_shlibs(shared_libs, shared_libraries)
-            ],
-        ),
+def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: list[(str, SharedLibrary)]) -> cmd_args:
+    preload_libraries_path = ctx.actions.write(
+        "__preload_libraries.txt",
+        cmd_args([
+            "--preload={}".format(paths.join(libdir, shlib.soname.ensure_str()))
+            for libdir, shlib in shared_libraries
+        ]),
     )
     return cmd_args(preload_libraries_path, format = "@{}")
 
@@ -437,29 +430,17 @@ def _pex_modules_common_args(
         _srcs(resources, format = "--resource-manifest={}"),
     )
 
-    native_library_srcs_path = gen_shared_libs_action(
-        actions = ctx.actions,
-        out = "__native_libraries___srcs.txt",
-        shared_libs = [shlib for shlib, _ in shared_libraries],
-        gen_action = lambda actions, output, shared_libs: actions.write(
-            output,
-            _srcs(
-                [shlib.lib.output for shlib in shared_libs.values()],
-                format = "--native-library-src={}",
-            ),
-        ),
+    native_libraries = [shlib.lib.output for shlib, _ in shared_libraries]
+    native_library_srcs_path = ctx.actions.write(
+        "__native_libraries___srcs.txt",
+        _srcs(native_libraries, format = "--native-library-src={}"),
     )
-    native_library_dests_path = gen_shared_libs_action(
-        actions = ctx.actions,
-        out = "__native_libraries___dests.txt",
-        shared_libs = [shlib for shlib, _ in shared_libraries],
-        gen_action = lambda actions, output, shared_libs: actions.write(
-            output,
-            [
-                "--native-library-dest={}".format(paths.join(libdir, soname))
-                for soname, _, libdir in zip_shlibs(shared_libs, shared_libraries)
-            ],
-        ),
+    native_library_dests_path = ctx.actions.write(
+        "__native_libraries___dests.txt",
+        [
+            "--native-library-dest={}".format(paths.join(libdir, shlib.soname.ensure_str()))
+            for shlib, libdir in shared_libraries
+        ],
     )
 
     src_manifest_args = cmd_args(src_manifests_path).hidden(srcs)
@@ -482,31 +463,32 @@ def _pex_modules_common_args(
         debug_artifacts.extend(debuginfo_files)
 
     if ctx.attrs.package_split_dwarf_dwp:
+        if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) == PackageStyle("standalone") and cxx_is_gnu(ctx):
+            # rename to match extracted debuginfo package
+            dwp = [
+                (shlib.lib.dwp, paths.join(libdir, "{}.debuginfo.dwp".format(shlib.soname.ensure_str())))
+                for shlib, libdir in shared_libraries
+                if shlib.lib.dwp != None
+            ]
+        else:
+            dwp = [
+                (shlib.lib.dwp, paths.join(libdir, "{}.dwp".format(shlib.soname.ensure_str())))
+                for shlib, libdir in shared_libraries
+                if shlib.lib.dwp != None
+            ]
         dwp_srcs_path = ctx.actions.write(
             "__dwp___srcs.txt",
-            _srcs([shlib.lib.dwp for shlib, _ in shared_libraries if shlib.lib.dwp != None], format = "--dwp-src={}"),
+            _srcs([src for src, _ in dwp], format = "--dwp-src={}"),
         )
-        if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) == PackageStyle("standalone") and cxx_is_gnu(ctx):
-            dwp_tmpl = "{}.debuginfo.dwp"
-        else:
-            dwp_tmpl = "{}.dwp"
-        dwp_dests_path = gen_shared_libs_action(
-            actions = ctx.actions,
-            out = "__dwp___dests.txt",
-            shared_libs = [shlib for shlib, _ in shared_libraries],
-            gen_action = lambda actions, output, shared_libs: actions.write(
-                output,
-                _srcs([
-                    paths.join(libdir, dwp_tmpl.format(soname))
-                    for soname, _, libdir in zip_shlibs(shared_libs, shared_libraries)
-                ]),
-            ),
+        dwp_dests_path = ctx.actions.write(
+            "__dwp___dests.txt",
+            _srcs([dest for _, dest in dwp], format = "--dwp-dest={}"),
         )
         dwp_srcs_args = cmd_args(dwp_srcs_path)
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
 
-        debug_artifacts.extend([shlib.lib.dwp for shlib, _ in shared_libraries if shlib.lib.dwp != None])
+        debug_artifacts.extend([d for d, _ in dwp])
 
     for shlib, _ in shared_libraries:
         deps.append(shlib.lib.output)
