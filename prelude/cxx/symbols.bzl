@@ -56,6 +56,7 @@ def _extract_symbol_names(
                 $lines = $result -split '`n'
                 $lines = $lines | ForEach-Object {{ ($_ -split ' ')[1] }}
                 $lines = $lines | ForEach-Object {{ ($_ -split '@')[0] }}
+                $lines = $lines | Where-Object {{ $_ -notmatch '__odr_asan_gen_.*' }}
                 $lines = $lines | Sort-Object -Unique
                 [IO.File]::WriteAllLines('{{}}', $lines)
             }}""".format(nm_flags)
@@ -73,6 +74,15 @@ def _extract_symbol_names(
             ' | cut -d" " -f2 ' +
             # Strip off ABI Version (@...) when using llvm-nm to keep compat with buck1
             " | cut -d@ -f1 " +
+            # Remove ASAN ODR generated symbols: __odr_asan_gen_*. They are
+            # handled by a separate asan_dynamic_list.txt list of asan patterns.
+            # BUT MORE IMPORTANTLY, symbols like __odr_asan_XXX[abi:cxx11] force
+            # lld into a code path that repeatedly does a linear scan of all
+            # symbols for O(num_patterns_with_bracket * num_symbols).  This
+            # totally tanks link time for builds with sanitizers!  Anecdotally,
+            # a binary with 3.7M symbols and 2K __odr_asan_XXX[abi:cxx11] can
+            # spend 6 mins processing patterns and 10s actually linking.
+            " | grep -v -E '__odr_asan_gen_.*'" +
             # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
             # make it significantly faster. CAUTION: if ten of these processes
             # run in parallel, they'll have cumulative allocations larger than RAM.
