@@ -12,13 +12,14 @@ use anyhow::Context;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredKey;
 use buck2_build_api::actions::key::ActionKeyExt;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::ReservedDeferredData;
 use buck2_build_api::dynamic::DynamicRegistryDyn;
 use buck2_build_api::dynamic::DYNAMIC_REGISTRY_NEW;
+use buck2_build_api::interpreter::rule_defs::dynamic_value::DynamicValue;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
@@ -47,9 +48,10 @@ impl DynamicRegistryDyn for DynamicRegistry {
     fn register(
         &mut self,
         dynamic: IndexSet<Artifact>,
+        promises: IndexSet<DynamicValue>,
         outputs: IndexSet<OutputArtifact>,
         registry: &mut DeferredRegistry,
-    ) -> anyhow::Result<DeferredId> {
+    ) -> anyhow::Result<DeferredKey> {
         let reserved = registry.reserve::<DynamicLambdaOutput>();
         let outputs = outputs
             .iter()
@@ -64,10 +66,10 @@ impl DynamicRegistryDyn for DynamicRegistry {
                 Ok(bound)
             })
             .collect::<anyhow::Result<_>>()?;
-        let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, outputs);
-        let lambda_id = reserved.data().deferred_key().id();
+        let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, promises, outputs);
+        let lambda_key = reserved.data().deferred_key().dupe();
         self.pending.push((reserved, lambda));
-        Ok(lambda_id)
+        Ok(lambda_key)
     }
 
     fn ensure_bound(

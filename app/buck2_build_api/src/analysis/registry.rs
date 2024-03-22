@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -69,6 +70,7 @@ use crate::dynamic::DYNAMIC_REGISTRY_NEW;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::dynamic_value::DynamicValue;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Derivative, Trace, Allocative)]
@@ -265,15 +267,16 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn register_dynamic_output(
         &mut self,
         dynamic: IndexSet<Artifact>,
+        promises: IndexSet<DynamicValue>,
         outputs: IndexSet<OutputArtifact>,
         attributes_plugins_lambda: Value<'v>,
-    ) -> anyhow::Result<()> {
-        let id = self
+    ) -> anyhow::Result<DeferredKey> {
+        let key = self
             .dynamic
-            .register(dynamic, outputs, &mut self.deferred)?;
+            .register(dynamic, promises, outputs, &mut self.deferred)?;
         self.analysis_value_storage
-            .set_value(id, attributes_plugins_lambda);
-        Ok(())
+            .set_value(key.id(), attributes_plugins_lambda);
+        Ok(key)
     }
 
     pub(crate) fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {

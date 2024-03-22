@@ -20,6 +20,8 @@ use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_build_api::actions::key::ActionKeyExt;
 use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::analysis::extra_v::AnalysisExtraValue;
+use buck2_build_api::analysis::extra_v::FrozenAnalysisExtraValue;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::Deferred;
@@ -34,8 +36,12 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_build_api::interpreter::rule_defs::dynamic_value::DynamicValue;
+use buck2_build_api::interpreter::rule_defs::dynamic_value::ResolvedDynamicValue;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -89,6 +95,8 @@ pub struct DynamicLambda {
     owner: BaseDeferredKey,
     /// Things required by the lambda (wrapped in DeferredInput)
     dynamic: IndexSet<DeferredInput>,
+    /// Dynamic values I depend on
+    promises: IndexSet<DynamicValue>,
     /// Things I produce
     outputs: Box<[BuildArtifact]>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
@@ -99,9 +107,10 @@ impl DynamicLambda {
     pub(crate) fn new(
         owner: BaseDeferredKey,
         dynamic: IndexSet<Artifact>,
+        promises: IndexSet<DynamicValue>,
         outputs: Box<[BuildArtifact]>,
     ) -> Self {
-        let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
+        let mut depends = IndexSet::with_capacity(dynamic.len() + promises.len() + 1);
         match &owner {
             BaseDeferredKey::TargetLabel(target) => {
                 depends.insert(DeferredInput::ConfiguredTarget(target.dupe()));
@@ -114,9 +123,15 @@ impl DynamicLambda {
             }
         }
         depends.extend(dynamic.into_iter().map(DeferredInput::MaterializedArtifact));
+        depends.extend(
+            promises
+                .iter()
+                .map(|p| DeferredInput::Deferred(p.dynamic_output_key.dupe())),
+        );
         Self {
             owner,
             dynamic: depends,
+            promises,
             outputs,
             attributes_lambda: None,
         }
@@ -134,24 +149,55 @@ impl DynamicLambda {
     }
 
     pub fn invoke_dynamic_output_lambda<'v>(
+        env: &'v Module,
         eval: &mut Evaluator<'v, '_, '_>,
         lambda: Value<'v>,
         ctx: Value<'v>,
         artifacts: Value<'v>,
+        promises: Value<'v>,
         outputs: Value<'v>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<bool> {
+        // check how many positional arguments the lambda takes, if
+        // three then we skip the promise arguments, if four then we
+        // pass the promise arguments.
+        let param_spec = lambda.parameters_spec().map_or_else(
+            || {
+                // TODO can this happen? If so, handle appropriately.
+                Err(internal_error!(
+                    "Cannot determine the parameter spec of dynamic lambda"
+                ))
+            },
+            |spec| Ok(spec),
+        )?;
+
+        let positionals = if param_spec.can_fill_with_args(4, &[]) {
+            [
+                ctx, artifacts, // TODO consider if we can merge into `artifacts`.
+                promises, outputs,
+            ]
+            .to_vec()
+        } else {
+            [ctx, artifacts, outputs].to_vec()
+        };
+
         let return_value = eval
-            .eval_function(lambda, &[ctx, artifacts, outputs], &[])
+            .eval_function(lambda, &positionals, &[])
             .map_err(BuckStarlarkError::new)?;
 
         if !return_value.is_none() {
-            return Err(DynamicLambdaError::LambdaMustReturnNone(
-                return_value.display_for_type_error().to_string(),
-            )
-            .into());
+            let res_typed = ProviderCollection::try_from_value_dynamic_output(return_value)?;
+            {
+                let extra_v = AnalysisExtraValue::get_or_init(&env)?;
+                if extra_v.provider_collection.get().is_some() {
+                    return Err(internal_error!("provider_collection already set"));
+                }
+                extra_v
+                    .provider_collection
+                    .get_or_init(|| env.heap().alloc_typed(res_typed));
+            }
         }
 
-        Ok(())
+        Ok(return_value.is_none())
     }
 }
 
@@ -161,6 +207,7 @@ pub struct DynamicLambdaOutput {
     /// The actions the DynamicLambda produces, in the right order.
     /// `DynamicAction.index` is an index into this Vec.
     output: Box<[ActionKey]>,
+    result: Option<FrozenProviderCollectionValue>,
 }
 
 impl DeferredOutput for DynamicLambdaOutput {}
@@ -203,8 +250,6 @@ impl Deferred for DynamicAction {
 enum DynamicLambdaError {
     #[error("dynamic_output and anon_target cannot be used together (yet)")]
     AnonTargetIncompatible,
-    #[error("dynamic_output lambda must return `None`, got: `{0}`")]
-    LambdaMustReturnNone(String),
 }
 
 impl provider::Provider for DynamicLambda {
@@ -225,10 +270,14 @@ impl Deferred for DynamicLambda {
         deferred_ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        let output = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
-            eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await
+        let (output, result) = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
+            (
+                eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await,
+                None,
+            )
         } else {
             let env = Module::new();
+            let returns_none;
 
             let (analysis_registry, declared_outputs) = {
                 let heap = env.heap();
@@ -246,11 +295,13 @@ impl Deferred for DynamicLambda {
                     dynamic_lambda_ctx_data.digest_config,
                 );
 
-                DynamicLambda::invoke_dynamic_output_lambda(
+                returns_none = DynamicLambda::invoke_dynamic_output_lambda(
+                    &env,
                     &mut eval,
                     dynamic_lambda_ctx_data.lambda.0,
                     ctx.to_value(),
                     dynamic_lambda_ctx_data.artifacts,
+                    dynamic_lambda_ctx_data.promises,
                     dynamic_lambda_ctx_data.outputs,
                 )?;
 
@@ -259,17 +310,34 @@ impl Deferred for DynamicLambda {
                 (ctx.take_state(), dynamic_lambda_ctx_data.declared_outputs)
             };
 
-            let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
+            let (frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
             let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
+
+            let result = if !returns_none {
+                let extra_v = FrozenAnalysisExtraValue::get(&frozen_env)?;
+                let provider_collection = extra_v.try_map(|extra_v| {
+                    extra_v
+                        .provider_collection
+                        .internal_error("provider_collection must be set")
+                })?;
+                Some(FrozenProviderCollectionValue::from_value(
+                    provider_collection,
+                ))
+            } else {
+                None
+            };
+
+            // TODO(ndmitchell): Check we don't use anything not in `inputs`
 
             let output: anyhow::Result<Vec<_>> = declared_outputs
                 .into_iter()
                 .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
                 .collect();
-            output
+            (output, result)
         };
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
             output: output?.into_boxed_slice(),
+            result,
         }))
     }
 
@@ -294,6 +362,7 @@ pub struct DynamicLambdaCtxData<'v> {
     pub outputs: Value<'v>,
     pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
     pub artifacts: Value<'v>,
+    pub promises: Value<'v>,
     pub key: &'v BaseDeferredKey,
     pub digest_config: DigestConfig,
     pub declared_outputs: IndexSet<DeclaredArtifact>,
@@ -360,7 +429,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         let x = match x {
             DeferredInput::MaterializedArtifact(x) => x,
             DeferredInput::ConfiguredTarget(_) => continue,
-            _ => unreachable!("DynamicLambda only depends on artifact and target"),
+            DeferredInput::Deferred(_) => continue,
         };
         let k = heap.alloc(StarlarkArtifact::new(x.dupe()));
         let path = deferred_ctx.get_materialized_artifact(x).unwrap();
@@ -384,8 +453,27 @@ pub fn dynamic_lambda_ctx_data<'v>(
         outputs.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
     }
 
+    let mut promises = SmallMap::with_capacity(dynamic_lambda.promises.len());
+    for x in &dynamic_lambda.promises {
+        let v = deferred_ctx
+            .get_deferred_data(&x.dynamic_output_key)
+            .unwrap();
+        // TODO handle non-result, convert to empty provider collection
+        let v = v
+            .downcast::<DynamicLambdaOutput>()?
+            .result
+            .as_ref()
+            .unwrap()
+            .dupe();
+        let v = v.value().owned_value(env.frozen_heap());
+        let v = heap.alloc(ResolvedDynamicValue::new(v));
+        let k = heap.alloc(x.clone());
+        promises.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
+    }
+
     let artifacts = Dict::new(artifacts);
     let outputs = Dict::new(outputs);
+    let promises = Dict::new(promises);
 
     Ok(DynamicLambdaCtxData {
         attributes: ValueOfUnchecked::new_checked(attributes.to_value())?,
@@ -393,6 +481,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         plugins,
         outputs: heap.alloc(outputs),
         artifacts: heap.alloc(artifacts),
+        promises: heap.alloc(promises),
         key: &dynamic_lambda.owner,
         digest_config: deferred_ctx.digest_config(),
         declared_outputs,
