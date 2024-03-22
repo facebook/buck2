@@ -30,7 +30,7 @@ def cxx_toolchain_impl(ctx):
     c_info = CCompilerInfo(
         compiler = c_compiler,
         compiler_type = ctx.attrs.c_compiler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.c_compiler_flags).add(c_lto_flags),
+        compiler_flags = cmd_args(ctx.attrs.c_compiler_flags, c_lto_flags),
         preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
@@ -40,7 +40,7 @@ def cxx_toolchain_impl(ctx):
     cxx_info = CxxCompilerInfo(
         compiler = cxx_compiler,
         compiler_type = ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.cxx_compiler_flags).add(c_lto_flags),
+        compiler_flags = cmd_args(ctx.attrs.cxx_compiler_flags, c_lto_flags),
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
@@ -102,7 +102,7 @@ def cxx_toolchain_impl(ctx):
         link_weight = ctx.attrs.link_weight,
         link_ordering = ctx.attrs.link_ordering,
         linker = ctx.attrs.linker[RunInfo],
-        linker_flags = cmd_args(ctx.attrs.linker_flags).add(c_lto_flags),
+        linker_flags = cmd_args(ctx.attrs.linker_flags, c_lto_flags),
         post_linker_flags = cmd_args(ctx.attrs.post_linker_flags),
         lto_mode = lto_mode,
         mk_shlib_intf = ctx.attrs.shared_library_interface_producer,
