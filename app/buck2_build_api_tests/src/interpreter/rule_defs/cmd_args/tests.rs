@@ -477,9 +477,8 @@ fn test_ignore_artifacts() -> anyhow::Result<()> {
         def test():
             artifact = bound_artifact("//:dep2", "dir/quz.h")
 
-            cli = cmd_args()
+            cli = cmd_args(ignore_artifacts=True)
             cli.add(artifact)
-            cli.ignore_artifacts()
 
             assert_eq(make_inputs([]), cli.inputs)
             assert_eq([], cli.outputs)

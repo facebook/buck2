@@ -698,29 +698,6 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// Causes this `cmd_args` to have no declared dependencies. Allows you to reference the path of an artifact _without_
-    /// introducing dependencies on it.
-    ///
-    /// As an example where this can be useful, consider passing a dependency that is only accessed at runtime, but whose path
-    /// must be baked into the binary. As an example:
-    ///
-    /// ```python
-    /// resources = cmd_args(resource_file, format = "-DFOO={}").ignore_artifacts()
-    /// ctx.actions.run(cmd_args("gcc", "-c", source_file, resources))
-    /// ```
-    ///
-    /// Note that `ignore_artifacts` sets all artifacts referenced by this `cmd_args` to be ignored, including those added afterwards,
-    /// so generally create a special `cmd_args` and scope it quite tightly.
-    ///
-    /// If you actually do use the inputs referenced by this command, you will either error out due to missing dependencies (if running actions remotely)
-    /// or have untracked dependencies that will fail to rebuild when it should.
-    fn ignore_artifacts<'v>(
-        mut this: StarlarkCommandLineMut<'v>,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.options_mut().ignore_artifacts = true;
-        Ok(this)
-    }
-
     /// Make all artifact paths relative to a given location. Typically used when the command
     /// you are running changes directory.
     ///
@@ -865,6 +842,25 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `prepend` - added as a separate argument before each argument.
     /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
     /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
+    ///
+    /// ## `ignore_artifacts`
+    ///
+    /// `ignore_artifacts=True` makes `cmd_args` to have no declared dependencies.
+    /// Allows you to reference the path of an artifact _without_ introducing dependencies on it.
+    ///
+    /// As an example where this can be useful, consider passing a dependency that is only accessed at runtime, but whose path
+    /// must be baked into the binary. As an example:
+    ///
+    /// ```python
+    /// resources = cmd_args(resource_file, format = "-DFOO={}").ignore_artifacts()
+    /// ctx.actions.run(cmd_args("gcc", "-c", source_file, resources))
+    /// ```
+    ///
+    /// Note that `ignore_artifacts` sets all artifacts referenced by this `cmd_args` to be ignored, including those added afterwards,
+    /// so generally create a special `cmd_args` and scope it quite tightly.
+    ///
+    /// If you actually do use the inputs referenced by this command, you will either error out due to missing dependencies (if running actions remotely)
+    /// or have untracked dependencies that will fail to rebuild when it should.
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
         delimiter: Option<StringValue<'v>>,
