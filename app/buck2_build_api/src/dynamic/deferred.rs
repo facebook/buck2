@@ -85,7 +85,7 @@ pub struct DynamicLambda {
     /// Things required by the lambda (wrapped in DeferredInput)
     dynamic: IndexSet<DeferredInput>,
     /// Things I am allowed to use as inputs, but don't wait for
-    inputs: IndexSet<Artifact>,
+    _inputs: IndexSet<Artifact>,
     /// Things I produce
     outputs: Vec<BuildArtifact>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
@@ -115,7 +115,7 @@ impl DynamicLambda {
         Self {
             owner,
             dynamic: depends,
-            inputs,
+            _inputs: inputs,
             outputs,
             attributes_lambda: None,
         }
@@ -324,7 +324,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     )?;
     registry.set_action_key(Arc::from(deferred_ctx.get_action_key()));
 
-    let mut artifacts = SmallMap::with_capacity(dynamic_lambda.inputs.len());
+    let mut artifacts = SmallMap::with_capacity(dynamic_lambda.dynamic.len());
     let fs = deferred_ctx.project_filesystem();
     for x in &dynamic_lambda.dynamic {
         let x = match x {
