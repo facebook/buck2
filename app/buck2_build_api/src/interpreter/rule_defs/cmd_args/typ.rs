@@ -552,38 +552,6 @@ impl<'v> StarlarkCmdArgs<'v> {
         builder.0.get_mut().add_value(value)?;
         Ok(builder)
     }
-
-    fn try_from_values_with_options(
-        value: Vec<StarlarkCommandLineValueUnpack<'v>>,
-        hidden: Option<Value<'v>>,
-        delimiter: Option<StringValue<'v>>,
-        format: Option<StringValue<'v>>,
-        prepend: Option<StringValue<'v>>,
-        quote: Option<QuoteStyle>,
-        ignore_artifacts: bool,
-    ) -> anyhow::Result<Self> {
-        let mut builder = StarlarkCommandLineData::default();
-        if delimiter.is_some()
-            || format.is_some()
-            || prepend.is_some()
-            || quote.is_some()
-            || ignore_artifacts
-        {
-            let opts = builder.options_mut();
-            opts.delimiter = delimiter;
-            opts.format = format;
-            opts.prepend = prepend;
-            opts.quote = quote;
-            opts.ignore_artifacts = ignore_artifacts;
-        }
-        for v in value {
-            builder.add_value_typed(v)?;
-        }
-        if let Some(hidden) = hidden {
-            builder.add_hidden(&[hidden])?;
-        }
-        Ok(Self(RefCell::new(builder)))
-    }
 }
 
 #[derive(UnpackValue, StarlarkTypeRepr)]
@@ -884,15 +852,28 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         quote: Option<&str>,
         #[starlark(default = false)] ignore_artifacts: bool,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
-        StarlarkCmdArgs::try_from_values_with_options(
-            args.items,
-            hidden,
-            delimiter,
-            format,
-            prepend,
-            quote.try_map(QuoteStyle::parse)?,
-            ignore_artifacts,
-        )
+        let quote = quote.try_map(QuoteStyle::parse)?;
+        let mut builder = StarlarkCommandLineData::default();
+        if delimiter.is_some()
+            || format.is_some()
+            || prepend.is_some()
+            || quote.is_some()
+            || ignore_artifacts
+        {
+            let opts = builder.options_mut();
+            opts.delimiter = delimiter;
+            opts.format = format;
+            opts.prepend = prepend;
+            opts.quote = quote;
+            opts.ignore_artifacts = ignore_artifacts;
+        }
+        for v in args.items {
+            builder.add_value_typed(v)?;
+        }
+        if let Some(hidden) = hidden {
+            builder.add_hidden(&[hidden])?;
+        }
+        Ok(StarlarkCmdArgs(RefCell::new(builder)))
     }
 }
 
