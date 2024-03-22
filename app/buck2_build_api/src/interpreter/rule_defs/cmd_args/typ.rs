@@ -816,6 +816,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
     /// * `hidden` - artifacts not present on the command line, but added as dependencies.
     /// * `absolute_prefix` and `absolute_suffix` - added to the start and end of each artifact.
+    /// * `parent` - for all the artifacts use their parent directory.
     ///
     /// ## `ignore_artifacts`
     ///
@@ -859,6 +860,13 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// cmd_args(script, absolute_prefix = "$ROOT/")
     /// cmd_args(script, absolute_prefix = "call", absolute_suffix = ")")
     /// ```
+    ///
+    /// # `parent
+    /// `
+    /// For all the artifacts use their parent directory.
+    ///
+    /// Typically used when the file name is passed one way, and the directory another,
+    /// e.g. `cmd_args(artifact, format="-L{}", parent=1)`.
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
         hidden: Option<Value<'v>>,
@@ -869,6 +877,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         #[starlark(default = false)] ignore_artifacts: bool,
         absolute_prefix: Option<StringValue<'v>>,
         absolute_suffix: Option<StringValue<'v>>,
+        #[starlark(default = 0)] parent: u32,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         let quote = quote.try_map(QuoteStyle::parse)?;
         let mut builder = StarlarkCommandLineData::default();
@@ -879,6 +888,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             || ignore_artifacts
             || absolute_prefix.is_some()
             || absolute_suffix.is_some()
+            || parent != 0
         {
             let opts = builder.options_mut();
             opts.delimiter = delimiter;
@@ -888,6 +898,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             opts.ignore_artifacts = ignore_artifacts;
             opts.absolute_prefix = absolute_prefix;
             opts.absolute_suffix = absolute_suffix;
+            opts.parent = parent;
         }
         for v in args.items {
             builder.add_value_typed(v)?;
