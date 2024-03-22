@@ -25,10 +25,16 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Unpack a value of type `list<T>` into a vec.
-#[derive(Default, Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct UnpackList<T> {
     /// Unpacked items.
     pub items: Vec<T>,
+}
+
+impl<T> Default for UnpackList<T> {
+    fn default() -> Self {
+        UnpackList { items: Vec::new() }
+    }
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackList<T> {
