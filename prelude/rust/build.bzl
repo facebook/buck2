@@ -68,6 +68,7 @@ load(
 )
 load(
     ":link_info.bzl",
+    "FORCE_RLIB",
     "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustDependency",
     "RustLinkInfo",
@@ -932,7 +933,7 @@ def _compute_common_args(
         # dependencies never collide on crate hash, so `-Cprefer-dynamic` cannot
         # make a difference.
         prefer_dynamic_flags = []
-    elif crate_type == CrateType("dylib"):
+    elif crate_type == CrateType("dylib") and not FORCE_RLIB:
         # Use standard library dylibs from the implicit sysroot.
         prefer_dynamic_flags = ["-Cprefer-dynamic=yes"]
     else:
