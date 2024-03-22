@@ -336,12 +336,12 @@ impl CommandLineLocation<'_> {
 impl<'a> CommandLineLocation<'a> {
     pub fn from_root(
         root: &'a ProjectRoot,
-        path: RelativePathBuf,
+        path: ProjectRelativePathBuf,
         path_separator: PathSeparatorKind,
     ) -> Self {
         Self {
             root: Some(root),
-            path,
+            path: path.into(),
             path_separator,
         }
     }

@@ -148,6 +148,7 @@ mod tests {
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
     use super::*;
@@ -214,9 +215,12 @@ mod tests {
         );
     }
 
-    #[cfg(not(unix))]
     #[test]
     fn test_abs_command_line_location_windows() {
+        if !cfg!(windows) {
+            return;
+        }
+
         let root = ProjectRoot::new_unchecked(AbsNormPathBuf::unchecked_new(PathBuf::from(
             "C:\\foo\\bar",
         )));
@@ -224,7 +228,7 @@ mod tests {
         assert_eq!(
             CommandLineLocation::from_root(
                 &root,
-                RelativePathBuf::new(),
+                ProjectRelativePath::empty().to_buf(),
                 PathSeparatorKind::Windows
             )
             .into_string(),
@@ -234,7 +238,7 @@ mod tests {
         assert_eq!(
             CommandLineLocation::from_root(
                 &root,
-                RelativePathBuf::from("baz"),
+                ProjectRelativePathBuf::testing_new("baz"),
                 PathSeparatorKind::Windows
             )
             .into_string(),
@@ -244,7 +248,7 @@ mod tests {
         assert_eq!(
             CommandLineLocation::from_root(
                 &root,
-                RelativePathBuf::from("baz/qux"),
+                ProjectRelativePathBuf::testing_new("baz/qux"),
                 PathSeparatorKind::Windows
             )
             .into_string(),
@@ -252,22 +256,29 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_abs_command_line_location_unix() {
+        if !cfg!(unix) {
+            return;
+        }
+
         let root =
             ProjectRoot::new_unchecked(AbsNormPathBuf::unchecked_new(PathBuf::from("/foo/bar")));
 
         assert_eq!(
-            CommandLineLocation::from_root(&root, RelativePathBuf::new(), PathSeparatorKind::Unix)
-                .into_string(),
+            CommandLineLocation::from_root(
+                &root,
+                ProjectRelativePath::empty().to_buf(),
+                PathSeparatorKind::Unix
+            )
+            .into_string(),
             "/foo/bar",
         );
 
         assert_eq!(
             CommandLineLocation::from_root(
                 &root,
-                RelativePathBuf::from("baz"),
+                ProjectRelativePathBuf::testing_new("baz"),
                 PathSeparatorKind::Unix
             )
             .into_string(),
@@ -277,7 +288,7 @@ mod tests {
         assert_eq!(
             CommandLineLocation::from_root(
                 &root,
-                RelativePathBuf::from("baz/qux"),
+                ProjectRelativePathBuf::testing_new("baz/qux"),
                 PathSeparatorKind::Unix
             )
             .into_string(),
