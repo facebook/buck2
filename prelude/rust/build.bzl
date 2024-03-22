@@ -899,6 +899,46 @@ def _compute_common_args(
     else:
         crate_name_arg = cmd_args("--crate-name=", crate.simple, delimiter = "")
 
+    # The `-Cprefer-dynamic` flag controls rustc's choice of artifacts for
+    # transitive dependencies, both for loading metadata and linking them.
+    # Direct dependencies are given to rustc one-by-one using `--extern` with a
+    # path to a specific artifact, so there is never ambiguity what artifact to
+    # use for a direct dependency. But transitive dependencies are passed in
+    # bulk via zero or more `-Ldependency` flags, which are directories
+    # containing artifacts. Within those directories, information about a
+    # specific crate might be available from more than one artifact, such as a
+    # dylib and rlib for the same crate.
+    #
+    # With `-Cprefer-dynamic=no` (the default), when a transitive dependency
+    # exists as both rlib and dylib, metadata is loaded from the rlib. If some
+    # dependencies are available in dylib but not rlib, the dylib is used for
+    # those. With `-Cprefer-dynamic=yes`, when a transitive dependency exists as
+    # both rlib and dylib, instead the dylib is used.
+    #
+    # The ambiguity over whether to use rlib or dylib for a particular
+    # transitive dependency only occurs if the rlib and dylib both describe the
+    # same crate i.e. contain the same crate hash.
+    #
+    # Buck-built libraries never produce an rlib and dylib containing the same
+    # crate hash, since that only occurs when outputting multiple crate types
+    # through a single rustc invocation: `--crate-type=rlib --crate-type=dylib`.
+    # In Buck, different crate types are built by different rustc invocations.
+    # But Cargo does invoke rustc with multiple crate types when you write
+    # `[lib] crate-type = ["rlib", "dylib"]` in Cargo.toml, and in fact the
+    # standard libraries built by x.py and distributed by Rustup are built this
+    # way.
+    if toolchain_info.explicit_sysroot_deps:
+        # Standard libraries are being passed explicitly, and Buck-built
+        # dependencies never collide on crate hash, so `-Cprefer-dynamic` cannot
+        # make a difference.
+        prefer_dynamic_flags = []
+    elif crate_type == CrateType("dylib"):
+        # Use standard library dylibs from the implicit sysroot.
+        prefer_dynamic_flags = ["-Cprefer-dynamic=yes"]
+    else:
+        # Use standard library rlibs from the implicit sysroot.
+        prefer_dynamic_flags = ["-Cprefer-dynamic=no"]  # (the default)
+
     split_debuginfo_flags = {
         # Rustc's default behavior: debug info is put into every rlib and
         # staticlib, then copied into the executables and shared libraries by
@@ -950,7 +990,7 @@ def _compute_common_args(
         "-Cmetadata={}".format(_metadata(ctx.label, is_rustdoc_test)[0]),
         # Make diagnostics json with the option to extract rendered text
         ["--error-format=json", "--json=diagnostic-rendered-ansi"] if not is_rustdoc_test else [],
-        ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
+        prefer_dynamic_flags,
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
         split_debuginfo_flags,
         compile_ctx.sysroot_args,
