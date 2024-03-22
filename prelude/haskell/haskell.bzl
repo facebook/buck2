@@ -127,7 +127,6 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",
     "SharedLibraryInfo",
     "create_shared_libraries",
     "create_shlib_symlink_tree",
@@ -320,6 +319,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
     solibs = {}
     for soname, lib in ctx.attrs.shared_libs.items():
         solibs[soname] = LinkedObject(output = lib, unstripped_output = lib)
+    shared_libs = create_shared_libraries(ctx, solibs)
 
     linkable_graph = create_linkable_graph(
         ctx,
@@ -329,7 +329,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 exported_deps = ctx.attrs.deps,
                 link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
-                shared_libs = solibs,
+                shared_libs = shared_libs,
                 default_soname = None,
             ),
         ),
@@ -347,7 +347,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         cxx_merge_cpreprocessors(ctx, [own_pp_info], inherited_pp_info),
         merge_shared_libraries(
             ctx.actions,
-            create_shared_libraries(ctx, solibs),
+            shared_libs,
             shared_library_infos,
         ),
         merge_link_group_lib_info(deps = ctx.attrs.deps),
@@ -732,6 +732,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         preferred_linkage,
         pic_behavior,
     )
+    shared_libs = create_shared_libraries(ctx, solibs)
 
     # TODO(cjhopman): this haskell implementation does not consistently handle LibOutputStyle
     # and LinkStrategy as expected and it's hard to tell what the intent of the existing code is
@@ -774,7 +775,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 preferred_linkage = preferred_linkage,
                 exported_deps = ctx.attrs.deps,
                 link_infos = {_to_lib_output_style(s): v for s, v in link_infos.items()},
-                shared_libs = solibs,
+                shared_libs = shared_libs,
                 # TODO(cjhopman): this should be set to non-None
                 default_soname = None,
             ),
@@ -819,7 +820,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         cxx_merge_cpreprocessors(ctx, pp, inherited_pp_info),
         merge_shared_libraries(
             ctx.actions,
-            create_shared_libraries(ctx, solibs),
+            shared_libs,
             shared_library_infos,
         ),
         haskell_haddock_lib(ctx, pkgname),
@@ -1032,8 +1033,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         # When there are no matches for a pattern based link group,
         # `link_group_mappings` will not have an entry associated with the lib.
         for _name, link_group_lib in link_group_libs.items():
-            for soname, lib in link_group_lib.shared_libs.items():
-                sos.append(SharedLibrary(soname = soname, lib = lib, label = ctx.label))
+            sos.extend(link_group_lib.shared_libs.libraries)
 
     else:
         nlis = []

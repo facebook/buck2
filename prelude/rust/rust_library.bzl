@@ -805,9 +805,10 @@ def _native_providers(
         )
 
     # Native shared library provider.
+    shared_libs = create_shared_libraries(ctx, solibs)
     providers.append(merge_shared_libraries(
         ctx.actions,
-        create_shared_libraries(ctx, solibs),
+        shared_libs,
         inherited_shlibs,
     ))
 
@@ -844,7 +845,7 @@ def _native_providers(
                 deps = inherited_link_graphs,
                 exported_deps = inherited_exported_deps,
                 link_infos = link_infos,
-                shared_libs = solibs,
+                shared_libs = shared_libs,
                 default_soname = shlib_name,
                 include_in_android_mergemap = False,
             ),

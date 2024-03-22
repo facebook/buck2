@@ -335,9 +335,10 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     ))
 
     # Propagate shared libraries up the tree.
+    shared_libs = create_shared_libraries(ctx, solibs)
     providers.append(merge_shared_libraries(
         ctx.actions,
-        create_shared_libraries(ctx, solibs),
+        shared_libs,
         filter(None, [x.get(SharedLibraryInfo) for x in deps + exported_deps]),
     ))
 
@@ -352,7 +353,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
                 exported_deps = exported_deps,
                 preferred_linkage = preferred_linkage,
                 link_infos = libraries,
-                shared_libs = solibs,
+                shared_libs = shared_libs,
                 can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                 # TODO(cjhopman): this should be set to non-None
                 default_soname = None,

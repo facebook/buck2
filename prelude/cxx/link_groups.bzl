@@ -45,6 +45,10 @@ load(
     "get_linkable_graph_node_map_func",
     "get_transitive_deps",
 )
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "create_shared_libraries",
+)
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
@@ -874,7 +878,10 @@ def create_link_groups(
         linked_link_groups[link_group_spec.group.name] = _LinkedLinkGroup(
             artifact = link_group_lib,
             library = None if not link_group_spec.is_shared_lib else LinkGroupLib(
-                shared_libs = {link_group_spec.name: link_group_lib},
+                shared_libs = create_shared_libraries(
+                    ctx = ctx,
+                    libraries = {link_group_spec.name: link_group_lib},
+                ),
                 shared_link_infos = LinkInfos(
                     default = wrap_link_info(
                         link_info,

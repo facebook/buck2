@@ -37,6 +37,10 @@ load(
     "linkable_deps",
     "linkable_graph",
 )
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",
+)
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:expect.bzl", "expect")
 load(
@@ -118,7 +122,7 @@ OmnibusRootProduct = record(
 # The result of the omnibus link.
 OmnibusSharedLibraries = record(
     omnibus = field([CxxLinkResult, None], None),
-    libraries = field(dict[str, LinkedObject], {}),
+    libraries = field(list[SharedLibrary], []),
     roots = field(dict[Label, OmnibusRootProduct], {}),
     exclusion_roots = field(list[Label]),
     excluded = field(list[Label]),
@@ -512,9 +516,9 @@ def _create_omnibus(
             root_products.values(),
             # ... and the shared libs from excluded nodes.
             [
-                shared_lib.output
+                shared_lib.lib.output
                 for label in spec.excluded
-                for shared_lib in spec.link_infos[label].shared_libs.values()
+                for shared_lib in spec.link_infos[label].shared_libs.libraries
             ],
             # Extract explicit global symbol names from flags in all body link args.
             global_symbols_link_args,
@@ -685,7 +689,7 @@ def create_omnibus_libraries(
     # Create dummy omnibus
     dummy_omnibus = create_dummy_omnibus(ctx, extra_ldflags)
 
-    libraries = {}
+    libraries = []
     root_products = {}
 
     # Link all root nodes against the dummy libomnibus lib.
@@ -704,7 +708,13 @@ def create_omnibus_libraries(
             allow_cache_upload = True,
         )
         if root.name != None:
-            libraries[root.name] = product.shared_library
+            libraries.append(
+                SharedLibrary(
+                    soname = root.name,
+                    lib = product.shared_library,
+                    label = label,
+                ),
+            )
         root_products[label] = product
 
     # If we have body nodes, then link them into the monolithic libomnibus.so.
@@ -719,12 +729,17 @@ def create_omnibus_libraries(
             prefer_stripped_objects,
             allow_cache_upload = True,
         )
-        libraries[_omnibus_soname(ctx)] = omnibus.linked_object
+        libraries.append(
+            SharedLibrary(
+                soname = _omnibus_soname(ctx),
+                lib = omnibus.linked_object,
+                label = ctx.label,
+            ),
+        )
 
     # For all excluded nodes, just add their regular shared libs.
     for label in spec.excluded:
-        for name, lib in spec.link_infos[label].shared_libs.items():
-            libraries[name] = lib
+        libraries.extend(spec.link_infos[label].shared_libs.libraries)
 
     return OmnibusSharedLibraries(
         omnibus = omnibus,
