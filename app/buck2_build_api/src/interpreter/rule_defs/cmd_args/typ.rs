@@ -37,6 +37,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
 use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -807,6 +808,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `absolute_prefix` and `absolute_suffix` - added to the start and end of each artifact.
     /// * `parent` - for all the artifacts use their parent directory.
     /// * `relative_to` - make all artifact paths relative to a given location.
+    /// * `replace_regex` - replaces arguments with a regular expression.
     ///
     /// ## `ignore_artifacts`
     ///
@@ -874,6 +876,11 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     ///     cmd_args(dir, format = "cd {}", relative_to=dir),
     /// ]
     /// ```
+    ///
+    /// # `replace_regex`
+    ///
+    /// Replaces all parts matching pattern regular expression (or regular expressions)
+    /// in each argument with replacement strings.
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
         hidden: Option<Value<'v>>,
@@ -887,6 +894,10 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         #[starlark(default = 0)] parent: u32,
         relative_to: Option<
             Either<ValueOf<'v, RelativeOrigin<'v>>, (ValueOf<'v, RelativeOrigin<'v>>, u32)>,
+        >,
+        #[starlark(default = Either::Right(UnpackList::default()))] replace_regex: Either<
+            (CmdArgsRegex<'v>, StringValue<'v>),
+            UnpackList<(CmdArgsRegex<'v>, StringValue<'v>)>,
         >,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         let quote = quote.try_map(QuoteStyle::parse)?;
@@ -914,6 +925,16 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
                 let (relative_to, parent) = either.map_left(|o| (o, 0)).into_inner();
                 (relative_to.value, parent)
             });
+        }
+        let replace_regex: Vec<(CmdArgsRegex, StringValue)> = replace_regex
+            .map_left(|x| vec![x])
+            .map_right(|x| x.items)
+            .into_inner();
+        if !replace_regex.is_empty() {
+            for (pattern, _replacement) in &replace_regex {
+                pattern.validate()?;
+            }
+            builder.options_mut().replacements = Some(Box::new(replace_regex));
         }
         for v in args.items {
             builder.add_value_typed(v)?;

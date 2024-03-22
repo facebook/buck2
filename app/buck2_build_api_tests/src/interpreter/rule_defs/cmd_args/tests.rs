@@ -144,8 +144,7 @@ fn displays_correctly_replace_regex() {
         .run_starlark_bzl_test(indoc!(
             r#"
         def test():
-            cli = cmd_args()
-            cli.replace_regex(regex("foo"), "bar")
+            cli = cmd_args(replace_regex=(regex("foo"), "bar"))
             assert_eq('cmd_args(replacements=[("foo", "bar")])', str(cli))
         "#
         ))
@@ -691,7 +690,7 @@ fn test_replace_regex() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_replace_regex_regex() -> anyhow::Result<()> {
+fn test_replace_regex_old() -> anyhow::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -703,6 +702,25 @@ fn test_replace_regex_regex() -> anyhow::Result<()> {
 
             args = cmd_args("\\n\n")
             args.replace_regex(regex("\\\\n"), "\\\n").replace_regex("\\n", "\\n")
+            assert_eq(["\\\\n\\n"], get_args(args))
+        "#
+    );
+    tester.run_starlark_bzl_test(contents)?;
+    Ok(())
+}
+
+#[test]
+fn test_replace_regex_regex() -> anyhow::Result<()> {
+    let mut tester = tester()?;
+    let contents = indoc!(
+        r#"
+        def test():
+            args = cmd_args("$OUT", "$OUTPUT", "$SRCS", format="$OUT: {}",
+                replace_regex=[(regex("\\$OUT\\b"), "%OUT%"), (regex("\\$SRCS\\b"), "%SRCS%")])
+            assert_eq(["$OUT: %OUT%", "$OUT: $OUTPUT", "$OUT: %SRCS%"], get_args(args))
+
+            args = cmd_args("\\n\n",
+                replace_regex = [(regex("\\\\n"), "\\\n"), ("\\n", "\\n")])
             assert_eq(["\\\\n\\n"], get_args(args))
         "#
     );
