@@ -31,6 +31,7 @@ Modifier = str | ModifiersMatch | None
 TaggedModifiers = record(
     modifiers = list[Modifier],
     location = ModifierLocation,
+    rule_name = str | None,
 )
 
 # Modifier types after analysis of configuration rules.

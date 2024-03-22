@@ -62,11 +62,11 @@ def cfg_constructor_pre_constraint_analysis(
 
     # Add target modifiers as `TaggedModifiers`
     if target_modifiers:
-        merged_modifiers.append(TaggedModifiers(modifiers = target_modifiers, location = ModifierTargetLocation()))
+        merged_modifiers.append(TaggedModifiers(modifiers = target_modifiers, location = ModifierTargetLocation(), rule_name = None))
 
     # Convert CLI modifiers to `TaggedModifier`
     if cli_modifiers:
-        merged_modifiers.append(TaggedModifiers(modifiers = cli_modifiers, location = ModifierCliLocation()))
+        merged_modifiers.append(TaggedModifiers(modifiers = cli_modifiers, location = ModifierCliLocation(), rule_name = None))
 
     refs = list(CONSTRAINT_SETTING_ORDER)
     for tagged_modifiers in merged_modifiers:

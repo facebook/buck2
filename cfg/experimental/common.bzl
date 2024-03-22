@@ -42,6 +42,7 @@ def get_tagged_modifiers(
     return TaggedModifiers(
         modifiers = modifiers,
         location = location,
+        rule_name = None,
     )
 
 def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifier: Modifier, location: ModifierLocation) -> TargetLabel:
@@ -157,6 +158,7 @@ def tagged_modifiers_to_json(tagged_modifiers: TaggedModifiers) -> dict[str, typ
     return {
         "location": _location_to_json(tagged_modifiers.location),
         "modifiers": tagged_modifiers.modifiers,
+        "rule_name": tagged_modifiers.rule_name,
         "_type": "TaggedModifiers",
     }
 
@@ -175,6 +177,7 @@ def json_to_tagged_modifiers(j: dict[str, typing.Any]) -> TaggedModifiers:
     return TaggedModifiers(
         location = _json_to_location(j["location"]),
         modifiers = j["modifiers"],
+        rule_name = j["rule_name"],
     )
 
 def _json_to_location(j: dict[str, str]) -> ModifierLocation:
