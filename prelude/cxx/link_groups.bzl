@@ -48,7 +48,7 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraries",
-    "SharedLibrary",
+    "create_shlib",
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -882,7 +882,7 @@ def create_link_groups(
             library = None if not link_group_spec.is_shared_lib else LinkGroupLib(
                 shared_libs = SharedLibraries(
                     libraries = [
-                        SharedLibrary(
+                        create_shlib(
                             label = link_group_spec.label or ctx.label,
                             soname = link_group_spec.name,
                             lib = link_group_lib,
