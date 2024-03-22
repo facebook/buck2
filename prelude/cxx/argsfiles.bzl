@@ -31,13 +31,13 @@ CompileArgsfiles = record(
 
 def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, CompileArgsfile], summary_name: str) -> DefaultInfo:
     argsfiles = []
-    argsfile_names = cmd_args()
+    argsfile_names = []
     dependent_outputs = []
     for _, argsfile in argsfile_by_ext.items():
         argsfiles.append(argsfile.file)
-        argsfile_names.add(cmd_args(argsfile.file, ignore_artifacts = True))
+        argsfile_names.append(cmd_args(argsfile.file, ignore_artifacts = True))
         dependent_outputs.extend(argsfile.input_args)
 
-    argsfiles_summary = ctx.actions.write(summary_name, argsfile_names)
+    argsfiles_summary = ctx.actions.write(summary_name, cmd_args(argsfile_names))
 
     return DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = dependent_outputs)
