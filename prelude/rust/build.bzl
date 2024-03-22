@@ -315,14 +315,13 @@ def generate_rustdoc_test(
     )
 
     # Gather and setup symlink tree of transitive shared library deps.
-    shared_libs = {}
+    shared_libs = []
     if link_strategy == LinkStrategy("shared"):
         shlib_info = merge_shared_libraries(
             ctx.actions,
             deps = inherited_shared_libs(ctx, doc_dep_ctx),
         )
-        for soname, shared_lib in traverse_shared_library_info(shlib_info).items():
-            shared_libs[soname] = shared_lib.lib
+        shared_libs.extend(traverse_shared_library_info(shlib_info))
     executable_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,

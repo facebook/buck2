@@ -19,13 +19,13 @@ SharedLibrary = record(
     # for downstream rules to reproduce the shared library with some modifications (for example
     # android relinker will link again with an added version script argument).
     # TODO(cjhopman): This is currently always available.
-    link_args = field(list[LinkArgs] | None),
+    link_args = field(list[LinkArgs] | None, None),
     # The sonames of the shared libraries that this links against.
     # TODO(cjhopman): This is currently always available.
-    shlib_deps = field(list[str] | None),
-    stripped_lib = field([Artifact, None]),
-    can_be_asset = field(bool),
-    for_primary_apk = field(bool),
+    shlib_deps = field(list[str] | None, None),
+    stripped_lib = field(Artifact | None, None),
+    can_be_asset = field(bool, False),
+    for_primary_apk = field(bool, False),
     soname = field(str),
     label = field(Label),
 )
@@ -35,7 +35,7 @@ SharedLibraries = record(
     # Since the SONAME is what the dynamic loader uses to uniquely identify
     # libraries, using this as the key allows easily detecting conflicts from
     # dependencies.
-    libraries = field(dict[str, SharedLibrary]),
+    libraries = field(list[SharedLibrary]),
 )
 
 # T-set of SharedLibraries
@@ -62,7 +62,7 @@ def create_shared_libraries(
     """
     cxx_toolchain = getattr(ctx.attrs, "_cxx_toolchain", None)
     return SharedLibraries(
-        libraries = {name: SharedLibrary(
+        libraries = [SharedLibrary(
             lib = shlib,
             stripped_lib = strip_object(
                 ctx,
@@ -76,40 +76,8 @@ def create_shared_libraries(
             for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
             label = ctx.label,
             soname = name,
-        ) for (name, shlib) in libraries.items()},
+        ) for (name, shlib) in libraries.items()],
     )
-
-# We do a lot of merging library maps, so don't use O(n) type annotations
-def _merge_lib_map(
-        # dict[str, SharedLibrary]
-        dest_mapping,
-        # [dict[str, SharedLibrary]
-        mapping_to_merge,
-        filter_func) -> None:
-    """
-    Merges a mapping_to_merge into `dest_mapping`. Fails if different libraries
-    map to the same name.
-    """
-    for (name, src) in mapping_to_merge.items():
-        if filter_func != None and not filter_func(name, src):
-            continue
-        existing = dest_mapping.get(name)
-        if existing != None and existing.lib != src.lib:
-            error = (
-                "Duplicate library {}! Conflicting mappings:\n" +
-                "{} from {}\n" +
-                "{} from {}"
-            )
-            fail(
-                error.format(
-                    name,
-                    existing.lib,
-                    existing.label,
-                    src.lib,
-                    src.label,
-                ),
-            )
-        dest_mapping[name] = src
 
 # Merge multiple SharedLibraryInfo. The value in `node` represents a set of
 # SharedLibraries that is provided by the target being analyzed. It's optional
@@ -131,11 +99,58 @@ def merge_shared_libraries(
     set = actions.tset(SharedLibrariesTSet, **kwargs) if kwargs else None
     return SharedLibraryInfo(set = set)
 
-def traverse_shared_library_info(
-        info: SharedLibraryInfo,
-        filter_func = None):  # -> dict[str, SharedLibrary]:
-    libraries = {}
+def traverse_shared_library_info(info: SharedLibraryInfo):  # -> list[SharedLibrary]:
+    libraries = []
     if info.set:
         for libs in info.set.traverse():
-            _merge_lib_map(libraries, libs.libraries, filter_func)
+            libraries.extend(libs.libraries)
     return libraries
+
+# Helper to merge shlibs, throwing an error if more than one have the same SONAME.
+def _merge_shlibs(
+        shared_libs: list[SharedLibrary],
+        resolve_soname: typing.Callable) -> dict[str, SharedLibrary]:
+    merged = {}
+    for shlib in shared_libs:
+        soname = resolve_soname(shlib.soname)
+        existing = merged.get(soname)
+        if existing != None and existing.lib != shlib.lib:
+            error = (
+                "Duplicate library {}! Conflicting mappings:\n" +
+                "{} from {}\n" +
+                "{} from {}"
+            )
+            fail(
+                error.format(
+                    shlib.soname,
+                    existing.lib,
+                    existing.label,
+                    shlib.lib,
+                    shlib.label,
+                ),
+            )
+        merged[soname] = shlib
+    return merged
+
+def with_unique_sonames(shared_libs: list[SharedLibrary]) -> dict[str, SharedLibrary]:
+    """
+    Convert a list of `SharedLibrary`s to a map of unique SONAMEs to the
+    corresponding `SharedLibrary`.
+
+    Will fail if the same SONAME maps to multiple `SharedLibrary`s.
+    """
+    return _merge_shlibs(
+        shared_libs = shared_libs,
+        resolve_soname = lambda s: s,
+    )
+
+def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]):
+    """
+    Merged shared libs into a symlink tree mapping the library's SONAME to
+    it's artifact.
+    """
+    merged = with_unique_sonames(shared_libs = shared_libs)
+    return actions.symlinked_dir(
+        out,
+        {name: shlib.lib.output for name, shlib in merged.items()},
+    )

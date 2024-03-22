@@ -5,7 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "create_shlib_symlink_tree",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
 load("@prelude//utils:utils.bzl", "flatten")
 load(":julia_info.bzl", "JuliaLibraryInfo", "JuliaLibraryTSet", "JuliaToolchainInfo")
 
@@ -47,12 +52,13 @@ def build_jll_shlibs_mapping(ctx: AnalysisContext, json_info_file: Artifact):
         filter(None, [d.shared_library_info for d in deps]),
     ))
 
-    shared_libs_symlink_tree = ctx.actions.symlinked_dir(
-        "__shared_libs_symlink_tree__",
-        {name: shlib.lib.output for name, shlib in shlibs.items()},
+    shared_libs_symlink_tree = create_shlib_symlink_tree(
+        actions = ctx.actions,
+        out = "__shared_libs_symlink_tree__",
+        shared_libs = shlibs,
     )
 
-    shlib_label_to_soname = {shlib.label: name for name, shlib in shlibs.items()}
+    shlib_label_to_soname = {shlib.label: shlib.soname for shlib in shlibs}
 
     # iterate through all the jll libraries
     json_info = []
