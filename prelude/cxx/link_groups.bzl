@@ -47,8 +47,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibraries",
-    "SharedLibrary",
+    "create_shared_libraries",
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -141,7 +140,6 @@ LinkGroupLibSpec = record(
     root = field([LinkableRootInfo, None], None),
     # The link group to link.
     group = field(Group),
-    label = field(Label | None, None),
 )
 
 _LinkedLinkGroup = record(
@@ -880,14 +878,9 @@ def create_link_groups(
         linked_link_groups[link_group_spec.group.name] = _LinkedLinkGroup(
             artifact = link_group_lib,
             library = None if not link_group_spec.is_shared_lib else LinkGroupLib(
-                shared_libs = SharedLibraries(
-                    libraries = [
-                        SharedLibrary(
-                            label = link_group_spec.label or ctx.label,
-                            soname = link_group_spec.name,
-                            lib = link_group_lib,
-                        ),
-                    ],
+                shared_libs = create_shared_libraries(
+                    ctx = ctx,
+                    libraries = {link_group_spec.name: link_group_lib},
                 ),
                 shared_link_infos = LinkInfos(
                     default = wrap_link_info(
