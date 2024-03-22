@@ -205,13 +205,13 @@ def _get_root_link_group_specs(
 
     return specs
 
-def _split_debuginfo(ctx, data: dict[str, (typing.Any, Label | bool)]) -> (dict[str, (LinkedObject, Label | bool)], dict[str, Artifact]):
-    debuginfo_artifacts = {}
+def _split_debuginfo(ctx, data: dict[str, (typing.Any, Label | bool)]) -> (dict[str, (LinkedObject, Label | bool)], list[Artifact]):
+    debuginfo_artifacts = []
     transformed = {}
     for name, (artifact, extra) in data.items():
         stripped_binary, debuginfo = strip_debug_with_gnu_debuglink(ctx, name, artifact.unstripped_output)
         transformed[name] = LinkedObject(output = stripped_binary, unstripped_output = artifact.unstripped_output, dwp = artifact.dwp), extra
-        debuginfo_artifacts[name + ".debuginfo"] = debuginfo
+        debuginfo_artifacts.append(debuginfo)
     return transformed, debuginfo_artifacts
 
 def _get_shared_only_groups(shared_only_libs: list[LinkableProviders]) -> list[Group]:
@@ -671,7 +671,6 @@ def _convert_python_library_to_executable(
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
     shared_libraries = {}
-    debuginfo_artifacts = {}
 
     # Create the map of native libraries to their artifacts and whether they
     # need to be preloaded.  Note that we merge preload deps into regular deps
@@ -682,16 +681,17 @@ def _convert_python_library_to_executable(
 
     # Strip native libraries and extensions and update the .gnu_debuglink references if we are extracting
     # debug symbols from the par
+    debuginfo_files = []
     if ctx.attrs.strip_libpar == "extract" and package_style == PackageStyle("standalone") and cxx_is_gnu(ctx):
         shared_libraries, library_debuginfo = _split_debuginfo(ctx, shared_libraries)
         extensions, extension_debuginfo = _split_debuginfo(ctx, extensions)
-        debuginfo_artifacts = library_debuginfo | extension_debuginfo
+        debuginfo_files += library_debuginfo
+        debuginfo_files += extension_debuginfo
 
     # Combine sources and extensions into a map of all modules.
     pex_modules = PexModules(
         manifests = library.manifests(),
         extra_manifests = extra_manifests,
-        debuginfo_manifest = create_manifest_for_source_map(ctx, "debuginfo", debuginfo_artifacts) if debuginfo_artifacts else None,
         compile = compile,
         extensions = create_manifest_for_extensions(
             ctx,
@@ -714,6 +714,7 @@ def _convert_python_library_to_executable(
         main,
         hidden_resources,
         allow_cache_upload,
+        debuginfo_files = debuginfo_files,
     )
 
     pex.sub_targets.update(extra)

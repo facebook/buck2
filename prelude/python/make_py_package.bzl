@@ -34,7 +34,6 @@ PexModules = record(
     manifests = field(PythonLibraryManifestsInterface),
     extensions = field(ManifestInfo | None, None),
     extra_manifests = field(ManifestInfo | None, None),
-    debuginfo_manifest = field(ManifestInfo | None, None),
     compile = field(bool, False),
 )
 
@@ -121,7 +120,8 @@ def make_py_package(
         shared_libraries: dict[str, (LinkedObject, bool)],
         main: EntryPoint,
         hidden_resources: list[ArgLike] | None,
-        allow_cache_upload: bool) -> PexProviders:
+        allow_cache_upload: bool,
+        debuginfo_files: list[Artifact] = []) -> PexProviders:
     """
     Passes a standardized set of flags to a `make_py_package` binary to create a python
     "executable".
@@ -152,6 +152,7 @@ def make_py_package(
         pex_modules,
         [startup_function] if startup_function else [],
         {name: lib for name, (lib, _) in shared_libraries.items()},
+        debuginfo_files = debuginfo_files,
     )
 
     default = _make_py_package_impl(
@@ -388,7 +389,8 @@ def _pex_modules_common_args(
         ctx: AnalysisContext,
         pex_modules: PexModules,
         extra_manifests: list[ArgLike],
-        shared_libraries: dict[str, LinkedObject]) -> (cmd_args, list[(ArgLike, str)], list[(ArgLike, str)]):
+        shared_libraries: dict[str, LinkedObject],
+        debuginfo_files: list[Artifact]) -> (cmd_args, list[(ArgLike, str)], list[(ArgLike, str)]):
     srcs = []
     src_artifacts = []
     deps = []
@@ -441,11 +443,10 @@ def _pex_modules_common_args(
     cmd.add(cmd_args(native_library_srcs_args, format = "@{}"))
     cmd.add(cmd_args(native_library_dests_path, format = "@{}"))
 
-    if pex_modules.debuginfo_manifest:
-        debuginfo_files = pex_modules.debuginfo_manifest.artifacts
+    if debuginfo_files:
         debuginfo_srcs_path = ctx.actions.write(
             "__debuginfo___srcs.txt",
-            _srcs([src for src, _ in debuginfo_files], format = "--debuginfo-src={}"),
+            _srcs(debuginfo_files, format = "--debuginfo-src={}"),
         )
         debuginfo_srcs_args = cmd_args(debuginfo_srcs_path)
         cmd.add(cmd_args(debuginfo_srcs_args, format = "@{}"))
