@@ -289,13 +289,10 @@ fn test_relative_absolute() -> anyhow::Result<()> {
     let contents = indoc!(
         r#"
         def test():
-            args = cmd_args()
+            args = cmd_args(absolute_prefix="$ABSOLUTE/", absolute_suffix="!")
             args.add(source_artifact("foo","bar/baz/qux.h"))
             args.relative_to(source_artifact("foo", "bar/foo"))
-            args.absolute_prefix("$ABSOLUTE/")
-            assert_eq(get_args(args), ["$ABSOLUTE/../baz/qux.h"])
 
-            args.absolute_suffix("!")
             assert_eq(get_args(args), ["$ABSOLUTE/../baz/qux.h!"])
 
             args = cmd_args()
@@ -314,9 +311,9 @@ fn test_parent() -> anyhow::Result<()> {
     let contents = indoc!(
         r#"
         def test():
-            args = cmd_args()
+            args = cmd_args(absolute_suffix="!")
             args.add(source_artifact("foo","bar/baz/qux.h"))
-            args.parent().absolute_suffix("!")
+            args.parent()
             assert_eq(get_args(args), ["foo/bar/baz!"])
         "#
     );
@@ -346,9 +343,9 @@ fn test_parent_n() -> anyhow::Result<()> {
     let contents = indoc!(
         r#"
         def test():
-            args = cmd_args()
+            args = cmd_args(absolute_suffix="!")
             args.add(source_artifact("foo","bar/baz/qux.h"))
-            args.parent(2).absolute_suffix("!")
+            args.parent(2)
             assert_eq(get_args(args), ["foo/bar!"])
         "#
     );

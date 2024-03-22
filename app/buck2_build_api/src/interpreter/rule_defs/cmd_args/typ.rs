@@ -815,6 +815,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
     /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
     /// * `hidden` - artifacts not present on the command line, but added as dependencies.
+    /// * `absolute_prefix` and `absolute_suffix` - added to the start and end of each artifact.
     ///
     /// ## `ignore_artifacts`
     ///
@@ -843,6 +844,21 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     ///
     /// Typically used if the command you are running implicitly depends on files that are not
     /// passed on the command line, e.g. headers in the case of a C compilation.
+    ///
+    /// ## `absolute_prefix` and `absolute_suffix`
+    ///
+    /// Adds a prefix to the start or end of every artifact.
+    ///
+    /// Prefix is often used if you have a `$ROOT` variable
+    /// in a shell script and want to use it to make files absolute.
+    ///
+    /// Suffix is often used in conjunction with `absolute_prefix`
+    /// to wrap artifacts in function calls.
+    ///
+    /// ```python
+    /// cmd_args(script, absolute_prefix = "$ROOT/")
+    /// cmd_args(script, absolute_prefix = "call", absolute_suffix = ")")
+    /// ```
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
         hidden: Option<Value<'v>>,
@@ -851,6 +867,8 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         prepend: Option<StringValue<'v>>,
         quote: Option<&str>,
         #[starlark(default = false)] ignore_artifacts: bool,
+        absolute_prefix: Option<StringValue<'v>>,
+        absolute_suffix: Option<StringValue<'v>>,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         let quote = quote.try_map(QuoteStyle::parse)?;
         let mut builder = StarlarkCommandLineData::default();
@@ -859,6 +877,8 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             || prepend.is_some()
             || quote.is_some()
             || ignore_artifacts
+            || absolute_prefix.is_some()
+            || absolute_suffix.is_some()
         {
             let opts = builder.options_mut();
             opts.delimiter = delimiter;
@@ -866,6 +886,8 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             opts.prepend = prepend;
             opts.quote = quote;
             opts.ignore_artifacts = ignore_artifacts;
+            opts.absolute_prefix = absolute_prefix;
+            opts.absolute_suffix = absolute_suffix;
         }
         for v in args.items {
             builder.add_value_typed(v)?;
