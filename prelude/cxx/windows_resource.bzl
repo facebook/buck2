@@ -20,10 +20,12 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             "__objects__",
             "{}.res".format(src.short_path),
         )
-        rc_cmd = cmd_args(toolchain.rc_compiler_info.compiler)
-        rc_cmd.add(toolchain.rc_compiler_info.compiler_flags)
-        rc_cmd.add(cmd_args(rc_output.as_output(), format = "/fo{}"))
-        rc_cmd.add(src)
+        rc_cmd = cmd_args(
+            toolchain.rc_compiler_info.compiler,
+            toolchain.rc_compiler_info.compiler_flags,
+            cmd_args(rc_output.as_output(), format = "/fo{}"),
+            src,
+        )
 
         ctx.actions.run(
             rc_cmd,
@@ -34,10 +36,12 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             "__objects__",
             "{}.obj".format(src.short_path),
         )
-        cvtres_cmd = cmd_args(toolchain.cvtres_compiler_info.compiler)
-        cvtres_cmd.add(toolchain.cvtres_compiler_info.compiler_flags)
-        cvtres_cmd.add(cmd_args(cvtres_output.as_output(), format = "/OUT:{}"))
-        cvtres_cmd.add(rc_output)
+        cvtres_cmd = cmd_args(
+            toolchain.cvtres_compiler_info.compiler,
+            toolchain.cvtres_compiler_info.compiler_flags,
+            cmd_args(cvtres_output.as_output(), format = "/OUT:{}"),
+            rc_output,
+        )
 
         ctx.actions.run(
             cvtres_cmd,
