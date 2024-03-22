@@ -325,6 +325,29 @@ fn test_relative_absolute() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_relative_to_propagated_up_and_down() -> anyhow::Result<()> {
+    let mut tester = tester()?;
+    let contents = indoc!(
+        r#"
+        def test():
+            args = cmd_args(source_artifact("foo", "bar.h"))
+            # Self check
+            assert_eq(get_args(args), ["foo/bar.h"])
+
+            # `relative_to` is propagated down to `args`
+            args2 = cmd_args(args, relative_to=(source_artifact("foo", "baz.c"), 1))
+            assert_eq(get_args(args2), ["./bar.h"])
+
+            # `relative_to` is propagated up to `args3`
+            args3 = cmd_args(args2)
+            assert_eq(get_args(args3), ["./bar.h"])
+        "#
+    );
+    tester.run_starlark_bzl_test(contents)?;
+    Ok(())
+}
+
+#[test]
 fn test_parent_old() -> anyhow::Result<()> {
     // Remove this test when `.parent()` is removed.
     let mut tester = tester()?;
