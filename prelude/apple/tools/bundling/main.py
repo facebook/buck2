@@ -22,6 +22,7 @@ from apple.tools.code_signing.codesign_bundle import (
     AdhocSigningContext,
     codesign_bundle,
     CodesignConfiguration,
+    CodesignedPath,
     signing_context_with_profile_selection,
 )
 from apple.tools.code_signing.list_codesign_identities import (
@@ -384,12 +385,18 @@ def _main() -> None:
         codesign_on_copy_paths = [
             i.dst for i in spec if i.codesign_on_copy
         ] + swift_stdlib_paths
+
+        bundle_path = CodesignedPath(path=args.output, entitlements=args.entitlements)
+        codesigned_on_copy = [
+            CodesignedPath(path=bundle_path.path / path, entitlements=None)
+            for path in codesign_on_copy_paths
+        ]
+
         codesign_bundle(
-            bundle_path=args.output,
+            bundle_path=bundle_path,
             signing_context=signing_context,
-            entitlements_path=args.entitlements,
             platform=args.platform,
-            codesign_on_copy_paths=codesign_on_copy_paths,
+            codesign_on_copy_paths=codesigned_on_copy,
             codesign_args=args.codesign_args,
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
