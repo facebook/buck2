@@ -529,16 +529,15 @@ def _spawn_process(
 
 
 def _spawn_codesign_process(
-    path: Path,
+    path: CodesignedPath,
     identity_fingerprint: str,
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
-    entitlements: Optional[Path],
     stack: ExitStack,
     codesign_args: List[str],
 ) -> ParallelProcess:
     command = codesign_command_factory.codesign_command(
-        path, identity_fingerprint, entitlements, codesign_args
+        path.path, identity_fingerprint, path.entitlements, codesign_args
     )
     return _spawn_process(command=command, tmp_dir=tmp_dir, stack=stack)
 
@@ -556,11 +555,10 @@ def _codesign_paths(
     with ExitStack() as stack:
         for path in paths:
             process = _spawn_codesign_process(
-                path=path.path,
+                path=path,
                 identity_fingerprint=identity_fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_command_factory=codesign_command_factory,
-                entitlements=path.entitlements,
                 stack=stack,
                 codesign_args=codesign_args,
             )
