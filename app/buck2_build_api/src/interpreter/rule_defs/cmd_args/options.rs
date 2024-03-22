@@ -102,7 +102,7 @@ pub(crate) trait CommandLineOptionsTrait<'v> {
 pub(crate) struct CommandLineOptions<'v> {
     // These impact how artifacts are rendered
     /// The value of V must be convertible to a `RelativeOrigin`
-    pub(crate) relative_to: Option<(Value<'v>, usize)>,
+    pub(crate) relative_to: Option<(Value<'v>, u32)>,
     pub(crate) absolute_prefix: Option<StringValue<'v>>,
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
@@ -190,7 +190,7 @@ impl<'v, 'a> Serialize for OptionsReplacementsRef<'v, 'a> {
 #[derive(Default, Serialize)]
 pub(crate) struct CommandLineOptionsRef<'v, 'a> {
     #[serde(serialize_with = "serialize_opt_display")]
-    pub(crate) relative_to: Option<(Value<'v>, usize)>,
+    pub(crate) relative_to: Option<(Value<'v>, u32)>,
     pub(crate) absolute_prefix: Option<StringValue<'v>>,
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
@@ -304,7 +304,7 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
         for option in &*self.options {
             match option {
                 FrozenCommandLineOption::RelativeTo(value, parent) => {
-                    options.relative_to = Some((value.to_value(), *parent as usize));
+                    options.relative_to = Some((value.to_value(), *parent));
                 }
                 FrozenCommandLineOption::AbsolutePrefix(value) => {
                     options.absolute_prefix = Some(value.to_string_value());
@@ -422,7 +422,7 @@ impl<'v> Freeze for CommandLineOptions<'v> {
     }
 }
 
-fn serialize_opt_display<V: Display, S>(v: &Option<(V, usize)>, s: S) -> Result<S::Ok, S::Error>
+fn serialize_opt_display<V: Display, S>(v: &Option<(V, u32)>, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -747,7 +747,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             if *index != 0 {
                 iter.push((
                     "relative_to_parent",
-                    CommandLineOptionsIterItem::Usize(*index),
+                    CommandLineOptionsIterItem::U32(*index),
                 ));
             }
         }
@@ -796,7 +796,6 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
 #[derive(derive_more::Display)]
 pub(crate) enum CommandLineOptionsIterItem<'v, 'a> {
     U32(u32),
-    Usize(usize),
     Value(Value<'v>),
     Str(&'static str),
     StringValue(StringValue<'v>),

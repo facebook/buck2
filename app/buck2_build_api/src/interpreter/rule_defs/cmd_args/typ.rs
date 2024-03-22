@@ -52,7 +52,6 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use static_assertions::assert_eq_size;
@@ -688,12 +687,9 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     fn relative_to<'v>(
         mut this: StarlarkCommandLineMut<'v>,
         #[starlark(require = pos)] directory: ValueOf<'v, RelativeOrigin<'v>>,
-        #[starlark(require = named, default = 0i32)] parent: i32,
+        #[starlark(require = named, default = 0u32)] parent: u32,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        if parent < 0 {
-            return Err(ValueError::IncorrectParameterTypeNamed("parent".to_owned()).into());
-        }
-        this.borrow.options_mut().relative_to = Some((directory.value, parent as usize));
+        this.borrow.options_mut().relative_to = Some((directory.value, parent));
         Ok(this)
     }
 
