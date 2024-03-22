@@ -427,6 +427,7 @@ def prepare_cd_exe(
         "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
