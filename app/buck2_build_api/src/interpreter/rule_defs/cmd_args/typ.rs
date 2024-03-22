@@ -555,6 +555,7 @@ impl<'v> StarlarkCmdArgs<'v> {
 
     fn try_from_values_with_options(
         value: Vec<StarlarkCommandLineValueUnpack<'v>>,
+        hidden: Option<Value<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
@@ -577,6 +578,9 @@ impl<'v> StarlarkCmdArgs<'v> {
         }
         for v in value {
             builder.add_value_typed(v)?;
+        }
+        if let Some(hidden) = hidden {
+            builder.add_hidden(&[hidden])?;
         }
         Ok(Self(RefCell::new(builder)))
     }
@@ -842,6 +846,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `prepend` - added as a separate argument before each argument.
     /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
     /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
+    /// * `hidden` - artifacts not present on the command line, but added as dependencies.
     ///
     /// ## `ignore_artifacts`
     ///
@@ -859,10 +864,20 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// Note that `ignore_artifacts` sets all artifacts referenced by this `cmd_args` to be ignored, including those added afterwards,
     /// so generally create a special `cmd_args` and scope it quite tightly.
     ///
-    /// If you actually do use the inputs referenced by this command, you will either error out due to missing dependencies (if running actions remotely)
+    /// If you actually do use the inputs referenced by this command,
+    /// you will either error out due to missing dependencies (if running actions remotely)
     /// or have untracked dependencies that will fail to rebuild when it should.
+    ///
+    /// ## `hidden`
+    ///
+    /// Things to add to the command line which do not show up but are added as dependencies.
+    /// The values can be anything normally permissible to pass to `add`.
+    ///
+    /// Typically used if the command you are running implicitly depends on files that are not
+    /// passed on the command line, e.g. headers in the case of a C compilation.
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
+        hidden: Option<Value<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
@@ -871,6 +886,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         StarlarkCmdArgs::try_from_values_with_options(
             args.items,
+            hidden,
             delimiter,
             format,
             prepend,

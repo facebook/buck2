@@ -102,7 +102,8 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn displays_correctly() -> buck2_error::Result<()> {
+fn displays_correctly_old_hidden() -> buck2_error::Result<()> {
+    // Remove this test when `.hidden()` is removed.
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -110,6 +111,23 @@ fn displays_correctly() -> buck2_error::Result<()> {
             cli = cmd_args(format="x{}y", quote="shell")
             cli.add("foo")
             cli.hidden("bar")
+            # TODO(nga): fix options formatting.
+            assert_eq('cmd_args("foo", hidden=["bar"], format="x{}y", quote="shell")', str(cli))
+            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', pprint_str(cli))
+        "#
+    ))?;
+
+    Ok(())
+}
+
+#[test]
+fn displays_correctly() -> buck2_error::Result<()> {
+    let mut tester = tester()?;
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            cli = cmd_args(format="x{}y", quote="shell", hidden="bar")
+            cli.add("foo")
             # TODO(nga): fix options formatting.
             assert_eq('cmd_args("foo", hidden=["bar"], format="x{}y", quote="shell")', str(cli))
             assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', pprint_str(cli))
@@ -450,11 +468,10 @@ fn test_inputs_outputs() -> anyhow::Result<()> {
             artifact4 = bound_artifact("//:dep2", "dir/quz.h")
             artifact5 = declared_artifact("declared")
 
-            cli = cmd_args()
+            cli = cmd_args(hidden=artifact1)
             cli.add(artifact3)
             cli.add("just a string")
             cli.add(artifact4)
-            cli.hidden(artifact1)
             cli.add(artifact5.as_output())
 
             assert_eq(make_inputs([artifact3, artifact4, artifact1]), cli.inputs)
