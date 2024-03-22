@@ -349,7 +349,7 @@ def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: list[(str, S
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
-            "--preload={}".format(paths.join(libdir, shlib.soname.ensure_str()))
+            "--preload={}".format(paths.join(libdir, shlib.soname))
             for libdir, shlib in shared_libraries
         ]),
     )
@@ -438,7 +438,7 @@ def _pex_modules_common_args(
     native_library_dests_path = ctx.actions.write(
         "__native_libraries___dests.txt",
         [
-            "--native-library-dest={}".format(paths.join(libdir, shlib.soname.ensure_str()))
+            "--native-library-dest={}".format(paths.join(libdir, shlib.soname))
             for shlib, libdir in shared_libraries
         ],
     )
@@ -466,13 +466,13 @@ def _pex_modules_common_args(
         if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) == PackageStyle("standalone") and cxx_is_gnu(ctx):
             # rename to match extracted debuginfo package
             dwp = [
-                (shlib.lib.dwp, paths.join(libdir, "{}.debuginfo.dwp".format(shlib.soname.ensure_str())))
+                (shlib.lib.dwp, paths.join(libdir, "{}.debuginfo.dwp".format(shlib.soname)))
                 for shlib, libdir in shared_libraries
                 if shlib.lib.dwp != None
             ]
         else:
             dwp = [
-                (shlib.lib.dwp, paths.join(libdir, "{}.dwp".format(shlib.soname.ensure_str())))
+                (shlib.lib.dwp, paths.join(libdir, "{}.dwp".format(shlib.soname)))
                 for shlib, libdir in shared_libraries
                 if shlib.lib.dwp != None
             ]

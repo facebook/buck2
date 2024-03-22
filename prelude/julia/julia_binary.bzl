@@ -58,7 +58,7 @@ def build_jll_shlibs_mapping(ctx: AnalysisContext, json_info_file: Artifact):
         shared_libs = shlibs,
     )
 
-    shlib_label_to_soname = {shlib.label: shlib.soname.ensure_str() for shlib in shlibs}
+    shlib_label_to_soname = {shlib.label: shlib.soname for shlib in shlibs}
 
     # iterate through all the jll libraries
     json_info = []

@@ -73,7 +73,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "create_shlib",
+    "SharedLibrary",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
@@ -620,11 +620,7 @@ def _convert_python_library_to_executable(
 
         # Add sub-targets for libs.
         for shlib in executable_info.shared_libs:
-            # TODO(agallagher) There appears to be pre-existing soname conflicts
-            # when building this (when using link groups), which prevents using
-            # `with_unique_str_sonames`.
-            if shlib.soname.is_str():
-                extra[shlib.soname.ensure_str()] = [DefaultInfo(default_output = shlib.lib.output)]
+            extra[shlib.soname] = [DefaultInfo(default_output = shlib.lib.output)]
 
         for name, group in executable_info.auto_link_groups.items():
             extra[name] = [DefaultInfo(default_output = group.output)]
@@ -646,7 +642,7 @@ def _convert_python_library_to_executable(
         extra_artifacts.update(dict(extension_info.artifacts))
         shared_libs.append((
             "runtime/bin",
-            create_shlib(
+            SharedLibrary(
                 soname = ctx.attrs.executable_name,
                 label = ctx.label,
                 lib = LinkedObject(

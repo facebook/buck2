@@ -12,18 +12,6 @@ load(
     "LinkedObject",  # @unused Used as a type
 )
 load("@prelude//linking:strip.bzl", "strip_object")
-load("@prelude//utils:expect.bzl", "expect")
-
-_Soname = record(
-    # Return the SONAME as a string, throwing an error if it is actually an
-    # artifact.
-    ensure_str = field(typing.Callable),
-    # Return `True` if the SONAME is respresented as a string.
-    is_str = field(typing.Callable),
-    # The the actual SONAME can be rerepsented by a static string, or the
-    # contents of a file genrated at build time.
-    _soname = field(str | Artifact),
-)
 
 SharedLibrary = record(
     lib = field(LinkedObject),
@@ -38,30 +26,9 @@ SharedLibrary = record(
     stripped_lib = field(Artifact | None, None),
     can_be_asset = field(bool, False),
     for_primary_apk = field(bool, False),
-    soname = field(_Soname),
+    soname = field(str),
     label = field(Label),
 )
-
-def _ensure_str(soname: str | Artifact) -> str:
-    expect(type(soname) == type(""), "SONAME is not a `str`: {}", soname)
-    return soname
-
-def _soname(soname: str | Artifact) -> _Soname:
-    return _Soname(
-        ensure_str = lambda: _ensure_str(soname),
-        is_str = lambda: type(soname) == type(""),
-        _soname = soname,
-    )
-
-def create_shlib(
-        # The soname can either be a string or an artifact with the soname in
-        # text form.
-        soname: str | Artifact,
-        **kwargs):
-    return SharedLibrary(
-        soname = _soname(soname),
-        **kwargs
-    )
 
 SharedLibraries = record(
     # A mapping of shared library SONAME (e.g. `libfoo.so.2`) to the artifact.
@@ -95,7 +62,7 @@ def create_shared_libraries(
     """
     cxx_toolchain = getattr(ctx.attrs, "_cxx_toolchain", None)
     return SharedLibraries(
-        libraries = [create_shlib(
+        libraries = [SharedLibrary(
             lib = shlib,
             stripped_lib = strip_object(
                 ctx,
@@ -165,9 +132,7 @@ def _merge_shlibs(
         merged[soname] = shlib
     return merged
 
-def with_unique_str_sonames(
-        shared_libs: list[SharedLibrary],
-        skip_dynamic: bool = False) -> dict[str, SharedLibrary]:
+def with_unique_sonames(shared_libs: list[SharedLibrary]) -> dict[str, SharedLibrary]:
     """
     Convert a list of `SharedLibrary`s to a map of unique SONAMEs to the
     corresponding `SharedLibrary`.
@@ -175,71 +140,17 @@ def with_unique_str_sonames(
     Will fail if the same SONAME maps to multiple `SharedLibrary`s.
     """
     return _merge_shlibs(
-        shared_libs = [
-            shlib
-            for shlib in shared_libs
-            if shlib.soname.is_str() or not skip_dynamic
-        ],
-        resolve_soname = lambda s: s.ensure_str(),
+        shared_libs = shared_libs,
+        resolve_soname = lambda s: s,
     )
-
-def gen_shared_libs_action(
-        actions: AnalysisActions,
-        out: str,
-        shared_libs: list[SharedLibrary],
-        gen_action: typing.Callable,
-        dir = False):
-    """
-    Produce an action by first resolving all SONAME of the given shlibs and
-    enforcing that each SONAME is unique.
-
-    The provided `gen_action` callable is called with a map of unique SONAMEs
-    to the corresponding shlibs.
-    """
-
-    output = actions.declare_output(out, dir = dir)
-
-    def func(actions, artifacts, output):
-        def resolve_soname(soname):
-            if soname.is_str():
-                return soname._soname
-            else:
-                return artifacts[soname._soname].read_string().strip()
-
-        gen_action(
-            actions,
-            output,
-            _merge_shlibs(
-                shared_libs = shared_libs,
-                resolve_soname = resolve_soname,
-            ),
-        )
-
-    dynamic_sonames = [shlib.soname._soname for shlib in shared_libs if not shlib.soname.is_str()]
-    if dynamic_sonames:
-        actions.dynamic_output(
-            dynamic = [shlib.soname._soname for shlib in shared_libs if not shlib.soname.is_str()],
-            inputs = [],
-            outputs = [output],
-            f = lambda ctx, artifacts, outputs: func(ctx.actions, artifacts, outputs[output]),
-        )
-    else:
-        func(actions, {}, output)
-
-    return output
 
 def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]):
     """
     Merged shared libs into a symlink tree mapping the library's SONAME to
     it's artifact.
     """
-    return gen_shared_libs_action(
-        actions = actions,
-        out = out,
-        shared_libs = shared_libs,
-        gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
-            output,
-            {name: shlib.lib.output for name, shlib in shared_libs.items()},
-        ),
-        dir = True,
+    merged = with_unique_sonames(shared_libs = shared_libs)
+    return actions.symlinked_dir(
+        out,
+        {name: shlib.lib.output for name, shlib in merged.items()},
     )

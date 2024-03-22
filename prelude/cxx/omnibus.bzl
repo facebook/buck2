@@ -39,8 +39,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",  # @unused Used as a type
-    "create_shlib",
+    "SharedLibrary",
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:expect.bzl", "expect")
@@ -710,7 +709,7 @@ def create_omnibus_libraries(
         )
         if root.name != None:
             libraries.append(
-                create_shlib(
+                SharedLibrary(
                     soname = root.name,
                     lib = product.shared_library,
                     label = label,
@@ -731,7 +730,7 @@ def create_omnibus_libraries(
             allow_cache_upload = True,
         )
         libraries.append(
-            create_shlib(
+            SharedLibrary(
                 soname = _omnibus_soname(ctx),
                 lib = omnibus.linked_object,
                 label = ctx.label,

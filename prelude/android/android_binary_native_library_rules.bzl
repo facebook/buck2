@@ -54,11 +54,10 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
     "SharedLibraryInfo",  # @unused Used as a type
-    "create_shlib",
     "get_strip_non_global_flags",
     "merge_shared_libraries",
     "traverse_shared_library_info",
-    "with_unique_str_sonames",
+    "with_unique_sonames",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//linking:types.bzl", "Linkage")
@@ -873,7 +872,7 @@ def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared
     )
     return {
         soname: shared_lib
-        for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info)).items()
+        for soname, shared_lib in with_unique_sonames(traverse_shared_library_info(shared_library_info)).items()
         if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
     }
 
@@ -1065,10 +1064,10 @@ def _shared_lib_for_prebuilt_shared(
         )
 
     shlib = node_data.shared_libs.libraries[0]
-    soname = shlib.soname.ensure_str()
+    soname = shlib.soname
     shlib = shlib.lib
     output_path = _platform_output_path(soname, platform)
-    return create_shlib(
+    return SharedLibrary(
         lib = shlib,
         stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output, output_path),
         link_args = None,
@@ -1249,8 +1248,8 @@ def _get_merged_linkables_for_platform(
                     # exported linker flags for shared libs are in their linkinfo itself and are not exported from dependents
                     exported_linker_flags = None,
                 )
-                group_shared_libs[shared_lib.soname.ensure_str()] = MergedSharedLibrary(
-                    soname = shared_lib.soname.ensure_str(),
+                group_shared_libs[shared_lib.soname] = MergedSharedLibrary(
+                    soname = shared_lib.soname,
                     lib = shared_lib,
                     apk_module = group_data.apk_module,
                     solib_constituents = [],
@@ -1273,7 +1272,7 @@ def _get_merged_linkables_for_platform(
             expect(target_to_link_group[key] == group)
             node = linkable_nodes[key]
 
-            default_solibs = list([shlib.soname.ensure_str() for shlib in node.shared_libs.libraries])
+            default_solibs = list([shlib.soname for shlib in node.shared_libs.libraries])
             if not default_solibs and node.preferred_linkage == Linkage("static"):
                 default_solibs = [node.default_soname]
 
@@ -1329,7 +1328,7 @@ def _get_merged_linkables_for_platform(
             soname = soname,
             link_args = link_args,
             cxx_toolchain = cxx_toolchain,
-            shared_lib_deps = [link_group_linkable_nodes[label].shared_lib.soname.ensure_str() for label in shlib_deps],
+            shared_lib_deps = [link_group_linkable_nodes[label].shared_lib.soname for label in shlib_deps],
             label = group_data.constituents[0],
             can_be_asset = can_be_asset,
         )
@@ -1474,16 +1473,16 @@ def _create_relinkable_links(
                 can_be_asset = node.can_be_asset,
             )
         shared_lib_overrides[target] = LinkInfo(
-            name = shared_lib.soname.ensure_str(),
+            name = shared_lib.soname,
             pre_flags = node.linker_flags.exported_flags,
             linkables = [SharedLibLinkable(
                 lib = shared_lib.lib.output,
             )],
             post_flags = node.linker_flags.exported_post_flags,
         )
-        shared_libs[shared_lib.soname.ensure_str()] = shared_lib
+        shared_libs[shared_lib.soname] = shared_lib
 
-    return {lib.soname.ensure_str(): lib for lib in shared_libs.values()}, debug_link_deps
+    return {lib.soname: lib for lib in shared_libs.values()}, debug_link_deps
 
 # To support migration from a tset-based link strategy, we are trying to match buck's internal tset
 # traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
@@ -1806,7 +1805,7 @@ def create_shared_lib(
     )
 
     shlib = link_result.linked_object
-    return create_shlib(
+    return SharedLibrary(
         lib = shlib,
         stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output),
         shlib_deps = shared_lib_deps,

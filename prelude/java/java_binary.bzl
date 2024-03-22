@@ -55,7 +55,7 @@ def _create_fat_jar(
         )
         args += [
             "--native_libs_file",
-            ctx.actions.write("native_libs", [cmd_args([native_lib.soname.ensure_str(), native_lib.lib.output], delimiter = " ") for native_lib in native_libs]),
+            ctx.actions.write("native_libs", [cmd_args([native_lib.soname, native_lib.lib.output], delimiter = " ") for native_lib in native_libs]),
         ]
         if do_not_create_inner_jar:
             args += [
