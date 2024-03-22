@@ -41,7 +41,7 @@ PexModules = record(
 # providers.
 PexProviders = record(
     default_output = field(Artifact),
-    other_outputs = list[(ArgLike, str)],
+    other_outputs = list[ArgLike],
     other_outputs_prefix = str | None,
     hidden_resources = list[ArgLike],
     sub_targets = dict[str, list[Provider]],
@@ -59,7 +59,7 @@ def make_py_package_providers(
 def make_default_info(pex: PexProviders) -> Provider:
     return DefaultInfo(
         default_output = pex.default_output,
-        other_outputs = [a for a, _ in pex.other_outputs] + pex.hidden_resources,
+        other_outputs = pex.other_outputs + pex.hidden_resources,
         sub_targets = pex.sub_targets,
     )
 
@@ -208,8 +208,8 @@ def _make_py_package_impl(
         shared_libraries: bool,
         preload_libraries: cmd_args,
         common_modules_args: cmd_args,
-        dep_artifacts: list[(ArgLike, str)],
-        debug_artifacts: list[(ArgLike, str)],
+        dep_artifacts: list[ArgLike],
+        debug_artifacts: list[ArgLike],
         main: EntryPoint,
         hidden_resources: list[ArgLike] | None,
         manifest_module: ArgLike | None,
@@ -275,7 +275,7 @@ def _make_py_package_impl(
 
         # For inplace builds add local artifacts to outputs so they get properly materialized
         runtime_files.extend(dep_artifacts)
-        runtime_files.append((symlink_tree_path, symlink_tree_path.short_path))
+        runtime_files.append(symlink_tree_path)
 
     # For standalone builds, or builds setting make_py_package we generate args for calling make_par.py
     if standalone or make_py_package_cmd != None:
@@ -330,12 +330,12 @@ def _make_py_package_impl(
         other_outputs_prefix = symlink_tree_path.short_path if symlink_tree_path != None else None,
         hidden_resources = hidden_resources,
         sub_targets = {},
-        run_cmd = cmd_args(run_args).hidden([a for a, _ in runtime_files] + hidden_resources),
+        run_cmd = cmd_args(run_args).hidden(runtime_files + hidden_resources),
     )
 
-def _debuginfo_subtarget(ctx: AnalysisContext, debug_artifacts: list[(ArgLike, str)]) -> list[Provider]:
+def _debuginfo_subtarget(ctx: AnalysisContext, debug_artifacts: list[ArgLike]) -> list[Provider]:
     out = ctx.actions.write_json("debuginfo.manifest.json", debug_artifacts)
-    return [DefaultInfo(default_output = out, other_outputs = [a for a, _ in debug_artifacts])]
+    return [DefaultInfo(default_output = out, other_outputs = debug_artifacts)]
 
 def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: dict[str, (LinkedObject, bool)]) -> cmd_args:
     preload_libraries_path = ctx.actions.write(
@@ -390,7 +390,7 @@ def _pex_modules_common_args(
         pex_modules: PexModules,
         extra_manifests: list[ArgLike],
         shared_libraries: dict[str, LinkedObject],
-        debuginfo_files: list[Artifact]) -> (cmd_args, list[(ArgLike, str)], list[(ArgLike, str)]):
+        debuginfo_files: list[Artifact]) -> (cmd_args, list[ArgLike], list[ArgLike]):
     srcs = []
     src_artifacts = []
     deps = []
@@ -410,9 +410,9 @@ def _pex_modules_common_args(
     if extra_manifests:
         srcs.extend(extra_manifests)
 
-    deps.extend(src_artifacts)
+    deps.extend([a[0] for a in src_artifacts])
     resources = pex_modules.manifests.resource_manifests()
-    deps.extend(pex_modules.manifests.resource_artifacts_with_paths())
+    deps.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths()])
 
     src_manifests_path = ctx.actions.write(
         "__src_manifests.txt",
@@ -470,9 +470,9 @@ def _pex_modules_common_args(
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
 
-        debug_artifacts.extend(dwp)
+        debug_artifacts.extend([d for d, _ in dwp])
 
-    deps.extend([(lib.output, name) for name, lib in shared_libraries.items()])
+    deps.extend([lib.output for lib in shared_libraries.values()])
 
     external_debug_info = project_artifacts(
         ctx.actions,
@@ -480,15 +480,15 @@ def _pex_modules_common_args(
     )
 
     # HACK: external_debug_info has an empty path
-    debug_artifacts.extend([(d, "") for d in external_debug_info])
+    debug_artifacts.extend(external_debug_info)
 
     return (cmd, deps, debug_artifacts)
 
 def _pex_modules_args(
         ctx: AnalysisContext,
         common_args: cmd_args,
-        dep_artifacts: list[(ArgLike, str)],
-        debug_artifacts: list[(ArgLike, str)],
+        dep_artifacts: list[ArgLike],
+        debug_artifacts: list[ArgLike],
         symlink_tree_path: Artifact | None,
         manifest_module: ArgLike | None,
         pex_modules: PexModules,
@@ -508,7 +508,7 @@ def _pex_modules_args(
     if pex_modules.compile:
         pyc_mode = PycInvalidationMode("UNCHECKED_HASH") if symlink_tree_path == None else PycInvalidationMode("CHECKED_HASH")
         bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
-        dep_artifacts.extend(pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode))
+        dep_artifacts.extend([a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)])
 
         bytecode_manifests_path = ctx.actions.write(
             "__bytecode_manifests{}.txt".format(output_suffix),
@@ -525,9 +525,9 @@ def _pex_modules_args(
     else:
         # Accumulate all the artifacts we depend on. Only add them to the command
         # if we are not going to create symlinks.
-        cmd.hidden([a for a, _ in dep_artifacts])
+        cmd.hidden(dep_artifacts)
 
-    cmd.hidden([a for a, _ in debug_artifacts])
+    cmd.hidden(debug_artifacts)
 
     return cmd
 
