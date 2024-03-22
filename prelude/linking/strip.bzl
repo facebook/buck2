@@ -80,10 +80,13 @@ def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripp
     stripped_lib = ctx.actions.declare_output("stripped/{}".format(output_path))
 
     # TODO(T109996375) support configuring the flags used for stripping
-    cmd = cmd_args()
-    cmd.add(strip)
-    cmd.add(strip_flags)
-    cmd.add([unstripped, "-o", stripped_lib.as_output()])
+    cmd = cmd_args(
+        strip,
+        strip_flags,
+        unstripped,
+        "-o",
+        stripped_lib.as_output(),
+    )
 
     effective_category_suffix = category_suffix if category_suffix else "shared_lib"
     category = "strip_{}".format(effective_category_suffix)
