@@ -813,6 +813,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `hidden` - artifacts not present on the command line, but added as dependencies.
     /// * `absolute_prefix` and `absolute_suffix` - added to the start and end of each artifact.
     /// * `parent` - for all the artifacts use their parent directory.
+    /// * `relative_to` - make all artifact paths relative to a given location.
     ///
     /// ## `ignore_artifacts`
     ///
@@ -863,6 +864,23 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     ///
     /// Typically used when the file name is passed one way, and the directory another,
     /// e.g. `cmd_args(artifact, format="-L{}", parent=1)`.
+    ///
+    /// # `relative_to=dir` or `relative_to=(dir, parent)`
+    ///
+    /// Make all artifact paths relative to a given location. Typically used when the command
+    /// you are running changes directory.
+    ///
+    /// By default, the paths are relative to the artifacts themselves (equivalent to
+    /// parent equals to `0`). Use `parent` to make the paths relative to an ancestor directory.
+    /// For example parent equals to `1` would make all paths relative to the containing dirs
+    /// of any artifacts in the `cmd_args`.
+    ///
+    /// ```python
+    /// dir = symlinked_dir(...)
+    /// script = [
+    ///     cmd_args(dir, format = "cd {}", relative_to=dir),
+    /// ]
+    /// ```
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
         hidden: Option<Value<'v>>,
@@ -874,6 +892,9 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         absolute_prefix: Option<StringValue<'v>>,
         absolute_suffix: Option<StringValue<'v>>,
         #[starlark(default = 0)] parent: u32,
+        relative_to: Option<
+            Either<ValueOf<'v, RelativeOrigin<'v>>, (ValueOf<'v, RelativeOrigin<'v>>, u32)>,
+        >,
     ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
         let quote = quote.try_map(QuoteStyle::parse)?;
         let mut builder = StarlarkCommandLineData::default();
@@ -885,6 +906,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             || absolute_prefix.is_some()
             || absolute_suffix.is_some()
             || parent != 0
+            || relative_to.is_some()
         {
             let opts = builder.options_mut();
             opts.delimiter = delimiter;
@@ -895,6 +917,10 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             opts.absolute_prefix = absolute_prefix;
             opts.absolute_suffix = absolute_suffix;
             opts.parent = parent;
+            opts.relative_to = relative_to.map(|either| {
+                let (relative_to, parent) = either.map_left(|o| (o, 0)).into_inner();
+                (relative_to.value, parent)
+            });
         }
         for v in args.items {
             builder.add_value_typed(v)?;

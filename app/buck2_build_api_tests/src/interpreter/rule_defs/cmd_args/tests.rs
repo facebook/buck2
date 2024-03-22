@@ -284,7 +284,7 @@ fn command_line_builder() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn test_relative_absolute() -> anyhow::Result<()> {
+fn test_relative_absolute_old() -> anyhow::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -298,6 +298,26 @@ fn test_relative_absolute() -> anyhow::Result<()> {
             args = cmd_args()
             args.add(source_artifact("foo","bar/baz/qux.h"))
             args.relative_to(source_artifact("foo", "bar/baz"), parent=1)
+            assert_eq(get_args(args), ["baz/qux.h"])
+            "#
+    );
+    tester.run_starlark_bzl_test(contents)?;
+    Ok(())
+}
+
+#[test]
+fn test_relative_absolute() -> anyhow::Result<()> {
+    let mut tester = tester()?;
+    let contents = indoc!(
+        r#"
+        def test():
+            args = cmd_args(absolute_prefix="$ABSOLUTE/", absolute_suffix="!", relative_to=source_artifact("foo", "bar/foo"))
+            args.add(source_artifact("foo","bar/baz/qux.h"))
+
+            assert_eq(get_args(args), ["$ABSOLUTE/../baz/qux.h!"])
+
+            args = cmd_args(relative_to=(source_artifact("foo", "bar/baz"), 1))
+            args.add(source_artifact("foo","bar/baz/qux.h"))
             assert_eq(get_args(args), ["baz/qux.h"])
             "#
     );
