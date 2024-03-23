@@ -28,6 +28,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -35,6 +36,7 @@ use dice::DiceComputations;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
+use dupe::OptionDupedExt;
 use either::Either;
 use gazebo::variants::VariantName;
 use indexmap::IndexSet;
@@ -75,7 +77,7 @@ pub trait DeferredCtx: Send {
 
     fn get_action_key(&self) -> String;
 
-    fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady>;
+    fn get_deferred_data(&self, key: &DeferredKey) -> anyhow::Result<DeferredValueAnyReady>;
 
     fn get_materialized_artifact(&self, artifact: &Artifact) -> Option<&ProjectRelativePath>;
 
@@ -136,8 +138,11 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
         self.key.action_key()
     }
 
-    fn get_deferred_data(&self, key: &DeferredKey) -> Option<DeferredValueAnyReady> {
-        self.deferreds.get(key).map(|b| b.dupe())
+    fn get_deferred_data(&self, key: &DeferredKey) -> anyhow::Result<DeferredValueAnyReady> {
+        self.deferreds
+            .get(key)
+            .duped()
+            .with_internal_error(|| format!("deferred data not found by key: {}", key))
     }
 
     fn get_materialized_artifact(&self, artifact: &Artifact) -> Option<&ProjectRelativePath> {

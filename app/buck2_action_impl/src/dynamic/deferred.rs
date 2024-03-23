@@ -177,17 +177,18 @@ impl Deferred for DynamicAction {
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let id = match &self.input {
             DeferredInput::Deferred(x) => x,
-            _ => unreachable!("DynamicAction must have a single Deferred as as inputs"),
+            _ => {
+                return Err(internal_error!(
+                    "DynamicAction must have a single Deferred as as inputs"
+                ));
+            }
         };
-        let val = ctx.get_deferred_data(id).unwrap();
+        let val = ctx.get_deferred_data(id)?;
         let key = val
             .downcast::<DynamicLambdaOutput>()?
             .output
             .get(self.output_artifact_index)
-            .map_or_else(
-                || Err(internal_error!("Unexpected index in DynamicAction")),
-                Ok,
-            )?;
+            .internal_error("Unexpected index in DynamicAction")?;
         Ok(DeferredValue::Deferred(key.deferred_data().dupe()))
     }
 }
