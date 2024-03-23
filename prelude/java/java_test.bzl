@@ -14,13 +14,7 @@ load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load(
-    "@prelude//linking:shared_libraries.bzl",
-    "SharedLibraryInfo",
-    "create_shlib_symlink_tree",
-    "merge_shared_libraries",
-    "traverse_shared_library_info",
-)
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
@@ -188,10 +182,8 @@ def _get_native_libs_env(ctx: AnalysisContext) -> dict:
         deps = shared_library_infos,
     )
 
-    cxx_library_symlink_tree = create_shlib_symlink_tree(
-        actions = ctx.actions,
-        out = "cxx_library_symlink_tree",
-        shared_libs = traverse_shared_library_info(shared_library_info),
-    )
+    native_linkables = traverse_shared_library_info(shared_library_info)
+    cxx_library_symlink_tree_dict = {so_name: shared_lib.lib.output for so_name, shared_lib in native_linkables.items()}
+    cxx_library_symlink_tree = ctx.actions.symlinked_dir("cxx_library_symlink_tree", cxx_library_symlink_tree_dict)
 
     return {"BUCK_LD_SYMLINK_TREE": cxx_library_symlink_tree}

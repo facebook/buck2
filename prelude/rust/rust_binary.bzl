@@ -40,7 +40,6 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
@@ -134,7 +133,7 @@ def _rust_binary_common(
         output = ctx.actions.declare_output(name)
 
         # Gather and setup symlink tree of transitive shared library deps.
-        shared_libs = []
+        shared_libs = {}
 
         rust_cxx_link_group_info = None
         link_group_mappings = {}
@@ -171,18 +170,17 @@ def _rust_binary_common(
             labels_to_links_map = labels_to_links_map,
         )
 
-        for shlib in traverse_shared_library_info(shlib_info):
-            if not rust_cxx_link_group_info or is_link_group_shlib(shlib.label, link_group_ctx):
-                shared_libs.append(shlib)
+        def shlib_filter(_name, shared_lib):
+            return not rust_cxx_link_group_info or is_link_group_shlib(shared_lib.label, link_group_ctx)
+
+        for soname, shared_lib in traverse_shared_library_info(shlib_info, filter_func = shlib_filter).items():
+            shared_libs[soname] = shared_lib.lib
 
         if rust_cxx_link_group_info:
             # When there are no matches for a pattern based link group,
             # `link_group_mappings` will not have an entry associated with the lib.
             for _name, link_group_lib in link_group_libs.items():
-                shared_libs.extend([
-                    SharedLibrary(soname = name, lib = lib, label = ctx.label)
-                    for name, lib in link_group_lib.shared_libs.items()
-                ])
+                shared_libs.update(link_group_lib.shared_libs)
 
         # link groups shared libraries link args are directly added to the link command,
         # we don't have to add them here
@@ -241,17 +239,17 @@ def _rust_binary_common(
             default_output = ctx.actions.write_json(
                 name + ".shared-libraries.json",
                 {
-                    "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, shlib.soname) for shlib in shared_libs],
-                    "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, shlib.soname) for shlib in shared_libs if shlib.lib.dwp],
+                    "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, name) for name in shared_libs.keys()],
+                    "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, name) for name, lib in shared_libs.items() if lib.dwp],
                     "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if executable_args.shared_libs_symlink_tree else [],
                 },
             ),
             sub_targets = {
-                shlib.soname: [DefaultInfo(
-                    default_output = shlib.lib.output,
-                    sub_targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {},
+                name: [DefaultInfo(
+                    default_output = lib.output,
+                    sub_targets = {"dwp": [DefaultInfo(default_output = lib.dwp)]} if lib.dwp else {},
                 )]
-                for shlib in shared_libs
+                for name, lib in shared_libs.items()
             },
         )]
 
@@ -259,12 +257,12 @@ def _rust_binary_common(
             sub_targets_for_link_strategy["rpath-tree"] = [DefaultInfo(
                 default_output = executable_args.shared_libs_symlink_tree,
                 other_outputs = [
-                    shlib.lib.output
-                    for shlib in shared_libs
+                    lib.output
+                    for lib in shared_libs.values()
                 ] + [
-                    shlib.lib.dwp
-                    for shlib in shared_libs
-                    if shlib.lib.dwp
+                    lib.dwp
+                    for lib in shared_libs.values()
+                    if lib.dwp
                 ],
             )]
 

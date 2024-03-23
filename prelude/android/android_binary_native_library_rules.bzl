@@ -57,7 +57,6 @@ load(
     "get_strip_non_global_flags",
     "merge_shared_libraries",
     "traverse_shared_library_info",
-    "with_unique_sonames",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//linking:types.bzl", "Linkage")
@@ -871,8 +870,8 @@ def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared
         deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
     )
     return {
-        soname: shared_lib
-        for soname, shared_lib in with_unique_sonames(traverse_shared_library_info(shared_library_info)).items()
+        so_name: shared_lib
+        for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items()
         if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
     }
 

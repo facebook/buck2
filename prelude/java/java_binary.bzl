@@ -22,7 +22,7 @@ load(
     "get_java_packaging_info",
 )
 
-def _generate_script(generate_wrapper: bool, native_libs: list[SharedLibrary]) -> bool:
+def _generate_script(generate_wrapper: bool, native_libs: dict[str, SharedLibrary]) -> bool:
     # if `generate_wrapper` is set and no native libs then it should be a wrapper script as result,
     # otherwise fat jar will be generated (inner jar or script will be included inside a final fat jar)
     return generate_wrapper and len(native_libs) == 0
@@ -31,7 +31,7 @@ def _create_fat_jar(
         ctx: AnalysisContext,
         java_toolchain: JavaToolchainInfo,
         jars: cmd_args,
-        native_libs: list[SharedLibrary],
+        native_libs: dict[str, SharedLibrary],
         do_not_create_inner_jar: bool,
         generate_wrapper: bool) -> list[Artifact]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
@@ -55,7 +55,7 @@ def _create_fat_jar(
         )
         args += [
             "--native_libs_file",
-            ctx.actions.write("native_libs", [cmd_args([native_lib.soname, native_lib.lib.output], delimiter = " ") for native_lib in native_libs]),
+            ctx.actions.write("native_libs", [cmd_args([so_name, native_lib.lib.output], delimiter = " ") for so_name, native_lib in native_libs.items()]),
         ]
         if do_not_create_inner_jar:
             args += [
@@ -107,7 +107,7 @@ def _create_fat_jar(
         outputs.append(classpath_args_output)
 
     fat_jar_cmd = cmd_args(args)
-    fat_jar_cmd.hidden(jars, [native_lib.lib.output for native_lib in native_libs])
+    fat_jar_cmd.hidden(jars, [native_lib.lib.output for native_lib in native_libs.values()])
 
     ctx.actions.run(
         fat_jar_cmd,

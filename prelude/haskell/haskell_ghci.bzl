@@ -52,7 +52,6 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
     "traverse_shared_library_info",
-    "with_unique_sonames",
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load(
@@ -478,10 +477,10 @@ def _build_preload_deps_root(
         if SharedLibraryInfo in preload_dep:
             slib_info = preload_dep[SharedLibraryInfo]
 
-            shlib = traverse_shared_library_info(slib_info)
+            shlib = traverse_shared_library_info(slib_info).items()
 
-            for soname, shared_lib in with_unique_sonames(shlib).items():
-                preload_symlinks[soname] = shared_lib.lib.output
+            for shlib_name, shared_lib in shlib:
+                preload_symlinks[shlib_name] = shared_lib.lib.output
 
         # TODO(T150785851): build or get SO for direct preload_deps
         # TODO(T150785851): find out why the only SOs missing are the ones from

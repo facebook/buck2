@@ -14,15 +14,11 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkOrdering",  # @unused Used as a type
+    "LinkedObject",  # @unused Used as a type
     "unpack_link_args",
     "unpack_link_args_filelist",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
-load(
-    "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",  # @unused Used as a type
-    "create_shlib_symlink_tree",
-)
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 
 def generates_split_debug(toolchain: CxxToolchainInfo):
@@ -217,7 +213,7 @@ def executable_shared_lib_arguments(
         ctx: AnalysisContext,
         cxx_toolchain: CxxToolchainInfo,
         output: Artifact,
-        shared_libs: list[SharedLibrary]) -> ExecutableSharedLibArguments:
+        shared_libs: dict[str, LinkedObject]) -> ExecutableSharedLibArguments:
     extra_link_args = []
     runtime_files = []
     shared_libs_symlink_tree = None
@@ -226,7 +222,7 @@ def executable_shared_lib_arguments(
     # of a build. Do not add to runtime_files.
     external_debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [shlib.lib.external_debug_info for shlib in shared_libs],
+        tsets = [shlib.external_debug_info for shlib in shared_libs.values()],
     )
 
     linker_type = cxx_toolchain.linker_info.type
@@ -234,17 +230,16 @@ def executable_shared_lib_arguments(
     if len(shared_libs) > 0:
         if linker_type == "windows":
             shared_libs_symlink_tree = [ctx.actions.symlink_file(
-                shlib.lib.output.basename,
-                shlib.lib.output,
-            ) for shlib in shared_libs]
+                shlib.output.basename,
+                shlib.output,
+            ) for _, shlib in shared_libs.items()]
             runtime_files.extend(shared_libs_symlink_tree)
             # Windows doesn't support rpath.
 
         else:
-            shared_libs_symlink_tree = create_shlib_symlink_tree(
-                actions = ctx.actions,
-                out = shared_libs_symlink_tree_name(output),
-                shared_libs = shared_libs,
+            shared_libs_symlink_tree = ctx.actions.symlinked_dir(
+                shared_libs_symlink_tree_name(output),
+                {name: shlib.output for name, shlib in shared_libs.items()},
             )
             runtime_files.append(shared_libs_symlink_tree)
             rpath_reference = get_rpath_origin(linker_type)

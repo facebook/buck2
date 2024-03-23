@@ -68,7 +68,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions,
         ctx.label,
         [android_packageable_info],
-        traversed_shared_library_info,
+        traversed_shared_library_info.values(),
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
@@ -86,7 +86,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
         ]).hidden(targets_to_jars_args)
 
     if ctx.attrs.should_include_libraries:
-        targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), shared_lib.soname], delimiter = " ") for shared_lib in traversed_shared_library_info]
+        targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), so_name], delimiter = " ") for so_name, shared_lib in traversed_shared_library_info.items()]
         targets_to_so_names = ctx.actions.write("targets_to_so_names.txt", targets_to_so_names_args)
         cmd.add([
             "--targets-to-so-names",
@@ -121,7 +121,7 @@ def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[st
             ctx.actions,
             deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
         )
-        shared_libraries.extend(traverse_shared_library_info(shared_library_info))
+        shared_libraries.extend(traverse_shared_library_info(shared_library_info).values())
 
     cmd, output = _get_base_cmd_and_output(
         ctx.actions,
