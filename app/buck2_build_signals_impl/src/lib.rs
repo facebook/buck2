@@ -152,14 +152,14 @@ impl fmt::Display for NodeKey {
 }
 
 struct TopLevelTargetSignal {
-    pub label: ConfiguredTargetLabel,
-    pub artifacts: Vec<ResolvedArtifactGroupBuildSignalsKey>,
+    pub(crate) label: ConfiguredTargetLabel,
+    pub(crate) artifacts: Vec<ResolvedArtifactGroupBuildSignalsKey>,
 }
 
 struct FinalMaterializationSignal {
-    pub artifact: BuildArtifact,
-    pub duration: NodeDuration,
-    pub span_id: Option<SpanId>,
+    pub(crate) artifact: BuildArtifact,
+    pub(crate) duration: NodeDuration,
+    pub(crate) span_id: Option<SpanId>,
 }
 
 /* These signals are distinct from the main Buck event bus because some
@@ -176,7 +176,7 @@ enum BuildSignal {
 }
 
 /// Data for a BuildSignal that is the result of a DICE key evaluation.
-pub struct Evaluation {
+pub(crate) struct Evaluation {
     /// The key we evaluated.
     key: NodeKey,
     /// The duration. By default this'll be zero, unless activation data says otherwise.
@@ -198,7 +198,7 @@ pub struct Evaluation {
 }
 
 #[derive(Clone)]
-pub struct BuildSignalSender {
+pub(crate) struct BuildSignalSender {
     sender: UnboundedSender<BuildSignal>,
 }
 
@@ -315,7 +315,7 @@ impl ActivationTracker for BuildSignalSender {
     }
 }
 
-pub struct DeferredBuildSignalsImpl {
+pub(crate) struct DeferredBuildSignalsImpl {
     sender: Arc<BuildSignalSender>,
     receiver: UnboundedReceiver<BuildSignal>,
 }
@@ -343,7 +343,7 @@ impl DeferredBuildSignals for DeferredBuildSignalsImpl {
     }
 }
 
-pub struct FinishBuildSignalsImpl {
+pub(crate) struct FinishBuildSignalsImpl {
     sender: Arc<BuildSignalSender>,
     handle: JoinHandle<anyhow::Result<()>>,
 }
@@ -392,7 +392,7 @@ where
         }
     }
 
-    pub async fn run_and_log(mut self, ctx: BuildSignalsContext) -> anyhow::Result<()> {
+    pub(crate) async fn run_and_log(mut self, ctx: BuildSignalsContext) -> anyhow::Result<()> {
         while let Some(event) = self.receiver.next().await {
             match event {
                 BuildSignal::Evaluation(eval) => self.process_evaluation(eval),
@@ -606,7 +606,7 @@ where
     }
 }
 
-pub struct BuildInfo {
+pub(crate) struct BuildInfo {
     // Node, its data, and its potential for improvement
     critical_path: Vec<(NodeKey, NodeData, Option<Duration>)>,
     num_nodes: u64,

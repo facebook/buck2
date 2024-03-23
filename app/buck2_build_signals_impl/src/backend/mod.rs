@@ -9,6 +9,6 @@
 
 #![allow(clippy::module_inception)]
 
-pub mod backend;
-pub mod default;
-pub mod longest_path_graph;
+pub(crate) mod backend;
+pub(crate) mod default;
+pub(crate) mod longest_path_graph;

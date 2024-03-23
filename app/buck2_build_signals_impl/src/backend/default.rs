@@ -32,10 +32,10 @@ use crate::NodeKey;
 #[derive(Clone, Dupe)]
 struct CriticalPathNode<TKey: Eq, TValue> {
     /// The aggregated duration of this critical path.
-    pub duration: Duration,
+    pub(crate) duration: Duration,
     /// The value of this node. If None, this node just won't be included when displaying.
-    pub value: TValue,
-    pub prev: Option<TKey>,
+    pub(crate) value: TValue,
+    pub(crate) prev: Option<TKey>,
 }
 
 fn extract_critical_path<TKey: Hash + Eq, TValue>(
