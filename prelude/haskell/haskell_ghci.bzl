@@ -284,8 +284,8 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
         shared_li = node.link_infos.get(output_style, None)
         if shared_li != None:
             tp_deps_shared_link_infos[node_label] = shared_li.default
-        for shlib in node.shared_libs.libraries:
-            so_symlinks[shlib.soname] = shlib.lib.output
+        for libname, linkObject in node.shared_libs.items():
+            so_symlinks[libname] = linkObject.output
 
     # Create symlinks to the TP dependencies' SOs
     so_symlinks_root_path = ctx.label.name + ".so-symlinks"

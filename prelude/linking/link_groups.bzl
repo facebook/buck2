@@ -12,10 +12,7 @@ load(
 load(
     ":link_info.bzl",
     "LinkInfos",
-)
-load(
-    ":shared_libraries.bzl",
-    "SharedLibraries",
+    "LinkedObject",
 )
 
 # Information about a linkable node which explicitly sets `link_group`.
@@ -23,7 +20,7 @@ LinkGroupLib = record(
     # The label of the owning target (if any).
     label = field([Label, None], None),
     # The shared libs to package for this link group.
-    shared_libs = field(SharedLibraries),
+    shared_libs = field(dict[str, LinkedObject]),
     # The link info to link against this link group.
     shared_link_infos = field(LinkInfos),
 )
@@ -51,7 +48,7 @@ def gather_link_group_libs(
 def merge_link_group_lib_info(
         label: [Label, None] = None,
         name: [str, None] = None,
-        shared_libs: [SharedLibraries, None] = None,
+        shared_libs: [dict[str, LinkedObject], None] = None,
         shared_link_infos: [LinkInfos, None] = None,
         deps: list[Dependency] = [],
         children: list[LinkGroupLibInfo] = []) -> LinkGroupLibInfo:

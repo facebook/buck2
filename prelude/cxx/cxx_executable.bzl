@@ -450,7 +450,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         # When there are no matches for a pattern based link group,
         # `link_group_mappings` will not have an entry associated with the lib.
         for _name, link_group_lib in link_group_libs.items():
-            shared_libs.extend(link_group_lib.shared_libs.libraries)
+            shared_libs.extend([
+                SharedLibrary(soname = name, lib = lib, label = ctx.label)
+                for name, lib in link_group_lib.shared_libs.items()
+            ])
 
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info

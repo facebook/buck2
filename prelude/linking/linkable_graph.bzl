@@ -20,15 +20,12 @@ load(
     "LinkInfo",  # @unused Used as a type
     "LinkInfos",
     "LinkStrategy",
+    "LinkedObject",
     "LinkerFlags",
     "MergedLinkInfo",
     "get_lib_output_style",
     "get_output_styles_for_linkage",
     _get_link_info = "get_link_info",
-)
-load(
-    ":shared_libraries.bzl",
-    "SharedLibraries",
 )
 
 # A provider with information used to link a rule into a shared library.
@@ -77,7 +74,7 @@ LinkableNode = record(
 
     # Shared libraries provided by this target.  Used if this target is
     # excluded.
-    shared_libs = field(SharedLibraries, SharedLibraries(libraries = [])),
+    shared_libs = field(dict[str, LinkedObject], {}),
 
     # The soname this node would use in default link strategies. May be used by non-default
     # link strategies as a lib's soname.
@@ -146,7 +143,7 @@ def create_linkable_node(
         deps: list[Dependency | LinkableGraph] = [],
         exported_deps: list[Dependency | LinkableGraph] = [],
         link_infos: dict[LibOutputStyle, LinkInfos] = {},
-        shared_libs: SharedLibraries = SharedLibraries(libraries = []),
+        shared_libs: dict[str, LinkedObject] = {},
         can_be_asset: bool = True,
         include_in_android_mergemap: bool = True,
         linker_flags: [LinkerFlags, None] = None,

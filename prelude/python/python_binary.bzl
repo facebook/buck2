@@ -497,7 +497,7 @@ def _convert_python_library_to_executable(
             dest: (omnibus_libs.roots[label].shared_library, label)
             for dest, (_, label) in extensions.items()
         }
-        native_libs = {shlib.soname: shlib.lib for shlib in omnibus_libs.libraries}
+        native_libs = omnibus_libs.libraries
 
         omnibus_providers = []
 
