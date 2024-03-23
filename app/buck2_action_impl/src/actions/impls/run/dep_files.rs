@@ -101,14 +101,18 @@ pub(crate) fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
     category,
     "identifier.as_deref().unwrap_or(\"<no identifier>\")"
 )]
-pub struct DepFilesKey {
+pub(crate) struct DepFilesKey {
     owner: BaseDeferredKey,
     category: Category,
     identifier: Option<String>,
 }
 
 impl DepFilesKey {
-    pub fn new(owner: BaseDeferredKey, category: Category, identifier: Option<String>) -> Self {
+    pub(crate) fn new(
+        owner: BaseDeferredKey,
+        category: Category,
+        identifier: Option<String>,
+    ) -> Self {
         Self {
             owner,
             category,
@@ -116,7 +120,7 @@ impl DepFilesKey {
         }
     }
 
-    pub fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
+    pub(crate) fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
         Self {
             owner: target.owner().dupe(),
             category: target.category().clone(),
@@ -158,7 +162,7 @@ impl StoredFingerprints {
 }
 
 #[derive(Allocative)]
-pub enum StoredFingerprints {
+pub(crate) enum StoredFingerprints {
     /// Store only digests. This is what we use in prod because it is small.
     Digests(PartitionedInputs<TrackedFileDigest>),
 
@@ -182,7 +186,7 @@ impl PartialEq<PartitionedInputs<ActionImmutableDirectory>> for StoredFingerprin
 /// contains everything we need to determine whether re-evaluation is necessary (and if it isn't,
 /// to return the previous value).
 #[derive(Allocative)]
-pub struct DepFileState {
+pub(crate) struct DepFileState {
     digests: CommandDigests,
     input_signatures: Mutex<DepFileStateInputSignatures>,
     declared_dep_files: DeclaredDepFiles,
@@ -190,9 +194,9 @@ pub struct DepFileState {
 }
 
 #[derive(Allocative)]
-pub struct CommandDigests {
-    pub cli: ExpandedCommandLineDigest,
-    pub directory: FileDigest,
+pub(crate) struct CommandDigests {
+    pub(crate) cli: ExpandedCommandLineDigest,
+    pub(crate) directory: FileDigest,
 }
 
 impl DepFileState {
@@ -259,7 +263,7 @@ impl Display for RunActionDepFiles {
 }
 
 impl RunActionDepFiles {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             labels: OrderedMap::new(),
         }
@@ -280,7 +284,7 @@ fn get_output_path_digest(
 }
 
 // A utility struct to hold digests that are included in both remote depfile key and value
-pub struct CommonDigests {
+pub(crate) struct CommonDigests {
     commandline_cli_digest: ExpandedCommandLineDigest,
     // A digest of all output paths for this action
     output_paths_digest: CasDigestData,
@@ -362,7 +366,7 @@ impl CommonDigests {
 
 pub(crate) struct DepFileBundle {
     dep_files_key: DepFilesKey,
-    pub remote_dep_file_key: DepFileDigest,
+    pub(crate) remote_dep_file_key: DepFileDigest,
     input_directory_digest: FileDigest,
     shared_declared_inputs: PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: DeclaredDepFiles,
@@ -371,7 +375,7 @@ pub(crate) struct DepFileBundle {
 }
 
 impl DepFileBundle {
-    pub async fn make_remote_dep_file_entry(
+    pub(crate) async fn make_remote_dep_file_entry(
         &mut self,
         ctx: &dyn ActionExecutionCtx,
     ) -> anyhow::Result<DepFileEntry> {
@@ -403,7 +407,7 @@ impl DepFileBundle {
         Ok(res)
     }
 
-    pub async fn check_local_dep_file_cache_for_identical_action(
+    pub(crate) async fn check_local_dep_file_cache_for_identical_action(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
         declared_outputs: &[BuildArtifact],
@@ -443,7 +447,7 @@ impl DepFileBundle {
         Ok((outputs, check_filterd_inputs))
     }
 
-    pub async fn check_local_dep_file_cache(
+    pub(crate) async fn check_local_dep_file_cache(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
         declared_outputs: &[BuildArtifact],
@@ -484,7 +488,7 @@ impl DepFileBundle {
         Ok(matching_result)
     }
 
-    pub async fn check_remote_dep_file_entry(
+    pub(crate) async fn check_remote_dep_file_entry(
         &self,
         digest_config: DigestConfig,
         fs: &ArtifactFs,
@@ -973,13 +977,13 @@ pub(crate) async fn populate_dep_files(
 
 /// Inputs partitioned by tag. `D` is the representation of the set of inputs.
 #[derive(Clone, PartialEq, Eq, Allocative)]
-pub struct PartitionedInputs<D> {
-    pub untagged: D,
-    pub tagged: OrderedMap<Arc<str>, D>,
+pub(crate) struct PartitionedInputs<D> {
+    pub(crate) untagged: D,
+    pub(crate) tagged: OrderedMap<Arc<str>, D>,
 }
 
 impl<D> PartitionedInputs<D> {
-    pub fn iter(&self) -> impl Iterator<Item = &D> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &D> {
         std::iter::once(&self.untagged).chain(self.tagged.values())
     }
 }
@@ -1284,15 +1288,15 @@ enum MaterializeDepFilesError {
 /// A set of concrete dep files. That is, given a label, a selector that represents the subset of
 /// files whose tags matches this label that should be considered relevant.
 #[derive(Clone)]
-pub struct ConcreteDepFiles {
+pub(crate) struct ConcreteDepFiles {
     contents: HashMap<Arc<str>, DirectorySelector>,
 }
 
 /// A command line visitor to collect inputs and outputs in a form relevant for dep files
 /// computations.
 pub(crate) struct DepFilesCommandLineVisitor<'a> {
-    pub inputs: PartitionedInputs<Vec<ArtifactGroup>>,
-    pub tagged_outputs: OrderedMap<ArtifactTag, (Arc<str>, Option<Artifact>)>,
+    pub(crate) inputs: PartitionedInputs<Vec<ArtifactGroup>>,
+    pub(crate) tagged_outputs: OrderedMap<ArtifactTag, (Arc<str>, Option<Artifact>)>,
     dep_files: &'a RunActionDepFiles,
 }
 

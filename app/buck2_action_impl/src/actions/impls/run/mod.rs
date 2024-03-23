@@ -88,7 +88,7 @@ use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
 pub(crate) mod audit_dep_files;
-pub mod dep_files;
+pub(crate) mod dep_files;
 mod metadata;
 
 #[derive(Debug, buck2_error::Error)]
@@ -435,7 +435,7 @@ impl RunAction {
         })
     }
 
-    pub async fn check_cache_result_is_useable(
+    pub(crate) async fn check_cache_result_is_useable(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
         request: &CommandExecutionRequest,
