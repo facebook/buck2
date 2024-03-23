@@ -1116,7 +1116,9 @@ def _crate_root(
     if candidates.size() == 1:
         return candidates.list()[0]
 
-    fail("Could not infer crate_root. candidates=%s\nAdd 'crate_root = \"src/example.rs\"' to your attributes to disambiguate." % candidates.list())
+    fail("Could not infer crate_root." +
+         "\nMake sure you have one of {} in your `srcs` attribute.".format(default_roots) +
+         "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates.list()))
 
 def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit) -> str:
     link_strategy_suffix = {
