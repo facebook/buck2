@@ -894,6 +894,50 @@ impl<'v> Value<'v> {
     pub fn request_value<T: AnyLifetime<'v>>(self) -> Option<T> {
         request_value_impl(self)
     }
+
+    /// Return a string usable for error messages.
+    ///
+    /// If the value is too large, it may be truncated.
+    pub fn display_for_type_error(self) -> impl Display + 'v {
+        fn split_at_safe(s: &str, index: usize) -> (&str, &str) {
+            for index in index..s.len() {
+                if s.is_char_boundary(index) {
+                    return s.split_at(index);
+                }
+            }
+            (s, "")
+        }
+
+        struct DisplayWithTypeImpl<'v>(Value<'v>);
+
+        impl<'v> Display for DisplayWithTypeImpl<'v> {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                let mut repr = self.0.to_repr();
+
+                let max_len = 60usize;
+
+                if repr.len() > max_len && repr.chars().count() > max_len {
+                    let truncated = "<<...>>";
+
+                    // 1/3 from back, 2/3 from front, because front is usually more interesting.
+                    let take_from_back = max_len.saturating_sub(truncated.len()) / 3;
+                    let take_from_front = take_from_back * 2;
+
+                    // Resulting repr is approximately `max_len` long.
+                    repr = format!(
+                        "{}{}{}",
+                        split_at_safe(&repr, take_from_front).0,
+                        truncated,
+                        split_at_safe(&repr, repr.len().saturating_sub(take_from_back)).1
+                    );
+                }
+
+                write!(f, "{} (repr: {})", self.0.get_type(), repr)
+            }
+        }
+
+        DisplayWithTypeImpl(self)
+    }
 }
 
 impl FrozenValue {
@@ -1309,6 +1353,7 @@ mod tests {
     use num_bigint::BigInt;
 
     use crate::assert;
+    use crate::values::list::AllocList;
     use crate::values::none::NoneType;
     use crate::values::string::StarlarkStr;
     use crate::values::types::int::PointerI32;
@@ -1361,6 +1406,21 @@ mod tests {
         assert_eq!(
             serde_json::json!({"a": 10}),
             value.value().to_json_value().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_display_for_type_error() {
+        assert_eq!(
+            "NoneType (repr: None)",
+            Value::new_none().display_for_type_error().to_string()
+        );
+
+        let heap = Heap::new();
+        let list = heap.alloc(AllocList(0..12345));
+        assert_eq!(
+            "list (repr: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,<<...>>42, 12343, 12344])",
+            list.display_for_type_error().to_string()
         );
     }
 }
