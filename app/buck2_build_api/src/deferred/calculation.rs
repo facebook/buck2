@@ -230,7 +230,7 @@ async fn compute_deferred(
             let mut deferred_deps = Vec::new();
             let mut materialized_artifacts = Vec::new();
 
-            for input in deferred.inputs().iter() {
+            for input in deferred.inputs() {
                 match input {
                     DeferredInput::ConfiguredTarget(target) => target_deps.push(target),
                     DeferredInput::Deferred(deferred_key) => deferred_deps.push(deferred_key),

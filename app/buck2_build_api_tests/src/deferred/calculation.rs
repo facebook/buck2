@@ -22,6 +22,7 @@ use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
+use buck2_build_api::deferred::types::DeferredInputsRef;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::deferred::types::DeferredValue;
@@ -56,8 +57,8 @@ impl provider::Provider for FakeDeferred {
 impl Deferred for FakeDeferred {
     type Output = usize;
 
-    fn inputs(&self) -> &IndexSet<DeferredInput> {
-        &self.1
+    fn inputs(&self) -> DeferredInputsRef<'_> {
+        DeferredInputsRef::IndexSet(&self.1)
     }
 
     async fn execute(
@@ -152,8 +153,8 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
     impl Deferred for DeferringDeferred {
         type Output = usize;
 
-        fn inputs(&self) -> &IndexSet<DeferredInput> {
-            &self.1
+        fn inputs(&self) -> DeferredInputsRef<'_> {
+            DeferredInputsRef::IndexSet(&self.1)
         }
 
         async fn execute(

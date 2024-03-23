@@ -8,6 +8,7 @@
  */
 
 use std::mem;
+use std::slice;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -26,6 +27,7 @@ use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
+use buck2_build_api::deferred::types::DeferredInputsRef;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::DeferredValue;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -44,8 +46,6 @@ use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use dice::DiceComputations;
 use dupe::Dupe;
-use gazebo::prelude::*;
-use indexmap::indexset;
 use indexmap::IndexSet;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
@@ -63,15 +63,15 @@ use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
 /// to get their real `RegisteredAction`.
 #[derive(Clone, Debug, Allocative)]
 pub(crate) struct DynamicAction {
-    // A singleton pointing at a DynamicLambda
-    inputs: IndexSet<DeferredInput>,
+    // Points at a DynamicLambda
+    input: DeferredInput,
     output_artifact_index: usize,
 }
 
 impl DynamicAction {
     pub fn new(deferred: &DeferredData<DynamicLambdaOutput>, output_artifact_index: usize) -> Self {
         Self {
-            inputs: indexset![DeferredInput::Deferred(deferred.deferred_key().dupe())],
+            input: DeferredInput::Deferred(deferred.deferred_key().dupe()),
             output_artifact_index,
         }
     }
@@ -166,8 +166,8 @@ impl provider::Provider for DynamicAction {
 impl Deferred for DynamicAction {
     type Output = RegisteredAction;
 
-    fn inputs(&self) -> &IndexSet<DeferredInput> {
-        &self.inputs
+    fn inputs(&self) -> DeferredInputsRef<'_> {
+        DeferredInputsRef::Slice(slice::from_ref(&self.input))
     }
 
     async fn execute(
@@ -175,8 +175,8 @@ impl Deferred for DynamicAction {
         ctx: &mut dyn DeferredCtx,
         _dice: &mut DiceComputations,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        let id = match self.inputs.iter().into_singleton() {
-            Some(DeferredInput::Deferred(x)) => x,
+        let id = match &self.input {
+            DeferredInput::Deferred(x) => x,
             _ => unreachable!("DynamicAction must have a single Deferred as as inputs"),
         };
         let val = ctx.get_deferred_data(id).unwrap();
@@ -210,8 +210,8 @@ impl provider::Provider for DynamicLambda {
 impl Deferred for DynamicLambda {
     type Output = DynamicLambdaOutput;
 
-    fn inputs(&self) -> &IndexSet<DeferredInput> {
-        &self.dynamic
+    fn inputs(&self) -> DeferredInputsRef<'_> {
+        DeferredInputsRef::IndexSet(&self.dynamic)
     }
 
     async fn execute(

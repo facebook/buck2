@@ -14,6 +14,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
+use std::slice;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -34,9 +35,9 @@ use dice::DiceComputations;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
+use either::Either;
 use gazebo::variants::VariantName;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 
 use crate::deferred::arc_borrow::ArcBorrow;
 
@@ -52,7 +53,7 @@ pub trait Deferred: Debug + Allocative + provider::Provider {
     type Output;
 
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
-    fn inputs(&self) -> &IndexSet<DeferredInput>;
+    fn inputs(&self) -> DeferredInputsRef<'_>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     async fn execute(
@@ -170,6 +171,24 @@ pub enum DeferredInput {
     MaterializedArtifact(Artifact),
 }
 
+#[derive(Copy, Clone, Dupe)]
+pub enum DeferredInputsRef<'a> {
+    IndexSet(&'a IndexSet<DeferredInput>),
+    Slice(&'a [DeferredInput]),
+}
+
+impl<'a> IntoIterator for DeferredInputsRef<'a> {
+    type Item = &'a DeferredInput;
+    type IntoIter = Either<indexmap::set::Iter<'a, DeferredInput>, slice::Iter<'a, DeferredInput>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            DeferredInputsRef::IndexSet(set) => Either::Left(set.iter()),
+            DeferredInputsRef::Slice(slice) => Either::Right(slice.iter()),
+        }
+    }
+}
+
 /// The base key. We can actually get rid of this and just use 'DeferredKey' if rule analysis is an
 /// 'Deferred' itself. This is used to construct the composed 'DeferredKey::Deferred' or
 /// 'DeferredKey::Base' type.
@@ -214,9 +233,8 @@ impl<T: TrivialDeferred> provider::Provider for TrivialDeferredValue<T> {
 
 #[async_trait]
 impl<T: TrivialDeferred> DeferredAny for TrivialDeferredValue<T> {
-    fn inputs(&self) -> &IndexSet<DeferredInput> {
-        static INPUTS: Lazy<IndexSet<DeferredInput>> = Lazy::new(IndexSet::new);
-        &INPUTS
+    fn inputs(&self) -> DeferredInputsRef<'_> {
+        DeferredInputsRef::Slice(&[])
     }
 
     async fn execute(
@@ -664,7 +682,7 @@ pub struct IsTriviallyDeferred;
 #[async_trait]
 pub trait DeferredAny: Debug + Allocative + provider::Provider + Send + Sync + 'static {
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
-    fn inputs(&self) -> &IndexSet<DeferredInput>;
+    fn inputs(&self) -> DeferredInputsRef<'_>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     async fn execute(
@@ -721,7 +739,7 @@ where
     D: Deferred<Output = T> + Send + Sync + Any + 'static,
     T: Allocative + Debug + Send + Sync + 'static,
 {
-    fn inputs(&self) -> &IndexSet<DeferredInput> {
+    fn inputs(&self) -> DeferredInputsRef<'_> {
         self.inputs()
     }
 
@@ -844,6 +862,7 @@ mod tests {
 
     use super::deferred_execute;
     use super::AnyValue;
+    use super::DeferredInputsRef;
     use super::DeferredTableEntry;
     use super::TrivialDeferred;
     use crate::deferred::arc_borrow::ArcBorrow;
@@ -881,8 +900,8 @@ mod tests {
     impl<T: Clone + Send + Sync> Deferred for FakeDeferred<T> {
         type Output = T;
 
-        fn inputs(&self) -> &IndexSet<DeferredInput> {
-            &self.inputs
+        fn inputs(&self) -> DeferredInputsRef<'_> {
+            DeferredInputsRef::IndexSet(&self.inputs)
         }
 
         async fn execute(
@@ -930,8 +949,8 @@ mod tests {
     impl<T: Clone + Debug + Allocative + Send + Sync + 'static> Deferred for DeferringDeferred<T> {
         type Output = T;
 
-        fn inputs(&self) -> &IndexSet<DeferredInput> {
-            &self.inputs
+        fn inputs(&self) -> DeferredInputsRef<'_> {
+            DeferredInputsRef::IndexSet(&self.inputs)
         }
 
         async fn execute(
