@@ -54,8 +54,9 @@ impl DynamicRegistryDyn for DynamicRegistry {
         let outputs = outputs
             .iter()
             .enumerate()
-            .map(|(i, output)| {
-                let output_id = registry.defer(DynamicAction::new(reserved.data(), i));
+            .map(|(output_artifact_index, output)| {
+                let output_id =
+                    registry.defer(DynamicAction::new(reserved.data(), output_artifact_index));
                 let bound = output
                     .bind(ActionKey::new(output_id))?
                     .as_base_artifact()

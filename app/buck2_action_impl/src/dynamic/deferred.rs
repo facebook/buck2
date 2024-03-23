@@ -65,14 +65,14 @@ use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
 pub(crate) struct DynamicAction {
     // A singleton pointing at a DynamicLambda
     inputs: IndexSet<DeferredInput>,
-    index: usize,
+    output_artifact_index: usize,
 }
 
 impl DynamicAction {
-    pub fn new(deferred: &DeferredData<DynamicLambdaOutput>, index: usize) -> Self {
+    pub fn new(deferred: &DeferredData<DynamicLambdaOutput>, output_artifact_index: usize) -> Self {
         Self {
             inputs: indexset![DeferredInput::Deferred(deferred.deferred_key().dupe())],
-            index,
+            output_artifact_index,
         }
     }
 }
@@ -183,7 +183,7 @@ impl Deferred for DynamicAction {
         let key = val
             .downcast::<DynamicLambdaOutput>()?
             .output
-            .get(self.index)
+            .get(self.output_artifact_index)
             .map_or_else(
                 || Err(internal_error!("Unexpected index in DynamicAction")),
                 Ok,
