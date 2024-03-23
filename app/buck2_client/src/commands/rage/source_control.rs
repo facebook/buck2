@@ -60,17 +60,17 @@ async fn get_hg_info() -> anyhow::Result<CommandResult> {
     };
 
     let result = async_background_command("hg")
-        .args(["id", "-i"])
+        .arg("whereami")
         .output()
         .await?;
     if !result.status.success() {
-        let error = from_utf8(result.stderr, "hg id stderr")?;
+        let error = from_utf8(result.stderr, "hg whereami stderr")?;
         // On Unix, `code()` will return `None` if the process was terminated by a signal.
         let code = result.status.code().unwrap_or(1);
         return Err(SourceControlError::HgCommand(code, error).into());
     };
     let revision = {
-        let output = from_utf8(result.stdout, "hg id stdout")?;
+        let output = from_utf8(result.stdout, "hg whereami stdout")?;
         format!("hg revision: {}", output)
     };
 
