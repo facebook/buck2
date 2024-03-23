@@ -46,6 +46,7 @@ use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
+use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
@@ -83,7 +84,7 @@ pub struct RuleCallable<'v> {
     id: RefCell<Option<StarlarkRuleType>>,
     /// The implementation function for this rule. Must be callable and take a
     /// ctx
-    implementation: Value<'v>,
+    implementation: StarlarkCallable<'v>,
     // Field Name -> Attribute
     attributes: AttributeSpec,
     /// Type for the typechecker.
@@ -201,7 +202,7 @@ impl<'v> RuleCallable<'v> {
         Ok(RuleCallable {
             import_path: bzl_path,
             id: RefCell::new(None),
-            implementation: implementation.0,
+            implementation,
             attributes,
             ty,
             cfg,
@@ -324,7 +325,7 @@ pub struct FrozenRuleCallable {
     rule: Arc<Rule>,
     /// Identical to `rule.rule_type` but more specific type.
     rule_type: Arc<StarlarkRuleType>,
-    implementation: FrozenValue,
+    implementation: FrozenStarlarkCallable,
     signature: ParametersSpec<FrozenValue>,
     rule_docs: DocItem,
     ty: Ty,
@@ -356,7 +357,7 @@ pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
 }
 
 impl FrozenRuleCallable {
-    pub fn implementation(&self) -> FrozenValue {
+    pub fn implementation(&self) -> FrozenStarlarkCallable {
         self.implementation
     }
 
