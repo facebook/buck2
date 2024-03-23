@@ -16,6 +16,7 @@ use std::sync::Once;
 
 mod actions;
 mod context;
+pub mod dynamic;
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
@@ -23,5 +24,6 @@ pub fn init_late_bindings() {
         actions::impls::run::audit_dep_files::init_audit_dep_files();
         actions::impls::run::dep_files::init_flush_dep_files();
         context::init_analysis_action_methods_actions();
+        dynamic::registry::init_dynamic_registry_new();
     });
 }

@@ -235,7 +235,7 @@ impl<'v> AnalysisContext<'v> {
         heap.alloc_typed(analysis_context)
     }
 
-    pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {
+    pub fn assert_no_promises(&self) -> anyhow::Result<()> {
         self.actions.state().assert_no_promises()
     }
 

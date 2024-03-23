@@ -18,6 +18,23 @@ use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
+use buck2_build_api::actions::key::ActionKeyExt;
+use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::analysis::dynamic_lambda_params::FrozenDynamicLambdaParams;
+use buck2_build_api::analysis::registry::AnalysisRegistry;
+use buck2_build_api::deferred::types::BaseKey;
+use buck2_build_api::deferred::types::Deferred;
+use buck2_build_api::deferred::types::DeferredCtx;
+use buck2_build_api::deferred::types::DeferredInput;
+use buck2_build_api::deferred::types::DeferredRegistry;
+use buck2_build_api::deferred::types::DeferredValue;
+use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifactValue;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
+use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -40,24 +57,7 @@ use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTypedComplex;
 
-use crate::actions::key::ActionKeyExt;
-use crate::actions::RegisteredAction;
-use crate::analysis::dynamic_lambda_params::FrozenDynamicLambdaParams;
-use crate::analysis::registry::AnalysisRegistry;
-use crate::deferred::types::BaseKey;
-use crate::deferred::types::Deferred;
-use crate::deferred::types::DeferredCtx;
-use crate::deferred::types::DeferredInput;
-use crate::deferred::types::DeferredRegistry;
-use crate::deferred::types::DeferredValue;
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
-use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactValue;
-use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
-use crate::interpreter::rule_defs::context::AnalysisContext;
-use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
-use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 
 /// The artifacts that are returned are dynamic actions, which depend on the `DynamicLambda`
 /// to get their real `RegisteredAction`.

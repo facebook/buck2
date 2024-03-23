@@ -13,15 +13,17 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
+use buck2_build_api::actions::key::ActionKeyExt;
+use buck2_build_api::analysis::registry::AnalysisValueFetcher;
+use buck2_build_api::deferred::types::DeferredRegistry;
+use buck2_build_api::deferred::types::ReservedDeferredData;
+use buck2_build_api::dynamic::DynamicRegistryDyn;
+use buck2_build_api::dynamic::DYNAMIC_REGISTRY_NEW;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
-use crate::actions::key::ActionKeyExt;
-use crate::analysis::registry::AnalysisValueFetcher;
-use crate::deferred::types::DeferredRegistry;
-use crate::deferred::types::ReservedDeferredData;
 use crate::dynamic::deferred::DynamicAction;
 use crate::dynamic::deferred::DynamicLambda;
 use crate::dynamic::deferred::DynamicLambdaOutput;
@@ -32,15 +34,17 @@ pub(crate) struct DynamicRegistry {
     pending: Vec<(ReservedDeferredData<DynamicLambdaOutput>, DynamicLambda)>,
 }
 
-impl DynamicRegistry {
-    pub fn new(owner: BaseDeferredKey) -> Self {
-        Self {
+pub(crate) fn init_dynamic_registry_new() {
+    DYNAMIC_REGISTRY_NEW.init(|owner| {
+        Box::new(DynamicRegistry {
             owner,
             pending: Vec::new(),
-        }
-    }
+        })
+    });
+}
 
-    pub fn register(
+impl DynamicRegistryDyn for DynamicRegistry {
+    fn register(
         &mut self,
         dynamic: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
@@ -65,8 +69,8 @@ impl DynamicRegistry {
         Ok(lambda_id)
     }
 
-    pub fn ensure_bound(
-        self,
+    fn ensure_bound(
+        self: Box<Self>,
         registry: &mut DeferredRegistry,
         analysis_value_fetcher: &AnalysisValueFetcher,
     ) -> anyhow::Result<()> {

@@ -64,7 +64,8 @@ use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredRegistry;
-use crate::dynamic::registry::DynamicRegistry;
+use crate::dynamic::DynamicRegistryDyn;
+use crate::dynamic::DYNAMIC_REGISTRY_NEW;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -80,7 +81,8 @@ pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
     artifact_groups: ArtifactGroupRegistry,
     #[derivative(Debug = "ignore")]
-    dynamic: DynamicRegistry,
+    #[trace(unsafe_ignore)] // TODO(nga): implement `#[trace(static)]`.
+    dynamic: Box<dyn DynamicRegistryDyn>,
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
@@ -104,7 +106,7 @@ impl<'v> AnalysisRegistry<'v> {
         )
     }
 
-    pub(crate) fn new_from_owner_and_deferred(
+    pub fn new_from_owner_and_deferred(
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
         deferred: DeferredRegistry,
@@ -113,14 +115,14 @@ impl<'v> AnalysisRegistry<'v> {
             deferred,
             actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
-            dynamic: DynamicRegistry::new(owner.dupe()),
+            dynamic: (DYNAMIC_REGISTRY_NEW.get()?)(owner.dupe()),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
             short_path_assertions: HashMap::new(),
         })
     }
 
-    pub(crate) fn set_action_key(&mut self, action_key: Arc<str>) {
+    pub fn set_action_key(&mut self, action_key: Arc<str>) {
         self.actions.set_action_key(action_key);
     }
 
@@ -136,7 +138,7 @@ impl<'v> AnalysisRegistry<'v> {
         self.actions.claim_output_path(path, declaration_location)
     }
 
-    pub(crate) fn declare_dynamic_output(
+    pub fn declare_dynamic_output(
         &mut self,
         path: BuckOutPath,
         output_type: OutputType,
@@ -497,7 +499,7 @@ impl AnalysisValueFetcher {
     }
 
     /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
-    pub(crate) fn get(&self, id: DeferredId) -> anyhow::Result<Option<OwnedFrozenValue>> {
+    pub fn get(&self, id: DeferredId) -> anyhow::Result<Option<OwnedFrozenValue>> {
         let Some((storage, heap_ref)) = self.extra_value()? else {
             return Ok(None);
         };

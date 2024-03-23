@@ -50,9 +50,9 @@ pub struct DynamicLambdaParams<'v> {
 )]
 #[display(fmt = "{:?}", "self")]
 pub struct FrozenDynamicLambdaParams {
-    pub(crate) attributes: FrozenValue,
-    pub(crate) plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins>,
-    pub(crate) lambda: FrozenStarlarkCallable,
+    pub attributes: FrozenValue,
+    pub plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins>,
+    pub lambda: FrozenStarlarkCallable,
 }
 
 #[starlark_value(type = "AttributesPluginLambda")]

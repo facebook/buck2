@@ -19,15 +19,15 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
+use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
+use buck2_action_impl::dynamic::deferred::DynamicLambda;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::deferred::types::DeferredCtx;
-use buck2_build_api::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
-use buck2_build_api::dynamic::deferred::dynamic_lambda_ctx_data;
-use buck2_build_api::dynamic::deferred::DynamicLambda;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_cli_proto::build_request::Materializations;

@@ -7,32 +7,33 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+allocative = { workspace = true }
 anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
+buck2_events = { workspace = true }
 clap = { workspace = true }
+cmp_any = { workspace = true }
 dashmap = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
+dice = { workspace = true }
+display_container = { workspace = true }
+dupe = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
+gazebo = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 num-bigint = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
-allocative = { workspace = true }
-buck2_events = { workspace = true }
-cmp_any = { workspace = true }
-dice = { workspace = true }
-display_container = { workspace = true }
-dupe = { workspace = true }
-gazebo = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
 
+buck2_action_impl = { workspace = true }
 buck2_analysis = { workspace = true }
 buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
