@@ -28,7 +28,6 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<ActionKey>>> + Send + 'v>>,
 > = LateBinding::new("EVAL_BXL_FOR_DYNAMIC_OUTPUT");
 
-#[allow(unused)]
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     dynamic_lambda: &'v DynamicLambda,
