@@ -362,8 +362,8 @@ impl<'v> ArtifactDeclaration<'v> {
 /// Note that this object has internal mutation and is only expected to live for the duration
 /// of impl function execution.
 ///
-/// At the end of impl function execution, `write_to_module` should be called to ensure
-/// that the values are written the top level of the `Module`.
+/// At the end of impl function execution, `write_to_module` should be called
+/// to write this object to `Module` extra value to get the values frozen.
 #[derive(
     Debug,
     Allocative,
