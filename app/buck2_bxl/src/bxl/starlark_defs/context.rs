@@ -60,7 +60,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
@@ -632,16 +631,13 @@ impl BxlEvalContext<'_> {
 
             let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))?;
 
-            eval.eval_function(
+            DynamicLambda::invoke_dynamic_output_lambda(
+                &mut eval,
                 dynamic_lambda_ctx_data.lambda.0,
-                &[
-                    ctx.to_value(),
-                    dynamic_lambda_ctx_data.artifacts,
-                    dynamic_lambda_ctx_data.outputs,
-                ],
-                &[],
-            )
-            .map_err(BuckStarlarkError::new)?;
+                ctx.to_value(),
+                dynamic_lambda_ctx_data.artifacts,
+                dynamic_lambda_ctx_data.outputs,
+            )?;
 
             (
                 ctx.take_state_dynamic()?,
