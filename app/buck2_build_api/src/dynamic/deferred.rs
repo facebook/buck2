@@ -127,6 +127,27 @@ impl DynamicLambda {
         self.attributes_lambda = Some(attributes_lambda);
         Ok(())
     }
+
+    pub fn invoke_dynamic_output_lambda<'v>(
+        eval: &mut Evaluator<'v, '_, '_>,
+        lambda: Value<'v>,
+        ctx: Value<'v>,
+        artifacts: Value<'v>,
+        outputs: Value<'v>,
+    ) -> anyhow::Result<()> {
+        let return_value = eval
+            .eval_function(lambda, &[ctx, artifacts, outputs], &[])
+            .map_err(BuckStarlarkError::new)?;
+
+        if !return_value.is_none() {
+            return Err(DynamicLambdaError::LambdaMustReturnNone(
+                return_value.display_for_type_error().to_string(),
+            )
+            .into());
+        }
+
+        Ok(())
+    }
 }
 
 /// The `Output` from `DynamicLambda`.
@@ -218,24 +239,13 @@ impl Deferred for DynamicLambda {
                     dynamic_lambda_ctx_data.digest_config,
                 );
 
-                let return_value = eval
-                    .eval_function(
-                        dynamic_lambda_ctx_data.lambda.0,
-                        &[
-                            ctx.to_value(),
-                            dynamic_lambda_ctx_data.artifacts,
-                            dynamic_lambda_ctx_data.outputs,
-                        ],
-                        &[],
-                    )
-                    .map_err(BuckStarlarkError::new)?;
-
-                if !return_value.is_none() {
-                    return Err(DynamicLambdaError::LambdaMustReturnNone(
-                        return_value.display_for_type_error().to_string(),
-                    )
-                    .into());
-                }
+                DynamicLambda::invoke_dynamic_output_lambda(
+                    &mut eval,
+                    dynamic_lambda_ctx_data.lambda.0,
+                    ctx.to_value(),
+                    dynamic_lambda_ctx_data.artifacts,
+                    dynamic_lambda_ctx_data.outputs,
+                )?;
 
                 ctx.assert_no_promises()?;
 
