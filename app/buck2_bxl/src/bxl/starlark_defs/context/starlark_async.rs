@@ -37,7 +37,7 @@ enum ViaError {
 /// code.
 /// This also provides a handle for dice.
 
-pub trait BxlDiceComputations {
+pub(crate) trait BxlDiceComputations {
     // via() below provides a more useful api for consumers.
     fn via_impl<'a: 'b, 'b>(
         &'a mut self,
@@ -57,7 +57,7 @@ pub trait BxlDiceComputations {
 impl dyn BxlDiceComputations + '_ {
     // We require that BxlDiceComputations be object-safe, but that means we can't have a type parameter in `via_impl`.
     // It's really inconvenient to not have that, though, so we provide an implementation here that supports it.
-    pub fn via<'a, T: 'a>(
+    pub(crate) fn via<'a, T: 'a>(
         &'a mut self,
         // The returned future as a 'a lifetime to allow people to capture things in the future with a matching lifetime to self.
         f: impl for<'d> FnOnce(&'a mut DiceComputations<'d>) -> LocalBoxFuture<'a, anyhow::Result<T>>
