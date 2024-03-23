@@ -121,8 +121,8 @@ use crate::values::ValueIdentity;
 // We already import another `ValueError`, hence the odd name.
 #[derive(Debug, thiserror::Error)]
 enum ValueValueError {
-    #[error("Value is of type `{0}` but `{1}` was expected")]
-    WrongType(&'static str, &'static str),
+    #[error("Expected value of type `{0}` but got `{1}`")]
+    WrongType(&'static str, String),
 }
 
 /// A Starlark value. The lifetime argument `'v` corresponds to the [`Heap`](crate::values::Heap) it is stored on.
@@ -1231,7 +1231,11 @@ pub trait ValueLike<'v>:
     fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> anyhow::Result<&'v T> {
         match self.downcast_ref() {
             Some(v) => Ok(v),
-            None => Err(ValueValueError::WrongType(self.to_value().get_type(), T::TYPE).into()),
+            None => Err(ValueValueError::WrongType(
+                T::TYPE,
+                self.to_value().display_for_type_error().to_string(),
+            )
+            .into()),
         }
     }
 }
