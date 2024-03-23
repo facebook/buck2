@@ -92,9 +92,11 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     fn unpack_value_err(value: Value<'v>) -> anyhow::Result<Self> {
         #[derive(thiserror::Error, Debug)]
         #[error("Expected `{0}`, but got `{1}`")]
-        struct Error(String, &'static str);
+        struct Error(String, String);
 
-        Self::unpack_value(value).ok_or_else(|| Error(Self::expected(), value.get_type()).into())
+        Self::unpack_value(value).ok_or_else(|| {
+            Error(Self::expected(), value.display_for_type_error().to_string()).into()
+        })
     }
 
     /// Unpack value, but instead of `None` return error about incorrect argument type.
