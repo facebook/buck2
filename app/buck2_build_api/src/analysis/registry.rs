@@ -264,13 +264,12 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn register_dynamic_output(
         &mut self,
         dynamic: IndexSet<Artifact>,
-        inputs: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         attributes_plugins_lambda: Value<'v>,
     ) -> anyhow::Result<()> {
         let id = self
             .dynamic
-            .register(dynamic, inputs, outputs, &mut self.deferred)?;
+            .register(dynamic, outputs, &mut self.deferred)?;
         self.analysis_value_storage
             .set_value(id, attributes_plugins_lambda);
         Ok(())

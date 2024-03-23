@@ -84,8 +84,6 @@ pub struct DynamicLambda {
     owner: BaseDeferredKey,
     /// Things required by the lambda (wrapped in DeferredInput)
     dynamic: IndexSet<DeferredInput>,
-    /// Things I am allowed to use as inputs, but don't wait for
-    _inputs: IndexSet<Artifact>,
     /// Things I produce
     outputs: Vec<BuildArtifact>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
@@ -96,7 +94,6 @@ impl DynamicLambda {
     pub(crate) fn new(
         owner: BaseDeferredKey,
         dynamic: IndexSet<Artifact>,
-        inputs: IndexSet<Artifact>,
         outputs: Vec<BuildArtifact>,
     ) -> Self {
         let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
@@ -115,7 +112,6 @@ impl DynamicLambda {
         Self {
             owner,
             dynamic: depends,
-            _inputs: inputs,
             outputs,
             attributes_lambda: None,
         }

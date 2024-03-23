@@ -1032,6 +1032,9 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] f: StarlarkCallable<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
+        // TODO(nga): why?
+        let _unused = inputs;
+
         // Parameter validation
         if outputs.items.is_empty() {
             return Err(DynamicOutputError::EmptyOutput.into());
@@ -1039,7 +1042,6 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
         // Conversion
         let dynamic = dynamic.items.iter().map(|x| x.artifact()).collect();
-        let inputs = inputs.items.iter().map(|x| x.artifact()).collect();
         let outputs = outputs.items.iter().map(|x| x.0.artifact()).collect();
 
         // Registration
@@ -1049,7 +1051,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             lambda: f,
         });
         let mut this = this.state();
-        this.register_dynamic_output(dynamic, inputs, outputs, attributes_plugins_lambda)?;
+        this.register_dynamic_output(dynamic, outputs, attributes_plugins_lambda)?;
         Ok(NoneType)
     }
 
