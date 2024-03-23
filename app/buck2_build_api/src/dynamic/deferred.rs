@@ -175,6 +175,8 @@ impl Deferred for DynamicAction {
 enum DynamicLambdaError {
     #[error("dynamic_output and anon_target cannot be used together (yet)")]
     AnonTargetIncompatible,
+    #[error("dynamic_output lambda must return `None`, got: `{0}`")]
+    LambdaMustReturnNone(String),
 }
 
 impl provider::Provider for DynamicLambda {
@@ -216,16 +218,25 @@ impl Deferred for DynamicLambda {
                     dynamic_lambda_ctx_data.digest_config,
                 );
 
-                eval.eval_function(
-                    dynamic_lambda_ctx_data.lambda.0,
-                    &[
-                        ctx.to_value(),
-                        dynamic_lambda_ctx_data.artifacts,
-                        dynamic_lambda_ctx_data.outputs,
-                    ],
-                    &[],
-                )
-                .map_err(BuckStarlarkError::new)?;
+                let return_value = eval
+                    .eval_function(
+                        dynamic_lambda_ctx_data.lambda.0,
+                        &[
+                            ctx.to_value(),
+                            dynamic_lambda_ctx_data.artifacts,
+                            dynamic_lambda_ctx_data.outputs,
+                        ],
+                        &[],
+                    )
+                    .map_err(BuckStarlarkError::new)?;
+
+                if !return_value.is_none() {
+                    return Err(DynamicLambdaError::LambdaMustReturnNone(
+                        return_value.display_for_type_error().to_string(),
+                    )
+                    .into());
+                }
+
                 ctx.assert_no_promises()?;
 
                 (ctx.take_state(), dynamic_lambda_ctx_data.declared_outputs)
