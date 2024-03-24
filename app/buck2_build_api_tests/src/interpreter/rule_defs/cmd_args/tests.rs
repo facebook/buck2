@@ -348,6 +348,27 @@ fn test_relative_to_propagated_up_and_down() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_relative_to_does_not_affect_new_artifacts() -> anyhow::Result<()> {
+    let mut tester = tester().unwrap();
+    let content = indoc!(
+        r#"
+        def test():
+            args = cmd_args(
+                source_artifact("foo", "bar.h"),
+                relative_to=(source_artifact("foo", "baz.c"), 1),
+            )
+            # Self check
+            assert_eq(get_args(args), ["./bar.h"])
+
+            args2 = cmd_args(args, source_artifact("foo", "bar2.h"))
+            assert_eq(get_args(args2), ["./bar.h", "foo/bar2.h"])
+        "#
+    );
+    tester.run_starlark_bzl_test(content)?;
+    Ok(())
+}
+
+#[test]
 fn test_parent_old() -> anyhow::Result<()> {
     // Remove this test when `.parent()` is removed.
     let mut tester = tester()?;
