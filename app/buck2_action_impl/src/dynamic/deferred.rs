@@ -155,7 +155,7 @@ impl DynamicLambda {
 pub struct DynamicLambdaOutput {
     /// The actions the DynamicLambda produces, in the right order.
     /// `DynamicAction.index` is an index into this Vec.
-    output: Vec<ActionKey>,
+    output: Box<[ActionKey]>,
 }
 
 impl provider::Provider for DynamicAction {
@@ -263,7 +263,7 @@ impl Deferred for DynamicLambda {
             output
         };
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
-            output: output?,
+            output: output?.into_boxed_slice(),
         }))
     }
 
