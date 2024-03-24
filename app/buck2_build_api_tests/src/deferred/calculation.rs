@@ -143,14 +143,14 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
 #[tokio::test]
 async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
     #[derive(Debug, Allocative)]
-    struct DeferringDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
+    struct TestDeferringDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
-    impl provider::Provider for DeferringDeferred {
+    impl provider::Provider for TestDeferringDeferred {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
     #[async_trait]
-    impl Deferred for DeferringDeferred {
+    impl Deferred for TestDeferringDeferred {
         type Output = usize;
 
         fn inputs(&self) -> DeferredInputsRef<'_> {
@@ -185,7 +185,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(target.dupe())));
 
     let executed = Arc::new(AtomicBool::new(false));
-    let data = deferred.defer(DeferringDeferred(8, IndexSet::new(), executed.dupe()));
+    let data = deferred.defer(TestDeferringDeferred(8, IndexSet::new(), executed.dupe()));
     let deferred_result = DeferredTable::new(deferred.take_result()?);
 
     let fs = ProjectRootTemp::new()?;

@@ -938,20 +938,20 @@ mod tests {
 
     #[derive(Clone, Debug, PartialEq, Eq, Allocative)]
     #[allocative(bound = "")]
-    struct DeferringDeferred<T> {
+    struct TestDeferringDeferred<T> {
         inputs: IndexSet<DeferredInput>,
         #[allocative(skip)]
         defer: FakeDeferred<T>,
     }
 
     impl<T: Clone + Debug + Allocative + Send + Sync + 'static> provider::Provider
-        for DeferringDeferred<T>
+        for TestDeferringDeferred<T>
     {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
     #[async_trait]
-    impl<T: Clone + Debug + Allocative + Send + Sync + 'static> Deferred for DeferringDeferred<T> {
+    impl<T: Clone + Debug + Allocative + Send + Sync + 'static> Deferred for TestDeferringDeferred<T> {
         type Output = T;
 
         fn inputs(&self) -> DeferredInputsRef<'_> {
@@ -1058,7 +1058,7 @@ mod tests {
             val: 2,
         };
 
-        let deferring_deferred = DeferringDeferred {
+        let deferring_deferred = TestDeferringDeferred {
             inputs: Default::default(),
             defer: deferred,
         };
