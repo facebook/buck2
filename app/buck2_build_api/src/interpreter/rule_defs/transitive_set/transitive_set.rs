@@ -29,7 +29,6 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
-use starlark::typing::Ty;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
 use starlark::values::typing::TypeInstanceId;
@@ -349,10 +348,6 @@ where
 
         transitive_set_definition_from_value(self.definition.to_value())
             .map_or(false, |d| d.matches_type(ty))
-    }
-
-    fn get_type_starlark_repr() -> Ty {
-        Ty::starlark_value::<Self>()
     }
 }
 

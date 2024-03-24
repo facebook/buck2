@@ -17,7 +17,6 @@ use dupe::Dupe;
 use starlark::coerce::coerce;
 use starlark::coerce::CoerceKey;
 use starlark::starlark_complex_value;
-use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
@@ -99,10 +98,6 @@ where
     fn is_in(&self, other: Value<'v>) -> starlark::Result<bool> {
         let kind = (PLUGIN_KIND_FROM_VALUE.get()?)(other)?;
         Ok(self.plugins.contains_key(&kind))
-    }
-
-    fn get_type_starlark_repr() -> Ty {
-        Ty::starlark_value::<Self>()
     }
 }
 

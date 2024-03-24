@@ -281,10 +281,6 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         Ok(())
     }
 
-    fn get_type_starlark_repr() -> Ty {
-        Ty::starlark_value::<Self>()
-    }
-
     fn eval_type(&self) -> Option<Ty> {
         self.exported.get().map(|exported| exported.set_ty.dupe())
     }
