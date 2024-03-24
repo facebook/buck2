@@ -18,6 +18,7 @@ use quote::ToTokens;
 use syn::parse::ParseStream;
 use syn::Attribute;
 use syn::Fields;
+use syn::TypeParamBound;
 
 const PROVIDER_IDENT: &str = "provider";
 
@@ -299,7 +300,7 @@ impl ProviderCodegen {
         let name_str = self.name_str()?;
         let field_names = self.field_names()?;
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl<V: std::fmt::Display> std::fmt::Display for #gen_name<V> {
+            impl<V: starlark::values::ValueLifetimeless> std::fmt::Display for #gen_name<V> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     display_container::fmt_keyed_container(
                         f,
@@ -654,16 +655,22 @@ pub(crate) fn define_provider(
             "should have exactly one type param",
         ));
     }
-    let type_param = type_params.pop().unwrap();
-    if let Some(bound) = type_param.bounds.iter().next() {
-        return Err(syn::Error::new_spanned(
-            bound,
-            "type param should have no bounds",
-        ));
-    }
 
-    // TODO(cjhopman): Verify `V` type param as expected
-    // TODO(cjhopman): Verify all fields are type `V`
+    let type_bound_error = "type param should be V: ValueLifetimeless";
+    let type_param = type_params.pop().unwrap();
+    let Some(bound) = type_param.bounds.iter().into_singleton() else {
+        return Err(syn::Error::new_spanned(type_param, type_bound_error));
+    };
+    match bound {
+        TypeParamBound::Trait(b) => {
+            if b.to_token_stream().to_string() != "ValueLifetimeless" {
+                return Err(syn::Error::new_spanned(b, type_bound_error));
+            }
+        }
+        _ => {
+            return Err(syn::Error::new_spanned(bound, type_bound_error));
+        }
+    }
 
     let input = &codegen.input;
     let input: syn::Item = syn::parse_quote_spanned! { codegen.span=>

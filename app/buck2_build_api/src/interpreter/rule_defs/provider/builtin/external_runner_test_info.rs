@@ -31,6 +31,7 @@ use starlark::values::FrozenValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -47,7 +48,7 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[freeze(validator = validate_external_runner_test_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
-pub struct ExternalRunnerTestInfoGen<V> {
+pub struct ExternalRunnerTestInfoGen<V: ValueLifetimeless> {
     /// A Starlark value representing the type of this test.
     #[provider(field_type = String)]
     test_type: V,

@@ -46,6 +46,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::StarlarkDocs;
@@ -105,19 +106,19 @@ enum ProviderCollectionError {
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[repr(C)]
-pub struct ProviderCollectionGen<V> {
+pub struct ProviderCollectionGen<V: ValueLifetimeless> {
     pub(crate) providers: SmallMap<Arc<ProviderId>, V>,
 }
 
 // Can't derive this since no instance for Arc
-unsafe impl<From: Coerce<To>, To> Coerce<ProviderCollectionGen<To>>
-    for ProviderCollectionGen<From>
+unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless>
+    Coerce<ProviderCollectionGen<To>> for ProviderCollectionGen<From>
 {
 }
 
 starlark_complex_value!(pub ProviderCollection);
 
-impl<V: Display> Display for ProviderCollectionGen<V> {
+impl<V: ValueLifetimeless> Display for ProviderCollectionGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_container(
             f,

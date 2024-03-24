@@ -18,6 +18,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use super::ArtifactTag;
@@ -40,7 +41,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
 #[display(fmt = "TaggedValue({}, tagged {})", inner, tag)]
-pub struct TaggedValueGen<V> {
+pub struct TaggedValueGen<V: ValueLifetimeless> {
     inner: V,
     tag: ArtifactTag,
     inputs_only: bool,
@@ -76,7 +77,7 @@ where
     }
 }
 
-impl<V> TaggedValueGen<V> {
+impl<V: ValueLifetimeless> TaggedValueGen<V> {
     pub fn value(&self) -> &V {
         &self.inner
     }

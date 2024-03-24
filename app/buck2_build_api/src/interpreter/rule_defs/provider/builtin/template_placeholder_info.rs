@@ -26,6 +26,7 @@ use starlark::values::FrozenValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -78,7 +79,7 @@ enum TemplatePlaceholderInfoError {
 #[internal_provider(template_placeholder_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct TemplatePlaceholderInfoGen<V> {
+pub struct TemplatePlaceholderInfoGen<V: ValueLifetimeless> {
     // `Value` in both fields is command line arg.
     // TODO(nga): specify type more precisely.
     #[provider(field_type = DictType<String, Value<'v>>)]

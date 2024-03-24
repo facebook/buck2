@@ -20,6 +20,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
@@ -67,7 +68,7 @@ impl TransitiveSetOrdering {
 )]
 #[display(fmt = "Traversal({})", inner)]
 #[repr(C)]
-pub struct TransitiveSetTraversalGen<V> {
+pub struct TransitiveSetTraversalGen<V: ValueLifetimeless> {
     pub(super) inner: V,
     pub ordering: TransitiveSetOrdering,
 }
@@ -100,7 +101,7 @@ where
 )]
 #[display(fmt = "Traversal({}[\"{}\"])", transitive_set, projection)]
 #[repr(C)]
-pub struct TransitiveSetProjectionTraversalGen<V> {
+pub struct TransitiveSetProjectionTraversalGen<V: ValueLifetimeless> {
     pub(super) transitive_set: V,
     pub projection: usize,
     pub ordering: TransitiveSetOrdering,

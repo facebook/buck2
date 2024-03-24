@@ -20,6 +20,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use super::TaggedValueGen;
@@ -46,11 +47,11 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
 #[display(fmt = "TaggedCommandLine({})", inner)]
-pub struct TaggedCommandLineGen<V> {
+pub struct TaggedCommandLineGen<V: ValueLifetimeless> {
     inner: TaggedValueGen<V>,
 }
 
-impl<V> TaggedCommandLineGen<V> {
+impl<V: ValueLifetimeless> TaggedCommandLineGen<V> {
     pub fn new(inner: TaggedValueGen<V>) -> Self {
         Self { inner }
     }

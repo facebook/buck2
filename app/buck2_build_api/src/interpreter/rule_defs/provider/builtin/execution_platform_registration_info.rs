@@ -20,6 +20,7 @@ use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
@@ -40,7 +41,7 @@ enum ExecutionPlatformRegistrationTypeError {
 #[internal_provider(info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct ExecutionPlatformRegistrationInfoGen<V> {
+pub struct ExecutionPlatformRegistrationInfoGen<V: ValueLifetimeless> {
     #[provider(field_type = Vec<FrozenExecutionPlatformInfo>)]
     platforms: V,
     // OneOf<ExecutionPlatformInfo, \"error\", \"unspecified\", None>

@@ -35,6 +35,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use crate::artifact_groups::ArtifactGroup;
@@ -115,7 +116,7 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 #[derive(Clone, Debug, Freeze, Trace, Coerce, ProvidesStaticType, Allocative)]
 #[freeze(validator = validate_default_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
-pub struct DefaultInfoGen<V> {
+pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// A mapping of names to `ProviderCollection`s. The keys are used when resolving the
     /// `ProviderName` portion of a `ProvidersLabel` in order to access the providers for a
     /// subtarget, such as when doing `buck2 build cell//foo:bar[baz]`. Just like any

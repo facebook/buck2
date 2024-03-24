@@ -77,6 +77,7 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
@@ -198,7 +199,7 @@ impl UnregisteredAction for UnregisteredRunAction {
 )]
 #[display(fmt = "run_action_values")]
 #[repr(C)]
-pub(crate) struct StarlarkRunActionValuesGen<V> {
+pub(crate) struct StarlarkRunActionValuesGen<V: ValueLifetimeless> {
     pub(crate) exe: V,
     pub(crate) args: V,
     pub(crate) env: V,

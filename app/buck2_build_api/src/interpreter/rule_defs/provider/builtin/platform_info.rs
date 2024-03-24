@@ -19,6 +19,7 @@ use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Trace;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
@@ -27,7 +28,7 @@ use crate::interpreter::rule_defs::provider::builtin::configuration_info::Config
 #[internal_provider(platform_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct PlatformInfoGen<V> {
+pub struct PlatformInfoGen<V: ValueLifetimeless> {
     #[provider(field_type = String)]
     label: V,
     #[provider(field_type = ConfigurationInfo<'v>)]

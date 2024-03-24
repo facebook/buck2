@@ -35,6 +35,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
@@ -64,7 +65,7 @@ enum DependencyError {
     StarlarkDocs
 )]
 #[repr(C)]
-pub struct DependencyGen<V> {
+pub struct DependencyGen<V: ValueLifetimeless> {
     label: V,
     providers_collection: V,
     execution_platform: V,
@@ -72,10 +73,10 @@ pub struct DependencyGen<V> {
 
 starlark_complex_value!(pub Dependency);
 
-impl<V: Display> Display for DependencyGen<V> {
+impl<V: ValueLifetimeless> Display for DependencyGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<dependency ")?;
-        self.label.fmt(f)?;
+        Display::fmt(&self.label, f)?;
         write!(f, ">")
     }
 }

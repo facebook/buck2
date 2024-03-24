@@ -27,6 +27,7 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 
@@ -68,7 +69,7 @@ impl Borrow<PluginKind> for PluginKindWrapper {
 )]
 #[display(fmt = "<ctx.plugins>")]
 #[repr(transparent)]
-pub struct AnalysisPluginsGen<V> {
+pub struct AnalysisPluginsGen<V: ValueLifetimeless> {
     plugins: SmallMap<PluginKindWrapper, V>,
 }
 

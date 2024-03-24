@@ -23,6 +23,7 @@ use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -34,7 +35,7 @@ use crate::starlark::values::ValueLike;
 #[derive(Clone, Debug, Freeze, Coerce, Trace, ProvidesStaticType, Allocative)]
 #[freeze(validator = validate_local_resource_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
-pub struct LocalResourceInfoGen<V> {
+pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     /// Command to run to initialize a local resource.
     /// Running this command writes a JSON to stdout.
     /// This JSON represents a pool of local resources which are ready to be used.

@@ -58,6 +58,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 #[derive(Debug, buck2_error::Error)]
@@ -241,7 +242,7 @@ impl IncrementalActionExecutable for WriteJsonAction {
 #[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
-pub(crate) struct WriteJsonCommandLineArgGen<V> {
+pub(crate) struct WriteJsonCommandLineArgGen<V: ValueLifetimeless> {
     artifact: V,
     // The list of artifacts here could be large and we don't want to hold those explicitly (due to
     // the memory cost) and so we hold the same content value that the write_json action itself will and

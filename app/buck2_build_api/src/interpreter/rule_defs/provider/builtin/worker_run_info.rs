@@ -20,6 +20,7 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
@@ -31,7 +32,7 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 #[internal_provider(worker_run_info_creator)]
 #[derive(Clone, Debug, Coerce, Trace, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct WorkerRunInfoGen<V> {
+pub struct WorkerRunInfoGen<V: ValueLifetimeless> {
     // Configuration needed to spawn a new worker
     #[provider(field_type = WorkerInfo<'v>)]
     worker: V,

@@ -43,6 +43,7 @@ use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
@@ -80,7 +81,7 @@ impl TransitiveSetProjectionKind {
 // The Coerce derivation doesn't work if this is just a tuple in the SmallMap value.
 #[derive(Debug, Clone, Trace, Coerce, Freeze, Allocative)]
 #[repr(C)]
-pub struct TransitiveSetProjectionSpec<V> {
+pub struct TransitiveSetProjectionSpec<V: ValueLifetimeless> {
     pub kind: TransitiveSetProjectionKind,
     pub projection: V,
 }
@@ -116,7 +117,7 @@ pub struct TransitiveSetDefinition<'v> {
 
 #[derive(Debug, Clone, Trace, Coerce, Freeze, Allocative)]
 #[repr(C)]
-pub struct TransitiveSetOperationsGen<V> {
+pub struct TransitiveSetOperationsGen<V: ValueLifetimeless> {
     /// Callables that will project the values contained in transitive sets of this type to
     /// cmd_args or json. This can be used to include a transitive set into a command or json file.
     pub(crate) projections: SmallMap<String, TransitiveSetProjectionSpec<V>>,
@@ -128,7 +129,7 @@ pub struct TransitiveSetOperationsGen<V> {
 
 pub type TransitiveSetOperations<'v> = TransitiveSetOperationsGen<Value<'v>>;
 
-impl<V> TransitiveSetOperationsGen<V> {
+impl<V: ValueLifetimeless> TransitiveSetOperationsGen<V> {
     pub fn valid_projections(&self, kind: TransitiveSetProjectionKind) -> Vec<String> {
         self.projections
             .iter()

@@ -21,6 +21,7 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
@@ -36,7 +37,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 #[internal_provider(run_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
-pub struct RunInfoGen<V> {
+pub struct RunInfoGen<V: ValueLifetimeless> {
     /// The command to run, stored as CommandLine
     #[provider(field_type = StarlarkCmdArgs<'v>)]
     args: V,

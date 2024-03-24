@@ -48,7 +48,7 @@ where
 }
 
 /// A DFS, left-to-right iterator over a TransitiveSet.
-pub struct PreorderTransitiveSetIteratorGen<'a, 'v, V> {
+pub struct PreorderTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     stack: Vec<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
 }
@@ -108,7 +108,7 @@ where
 
 /// A postorder traversal iterator over a TransitiveSet.
 /// Traverses by children left-to-right, and then visits the current node.
-pub struct PostorderTransitiveSetIteratorGen<'a, 'v, V> {
+pub struct PostorderTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     stack: Vec<Option<&'a TransitiveSetGen<V>>>,
     parent_stack: Vec<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
@@ -183,7 +183,7 @@ where
 ///
 /// This is equivalent to a pre-order traversal, except that when nodes are shared with more than
 /// one parent it is returned in the order of its last occurrence.
-pub struct TopologicalTransitiveSetIteratorGen<'a, 'v, V> {
+pub struct TopologicalTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     output_stack: Vec<&'a TransitiveSetGen<V>>,
     instance_counts: HashMap<ValueIdentity<'v>, u32, BuckHasherBuilder>,
 }
@@ -278,7 +278,7 @@ where
 }
 
 /// A breadth-first-search (BFS), left-to-right iterator over a TransitiveSet.
-pub struct BfsTransitiveSetIteratorGen<'a, 'v, V> {
+pub struct BfsTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     queue: VecDeque<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
 }
@@ -336,7 +336,7 @@ where
     }
 }
 
-pub struct TransitiveSetValuesIteratorGen<'a, 'v, V> {
+pub struct TransitiveSetValuesIteratorGen<'a, 'v, V: ValueLike<'v>> {
     inner: Box<dyn TransitiveSetIteratorLike<'a, 'v, V> + 'a>,
 }
 

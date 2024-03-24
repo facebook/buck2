@@ -24,6 +24,7 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -35,7 +36,7 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[freeze(validator = validate_worker_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
-pub struct WorkerInfoGen<V> {
+pub struct WorkerInfoGen<V: ValueLifetimeless> {
     // Command to spawn a new worker
     #[provider(field_type = StarlarkCmdArgs<'v>)]
     pub exe: V,

@@ -34,6 +34,7 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
@@ -58,7 +59,7 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 #[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
-pub struct TransitiveSetArgsProjectionGen<V> {
+pub struct TransitiveSetArgsProjectionGen<V: ValueLifetimeless> {
     pub(super) transitive_set: V,
 
     /// The index of the projection. Once transitive sets are defined, their projections never

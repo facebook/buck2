@@ -32,6 +32,7 @@ use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::Trace;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
@@ -44,7 +45,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Con
 #[internal_provider(configuration_info_creator)]
 #[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct ConfigurationInfoGen<V> {
+pub struct ConfigurationInfoGen<V: ValueLifetimeless> {
     #[provider(field_type = DictType<StarlarkTargetLabel, ConstraintValueInfo<'v>>)]
     constraints: V,
     #[provider(field_type = DictType<String, String>)]

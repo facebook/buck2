@@ -22,6 +22,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
@@ -41,7 +42,7 @@ enum ExecutionPlatformProviderErrors {
 #[internal_provider(info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct ExecutionPlatformInfoGen<V> {
+pub struct ExecutionPlatformInfoGen<V: ValueLifetimeless> {
     /// label of the defining rule, used in informative messages
     #[provider(field_type = StarlarkTargetLabel)]
     label: V,

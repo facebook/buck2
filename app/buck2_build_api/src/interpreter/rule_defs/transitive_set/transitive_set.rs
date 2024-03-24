@@ -41,6 +41,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTypedComplex;
@@ -95,7 +96,7 @@ impl TypeMatcher for TransitiveSetMatcher {
 
 #[derive(Debug, Clone, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct TransitiveSetGen<V> {
+pub struct TransitiveSetGen<V: ValueLifetimeless> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.
     pub key: TransitiveSetKey,
 
@@ -115,7 +116,7 @@ pub struct TransitiveSetGen<V> {
 
 #[derive(Debug, Clone, Trace, Allocative)]
 #[repr(C)]
-pub struct NodeGen<V> {
+pub struct NodeGen<V: ValueLifetimeless> {
     /// The value
     pub value: V,
 
@@ -125,7 +126,7 @@ pub struct NodeGen<V> {
 
 unsafe impl<'v> Coerce<TransitiveSetGen<Value<'v>>> for TransitiveSetGen<FrozenValue> {}
 
-impl<V: fmt::Display> fmt::Display for TransitiveSetGen<V> {
+impl<V: ValueLifetimeless> fmt::Display for TransitiveSetGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt_container(
             f,
@@ -157,7 +158,7 @@ impl<'v, V: ValueLike<'v>> Serialize for TransitiveSetGen<V> {
     }
 }
 
-impl<V> TransitiveSetGen<V> {
+impl<V: ValueLifetimeless> TransitiveSetGen<V> {
     pub fn key(&self) -> &TransitiveSetKey {
         &self.key
     }

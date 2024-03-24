@@ -23,6 +23,7 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
@@ -46,7 +47,7 @@ enum InstallInfoProviderErrors {
 #[derive(Clone, Coerce, Debug, Freeze, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 #[freeze(validator = validate_install_info, bounds = "V: ValueLike<'freeze>")]
-pub struct InstallInfoGen<V> {
+pub struct InstallInfoGen<V: ValueLifetimeless> {
     // Label for the installer
     #[provider(field_type = StarlarkConfiguredProvidersLabel)]
     installer: V,

@@ -30,6 +30,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 
@@ -58,7 +59,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
     Coerce
 )]
 #[repr(C)]
-pub struct StarlarkOutputArtifactGen<V> {
+pub struct StarlarkOutputArtifactGen<V: ValueLifetimeless> {
     pub(super) declared_artifact: V,
 }
 

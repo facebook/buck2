@@ -46,6 +46,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue as _;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
@@ -68,7 +69,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
     Allocative
 )]
 #[repr(C)]
-pub(crate) struct StarlarkProvidersArtifactIterableGen<V>(pub(crate) V);
+pub(crate) struct StarlarkProvidersArtifactIterableGen<V: ValueLifetimeless>(pub(crate) V);
 
 starlark_complex_value!(pub(crate) StarlarkProvidersArtifactIterable);
 
@@ -130,7 +131,7 @@ where
     Allocative
 )]
 #[repr(C)]
-pub(crate) struct StarlarkFailedArtifactIterableGen<V>(pub(crate) V);
+pub(crate) struct StarlarkFailedArtifactIterableGen<V: ValueLifetimeless>(pub(crate) V);
 
 starlark_complex_value!(pub(crate) StarlarkFailedArtifactIterable);
 

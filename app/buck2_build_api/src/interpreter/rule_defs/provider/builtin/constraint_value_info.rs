@@ -20,6 +20,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
@@ -31,7 +32,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::C
 #[internal_provider(constraint_value_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct ConstraintValueInfoGen<V> {
+pub(crate) struct ConstraintValueInfoGen<V: ValueLifetimeless> {
     #[provider(field_type = ConstraintSettingInfo<'v>)]
     setting: V,
     #[provider(field_type = StarlarkTargetLabel)]
