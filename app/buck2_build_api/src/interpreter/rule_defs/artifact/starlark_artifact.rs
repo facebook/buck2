@@ -32,9 +32,7 @@ use starlark::values::Demand;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -42,7 +40,6 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFin
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -69,29 +66,6 @@ pub struct StarlarkArtifact {
 }
 
 starlark_simple_value!(StarlarkArtifact);
-
-impl<'v> UnpackValue<'v> for StarlarkArtifact {
-    fn expected() -> String {
-        format!(
-            "either {} or {}",
-            StarlarkArtifact::get_type_value_static().as_str(),
-            StarlarkDeclaredArtifact::get_type_value_static().as_str()
-        )
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(x) = value.downcast_ref::<StarlarkArtifact>() {
-            Some(x.dupe())
-        } else if let Some(x) = value.downcast_ref::<StarlarkDeclaredArtifact>() {
-            x.get_bound_artifact().ok().map(|a| StarlarkArtifact {
-                artifact: a,
-                associated_artifacts: x.associated_artifacts.dupe(),
-            })
-        } else {
-            None
-        }
-    }
-}
 
 impl StarlarkArtifact {
     pub fn new(artifact: Artifact) -> Self {
