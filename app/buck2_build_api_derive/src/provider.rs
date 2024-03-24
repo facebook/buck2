@@ -328,7 +328,7 @@ impl ProviderCodegen {
             },
             syn::parse_quote_spanned! { self.span=>
                 #[starlark::values::starlark_value(type = #name_str)]
-                impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
+                impl<'v, V: starlark::values::ValueLike<'v>> starlark::values::StarlarkValue<'v>
                     for #gen_name<V>
                 where
                     Self: starlark::any::ProvidesStaticType<'v>,
@@ -402,7 +402,7 @@ impl ProviderCodegen {
         let field_names = self.field_names()?;
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl<'v, V: starlark::values::ValueLike<'v> + 'v> crate::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
+            impl<'v, V: starlark::values::ValueLike<'v>> crate::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
             where
                 Self: std::fmt::Debug,
             {

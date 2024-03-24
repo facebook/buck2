@@ -59,7 +59,7 @@ impl<V> TaggedCommandLineGen<V> {
 starlark_complex_value!(pub TaggedCommandLine);
 
 #[starlark_value(type = "tagged_command_line")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedCommandLineGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TaggedCommandLineGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {

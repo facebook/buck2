@@ -258,7 +258,7 @@ impl<'v, V: ValueLike<'v>> fmt::Display for WriteJsonCommandLineArgGen<V> {
 starlark_complex_value!(pub(crate) WriteJsonCommandLineArg);
 
 #[starlark_value(type = "write_json_cli_args")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for WriteJsonCommandLineArgGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for WriteJsonCommandLineArgGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {

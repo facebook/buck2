@@ -167,7 +167,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
 }
 
 #[starlark_value(type = "output_artifact")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
     Self: ProvidesStaticType<'v> + Display + CommandLineArgLike,
 {

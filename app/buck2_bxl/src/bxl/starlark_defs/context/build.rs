@@ -72,7 +72,7 @@ pub(crate) struct StarlarkProvidersArtifactIterableGen<V>(pub(crate) V);
 
 starlark_complex_value!(pub(crate) StarlarkProvidersArtifactIterable);
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkProvidersArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkProvidersArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
@@ -92,7 +92,7 @@ where
 }
 
 #[starlark_value(type = "bxl_built_artifacts_iterable")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
@@ -134,7 +134,7 @@ pub(crate) struct StarlarkFailedArtifactIterableGen<V>(pub(crate) V);
 
 starlark_complex_value!(pub(crate) StarlarkFailedArtifactIterable);
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkFailedArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkFailedArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
@@ -153,7 +153,7 @@ where
 }
 
 #[starlark_value(type = "bxl_failed_artifacts_iterable")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {

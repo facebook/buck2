@@ -104,7 +104,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
 starlark_complex_value!(pub TransitiveSetJsonProjection);
 
 #[starlark_value(type = "transitive_set_json_projection")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetJsonProjectionGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetJsonProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {

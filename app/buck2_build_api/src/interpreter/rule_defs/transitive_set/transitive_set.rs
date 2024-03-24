@@ -332,7 +332,7 @@ impl<'v> TransitiveSetLike<'v> for FrozenTransitiveSet {
 starlark_complex_value!(pub TransitiveSet);
 
 #[starlark_value(type = "transitive_set")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TransitiveSetGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetGen<V>
 where
     Self: ProvidesStaticType<'v> + TransitiveSetLike<'v>,
 {

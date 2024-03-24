@@ -81,7 +81,7 @@ enum AnalysisPluginsError {
 }
 
 #[starlark_value(type = "AnalysisPlugins")]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for AnalysisPluginsGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for AnalysisPluginsGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
