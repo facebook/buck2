@@ -196,14 +196,12 @@ impl<'v> AnalysisContext<'v> {
     /// The context that is provided to users' UDR implementation functions. Comprised of things like attribute values, actions, etc
     fn new(
         heap: &'v Heap,
-        attrs: Value<'v>,
+        attrs: ValueOfUnchecked<'v, StructRef<'v>>,
         label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
         plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
-        let attrs = ValueOfUnchecked::new_checked(attrs).unwrap();
-
         Self {
             attrs,
             actions: heap.alloc_typed(AnalysisActions {
@@ -219,7 +217,7 @@ impl<'v> AnalysisContext<'v> {
 
     pub fn prepare(
         heap: &'v Heap,
-        attrs: Value<'v>,
+        attrs: ValueOfUnchecked<'v, StructRef<'v>>,
         label: Option<ConfiguredTargetLabel>,
         plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
         registry: AnalysisRegistry<'v>,

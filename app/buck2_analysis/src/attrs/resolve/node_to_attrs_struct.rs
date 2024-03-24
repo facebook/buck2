@@ -10,7 +10,8 @@
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use starlark::values::structs::AllocStruct;
-use starlark::values::Value;
+use starlark::values::structs::StructRef;
+use starlark::values::ValueOfUnchecked;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
@@ -19,11 +20,11 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 pub(crate) fn node_to_attrs_struct<'v>(
     node: ConfiguredTargetNodeRef,
     ctx: &dyn AttrResolutionContext<'v>,
-) -> anyhow::Result<Value<'v>> {
+) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
     let attrs_iter = node.attrs(AttrInspectOptions::All);
     let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
     for a in attrs_iter {
         resolved_attrs.push((a.name, a.value.resolve_single(node.label().pkg(), ctx)?));
     }
-    Ok(ctx.heap().alloc(AllocStruct(resolved_attrs)))
+    ValueOfUnchecked::new_checked(ctx.heap().alloc(AllocStruct(resolved_attrs)))
 }

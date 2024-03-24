@@ -51,10 +51,12 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
+use starlark::values::structs::StructRef;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
@@ -275,7 +277,7 @@ impl Deferred for DynamicLambda {
 
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
-    pub attributes: Value<'v>,
+    pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
     pub lambda: StarlarkCallable<'v>,
     pub outputs: Value<'v>,
     pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
@@ -374,7 +376,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let outputs = Dict::new(outputs);
 
     Ok(DynamicLambdaCtxData {
-        attributes: attributes.to_value(),
+        attributes: ValueOfUnchecked::new_checked(attributes.to_value())?,
         lambda: lambda.to_callable(),
         plugins,
         outputs: heap.alloc(outputs),

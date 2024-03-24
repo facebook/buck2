@@ -29,6 +29,7 @@ use starlark::syntax::Dialect;
 use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueOfUnchecked;
 
 fn run_ctx_test(
     content: &str,
@@ -66,7 +67,8 @@ fn run_ctx_test(
         BaseDeferredKey::TargetLabel(label.dupe()),
         ExecutionPlatformResolution::unspecified(),
     )?;
-    let attributes = eval.heap().alloc(AllocStruct([("name", "some_name")]));
+    let attributes =
+        ValueOfUnchecked::new_checked(eval.heap().alloc(AllocStruct([("name", "some_name")])))?;
     let plugins = eval
         .heap()
         .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
