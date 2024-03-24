@@ -50,13 +50,14 @@ use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
 #[repr(C)]
 #[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
 #[starlark_docs(builtin = "standard")]
-pub(crate) struct TupleGen<V> {
+pub(crate) struct TupleGen<V: ValueLifetimeless> {
     len: usize,
     /// The data stored by the tuple.
     content: [V; 0],
@@ -85,7 +86,7 @@ impl<'v, V: ValueLike<'v>> Debug for TupleGen<V> {
     }
 }
 
-impl<V> TupleGen<V> {
+impl<V: ValueLifetimeless> TupleGen<V> {
     /// `type(())`.
     pub(crate) const TYPE: &'static str = "tuple";
 

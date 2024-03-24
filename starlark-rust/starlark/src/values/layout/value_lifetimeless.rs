@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-// Possible optimisations:
-// Encoding none, bool etc in the pointer of frozen value
+use std::fmt::Debug;
+use std::fmt::Display;
 
-pub(crate) mod aligned_size;
-pub(crate) mod avalue;
-pub(crate) mod complex;
-mod const_frozen_string;
-pub(crate) mod const_type_id;
-pub(crate) mod heap;
-pub(crate) mod identity;
-pub(crate) mod pointer;
-pub(crate) mod static_string;
-pub(crate) mod typed;
-pub(crate) mod value;
-pub(crate) mod value_alloc_size;
-pub(crate) mod value_captured;
-pub(crate) mod value_lifetimeless;
-pub(crate) mod value_not_special;
-pub(crate) mod vtable;
+use allocative::Allocative;
+use serde::Serialize;
+
+use crate::sealed::Sealed;
+use crate::values::Freeze;
+use crate::values::FrozenValue;
+
+/// Implemented by [`Value`](crate::values::Value) and [`FrozenValue`](crate::values::FrozenValue).
+pub trait ValueLifetimeless:
+    Sealed
+    + Eq
+    + Copy
+    + Debug
+    + Default
+    + Display
+    + Serialize
+    + Allocative
+    + Freeze<Frozen = FrozenValue>
+    + Sized
+{
+}

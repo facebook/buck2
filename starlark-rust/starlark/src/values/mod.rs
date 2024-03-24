@@ -67,6 +67,7 @@ pub use crate::values::layout::typed::ValueTyped;
 pub use crate::values::layout::value::FrozenValue;
 pub use crate::values::layout::value::Value;
 pub use crate::values::layout::value::ValueLike;
+pub use crate::values::layout::value_lifetimeless::ValueLifetimeless;
 pub use crate::values::owned::OwnedFrozenValue;
 pub use crate::values::owned::OwnedFrozenValueTyped;
 pub use crate::values::trace::Trace;

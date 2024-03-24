@@ -43,6 +43,7 @@ use crate::values::enumeration::enum_type::FrozenEnumType;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 
 /// A value from an enumeration.
@@ -57,7 +58,7 @@ use crate::values::ValueLike;
 )]
 #[repr(C)]
 #[derivative(Debug)]
-pub struct EnumValueGen<V> {
+pub struct EnumValueGen<V: ValueLifetimeless> {
     // Must ignore value.typ or type.elements, since they are circular
     #[derivative(Debug = "ignore")]
     pub(crate) typ: V, // Must be EnumType it points back to (so it can get the type)

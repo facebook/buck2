@@ -59,6 +59,7 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 
 #[derive(Debug, thiserror::Error)]
@@ -449,7 +450,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
 )]
 #[repr(C)]
 #[display(fmt = "{}", method)]
-pub(crate) struct BoundMethodGen<V> {
+pub(crate) struct BoundMethodGen<V: ValueLifetimeless> {
     pub(crate) method: FrozenValueTyped<'static, NativeMethod>,
     pub(crate) this: V,
 }

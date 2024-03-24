@@ -62,6 +62,7 @@ use crate::values::NoSerialize;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 
 #[derive(Debug, Error)]
@@ -232,7 +233,7 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
     ProvidesStaticType
 )]
 #[repr(transparent)]
-pub struct TypeCompiled<V>(
+pub struct TypeCompiled<V: ValueLifetimeless>(
     /// `V` is `TypeCompiledImplAsStarlarkValue`.
     V,
 );
@@ -249,7 +250,7 @@ impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
     }
 }
 
-impl<V> StarlarkTypeRepr for TypeCompiled<V> {
+impl<V: ValueLifetimeless> StarlarkTypeRepr for TypeCompiled<V> {
     fn starlark_type_repr() -> Ty {
         TypeCompiledImplAsStarlarkValue::<DummyTypeMatcher>::starlark_type_repr()
     }

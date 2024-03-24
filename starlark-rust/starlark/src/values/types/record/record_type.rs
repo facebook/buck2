@@ -64,11 +64,12 @@ use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 use crate::values::ValueTypedComplex;
 
 #[doc(hidden)]
-pub trait RecordCell {
+pub trait RecordCell: ValueLifetimeless {
     type TyRecordDataOpt: Debug;
 
     fn get_or_init_ty(

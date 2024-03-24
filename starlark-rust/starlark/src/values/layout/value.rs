@@ -84,6 +84,7 @@ use crate::values::layout::pointer::Pointer;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::layout::typed::string::StringValueLike;
+use crate::values::layout::value_lifetimeless::ValueLifetimeless;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueDynFull;
 use crate::values::layout::vtable::AValueVTable;
@@ -106,7 +107,6 @@ use crate::values::types::list::value::FrozenListData;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::types::unbound::MaybeUnboundValue;
-use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -1158,18 +1158,7 @@ impl StarlarkTypeRepr for FrozenValue {
 /// For details about each function, see the documentation for [`Value`],
 /// which provides the same functions (and more).
 pub trait ValueLike<'v>:
-    Eq
-    + Copy
-    + Debug
-    + Default
-    + Display
-    + Serialize
-    + CoerceKey<Value<'v>>
-    + Freeze<Frozen = FrozenValue>
-    + Allocative
-    + ProvidesStaticType<'v>
-    + Sealed
-    + 'v
+    ValueLifetimeless + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
 {
     /// `StringValue` or `FrozenStringValue`.
     type String: StringValueLike<'v>;
@@ -1246,6 +1235,8 @@ struct ToJsonCycleError(&'static str);
 
 impl<'v> Sealed for Value<'v> {}
 
+impl<'v> ValueLifetimeless for Value<'v> {}
+
 impl<'v> ValueLike<'v> for Value<'v> {
     type String = StringValue<'v>;
 
@@ -1306,6 +1297,8 @@ impl<'v> ValueLike<'v> for Value<'v> {
 }
 
 impl Sealed for FrozenValue {}
+
+impl ValueLifetimeless for FrozenValue {}
 
 impl<'v> ValueLike<'v> for FrozenValue {
     type String = FrozenStringValue;

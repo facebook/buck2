@@ -44,12 +44,13 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 
 /// An actual record.
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub struct RecordGen<V> {
+pub struct RecordGen<V: ValueLifetimeless> {
     pub(crate) typ: V, // Must be RecordType
     pub(crate) values: Box<[V]>,
 }

@@ -35,6 +35,7 @@ use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::StarlarkValue;
+use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 
 /// The result of `field()`.
@@ -50,7 +51,7 @@ use crate::values::ValueLike;
     Allocative
 )]
 #[starlark_docs(builtin = "extension")]
-pub struct FieldGen<V> {
+pub struct FieldGen<V: ValueLifetimeless> {
     pub(crate) typ: TypeCompiled<V>,
     pub(crate) default: Option<V>,
 }
@@ -68,11 +69,14 @@ impl<'v, V: ValueLike<'v>> Display for FieldGen<V> {
 }
 
 // Manual because no instance for Option<V>
-unsafe impl<From: Coerce<To>, To> Coerce<FieldGen<To>> for FieldGen<From> {}
+unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless> Coerce<FieldGen<To>>
+    for FieldGen<From>
+{
+}
 
 starlark_complex_value!(pub(crate) Field);
 
-impl<V> FieldGen<V> {
+impl<V: ValueLifetimeless> FieldGen<V> {
     pub(crate) fn new(typ: TypeCompiled<V>, default: Option<V>) -> Self {
         Self { typ, default }
     }
