@@ -223,7 +223,7 @@ impl<V: EnumCell + Freeze> EnumTypeGen<V> {
 impl<'v, V> EnumTypeGen<V>
 where
     Value<'v>: Equivalent<V>,
-    V: ValueLike<'v> + 'v + EnumCell,
+    V: ValueLike<'v> + EnumCell,
 {
     pub(crate) fn ty_enum_data(&self) -> Option<&Arc<TyEnumData>> {
         V::get_ty(&self.ty_enum_data)
@@ -245,7 +245,7 @@ impl<'v, V> StarlarkValue<'v> for EnumTypeGen<V>
 where
     Self: ProvidesStaticType<'v>,
     Value<'v>: Equivalent<V>,
-    V: ValueLike<'v> + 'v + EnumCell,
+    V: ValueLike<'v> + EnumCell,
 {
     type Canonical = FrozenEnumType;
 

@@ -103,7 +103,7 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
 }
 
 #[starlark_value(type = Record::TYPE)]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for RecordGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {

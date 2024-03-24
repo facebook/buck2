@@ -107,7 +107,7 @@ use crate::values::ValueError;
 /// starlark_complex_value!(One);
 ///
 /// #[starlark_value(type = "one")]
-/// impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for OneGen<V>
+/// impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for OneGen<V>
 /// where
 ///     Self: ProvidesStaticType<'v>,
 /// {

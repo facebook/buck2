@@ -106,8 +106,7 @@ where
 starlark_complex_value!(ComplexTestExample);
 
 #[starlark_value(type = "ComplexTestExample")]
-impl<'v, T: ValueLike<'v> + 'v + ProvidesStaticType<'v>> StarlarkValue<'v>
-    for ComplexTestExampleGen<T>
+impl<'v, T: ValueLike<'v> + ProvidesStaticType<'v>> StarlarkValue<'v> for ComplexTestExampleGen<T>
 where
     Self: ProvidesStaticType<'v>,
 {

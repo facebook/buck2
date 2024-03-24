@@ -66,7 +66,7 @@ pub struct EnumValueGen<V> {
     pub(crate) id: TypeInstanceId,
 }
 
-impl<'v, V: ValueLike<'v> + 'v> Display for EnumValueGen<V> {
+impl<'v, V: ValueLike<'v>> Display for EnumValueGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let ty_enum_data = match self.get_enum_type() {
             Either::Left(x) => x.ty_enum_data(),
@@ -108,7 +108,7 @@ impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
 }
 
 #[starlark_value(type = EnumValue::TYPE)]
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumValueGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for EnumValueGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {

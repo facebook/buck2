@@ -165,6 +165,7 @@ pub trait StringValueLike<'v>:
     + Serialize
     + Allocative
     + Sealed
+    + 'v
 {
     /// Convert to a [`StringValue`].
     fn to_string_value(self) -> StringValue<'v>;
