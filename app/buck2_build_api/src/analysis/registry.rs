@@ -81,7 +81,6 @@ pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
     artifact_groups: ArtifactGroupRegistry,
     #[derivative(Debug = "ignore")]
-    #[trace(unsafe_ignore)] // TODO(nga): implement `#[trace(static)]`.
     dynamic: Box<dyn DynamicRegistryDyn>,
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     analysis_value_storage: AnalysisValueStorage<'v>,
