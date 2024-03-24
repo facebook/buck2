@@ -35,6 +35,7 @@ use syn::Lifetime;
 use syn::LifetimeParam;
 use syn::PathArguments;
 use syn::ReturnType;
+use syn::TraitBound;
 use syn::Type;
 use syn::TypeParamBound;
 
@@ -136,17 +137,42 @@ fn is_static(ty: &Type, generics: &HashSet<String>) -> bool {
         Type::BareFn(_) => true,
         Type::Never(_) => true,
         Type::Paren(x) => f(&x.elem),
-        Type::Path(x) => {
-            x.qself.is_none()
-                && x.path.segments.iter().all(|x| {
-                    !generics.contains(&x.ident.to_string())
-                        && is_static_path_arguments(&x.arguments, generics)
-                })
-        }
+        Type::Path(x) => x.qself.is_none() && is_static_path(&x.path, generics),
         Type::Ptr(_) => true,
-        Type::Reference(x) => f(&x.elem) && is_static_lifetime(x.lifetime.as_ref()),
+        Type::Reference(x) => f(&x.elem) && is_static_opt_lifetime(x.lifetime.as_ref()),
         Type::Slice(x) => f(&x.elem),
         Type::Tuple(x) => x.elems.iter().all(f),
+        Type::TraitObject(tr) => {
+            let syn::TypeTraitObject {
+                dyn_token: _,
+                bounds,
+            } = tr;
+            bounds
+                .iter()
+                .all(|x| is_static_type_param_bound(x, generics))
+        }
+        _ => false,
+    }
+}
+
+fn is_static_path(path: &syn::Path, generics: &HashSet<String>) -> bool {
+    path.segments.iter().all(|x| {
+        !generics.contains(&x.ident.to_string()) && is_static_path_arguments(&x.arguments, generics)
+    })
+}
+
+fn is_static_type_param_bound(x: &TypeParamBound, generics: &HashSet<String>) -> bool {
+    match x {
+        TypeParamBound::Trait(trait_bound) => {
+            let TraitBound {
+                paren_token: _,
+                modifier: _,
+                lifetimes,
+                path,
+            } = trait_bound;
+            lifetimes.is_none() && is_static_path(path, generics)
+        }
+        TypeParamBound::Lifetime(lt) => is_static_lifetime(lt),
         _ => false,
     }
 }
@@ -158,7 +184,7 @@ fn is_static_path_arguments(x: &PathArguments, generics: &HashSet<String>) -> bo
         PathArguments::None => true,
         PathArguments::AngleBracketed(x) => x.args.iter().all(|x| match x {
             GenericArgument::Type(x) => f(x),
-            GenericArgument::Lifetime(x) => is_static_lifetime(Some(x)),
+            GenericArgument::Lifetime(x) => is_static_opt_lifetime(Some(x)),
             _ => false,
         }),
         PathArguments::Parenthesized(x) => match &x.output {
@@ -168,9 +194,13 @@ fn is_static_path_arguments(x: &PathArguments, generics: &HashSet<String>) -> bo
     }
 }
 
-fn is_static_lifetime(x: Option<&Lifetime>) -> bool {
+fn is_static_lifetime(x: &Lifetime) -> bool {
+    x.ident == "static"
+}
+
+fn is_static_opt_lifetime(x: Option<&Lifetime>) -> bool {
     match x {
         None => false,
-        Some(x) => x.ident == "static",
+        Some(x) => is_static_lifetime(x),
     }
 }

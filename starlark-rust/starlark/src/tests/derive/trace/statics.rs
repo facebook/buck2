@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::fmt::Display;
+
 use starlark_derive::Trace;
 
 use crate as starlark;
@@ -26,7 +28,9 @@ struct TraceWithStatic<'v> {
     actual_value: Value<'v>,
     // This field doesn't have a Trace trait, but should be ignored
     // because it looks like it is static
-    ignored_because_static: StaticType<'static, std::string::String>,
+    ignored_because_static: StaticType<'static, String>,
+    ignored_because_static_in_dyn: Box<dyn Display>,
+    ignored_because_static_in_dyn_with_static_bound: Box<dyn Display + 'static>,
 }
 
 #[allow(dead_code)]
