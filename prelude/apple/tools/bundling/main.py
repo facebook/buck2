@@ -37,11 +37,13 @@ from .action_metadata import action_metadata_if_present
 from .assemble_bundle import assemble_bundle
 from .assemble_bundle_types import BundleSpecItem, IncrementalContext
 from .incremental_state import (
+    CodesignedOnCopy,
     IncrementalState,
     IncrementalStateItem,
     IncrementalStateJSONEncoder,
     parse_incremental_state,
 )
+from .incremental_utils import codesigned_on_copy_item
 from .swift_support import run_swift_stdlib_tool, SwiftSupportArguments
 
 
@@ -382,27 +384,37 @@ def _main() -> None:
             raise RuntimeError(
                 "Expected signing context to be created before bundling is done if codesign is requested."
             )
-        codesign_on_copy_paths = [
-            i.dst for i in spec if i.codesign_on_copy
-        ] + swift_stdlib_paths
 
         bundle_path = CodesignedPath(path=args.output, entitlements=args.entitlements)
-        codesigned_on_copy = [
+        codesign_on_copy_paths = [
+            CodesignedPath(
+                path=bundle_path.path / i.dst,
+                entitlements=(
+                    Path(i.codesign_entitlements) if i.codesign_entitlements else None
+                ),
+            )
+            for i in spec
+            if i.codesign_on_copy
+        ] + [
             CodesignedPath(path=bundle_path.path / path, entitlements=None)
-            for path in codesign_on_copy_paths
+            for path in swift_stdlib_paths
         ]
 
         codesign_bundle(
             bundle_path=bundle_path,
             signing_context=signing_context,
             platform=args.platform,
-            codesign_on_copy_paths=codesigned_on_copy,
+            codesign_on_copy_paths=codesign_on_copy_paths,
             codesign_args=args.codesign_args,
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
         )
 
     if incremental_state:
+        if incremental_context is None:
+            raise RuntimeError(
+                "Expected incremental context to be present when incremental state is non-null."
+            )
         _write_incremental_state(
             spec=spec,
             items=incremental_state,
@@ -411,6 +423,7 @@ def _main() -> None:
             codesign_configuration=args.codesign_configuration,
             selected_codesign_identity=selected_identity_argument,
             swift_stdlib_paths=swift_stdlib_paths,
+            incremental_context=incremental_context,
         )
 
     if profiling_enabled:
@@ -516,12 +529,23 @@ def _write_incremental_state(
     codesign_configuration: CodesignConfiguration,
     selected_codesign_identity: Optional[str],
     swift_stdlib_paths: List[Path],
+    incremental_context: IncrementalContext,
 ) -> None:
     state = IncrementalState(
         items,
         codesigned=codesigned,
         codesign_configuration=codesign_configuration,
-        codesign_on_copy_paths=[Path(i.dst) for i in spec if i.codesign_on_copy],
+        codesigned_on_copy=[
+            codesigned_on_copy_item(
+                path=Path(i.dst),
+                entitlements=(
+                    Path(i.codesign_entitlements) if i.codesign_entitlements else None
+                ),
+                incremental_context=incremental_context,
+            )
+            for i in spec
+            if i.codesign_on_copy
+        ],
         codesign_identity=selected_codesign_identity,
         swift_stdlib_paths=swift_stdlib_paths,
     )

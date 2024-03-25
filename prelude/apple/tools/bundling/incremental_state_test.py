@@ -12,6 +12,7 @@ from pathlib import Path
 import pkg_resources
 
 from .incremental_state import (
+    CodesignedOnCopy,
     IncrementalState,
     IncrementalStateItem,
     parse_incremental_state,
@@ -47,7 +48,16 @@ class TestIncrementalState(unittest.TestCase):
             ],
             codesigned=True,
             codesign_configuration=None,
-            codesign_on_copy_paths=[Path("Resources/bar.txt")],
+            codesigned_on_copy=[
+                CodesignedOnCopy(
+                    path=Path("Resources/bar.txt"),
+                    entitlements_digest=None,
+                ),
+                CodesignedOnCopy(
+                    path=Path("Resources/baz.txt"),
+                    entitlements_digest="abc",
+                ),
+            ],
             codesign_identity="Johny Appleseed",
             swift_stdlib_paths=[Path("Frameworks/libswiftCore.dylib")],
         )

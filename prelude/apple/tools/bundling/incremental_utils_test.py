@@ -14,7 +14,7 @@ from typing import Generator
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
 from .assemble_bundle_types import BundleSpecItem
-from .incremental_state import IncrementalState, IncrementalStateItem
+from .incremental_state import CodesignedOnCopy, IncrementalState, IncrementalStateItem
 from .incremental_utils import (
     calculate_incremental_state,
     IncrementalContext,
@@ -77,7 +77,7 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesigned=False,
                 codesign_configuration=None,
-                codesign_on_copy_paths=[],
+                codesigned_on_copy=[],
                 codesign_identity=None,
                 swift_stdlib_paths=[],
             ),
@@ -110,7 +110,7 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesigned=True,
                 codesign_configuration=None,
-                codesign_on_copy_paths=[],
+                codesigned_on_copy=[],
                 codesign_identity=None,
                 swift_stdlib_paths=[],
             ),
@@ -146,7 +146,7 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesigned=True,
                 codesign_configuration=None,
-                codesign_on_copy_paths=[],
+                codesigned_on_copy=[],
                 codesign_identity="old_identity",
                 swift_stdlib_paths=[],
             ),
@@ -172,9 +172,19 @@ class TestIncrementalUtils(unittest.TestCase):
                 dst="bar",
                 codesign_on_copy=True,
             ),
+            BundleSpecItem(
+                src="src/baz",
+                dst="baz",
+                codesign_on_copy=True,
+                codesign_entitlements="entitlements.plist",
+            ),
         ]
         incremental_context = IncrementalContext(
-            metadata={Path("src/foo"): "digest"},
+            metadata={
+                Path("src/foo"): "digest",
+                Path("src/baz"): "digest2",
+                Path("entitlements.plist"): "entitlements_digest",
+            },
             state=IncrementalState(
                 items=[
                     IncrementalStateItem(
@@ -182,11 +192,22 @@ class TestIncrementalUtils(unittest.TestCase):
                         destination_relative_to_bundle=Path("foo"),
                         digest="digest",
                         resolved_symlink=None,
-                    )
+                    ),
+                    IncrementalStateItem(
+                        source=Path("src/baz"),
+                        destination_relative_to_bundle=Path("baz"),
+                        digest="digest2",
+                        resolved_symlink=None,
+                    ),
                 ],
                 codesigned=True,
                 codesign_configuration=None,
-                codesign_on_copy_paths=[Path("foo")],
+                codesigned_on_copy=[
+                    CodesignedOnCopy(path=Path("foo"), entitlements_digest=None),
+                    CodesignedOnCopy(
+                        path=Path("baz"), entitlements_digest="entitlements_digest"
+                    ),
+                ],
                 codesign_identity="same_identity",
                 swift_stdlib_paths=[],
             ),
@@ -219,7 +240,46 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesigned=True,
                 codesign_configuration=None,
                 # but it was codesigned in old build
-                codesign_on_copy_paths=[Path("foo")],
+                codesigned_on_copy=[
+                    CodesignedOnCopy(path=Path("foo"), entitlements_digest=None)
+                ],
+                codesign_identity="same_identity",
+                swift_stdlib_paths=[],
+            ),
+            codesigned=True,
+            codesign_configuration=None,
+            codesign_identity="same_identity",
+        )
+        self.assertFalse(should_assemble_incrementally(spec, incremental_context))
+
+    def test_not_run_incrementally_when_codesign_on_copy_entitlements_mismatch(self):
+        spec = [
+            BundleSpecItem(
+                src="src/foo",
+                dst="foo",
+                codesign_on_copy=True,
+                codesign_entitlements="baz/entitlements.plist",
+            )
+        ]
+        incremental_context = IncrementalContext(
+            metadata={
+                Path("src/foo"): "digest",
+                Path("baz/entitlements.plist"): "new_digest",
+            },
+            state=IncrementalState(
+                items=[
+                    IncrementalStateItem(
+                        source=Path("src/foo"),
+                        destination_relative_to_bundle=Path("foo"),
+                        digest="digest",
+                        resolved_symlink=None,
+                    )
+                ],
+                codesigned=True,
+                codesign_configuration=None,
+                codesigned_on_copy=[
+                    CodesignedOnCopy(path=Path("foo"), entitlements_digest="old_digest")
+                ],
                 codesign_identity="same_identity",
                 swift_stdlib_paths=[],
             ),
@@ -251,7 +311,9 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesigned=True,
                 # Dry codesigned in old build
                 codesign_configuration=CodesignConfiguration.dryRun,
-                codesign_on_copy_paths=[Path("foo")],
+                codesigned_on_copy=[
+                    CodesignedOnCopy(path=Path("foo"), entitlements_digest=None)
+                ],
                 codesign_identity="same_identity",
                 swift_stdlib_paths=[],
             ),

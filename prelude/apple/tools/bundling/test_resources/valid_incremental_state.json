@@ -18,12 +18,18 @@
   ],
   "codesign_configuration": null,
   "codesigned": true,
-  "codesign_on_copy_paths": [
-    "Resources/bar.txt"
+  "codesigned_on_copy": [
+    {
+      "path": "Resources/bar.txt"
+    },
+    {
+      "path": "Resources/baz.txt",
+      "entitlements_digest": "abc"
+    }
   ],
   "codesign_identity": "Johny Appleseed",
   "swift_stdlib_paths": [
     "Frameworks/libswiftCore.dylib"
   ],
-  "version": 3
+  "version": 4
 }
