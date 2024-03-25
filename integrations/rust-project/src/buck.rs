@@ -433,6 +433,13 @@ impl Buck {
 
         command.args(["--use-clippy", &use_clippy.to_string()]);
 
+        // Set working directory to the containing directory of the target file.
+        // This fixes cases where the working directory happens to be an
+        // unrelated buck project (e.g. www).
+        if let Some(parent_dir) = saved_file.parent() {
+            command.current_dir(parent_dir);
+        }
+
         let output = command.output();
         if let Ok(output) = &output {
             if output.stdout.is_empty() {
