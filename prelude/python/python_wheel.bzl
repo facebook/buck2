@@ -76,6 +76,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     cmd.add("--name={}".format(ctx.attrs.dist or ctx.attrs.name))
     cmd.add("--version={}".format(ctx.attrs.version))
 
+    if ctx.attrs.entry_points:
+        cmd.add("--entry-points={}".format(json.encode(ctx.attrs.entry_points)))
+
     for key, val in ctx.attrs.extra_metadata.items():
         cmd.add("--metadata={}:{}".format(key, val))
 
@@ -168,6 +171,14 @@ python_wheel = rule(
                 "ovr_config//third-party/python/constraints:3.8": "py3.8",
                 "ovr_config//third-party/python/constraints:3.9": "py3.9",
             }),
+        ),
+        entry_points = attrs.dict(
+            key = attrs.string(),
+            value = attrs.dict(
+                key = attrs.string(),
+                value = attrs.string(),
+            ),
+            default = {},
         ),
         extra_metadata = attrs.dict(
             key = attrs.string(),
