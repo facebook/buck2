@@ -771,6 +771,11 @@ windows_resource = prelude_rule(
     further = None,
     attrs = (
         cxx_common.srcs_arg() |
+        cxx_common.headers_arg() |
+        cxx_common.platform_headers_arg() |
+        cxx_common.header_namespace_arg() |
+        cxx_common.raw_headers_arg() |
+        cxx_common.include_directories_arg() |
         {
             "labels": attrs.list(attrs.string(), default = []),
         }
