@@ -86,7 +86,7 @@ pub struct DynamicLambda {
     /// Things required by the lambda (wrapped in DeferredInput)
     dynamic: IndexSet<DeferredInput>,
     /// Things I produce
-    outputs: Vec<BuildArtifact>,
+    outputs: Box<[BuildArtifact]>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
     attributes_lambda: Option<OwnedFrozenValueTyped<FrozenDynamicLambdaParams>>,
 }
@@ -95,7 +95,7 @@ impl DynamicLambda {
     pub(crate) fn new(
         owner: BaseDeferredKey,
         dynamic: IndexSet<Artifact>,
-        outputs: Vec<BuildArtifact>,
+        outputs: Box<[BuildArtifact]>,
     ) -> Self {
         let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
         match &owner {
@@ -203,7 +203,7 @@ enum DynamicLambdaError {
 
 impl provider::Provider for DynamicLambda {
     fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
-        demand.provide_value_with(|| ProvideOutputs(Ok(self.outputs.clone())));
+        demand.provide_value_with(|| ProvideOutputs(Ok(self.outputs.to_vec())));
     }
 }
 
@@ -357,7 +357,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         artifacts.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
     }
 
-    for x in &dynamic_lambda.outputs {
+    for x in &*dynamic_lambda.outputs {
         let k = heap.alloc(StarlarkArtifact::new(Artifact::from(x.dupe())));
         let declared = registry.declare_dynamic_output(x.get_path().dupe(), x.output_type());
         declared_outputs.insert(declared.dupe());
