@@ -13,7 +13,6 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::analysis::AnalysisResult;
@@ -53,7 +52,6 @@ impl provider::Provider for FakeDeferred {
     fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
 }
 
-#[async_trait]
 impl Deferred for FakeDeferred {
     type Output = usize;
 
@@ -64,7 +62,7 @@ impl Deferred for FakeDeferred {
     async fn execute(
         &self,
         _ctx: &mut dyn DeferredCtx,
-        _dice: &mut DiceComputations,
+        _dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         self.2.store(true, Ordering::SeqCst);
         Ok(DeferredValue::Ready(self.0))
@@ -149,7 +147,6 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
-    #[async_trait]
     impl Deferred for TestDeferringDeferred {
         type Output = usize;
 
@@ -160,7 +157,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         async fn execute(
             &self,
             ctx: &mut dyn DeferredCtx,
-            _dice: &mut DiceComputations,
+            _dice: &mut DiceComputations<'_>,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             let data = ctx
                 .registry()

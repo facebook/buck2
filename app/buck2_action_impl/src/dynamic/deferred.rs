@@ -12,7 +12,6 @@ use std::slice;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
@@ -164,7 +163,6 @@ impl provider::Provider for DynamicAction {
     fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
 }
 
-#[async_trait]
 impl Deferred for DynamicAction {
     type Output = RegisteredAction;
 
@@ -175,7 +173,7 @@ impl Deferred for DynamicAction {
     async fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
-        _dice: &mut DiceComputations,
+        _dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let id = match &self.input {
             DeferredInput::Deferred(x) => x,
@@ -209,7 +207,6 @@ impl provider::Provider for DynamicLambda {
     }
 }
 
-#[async_trait]
 impl Deferred for DynamicLambda {
     type Output = DynamicLambdaOutput;
 
@@ -220,7 +217,7 @@ impl Deferred for DynamicLambda {
     async fn execute(
         &self,
         deferred_ctx: &mut dyn DeferredCtx,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let output = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
             eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await

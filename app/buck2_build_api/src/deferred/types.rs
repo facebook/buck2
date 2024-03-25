@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::future::Future;
 use std::marker::PhantomData;
 use std::slice;
 use std::sync::Arc;
@@ -50,7 +51,6 @@ use crate::deferred::arc_borrow::ArcBorrow;
 /// 'DeferredData', which means those 'Deferred' will be computed first.
 ///
 /// `any::Provider` can be used to obtain data for introspection.
-#[async_trait]
 pub trait Deferred: Debug + Allocative + provider::Provider {
     type Output;
 
@@ -58,11 +58,11 @@ pub trait Deferred: Debug + Allocative + provider::Provider {
     fn inputs(&self) -> DeferredInputsRef<'_>;
 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
-    async fn execute(
+    fn execute(
         &self,
         ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations,
-    ) -> anyhow::Result<DeferredValue<Self::Output>>;
+    ) -> impl Future<Output = anyhow::Result<DeferredValue<Self::Output>>> + Send;
 
     /// An optional stage to wrap execution in.
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
@@ -848,7 +848,6 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
-    use async_trait::async_trait;
     use buck2_artifact::deferred::id::DeferredId;
     use buck2_artifact::deferred::key::DeferredKey;
     use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -901,7 +900,6 @@ mod tests {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
-    #[async_trait]
     impl<T: Clone + Send + Sync> Deferred for FakeDeferred<T> {
         type Output = T;
 
@@ -912,7 +910,7 @@ mod tests {
         async fn execute(
             &self,
             _ctx: &mut dyn DeferredCtx,
-            _dice: &mut DiceComputations,
+            _dice: &mut DiceComputations<'_>,
         ) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Ready(self.val.clone()))
         }
@@ -950,7 +948,6 @@ mod tests {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
-    #[async_trait]
     impl<T: Clone + Debug + Allocative + Send + Sync + 'static> Deferred for TestDeferringDeferred<T> {
         type Output = T;
 
@@ -961,7 +958,7 @@ mod tests {
         async fn execute(
             &self,
             ctx: &mut dyn DeferredCtx,
-            _dice: &mut DiceComputations,
+            _dice: &mut DiceComputations<'_>,
         ) -> anyhow::Result<DeferredValue<T>> {
             Ok(DeferredValue::Deferred(
                 ctx.registry().defer(self.defer.clone()),
