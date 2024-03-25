@@ -12,17 +12,29 @@ import os
 import sys
 import zipfile
 from types import TracebackType
-from typing import List, Optional, Set, Type
+from typing import Dict, List, Optional, Set, Type
 
 
 # pyre-fixme[24]: Generic type `AbstractContextManager` expects 1 type parameter.
 class WheelBuilder(contextlib.AbstractContextManager):
 
-    def __init__(self, *, name: str, version: str, output: str) -> None:
+    def __init__(
+        self,
+        *,
+        name: str,
+        version: str,
+        output: str,
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
         self._name = name
         self._version = version
         self._record: list[str] = []
         self._outf = zipfile.ZipFile(output, mode="w")
+        self._metadata: Dict[str, str] = {}
+        self._metadata["Name"] = name
+        self._metadata["Version"] = version
+        if metadata is not None:
+            self._metadata.update(metadata)
 
     def write(self, dst: str, src: str) -> None:
         self._record.append(dst)
@@ -41,10 +53,9 @@ class WheelBuilder(contextlib.AbstractContextManager):
     def close(self) -> None:
         self.writestr(
             f"{self._name}-{self._version}.dist-info/METADATA",
-            f"""\
-Name: {self._name}
-Version: {self._version}
-""",
+            "".join(
+                ["{}: {}\n".format(key, val) for key, val in self._metadata.items()]
+            ),
         )
         self.writestr(
             f"{self._name}-{self._version}.dist-info/WHEEL",
@@ -71,6 +82,7 @@ def main(argv: List[str]) -> None:
     parser.add_argument("--name", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--srcs", action="append", default=[])
+    parser.add_argument("--metadata", action="append", default=[])
     args = parser.parse_args(argv[1:])
 
     pkgs: Set[str] = set()
@@ -82,7 +94,12 @@ def main(argv: List[str]) -> None:
         if parent:
             _add_pkg(parent)
 
-    with WheelBuilder(name=args.name, version=args.version, output=args.output) as whl:
+    with WheelBuilder(
+        name=args.name,
+        version=args.version,
+        output=args.output,
+        metadata=dict([m.split(":", 1) for m in args.metadata]),
+    ) as whl:
         for src in args.srcs:
             with open(src) as f:
                 manifest = json.load(f)

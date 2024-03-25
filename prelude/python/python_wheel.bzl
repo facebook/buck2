@@ -76,6 +76,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     cmd.add("--name={}".format(ctx.attrs.dist or ctx.attrs.name))
     cmd.add("--version={}".format(ctx.attrs.version))
 
+    for key, val in ctx.attrs.extra_metadata.items():
+        cmd.add("--metadata={}:{}".format(key, val))
+
     srcs = []
     extensions = {}
     for dep in ctx.attrs.libraries:
@@ -165,6 +168,11 @@ python_wheel = rule(
                 "ovr_config//third-party/python/constraints:3.8": "py3.8",
                 "ovr_config//third-party/python/constraints:3.9": "py3.9",
             }),
+        ),
+        extra_metadata = attrs.dict(
+            key = attrs.string(),
+            value = attrs.string(),
+            default = {},
         ),
         abi = attrs.string(default = "none"),
         platform = attrs.string(
