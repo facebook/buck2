@@ -407,7 +407,7 @@ impl Buck {
     pub fn check_saved_file(
         &self,
         use_clippy: bool,
-        saved_filed: &Path,
+        saved_file: &Path,
     ) -> Result<Vec<PathBuf>, anyhow::Error> {
         let mut command = self.bxl_command();
 
@@ -420,9 +420,16 @@ impl Buck {
             "-c=rust.failure_filter=true",
         ]);
 
+        let mut file_path = saved_file.to_owned();
+        if !file_path.is_absolute() {
+            if let Ok(cwd) = std::env::current_dir() {
+                file_path = cwd.join(saved_file);
+            }
+        }
+
         // apply BXL scripts-specific arguments:
         command.args(["--", "--file"]);
-        command.arg(saved_filed.as_os_str());
+        command.arg(file_path.as_os_str());
 
         command.args(["--use-clippy", &use_clippy.to_string()]);
 
