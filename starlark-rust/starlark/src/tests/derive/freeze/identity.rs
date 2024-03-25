@@ -15,8 +15,37 @@
  * limitations under the License.
  */
 
+use starlark::values::Freeze;
+
 use crate as starlark;
-use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenHeap;
 
 #[derive(Freeze)]
-struct TestUnitStruct;
+struct TestStruct {
+    s: String,
+    #[freeze(identity)]
+    s2: String,
+}
+
+#[derive(Freeze)]
+struct TestUnitStruct(String, #[freeze(identity)] String);
+
+#[test]
+fn test_struct() -> anyhow::Result<()> {
+    let t = TestStruct {
+        s: "test".to_owned(),
+        s2: "test2".to_owned(),
+    };
+    let freezer = Freezer::new(FrozenHeap::new());
+    t.freeze(&freezer)?;
+    Ok(())
+}
+
+#[test]
+fn test_anon_struct() -> anyhow::Result<()> {
+    let t = TestUnitStruct("test".to_owned(), "test2".to_owned());
+    let freezer = Freezer::new(FrozenHeap::new());
+    t.freeze(&freezer)?;
+    Ok(())
+}
