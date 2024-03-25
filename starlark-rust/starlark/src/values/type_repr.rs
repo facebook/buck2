@@ -31,6 +31,24 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 
 /// Provides a starlark type representation, even if StarlarkValue is not implemented.
+///
+/// # Derive
+///
+/// There is `#[derive(StarlarkTypeRepr)]` for enums, for example:
+///
+/// ```
+/// use starlark::values::type_repr::StarlarkTypeRepr;
+///
+/// #[derive(StarlarkTypeRepr)]
+/// enum IntOrString {
+///     Int(i32),
+///     String(String),
+/// }
+/// ```
+///
+/// It emits type `int | str`.
+///
+/// This derive is useful in combination with derive of [`UnpackValue`](crate::values::UnpackValue).
 pub trait StarlarkTypeRepr {
     /// The representation of a type that a user would use verbatim in starlark type annotations
     fn starlark_type_repr() -> Ty;
