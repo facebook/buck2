@@ -35,6 +35,7 @@ load(
     "@prelude//apple/swift:swift_runtime.bzl",
     "create_swift_runtime_linkable",
 )
+load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
@@ -145,6 +146,7 @@ load(
     "cxx_objects_sub_targets",
     "cxx_platform_supported",
     "cxx_use_shlib_intfs",
+    "cxx_use_shlib_intfs_mode",
 )
 load(":cxx_toolchain_types.bzl", "ShlibInterfacesMode", "is_bitcode_format")
 load(
@@ -195,6 +197,7 @@ load(
 )
 load(
     ":shared_library_interface.bzl",
+    "create_tbd",
     "shared_library_interface",
 )
 
@@ -434,6 +437,20 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_providers.compilation_database:
         comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
         providers.append(comp_db_info)
+
+    # TBD generation is done per-target for stub_from_headers mode and collected at link time.
+    if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
+        if impl_params.shared_library_interface_target == None:
+            fail("tbd generation requires setting the cxx constructor param 'shared_library_interface_target'")
+
+        tbd = create_tbd(
+            ctx,
+            cxx_attr_exported_headers(ctx, impl_params.headers_layout),
+            own_exported_preprocessor_info,
+            inherited_exported_preprocessor_infos,
+            impl_params.shared_library_interface_target,
+        )
+        sub_targets["tbd"] = [tbd]
 
     # Link Groups
     link_group = get_link_group(ctx)

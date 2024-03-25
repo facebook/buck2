@@ -262,7 +262,7 @@ def compile_swift(
     output_tbd = None
 
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
-        output_tbd = ctx.actions.declare_output(module_name + ".tbd")
+        output_tbd = ctx.actions.declare_output("__tbd__/" + module_name + "-swift.tbd")
 
     if toolchain.can_toolchain_emit_obj_c_header_textually:
         _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_tbd)

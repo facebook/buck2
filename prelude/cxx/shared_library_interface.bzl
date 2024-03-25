@@ -6,8 +6,10 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorInfo")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(":headers.bzl", "CHeader")
 
 def _shared_library_interface(
         ctx: AnalysisContext,
@@ -80,3 +82,55 @@ def shared_library_interface(
             shared_lib = shared_lib,
             identifier = shared_lib.short_path,
         )
+
+def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_preprocessor: CPreprocessor, transitive_preprocessor: list[CPreprocessorInfo], target: str) -> DefaultInfo:
+    # Use the c++ compiler to correctly generate c++ symbols.
+    compiler_info = get_cxx_toolchain_info(ctx).cxx_compiler_info
+
+    # Collect the exported headers for this library and create a filelist for them.
+    # The exported headers are possibly hidden behind a modulemap,
+    # so cannot be fetched directly from exported_preprocessor.
+    filelist_headers = []
+    for h in exported_headers:
+        filelist_headers.append({
+            "path": h.artifact,
+            "type": "public",
+        })
+    filelist_contents = {
+        "headers": filelist_headers,
+        "version": "2",
+    }
+    filelist = ctx.actions.write_json(
+        paths.join("__tbd__", ctx.attrs.name + "_exported_headers.json"),
+        filelist_contents,
+        with_inputs = True,
+    )
+
+    # Run the shlib interface tool with the filelist and required args
+    tbd_file = ctx.actions.declare_output(
+        paths.join("__tbd__", ctx.attrs.name + ".tbd"),
+    )
+    args = cmd_args(get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf[RunInfo])
+    args.add([
+        "installapi",
+        cmd_args(filelist, format = "--filelist={}"),
+        "-o",
+        tbd_file.as_output(),
+        "-ObjC++",
+        "--target=" + target,
+        "-install_name",
+        ctx.attrs.name,
+    ])
+    args.add(cmd_args(compiler_info.preprocessor_flags, prepend = "-Xparser"))
+    args.add(cmd_args(compiler_info.compiler_flags, prepend = "-Xparser"))
+    args.add(cmd_args(exported_preprocessor.relative_args.args, prepend = "-Xparser"))
+    for ppinfo in transitive_preprocessor:
+        args.add(cmd_args(ppinfo.set.project_as_args("args"), prepend = "-Xparser"))
+
+    ctx.actions.run(
+        args,
+        category = "generate_tbd",
+        identifier = ctx.attrs.name,
+    )
+
+    return DefaultInfo(default_output = tbd_file)
