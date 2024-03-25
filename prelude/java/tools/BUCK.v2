@@ -77,7 +77,7 @@ prelude.python_bootstrap_library(
     ],
     visibility = [
         "prelude//android/tools/...",
-        "prelude//kotlin/tools/...",
         "prelude//java/tools/...",
+        "prelude//kotlin/tools/...",
     ],
 )

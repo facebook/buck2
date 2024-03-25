@@ -28,17 +28,17 @@ prelude.python_bootstrap_binary(
 
 dist_lto_tools(
     name = "dist_lto_tools",
-    planner = ":dist_lto_planner",
-    opt = ":dist_lto_opt",
-    prepare = ":dist_lto_prepare",
     copy = ":dist_lto_copy",
+    opt = ":dist_lto_opt",
+    planner = ":dist_lto_planner",
+    prepare = ":dist_lto_prepare",
     visibility = ["PUBLIC"],
 )
 
 prelude.python_test(
     name = "test_dist_lto_opt",
     srcs = [
-        "tests/test_dist_lto_opt.py",
         "dist_lto_opt.py",
+        "tests/test_dist_lto_opt.py",
     ],
 )

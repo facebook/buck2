@@ -23,6 +23,6 @@ rust_library(
 
 rust_library(
     name = "f",
-    crate_root = "lib_f.rs",
     srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
 )

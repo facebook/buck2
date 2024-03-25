@@ -14,8 +14,8 @@ meta_python_test(
 python_library(
     name = "process",
     srcs = ["process.py"],
-    deps = ["prelude//apple/tools:plistlib_utils"],
     visibility = ["PUBLIC"],
+    deps = ["prelude//apple/tools:plistlib_utils"],
 )
 
 meta_python_test(
@@ -27,9 +27,9 @@ meta_python_test(
 python_binary(
     name = "tool",
     main = "main.py",
+    visibility = ["PUBLIC"],
     deps = [
         ":preprocess",
         ":process",
     ],
-    visibility = ["PUBLIC"],
 )

@@ -5,8 +5,8 @@ prelude.python_bootstrap_binary(
     main = "unpack_aar.py",
     visibility = ["PUBLIC"],
     deps = [
-        ":unpack_aar_lib",
         "prelude//java/tools:utils_lib",
+        ":unpack_aar_lib",
     ],
 )
 

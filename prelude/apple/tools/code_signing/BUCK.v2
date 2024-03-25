@@ -11,11 +11,11 @@ python_library(
             "main.py",
         ],
     ),
+    visibility = ["PUBLIC"],
     deps = [
         "prelude//apple/tools:plistlib_utils",
         "prelude//apple/tools/info_plist_processor:process",
     ],
-    visibility = ["PUBLIC"],
 )
 
 meta_python_test(
