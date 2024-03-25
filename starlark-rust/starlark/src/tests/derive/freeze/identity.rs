@@ -21,21 +21,23 @@ use crate as starlark;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 
+struct NonFreeze(u32);
+
 #[derive(Freeze)]
 struct TestStruct {
     s: String,
     #[freeze(identity)]
-    s2: String,
+    s2: NonFreeze,
 }
 
 #[derive(Freeze)]
-struct TestUnitStruct(String, #[freeze(identity)] String);
+struct TestUnitStruct(String, #[freeze(identity)] NonFreeze);
 
 #[test]
 fn test_struct() -> anyhow::Result<()> {
     let t = TestStruct {
         s: "test".to_owned(),
-        s2: "test2".to_owned(),
+        s2: NonFreeze(55),
     };
     let freezer = Freezer::new(FrozenHeap::new());
     t.freeze(&freezer)?;
@@ -44,7 +46,7 @@ fn test_struct() -> anyhow::Result<()> {
 
 #[test]
 fn test_anon_struct() -> anyhow::Result<()> {
-    let t = TestUnitStruct("test".to_owned(), "test2".to_owned());
+    let t = TestUnitStruct("test".to_owned(), NonFreeze(56));
     let freezer = Freezer::new(FrozenHeap::new());
     t.freeze(&freezer)?;
     Ok(())
