@@ -161,6 +161,12 @@ def cxx_use_shlib_intfs(ctx: AnalysisContext) -> bool:
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return linker_info.shlib_interfaces != ShlibInterfacesMode("disabled")
 
+def cxx_use_shlib_intfs_mode(ctx: AnalysisContext, mode: ShlibInterfacesMode) -> bool:
+    """
+    Verify we are using a specific shared library interface mode.
+    """
+    return cxx_use_shlib_intfs(ctx) and get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces == mode
+
 def cxx_platform_supported(ctx: AnalysisContext) -> bool:
     """
     Return whether this rule's `supported_platforms_regex` matches the current

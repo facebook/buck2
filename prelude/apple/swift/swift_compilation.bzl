@@ -21,8 +21,7 @@ load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "ShlibInterfacesMode")
 load("@prelude//cxx:headers.bzl", "CHeader")
 load(
@@ -262,8 +261,7 @@ def compile_swift(
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
     output_tbd = None
 
-    if cxx_use_shlib_intfs(ctx) and \
-       get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces == ShlibInterfacesMode("stub_from_headers"):
+    if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         output_tbd = ctx.actions.declare_output(module_name + ".tbd")
 
     if toolchain.can_toolchain_emit_obj_c_header_textually:
