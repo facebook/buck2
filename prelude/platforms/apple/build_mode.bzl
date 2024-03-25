@@ -27,3 +27,6 @@ BUILD_MODE = struct(
     # @oss-disable: PRODUCTION = BUILD_MODE_PRODUCTION, 
     # @oss-disable: PROFILE = BUILD_MODE_PROFILE, 
 )
+
+# @oss-enable CONSTRAINT_PACKAGE = "prelude//platforms/apple/constraints"
+# @oss-disable: CONSTRAINT_PACKAGE = "ovr_config//build_mode/apple/constraints" 
