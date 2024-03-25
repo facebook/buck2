@@ -16,8 +16,8 @@ load(
 load(":platform.bzl", "cxx_by_platform")
 
 # The source files
-def get_srcs_with_flags(ctx: AnalysisContext) -> list[CxxSrcWithFlags]:
-    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs))
+def get_srcs_with_flags(ctx: AnalysisContext, additional_srcs: list = []) -> list[CxxSrcWithFlags]:
+    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs)) + additional_srcs
 
     # src -> flags_hash -> flags
     flags_sets_by_src = {}

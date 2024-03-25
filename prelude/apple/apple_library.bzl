@@ -69,6 +69,7 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//apple/mockingbird/mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryInfoTSet", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo", "MockingbirdTargetType")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
@@ -142,15 +143,57 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             deps_providers,
         )
         output = cxx_library_parameterized(ctx, constructor_params)
-        return output.providers
+
+        return output.providers + [_make_mockingbird_library_info_provider(ctx)]
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])
 
+def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> MockingbirdLibraryInfo:
+    _, swift_sources = _filter_swift_srcs(ctx)
+
+    all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
+    deps_mockingbird_infos = filter(None, [dep.get(MockingbirdLibraryInfo) for dep in all_deps])
+
+    children = []
+    dep_names = []
+    for info in deps_mockingbird_infos:
+        dep_names.append(info.name)
+        children.append(info.tset)
+
+    mockingbird_srcs_folder = ctx.actions.declare_output("mockingbird_srcs" + "_" + ctx.attrs.name, dir = True)
+
+    ctx.actions.symlinked_dir(
+        mockingbird_srcs_folder,
+        {source.file.basename: source.file for source in swift_sources},
+    )
+
+    mockingbird_record = MockingbirdLibraryRecord(
+        name = ctx.attrs.name,
+        srcs = [src.file for src in swift_sources],
+        dep_names = dep_names,
+        type = MockingbirdTargetType("library"),
+        src_dir = mockingbird_srcs_folder,
+    )
+
+    mockingbird_tset = ctx.actions.tset(MockingbirdLibraryInfoTSet, value = mockingbird_record, children = children)
+
+    return MockingbirdLibraryInfo(
+        name = ctx.attrs.name,
+        tset = mockingbird_tset,
+    )
+
 def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams:
-    cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
+    mockingbird_gen_sources = []
+    if is_test_target:
+        for dep in cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx):
+            if MockingbirdSourcesInfo in dep:
+                for src in dep[MockingbirdSourcesInfo].srcs:
+                    mockingbird_gen_sources.append(src)
+
+    cxx_srcs, swift_srcs = _filter_swift_srcs(ctx, mockingbird_gen_sources)
 
     # First create a modulemap if necessary. This is required for importing
     # ObjC code in Swift so must be done before Swift compilation.
@@ -311,10 +354,10 @@ def _get_extra_linker_flags_and_outputs(
     # @oss-disable: return add_extra_linker_outputs(ctx) 
     return [], {} # @oss-enable
 
-def _filter_swift_srcs(ctx: AnalysisContext) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
+def _filter_swift_srcs(ctx: AnalysisContext, additional_srcs: list = []) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []
     swift_srcs = []
-    for s in get_srcs_with_flags(ctx):
+    for s in get_srcs_with_flags(ctx, additional_srcs):
         if s.file.extension == SWIFT_EXTENSION:
             swift_srcs.append(s)
         else:

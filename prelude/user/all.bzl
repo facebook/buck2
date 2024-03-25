@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple/mockingbird:mockingbird_mock.bzl", _mockingbird_mock_spec = "registration_spec")
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_selective_debugging.bzl", _apple_selective_debugging_spec = "registration_spec")
 load("@prelude//apple/user:apple_simulators.bzl", _apple_simulators_spec = "registration_spec")
@@ -32,6 +33,7 @@ _all_specs = [
     _cxx_toolchain_override_inheriting_target_platform_spec,
     _apple_simulators_spec,
     _write_file_spec,
+    _mockingbird_mock_spec,
 ]
 
 rules = {
