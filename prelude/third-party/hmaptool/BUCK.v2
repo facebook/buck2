@@ -1,10 +1,12 @@
-native.export_file(
+prelude = native  # Avoid warnings and auto-formatters
+
+prelude.export_file(
     name = "_hmaptool",
     src = "hmaptool",
     mode = "reference",
 )
 
-native.command_alias(
+prelude.command_alias(
     name = "hmaptool",
     exe = ":_hmaptool",
     visibility = ["PUBLIC"],
