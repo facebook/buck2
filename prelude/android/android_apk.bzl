@@ -71,7 +71,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             r_dot_java_packages = set([info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]),
             shared_libraries = set(native_library_info.shared_libraries),
         ),
-        DefaultInfo(default_output = default_output, other_outputs = install_info.files.values(), sub_targets = sub_targets | class_to_srcs_subtargets),
+        DefaultInfo(default_output = default_output, other_outputs = install_info.files.values() + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         install_info,
         TemplatePlaceholderInfo(
             keyed_variables = {
