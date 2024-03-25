@@ -137,6 +137,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 resources_info.proguard_config_file,
                 [no_dx[DefaultInfo].default_outputs[0] for no_dx in ctx.attrs.no_dx if len(no_dx[DefaultInfo].default_outputs) == 1],
             )
+            materialized_artifacts.extend(proguard_output.proguard_artifacts)
             jars_to_owners = proguard_output.jars_to_owners
             dir_srcs = {artifact.basename: artifact for artifact in proguard_output.proguard_artifacts}
             for i, hidden_artifact in enumerate(proguard_output.proguard_hidden_artifacts):
