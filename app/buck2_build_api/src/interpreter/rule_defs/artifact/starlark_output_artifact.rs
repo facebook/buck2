@@ -14,10 +14,8 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use dupe::Dupe;
-use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -29,7 +27,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
@@ -87,23 +84,17 @@ impl Display for FrozenStarlarkOutputArtifact {
 
 /// A wrapper for `UnpackValue` that accepts either an output artifact,
 /// or an artifact declared in the same rule.
-pub struct StarlarkOutputOrDeclaredArtifact<'v>(pub StarlarkOutputArtifact<'v>);
-
-impl<'v> StarlarkTypeRepr for StarlarkOutputOrDeclaredArtifact<'v> {
-    fn starlark_type_repr() -> Ty {
-        Either::<StarlarkOutputArtifact, StarlarkDeclaredArtifact>::starlark_type_repr()
-    }
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub enum StarlarkOutputOrDeclaredArtifact<'v> {
+    Output(&'v StarlarkOutputArtifact<'v>),
+    Declared(&'v StarlarkDeclaredArtifact),
 }
 
-impl<'v> UnpackValue<'v> for StarlarkOutputOrDeclaredArtifact<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        #[allow(clippy::manual_map)]
-        if let Some(x) = value.downcast_ref::<StarlarkOutputArtifact>() {
-            Some(Self(x.dupe()))
-        } else if let Some(x) = ValueTyped::<StarlarkDeclaredArtifact>::new(value) {
-            Some(Self(StarlarkOutputArtifact::new(x)))
-        } else {
-            None
+impl<'v> StarlarkOutputOrDeclaredArtifact<'v> {
+    pub fn output_artifact(&self) -> OutputArtifact {
+        match self {
+            StarlarkOutputOrDeclaredArtifact::Output(x) => x.artifact(),
+            StarlarkOutputOrDeclaredArtifact::Declared(x) => x.output_artifact(),
         }
     }
 }

@@ -1040,7 +1040,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             .iter()
             .map(|x| x.artifact())
             .collect::<anyhow::Result<_>>()?;
-        let outputs = outputs.items.iter().map(|x| x.0.artifact()).collect();
+        let outputs = outputs.items.iter().map(|x| x.output_artifact()).collect();
 
         // Registration
         let attributes_plugins_lambda = heap.alloc_complex(DynamicLambdaParams {
