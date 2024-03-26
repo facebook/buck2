@@ -893,7 +893,7 @@ impl<'v> Tracer<'v> {
     /// Helper function to annotate that this field has been considered for tracing,
     /// but is not relevant because it has a static lifetime containing no relevant values.
     /// Does nothing.
-    pub fn trace_static<T: 'static>(&self, value: &T) {
+    pub fn trace_static<T: ?Sized + 'static>(&self, value: &T) {
         // Nothing to do because T can't contain the lifetime 'v
         let _ = value;
     }
