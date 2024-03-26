@@ -803,18 +803,17 @@ def _symbol_flags_for_link_groups(
 
 def create_link_groups(
         ctx: AnalysisContext,
+        public_nodes: set_record,
         link_groups: dict[str, Group] = {},
         link_group_specs: list[LinkGroupLibSpec] = [],
         executable_deps: list[Label] = [],
         other_roots: list[Label] = [],
-        root_link_group: [str, None] = None,
         linker_flags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
         link_group_preferred_linkage: dict[Label, Linkage] = {},
         link_group_mappings: [dict[Label, str], None] = None,
         anonymous: bool = False,
-        public_nodes: [set_record, None] = None,
         allow_cache_upload = False) -> _LinkedLinkGroups:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
@@ -837,13 +836,6 @@ def create_link_groups(
     linked_link_groups = {}
     undefined_symfiles = []
     global_symfiles = []
-
-    public_nodes = public_nodes or get_public_link_group_nodes(
-        linkable_graph_node_map,
-        link_group_mappings,
-        executable_deps + other_roots,
-        root_link_group,
-    )
 
     for link_group_spec in specs:
         # NOTE(agallagher): It might make sense to move this down to be
