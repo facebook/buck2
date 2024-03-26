@@ -135,7 +135,6 @@ load(
     "get_link_group",
     "get_link_group_map_json",
     "get_link_group_preferred_linkage",
-    "get_public_link_group_nodes",
     "get_transitive_deps_matching_labels",
     "is_link_group_shlib",
 )
@@ -314,13 +313,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         # If we're using auto-link-groups, where we generate the link group links
         # in the prelude, the link group map will give us the link group libs.
         # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
-
-        public_link_group_nodes = get_public_link_group_nodes(
-            linkable_graph_node_map,
-            link_group_mappings,
-            exec_dep_roots + link_group_extra_link_roots,
-            link_group,
-        )
         if impl_params.auto_link_group_specs != None:
             linked_link_groups = create_link_groups(
                 ctx = ctx,
@@ -336,7 +328,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 prefer_stripped_objects = impl_params.prefer_stripped_objects,
                 anonymous = ctx.attrs.anonymous_link_groups,
                 allow_cache_upload = impl_params.exe_allow_cache_upload,
-                public_nodes = public_link_group_nodes,
             )
             for name, linked_link_group in linked_link_groups.libs.items():
                 auto_link_groups[name] = linked_link_group.artifact
@@ -358,7 +349,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         # scenarios for which we need to propagate up link info and simplify this logic. For now
         # base which links to use based on whether link groups are defined.
         labels_to_links_map = get_filtered_labels_to_links_map(
-            public_link_group_nodes,
             linkable_graph_node_map,
             link_group,
             link_groups,
@@ -388,7 +378,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
             # from the root again to ensure we link in gtest deps
             labels_to_links_map = labels_to_links_map | get_filtered_labels_to_links_map(
-                public_link_group_nodes,
                 linkable_graph_node_map,
                 None,
                 link_groups,

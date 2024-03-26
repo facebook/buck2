@@ -448,8 +448,6 @@ def inherited_rust_cxx_link_group_info(
             link_group_libs[name] = linked_link_group.library
 
     labels_to_links_map = get_filtered_labels_to_links_map(
-        # TODO(patskovn): catch duplicated files in link groups for rust.
-        None,
         linkable_graph_node_map,
         link_group,
         link_groups,
