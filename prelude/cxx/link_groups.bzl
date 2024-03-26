@@ -381,7 +381,7 @@ def get_filtered_labels_to_links_map(
     def add_link_group(target: Label, target_group: str):
         # If we've already added this link group to the link line, we're done.
 
-        if public_nodes and public_nodes.contains(target):
+        if link_groups[target_group].attrs.prohibit_file_duplicates and public_nodes and public_nodes.contains(target):
             if target_group not in group_srcs:
                 group_srcs[target_group] = {}
             target_group_srcs = group_srcs[target_group]
@@ -393,7 +393,7 @@ def get_filtered_labels_to_links_map(
                     continue
 
                 previous_target = target_group_srcs.get(src, None)
-                if previous_target:
+                if previous_target and previous_target != target:
                     fail("'{}' artifact included multiple times into '{}' link group. From '{}:{}' and '{}:{}'".format(src, target_group, target.package, target.name, previous_target.package, previous_target.name))
                 else:
                     target_group_srcs[src] = target

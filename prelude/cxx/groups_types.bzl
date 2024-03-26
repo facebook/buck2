@@ -81,6 +81,10 @@ GroupAttrs = record(
     # Requires root nodes in specs to always exist in dependency graph.
     # Otherwise fails.
     requires_root_node_exists = field(bool, True),
+    # For certain wide-scale generic link groups we want to enable
+    # initial duplicate analysis. This is useful for detecting dduplicated symbols problem early
+    # for automatoc link groups that we not aware about (e.g. evicting whole root package folder into link group)
+    prohibit_file_duplicates = field(bool, False),
 )
 
 # Types of group traversal

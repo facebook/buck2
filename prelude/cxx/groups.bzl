@@ -44,6 +44,7 @@ _VALID_ATTRS = [
     "discard_group",
     "linker_flags",
     "requires_root_node_exists",
+    "prohibit_file_duplicates",
 ]
 
 # Creates a group from an existing group, overwriting any properties provided
@@ -81,6 +82,7 @@ def parse_groups_definitions(
             discard_group = attrs.get("discard_group", False),
             linker_flags = attrs.get("linker_flags", []),
             requires_root_node_exists = attrs.get("requires_root_node_exists", True),
+            prohibit_file_duplicates = attrs.get("prohibit_file_duplicates", False),
         )
 
         parsed_mappings = []
