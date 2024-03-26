@@ -23,7 +23,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -42,27 +41,26 @@ def main(argv):
         goroot = os.path.realpath(goroot)
 
     # Run `go list` to filter input sources by build pragmas.
-    with tempfile.TemporaryDirectory() as go_cache_dir:
-        out = subprocess.check_output(
-            [
-                "env",
-                "-i",
-                "GOROOT={}".format(goroot),
-                "GOARCH={}".format(os.environ.get("GOARCH", "")),
-                "GOOS={}".format(os.environ.get("GOOS", "")),
-                "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
-                "GO111MODULE=off",
-                "GOCACHE=" + go_cache_dir,
-                args.go.resolve(),
-                "list",
-                "-e",
-                "-json",
-                "-tags",
-                args.tags,
-                ".",
-            ],
-            cwd=args.srcdir,
-        ).decode("utf-8")
+    out = subprocess.check_output(
+        [
+            "env",
+            "-i",
+            "GOROOT={}".format(goroot),
+            "GOARCH={}".format(os.environ.get("GOARCH", "")),
+            "GOOS={}".format(os.environ.get("GOOS", "")),
+            "CGO_ENABLED={}".format(os.environ.get("CGO_ENABLED", "0")),
+            "GO111MODULE=off",
+            "GOCACHE=" + os.path.realpath(os.environ.get("BUCK_SCRATCH_PATH")),
+            args.go.resolve(),
+            "list",
+            "-e",
+            "-json=GoFiles,SFiles,TestGoFiles,XTestGoFiles,EmbedFiles",
+            "-tags",
+            args.tags,
+            ".",
+        ],
+        cwd=args.srcdir,
+    ).decode("utf-8")
 
     # Parse JSON output and print out sources.
     idx = 0
