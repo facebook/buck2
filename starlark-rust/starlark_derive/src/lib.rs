@@ -27,7 +27,6 @@ mod attrs;
 mod bc;
 mod coerce;
 mod docs;
-mod for_each_field;
 mod freeze;
 mod module;
 mod serde;
@@ -35,6 +34,7 @@ mod starlark_type_repr;
 mod starlark_value;
 mod trace;
 mod unpack_value;
+mod util;
 mod visit_span;
 mod vtable;
 

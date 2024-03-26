@@ -17,25 +17,20 @@
 
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
-use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
 use syn::parse::ParseStream;
 use syn::parse_macro_input;
 use syn::spanned::Spanned;
 use syn::Attribute;
-use syn::Data;
-use syn::DataEnum;
-use syn::DataStruct;
 use syn::DeriveInput;
 use syn::Error;
-use syn::Fields;
 use syn::GenericParam;
-use syn::Index;
 use syn::LitStr;
 use syn::Token;
-use syn::Variant;
 use syn::WherePredicate;
+
+use crate::util::DeriveInputUtil;
 
 struct Input<'a> {
     input: &'a DeriveInput,
@@ -121,7 +116,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         None => quote_spanned! { span=> },
     };
 
-    let body = freeze_impl(name, &input.input.data)?;
+    let body = freeze_impl(&input.input)?;
 
     let gen = syn::parse_quote_spanned! {
         span=>
@@ -214,128 +209,26 @@ fn is_identity(attrs: &[Attribute]) -> syn::Result<bool> {
     Ok(false)
 }
 
-fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<syn::Expr> {
-    let span = name.span();
-    let res = match data.fields {
-        Fields::Named(ref fields) => {
-            let xs = fields
-                .named
-                .iter()
-                .map(|f| {
-                    let name = &f.ident;
-                    let res = if is_identity(&f.attrs)? {
-                        quote_spanned! { span=>
-                            #name: self.#name,
-                        }
-                    } else {
-                        quote_spanned! { span=>
-                            #name: starlark::values::Freeze::freeze(self.#name, freezer)?,
-                        }
-                    };
-
-                    syn::Result::Ok(res)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            syn::parse_quote_spanned! {
-                span=>
-                #name {
-                    #(#xs)*
-                }
-            }
-        }
-        Fields::Unnamed(ref fields) => {
-            let xs = fields
-                .unnamed
-                .iter()
-                .enumerate()
-                .map(|(i, f)| {
-                    let i = Index::from(i);
-
-                    let res = if is_identity(&f.attrs)? {
-                        quote_spanned! { span=>
-                            self.#i,
-                        }
-                    } else {
-                        quote_spanned! {
-                            span=>
-                            starlark::values::Freeze::freeze(self.#i, freezer)?,
-                        }
-                    };
-
-                    syn::Result::Ok(res)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            syn::parse_quote_spanned! {
-                span=>
-                #name (
-                    #(#xs)*
-                )
-            }
-        }
-        Fields::Unit => {
-            syn::parse_quote_spanned! { span=> #name }
-        }
-    };
-
-    Ok(res)
-}
-
-fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<syn::Arm> {
-    let span = variant.span();
-    let variant_name = &variant.ident;
-    match &variant.fields {
-        Fields::Unit => Ok(syn::parse_quote_spanned! {
-            span=>
-            #name::#variant_name => #name::#variant_name,
-        }),
-        Fields::Unnamed(fields) => {
-            let field_names: Vec<_> = (0..fields.unnamed.len())
-                .map(|i| format_ident!("f_{}", i))
-                .collect();
-            Ok(syn::parse_quote_spanned! {
-                span=>
-                #name::#variant_name(#(#field_names),*) => {
-                    #name::#variant_name(
-                        #(starlark::values::Freeze::freeze(#field_names, freezer)?),*
-                    )
+fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
+    let derive_input = DeriveInputUtil::new(derive_input)?;
+    derive_input.match_self(|struct_or_enum_variant, fields| {
+        let fields: Vec<syn::Expr> = fields
+            .iter()
+            .map(|(ident, f)| {
+                let span = ident.span();
+                if is_identity(&f.attrs)? {
+                    Ok(syn::parse_quote_spanned! { span=>
+                        #ident
+                    })
+                } else {
+                    Ok(syn::parse_quote_spanned! { span=>
+                        starlark::values::Freeze::freeze(#ident, freezer)?
+                    })
                 }
             })
-        }
-        Fields::Named(field) => {
-            let field_names: Vec<_> = field.named.iter().map(|f| &f.ident).collect();
-            Ok(syn::parse_quote_spanned! {
-                span=>
-                #name::#variant_name { #(#field_names),* } => {
-                    #name::#variant_name {
-                        #(#field_names: starlark::values::Freeze::freeze(#field_names, freezer)?,)*
-                    }
-                }
-            })
-        }
-    }
-}
-
-fn freeze_enum(name: &Ident, data: &DataEnum) -> syn::Result<syn::Expr> {
-    let span = name.span();
-    let variants = data
-        .variants
-        .iter()
-        .map(|v| freeze_enum_variant(name, v))
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(syn::parse_quote_spanned! {
-        span=>
-        match self {
-            #(#variants)*
-        }
+            .collect::<syn::Result<_>>()?;
+        struct_or_enum_variant.construct(fields)
     })
-}
-
-fn freeze_impl(name: &Ident, data: &Data) -> syn::Result<syn::Expr> {
-    match data {
-        Data::Struct(data) => freeze_struct(name, data),
-        Data::Enum(data) => freeze_enum(name, data),
-        Data::Union(_) => Err(Error::new_spanned(name, "Can't derive freeze for unions")),
-    }
 }
 
 pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

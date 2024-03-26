@@ -18,7 +18,6 @@
 use std::collections::HashSet;
 
 use proc_macro2::Span;
-use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
 use syn::parse::ParseStream;
@@ -26,7 +25,6 @@ use syn::parse_macro_input;
 use syn::parse_quote;
 use syn::spanned::Spanned;
 use syn::Attribute;
-use syn::Data;
 use syn::DeriveInput;
 use syn::GenericArgument;
 use syn::GenericParam;
@@ -39,7 +37,7 @@ use syn::TraitBound;
 use syn::Type;
 use syn::TypeParamBound;
 
-use crate::for_each_field::for_each_field;
+use crate::util::DeriveInputUtil;
 
 pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
@@ -66,7 +64,7 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let (impl_generics, _, _) = generics2.split_for_impl();
 
     let name = &input.ident;
-    let body = match trace_impl(&input.data, &input.generics) {
+    let body = match trace_impl(&input, &input.generics) {
         Ok(body) => body,
         Err(e) => {
             return e.to_compile_error().into();
@@ -99,7 +97,7 @@ fn is_ignore(attrs: &[Attribute]) -> bool {
     })
 }
 
-fn trace_impl(data: &Data, generics: &Generics) -> syn::Result<TokenStream> {
+fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<syn::Expr> {
     let generic_types = generics
         .params
         .iter()
@@ -109,7 +107,9 @@ fn trace_impl(data: &Data, generics: &Generics) -> syn::Result<TokenStream> {
         })
         .collect();
 
-    for_each_field(data, |name, field| {
+    let derive_input = DeriveInputUtil::new(derive_input)?;
+
+    derive_input.for_each_field(|name, field| {
         if is_ignore(&field.attrs) {
             Ok(quote! {})
         } else if is_static(&field.ty, &generic_types) {
