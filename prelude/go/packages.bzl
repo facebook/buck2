@@ -9,9 +9,9 @@ load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 
 GoPkg = record(
-    cgo = field(bool, default = False),
     pkg = field(Artifact),
     coverage_vars = field(cmd_args | None, default = None),
+    srcs_list = field(cmd_args | None, default = None),
 )
 
 GoStdlib = provider(

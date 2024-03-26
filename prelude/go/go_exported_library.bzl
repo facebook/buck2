@@ -14,18 +14,20 @@ load(
     "map_val",
     "value_or",
 )
-load(":compile.bzl", "compile", "get_filtered_srcs")
 load(":link.bzl", "GoBuildMode", "link")
+load(":package_builder.bzl", "build_package")
 
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
-    lib = compile(
+    lib = build_package(
         ctx,
         "main",
-        get_filtered_srcs(ctx, ctx.attrs.srcs, ctx.attrs.package_root),
+        ctx.attrs.srcs,
+        package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps,
-        compile_flags = ctx.attrs.compiler_flags,
+        compiler_flags = ctx.attrs.compiler_flags,
         shared = True,
         race = ctx.attrs._race,
+        embedcfg = ctx.attrs.embedcfg,
     )
     (bin, runtime_files, _external_debug_info) = link(
         ctx,

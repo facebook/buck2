@@ -48,9 +48,10 @@ load(
     "@prelude//utils:utils.bzl",
     "map_idx",
 )
-load(":compile.bzl", "GoPkgCompileInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
+load(":compile.bzl", "GoPkgCompileInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
+load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
@@ -218,29 +219,27 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     compiled_objects = c_compile_cmds.pic.objects
 
-    # Merge all sources together to pass to the Go compile step.
-    all_srcs = cmd_args(go_srcs + compiled_objects)
-    if ctx.attrs.go_srcs:
-        all_srcs.add(get_filtered_srcs(ctx, ctx.attrs.go_srcs, ctx.attrs.package_root))
-
     shared = ctx.attrs._compile_shared
     race = ctx.attrs._race
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
     # Build Go library.
-    compiled_pkg = compile(
+    compiled_pkg = build_package(
         ctx,
         pkg_name,
-        all_srcs,
+        ctx.attrs.go_srcs,
+        package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        compiled_objects = compiled_objects,
+        extra_go_files = go_srcs,
         shared = shared,
         race = race,
         coverage_mode = coverage_mode,
+        embedcfg = ctx.attrs.embedcfg,
     )
 
     # Temporarily hack, it seems like we can update record, so create new one
     compiled_pkg = GoPkg(
-        cgo = True,
         pkg = compiled_pkg.pkg,
         coverage_vars = compiled_pkg.coverage_vars,
     )

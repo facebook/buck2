@@ -19,9 +19,10 @@ load(
     "value_or",
 )
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
-load(":compile.bzl", "GoTestInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
+load(":compile.bzl", "GoTestInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "link")
+load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name")
 
 def _gen_test_main(
@@ -67,8 +68,6 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         # TODO: should we assert that pkg_name != None here?
         pkg_name = lib.pkg_name
 
-    srcs = get_filtered_srcs(ctx, srcs, ctx.attrs.package_root, tests = True)
-
     # If coverage is enabled for this test, we need to preprocess the sources
     # with the Go cover tool.
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
@@ -76,15 +75,18 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pkgs = {}
 
     # Compile all tests into a package.
-    tests = compile(
+    tests = build_package(
         ctx,
         pkg_name,
-        srcs,
+        srcs = srcs,
+        package_root = ctx.attrs.package_root,
         deps = deps,
         pkgs = pkgs,
-        compile_flags = ctx.attrs.compiler_flags,
+        compiler_flags = ctx.attrs.compiler_flags,
         coverage_mode = coverage_mode,
         race = ctx.attrs._race,
+        embedcfg = ctx.attrs.embedcfg,
+        tests = True,
     )
 
     if coverage_mode != None:
@@ -100,8 +102,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Generate a main function which runs the tests and build that into another
     # package.
-    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, srcs)
-    main = compile(ctx, "main", cmd_args(gen_main), pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race)
+    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.srcs_list)
+    main = build_package(ctx, "main", [gen_main], package_root = "", pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race)
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(

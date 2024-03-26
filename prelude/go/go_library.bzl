@@ -23,9 +23,10 @@ load(
     "@prelude//utils:utils.bzl",
     "map_idx",
 )
-load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "compile", "get_filtered_srcs", "get_inherited_compile_pkgs")
+load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
+load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -35,22 +36,24 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.srcs:
         pkg_name = go_attr_pkg_name(ctx)
 
-        # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        srcs = get_filtered_srcs(ctx, ctx.attrs.srcs, ctx.attrs.package_root, force_disable_cgo = True)
         shared = ctx.attrs._compile_shared
         race = ctx.attrs._race
         coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
-        pkg = compile(
+        pkg = build_package(
             ctx,
             pkg_name,
-            srcs = srcs,
+            srcs = ctx.attrs.srcs,
+            package_root = ctx.attrs.package_root,
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-            compile_flags = ctx.attrs.compiler_flags,
-            assemble_flags = ctx.attrs.assembler_flags,
+            compiler_flags = ctx.attrs.compiler_flags,
+            assembler_flags = ctx.attrs.assembler_flags,
             shared = shared,
             race = race,
             coverage_mode = coverage_mode,
+            embedcfg = ctx.attrs.embedcfg,
+            # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
+            force_disable_cgo = True,
         )
 
         default_output = pkg.pkg
