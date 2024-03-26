@@ -7,17 +7,12 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
-load("@prelude//cxx:platform.bzl", "cxx_by_platform")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
-)
-load(
-    "@prelude//utils:utils.bzl",
-    "flatten",
 )
 load(
     ":link_info.bzl",
@@ -52,8 +47,6 @@ LinkableRootInfo = provider(
 ###############################################################################
 
 _DisallowConstruction = record()
-_TUPLE_TYPE = type(())
-_TargetSourceType = [Artifact, str, _TUPLE_TYPE]
 
 LinkableNode = record(
     # Attribute labels on the target.
@@ -90,9 +83,6 @@ LinkableNode = record(
     # Records Android's can_be_asset value for the node. This indicates whether the node can be bundled
     # as an asset in android apks.
     can_be_asset = field(bool),
-
-    # Collected target sources from the target.
-    srcs = field(list[_TargetSourceType]),
 
     # Whether the node should appear in the android mergemap (which provides information about the original
     # soname->final merged lib mapping)
@@ -145,14 +135,6 @@ def _get_required_outputs_for_linkage(linkage: Linkage) -> list[LibOutputStyle]:
 
     return get_output_styles_for_linkage(linkage)
 
-def _get_target_sources(ctx: AnalysisContext) -> list[_TargetSourceType]:
-    srcs = []
-    if hasattr(ctx.attrs, "srcs"):
-        srcs.extend(ctx.attrs.srcs)
-    if hasattr(ctx.attrs, "platform_srcs"):
-        srcs.extend(flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs)))
-    return srcs
-
 def create_linkable_node(
         ctx: AnalysisContext,
         default_soname: str | None,
@@ -182,7 +164,6 @@ def create_linkable_node(
         link_infos = link_infos,
         shared_libs = shared_libs,
         can_be_asset = can_be_asset,
-        srcs = _get_target_sources(ctx),
         include_in_android_mergemap = include_in_android_mergemap,
         default_soname = default_soname,
         linker_flags = linker_flags,
