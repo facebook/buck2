@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#![allow(dead_code)]
+
 use starlark::values::Freeze;
 
 use crate as starlark;
@@ -32,6 +34,12 @@ struct TestStruct {
 
 #[derive(Freeze)]
 struct TestUnitStruct(String, #[freeze(identity)] NonFreeze);
+
+#[derive(Freeze)]
+enum TestEnum {
+    A(String),
+    B(#[freeze(identity)] NonFreeze),
+}
 
 #[test]
 fn test_struct() -> anyhow::Result<()> {
