@@ -264,6 +264,8 @@ pub(crate) enum CommandKind {
     Aquery(AqueryCommand),
     Build(BuildCommand),
     Bxl(BxlCommand),
+    // TODO(nga): implement `buck2 help-buckconfig` too
+    //   https://www.internalfb.com/tasks/?t=183528129
     HelpEnv(HelpEnvCommand),
     Test(TestCommand),
     Cquery(CqueryCommand),
