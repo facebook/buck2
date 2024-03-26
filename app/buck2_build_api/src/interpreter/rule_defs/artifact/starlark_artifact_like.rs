@@ -13,17 +13,23 @@ use std::hash::Hasher;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::collections::StarlarkHasher;
 use starlark::typing::Ty;
+use starlark::values::list::ListOf;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::Heap;
+use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
+use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
@@ -86,6 +92,31 @@ pub trait StarlarkArtifactLike: Display {
 
     /// Gets the artifact group.
     fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup>;
+
+    fn basename<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>>;
+
+    fn extension<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>>;
+
+    fn is_source<'v>(&'v self) -> anyhow::Result<bool>;
+
+    fn owner<'v>(&'v self) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>>;
+
+    fn short_path<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>>;
+
+    fn as_output<'v>(&'v self, this: Value<'v>) -> anyhow::Result<StarlarkOutputArtifact<'v>>;
+
+    fn project<'v>(
+        &'v self,
+        path: &str,
+        hide_prefix: bool,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact>;
+
+    fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact>;
+
+    fn with_associated_artifacts<'v>(
+        &'v self,
+        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+    ) -> anyhow::Result<EitherStarlarkArtifact>;
 }
 
 /// Helper type to unpack artifacts.

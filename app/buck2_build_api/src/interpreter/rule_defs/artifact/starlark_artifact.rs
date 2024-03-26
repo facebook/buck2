@@ -23,7 +23,6 @@ use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
-use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::list::ListOf;
 use starlark::values::starlark_value;
@@ -36,10 +35,13 @@ use starlark::values::Value;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
+use crate::interpreter::rule_defs::artifact::methods::artifact_methods;
+use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -161,6 +163,83 @@ impl StarlarkArtifactLike for StarlarkArtifact {
 
     fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup> {
         Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
+    }
+
+    fn basename<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+        StarlarkArtifactHelpers::basename(&self.artifact, heap)
+    }
+
+    fn extension<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+        StarlarkArtifactHelpers::extension(&self.artifact, heap)
+    }
+
+    fn is_source<'v>(&'v self) -> anyhow::Result<bool> {
+        Ok(self.artifact.is_source())
+    }
+
+    fn owner<'v>(&'v self) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
+        StarlarkArtifactHelpers::owner(&self.artifact)
+    }
+
+    fn short_path<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+        StarlarkArtifactHelpers::short_path(&self.artifact, heap)
+    }
+
+    fn as_output<'v>(&'v self, _this: Value<'v>) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
+        match self.artifact.as_parts().0 {
+            BaseArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
+                repr: self.to_string(),
+            }
+            .into()),
+            BaseArtifactKind::Build(b) => Err(ArtifactError::BoundArtifactAsOutput {
+                artifact_repr: self.to_string(),
+                existing_owner: b.get_path().owner().dupe(),
+            }
+            .into()),
+        }
+    }
+
+    fn project<'v>(
+        &'v self,
+        path: &str,
+        hide_prefix: bool,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        let _ignored = hide_prefix;
+
+        let err = anyhow::Error::from(match self.artifact.owner() {
+            Some(owner) => CannotProject::DeclaredElsewhere(owner.dupe()),
+            None => CannotProject::SourceArtifact,
+        });
+
+        Err(err.context(format!(
+            "Cannot project path `{}` in artifact `{}`",
+            path, self
+        )))
+    }
+
+    fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact> {
+        Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
+            artifact: self.artifact.dupe(),
+            associated_artifacts: AssociatedArtifacts::new(),
+        }))
+    }
+
+    fn with_associated_artifacts<'v>(
+        &'v self,
+        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+    ) -> anyhow::Result<EitherStarlarkArtifact> {
+        let artifacts = artifacts
+            .to_vec()
+            .iter()
+            .map(|a| a.0.get_artifact_group())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let artifacts = AssociatedArtifacts::from(artifacts);
+
+        Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
+            artifact: self.artifact.dupe(),
+            associated_artifacts: self.associated_artifacts.union(artifacts),
+        }))
     }
 }
 
@@ -285,117 +364,5 @@ impl StarlarkArtifactHelpers {
             None => heap.alloc_str(""),
             Some(x) => heap.alloc_str_concat(".", x),
         }
-    }
-}
-
-/// A single input or output file for an action.
-///
-/// There is no `.parent` method on `artifact`, but in most cases
-/// `cmd_args(my_artifact).parent()` can be used to similar effect.
-#[starlark_module]
-fn artifact_methods(builder: &mut MethodsBuilder) {
-    /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
-    #[starlark(attribute)]
-    fn basename<'v>(this: &'v StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::basename(&this.artifact, heap)
-    }
-
-    /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
-    /// this is `.sh`. If no extension is present, `""` is returned.
-    #[starlark(attribute)]
-    fn extension<'v>(this: &StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::extension(&this.artifact, heap)
-    }
-
-    /// Whether the artifact represents a source file
-    #[starlark(attribute)]
-    fn is_source(this: &StarlarkArtifact) -> anyhow::Result<bool> {
-        Ok(this.artifact.is_source())
-    }
-
-    /// The `Label` of the rule that originally created this artifact. May also be None in
-    /// the case of source files, or if the artifact has not be used in an action, or if the
-    /// action was not created by a rule.
-    #[starlark(attribute)]
-    fn owner<'v>(
-        this: &StarlarkArtifact,
-    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
-        StarlarkArtifactHelpers::owner(&this.artifact)
-    }
-
-    /// The interesting part of the path, relative to somewhere in the output directory.
-    /// For an artifact declared as `foo/bar`, this is `foo/bar`.
-    #[starlark(attribute)]
-    fn short_path<'v>(this: &'v StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
-        StarlarkArtifactHelpers::short_path(&this.artifact, heap)
-    }
-
-    /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
-    /// either an `Artifact`, or is a bound `Artifact` (You cannot bind twice)
-    fn as_output<'v>(this: &'v StarlarkArtifact) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
-        match this.artifact.as_parts().0 {
-            BaseArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
-                repr: this.to_string(),
-            }
-            .into()),
-            BaseArtifactKind::Build(b) => Err(ArtifactError::BoundArtifactAsOutput {
-                artifact_repr: this.to_string(),
-                existing_owner: b.get_path().owner().dupe(),
-            }
-            .into()),
-        }
-    }
-
-    /// Create an artifact that lives at path relative from this artifact.
-    ///
-    /// For example, if artifact foo is a directory containing a file bar, then `foo.project("bar")`
-    /// yields the file bar. It is possible for projected artifacts to hide the prefix in order to
-    /// have the short name of the resulting artifact only contain the projected path, by passing
-    /// `hide_prefix = True` to `project()`.
-    fn project<'v>(
-        this: &'v StarlarkArtifact,
-        #[starlark(require = pos)] path: &str,
-        #[starlark(require = named, default = false)] hide_prefix: bool,
-    ) -> anyhow::Result<StarlarkArtifact> {
-        let _ignored = hide_prefix;
-
-        let err = anyhow::Error::from(match this.artifact.owner() {
-            Some(owner) => CannotProject::DeclaredElsewhere(owner.dupe()),
-            None => CannotProject::SourceArtifact,
-        });
-
-        Err(err.context(format!(
-            "Cannot project path `{}` in artifact `{}`",
-            path, this
-        )))
-    }
-
-    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, except
-    /// with no associated artifacts
-    fn without_associated_artifacts(this: &StarlarkArtifact) -> anyhow::Result<StarlarkArtifact> {
-        Ok(StarlarkArtifact {
-            artifact: this.artifact.dupe(),
-            associated_artifacts: AssociatedArtifacts::new(),
-        })
-    }
-
-    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, but with
-    /// potentially additional artifacts. The artifacts must be bound.
-    fn with_associated_artifacts<'v>(
-        this: &'v StarlarkArtifact,
-        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<StarlarkArtifact> {
-        let artifacts = artifacts
-            .to_vec()
-            .iter()
-            .map(|a| a.0.get_artifact_group())
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let artifacts = AssociatedArtifacts::from(artifacts);
-
-        Ok(StarlarkArtifact {
-            artifact: this.artifact.dupe(),
-            associated_artifacts: this.associated_artifacts.union(artifacts),
-        })
     }
 }

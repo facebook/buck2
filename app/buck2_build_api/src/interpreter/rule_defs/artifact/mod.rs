@@ -9,6 +9,7 @@
 
 pub(crate) mod artifact_type;
 pub mod associated;
+pub(crate) mod methods;
 pub mod output_artifact_like;
 mod starlark_artifact;
 pub mod starlark_artifact_like;
