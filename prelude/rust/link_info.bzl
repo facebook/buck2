@@ -31,7 +31,6 @@ load(
     "get_link_group",
     "get_link_group_info",
     "get_link_group_preferred_linkage",
-    "get_public_link_group_nodes",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
@@ -425,13 +424,6 @@ def inherited_rust_cxx_link_group_info(
             # handle labels that are mutated by version alias
             executable_deps.append(g.nodes.value.label)
 
-    public_link_group_nodes = get_public_link_group_nodes(
-        linkable_graph_node_map,
-        link_group_mappings,
-        executable_deps,
-        link_group,
-    )
-
     linked_link_groups = create_link_groups(
         ctx = ctx,
         link_groups = link_groups,
@@ -445,7 +437,6 @@ def inherited_rust_cxx_link_group_info(
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
         anonymous = ctx.attrs.anonymous_link_groups,
-        public_nodes = public_link_group_nodes,
     )
 
     auto_link_groups = {}
@@ -457,7 +448,8 @@ def inherited_rust_cxx_link_group_info(
             link_group_libs[name] = linked_link_group.library
 
     labels_to_links_map = get_filtered_labels_to_links_map(
-        public_link_group_nodes,
+        # TODO(patskovn): catch duplicated files in link groups for rust.
+        None,
         linkable_graph_node_map,
         link_group,
         link_groups,
