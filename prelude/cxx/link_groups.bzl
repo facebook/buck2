@@ -296,7 +296,7 @@ def _transitively_update_shared_linkage(
     )
 
 def get_filtered_labels_to_links_map(
-        public_nodes: [set_record, None],  # buildifier: disable=unused-variable
+        public_nodes: [set_record, None],
         linkable_graph_node_map: dict[Label, LinkableNode],
         link_group: [str, None],
         link_groups: dict[str, Group],
@@ -370,6 +370,7 @@ def get_filtered_labels_to_links_map(
     # already.  This avoids use adding the same link group lib multiple times,
     # for each of the possible multiple nodes that maps to it.
     link_group_added = {}
+    group_srcs = {}
 
     def add_link(target: Label, output_style: LibOutputStyle):
         linkable_map[target] = LinkGroupLinkInfo(
@@ -379,8 +380,26 @@ def get_filtered_labels_to_links_map(
 
     def add_link_group(target: Label, target_group: str):
         # If we've already added this link group to the link line, we're done.
-        if target_group in link_group_added:
-            return
+
+        if public_nodes and public_nodes.contains(target):
+            if target_group not in group_srcs:
+                group_srcs[target_group] = {}
+            target_group_srcs = group_srcs[target_group]
+            for src in linkable_graph_node_map[target].srcs:
+                if not isinstance(src, Artifact):
+                    # "src" is either source file or source file with list of compilation flags.
+                    # We do not handle the case where we have compilation flags attached to source files
+                    # because it we don't know is link gonna fail or not. So we let user deal with linker errors if there are any.
+                    continue
+
+                previous_target = target_group_srcs.get(src, None)
+                if previous_target:
+                    fail("'{}' artifact included multiple times into '{}' link group. From '{}:{}' and '{}:{}'".format(src, target_group, target.package, target.name, previous_target.package, previous_target.name))
+                else:
+                    target_group_srcs[src] = target
+
+            if target_group in link_group_added:
+                return
 
         # In some flows, we may not have access to the actual link group lib
         # in our dep tree (e.g. https://fburl.com/code/pddmkptb), so just bail
