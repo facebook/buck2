@@ -381,7 +381,8 @@ def get_filtered_labels_to_links_map(
     def add_link_group(target: Label, target_group: str):
         # If we've already added this link group to the link line, we're done.
 
-        if link_groups[target_group].attrs.prohibit_file_duplicates and public_nodes and public_nodes.contains(target):
+        link_group_spec = link_groups.get(target_group, None)
+        if link_group_spec and link_group_spec.attrs.prohibit_file_duplicates and public_nodes and public_nodes.contains(target):
             if target_group not in group_srcs:
                 group_srcs[target_group] = {}
             target_group_srcs = group_srcs[target_group]
