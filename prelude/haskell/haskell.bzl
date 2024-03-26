@@ -971,6 +971,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
         labels_to_links_map = get_filtered_labels_to_links_map(
+            public_nodes = None,
             linkable_graph_node_map = linkable_graph_node_map,
             link_group = None,
             link_groups = link_group_info.groups,

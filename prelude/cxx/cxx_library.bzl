@@ -1193,6 +1193,7 @@ def _get_shared_library_links(
         link_strategy = LinkStrategy("static_pic")
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, pic_behavior)
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
+        None,
         linkable_graph_node_map_func(),
         link_group,
         {},

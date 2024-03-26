@@ -296,6 +296,7 @@ def _transitively_update_shared_linkage(
     )
 
 def get_filtered_labels_to_links_map(
+        public_nodes: [set_record, None],  # buildifier: disable=unused-variable
         linkable_graph_node_map: dict[Label, LinkableNode],
         link_group: [str, None],
         link_groups: dict[str, Group],
@@ -641,6 +642,7 @@ def _create_link_group(
 
     # Add roots...
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
+        public_nodes,
         linkable_graph_node_map,
         spec.group.name,
         link_groups,
@@ -793,6 +795,7 @@ def create_link_groups(
         link_group_preferred_linkage: dict[Label, Linkage] = {},
         link_group_mappings: [dict[Label, str], None] = None,
         anonymous: bool = False,
+        public_nodes: [set_record, None] = None,
         allow_cache_upload = False) -> _LinkedLinkGroups:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
@@ -816,7 +819,7 @@ def create_link_groups(
     undefined_symfiles = []
     global_symfiles = []
 
-    public_nodes = get_public_link_group_nodes(
+    public_nodes = public_nodes or get_public_link_group_nodes(
         linkable_graph_node_map,
         link_group_mappings,
         executable_deps + other_roots,
