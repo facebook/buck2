@@ -440,7 +440,6 @@ def inherited_rust_cxx_link_group_info(
         executable_deps = executable_deps,
         linker_flags = [],
         link_group_specs = auto_link_group_specs,
-        root_link_group = link_group,
         linkable_graph_node_map = linkable_graph_node_map,
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?

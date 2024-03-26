@@ -32,6 +32,7 @@ load(
     "get_filtered_links",
     "get_link_group_info",
     "get_link_group_preferred_linkage",
+    "get_public_link_group_nodes",
     "get_transitive_deps_matching_labels",
     "is_link_group_shlib",
 )
@@ -941,14 +942,22 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         # in the prelude, the link group map will give us the link group libs.
         # Otherwise, pull them from the `LinkGroupLibInfo` provider from out deps.
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info)
+        executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps if d.linkable_graph != None]
+        public_nodes = get_public_link_group_nodes(
+            linkable_graph_node_map,
+            link_group_info.mappings,
+            executable_deps,
+            None,
+        )
         if auto_link_group_specs != None:
             linked_link_groups = create_link_groups(
                 ctx = ctx,
                 link_group_mappings = link_group_info.mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
-                executable_deps = [d.linkable_graph.nodes.value.label for d in link_deps if d.linkable_graph != None],
+                executable_deps = executable_deps,
                 link_group_specs = auto_link_group_specs,
                 linkable_graph_node_map = linkable_graph_node_map,
+                public_nodes = public_nodes,
             )
             for name, linked_link_group in linked_link_groups.libs.items():
                 auto_link_groups[name] = linked_link_group.artifact
@@ -971,7 +980,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
         labels_to_links_map = get_filtered_labels_to_links_map(
-            public_nodes = None,
+            public_nodes = public_nodes,
             linkable_graph_node_map = linkable_graph_node_map,
             link_group = None,
             link_groups = link_group_info.groups,
