@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::package_listing::dice::DicePackageListingResolver;

@@ -27,10 +27,10 @@ use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
 /// The Starlark representation of an `Artifact`

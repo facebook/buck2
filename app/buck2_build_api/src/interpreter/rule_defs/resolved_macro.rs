@@ -31,8 +31,8 @@ use starlark::values::Value;
 use static_assertions::assert_eq_size;
 
 use crate::artifact_groups::ArtifactGroup;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;

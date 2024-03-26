@@ -11,27 +11,17 @@ pub(crate) mod artifact_type;
 pub mod associated;
 pub(crate) mod methods;
 pub mod output_artifact_like;
-mod starlark_artifact;
+pub mod starlark_artifact;
 pub mod starlark_artifact_like;
-pub(crate) mod starlark_artifact_value;
-mod starlark_declared_artifact;
-pub(crate) mod starlark_output_artifact;
-mod starlark_promise_artifact;
+pub mod starlark_artifact_value;
+pub mod starlark_declared_artifact;
+pub mod starlark_output_artifact;
+pub mod starlark_promise_artifact;
 pub mod unpack_artifact;
 
 use std::fmt::Debug;
 
 use buck2_core::base_deferred_key::BaseDeferredKey;
-
-pub use self::starlark_artifact::StarlarkArtifact;
-pub(crate) use self::starlark_artifact_like::StarlarkArtifactLike;
-pub use self::starlark_artifact_like::ValueAsArtifactLike;
-pub use self::starlark_artifact_value::StarlarkArtifactValue;
-pub use self::starlark_declared_artifact::StarlarkDeclaredArtifact;
-pub use self::starlark_output_artifact::FrozenStarlarkOutputArtifact;
-pub use self::starlark_output_artifact::StarlarkOutputArtifact;
-pub use self::starlark_output_artifact::StarlarkOutputOrDeclaredArtifact;
-pub use self::starlark_promise_artifact::StarlarkPromiseArtifact;
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum ArtifactError {

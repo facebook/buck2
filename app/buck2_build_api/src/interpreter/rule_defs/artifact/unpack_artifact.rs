@@ -12,9 +12,9 @@ use dupe::Dupe;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 
-use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub enum UnpackArtifactOrDeclaredArtifact<'v> {

@@ -68,7 +68,7 @@ use crate::dynamic::DynamicRegistryDyn;
 use crate::dynamic::DYNAMIC_REGISTRY_NEW;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
-use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Derivative, Trace, Allocative)]

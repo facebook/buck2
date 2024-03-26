@@ -30,7 +30,7 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::deferred::types::DeferredTable;
-use buck2_build_api::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;

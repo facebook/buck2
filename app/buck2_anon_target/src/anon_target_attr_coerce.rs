@@ -12,7 +12,7 @@ use std::fmt::Debug;
 use std::iter;
 
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_core::provider::label::ProvidersLabel;

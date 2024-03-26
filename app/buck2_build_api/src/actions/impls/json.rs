@@ -30,10 +30,10 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::artifact_groups::ArtifactGroup;
-use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;

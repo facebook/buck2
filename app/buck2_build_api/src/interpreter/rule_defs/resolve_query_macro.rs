@@ -15,8 +15,8 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::thin_box::ThinBoxSlice;
 use static_assertions::assert_eq_size;
 
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;

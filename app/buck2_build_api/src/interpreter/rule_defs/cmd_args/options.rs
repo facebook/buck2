@@ -46,8 +46,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use static_assertions::assert_eq_size;
 
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;

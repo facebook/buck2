@@ -13,7 +13,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ANON_TARGET;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;

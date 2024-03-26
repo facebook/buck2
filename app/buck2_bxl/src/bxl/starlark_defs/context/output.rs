@@ -17,7 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
