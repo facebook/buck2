@@ -107,6 +107,27 @@ pub(crate) struct CleanStaleError {
     stats: buck2_data::CleanStaleStats,
 }
 
+fn stats_for_paths(paths: &Vec<FoundPath>) -> buck2_data::CleanStaleStats {
+    let mut stats = buck2_data::CleanStaleStats::default();
+    for path in paths {
+        match path {
+            FoundPath::Untracked(_, _, size) => {
+                stats.untracked_artifact_count += 1;
+                stats.untracked_bytes += *size;
+            }
+            FoundPath::Stale(_, size) => {
+                stats.stale_artifact_count += 1;
+                stats.stale_bytes += *size;
+            }
+            FoundPath::Retained(size) => {
+                stats.retained_artifact_count += 1;
+                stats.retained_bytes += *size;
+            }
+        }
+    }
+    stats
+}
+
 fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     tree: &mut ArtifactTree,
     keep_since_time: DateTime<Utc>,
@@ -129,12 +150,9 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     }
     tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
-    let mut stats = buck2_data::CleanStaleStats::default();
-    let mut paths_to_remove = Vec::new();
-    let mut paths_to_invalidate = Vec::new();
-
+    let mut found_paths = Vec::new();
     if tracked_only {
-        find_stale_tracked_only(tree, keep_since_time, &mut stats, &mut paths_to_invalidate)?
+        find_stale_tracked_only(tree, keep_since_time, &mut found_paths)?
     } else {
         let gen_subtree = tree
             .get_subtree(&mut gen_path.iter())
@@ -152,14 +170,27 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
 
         StaleFinder {
             io: io.dupe(),
-            dispatcher,
             keep_since_time,
-            stats: &mut stats,
-            paths_to_remove: &mut paths_to_remove,
-            paths_to_invalidate: &mut paths_to_invalidate,
+            found_paths: &mut found_paths,
         }
         .visit_recursively(gen_path, gen_subtree)?;
     };
+
+    let mut stats = stats_for_paths(&found_paths);
+    // Log limited number of untracked artifacts to avoid logging spikes if schema changes.
+    for (path, file_type) in found_paths
+        .iter()
+        .filter_map(|x| match x {
+            FoundPath::Untracked(path, file_type, _) => Some((path, file_type)),
+            _ => None,
+        })
+        .take(2000)
+    {
+        dispatcher.instant_event(buck2_data::UntrackedFile {
+            path: path.to_string(),
+            file_type: format!("{:?}", file_type),
+        });
+    }
 
     // If no stale or retained artifact founds, the db should be empty.
     if stats.stale_artifact_count + stats.retained_artifact_count == 0 {
@@ -185,9 +216,16 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     } else {
         let io = io.dupe();
 
-        stats.cleaned_path_count = paths_to_remove.len() as u64;
         stats.cleaned_artifact_count = stats.stale_artifact_count + stats.untracked_artifact_count;
         stats.cleaned_bytes = stats.untracked_bytes + stats.stale_bytes;
+
+        let paths_to_invalidate: Vec<ProjectRelativePathBuf> = found_paths
+            .iter()
+            .filter_map(|x| match x {
+                FoundPath::Stale(p, ..) => Some(p.clone()),
+                _ => None,
+            })
+            .collect();
 
         let existing_futs =
             tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
@@ -200,8 +238,13 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
             // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
             // do this to get parallelism.
             futures::future::try_join_all(
-                paths_to_remove
+                found_paths
                     .into_iter()
+                    .filter_map(|x| match x {
+                        FoundPath::Untracked(p, ..) => Some(p),
+                        FoundPath::Stale(p, ..) => Some(p),
+                        _ => None,
+                    })
                     .map(|path| io.clean_invalidated_path(path, cancellations)),
             )
             .await?;
@@ -235,13 +278,17 @@ pub fn get_size(path: &AbsNormPath) -> anyhow::Result<u64> {
 
 struct StaleFinder<'a, T: IoHandler> {
     io: Arc<T>,
-    dispatcher: &'a EventDispatcher,
     keep_since_time: DateTime<Utc>,
-    stats: &'a mut buck2_data::CleanStaleStats,
-    /// Those paths will be deleted on disk.
-    paths_to_remove: &'a mut Vec<ProjectRelativePathBuf>,
-    /// Those paths will be invalidated in the materiaizer.
-    paths_to_invalidate: &'a mut Vec<ProjectRelativePathBuf>,
+    found_paths: &'a mut Vec<FoundPath>,
+}
+
+#[derive(Clone)]
+enum FoundPath {
+    /// These will be deleted on disk.
+    Untracked(ProjectRelativePathBuf, FileType, u64),
+    /// These will be invalidated in the materiaizer.
+    Stale(ProjectRelativePathBuf, u64),
+    Retained(u64),
 }
 
 impl<'a, T: IoHandler> StaleFinder<'a, T> {
@@ -296,15 +343,11 @@ impl<'a, T: IoHandler> StaleFinder<'a, T> {
                 None => {
                     // This path is not tracked by the materializer, we can delete it.
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as untracked");
-                    self.stats.untracked_artifact_count += 1;
-                    self.stats.untracked_bytes += get_size(&child.path())?;
-                    if self.stats.untracked_artifact_count <= 2000 {
-                        self.dispatcher.instant_event(buck2_data::UntrackedFile {
-                            path: path.to_string(),
-                            file_type: format!("{:?}", file_type),
-                        });
-                    }
-                    self.paths_to_remove.push(path);
+                    self.found_paths.push(FoundPath::Untracked(
+                        path,
+                        file_type,
+                        get_size(&child.path())?,
+                    ));
                     continue;
                 }
             };
@@ -324,18 +367,15 @@ impl<'a, T: IoHandler> StaleFinder<'a, T> {
                 }) if *last_access_time < self.keep_since_time => {
                     // This is something we can invalidate.
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as stale");
-                    self.stats.stale_artifact_count += 1;
-                    self.stats.stale_bytes += metadata.size();
-                    self.paths_to_invalidate.push(path.clone());
-                    self.paths_to_remove.push(path);
+                    self.found_paths
+                        .push(FoundPath::Stale(path, metadata.size()));
                 }
                 ArtifactTree::Data(box ArtifactMaterializationData {
                     stage: ArtifactMaterializationStage::Materialized { metadata, .. },
                     ..
                 }) => {
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as retained");
-                    self.stats.retained_artifact_count += 1;
-                    self.stats.retained_bytes += metadata.size();
+                    self.found_paths.push(FoundPath::Retained(metadata.size()));
                 }
                 _ => {
                     // What we have on disk does not match what we have in the materializer (which is
@@ -352,8 +392,7 @@ impl<'a, T: IoHandler> StaleFinder<'a, T> {
 fn find_stale_tracked_only(
     tree: &ArtifactTree,
     keep_since_time: DateTime<Utc>,
-    stats: &mut buck2_data::CleanStaleStats,
-    paths_to_invalidate: &mut Vec<ProjectRelativePathBuf>,
+    found_paths: &mut Vec<FoundPath>,
 ) -> anyhow::Result<()> {
     for (f_path, v) in tree.iter_with_paths() {
         if let ArtifactMaterializationStage::Materialized {
@@ -365,11 +404,10 @@ fn find_stale_tracked_only(
             let path = ProjectRelativePathBuf::from(f_path);
             if *last_access_time < keep_since_time && !active {
                 tracing::trace!(path = %path, "stale artifact");
-                stats.stale_artifact_count += 1;
-                paths_to_invalidate.push(path);
+                found_paths.push(FoundPath::Stale(path, 0));
             } else {
                 tracing::trace!(path = %path, "retaining artifact");
-                stats.retained_artifact_count += 1;
+                found_paths.push(FoundPath::Retained(0));
             }
         }
     }

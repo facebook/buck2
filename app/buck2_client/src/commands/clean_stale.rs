@@ -78,11 +78,8 @@ fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
         stats.untracked_artifact_count,
         bytesize::to_string(stats.untracked_bytes, true),
     );
-    if stats.cleaned_path_count > 0 || stats.cleaned_bytes > 0 {
-        output += &format!(
-            "Cleaned {} paths ({} artifacts)\n",
-            stats.cleaned_path_count, stats.cleaned_artifact_count,
-        );
+    if stats.cleaned_artifact_count > 0 || stats.cleaned_bytes > 0 {
+        output += &format!("Cleaned {} paths\n", stats.cleaned_artifact_count,);
         output += &format!(
             "{} bytes cleaned ({})\n",
             stats.cleaned_bytes,
