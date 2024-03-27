@@ -18,6 +18,7 @@
 use quote::quote_spanned;
 use syn::spanned::Spanned;
 
+use crate::v_lifetime::find_v_lifetime;
 use crate::vtable::vtable_has_field_name;
 
 pub(crate) fn derive_starlark_value(
@@ -99,18 +100,8 @@ fn is_impl_starlark_value(
     if last.ident != "StarlarkValue" {
         return Err(syn::Error::new_spanned(&last.ident, err));
     }
-    let mut lifetime_param = None;
-    for lt in input.generics.lifetimes() {
-        if lifetime_param.is_some() {
-            return Err(syn::Error::new_spanned(
-                lt,
-                "multiple lifetime parameters are not supported",
-            ));
-        }
-        lifetime_param = Some(lt);
-    }
-    let lifetime_param = match lifetime_param {
-        Some(lt) => lt.lifetime.clone(),
+    let lifetime_param = match find_v_lifetime(&input.generics)? {
+        Some(lt) => lt.clone(),
         None => {
             return Err(syn::Error::new_spanned(
                 input,

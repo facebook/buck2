@@ -18,6 +18,7 @@
 use syn::spanned::Spanned;
 
 use crate::starlark_type_repr::StarlarkTypeReprInput;
+use crate::v_lifetime::find_v_lifetime;
 
 pub(crate) fn derive_unpack_value(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
@@ -27,39 +28,13 @@ pub(crate) fn derive_unpack_value(input: proc_macro::TokenStream) -> proc_macro:
     }
 }
 
-fn find_lifetime(generics: &syn::Generics) -> syn::Result<Option<&syn::Lifetime>> {
-    let mut found_lifetime = None;
-    for lifetime in generics.lifetimes() {
-        if found_lifetime.is_some() {
-            return Err(syn::Error::new_spanned(
-                lifetime,
-                "Only one lifetime parameter is allowed",
-            ));
-        }
-        if !lifetime.bounds.is_empty() {
-            return Err(syn::Error::new_spanned(
-                lifetime,
-                "Lifetime parameter cannot have bounds",
-            ));
-        }
-        if lifetime.lifetime.ident != "v" {
-            return Err(syn::Error::new_spanned(
-                lifetime,
-                "Lifetime parameter must be named 'v'",
-            ));
-        }
-        found_lifetime = Some(&lifetime.lifetime);
-    }
-    Ok(found_lifetime)
-}
-
 fn derive_unpack_value_impl(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let span = input.ident.span();
 
     let input = StarlarkTypeReprInput::parse(input, "UnpackValue")?;
 
     let ident = input.ident;
-    let lifetime = find_lifetime(&input.generics)?;
+    let lifetime = find_v_lifetime(&input.generics)?;
 
     let (_impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
 

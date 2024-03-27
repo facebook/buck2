@@ -35,6 +35,7 @@ mod starlark_value;
 mod trace;
 mod unpack_value;
 mod util;
+mod v_lifetime;
 mod visit_span;
 mod vtable;
 
