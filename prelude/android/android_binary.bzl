@@ -126,7 +126,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     else:
         jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in dex_java_packaging_deps}
         if ctx.attrs.preprocess_java_classes_bash:
-            jars_to_owners, materialized_artifacts_dir = get_preprocessed_java_classes(ctx, jars_to_owners)
+            jars_to_owners, materialized_artifacts_dir = get_preprocessed_java_classes(enhancement_ctx, jars_to_owners)
             if materialized_artifacts_dir:
                 materialized_artifacts.append(materialized_artifacts_dir)
         if has_proguard_config:

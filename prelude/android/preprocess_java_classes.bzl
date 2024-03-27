@@ -6,13 +6,16 @@
 # of this source tree.
 
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:expect.bzl", "expect")
 
-def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact": "target_label"}) -> (dict[Artifact, TargetLabel], [Artifact, None]):
+def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: dict[Artifact, TargetLabel]) -> (dict[Artifact, TargetLabel], [Artifact, None]):
     if not input_jars:
         return {}, None
+
+    ctx = enhance_ctx.ctx
 
     input_srcs = {}
     output_jars_to_owners = {}
@@ -59,5 +62,7 @@ def get_preprocessed_java_classes(ctx: AnalysisContext, input_jars = {"artifact"
         preprocess_cmd.hidden(dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs)
 
     ctx.actions.run(preprocess_cmd, env = env, category = "preprocess_java_classes")
+
+    enhance_ctx.debug_output("preprocess_java_classes_input_dir", input_dir)
 
     return output_jars_to_owners, materialized_artifacts_dir
