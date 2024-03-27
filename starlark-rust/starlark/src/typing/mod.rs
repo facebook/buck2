@@ -26,6 +26,7 @@
 pub(crate) mod arc_ty;
 pub(crate) mod basic;
 pub(crate) mod bindings;
+pub(crate) mod callable_param;
 pub(crate) mod ctx;
 pub(crate) mod custom;
 pub(crate) mod error;
@@ -49,8 +50,8 @@ pub mod macro_support;
 mod tests;
 
 pub use basic::TyBasic;
+pub use callable_param::Param;
 pub use function::Arg;
-pub use function::Param;
 pub use function::TyFunction;
 pub use interface::Interface;
 pub use oracle::ctx::TypingOracleCtx;
