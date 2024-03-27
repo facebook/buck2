@@ -164,7 +164,7 @@ pub fn derive_starlark_type_repr(input: proc_macro::TokenStream) -> proc_macro::
 }
 
 /// Derive the `UnpackValue` trait.
-#[proc_macro_derive(UnpackValue, attributes(starlark))]
+#[proc_macro_derive(UnpackValue)]
 pub fn derive_unpack_value(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     unpack_value::derive_unpack_value(input)
 }
