@@ -10,6 +10,7 @@
 pub mod build;
 pub mod ctargets;
 pub mod debug_eval;
+pub mod explain;
 pub(crate) mod init_commands;
 pub mod install;
 pub mod query;

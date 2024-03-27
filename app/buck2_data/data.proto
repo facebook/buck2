@@ -676,6 +676,7 @@ message CommandStart {
     TraceIoCommandStart trace = 37;
     ConfiguredTargetsCommandStart ctargets = 38;
     StarlarkDebugAttachCommandStart starlark_debug_attach = 39;
+    ExplainCommandStart explain = 40;
   }
 }
 
@@ -729,6 +730,8 @@ message TestCommandStart {}
 
 message DocsCommandStart {}
 
+message ExplainCommandStart {}
+
 message CleanCommandStart {}
 
 message InstallCommandStart {}
@@ -762,6 +765,7 @@ message CommandEnd {
     TraceIoCommandEnd trace = 37;
     ConfiguredTargetsCommandEnd ctargets = 38;
     StarlarkDebugAttachCommandEnd starlark_debug_attach = 39;
+    ExplainCommandEnd explain = 40;
   }
 
   bool is_success = 2;
@@ -818,6 +822,8 @@ message TestCommandEnd {
 }
 
 message DocsCommandEnd {}
+
+message ExplainCommandEnd {}
 
 message CleanCommandEnd {
   optional CleanStaleStats clean_stale_stats = 1;

@@ -13,6 +13,7 @@ pub mod clean;
 pub mod clean_stale;
 pub mod ctargets;
 pub mod debug;
+pub mod explain;
 pub mod help_env;
 pub mod init;
 pub mod install;

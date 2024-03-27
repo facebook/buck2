@@ -20,6 +20,7 @@ use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::debug::DebugCommand;
+use buck2_client::commands::explain::ExplainCommand;
 use buck2_client::commands::help_env::HelpEnvCommand;
 use buck2_client::commands::init::InitCommand;
 use buck2_client::commands::install::InstallCommand;
@@ -270,6 +271,8 @@ pub(crate) enum CommandKind {
     Test(TestCommand),
     Cquery(CqueryCommand),
     Init(InitCommand),
+    #[clap(setting(AppSettings::Hidden))] // TODO iguridi: remove
+    Explain(ExplainCommand),
     Install(InstallCommand),
     Kill(KillCommand),
     Killall(KillallCommand),
@@ -401,6 +404,7 @@ impl CommandKind {
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Init(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Explain(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Install(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Lsp(cmd) => cmd.exec(matches, command_ctx),

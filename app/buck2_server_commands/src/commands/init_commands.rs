@@ -10,6 +10,8 @@
 use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::DebugEvalResponse;
+use buck2_cli_proto::new_generic::ExplainRequest;
+use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::other_server_commands::OtherServerCommands;
 use buck2_server_ctx::other_server_commands::OTHER_SERVER_COMMANDS;
@@ -19,6 +21,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use crate::commands::build::build_command;
 use crate::commands::ctargets::configured_targets_command;
 use crate::commands::debug_eval::debug_eval_command;
+use crate::commands::explain::explain_command;
 use crate::commands::install::install_command;
 use crate::commands::query::aquery::aquery_command;
 use crate::commands::query::cquery::cquery_command;
@@ -100,6 +103,15 @@ impl OtherServerCommands for OtherServerCommandsInstance {
         req: DebugEvalRequest,
     ) -> anyhow::Result<DebugEvalResponse> {
         debug_eval_command(ctx, req).await
+    }
+
+    async fn explain(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: ExplainRequest,
+    ) -> anyhow::Result<ExplainResponse> {
+        explain_command(ctx, partial_result_dispatcher, req).await
     }
 }
 

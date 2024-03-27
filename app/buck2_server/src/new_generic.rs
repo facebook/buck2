@@ -11,6 +11,8 @@ use anyhow::Context;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_cli_proto::new_generic::NewGenericResponse;
 use buck2_server_ctx::other_server_commands::OTHER_SERVER_COMMANDS;
+use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::ctx::ServerCommandContext;
 use crate::materialize::materialize_command;
@@ -18,6 +20,7 @@ use crate::materialize::materialize_command;
 pub(crate) async fn new_generic_command(
     context: &ServerCommandContext<'_>,
     req: buck2_cli_proto::NewGenericRequestMessage,
+    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
 ) -> anyhow::Result<buck2_cli_proto::NewGenericResponseMessage> {
     let req = req.new_generic_request;
     let req: NewGenericRequest =
@@ -28,6 +31,12 @@ pub(crate) async fn new_generic_command(
         }
         NewGenericRequest::DebugEval(e) => NewGenericResponse::DebugEval(
             OTHER_SERVER_COMMANDS.get()?.debug_eval(context, e).await?,
+        ),
+        NewGenericRequest::Explain(m) => NewGenericResponse::Explain(
+            OTHER_SERVER_COMMANDS
+                .get()?
+                .explain(context, partial_result_dispatcher, m)
+                .await?,
         ),
     };
     let resp = serde_json::to_string(&resp).context("Could not serialize `NewGenericResponse`")?;

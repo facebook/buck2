@@ -10,6 +10,8 @@
 use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::DebugEvalResponse;
+use buck2_cli_proto::new_generic::ExplainRequest;
+use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_util::late_binding::LateBinding;
 
 use crate::ctx::ServerCommandContextTrait;
@@ -71,6 +73,12 @@ pub trait OtherServerCommands: Send + Sync + 'static {
         ctx: &dyn ServerCommandContextTrait,
         req: DebugEvalRequest,
     ) -> anyhow::Result<DebugEvalResponse>;
+    async fn explain(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: ExplainRequest,
+    ) -> anyhow::Result<ExplainResponse>;
 }
 
 pub static OTHER_SERVER_COMMANDS: LateBinding<&'static dyn OtherServerCommands> =
