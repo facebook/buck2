@@ -504,7 +504,7 @@ def _build_erl(
             always_print_stderr = True,
         )
 
-    ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [src], outputs = [output], f = dynamic_lambda)
+    ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [src], outputs = [output.as_output()], f = dynamic_lambda)
     return None
 
 def _build_edoc(
