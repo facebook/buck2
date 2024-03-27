@@ -28,8 +28,11 @@ use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::tuple::UnpackTuple;
+use crate::values::typing::StarlarkIter;
+use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
 struct ZipType;
@@ -96,14 +99,14 @@ pub(crate) fn register_zip(globals: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe, ty_custom_function = ZipType)]
     fn zip<'v>(
-        #[starlark(args)] args: UnpackTuple<Value<'v>>,
+        #[starlark(args)] args: UnpackTuple<ValueOfUnchecked<'v, StarlarkIter<FrozenValue>>>,
         heap: &'v Heap,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let mut v = Vec::new();
         let mut first = true;
         for arg in args.items {
             let mut idx = 0;
-            for e in arg.iterate(heap)? {
+            for e in arg.get().iterate(heap)? {
                 if first {
                     v.push(heap.alloc((e,)));
                     idx += 1;
