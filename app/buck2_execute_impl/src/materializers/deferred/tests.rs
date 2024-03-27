@@ -120,6 +120,19 @@ mod state_machine {
         digest_config: DigestConfig,
     }
 
+    impl DeferredMaterializerAccessor<StubIoHandler> {
+        // Ensure that the command thread ends so that the command processor is dropped,
+        // and the sqlite connection is flushed and closed.
+        // Needed since the default destructor assumes the process is about to die and shouldn't need to block.
+        #[allow(dead_code)]
+        fn abort(mut self) {
+            self.command_sender
+                .send(MaterializerCommand::Abort)
+                .unwrap();
+            self.command_thread.take().unwrap().join().unwrap();
+        }
+    }
+
     impl StubIoHandler {
         fn take_log(&self) -> Vec<(Op, ProjectRelativePathBuf)> {
             std::mem::take(&mut *self.log.lock())

@@ -137,7 +137,7 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     /// sure only one executes at a time and in the order they came in.
     /// TODO(rafaelc): aim to replace it with a simple mutex.
     #[allocative(skip)]
-    command_thread: std::thread::JoinHandle<()>,
+    command_thread: Option<std::thread::JoinHandle<()>>,
     /// Determines what to do on `try_materialize_final_artifact`: if true,
     /// materializes them, otherwise skips them.
     materialize_final_artifacts: bool,
@@ -422,6 +422,10 @@ enum MaterializerCommand<T: 'static> {
     Subscription(MaterializerSubscriptionOperation<T>),
 
     Extension(Box<dyn ExtensionCommand<T>>),
+
+    /// Terminate command processor loop, used by tests
+    #[allow(dead_code)]
+    Abort,
 }
 
 impl<T> std::fmt::Debug for MaterializerCommand<T> {
@@ -449,6 +453,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({:?}, _)", paths,),
             MaterializerCommand::Subscription(op) => write!(f, "Subscription({:?})", op,),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({:?})", ext),
+            MaterializerCommand::Abort => write!(f, "Abort"),
         }
     }
 }
@@ -1057,7 +1062,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
         .context("Cannot start materializer thread")?;
 
         Ok(Self {
-            command_thread,
+            command_thread: Some(command_thread),
             command_sender,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             defer_write_actions: configs.defer_write_actions,
@@ -1120,6 +1125,9 @@ impl<T: 'static> Stream for CommandStream<T> {
         let this = self.project();
 
         if let Poll::Ready(Some(e)) = this.high_priority.poll_recv(cx) {
+            if let MaterializerCommand::Abort = e {
+                return Poll::Ready(None);
+            }
             return Poll::Ready(Some(Op::Command(e)));
         }
 
@@ -1339,6 +1347,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             }
             MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),
+            MaterializerCommand::Abort => unreachable!(),
         }
     }
 
