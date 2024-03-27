@@ -9,7 +9,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
-load(":apple_code_signing_types.bzl", "CodeSignType")
+load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
@@ -64,13 +64,16 @@ def assemble_bundle(
     codesign_args = []
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
-    if ctx.attrs._dry_run_code_signing:
+    code_signing_configuration = CodeSignConfiguration(ctx.attrs._code_signing_configuration)
+    if code_signing_configuration == CodeSignConfiguration("dry-run"):
         codesign_configuration_args = ["--codesign-configuration", "dry-run"]
         codesign_tool = tools.dry_codesign_tool
-    elif ctx.attrs._fast_adhoc_signing_enabled:
+    elif code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
         codesign_configuration_args = ["--codesign-configuration", "fast-adhoc"]
-    else:
+    elif code_signing_configuration == CodeSignConfiguration("none"):
         codesign_configuration_args = []
+    else:
+        fail("Code signing configuration `{}` not supported".format(code_signing_configuration))
 
     codesign_required = codesign_type.value in ["distribution", "adhoc"]
     swift_support_required = swift_stdlib_args and (not ctx.attrs.skip_copying_swift_stdlib) and should_copy_swift_stdlib(bundle.extension)

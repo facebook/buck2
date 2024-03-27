@@ -15,3 +15,9 @@ CodeSignType = enum(
     "adhoc",
     "distribution",
 )
+
+CodeSignConfiguration = enum(
+    "dry-run",
+    "fast-adhoc",
+    "none",
+)
