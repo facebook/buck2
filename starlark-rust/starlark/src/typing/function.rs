@@ -26,10 +26,9 @@ use allocative::Allocative;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::callable_param::Param;
-use crate::typing::callable_param::ParamMode;
+use crate::typing::callable_param::ParamSpec;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -145,7 +144,7 @@ pub struct TyFunction {
     /// The `.type` property of the function, often `""`.
     pub(crate) type_attr: Option<Ty>,
     /// The parameters to the function.
-    pub(crate) params: SmallArcVec1OrStatic<Param>,
+    pub(crate) params: ParamSpec,
     /// The result type of the function.
     pub(crate) result: Ty,
 }
@@ -156,7 +155,7 @@ impl TyFunction {
         // TODO(nga): validate params are in correct order.
         TyFunction {
             type_attr: Some(type_attr),
-            params: Self::maybe_intern_params(params),
+            params: ParamSpec::new(params),
             result,
         }
     }
@@ -165,31 +164,8 @@ impl TyFunction {
     pub fn new(params: Vec<Param>, result: Ty) -> Self {
         TyFunction {
             type_attr: None,
-            params: Self::maybe_intern_params(params),
+            params: ParamSpec::new(params),
             result,
-        }
-    }
-
-    fn maybe_intern_params(params: Vec<Param>) -> SmallArcVec1OrStatic<Param> {
-        if params.as_slice() == Self::any_params() {
-            SmallArcVec1OrStatic::new_static(Self::any_params())
-        } else {
-            SmallArcVec1OrStatic::clone_from_slice(&params)
-        }
-    }
-
-    /// `*args`, `**kwargs` parameters.
-    fn any_params() -> &'static [Param] {
-        static ANY_PARAMS: [Param; 2] = [Param::args(Ty::any()), Param::kwargs(Ty::any())];
-        &ANY_PARAMS
-    }
-
-    /// Function type that accepts any arguments and returns any result.
-    pub(crate) fn _any() -> TyFunction {
-        TyFunction {
-            type_attr: None,
-            params: SmallArcVec1OrStatic::new_static(Self::any_params()),
-            result: Ty::any(),
         }
     }
 }
@@ -197,23 +173,7 @@ impl TyFunction {
 impl Display for TyFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let TyFunction { params, result, .. } = self;
-        write!(f, "def(")?;
-        let mut first = true;
-        for param in params.iter() {
-            if !first {
-                write!(f, ", ")?;
-                first = false;
-            }
-            let opt = if param.optional { "=.." } else { "" };
-            match &param.mode {
-                ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
-                ParamMode::PosOrName(name) => write!(f, "#{}: {}{}", name, param.ty, opt)?,
-                ParamMode::NameOnly(name) => write!(f, "{}: {}{}", name, param.ty, opt)?,
-                ParamMode::Args => write!(f, "*args: {}", param.ty)?,
-                ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
-            }
-        }
-        write!(f, ") -> {}", result)
+        write!(f, "def({params}) -> {result}")
     }
 }
 

@@ -16,6 +16,7 @@
  */
 
 use std::fmt::Display;
+use std::iter;
 
 use dupe::Dupe;
 use starlark_syntax::syntax::ast::BinOp;
@@ -33,6 +34,7 @@ use crate::typing::function::Arg;
 use crate::typing::function::TyFunction;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyName;
 use crate::typing::TypingBinOp;
@@ -135,12 +137,12 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn validate_args(
         &self,
-        params: &[Param],
+        params: &ParamSpec,
         args: &[Spanned<Arg>],
         span: Span,
     ) -> Result<(), TypingOrInternalError> {
         // Want to figure out which arguments go in which positions
-        let mut param_args: Vec<Vec<Spanned<&Ty>>> = vec![vec![]; params.len()];
+        let mut param_args: Vec<Vec<Spanned<&Ty>>> = vec![vec![]; params.params().len()];
         // The next index a positional parameter might fill
         let mut param_pos = 0;
         let mut seen_vargs = false;
@@ -148,7 +150,7 @@ impl<'a> TypingOracleCtx<'a> {
         for arg in args {
             match &arg.node {
                 Arg::Pos(ty) => loop {
-                    match params.get(param_pos) {
+                    match params.params().get(param_pos) {
                         None => {
                             return Err(self.mk_error_as_maybe_internal(
                                 arg.span,
@@ -172,7 +174,7 @@ impl<'a> TypingOracleCtx<'a> {
                 },
                 Arg::Name(name, ty) => {
                     let mut success = false;
-                    for (i, param) in params.iter().enumerate() {
+                    for (i, param) in params.params().iter().enumerate() {
                         if param.name() == *name || param.mode == ParamMode::Kwargs {
                             param_args[i].push(Spanned {
                                 span: arg.span,
@@ -192,7 +194,7 @@ impl<'a> TypingOracleCtx<'a> {
                     }
                 }
                 Arg::Args(_) => {
-                    param_pos = params.len();
+                    param_pos = params.params().len();
                     seen_vargs = true;
                 }
                 Arg::Kwargs(_) => {
@@ -201,7 +203,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
         }
 
-        for (param, args) in std::iter::zip(params, param_args) {
+        for (param, args) in iter::zip(params.params(), param_args) {
             if !param.allows_many() && args.len() > 1 {
                 return Err(TypingOrInternalError::Internal(InternalError::msg(
                     "bad",

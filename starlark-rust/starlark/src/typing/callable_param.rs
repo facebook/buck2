@@ -15,9 +15,14 @@
  * limitations under the License.
  */
 
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 
@@ -127,6 +132,59 @@ impl Param {
             ParamMode::NameOnly(x) => x,
             ParamMode::Args => "*args",
             ParamMode::Kwargs => "**kwargs",
+        }
+    }
+}
+
+/// Callable parameter specification (e.g. positional only followed by `**kwargs`).
+#[derive(Debug, Eq, PartialEq, Clone, Hash, PartialOrd, Ord, Allocative)]
+pub struct ParamSpec {
+    params: SmallArcVec1OrStatic<Param>,
+}
+
+impl Display for ParamSpec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for (i, param) in self.params.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            let opt = if param.optional { "=.." } else { "" };
+            match &param.mode {
+                ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
+                ParamMode::PosOrName(name) => write!(f, "#{}: {}{}", name, param.ty, opt)?,
+                ParamMode::NameOnly(name) => write!(f, "{}: {}{}", name, param.ty, opt)?,
+                ParamMode::Args => write!(f, "*args: {}", param.ty)?,
+                ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ParamSpec {
+    pub(crate) fn params(&self) -> &[Param] {
+        &self.params
+    }
+
+    pub(crate) fn new(params: Vec<Param>) -> ParamSpec {
+        if params.as_slice() == Self::any().params() {
+            ParamSpec::any()
+        } else {
+            ParamSpec {
+                params: SmallArcVec1OrStatic::clone_from_slice(&params),
+            }
+        }
+    }
+
+    /// `*args`, `**kwargs` parameters.
+    fn any_params() -> &'static [Param] {
+        static ANY_PARAMS: [Param; 2] = [Param::args(Ty::any()), Param::kwargs(Ty::any())];
+        &ANY_PARAMS
+    }
+
+    fn any() -> ParamSpec {
+        ParamSpec {
+            params: SmallArcVec1OrStatic::new_static(Self::any_params()),
         }
     }
 }

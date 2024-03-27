@@ -51,6 +51,7 @@ mod tests;
 
 pub use basic::TyBasic;
 pub use callable_param::Param;
+pub use callable_param::ParamSpec;
 pub use function::Arg;
 pub use function::TyFunction;
 pub use interface::Interface;
