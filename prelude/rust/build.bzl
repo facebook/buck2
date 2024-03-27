@@ -705,10 +705,11 @@ def dependency_args(
         args.add(extern_arg(dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
 
-        # Because deps of this *target* can also be transitive deps of this compiler
-        # invocation, pass the artifact through `-L` unconditionally for doc tests.
+        # Because deps of this *target* can also be transitive deps of this
+        # compiler invocation, pass the artifact (under its original crate name)
+        # through `-L` unconditionally for doc tests.
         if is_rustdoc_test:
-            transitive_deps[artifact] = crate
+            transitive_deps[artifact] = dep.info.crate
 
         # Unwanted transitive_deps have already been excluded
         transitive_deps.update(transitive_artifacts)
