@@ -17,15 +17,9 @@
 
 //! Parameter conversion utilities for `starlark_module` macros.
 
-use std::ops::Deref;
-
-use dupe::Dupe;
 use either::Either;
 
-use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::AllocValue;
-use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueError;
 
@@ -138,55 +132,6 @@ impl<'v> UnpackValue<'v> for Value<'v> {
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         Some(value)
-    }
-}
-
-/// A wrapper that keeps the original value on the heap for use elsewhere,
-/// and also, when unpacked, unpacks the value to validate it is of
-/// the correct type. Has an [`UnpackValue`] instance, so often used as
-/// an argument to [`#[starlark_module]`](macro@crate::starlark_module) defined
-/// functions.
-///
-/// Two container specializations of this are [`ListOf`](crate::values::list::ListOf)
-/// and [`DictOf`](crate::values::dict::DictOf), which
-/// validate the types of their containers on unpack, but do not store the
-/// resulting Vec/Map
-#[derive(Debug, Copy, Clone, Dupe)]
-pub struct ValueOf<'v, T: UnpackValue<'v>> {
-    /// The original [`Value`] on the same heap.
-    pub value: Value<'v>,
-    /// The value that was unpacked.
-    pub typed: T,
-}
-
-impl<'v, T: UnpackValue<'v>> Deref for ValueOf<'v, T> {
-    type Target = Value<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for ValueOf<'v, T> {
-    fn starlark_type_repr() -> Ty {
-        T::starlark_type_repr()
-    }
-}
-
-impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for ValueOf<'v, T> {
-    fn expected() -> String {
-        T::expected()
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let typed = T::unpack_value(value)?;
-        Some(Self { value, typed })
-    }
-}
-
-impl<'v, T: UnpackValue<'v>> AllocValue<'v> for ValueOf<'v, T> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
-        self.value
     }
 }
 

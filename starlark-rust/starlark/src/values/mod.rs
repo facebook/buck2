@@ -94,7 +94,7 @@ pub use crate::values::types::string;
 pub use crate::values::types::structs;
 pub use crate::values::types::tuple;
 pub use crate::values::unpack::UnpackValue;
-pub use crate::values::unpack::ValueOf;
+pub use crate::values::value_of::ValueOf;
 pub use crate::values::value_of_unchecked::ValueOfUnchecked;
 
 mod alloc_value;
@@ -117,4 +117,5 @@ pub mod type_repr;
 pub(crate) mod types;
 pub mod typing;
 mod unpack;
+pub(crate) mod value_of;
 pub(crate) mod value_of_unchecked;
