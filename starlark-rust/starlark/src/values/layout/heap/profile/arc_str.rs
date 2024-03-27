@@ -17,60 +17,37 @@
 
 use std::borrow::Borrow;
 use std::hash::Hash;
-use std::hash::Hasher;
 use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
 
-#[derive(Clone, Dupe, Debug, Allocative)]
-enum Inner {
-    Arc(Arc<str>),
-    Static(&'static str),
-}
+use crate::util::arc_or_static::ArcOrStatic;
 
 /// Wrapper for `Arc<str>`.
-#[derive(Clone, Dupe, Debug, derive_more::Display, Allocative)]
+#[derive(
+    Clone,
+    Dupe,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Debug,
+    derive_more::Display,
+    Allocative
+)]
 #[display(fmt = "{}", "&**self")]
-pub(crate) struct ArcStr(Inner);
+pub(crate) struct ArcStr(ArcOrStatic<str>);
 
 impl ArcStr {
     pub(crate) fn new_static(s: &'static str) -> ArcStr {
-        ArcStr(Inner::Static(s))
+        ArcStr(ArcOrStatic::new_static(s))
     }
 
     pub(crate) fn as_str(&self) -> &str {
-        match &self.0 {
-            Inner::Arc(s) => s,
-            Inner::Static(s) => s,
-        }
-    }
-}
-
-impl PartialEq for ArcStr {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
-    }
-}
-
-impl Eq for ArcStr {}
-
-impl PartialOrd for ArcStr {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ArcStr {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.as_str().cmp(other.as_str())
-    }
-}
-
-impl Hash for ArcStr {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
+        self
     }
 }
 
@@ -78,7 +55,7 @@ impl Deref for ArcStr {
     type Target = str;
 
     fn deref(&self) -> &str {
-        self.as_str()
+        self.0.deref()
     }
 }
 
@@ -91,9 +68,9 @@ impl Borrow<str> for ArcStr {
 impl<'a> From<&'a str> for ArcStr {
     fn from(s: &'a str) -> Self {
         if s.is_empty() {
-            ArcStr(Inner::Static(""))
+            ArcStr(ArcOrStatic::new_static(""))
         } else {
-            ArcStr(Inner::Arc(Arc::from(s)))
+            ArcStr(ArcOrStatic::new_arc(Arc::from(s)))
         }
     }
 }
