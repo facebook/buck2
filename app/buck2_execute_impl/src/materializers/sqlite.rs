@@ -22,6 +22,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::digest_config::DigestConfig;
@@ -703,6 +704,24 @@ impl MaterializerStateTables {
     }
 }
 
+#[allow(unused)] // Used by test modules
+pub(crate) fn testing_materializer_state_sqlite_db(
+    fs: &ProjectRoot,
+    versions: HashMap<String, String>,
+    metadata: HashMap<String, String>,
+    reject_identity: Option<&MaterializerStateIdentity>,
+) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
+    MaterializerStateSqliteDb::initialize_impl(
+        fs.resolve(ProjectRelativePath::unchecked_new(
+            "buck-out/v2/cache/materializer_state",
+        )),
+        versions,
+        metadata,
+        DigestConfig::testing_default(),
+        reject_identity,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -711,7 +730,6 @@ mod tests {
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::directory::DirectoryEntry;
-    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_execute::digest_config::DigestConfig;
@@ -886,23 +904,6 @@ mod tests {
         }
         let state = table.read_all(digest_config).unwrap();
         assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
-    }
-
-    fn testing_materializer_state_sqlite_db(
-        fs: &ProjectRoot,
-        versions: HashMap<String, String>,
-        metadata: HashMap<String, String>,
-        reject_identity: Option<&MaterializerStateIdentity>,
-    ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
-        MaterializerStateSqliteDb::initialize_impl(
-            fs.resolve(ProjectRelativePath::unchecked_new(
-                "buck-out/v2/cache/materializer_state",
-            )),
-            versions,
-            metadata,
-            DigestConfig::testing_default(),
-            reject_identity,
-        )
     }
 
     // Only implementing for tests, actual code should use `matches_entry` (and not check total_size)

@@ -989,23 +989,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
                 .then(HashSet::new);
 
-        let mut tree = ArtifactTree::new();
-        if let Some(sqlite_state) = sqlite_state {
-            for (path, (metadata, last_access_time)) in sqlite_state.into_iter() {
-                tree.insert(
-                    path.iter().map(|f| f.to_owned()),
-                    Box::new(ArtifactMaterializationData {
-                        deps: None,
-                        stage: ArtifactMaterializationStage::Materialized {
-                            metadata,
-                            last_access_time,
-                            active: false,
-                        },
-                        processing: Processing::Done(Version(0)),
-                    }),
-                );
-            }
-        }
+        let tree = ArtifactTree::initialize(sqlite_state);
 
         let io = Arc::new(DefaultIoHandler::new(
             fs,
@@ -2000,6 +1984,27 @@ fn on_materialization(
 }
 
 impl ArtifactTree {
+    fn initialize(sqlite_state: Option<MaterializerState>) -> Self {
+        let mut tree = ArtifactTree::new();
+        if let Some(sqlite_state) = sqlite_state {
+            for (path, (metadata, last_access_time)) in sqlite_state.into_iter() {
+                tree.insert(
+                    path.iter().map(|f| f.to_owned()),
+                    Box::new(ArtifactMaterializationData {
+                        deps: None,
+                        stage: ArtifactMaterializationStage::Materialized {
+                            metadata,
+                            last_access_time,
+                            active: false,
+                        },
+                        processing: Processing::Done(Version(0)),
+                    }),
+                );
+            }
+        }
+        tree
+    }
+
     /// Given a path that's (possibly) not yet materialized, returns the path
     /// `contents_path` where its contents can be found. Returns Err if the
     /// contents cannot be found (ex. if it requires HTTP or CAS download)

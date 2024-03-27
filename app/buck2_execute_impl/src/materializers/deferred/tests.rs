@@ -95,6 +95,7 @@ mod state_machine {
     use buck2_core::fs::fs_util;
     use buck2_core::fs::fs_util::ReadDir;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
@@ -103,14 +104,17 @@ mod state_machine {
     use tokio::time::Duration as TokioDuration;
 
     use super::*;
+    use crate::materializers::deferred::subscriptions::SubscriptionHandle;
+    use crate::materializers::sqlite::testing_materializer_state_sqlite_db;
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Eq, PartialEq, Allocative)]
     enum Op {
         Clean,
         Materialize,
         MaterializeError,
     }
 
+    #[derive(Allocative)]
     struct StubIoHandler {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
         fail: Mutex<bool>,
@@ -118,13 +122,14 @@ mod state_machine {
         // If set, add a sleep when materializing to simulate a long materialization period
         materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
         digest_config: DigestConfig,
+        buck_out_path: ProjectRelativePathBuf,
+        fs: ProjectRoot,
     }
 
     impl DeferredMaterializerAccessor<StubIoHandler> {
         // Ensure that the command thread ends so that the command processor is dropped,
         // and the sqlite connection is flushed and closed.
         // Needed since the default destructor assumes the process is about to die and shouldn't need to block.
-        #[allow(dead_code)]
         fn abort(mut self) {
             self.command_sender
                 .send(MaterializerCommand::Abort)
@@ -146,14 +151,33 @@ mod state_machine {
             *self.fail_paths.lock() = paths;
         }
 
-        pub fn new(materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>) -> Self {
+        pub fn new(fs: ProjectRoot) -> Self {
             Self {
                 log: Default::default(),
                 fail: Default::default(),
                 fail_paths: Default::default(),
-                materialization_config,
+                materialization_config: HashMap::new(),
                 digest_config: DigestConfig::testing_default(),
+                buck_out_path: make_path("buck-out/v2"),
+                fs,
             }
+        }
+
+        pub fn with_materialization_config(
+            mut self,
+            materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+        ) -> Self {
+            self.materialization_config = materialization_config;
+            self
+        }
+    }
+
+    impl StubIoHandler {
+        fn actually_write(self: &Arc<Self>, path: &ProjectRelativePathBuf, write: &Arc<WriteFile>) {
+            let data = zstd::bulk::decompress(&write.compressed_data, write.decompressed_size)
+                .context("Error decompressing data")
+                .unwrap();
+            self.fs.write_file(path, data, write.is_executable).unwrap();
         }
     }
 
@@ -161,13 +185,25 @@ mod state_machine {
     impl IoHandler for StubIoHandler {
         fn write<'a>(
             self: &Arc<Self>,
-            _path: ProjectRelativePathBuf,
-            _write: Arc<WriteFile>,
-            _version: Version,
-            _command_sender: MaterializerSender<Self>,
+            path: ProjectRelativePathBuf,
+            write: Arc<WriteFile>,
+            version: Version,
+            command_sender: MaterializerSender<Self>,
             _cancellations: &'a CancellationContext<'a>,
         ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
-            unimplemented!()
+            self.actually_write(&path, &write);
+            async move {
+                let _ignored = command_sender.send_low_priority(
+                    LowPriorityMaterializerCommand::MaterializationFinished {
+                        path,
+                        timestamp: Utc::now(),
+                        version,
+                        result: Ok(()),
+                    },
+                );
+                Ok(())
+            }
+            .boxed()
         }
 
         async fn immediate_write<'a>(
@@ -227,6 +263,12 @@ mod state_machine {
                 self.log.lock().push((Op::MaterializeError, path));
                 Err(anyhow::anyhow!("Injected error").into())
             } else {
+                match _method.as_ref() {
+                    ArtifactMaterializationMethod::Write(write) => {
+                        self.actually_write(&path, write);
+                    }
+                    _ => {}
+                }
                 self.log.lock().push((Op::Materialize, path));
                 Ok(())
             }
@@ -245,7 +287,7 @@ mod state_machine {
         }
 
         fn buck_out_path(&self) -> &ProjectRelativePathBuf {
-            unimplemented!()
+            &self.buck_out_path
         }
 
         fn re_client_manager(&self) -> &Arc<ReConnectionManager> {
@@ -253,7 +295,7 @@ mod state_machine {
         }
 
         fn fs(&self) -> &ProjectRoot {
-            unimplemented!()
+            &self.fs
         }
 
         fn digest_config(&self) -> DigestConfig {
@@ -295,24 +337,69 @@ mod state_machine {
         ProjectRelativePath::new(p).unwrap().to_owned()
     }
 
-    fn make_processor(
-        materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+    fn temp_root() -> ProjectRoot {
+        ProjectRootTemp::new().unwrap().path().clone()
+    }
+
+    async fn materialize_write(
+        path: &ProjectRelativePathBuf,
+        contents: &'static [u8],
+        handle: &mut SubscriptionHandle<StubIoHandler>,
+        dm: &DeferredMaterializerAccessor<StubIoHandler>,
+    ) -> anyhow::Result<()> {
+        dm.declare_write(Box::new(|| {
+            Ok(vec![WriteRequest {
+                path: path.clone(),
+                content: contents.to_vec(),
+                is_executable: false,
+            }])
+        }))
+        .await?;
+
+        handle.subscribe_to_paths(vec![path.clone()]);
+
+        dm.materialize_many(vec![path.clone()])
+            .await?
+            .next()
+            .await
+            .unwrap()?;
+        // block until materialization_finished updates the tree
+        handle.receiver().recv().await;
+        Ok(())
+    }
+
+    fn make_db(fs: &ProjectRoot) -> (MaterializerStateSqliteDb, Option<MaterializerState>) {
+        let (db, state) = testing_materializer_state_sqlite_db(
+            fs,
+            HashMap::from([("version".to_owned(), "0".to_owned())]),
+            HashMap::new(),
+            None,
+        )
+        .unwrap();
+        (db, state.ok())
+    }
+
+    fn make_processor_for_io(
+        io: Arc<StubIoHandler>,
     ) -> (
         DeferredMaterializerCommandProcessor<StubIoHandler>,
+        MaterializerSender<StubIoHandler>,
         MaterializerReceiver<StubIoHandler>,
     ) {
-        let (command_sender, command_receiver) = channel();
+        let (db, sqlite_state) = make_db(io.fs());
+        let tree = ArtifactTree::initialize(sqlite_state);
 
+        let (command_sender, command_receiver) = channel();
         (
             DeferredMaterializerCommandProcessor {
-                io: Arc::new(StubIoHandler::new(materialization_config)),
-                sqlite_db: None,
+                io,
+                sqlite_db: Some(db),
                 rt: Handle::current(),
                 defer_write_actions: true,
                 log_buffer: LogBuffer::new(1),
                 version_tracker: VersionTracker::new(),
-                command_sender,
-                tree: ArtifactTree::new(),
+                command_sender: command_sender.dupe(),
+                tree,
                 subscriptions: MaterializerSubscriptions::new(),
                 ttl_refresh_history: Default::default(),
                 ttl_refresh_instance: Default::default(),
@@ -321,7 +408,73 @@ mod state_machine {
                 access_times_buffer: Default::default(),
                 verbose_materializer_log: true,
             },
+            command_sender,
             command_receiver,
+        )
+    }
+
+    fn make_processor(
+        materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+    ) -> (
+        DeferredMaterializerCommandProcessor<StubIoHandler>,
+        MaterializerReceiver<StubIoHandler>,
+    ) {
+        let (dm, _, receiver) = make_processor_for_io(Arc::new(
+            StubIoHandler::new(temp_root()).with_materialization_config(materialization_config),
+        ));
+        (dm, receiver)
+    }
+
+    async fn make_materializer(
+        io: Arc<StubIoHandler>,
+    ) -> (
+        DeferredMaterializerAccessor<StubIoHandler>,
+        SubscriptionHandle<StubIoHandler>,
+    ) {
+        let (mut processor, command_sender, command_receiver) = make_processor_for_io(io.dupe());
+
+        let handle = {
+            let (sender, recv) = oneshot::channel();
+            MaterializerSubscriptionOperation::Create { sender }.execute(&mut processor);
+            recv.await.unwrap()
+        };
+
+        let command_thread = thread_spawn("buck2-dm", {
+            move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+
+                rt.block_on(processor.run(
+                    command_receiver,
+                    TtlRefreshConfiguration {
+                        frequency: std::time::Duration::default(),
+                        min_ttl: chrono::Duration::zero(),
+                        enabled: false,
+                    },
+                    0,
+                    AccessTimesUpdates::Disabled,
+                ));
+            }
+        })
+        .context("Cannot start materializer thread")
+        .unwrap();
+
+        (
+            DeferredMaterializerAccessor {
+                command_thread: Some(command_thread),
+                command_sender,
+                materialize_final_artifacts: true,
+                defer_write_actions: true,
+                io,
+                materializer_state_info: buck2_data::MaterializerStateInfo {
+                    num_entries_from_sqlite: 0,
+                },
+                stats: Arc::new(DeferredMaterializerStats::default()),
+                verbose_materializer_log: true,
+            },
+            handle,
         )
     }
 
@@ -654,7 +807,6 @@ mod state_machine {
             while let Ok(path) = handle.receiver().try_recv() {
                 paths.push(path);
             }
-
             assert_eq!(paths, vec![foo_bar]);
 
             Ok(())
@@ -690,6 +842,13 @@ mod state_machine {
                 dm.process_one_command(cmd);
             }
 
+            dm.sqlite_db
+                .as_mut()
+                .expect("db missing")
+                .materializer_state_table()
+                .delete(vec![path.clone()])
+                .context("delete failed")
+                .unwrap();
             dm.declare_existing(&path, value2.dupe());
 
             let mut paths = Vec::new();
@@ -890,5 +1049,47 @@ mod state_machine {
 
             Ok(())
         }).await
+    }
+
+    #[tokio::test]
+    async fn test_clean_stale() -> anyhow::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path("buck-out/v2/gen/foo/bar");
+            let project_root = temp_root();
+            let io = Arc::new(StubIoHandler::new(project_root.clone()));
+            let (dm, mut handle) = make_materializer(io.dupe()).await;
+            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+            // Drop dm and flush sqlite connection.
+            dm.abort();
+            // Create new materializer from db state so that artifacts are not active
+            let (dm, _) = make_materializer(io.dupe()).await;
+
+            let res = dm
+                .clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false)
+                .await?;
+
+            let &buck2_data::CleanStaleStats {
+                stale_artifact_count,
+                stale_bytes,
+                cleaned_artifact_count,
+                cleaned_bytes,
+                ..
+            } = res
+                .stats
+                .as_ref()
+                .unwrap_or_else(|| panic!("{}", res.message.unwrap()));
+            assert_eq!(
+                (
+                    stale_artifact_count,
+                    stale_bytes,
+                    cleaned_artifact_count,
+                    cleaned_bytes
+                ),
+                (1, 8, 1, 8)
+            );
+
+            Ok(())
+        })
+        .await
     }
 }
