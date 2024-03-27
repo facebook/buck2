@@ -553,6 +553,10 @@ def _merge_assets(
         not (is_exopackaged_enabled_for_resources and is_bundle_build),
         "Cannot use exopackage-for-resources with AAB builds.",
     )
+    expect(
+        not (is_exopackaged_enabled_for_resources and apk_module_graph_file),
+        "Cannot use exopackage-for-resources with Voltron builds.",
+    )
     asset_resource_infos = [resource_info for resource_info in resource_infos if resource_info.assets]
     if not asset_resource_infos and not cxx_resources:
         return base_apk, None, None, None
@@ -578,9 +582,14 @@ def _merge_assets(
 
         return merge_assets_cmd, merged_assets_output_hash
 
-    # For Voltron AAB builds, we need to put assets into a separate "APK" for each module.
-    if is_bundle_build and apk_module_graph_file:
-        module_assets_apks_dir = ctx.actions.declare_output("module_assets_apks")
+    if apk_module_graph_file:
+        declared_outputs = [merged_assets_output]
+        if is_bundle_build:
+            # For Voltron AAB builds, we need to put assets into a separate "APK" for each module.
+            module_assets_apks_dir = ctx.actions.declare_output("module_assets_apks")
+            declared_outputs.append(module_assets_apks_dir)
+        else:
+            module_assets_apks_dir = None
 
         def merge_assets_modular(ctx: AnalysisContext, artifacts, outputs):
             apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
@@ -594,7 +603,8 @@ def _merge_assets(
 
             merge_assets_cmd, _ = get_common_merge_assets_cmd(ctx, outputs[merged_assets_output])
 
-            merge_assets_cmd.add(["--module-assets-apks-dir", outputs[module_assets_apks_dir].as_output()])
+            if is_bundle_build:
+                merge_assets_cmd.add(["--module-assets-apks-dir", outputs[module_assets_apks_dir].as_output()])
 
             assets_dirs_file = ctx.actions.write_json("assets_dirs.json", module_to_assets_dirs)
             merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
@@ -605,7 +615,7 @@ def _merge_assets(
         ctx.actions.dynamic_output(
             dynamic = [apk_module_graph_file],
             inputs = [],
-            outputs = [module_assets_apks_dir, merged_assets_output],
+            outputs = declared_outputs,
             f = merge_assets_modular,
         )
 
