@@ -49,22 +49,11 @@ impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike {
     }
 }
 
-#[derive(StarlarkTypeRepr)]
+#[derive(StarlarkTypeRepr, AllocValue)]
 pub enum EitherStarlarkArtifact {
     Artifact(StarlarkArtifact),
     DeclaredArtifact(StarlarkDeclaredArtifact),
     PromiseArtifact(StarlarkPromiseArtifact),
-}
-
-// TODO(nga): derive.
-impl<'v> AllocValue<'v> for EitherStarlarkArtifact {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match self {
-            EitherStarlarkArtifact::Artifact(artifact) => heap.alloc(artifact),
-            EitherStarlarkArtifact::DeclaredArtifact(artifact) => heap.alloc(artifact),
-            EitherStarlarkArtifact::PromiseArtifact(artifact) => heap.alloc(artifact),
-        }
-    }
 }
 
 /// A single input or output file for an action.
