@@ -14,7 +14,7 @@ def matlab_program_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd.add(
         "-batch",
         cmd_args(
-            ctx.attrs.main.basename.rstrip(".m"),
+            ctx.attrs.main.basename.removesuffix(".m"),
             quote = "shell",
         ),
     )
