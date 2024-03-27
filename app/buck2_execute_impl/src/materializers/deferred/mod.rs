@@ -31,6 +31,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_core::buck2_env;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
@@ -87,6 +88,7 @@ use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use parking_lot::Mutex;
 use pin_project::pin_project;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
@@ -254,6 +256,8 @@ pub struct MaterializerSender<T: 'static> {
     /// commands can be reordered ahead of them.
     low_priority: Cow<'static, mpsc::UnboundedSender<LowPriorityMaterializerCommand>>,
     counters: MaterializerCounters,
+    /// Liveliness guard held while clean stale executes, dropped to interrupt clean.
+    clean_guard: Arc<Mutex<Option<LivelinessGuard>>>,
 }
 
 // Unbounded channels can be cheaply cloned.
@@ -264,6 +268,7 @@ impl<T> MaterializerSender<T> {
         &self,
         command: MaterializerCommand<T>,
     ) -> Result<(), mpsc::error::SendError<MaterializerCommand<T>>> {
+        *self.clean_guard.lock() = None;
         let res = self.high_priority.send(command);
         self.counters.sent.fetch_add(1, Ordering::Relaxed);
         res
@@ -971,6 +976,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             high_priority: Cow::Borrowed(Box::leak(Box::new(high_priority_sender))),
             low_priority: Cow::Borrowed(Box::leak(Box::new(low_priority_sender))),
             counters,
+            clean_guard: Arc::new(Mutex::new(None)),
         };
 
         let command_receiver = MaterializerReceiver {

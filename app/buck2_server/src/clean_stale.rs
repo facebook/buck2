@@ -85,8 +85,4 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
         };
         buck2_data::CleanCommandEnd { clean_stale_stats }
     }
-
-    fn exclusive_command_name(&self) -> Option<String> {
-        Some("clean --stale".to_owned())
-    }
 }

@@ -12,14 +12,19 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_common::file_ops::FileType;
+use buck2_common::liveliness_observer::LivelinessGuard;
+use buck2_common::liveliness_observer::LivelinessObserverSync;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_execute::execute::blocking::IoRequest;
+use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
 use chrono::Utc;
@@ -65,6 +70,9 @@ fn ready_clean_response(
 
 impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
+        *processor.command_sender.clean_guard.lock() = Some(liveliness_guard);
+
         let fut = if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
             if !processor.defer_write_actions {
                 ready_clean_response(
@@ -81,6 +89,7 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
                     &processor.io,
                     processor.cancellations,
                     &self.dispatcher,
+                    liveliness_observer,
                 )
             }
         } else {
@@ -136,6 +145,7 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     io: &Arc<T>,
     cancellations: &'static CancellationContext,
     dispatcher: &EventDispatcher,
+    liveliness_observer: Arc<dyn LivelinessObserverSync>,
 ) -> anyhow::Result<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>> {
     let gen_path = io
         .buck_out_path()
@@ -168,6 +178,7 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
             io: io.dupe(),
             keep_since_time,
             found_paths: &mut found_paths,
+            liveliness_observer: liveliness_observer.clone(),
         }
         .visit_recursively(gen_path, gen_subtree)?;
     };
@@ -186,6 +197,9 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
             path: path.to_string(),
             file_type: format!("{:?}", file_type),
         });
+    }
+    if !liveliness_observer.is_alive_sync() {
+        return ready_clean_response(Some("Interrupted"), Some(stats));
     }
 
     // If no stale or retained artifact founds, the db should be empty.
@@ -238,14 +252,22 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
                         FoundPath::Stale(p, size) => Some((p, size)),
                         _ => None,
                     })
-                    .map(|(path, size)| clean_artifact(path, size, cancellations, &io)),
+                    .map(|(path, size)| {
+                        clean_artifact(path, size, cancellations, &io, liveliness_observer.dupe())
+                    }),
             )
             .await?;
 
-            stats.cleaned_artifact_count += res.len() as u64;
-            stats.cleaned_bytes = res.iter().sum();
+            let cleaned_sizes: Vec<u64> = res.iter().filter_map(|x| *x).collect();
+            stats.cleaned_artifact_count += cleaned_sizes.len() as u64;
+            stats.cleaned_bytes = cleaned_sizes.iter().sum();
+            let message = if !liveliness_observer.is_alive().await {
+                Some("Interrupted".to_owned())
+            } else {
+                None
+            };
             anyhow::Ok(buck2_cli_proto::CleanStaleResponse {
-                message: None,
+                message,
                 stats: Some(stats),
             })
         }
@@ -259,9 +281,47 @@ async fn clean_artifact<T: IoHandler>(
     size: u64,
     cancellations: &'static CancellationContext<'_>,
     io: &Arc<T>,
-) -> anyhow::Result<u64> {
-    io.clean_invalidated_path(path, cancellations).await?;
-    Ok(size)
+    liveliness_observer: Arc<dyn LivelinessObserverSync>,
+) -> anyhow::Result<Option<u64>> {
+    match io
+        .clean_invalidated_path(
+            CleanInvalidatedPathRequest {
+                path,
+                liveliness_observer: liveliness_observer.dupe(),
+            },
+            cancellations,
+        )
+        .await
+    {
+        Ok(()) => Ok(Some(size)),
+        Err(e) => {
+            // Not downcasting would require larger clean up to IoRequest
+            if e.downcast_ref::<CleanInterrupt>().is_some() {
+                Ok(None)
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+pub struct CleanInvalidatedPathRequest {
+    path: ProjectRelativePathBuf,
+    pub(crate) liveliness_observer: Arc<dyn LivelinessObserverSync>,
+}
+
+#[derive(buck2_error::Error, Debug)]
+#[error("Interrupt")]
+struct CleanInterrupt;
+
+impl IoRequest for CleanInvalidatedPathRequest {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+        if !self.liveliness_observer.is_alive_sync() {
+            return Err(CleanInterrupt.into());
+        }
+        cleanup_path(project_fs, &self.path)?;
+        Ok(())
+    }
 }
 
 /// Get file size or directory size, without following symlinks
@@ -281,6 +341,7 @@ struct StaleFinder<'a, T: IoHandler> {
     io: Arc<T>,
     keep_since_time: DateTime<Utc>,
     found_paths: &'a mut Vec<FoundPath>,
+    liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
 
 #[derive(Clone)]
@@ -302,6 +363,9 @@ impl<'a, T: IoHandler> StaleFinder<'a, T> {
         let mut queue = vec![(path, subtree)];
 
         while let Some((path, tree)) = queue.pop() {
+            if !self.liveliness_observer.is_alive_sync() {
+                break;
+            }
             self.visit(&path, tree, &mut queue)?;
         }
 

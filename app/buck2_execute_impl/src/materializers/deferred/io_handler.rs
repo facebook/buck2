@@ -36,7 +36,6 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
-use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::output_size::OutputSize;
@@ -59,6 +58,7 @@ use remote_execution::TCode;
 use remote_execution::TDigest;
 use tracing::instrument;
 
+use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
@@ -115,7 +115,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
 
     async fn clean_invalidated_path<'a>(
         self: &Arc<Self>,
-        path: ProjectRelativePathBuf,
+        request: CleanInvalidatedPathRequest,
         cancellations: &'a CancellationContext,
     ) -> anyhow::Result<()>;
 
@@ -371,14 +371,11 @@ impl IoHandler for DefaultIoHandler {
     /// Used to clean paths that are already invalidated and don't need to notify the materializer
     async fn clean_invalidated_path<'a>(
         self: &Arc<Self>,
-        path: ProjectRelativePathBuf,
+        request: CleanInvalidatedPathRequest,
         cancellations: &'a CancellationContext,
     ) -> anyhow::Result<()> {
         self.io_executor
-            .execute_io(
-                Box::new(CleanOutputPaths { paths: vec![path] }),
-                cancellations,
-            )
+            .execute_io(Box::new(request), cancellations)
             .await
     }
 

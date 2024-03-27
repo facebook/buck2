@@ -89,6 +89,8 @@ fn test_remove_path() {
 
 mod state_machine {
     use std::path::Path;
+    use std::sync::Barrier;
+    use std::thread;
 
     use anyhow::Context;
     use assert_matches::assert_matches;
@@ -98,12 +100,14 @@ mod state_machine {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
+    use buck2_execute::execute::blocking::IoRequest;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
     use parking_lot::Mutex;
     use tokio::time::sleep;
     use tokio::time::Duration as TokioDuration;
 
     use super::*;
+    use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
     use crate::materializers::deferred::subscriptions::SubscriptionHandle;
     use crate::materializers::sqlite::testing_materializer_state_sqlite_db;
 
@@ -121,6 +125,10 @@ mod state_machine {
         fail_paths: Mutex<Vec<ProjectRelativePathBuf>>,
         // If set, add a sleep when materializing to simulate a long materialization period
         materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+        #[allocative(skip)]
+        read_dir_barriers: Option<Arc<(Barrier, Barrier)>>,
+        #[allocative(skip)]
+        clean_barriers: Option<Arc<(Barrier, Barrier)>>,
         digest_config: DigestConfig,
         buck_out_path: ProjectRelativePathBuf,
         fs: ProjectRoot,
@@ -157,6 +165,8 @@ mod state_machine {
                 fail: Default::default(),
                 fail_paths: Default::default(),
                 materialization_config: HashMap::new(),
+                read_dir_barriers: None,
+                clean_barriers: None,
                 digest_config: DigestConfig::testing_default(),
                 buck_out_path: make_path("buck-out/v2"),
                 fs,
@@ -168,6 +178,19 @@ mod state_machine {
             materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
         ) -> Self {
             self.materialization_config = materialization_config;
+            self
+        }
+
+        pub fn with_read_dir_barriers(
+            mut self,
+            read_dir_barriers: Arc<(Barrier, Barrier)>,
+        ) -> Self {
+            self.read_dir_barriers = Some(read_dir_barriers);
+            self
+        }
+
+        pub fn with_clean_barriers(mut self, clean_barriers: Arc<(Barrier, Barrier)>) -> Self {
+            self.clean_barriers = Some(clean_barriers);
             self
         }
     }
@@ -237,10 +260,15 @@ mod state_machine {
 
         async fn clean_invalidated_path<'a>(
             self: &Arc<Self>,
-            _path: ProjectRelativePathBuf,
+            request: CleanInvalidatedPathRequest,
             _cancellations: &'a CancellationContext,
         ) -> anyhow::Result<()> {
-            Ok(())
+            if let Some(barriers) = self.clean_barriers.as_ref() {
+                // Allow tests to advance here, execute something and then continue
+                barriers.as_ref().0.wait();
+                barriers.as_ref().1.wait();
+            }
+            Box::new(request).execute(&self.fs)
         }
 
         async fn materialize_entry(
@@ -283,6 +311,11 @@ mod state_machine {
         }
 
         fn read_dir(&self, path: &AbsNormPathBuf) -> Result<ReadDir, IoError> {
+            if let Some(barriers) = self.read_dir_barriers.as_ref() {
+                // Allow tests to advance here, execute something and then continue
+                barriers.as_ref().0.wait();
+                barriers.as_ref().1.wait();
+            }
             fs_util::read_dir(path)
         }
 
@@ -324,6 +357,7 @@ mod state_machine {
                 high_priority: Cow::Owned(hi_send),
                 low_priority: Cow::Owned(lo_send),
                 counters,
+                clean_guard: Default::default(),
             },
             MaterializerReceiver {
                 high_priority: hi_recv,
@@ -1062,7 +1096,7 @@ mod state_machine {
             // Drop dm and flush sqlite connection.
             dm.abort();
             // Create new materializer from db state so that artifacts are not active
-            let (dm, _) = make_materializer(io.dupe()).await;
+            let (dm, _) = make_materializer(io).await;
 
             let res = dm
                 .clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false)
@@ -1086,6 +1120,96 @@ mod state_machine {
                     cleaned_bytes
                 ),
                 (1, 8, 1, 8)
+            );
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_clean_stale_interrupt() -> anyhow::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path("buck-out/v2/gen/foo/bar");
+            let project_root = temp_root();
+            let io = Arc::new(StubIoHandler::new(project_root.clone()));
+            let (dm, mut handle) = make_materializer(io.dupe()).await;
+            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+
+            let read_dir_barriers =
+                Arc::new((std::sync::Barrier::new(2), std::sync::Barrier::new(2)));
+            let io = Arc::new(
+                StubIoHandler::new(project_root.dupe())
+                    .with_read_dir_barriers(read_dir_barriers.dupe()),
+            );
+            let (dm, _) = make_materializer(io).await;
+
+            // Interrupt while scanning buck-out
+            let dm = Arc::new(dm);
+            let dm_dup = dm.dupe();
+            let fut = dm_dup.clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false);
+            thread::spawn(move || {
+                // Wait until a read_dir request is about to execute
+                read_dir_barriers.0.wait();
+                // Sending a high_priority command will interrupt the processor
+                let noop_command = MaterializerCommand::DeclareExisting(vec![], None, None);
+                let _unused = dm.command_sender.send(noop_command);
+                // Wait after sending so that a second request doesn't start
+                read_dir_barriers.1.wait();
+            });
+            let res = fut.await?;
+            let &buck2_data::CleanStaleStats {
+                stale_artifact_count,
+                stale_bytes,
+                cleaned_artifact_count,
+                cleaned_bytes,
+                ..
+            } = res.stats.as_ref().unwrap();
+            assert_eq!(
+                (
+                    stale_artifact_count,
+                    stale_bytes,
+                    cleaned_artifact_count,
+                    cleaned_bytes
+                ),
+                (0, 0, 0, 0)
+            );
+
+            let clean_barriers = Arc::new((Barrier::new(2), Barrier::new(2)));
+            let io = Arc::new(
+                StubIoHandler::new(project_root.dupe()).with_clean_barriers(clean_barriers.dupe()),
+            );
+            let (dm, _) = make_materializer(io).await;
+
+            // Interrupt while deleting files
+            let dm = Arc::new(dm);
+            let dm_dup = dm.dupe();
+            let fut = dm_dup.clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false);
+            thread::spawn(move || {
+                // Wait until a single clean request is about to execute
+                clean_barriers.0.wait();
+                // Sending a high_priority command will drop the clean guard immediately (from this thread)
+                let noop_command = MaterializerCommand::DeclareExisting(vec![], None, None);
+                let _unused = dm.command_sender.send(noop_command);
+                // Wait after sending, executing clean request will complete but a second request doesn't start because
+                // the single io thread is blocked
+                clean_barriers.1.wait();
+            });
+            let res = fut.await?;
+            let &buck2_data::CleanStaleStats {
+                stale_artifact_count,
+                stale_bytes,
+                cleaned_artifact_count,
+                cleaned_bytes,
+                ..
+            } = res.stats.as_ref().unwrap();
+            assert_eq!(
+                (
+                    stale_artifact_count,
+                    stale_bytes,
+                    cleaned_artifact_count,
+                    cleaned_bytes
+                ),
+                (1, 8, 0, 0)
             );
 
             Ok(())

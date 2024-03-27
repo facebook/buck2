@@ -27,6 +27,7 @@ use chrono::Utc;
 use humantime;
 
 /// Clean only old artifacts from a running buck daemon without killing the daemon.
+/// This can be interrupted by other commands that run in parallel and request materialization.
 ///
 /// This is a separate command from CleanCommand even though it is invoked with
 /// a flag (--stale) on the clean subcommand, which is a bit weird.
