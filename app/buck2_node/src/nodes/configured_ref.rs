@@ -129,6 +129,11 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         self.0.target_deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
+    fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+        self.0
+            .configuration_deps()
+            .map(ConfiguredGraphNodeRef::ref_cast)
+    }
     fn attr_any_matches(
         attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,

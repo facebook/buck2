@@ -428,6 +428,15 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Err(QueryError::NotAvailableInContext("exec_deps"))
     }
 
+    /// A filter function that can be used in the query expression of `deps` query function.
+    /// Returns the output of deps function for configuration dependencies (that appear as conditions in selects).
+    ///
+    /// Example:
+    /// `buck2 cquery "deps('//foo:bar', 1, configuration_deps())"``
+    async fn configuration_deps(&self) -> QueryFuncResult<Env> {
+        Err(QueryError::NotAvailableInContext("configuration_deps"))
+    }
+
     /// Computes the set intersection over the given arguments.
     /// Can be used with the `^` symbol. This operator is commutative.
     ///

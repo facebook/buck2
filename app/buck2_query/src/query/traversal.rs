@@ -316,6 +316,10 @@ mod tests {
         fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
             unimplemented!()
         }
+
+        fn configuration_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
+            unimplemented!()
+        }
     }
 
     struct Graph(HashMap<Ref, Node>);

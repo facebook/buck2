@@ -84,6 +84,10 @@ impl QueryTarget for TestTarget {
         Box::new(std::iter::empty())
     }
 
+    fn configuration_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
+        Box::new(std::iter::empty())
+    }
+
     fn attr_any_matches(
         _attr: &Self::Attr<'_>,
         _filter: &dyn Fn(&str) -> anyhow::Result<bool>,

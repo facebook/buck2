@@ -299,6 +299,10 @@ impl QueryTarget for ActionQueryNode {
         self.deps()
     }
 
+    fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+        std::iter::empty()
+    }
+
     fn attr_any_matches(
         attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,

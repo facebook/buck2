@@ -342,6 +342,16 @@ impl ConfiguredTargetNode {
         self.0.all_deps.all_deps.iter()
     }
 
+    pub fn configuration_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
+        // Since we validate that all configuration dependencies are of kind Configuration,
+        // we can use that to filter the deps.
+        self.0
+            .all_deps
+            .deps()
+            .iter()
+            .filter(|x| x.rule_kind() == RuleKind::Configuration)
+    }
+
     pub fn toolchain_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
         // Since we validate that all toolchain dependencies are of kind Toolchain,
         // we can use that to filter the deps.

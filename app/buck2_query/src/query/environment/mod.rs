@@ -101,6 +101,8 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
 
     fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a;
 
+    fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a;
+
     fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::Key> + Send + 'a> {
         None::<iter::Empty<Self::Key>>
     }

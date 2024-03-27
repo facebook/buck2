@@ -82,6 +82,9 @@ impl QueryTarget for Target {
         unimplemented!()
     }
 
+    fn configuration_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
+        unimplemented!()
+    }
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         _func: F,

@@ -56,6 +56,9 @@ impl QueryTarget for TargetNode {
         TargetNode::target_deps(self)
     }
 
+    fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+        TargetNode::get_configuration_deps(self)
+    }
     fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::Key> + Send + 'a> {
         Some(self.tests().map(|t| t.target().dupe()))
     }
