@@ -40,7 +40,17 @@ pub trait LivelinessObserver: Send + Sync {
     async fn while_alive(&self);
 }
 
+pub trait LivelinessObserverSync: LivelinessObserver {
+    fn is_alive_sync(&self) -> bool;
+}
+
 impl dyn LivelinessObserver {
+    pub async fn is_alive(&self) -> bool {
+        futures::poll!(self.while_alive()).is_pending()
+    }
+}
+
+impl dyn LivelinessObserverSync {
     pub async fn is_alive(&self) -> bool {
         futures::poll!(self.while_alive()).is_pending()
     }
@@ -70,7 +80,7 @@ pub struct LivelinessGuard {
 }
 
 impl LivelinessGuard {
-    pub fn create() -> (Arc<dyn LivelinessObserver>, LivelinessGuard) {
+    fn _create() -> (Arc<LivelinessObserverForGuard>, LivelinessGuard) {
         let manager = Arc::new(LivelinessObserverForGuard::new(
             LivelinessObserverState::AliveWhenLocked,
         ));
@@ -81,6 +91,16 @@ impl LivelinessGuard {
             .expect("This lock was just created");
 
         (manager.dupe() as _, LivelinessGuard { guard, manager })
+    }
+
+    pub fn create() -> (Arc<dyn LivelinessObserver>, LivelinessGuard) {
+        let (manager, guard) = LivelinessGuard::_create();
+        (manager.dupe() as _, guard)
+    }
+
+    pub fn create_sync() -> (Arc<dyn LivelinessObserverSync>, LivelinessGuard) {
+        let (manager, guard) = LivelinessGuard::_create();
+        (manager.dupe() as _, guard)
     }
 
     /// Declare that this liveliness manager is no longer alive. Dropping the guard does the same,
@@ -134,6 +154,12 @@ impl LivelinessObserver for LivelinessObserverForGuard {
             LivelinessObserverState::AliveWhenLocked => {}
             LivelinessObserverState::ForeverAlive => futures::future::pending().await,
         }
+    }
+}
+
+impl LivelinessObserverSync for LivelinessObserverForGuard {
+    fn is_alive_sync(&self) -> bool {
+        self.try_read().is_err()
     }
 }
 
