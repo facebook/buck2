@@ -399,8 +399,8 @@ def get_filtered_labels_to_links_map(
                 else:
                     target_group_srcs[src] = target
 
-            if target_group in link_group_added:
-                return
+        if target_group in link_group_added:
+            return
 
         # In some flows, we may not have access to the actual link group lib
         # in our dep tree (e.g. https://fburl.com/code/pddmkptb), so just bail
