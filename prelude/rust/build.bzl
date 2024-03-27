@@ -667,10 +667,14 @@ def rust_compile(
 # --extern <crate>=<path> for direct dependencies
 # -Ldependency=<dir> for transitive dependencies
 # For native dependencies, we use -Clink-arg=@argsfile
-# Second element of result tuple is a list of files/directories that should be present for executable to be run successfully
-# Third return is the mapping from crate names back to targets (needed so that a deps linter knows what deps need fixing)
 #
-# The `compile_ctx` may be omitted if `is_check` is `True` and there are no dependencies with dynamic crate names
+# Second element of returned tuple is a mapping from crate names back to target
+# label, needed for applying autofixes for rustc's unused_crate_dependencies
+# lint by tracing Rust crate names in the compiler diagnostic back to which
+# dependency entry in the BUCK file needs to be removed.
+#
+# The `compile_ctx` may be omitted if there are no dependencies with dynamic
+# crate names.
 def dependency_args(
         ctx: AnalysisContext,
         compile_ctx: CompileContext | None,
