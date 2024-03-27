@@ -19,8 +19,7 @@ def _get_code_signing_configuration() -> str:
     # This is a kill switch for the feature, it can also be disabled by setting
     # `apple.fast_adhoc_signing_enabled=false` in a global buckconfig file.
     is_fast_adhoc_signing_enabled = _maybe_get_bool("fast_adhoc_signing_enabled", True)
-    if is_dry_run and is_fast_adhoc_signing_enabled:
-        fail("Cannot enable both dry-run and fast-adhoc code signing")
+
     if is_dry_run:
         return CodeSignConfiguration("dry-run").value
     elif is_fast_adhoc_signing_enabled:
