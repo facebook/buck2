@@ -24,6 +24,7 @@ AppleToolchainInfo = provider(
         "installer": provider_field(typing.Any, default = None),  # label
         "libtool": provider_field(typing.Any, default = None),  # "RunInfo"
         "lipo": provider_field(typing.Any, default = None),  # "RunInfo"
+        "mapc": provider_field(typing.Any, default = None),  # "RunInfo"
         "min_version": provider_field(typing.Any, default = None),  # [None, str]
         "momc": provider_field(typing.Any, default = None),  # "RunInfo"
         "objdump": provider_field(RunInfo | None, default = None),

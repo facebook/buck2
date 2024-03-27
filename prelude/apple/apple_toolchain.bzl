@@ -31,6 +31,7 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             installer = ctx.attrs.installer,
             libtool = ctx.attrs.libtool[RunInfo],
             lipo = ctx.attrs.lipo[RunInfo],
+            mapc = ctx.attrs.mapc[RunInfo] if ctx.attrs.mapc else None,
             min_version = ctx.attrs.min_version,
             momc = ctx.attrs.momc[RunInfo],
             objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,

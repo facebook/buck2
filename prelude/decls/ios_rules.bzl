@@ -818,6 +818,7 @@ apple_toolchain = prelude_rule(
             "libtool": attrs.source(),
             "licenses": attrs.list(attrs.source(), default = []),
             "lipo": attrs.source(),
+            "mapc": attrs.option(attrs.source(), default = None),
             "min_version": attrs.string(default = ""),
             "momc": attrs.source(),
             "platform_path": attrs.source(),
