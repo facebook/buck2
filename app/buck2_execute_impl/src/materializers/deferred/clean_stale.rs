@@ -50,27 +50,26 @@ pub struct CleanStaleArtifacts {
     pub dispatcher: EventDispatcher,
 }
 
-fn skip_clean_response_with_message(
-    message: &str,
-) -> anyhow::Result<(
-    BoxFuture<'static, anyhow::Result<()>>,
-    buck2_cli_proto::CleanStaleResponse,
-)> {
-    Ok((
-        futures::future::ready(Ok(())).boxed(),
-        buck2_cli_proto::CleanStaleResponse {
-            message: Some(message.to_owned()),
-            stats: None,
-        },
-    ))
+fn ready_clean_response(
+    message: Option<&str>,
+    stats: Option<buck2_data::CleanStaleStats>,
+) -> anyhow::Result<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>> {
+    Ok(
+        futures::future::ready(Ok(buck2_cli_proto::CleanStaleResponse {
+            message: message.map(|m| m.to_owned()),
+            stats,
+        }))
+        .boxed(),
+    )
 }
 
 impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
-        let res = if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
+        let fut = if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
             if !processor.defer_write_actions {
-                skip_clean_response_with_message(
-                    "Skipping clean, set buck2.defer_write_actions to use clean --stale",
+                ready_clean_response(
+                    Some("Skipping clean, set buck2.defer_write_actions to use clean --stale"),
+                    None,
                 )
             } else {
                 gather_clean_futures_for_stale_artifacts(
@@ -85,13 +84,13 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
                 )
             }
         } else {
-            skip_clean_response_with_message(
-                "Skipping clean, set buck2.sqlite_materializer_state to use clean --stale",
+            ready_clean_response(
+                Some("Skipping clean, set buck2.sqlite_materializer_state to use clean --stale"),
+                None,
             )
         };
         let fut = async move {
-            let (fut, response) = res?;
-            fut.await?;
+            let response = fut?.await?;
             tracing::trace!("finished cleaning stale artifacts");
             Ok(response)
         }
@@ -137,16 +136,13 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     io: &Arc<T>,
     cancellations: &'static CancellationContext,
     dispatcher: &EventDispatcher,
-) -> anyhow::Result<(
-    BoxFuture<'static, anyhow::Result<()>>,
-    buck2_cli_proto::CleanStaleResponse,
-)> {
+) -> anyhow::Result<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>> {
     let gen_path = io
         .buck_out_path()
         .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
     let gen_dir = io.fs().resolve(&gen_path);
     if !fs_util::try_exists(&gen_dir)? {
-        return skip_clean_response_with_message("Nothing to clean");
+        return ready_clean_response(Some("Nothing to clean"), None);
     }
     tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
@@ -212,7 +208,7 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     }
 
     let fut = if dry_run {
-        futures::future::ready(Ok(())).boxed()
+        return ready_clean_response(None, Some(stats));
     } else {
         let io = io.dupe();
 
@@ -249,18 +245,14 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
             )
             .await?;
 
-            anyhow::Ok(())
+            anyhow::Ok(buck2_cli_proto::CleanStaleResponse {
+                message: None,
+                stats: Some(stats),
+            })
         }
         .boxed()
     };
-
-    Ok((
-        fut,
-        buck2_cli_proto::CleanStaleResponse {
-            message: None,
-            stats: Some(stats),
-        },
-    ))
+    Ok(fut)
 }
 
 /// Get file size or directory size, without following symlinks
