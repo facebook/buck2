@@ -212,9 +212,6 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
     } else {
         let io = io.dupe();
 
-        stats.cleaned_artifact_count = stats.stale_artifact_count + stats.untracked_artifact_count;
-        stats.cleaned_bytes = stats.untracked_bytes + stats.stale_bytes;
-
         let paths_to_invalidate: Vec<ProjectRelativePathBuf> = found_paths
             .iter()
             .filter_map(|x| match x {
@@ -233,18 +230,20 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
 
             // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
             // do this to get parallelism.
-            futures::future::try_join_all(
+            let res = futures::future::try_join_all(
                 found_paths
                     .into_iter()
                     .filter_map(|x| match x {
-                        FoundPath::Untracked(p, ..) => Some(p),
-                        FoundPath::Stale(p, ..) => Some(p),
+                        FoundPath::Untracked(p, _, size) => Some((p, size)),
+                        FoundPath::Stale(p, size) => Some((p, size)),
                         _ => None,
                     })
-                    .map(|path| io.clean_invalidated_path(path, cancellations)),
+                    .map(|(path, size)| clean_artifact(path, size, cancellations, &io)),
             )
             .await?;
 
+            stats.cleaned_artifact_count += res.len() as u64;
+            stats.cleaned_bytes = res.iter().sum();
             anyhow::Ok(buck2_cli_proto::CleanStaleResponse {
                 message: None,
                 stats: Some(stats),
@@ -253,6 +252,16 @@ fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
         .boxed()
     };
     Ok(fut)
+}
+
+async fn clean_artifact<T: IoHandler>(
+    path: ProjectRelativePathBuf,
+    size: u64,
+    cancellations: &'static CancellationContext<'_>,
+    io: &Arc<T>,
+) -> anyhow::Result<u64> {
+    io.clean_invalidated_path(path, cancellations).await?;
+    Ok(size)
 }
 
 /// Get file size or directory size, without following symlinks
