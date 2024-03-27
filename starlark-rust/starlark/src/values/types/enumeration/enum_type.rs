@@ -249,6 +249,8 @@ where
 {
     type Canonical = FrozenEnumType;
 
+    // TODO(nga): replace `Color("RED")` with `Color.RED`.
+    //   https://www.internalfb.com/tasks/?t=183515013
     fn invoke(
         &self,
         _me: Value<'v>,
