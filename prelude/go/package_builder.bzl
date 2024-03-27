@@ -89,7 +89,7 @@ def build_package(
 
         ctx.actions.copy_file(outputs[out], pkg_file)
 
-    ctx.actions.dynamic_output(dynamic = [go_list_out], inputs = [], outputs = dynamic_outputs, f = f)
+    ctx.actions.dynamic_output(dynamic = [go_list_out], inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = f)
 
     return GoPkg(
         pkg = out,
