@@ -7,8 +7,16 @@
  * of this source tree.
  */
 
+use std::io::Write;
+use std::sync::Arc;
+
+use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -16,6 +24,9 @@ use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
 use tonic::async_trait;
+
+use crate::commands::query::printer::QueryResultPrinter;
+use crate::commands::query::printer::ShouldPrintProviders;
 
 pub(crate) async fn explain_command(
     ctx: &dyn ServerCommandContextTrait,
@@ -53,9 +64,54 @@ impl ServerCommandTemplate for ExplainServerCommand {
 }
 
 pub(crate) async fn explain(
-    _server_ctx: &dyn ServerCommandContextTrait,
-    mut _ctx: DiceTransaction,
+    server_ctx: &dyn ServerCommandContextTrait,
+    mut ctx: DiceTransaction,
 ) -> anyhow::Result<ExplainResponse> {
-    // TODO iguridi: implement this
+    let query_result = QUERY_FRONTEND
+        .get()?
+        .eval_cquery(
+            &mut ctx,
+            server_ctx.working_dir(),
+            CqueryOwnerBehavior::Correct,
+            "deps('fbcode//buck2:buck2')", // TODO: dehardcode
+            &[],                           // TODO:
+            GlobalCfgOptions {
+                target_platform: None,
+                cli_modifiers: Arc::new(vec![]),
+            }, // TODO:
+            None,                          // TODO:
+        )
+        .await?;
+
+    // TODO: actually do something with the cquery info
+    let mut writer = std::fs::File::create("/tmp/cquery.json")?;
+    let writer_ref = &mut writer;
+
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let output_configuration = QueryResultPrinter::from_request_options(
+        &cell_resolver,
+        &["".to_owned()], // all TODO:
+        1,                // json TODO: dehardcode
+    )?;
+
+    ctx.with_linear_recompute(|_ctx| async move {
+        match query_result {
+            QueryEvaluationResult::Single(targets) => {
+                output_configuration
+                    .print_single_output(writer_ref, targets, false, ShouldPrintProviders::No)
+                    .await?
+            }
+            QueryEvaluationResult::Multiple(results) => {
+                output_configuration
+                    .print_multi_output(writer_ref, results, false, ShouldPrintProviders::No)
+                    .await?
+            }
+        };
+        anyhow::Ok(())
+    })
+    .await?;
+
+    writer.flush()?;
+
     Ok(ExplainResponse {})
 }
