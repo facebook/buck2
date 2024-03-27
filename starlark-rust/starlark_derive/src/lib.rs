@@ -22,6 +22,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 
+mod alloc_value;
 mod any_lifetime;
 mod attrs;
 mod bc;
@@ -167,6 +168,18 @@ pub fn derive_starlark_type_repr(input: proc_macro::TokenStream) -> proc_macro::
 #[proc_macro_derive(UnpackValue)]
 pub fn derive_unpack_value(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     unpack_value::derive_unpack_value(input)
+}
+
+/// Derive the `AllocValue` trait.
+#[proc_macro_derive(AllocValue)]
+pub fn derive_alloc_value(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    alloc_value::derive_alloc_value(input)
+}
+
+/// Derive the `AllocFrozenValue` trait.
+#[proc_macro_derive(AllocFrozenValue)]
+pub fn derive_alloc_frozen_value(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    alloc_value::derive_alloc_frozen_value(input)
 }
 
 /// Derive accessor methods that are designed to be used from {has,get,dir}_attr

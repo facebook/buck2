@@ -250,6 +250,10 @@ impl<'a> Deref for DataEnumUtil<'a> {
 }
 
 impl<'a> DataEnumUtil<'a> {
+    pub(crate) fn span(self) -> Span {
+        self.derive_input.span()
+    }
+
     pub(crate) fn match_self(
         self,
         variant: impl Fn(VariantUtil<'a>, Vec<(syn::Ident, &'a Field)>) -> syn::Result<syn::Expr>,
@@ -304,6 +308,17 @@ pub(crate) enum DeriveInputUtil<'a> {
     Enum(DataEnumUtil<'a>),
 }
 
+impl<'a> Deref for DeriveInputUtil<'a> {
+    type Target = DeriveInput;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            DeriveInputUtil::Struct(data) => data.derive_input,
+            DeriveInputUtil::Enum(data) => data.derive_input,
+        }
+    }
+}
+
 impl<'a> DeriveInputUtil<'a> {
     pub(crate) fn new(derive_input: &'a DeriveInput) -> syn::Result<Self> {
         match &derive_input.data {
@@ -316,6 +331,13 @@ impl<'a> DeriveInputUtil<'a> {
                 derive_input,
                 "Only structs and enums are supported",
             )),
+        }
+    }
+
+    pub(crate) fn span(self) -> Span {
+        match self {
+            DeriveInputUtil::Struct(data) => data.span(),
+            DeriveInputUtil::Enum(data) => data.span(),
         }
     }
 

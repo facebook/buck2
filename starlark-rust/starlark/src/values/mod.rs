@@ -32,6 +32,8 @@
 
 pub use starlark_derive::starlark_attrs;
 pub use starlark_derive::starlark_value;
+pub use starlark_derive::AllocFrozenValue;
+pub use starlark_derive::AllocValue;
 pub use starlark_derive::Freeze;
 pub use starlark_derive::NoSerialize;
 pub use starlark_derive::StarlarkAttrs;

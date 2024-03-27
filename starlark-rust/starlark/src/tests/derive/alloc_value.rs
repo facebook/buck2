@@ -15,11 +15,31 @@
  * limitations under the License.
  */
 
-mod alloc_value;
-mod attrs;
-mod docs;
-mod freeze;
-mod module;
-mod trace;
-mod unpack_value;
-mod unpack_value_attr;
+//! Tests for `#[derive(AllocValue)]`.
+
+#![allow(dead_code)] // Only check it compiles.
+
+use starlark_derive::AllocFrozenValue;
+
+use crate as starlark;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::AllocValue;
+
+#[derive(StarlarkTypeRepr, AllocValue, AllocFrozenValue)]
+enum AllocNoVariant {}
+
+#[derive(StarlarkTypeRepr, AllocValue, AllocFrozenValue)]
+enum AllocOneVariant {
+    Int(u32),
+}
+
+#[derive(StarlarkTypeRepr, AllocValue, AllocFrozenValue)]
+enum AllocTwoVariants {
+    Int(u32),
+    String(String),
+}
+
+#[derive(StarlarkTypeRepr, AllocValue, AllocFrozenValue)]
+enum AllocWithLifetime<'v> {
+    String(&'v str),
+}

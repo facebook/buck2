@@ -55,6 +55,21 @@ use crate::values::Value;
 ///     }
 /// }
 /// ```
+///
+/// # Derive
+///
+/// `AllocValue` can be derived for enums, like this:
+///
+/// ```
+/// use starlark::values::type_repr::StarlarkTypeRepr;
+/// use starlark::values::AllocValue;
+///
+/// #[derive(StarlarkTypeRepr, AllocValue)]
+/// enum AllocIntOrStr {
+///     Int(i32),
+///     Str(String),
+/// }
+/// ```
 pub trait AllocValue<'v>: StarlarkTypeRepr {
     /// Allocate the value on a heap and return a reference to the allocated value.
     ///
@@ -114,6 +129,21 @@ impl<A: AllocFrozenValue, B: AllocFrozenValue> AllocFrozenValue for Either<A, B>
 }
 
 /// Trait for things that can be allocated on a [`FrozenHeap`] producing a [`FrozenValue`].
+///
+/// # Derive
+///
+/// `AllocFrozenValue` can be derived for enums, like this:
+///
+/// ```
+/// use starlark::values::type_repr::StarlarkTypeRepr;
+/// use starlark::values::AllocFrozenValue;
+///
+/// #[derive(StarlarkTypeRepr, AllocFrozenValue)]
+/// enum AllocIntOrStr {
+///     Int(i32),
+///     Str(String),
+/// }
+/// ```
 pub trait AllocFrozenValue: StarlarkTypeRepr {
     /// Allocate a value in the frozen heap and return a reference to the allocated value.
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue;
