@@ -1002,7 +1002,6 @@ def _compute_common_args(
         compile_ctx.sysroot_args,
         ["-Cpanic=abort", "-Zpanic-abort-tests=yes"] if toolchain_info.panic_runtime == PanicRuntime("abort") else [],
         _rustc_flags(toolchain_info.rustc_flags),
-        _rustc_flags(toolchain_info.rustc_check_flags) if is_check else [],
         _rustc_flags(toolchain_info.rustc_coverage_flags) if ctx.attrs.coverage else [],
         _rustc_flags(ctx.attrs.rustc_flags),
         _rustc_flags(toolchain_info.extra_rustc_flags),

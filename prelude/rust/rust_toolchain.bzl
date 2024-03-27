@@ -45,8 +45,6 @@ rust_toolchain_attrs = {
     "extra_rustc_flags": provider_field(list[typing.Any], default = []),
     # Extra flags when building binaries
     "rustc_binary_flags": provider_field(list[typing.Any], default = []),
-    # Extra flags for doing check builds
-    "rustc_check_flags": provider_field(list[typing.Any], default = []),
     # Extra flags for doing building tests
     "rustc_test_flags": provider_field(list[typing.Any], default = []),
     # Extra flags when coverage is enabled for a target

@@ -121,9 +121,7 @@ rust_binary = prelude_rule(
         If you invoke a build with the `check` flavor, then Buck will invoke rustc
         to check the code (typecheck, produce warnings, etc), but won't generate an executable code.
         When applied to binaries it produces no output; for libraries it produces metadata for
-        consumers of the library. When building with `check`, extra compiler flags from
-        the `rust.rustc_check_flags` are added to the compiler's command line options,
-        to allow for extra warnings, etc.
+        consumers of the library.
 
 
         Note: Buck is currently tested with (and therefore supports) version 1.32.0 of Rust.
@@ -195,9 +193,7 @@ rust_library = prelude_rule(
         If you invoke a build with the `check` flavor, then Buck will invoke rustc
         to check the code (typecheck, produce warnings, etc), but won't generate an executable code.
         When applied to binaries it produces no output; for libraries it produces metadata for
-        consumers of the library. When building with `check`, extra compiler flags from
-        the `rust.rustc_check_flags` are added to the compiler's command line options,
-        to allow for extra warnings, etc.
+        consumers of the library.
 
 
         Note: Buck is currently tested with (and therefore supports) version 1.32.0 of Rust.
