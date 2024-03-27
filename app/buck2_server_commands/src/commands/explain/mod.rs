@@ -83,8 +83,32 @@ pub(crate) async fn explain(
         )
         .await?;
 
-    // TODO: actually do something with the cquery info
-    let mut writer = std::fs::File::create("/tmp/cquery.json")?;
+    // TODO: remove some duplication and flushes
+    let mut writer = std::fs::File::create("/tmp/index.js")?;
+    let res = include_bytes!("index.js").as_slice();
+    writer.write_all(res)?;
+    writer.flush()?;
+
+    let mut writer = std::fs::File::create("/tmp/styles.css")?;
+    let res = include_bytes!("styles.css").as_slice();
+    writer.write_all(res)?;
+    writer.flush()?;
+
+    let mut writer = std::fs::File::create("/tmp/index.html")?;
+    let res = include_bytes!("index.html").as_slice();
+    writer.write_all(res)?;
+    writer.flush()?;
+
+    let mut writer = std::fs::File::create("/tmp/target.js")?;
+    let res = include_bytes!("target.js").as_slice();
+    writer.write_all(res)?;
+    writer.flush()?;
+
+    let mut writer = std::fs::File::create("/tmp/data.js")?;
+    let res = include_bytes!("data.js").as_slice();
+    writer.write_all(res)?;
+    writer.flush()?;
+
     let writer_ref = &mut writer;
 
     let cell_resolver = ctx.get_cell_resolver().await?;

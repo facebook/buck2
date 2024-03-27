@@ -5,7 +5,10 @@ oncall("build_infra")
 
 rust_library(
     name = "buck2_server_commands",
-    srcs = glob(["src/**/*.rs"]),
+    srcs = glob([
+        "src/**/*.rs",
+        "src/commands/explain/*",
+    ]),
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-recursion",
