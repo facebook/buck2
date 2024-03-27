@@ -16,6 +16,7 @@ load(
     "@prelude//cxx:groups.bzl",
     "compute_mappings",
     "create_group",
+    "get_roots_from_mapping",
     "make_info_subtarget_providers",
     "parse_groups_definitions",
 )
@@ -25,17 +26,17 @@ load(
     "Traversal",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//utils:utils.bzl", "flatten")
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     resource_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
 
-    # Extract deps from the roots via the raw attrs, as `parse_groups_definitions`
-    # parses them as labels.
-    resource_groups_deps = [
-        mapping[0]
+    resource_groups_deps = flatten([
+        get_roots_from_mapping(mapping)
         for entry in ctx.attrs.map
         for mapping in entry[1]
-    ]
+    ])
+
     resource_graph = create_resource_graph(
         ctx = ctx,
         labels = [],
@@ -104,7 +105,7 @@ registration_spec = RuleRegistrationSpec(
                 attrs.string(),
                 attrs.list(
                     attrs.tuple(
-                        attrs.dep(),
+                        attrs.one_of(attrs.dep(), attrs.list(attrs.dep())),
                         attrs.enum(Traversal.values()),
                         attrs.option(attrs.string()),
                     ),

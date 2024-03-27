@@ -33,7 +33,7 @@ def link_group_inlined_map_attr(root_attr):
                 # a single mapping
                 attrs.tuple(
                     # root node
-                    root_attr,
+                    attrs.one_of(root_attr, attrs.list(root_attr)),
                     # traversal
                     attrs.enum(Traversal.values()),
                     # filters, either `None`, a single filter, or a list of filters

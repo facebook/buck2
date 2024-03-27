@@ -22,7 +22,6 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
-    "map_val",
     "value_or",
 )
 load(
@@ -47,6 +46,26 @@ _VALID_ATTRS = [
     "prohibit_file_duplicates",
 ]
 
+# Traversal types in this list will only assign the node
+# to a target (as opposed to the transitive deps of the node's tree).
+_TRAVERSALS_TO_ASSIGN_NODE = [
+    Traversal("node"),
+    Traversal("subfolders"),
+    # TODO (dust): Possible perf optimization:
+    # When intersecting configured targets, it's not possible to intersect
+    # a parent without also intersecting it's children.
+    #
+    # As a result, there's a possible perf optimization to assign 'tree'
+    # to intersected targets instead, and leverage that to avoid traversing
+    # the entire tree of every root.
+    #
+    # For example:
+    # If iterating the tree of 'root2' we find a node which
+    # was also present in 'root1', we can skip traversing the subtree
+    # because it's evitable that everything is going to match there too.
+    Traversal("intersect"),
+]
+
 # Creates a group from an existing group, overwriting any properties provided
 def create_group(
         group: Group,
@@ -60,6 +79,10 @@ def create_group(
         attrs = value_or(attrs, group.attrs),
         definition_type = value_or(definition_type, group.definition_type),
     )
+
+def get_roots_from_mapping(mapping):
+    deps = mapping[0] if type(mapping[0]) == "list" else [mapping[0]]
+    return filter(None, deps)
 
 def parse_groups_definitions(
         map: list,
@@ -89,11 +112,17 @@ def parse_groups_definitions(
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
             mapping = GroupMapping(
-                roots = filter(None, [map_val(parse_root, entry[0])]),
+                roots = filter(None, [parse_root(root) for root in get_roots_from_mapping(entry)]),
                 traversal = traversal,
                 filters = _parse_filter_from_mapping(entry[2]),
                 preferred_linkage = Linkage(entry[3]) if len(entry) > 3 and entry[3] else None,
             )
+            num_roots = len(mapping.roots) if mapping.roots else 0
+            if num_roots > 1 and mapping.traversal != Traversal("intersect"):
+                fail("Invariant. A link_group mapping with traversal type: {} can only have 1 root node. {} found.".format(mapping.traversal, mapping.roots))
+            elif mapping.traversal == Traversal("intersect") and num_roots < 2:
+                fail("Invariant. A link_group mapping with traversal type 'intersect' must have at least 2 root nodes. {} found.".format(mapping.roots))
+
             parsed_mappings.append(mapping)
 
         group = Group(
@@ -113,6 +142,8 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal:
         return Traversal("node")
     elif entry == "subfolders":
         return Traversal("subfolders")
+    elif entry == "intersect":
+        return Traversal("intersect")
     else:
         fail("Unrecognized group traversal type: " + entry)
 
@@ -187,7 +218,8 @@ def _find_targets_in_mapping(
     if not mapping.filters:
         if not mapping.roots:
             fail("no filter or explicit root given: {}", mapping)
-        return mapping.roots
+        elif mapping.traversal != Traversal("intersect"):
+            return mapping.roots
 
     # Else find all dependencies that match the filter.
     matching_targets = {}
@@ -228,6 +260,22 @@ def _find_targets_in_mapping(
     if not mapping.roots:
         for node in graph_map:
             find_matching_targets(node)
+    elif mapping.traversal == Traversal("intersect"):
+        intersected_targets = None
+        for root in mapping.roots:
+            # This is a captured variable inside `find_matching_targets`.
+            # We reset it for each root we visit so that we don't have results
+            # from other roots.
+            matching_targets = {}
+            breadth_first_traversal_by(graph_map, [root], find_matching_targets)
+            if intersected_targets == None:
+                intersected_targets = {target: True for target in matching_targets}
+            else:
+                # filter the list of intersected targets to only include targets also seen
+                # in the last passthrough.
+                intersected_targets = {target: True for target in matching_targets if target in intersected_targets}
+
+        return intersected_targets.keys()
     else:
         breadth_first_traversal_by(graph_map, mapping.roots, find_matching_targets)
 
@@ -269,7 +317,7 @@ def _update_target_to_group_mapping(
         graph_node = graph_map[node]
         return graph_node.deps + graph_node.exported_deps
 
-    if mapping.traversal == Traversal("node") or mapping.traversal == Traversal("subfolders"):
+    if mapping.traversal in _TRAVERSALS_TO_ASSIGN_NODE:
         assign_target_to_group(target = target, node_traversal = True)
     else:  # tree
         breadth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
