@@ -172,7 +172,7 @@ impl Ty {
             name if type_str_literal_is_wildcard(name) => Some(Self::any()),
             "list" => Some(Self::list(Ty::any())),
             "dict" => Some(Self::dict(Ty::any(), Ty::any())),
-            "function" => Some(Self::any_function()),
+            "function" => Some(Self::any_callable()),
             "struct" => Some(Self::custom(TyStruct::any())),
             "never" => Some(Self::never()),
             "NoneType" => Some(Self::none()),
@@ -302,6 +302,12 @@ impl Ty {
     }
 
     /// Create a function type.
+    pub fn callable(params: Vec<Param>, result: Ty) -> Self {
+        // TODO(nga): this should be callable, not function.
+        Self::ty_function(TyFunction::new(params, result))
+    }
+
+    /// Create a function type.
     pub fn ty_function(f: TyFunction) -> Self {
         Self::custom(TyCustomFunction(f))
     }
@@ -316,7 +322,7 @@ impl Ty {
     }
 
     /// Function type that accepts any arguments and returns any result.
-    pub(crate) fn any_function() -> Self {
+    pub(crate) fn any_callable() -> Self {
         Ty::basic(TyBasic::Callable)
     }
 

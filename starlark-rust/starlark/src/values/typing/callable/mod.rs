@@ -73,7 +73,7 @@ pub struct StarlarkCallable<'v>(pub Value<'v>);
 
 impl<'v> StarlarkTypeRepr for StarlarkCallable<'v> {
     fn starlark_type_repr() -> Ty {
-        Ty::any_function()
+        Ty::any_callable()
     }
 }
 
