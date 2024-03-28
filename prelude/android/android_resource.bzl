@@ -82,16 +82,16 @@ def aapt2_compile(
         android_toolchain: AndroidToolchainInfo,
         skip_crunch_pngs: bool = False,
         identifier: [str, None] = None) -> Artifact:
-    aapt2_command = cmd_args(android_toolchain.aapt2)
-    aapt2_command.add("compile")
-    aapt2_command.add("--legacy")
+    aapt2_command = [cmd_args(android_toolchain.aapt2)]
+    aapt2_command.append("compile")
+    aapt2_command.append("--legacy")
     if skip_crunch_pngs:
-        aapt2_command.add("--no-crunch")
-    aapt2_command.add(["--dir", resources_dir])
+        aapt2_command.append("--no-crunch")
+    aapt2_command.extend(["--dir", resources_dir])
     aapt2_output = ctx.actions.declare_output("{}_resources.flata".format(identifier) if identifier else "resources.flata")
-    aapt2_command.add("-o", aapt2_output.as_output())
+    aapt2_command.extend(["-o", aapt2_output.as_output()])
 
-    ctx.actions.run(aapt2_command, category = "aapt2_compile", identifier = identifier)
+    ctx.actions.run(cmd_args(aapt2_command), category = "aapt2_compile", identifier = identifier)
 
     return aapt2_output
 
@@ -104,9 +104,13 @@ def _get_package(ctx: AnalysisContext, package: [str, None], manifest: [Artifact
 
 def extract_package_from_manifest(ctx: AnalysisContext, manifest: Artifact) -> Artifact:
     r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME)
-    extract_package_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
-    extract_package_cmd.add(["--manifest-path", manifest])
-    extract_package_cmd.add(["--package-output", r_dot_java_package.as_output()])
+    extract_package_cmd = cmd_args(
+        ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo],
+        "--manifest-path",
+        manifest,
+        "--package-output",
+        r_dot_java_package.as_output(),
+    )
 
     ctx.actions.run(extract_package_cmd, category = "android_extract_package")
 
