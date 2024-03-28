@@ -73,15 +73,15 @@ def expand_relative_prefixed_sdk_path(
         "$RESOURCEDIR": swift_resource_dir,
         "$SDKROOT": sdk_path,
     }
-    expanded_cmd = cmd_args()
+    expanded_cmd = []
     for (path_variable, path_value) in path_expansion_map.items():
         if path_to_expand.startswith(path_variable):
             path = path_to_expand[len(path_variable):]
             if path.find("$") == 0:
                 fail("Failed to expand framework path: {}".format(path))
-            expanded_cmd.add(cmd_args([path_value, path], delimiter = ""))
+            expanded_cmd.append(cmd_args([path_value, path], delimiter = ""))
 
-    return expanded_cmd
+    return cmd_args(expanded_cmd)
 
 def get_disable_pch_validation_flags() -> list[str]:
     """
