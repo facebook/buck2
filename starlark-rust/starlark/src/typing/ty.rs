@@ -36,6 +36,7 @@ use crate::docs::DocParam;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
+use crate::typing::callable::TyCallable;
 use crate::typing::callable_param::Param;
 use crate::typing::callable_param::ParamMode;
 use crate::typing::custom::TyCustom;
@@ -47,6 +48,7 @@ use crate::typing::small_arc_vec::SmallArcVec1;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
+use crate::typing::ParamSpec;
 use crate::values::bool::StarlarkBool;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::typing::never::TypingNever;
@@ -302,9 +304,8 @@ impl Ty {
     }
 
     /// Create a function type.
-    pub fn callable(params: Vec<Param>, result: Ty) -> Self {
-        // TODO(nga): this should be callable, not function.
-        Self::ty_function(TyFunction::new(params, result))
+    pub fn callable(params: ParamSpec, result: Ty) -> Self {
+        Ty::basic(TyBasic::Callable(TyCallable::new(params, result)))
     }
 
     /// Create a function type.
@@ -323,7 +324,7 @@ impl Ty {
 
     /// Function type that accepts any arguments and returns any result.
     pub(crate) fn any_callable() -> Self {
-        Ty::basic(TyBasic::Callable)
+        Ty::basic(TyBasic::Callable(TyCallable::any()))
     }
 
     pub(crate) fn any_struct() -> Self {

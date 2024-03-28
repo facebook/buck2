@@ -26,6 +26,7 @@
 pub(crate) mod arc_ty;
 pub(crate) mod basic;
 pub(crate) mod bindings;
+pub(crate) mod callable;
 pub(crate) mod callable_param;
 pub(crate) mod ctx;
 pub(crate) mod custom;

@@ -27,11 +27,14 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
+use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::Arg;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::structs::TyStruct;
+use crate::typing::Param;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::structs::value::FrozenStruct;
@@ -44,6 +47,14 @@ use crate::values::Heap;
 struct StructType;
 
 impl TyCustomFunctionImpl for StructType {
+    fn as_callable(&self) -> TyCallable {
+        // TODO(nga): this should be obtained from function signature from function definition.
+        TyCallable::new(
+            ParamSpec::new(vec![Param::kwargs(Ty::any())]),
+            Ty::any_struct(),
+        )
+    }
+
     fn validate_call(
         &self,
         _span: Span,

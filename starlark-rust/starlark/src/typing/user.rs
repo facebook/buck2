@@ -25,6 +25,7 @@ use starlark_map::sorted_map::SortedMap;
 use starlark_syntax::codemap::Span;
 use starlark_syntax::codemap::Spanned;
 
+use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
@@ -247,8 +248,12 @@ impl TyCustomImpl for TyUser {
         }
     }
 
-    fn is_callable(&self) -> bool {
-        self.base.is_callable()
+    fn as_callable(&self) -> Option<TyCallable> {
+        if self.base.is_callable() {
+            Some(TyCallable::any())
+        } else {
+            None
+        }
     }
 
     fn validate_call(

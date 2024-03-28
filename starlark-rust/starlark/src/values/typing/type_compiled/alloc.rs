@@ -147,7 +147,7 @@ pub trait TypeMatcherAlloc: Sized {
             TyBasic::Tuple(tuple) => tuple.matcher(self),
             TyBasic::Dict(k, v) => self.dict_of(k, v),
             TyBasic::Iter(_item) => self.alloc(IsIterable),
-            TyBasic::Callable => self.alloc(IsCallable),
+            TyBasic::Callable(_c) => self.alloc(IsCallable),
             TyBasic::Type => self.alloc(IsType),
             TyBasic::Custom(custom) => self.custom(custom),
         }

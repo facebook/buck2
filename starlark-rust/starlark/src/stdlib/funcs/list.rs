@@ -16,6 +16,7 @@
  */
 
 use allocative::Allocative;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 
@@ -23,6 +24,7 @@ use crate as starlark;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
+use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::Arg;
@@ -42,9 +44,21 @@ use crate::values::ValueOfUnchecked;
 #[derive(Allocative, Hash, Eq, PartialEq, Ord, PartialOrd, Clone, Debug)]
 struct ListType;
 
+static LIST: Lazy<TyFunction> = Lazy::new(|| {
+    TyFunction::new_with_type_attr(
+        vec![Param::pos_only(Ty::iter(Ty::any())).optional()],
+        Ty::any_list(),
+        Ty::any_list(),
+    )
+});
+
 impl TyCustomFunctionImpl for ListType {
     fn has_type_attr(&self) -> bool {
         true
+    }
+
+    fn as_callable(&self) -> TyCallable {
+        LIST.callable.dupe()
     }
 
     fn validate_call(
@@ -53,15 +67,7 @@ impl TyCustomFunctionImpl for ListType {
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
-        static LIST: Lazy<TyFunction> = Lazy::new(|| {
-            TyFunction::new_with_type_attr(
-                vec![Param::pos_only(Ty::iter(Ty::any())).optional()],
-                Ty::any_list(),
-                Ty::any_list(),
-            )
-        });
-
-        oracle.validate_fn_call(span, &LIST, args)?;
+        oracle.validate_fn_call(span, &LIST.callable, args)?;
 
         if let Some(arg) = args.first() {
             // This is infallible after the check above.

@@ -22,13 +22,15 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use dupe::Dupe;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::typing::callable::TyCallable;
 use crate::typing::callable_param::Param;
-use crate::typing::callable_param::ParamSpec;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -63,6 +65,8 @@ pub trait TyCustomFunctionImpl:
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
 
+    fn as_callable(&self) -> TyCallable;
+
     fn as_function(&self) -> Option<&TyFunction> {
         None
     }
@@ -95,8 +99,8 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         self.0.validate_call(span, args, oracle)
     }
 
-    fn is_callable(&self) -> bool {
-        true
+    fn as_callable(&self) -> Option<TyCallable> {
+        Some(self.0.as_callable())
     }
 
     fn as_function(&self) -> Option<&TyFunction> {
@@ -143,10 +147,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
 pub struct TyFunction {
     /// The `.type` property of the function, often `""`.
     pub(crate) type_attr: Option<Ty>,
-    /// The parameters to the function.
-    pub(crate) params: ParamSpec,
-    /// The result type of the function.
-    pub(crate) result: Ty,
+    pub(crate) callable: TyCallable,
 }
 
 impl TyFunction {
@@ -155,8 +156,7 @@ impl TyFunction {
         // TODO(nga): validate params are in correct order.
         TyFunction {
             type_attr: Some(type_attr),
-            params: ParamSpec::new(params),
-            result,
+            callable: TyCallable::new(ParamSpec::new(params), result),
         }
     }
 
@@ -164,15 +164,16 @@ impl TyFunction {
     pub fn new(params: Vec<Param>, result: Ty) -> Self {
         TyFunction {
             type_attr: None,
-            params: ParamSpec::new(params),
-            result,
+            callable: TyCallable::new(ParamSpec::new(params), result),
         }
     }
 }
 
 impl Display for TyFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let TyFunction { params, result, .. } = self;
+        let TyFunction { callable, .. } = self;
+        let params = callable.params();
+        let result = callable.result();
         write!(f, "def({params}) -> {result}")
     }
 }
@@ -188,7 +189,11 @@ impl TyCustomFunctionImpl for TyFunction {
         args: &[Spanned<Arg>],
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
-        oracle.validate_fn_call(span, self, args)
+        oracle.validate_fn_call(span, &self.callable, args)
+    }
+
+    fn as_callable(&self) -> TyCallable {
+        self.callable.dupe()
     }
 
     fn as_function(&self) -> Option<&TyFunction> {

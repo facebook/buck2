@@ -41,7 +41,7 @@ impl<T: ?Sized + 'static> ArcOrStatic<T> {
         ArcOrStatic(Inner::Arc(a))
     }
 
-    pub(crate) fn _new(a: T) -> Self
+    pub(crate) fn new(a: T) -> Self
     where
         T: Sized,
     {

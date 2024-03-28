@@ -210,9 +210,25 @@ impl ParamSpec {
         &ANY_PARAMS
     }
 
-    fn any() -> ParamSpec {
+    pub(crate) fn any() -> ParamSpec {
         ParamSpec {
             params: SmallArcVec1OrStatic::new_static(Self::any_params()),
         }
+    }
+
+    /// Is `*args, **kwargs`.
+    pub(crate) fn is_any(&self) -> bool {
+        self == &Self::any()
+    }
+
+    /// All parameters are required and positional only.
+    pub(crate) fn all_required_pos_only(&self) -> Option<Vec<Ty>> {
+        self.params
+            .iter()
+            .map(|p| match &p.mode {
+                ParamMode::PosOnly(ParamIsRequired::Yes) => Some(p.ty.clone()),
+                _ => None,
+            })
+            .collect()
     }
 }

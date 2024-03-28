@@ -22,6 +22,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::typing::arc_ty::ArcTy;
+use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
@@ -49,7 +50,7 @@ pub enum TyBasic {
     /// The inner type is applicable for each iteration element.
     Iter(ArcTy),
     /// `typing.Callable`.
-    Callable,
+    Callable(TyCallable),
     /// `type`.
     Type,
     /// A list.
@@ -124,12 +125,8 @@ impl TyBasic {
             TyBasic::Dict(..) => Some("dict"),
             TyBasic::Type => Some("type"),
             TyBasic::Custom(c) => c.as_name(),
-            TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable => None,
+            TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable(_) => None,
         }
-    }
-
-    pub(crate) fn is_function(&self) -> bool {
-        self.as_name() == Some("function")
     }
 
     /// If this type is function, return the function type.
@@ -168,7 +165,7 @@ impl Display for TyBasic {
                     write!(f, "typing.Iterable[{}]", x)
                 }
             }
-            TyBasic::Callable => write!(f, "typing.Callable"),
+            TyBasic::Callable(c) => write!(f, "{}", c),
             TyBasic::List(x) => write!(f, "list[{}]", x),
             TyBasic::Tuple(tuple) => Display::fmt(tuple, f),
             TyBasic::Dict(k, v) => write!(f, "dict[{}, {}]", k, v),

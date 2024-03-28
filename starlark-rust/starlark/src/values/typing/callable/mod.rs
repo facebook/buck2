@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
+mod param;
+
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
@@ -30,6 +35,8 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::typing::callable::param::StarlarkCallableParamAny;
+use crate::values::typing::callable::param::StarlarkCallableParamSpec;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -39,6 +46,7 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
+use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
 
@@ -55,8 +63,11 @@ pub(crate) struct TypingCallable;
 #[starlark_value(type = "typing.Callable")]
 impl<'v> StarlarkValue<'v> for TypingCallable {
     fn eval_type(&self) -> Option<Ty> {
-        Some(StarlarkCallable::starlark_type_repr())
+        Some(StarlarkCallable::<StarlarkCallableParamAny, FrozenValue>::starlark_type_repr())
     }
+
+    // TODO(nga): implement `typing.Callable[[int], str]`.
+    //   Currently parameterized callable is only supported for native functions.
 }
 
 impl AllocFrozenValue for TypingCallable {
@@ -70,27 +81,58 @@ impl AllocFrozenValue for TypingCallable {
 
 /// Marker for a callable value. Can be used in function signatures
 /// for better documentation and type checking.
-#[derive(Debug, Copy, Clone, Dupe, Trace, Allocative)]
-pub struct StarlarkCallable<'v>(
-    pub Value<'v>,
-    // TODO(nga): this is replaced with parameters in the following diff.
-    PhantomData<()>,
-);
+#[derive(Allocative)]
+#[allocative(bound = "")]
+pub struct StarlarkCallable<
+    'v,
+    P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
+    R: StarlarkTypeRepr = FrozenValue,
+>(pub Value<'v>, PhantomData<(P, R)>);
 
-impl<'v> StarlarkCallable<'v> {
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Copy for StarlarkCallable<'v, P, R> {}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Clone for StarlarkCallable<'v, P, R> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Dupe for StarlarkCallable<'v, P, R> {}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Debug for StarlarkCallable<'v, P, R> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("StarlarkCallable").field(&self.0).finish()
+    }
+}
+
+// TODO(nga): implement `#[trace(bound = "")]`.
+unsafe impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Trace<'v>
+    for StarlarkCallable<'v, P, R>
+{
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.0.trace(tracer);
+    }
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkCallable<'v, P, R> {
     /// Wrap the value.
     pub fn unchecked_new(value: Value<'v>) -> Self {
         StarlarkCallable(value, PhantomData)
     }
 }
 
-impl<'v> StarlarkTypeRepr for StarlarkCallable<'v> {
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
+    for StarlarkCallable<'v, P, R>
+{
     fn starlark_type_repr() -> Ty {
-        Ty::any_callable()
+        // TODO(nga): implement the same machinery for `typing.Callable`.
+        Ty::callable(P::params(), R::starlark_type_repr())
     }
 }
 
-impl<'v> UnpackValue<'v> for StarlarkCallable<'v> {
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
+    for StarlarkCallable<'v, P, R>
+{
     #[inline]
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if value.vtable().starlark_value.HAS_invoke {
@@ -101,41 +143,78 @@ impl<'v> UnpackValue<'v> for StarlarkCallable<'v> {
     }
 }
 
-impl<'v> AllocValue<'v> for StarlarkCallable<'v> {
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
+    for StarlarkCallable<'v, P, R>
+{
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
         self.0
     }
 }
 
 /// Marker for a callable value.
-#[derive(Debug, Copy, Clone, Dupe, Trace, Allocative)]
-pub struct FrozenStarlarkCallable(
+#[derive(Allocative)]
+#[allocative(bound = "")]
+pub struct FrozenStarlarkCallable<
+    P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
+    R: StarlarkTypeRepr = FrozenValue,
+>(
     pub FrozenValue,
     // TODO(nga): this is replaced with parameters in the following diff.
-    PhantomData<()>,
+    PhantomData<(P, R)>,
 );
 
-impl FrozenStarlarkCallable {
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Debug for FrozenStarlarkCallable<P, R> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("FrozenStarlarkCallable")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Copy for FrozenStarlarkCallable<P, R> {}
+
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Clone for FrozenStarlarkCallable<P, R> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Dupe for FrozenStarlarkCallable<P, R> {}
+
+unsafe impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Trace<'v>
+    for FrozenStarlarkCallable<P, R>
+{
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        // TODO: implement `#[trace(bound = "")]`.
+        self.0.trace(tracer);
+    }
+}
+
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P, R> {
     /// Wrap the value.
     pub fn unchecked_new(value: FrozenValue) -> Self {
         FrozenStarlarkCallable(value, PhantomData)
     }
 }
 
-impl StarlarkTypeRepr for FrozenStarlarkCallable {
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
+    for FrozenStarlarkCallable<P, R>
+{
     fn starlark_type_repr() -> Ty {
-        StarlarkCallable::starlark_type_repr()
+        StarlarkCallable::<P, R>::starlark_type_repr()
     }
 }
 
-impl AllocFrozenValue for FrozenStarlarkCallable {
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocFrozenValue
+    for FrozenStarlarkCallable<P, R>
+{
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         self.0
     }
 }
 
-impl<'v> Freeze for StarlarkCallable<'v> {
-    type Frozen = FrozenStarlarkCallable;
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Freeze for StarlarkCallable<'v, P, R> {
+    type Frozen = FrozenStarlarkCallable<P, R>;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(FrozenStarlarkCallable::unchecked_new(
             self.0.freeze(freezer)?,
@@ -143,17 +222,24 @@ impl<'v> Freeze for StarlarkCallable<'v> {
     }
 }
 
-impl FrozenStarlarkCallable {
+impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P, R> {
     /// Convert to `Value`-version.
     #[inline]
-    pub fn to_callable<'v>(self) -> StarlarkCallable<'v> {
-        StarlarkCallable::unchecked_new(self.0.to_value())
+    pub fn to_callable<'v>(self) -> StarlarkCallable<'v, P, R> {
+        StarlarkCallable::<P, R>::unchecked_new(self.0.to_value())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use starlark_derive::starlark_module;
+
+    use crate as starlark;
     use crate::assert;
+    use crate::assert::Assert;
+    use crate::environment::GlobalsBuilder;
+    use crate::values::none::NoneType;
+    use crate::values::typing::StarlarkCallable;
 
     #[test]
     fn test_callable_runtime() {
@@ -191,6 +277,62 @@ def bar():
     foo(1)
 "#,
             "Expected type",
+        );
+    }
+
+    #[starlark_module]
+    fn my_module(globals: &mut GlobalsBuilder) {
+        fn accept_f(
+            #[starlark(require=pos)] _x: StarlarkCallable<(String,), i32>,
+        ) -> anyhow::Result<NoneType> {
+            Ok(NoneType)
+        }
+    }
+
+    #[test]
+    fn test_native_callable_pass() {
+        let mut a = Assert::new();
+        a.globals_add(my_module);
+        a.pass(
+            r#"
+def f(x: str) -> int:
+    return len(x)
+
+def test():
+    accept_f(f)
+"#,
+        );
+    }
+
+    #[test]
+    fn test_native_callable_fail_compile_time_wrong_param_type() {
+        let mut a = Assert::new();
+        a.globals_add(my_module);
+        a.fail(
+            r#"
+def f(x: list) -> int:
+    return 1
+
+def test():
+    accept_f(f)
+"#,
+            "Expected type `typing.Callable[[str], int]` but got",
+        );
+    }
+
+    #[test]
+    fn test_native_callable_fail_compile_time_wrong_param_count() {
+        let mut a = Assert::new();
+        a.globals_add(my_module);
+        a.fail(
+            r#"
+def f() -> int:
+    return 1
+
+def test():
+    accept_f(f)
+"#,
+            "Expected type `typing.Callable[[str], int]` but got",
         );
     }
 }
