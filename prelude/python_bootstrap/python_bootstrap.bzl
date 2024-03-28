@@ -43,15 +43,18 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
 
-    run_args = cmd_args()
     if ctx.attrs._win_python_wrapper != None:
-        run_args.add(ctx.attrs._win_python_wrapper[RunInfo])
-        run_args.add(run_tree)
-        run_args.add(interpreter)
-        run_args.add(output)
+        run_args = cmd_args(
+            ctx.attrs._win_python_wrapper[RunInfo],
+            run_tree,
+            interpreter,
+            output,
+        )
     else:
-        run_args.add("/usr/bin/env")
-        run_args.add(cmd_args(run_tree, format = "PYTHONPATH={}"))
-        run_args.add(interpreter)
-        run_args.add(output)
+        run_args = cmd_args(
+            "/usr/bin/env",
+            cmd_args(run_tree, format = "PYTHONPATH={}"),
+            interpreter,
+            output,
+        )
     return [DefaultInfo(default_output = output), RunInfo(args = run_args)]
