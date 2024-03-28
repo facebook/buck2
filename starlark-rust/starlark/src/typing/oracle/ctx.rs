@@ -213,7 +213,7 @@ impl<'a> TypingOracleCtx<'a> {
             }
             if args.is_empty() {
                 // We assume that *args/**kwargs might have splatted things everywhere.
-                if !param.optional && !seen_vargs {
+                if !param.is_optional_or_stars() && !seen_vargs {
                     return Err(self.mk_error_as_maybe_internal(
                         span,
                         TypingOracleCtxError::MissingRequiredParameter {
@@ -224,7 +224,7 @@ impl<'a> TypingOracleCtx<'a> {
                 continue;
             }
             match param.mode {
-                ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::NameOnly(_) => {
+                ParamMode::PosOnly(_) | ParamMode::PosOrName(_, _) | ParamMode::NameOnly(_, _) => {
                     self.validate_type(args[0], &param.ty)?;
                 }
                 ParamMode::Args => {

@@ -26,15 +26,23 @@ use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 
+#[derive(
+    Debug, Clone, Dupe, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative
+)]
+pub(crate) enum ParamIsRequired {
+    Yes,
+    No,
+}
+
 /// The type of a parameter - can be positional, by name, `*args` or `**kwargs`.
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
 pub(crate) enum ParamMode {
     /// Parameter can only be passed by position.
-    PosOnly,
+    PosOnly(ParamIsRequired),
     /// Parameter can be passed by position or name.
-    PosOrName(ArcStr),
+    PosOrName(ArcStr, ParamIsRequired),
     /// Parameter can only be passed by name.
-    NameOnly(ArcStr),
+    NameOnly(ArcStr, ParamIsRequired),
     /// Parameter is `*args`.
     Args,
     /// Parameter is `**kwargs`.
@@ -46,8 +54,6 @@ pub(crate) enum ParamMode {
 pub struct Param {
     /// The type of parameter
     pub(crate) mode: ParamMode,
-    /// Whether the parameter have a default value or is otherwise optional
-    pub(crate) optional: bool,
     /// The type of the parameter
     pub(crate) ty: Ty,
 }
@@ -56,8 +62,7 @@ impl Param {
     /// Create a positional only parameter.
     pub fn pos_only(ty: Ty) -> Self {
         Self {
-            mode: ParamMode::PosOnly,
-            optional: false,
+            mode: ParamMode::PosOnly(ParamIsRequired::Yes),
             ty,
         }
     }
@@ -65,8 +70,7 @@ impl Param {
     /// Create a named only parameter.
     pub fn name_only(name: &str, ty: Ty) -> Self {
         Self {
-            mode: ParamMode::NameOnly(ArcStr::from(name)),
-            optional: false,
+            mode: ParamMode::NameOnly(ArcStr::from(name), ParamIsRequired::Yes),
             ty,
         }
     }
@@ -74,17 +78,34 @@ impl Param {
     /// Create a positional or named parameter.
     pub fn pos_or_name(name: &str, ty: Ty) -> Self {
         Self {
-            mode: ParamMode::PosOrName(ArcStr::from(name)),
-            optional: false,
+            mode: ParamMode::PosOrName(ArcStr::from(name), ParamIsRequired::Yes),
             ty,
         }
     }
 
     /// Make a parameter optional.
     pub fn optional(self) -> Self {
-        Self {
-            optional: true,
-            ..self
+        Param {
+            mode: match self.mode {
+                ParamMode::PosOnly(_x) => ParamMode::PosOnly(ParamIsRequired::No),
+                ParamMode::PosOrName(x, _y) => ParamMode::PosOrName(x, ParamIsRequired::No),
+                ParamMode::NameOnly(x, _y) => ParamMode::NameOnly(x, ParamIsRequired::No),
+                ParamMode::Args => ParamMode::Args,
+                ParamMode::Kwargs => ParamMode::Kwargs,
+            },
+            ty: self.ty,
+        }
+    }
+
+    pub(crate) fn is_optional_or_stars(&self) -> bool {
+        match &self.mode {
+            ParamMode::PosOnly(req)
+            | ParamMode::PosOrName(_, req)
+            | ParamMode::NameOnly(_, req) => match req {
+                ParamIsRequired::Yes => false,
+                ParamIsRequired::No => true,
+            },
+            ParamMode::Args | ParamMode::Kwargs => true,
         }
     }
 
@@ -94,7 +115,6 @@ impl Param {
     pub const fn args(ty: Ty) -> Self {
         Self {
             mode: ParamMode::Args,
-            optional: true,
             ty,
         }
     }
@@ -105,15 +125,14 @@ impl Param {
     pub const fn kwargs(ty: Ty) -> Self {
         Self {
             mode: ParamMode::Kwargs,
-            optional: true,
             ty,
         }
     }
 
     pub(crate) fn allows_pos(&self) -> bool {
         match self.mode {
-            ParamMode::PosOnly | ParamMode::PosOrName(_) | ParamMode::Args => true,
-            ParamMode::NameOnly(_) | ParamMode::Kwargs => false,
+            ParamMode::PosOnly(_) | ParamMode::PosOrName(_, _) | ParamMode::Args => true,
+            ParamMode::NameOnly(_, _) | ParamMode::Kwargs => false,
         }
     }
 
@@ -127,9 +146,9 @@ impl Param {
     /// Get a display name for this parameter.
     pub fn name(&self) -> &str {
         match &self.mode {
-            ParamMode::PosOnly => "_",
-            ParamMode::PosOrName(x) => x,
-            ParamMode::NameOnly(x) => x,
+            ParamMode::PosOnly(_) => "_",
+            ParamMode::PosOrName(x, _) => x,
+            ParamMode::NameOnly(x, _) => x,
             ParamMode::Args => "*args",
             ParamMode::Kwargs => "**kwargs",
         }
@@ -148,11 +167,20 @@ impl Display for ParamSpec {
             if i != 0 {
                 write!(f, ", ")?;
             }
-            let opt = if param.optional { "=.." } else { "" };
+            fn optional(req: &ParamIsRequired) -> &'static str {
+                match req {
+                    ParamIsRequired::Yes => "",
+                    ParamIsRequired::No => "=..",
+                }
+            }
             match &param.mode {
-                ParamMode::PosOnly => write!(f, "#: {}{}", param.ty, opt)?,
-                ParamMode::PosOrName(name) => write!(f, "#{}: {}{}", name, param.ty, opt)?,
-                ParamMode::NameOnly(name) => write!(f, "{}: {}{}", name, param.ty, opt)?,
+                ParamMode::PosOnly(opt) => write!(f, "#: {}{}", param.ty, optional(opt))?,
+                ParamMode::PosOrName(name, opt) => {
+                    write!(f, "#{}: {}{}", name, param.ty, optional(opt))?
+                }
+                ParamMode::NameOnly(name, opt) => {
+                    write!(f, "{}: {}{}", name, param.ty, optional(opt))?
+                }
                 ParamMode::Args => write!(f, "*args: {}", param.ty)?,
                 ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
             }

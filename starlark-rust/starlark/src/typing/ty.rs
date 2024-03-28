@@ -520,8 +520,10 @@ impl Ty {
                 }
                 DocParam::OnlyPosBefore => {
                     for x in params.iter_mut() {
-                        if matches!(x.mode, ParamMode::PosOrName(_)) {
-                            x.mode = ParamMode::PosOnly;
+                        if let ParamMode::PosOrName(_, req) = &x.mode {
+                            // TODO(nga): we should provide parameters in correct order
+                            //   instead of patching them here.
+                            x.mode = ParamMode::PosOnly(*req);
                         }
                     }
                 }
