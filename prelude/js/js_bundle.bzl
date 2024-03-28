@@ -49,10 +49,11 @@ def _build_dependencies_file(
         command_args_files = [command_args_file],
         identifier = transform_profile,
         category = "dependencies",
-        hidden_artifacts = [cmd_args([
+        hidden_artifacts = [cmd_args(
             dependencies_file.as_output(),
             extra_data_args,
-        ]).add(transitive_js_library_outputs)],
+            transitive_js_library_outputs,
+        )],
     )
     return dependencies_file
 
@@ -110,13 +111,14 @@ def _build_js_bundle(
         command_args_files = [command_args_file],
         identifier = base_dir,
         category = job_args["command"],
-        hidden_artifacts = [cmd_args([
+        hidden_artifacts = [cmd_args(
             bundle_dir_output.as_output(),
             assets_dir.as_output(),
             misc_dir_path.as_output(),
             source_map.as_output(),
             extra_data_args,
-        ]).add(transitive_js_library_outputs)],
+            transitive_js_library_outputs,
+        )],
     )
 
     return JsBundleInfo(
