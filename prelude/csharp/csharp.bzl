@@ -19,14 +19,14 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
     library = ctx.actions.declare_output(dll_name)
 
     # Create a command invoking a wrapper script that calls csc.exe to compile the .dll.
-    cmd = cmd_args(toolchain.csc)
+    cmd = [toolchain.csc]
 
     # Add caller specified compiler flags.
-    cmd.add(ctx.attrs.compiler_flags)
+    cmd.append(ctx.attrs.compiler_flags)
 
     # Set the output target as a .NET library.
-    cmd.add("/target:library")
-    cmd.add(cmd_args(
+    cmd.append("/target:library")
+    cmd.append(cmd_args(
         library.as_output(),
         format = "/out:{}",
     ))
@@ -34,29 +34,29 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Don't include any default .NET framework assemblies like "mscorlib" or "System" unless
     # explicitly requested with `/reference:{}`. This flag also stops injection of other
     # default compiler flags.
-    cmd.add("/noconfig")
+    cmd.append("/noconfig")
 
     # Don't reference mscorlib.dll unless asked for. This is required for targets that target
     # embedded platforms such as Silverlight or WASM. (Originally for Buck1 compatibility.)
-    cmd.add("/nostdlib")
+    cmd.append("/nostdlib")
 
     # Don't search any paths for .NET libraries unless explicitly referenced with `/lib:{}`.
-    cmd.add("/nosdkpath")
+    cmd.append("/nosdkpath")
 
     # Let csc know the directory path where it can find system assemblies. This is the path
     # that is searched by `/reference:{libname}` if `libname` is just a DLL name.
-    cmd.add(cmd_args(toolchain.framework_dirs[ctx.attrs.framework_ver], format = "/lib:{}"))
+    cmd.append(cmd_args(toolchain.framework_dirs[ctx.attrs.framework_ver], format = "/lib:{}"))
 
     # Add a `/reference:{name}` argument for each dependency.
     # Buck target refs should be absolute paths and system assemblies just the DLL name.
     child_deps = generate_target_tset_children(ctx.attrs.deps, ctx)
     deps_tset = ctx.actions.tset(DllDepTSet, children = child_deps)
 
-    cmd.add(deps_tset.project_as_args("reference"))
+    cmd.append(deps_tset.project_as_args("reference"))
 
     # Specify the C# source code files that should be compiled into this target.
     # NOTE: This must happen after /out and /target!
-    cmd.add(ctx.attrs.srcs)
+    cmd.append(ctx.attrs.srcs)
 
     # Run the C# compiler to produce the output artifact.
     ctx.actions.run(cmd, category = "csharp_compile")
