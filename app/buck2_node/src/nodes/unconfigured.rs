@@ -271,6 +271,10 @@ impl TargetNode {
     pub fn get_configuration_deps(&self) -> impl Iterator<Item = &TargetLabel> {
         self.as_ref().get_configuration_deps()
     }
+    #[inline]
+    pub fn toolchain_deps(&self) -> impl Iterator<Item = &TargetLabel> {
+        self.as_ref().toolchain_deps()
+    }
 
     pub fn tests(&self) -> impl Iterator<Item = &ProvidersLabel> {
         #[derive(Default)]
@@ -480,6 +484,10 @@ impl<'a> TargetNodeRef<'a> {
 
     pub fn exec_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
         self.0.get().deps_cache.exec_deps.iter()
+    }
+
+    pub fn toolchain_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
+        self.0.get().deps_cache.toolchain_deps.iter()
     }
 
     pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a TargetLabel> {

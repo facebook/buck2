@@ -320,6 +320,10 @@ mod tests {
         fn configuration_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
             unimplemented!()
         }
+
+        fn toolchain_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
+            unimplemented!()
+        }
     }
 
     struct Graph(HashMap<Ref, Node>);

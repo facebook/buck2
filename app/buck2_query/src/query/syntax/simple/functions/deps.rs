@@ -71,6 +71,14 @@ impl<'a, Env: QueryEnvironment> DepsContextFunctions<'a, Env> {
         }
         Ok(QueryValue::TargetSet(deps))
     }
+
+    async fn toolchain_deps(&self, env: &Env) -> Result<QueryValue<Env::Target>, QueryError> {
+        let mut deps = TargetSet::new();
+        for dep in self.target.toolchain_deps() {
+            deps.insert(env.get_node(dep).await?);
+        }
+        Ok(QueryValue::TargetSet(deps))
+    }
 }
 
 pub(crate) struct DepsFunction<Env: QueryEnvironment> {

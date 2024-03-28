@@ -70,6 +70,9 @@ impl QueryTarget for ConfiguredTargetNode {
         ConfiguredTargetNode::configuration_deps(self).map(|v| v.label())
     }
 
+    fn toolchain_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+        ConfiguredTargetNode::toolchain_deps(self).map(|v| v.label())
+    }
     fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::Key> + Send + 'a> {
         Some(self.tests().map(|t| t.target().dupe()))
     }

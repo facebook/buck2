@@ -303,6 +303,11 @@ impl QueryTarget for ActionQueryNode {
         std::iter::empty()
     }
 
+    fn toolchain_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+        // TODO(ezgi): implement toolchain deps for aquery
+        std::iter::empty()
+    }
+
     fn attr_any_matches(
         attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
