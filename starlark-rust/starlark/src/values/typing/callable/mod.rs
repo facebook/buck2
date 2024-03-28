@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::marker::PhantomData;
+
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_derive::starlark_value;
@@ -69,7 +71,18 @@ impl AllocFrozenValue for TypingCallable {
 /// Marker for a callable value. Can be used in function signatures
 /// for better documentation and type checking.
 #[derive(Debug, Copy, Clone, Dupe, Trace, Allocative)]
-pub struct StarlarkCallable<'v>(pub Value<'v>);
+pub struct StarlarkCallable<'v>(
+    pub Value<'v>,
+    // TODO(nga): this is replaced with parameters in the following diff.
+    PhantomData<()>,
+);
+
+impl<'v> StarlarkCallable<'v> {
+    /// Wrap the value.
+    pub fn unchecked_new(value: Value<'v>) -> Self {
+        StarlarkCallable(value, PhantomData)
+    }
+}
 
 impl<'v> StarlarkTypeRepr for StarlarkCallable<'v> {
     fn starlark_type_repr() -> Ty {
@@ -81,7 +94,7 @@ impl<'v> UnpackValue<'v> for StarlarkCallable<'v> {
     #[inline]
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if value.vtable().starlark_value.HAS_invoke {
-            Some(StarlarkCallable(value))
+            Some(StarlarkCallable::unchecked_new(value))
         } else {
             None
         }
@@ -96,7 +109,18 @@ impl<'v> AllocValue<'v> for StarlarkCallable<'v> {
 
 /// Marker for a callable value.
 #[derive(Debug, Copy, Clone, Dupe, Trace, Allocative)]
-pub struct FrozenStarlarkCallable(pub FrozenValue);
+pub struct FrozenStarlarkCallable(
+    pub FrozenValue,
+    // TODO(nga): this is replaced with parameters in the following diff.
+    PhantomData<()>,
+);
+
+impl FrozenStarlarkCallable {
+    /// Wrap the value.
+    pub fn unchecked_new(value: FrozenValue) -> Self {
+        FrozenStarlarkCallable(value, PhantomData)
+    }
+}
 
 impl StarlarkTypeRepr for FrozenStarlarkCallable {
     fn starlark_type_repr() -> Ty {
@@ -113,7 +137,9 @@ impl AllocFrozenValue for FrozenStarlarkCallable {
 impl<'v> Freeze for StarlarkCallable<'v> {
     type Frozen = FrozenStarlarkCallable;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Ok(FrozenStarlarkCallable(self.0.freeze(freezer)?))
+        Ok(FrozenStarlarkCallable::unchecked_new(
+            self.0.freeze(freezer)?,
+        ))
     }
 }
 
@@ -121,7 +147,7 @@ impl FrozenStarlarkCallable {
     /// Convert to `Value`-version.
     #[inline]
     pub fn to_callable<'v>(self) -> StarlarkCallable<'v> {
-        StarlarkCallable(self.0.to_value())
+        StarlarkCallable::unchecked_new(self.0.to_value())
     }
 }
 
