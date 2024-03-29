@@ -8,15 +8,23 @@
 # These are identifiers used in defining Apple platforms for configuring apple_* rules.
 
 # Apple SDK Definitions
-IOS = "ios"
+APPLETVOS = "appletvos"
 
-WATCHOS = "watchos"
+IOS = "ios"
 
 MACOSX = "macosx"
 
-APPLETVOS = "appletvos"
+WATCHOS = "watchos"
 
 VISIONOS = "visionos"
+
+# Apple TV Platforms/Flavors
+
+APPLETVOS_ARM64 = "appletvos-arm64"
+
+APPLETVSIMULATOR_ARM64 = "appletvsimulator-arm64"
+
+APPLETVSIMULATOR_X86_64 = "appletvsimulator-x86_64"
 
 # iOS Platforms/Flavors
 
@@ -67,6 +75,12 @@ apple_sdks = struct(
     MACOSX = MACOSX,
     APPLETVOS = APPLETVOS,
     VISIONOS = VISIONOS,
+)
+
+appletv_platforms = struct(
+    APPLETVOS_ARM64 = APPLETVOS_ARM64,
+    APPLETVSIMULATOR_ARM64 = APPLETVSIMULATOR_ARM64,
+    APPLETVSIMULATOR_X86_64 = APPLETVSIMULATOR_X86_64,
 )
 
 ios_platforms = struct(
