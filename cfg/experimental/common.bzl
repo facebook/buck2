@@ -34,16 +34,31 @@ def location_to_string(location: ModifierLocation) -> str:
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
 
 def get_tagged_modifiers(
-        modifiers: list[Modifier],
-        location: ModifierLocation) -> TaggedModifiers:
-    for modifier in modifiers:
+        cfg_modifiers: list[Modifier],
+        extra_cfg_modifiers_per_rule: dict[str, list[Modifier]],
+        location: ModifierLocation) -> list[TaggedModifiers]:
+    for modifier in cfg_modifiers:
         verify_normalized_modifier(modifier)
+    for _, modifiers in extra_cfg_modifiers_per_rule.items():
+        for modifier in modifiers:
+            verify_normalized_modifier(modifier)
 
-    return TaggedModifiers(
-        modifiers = modifiers,
-        location = location,
-        rule_name = None,
-    )
+    # Aggreggate all tagged modifiers in a PACKAGE in a single list.
+    # Per-rule modifiers come the global modifiers so that they are processed later.
+    return [
+        TaggedModifiers(
+            modifiers = cfg_modifiers,
+            location = location,
+            rule_name = None,
+        ),
+    ] + [
+        TaggedModifiers(
+            modifiers = modifiers,
+            location = location,
+            rule_name = rule_name,
+        )
+        for rule_name, modifiers in extra_cfg_modifiers_per_rule.items()
+    ]
 
 def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifier: Modifier, location: ModifierLocation) -> TargetLabel:
     if len(constraint_settings) == 0:
