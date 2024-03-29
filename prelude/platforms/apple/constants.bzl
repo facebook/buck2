@@ -9,6 +9,8 @@
 
 APPLE_PLATFORMS_KEY = "_apple_platforms"
 
+APPLE = "Apple"
+
 # Apple SDK Definitions
 APPLETVOS = "appletvos"
 
