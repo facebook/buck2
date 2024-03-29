@@ -16,6 +16,9 @@ error: Operation `.foo` not supported on type `function`
   |            ^^^^^^^^
   |
 
+Approximations:
+Approximation: Unknown type = "Span { begin: Pos(12), end: Pos(24) }"
+
 Compiler typechecker (eval):
 error: Operation `.foo` not supported on type `function`
  --> filename:2:17

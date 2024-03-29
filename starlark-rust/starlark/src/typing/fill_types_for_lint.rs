@@ -502,7 +502,10 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         Ty::any()
     }
 
-    fn try_proper_ty(&mut self, path: &TypePathP<CstPayload>) -> Result<Option<Ty>, InternalError> {
+    fn eval_path(
+        &mut self,
+        path: &TypePathP<CstPayload>,
+    ) -> Result<Option<Value<'v>>, InternalError> {
         let TypePathP { first, rem } = path;
         let Some(mut value) = self.expr_ident(first)?.value else {
             return Ok(None);
@@ -514,10 +517,18 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                     let span = first.span.merge(x.span);
                     self.errors
                         .push(TypingError::new(e, span, self.ctx.codemap));
-                    return Ok(Some(Ty::any()));
+                    return Ok(None);
                 }
             }
         }
+        Ok(Some(value))
+    }
+
+    fn try_proper_ty(&mut self, path: &TypePathP<CstPayload>) -> Result<Option<Ty>, InternalError> {
+        let TypePathP { first, rem } = path;
+        let Some(value) = self.eval_path(path)? else {
+            return Ok(None);
+        };
         match TypeCompiled::new(value, self.heap) {
             Ok(ty) => Ok(Some(ty.as_ty().clone())),
             Err(e) => {
@@ -525,7 +536,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                     Span::merge_all(iter::once(first.span).chain(rem.iter().map(|x| x.span)));
                 self.errors
                     .push(TypingError::new_anyhow(e, span, self.ctx.codemap));
-                Ok(Some(Ty::any()))
+                Ok(None)
             }
         }
     }
