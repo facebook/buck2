@@ -142,30 +142,37 @@ impl<'v> Compiler<'v, '_, '_, '_> {
 
     /// We may use non-frozen values as types, so we don't reuse `expr_ident` function
     /// which is used in normal compilation.
-    fn eval_path_as_type(
+    fn eval_path(
         &mut self,
         first: &CstIdent,
         rem: &[Spanned<&str>],
-    ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
+    ) -> Result<Value<'v>, EvalException> {
         let mut value = self.eval_ident_in_type_expr(first)?;
         for step in rem {
             value = value
                 .get_attr_error(step.node, self.eval.heap())
                 .map_err(|e| EvalException::new(e, step.span, &self.codemap))?;
         }
-        let mut span = first.span;
-        if let Some(last) = rem.last() {
-            span = span.merge(last.span);
-        }
-        self.alloc_value_for_type(value, span)
+        Ok(value)
     }
 
     fn eval_expr_as_type(
         &mut self,
         expr: Spanned<TypeExprUnpackP<CstPayload>>,
     ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
+        let span = expr.span;
+        let value = self.eval_expr(expr)?;
+        self.alloc_value_for_type(value, span)
+    }
+
+    /// Evaluate expression in context of typechecker.
+    /// It is very restricted in what it can do.
+    fn eval_expr(
+        &mut self,
+        expr: Spanned<TypeExprUnpackP<CstPayload>>,
+    ) -> Result<Value<'v>, EvalException> {
         match expr.node {
-            TypeExprUnpackP::Path(ident, rem) => self.eval_path_as_type(ident, &rem),
+            TypeExprUnpackP::Path(ident, rem) => self.eval_path(ident, &rem),
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
                 if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
@@ -176,11 +183,9 @@ impl<'v> Compiler<'v, '_, '_, '_> {
                     ));
                 }
                 let i = self.eval_expr_as_type(*i)?;
-                let t = a
-                    .get_ref()
+                a.get_ref()
                     .at(i.to_inner(), self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
-                self.alloc_value_for_type(t, expr.span)
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 let a = self.eval_ident_in_type_expr(a)?;
@@ -193,11 +198,9 @@ impl<'v> Compiler<'v, '_, '_, '_> {
                 }
                 let i0 = self.eval_expr_as_type(*i0)?;
                 let i1 = self.eval_expr_as_type(*i1)?;
-                let t = a
-                    .get_ref()
+                a.get_ref()
                     .at2(i0.to_inner(), i1.to_inner(), self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
-                self.alloc_value_for_type(t, expr.span)
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))
             }
             TypeExprUnpackP::Index2Ellipsis(a0, i) => {
                 let a = self.eval_ident_in_type_expr(a0)?;
@@ -209,27 +212,26 @@ impl<'v> Compiler<'v, '_, '_, '_> {
                     ));
                 }
                 let i = self.eval_expr_as_type(*i)?;
-                let t = a
-                    .get_ref()
+                a.get_ref()
                     .at2(
                         i.to_inner(),
                         Ellipsis::new_value().to_value(),
                         self.eval.heap(),
                     )
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))?;
-                self.alloc_value_for_type(t, expr.span)
+                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))
             }
             TypeExprUnpackP::Union(xs) => {
                 let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;
-                Ok(TypeCompiled::type_any_of(xs, self.eval.heap()))
+                Ok(TypeCompiled::type_any_of(xs, self.eval.heap()).to_inner())
             }
+            // TODO(nga): tuple type should be `tuple[str, int, bool]`, not `(str, int, bool)`.
             TypeExprUnpackP::Tuple(xs) => {
                 let xs = xs.into_try_map(|x| {
                     Ok::<_, EvalException>(self.eval_expr_as_type(x)?.as_ty().clone())
                 })?;
-                Ok(TypeCompiled::from_ty(&Ty::tuple(xs), self.eval.heap()))
+                Ok(TypeCompiled::from_ty(&Ty::tuple(xs), self.eval.heap()).to_inner())
             }
-            TypeExprUnpackP::Literal(s) => Ok(TypeCompiled::from_str(s.node, self.eval.heap())),
+            TypeExprUnpackP::Literal(s) => Ok(self.eval.heap().alloc_str(s.node).to_value()),
         }
     }
 
