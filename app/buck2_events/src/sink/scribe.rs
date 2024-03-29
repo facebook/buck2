@@ -215,8 +215,10 @@ mod fbcode {
                     Some(Data::Command(..)) => true,
                     Some(Data::ActionExecution(a)) => {
                         match ActionExecutionKind::from_i32(a.execution_kind) {
-                            // Not useful for most log analysis cases
+                            // Those kinds are not used in downstreams
                             Some(ActionExecutionKind::Simple) => false,
+                            Some(ActionExecutionKind::Deferred) => false,
+                            Some(ActionExecutionKind::NotSet) => false,
                             _ => true,
                         }
                     }
