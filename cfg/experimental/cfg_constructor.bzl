@@ -36,7 +36,7 @@ def cfg_constructor_pre_constraint_analysis(
         # typing.Any is JSON form of modifier
         target_modifiers: list[Modifier] | None,
         cli_modifiers: list[str],
-        **_kwargs) -> (list[str], PostConstraintAnalysisParams):
+        rule_name: str) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
 
@@ -53,6 +53,8 @@ def cfg_constructor_pre_constraint_analysis(
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
     """
+    _unused = rule_name  # @unused
+
     package_modifiers = package_modifiers or []
     target_modifiers = target_modifiers or []
 
