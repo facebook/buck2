@@ -18,6 +18,7 @@
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::type_expr::TypeExprUnpackP;
+use starlark_syntax::syntax::type_expr::TypePathP;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -140,11 +141,8 @@ impl<'v> Compiler<'v, '_, '_, '_> {
 
     /// We may use non-frozen values as types, so we don't reuse `expr_ident` function
     /// which is used in normal compilation.
-    fn eval_path(
-        &mut self,
-        first: &CstIdent,
-        rem: &[Spanned<&str>],
-    ) -> Result<Value<'v>, EvalException> {
+    fn eval_path(&mut self, path: TypePathP<CstPayload>) -> Result<Value<'v>, EvalException> {
+        let TypePathP { first, rem } = path;
         let mut value = self.eval_ident_in_type_expr(first)?;
         for step in rem {
             value = value
@@ -171,7 +169,7 @@ impl<'v> Compiler<'v, '_, '_, '_> {
     ) -> Result<Value<'v>, EvalException> {
         match expr.node {
             TypeExprUnpackP::Ellipsis => Ok(Ellipsis::new_value().to_value()),
-            TypeExprUnpackP::Path(ident, rem) => self.eval_path(ident, &rem),
+            TypeExprUnpackP::Path(path) => self.eval_path(path),
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
                 if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {

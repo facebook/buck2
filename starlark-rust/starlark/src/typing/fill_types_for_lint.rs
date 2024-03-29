@@ -35,6 +35,7 @@ use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
 use starlark_syntax::syntax::type_expr::TypeExprUnpackP;
+use starlark_syntax::syntax::type_expr::TypePathP;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -501,11 +502,8 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         Ty::any()
     }
 
-    fn try_proper_ty(
-        &mut self,
-        first: &CstIdent,
-        rem: &[Spanned<&str>],
-    ) -> Result<Option<Ty>, InternalError> {
+    fn try_proper_ty(&mut self, path: &TypePathP<CstPayload>) -> Result<Option<Ty>, InternalError> {
+        let TypePathP { first, rem } = path;
         let Some(mut value) = self.expr_ident(first)?.value else {
             return Ok(None);
         };
@@ -532,8 +530,9 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         }
     }
 
-    fn path_ty(&mut self, first: &CstIdent, rem: &[Spanned<&str>]) -> Result<Ty, InternalError> {
-        if let Some(ty) = self.try_proper_ty(first, rem)? {
+    fn path_ty(&mut self, path: &TypePathP<CstPayload>) -> Result<Ty, InternalError> {
+        let TypePathP { first, rem } = path;
+        if let Some(ty) = self.try_proper_ty(path)? {
             return Ok(ty);
         }
 
@@ -564,7 +563,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                     Ok(Ty::name(x))
                 }
             }
-            TypeExprUnpackP::Path(first, rem) => self.path_ty(first, rem),
+            TypeExprUnpackP::Path(path) => self.path_ty(path),
             TypeExprUnpackP::Index(a, i) => {
                 if let Some(a) = self.expr_ident(a)?.value {
                     if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
