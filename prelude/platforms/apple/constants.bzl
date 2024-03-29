@@ -7,6 +7,8 @@
 
 # These are identifiers used in defining Apple platforms for configuring apple_* rules.
 
+APPLE_PLATFORMS_KEY = "_apple_platforms"
+
 # Apple SDK Definitions
 APPLETVOS = "appletvos"
 
