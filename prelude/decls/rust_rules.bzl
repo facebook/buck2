@@ -7,6 +7,7 @@
 
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
@@ -70,6 +71,7 @@ prebuilt_rust_library = prelude_rule(
 
 def _rust_common_attributes(is_binary: bool):
     return {
+        "clippy_configuration": attrs.option(attrs.dep(providers = [ClippyConfiguration]), default = None),
         "contacts": attrs.list(attrs.string(), default = []),
         "coverage": attrs.bool(default = False),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),

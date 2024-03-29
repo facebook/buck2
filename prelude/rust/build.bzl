@@ -54,6 +54,7 @@ load(
     "dep_metadata_of_emit",
     "output_filename",
 )
+load(":clippy_configuration.bzl", "ClippyConfiguration")
 load(
     ":context.bzl",
     "CommonArgsInfo",
@@ -550,7 +551,14 @@ def rust_compile(
             params = params,
         )
         clippy_env = clippy_emit_op.env
-        if toolchain_info.clippy_toml:
+
+        clippy_toml = None
+        if ctx.attrs.clippy_configuration:
+            clippy_toml = ctx.attrs.clippy_configuration[ClippyConfiguration].clippy_toml
+        elif toolchain_info.clippy_toml:
+            clippy_toml = toolchain_info.clippy_toml
+
+        if clippy_toml:
             # Clippy wants to be given a path to a directory containing a
             # clippy.toml (or .clippy.toml). Our buckconfig accepts an arbitrary
             # label like //path/to:my-clippy.toml which may not have the
@@ -558,7 +566,7 @@ def rust_compile(
             # symlinks the requested configuration file under the required name.
             clippy_conf_dir = ctx.actions.symlinked_dir(
                 common_args.subdir + "-clippy-configuration",
-                {"clippy.toml": toolchain_info.clippy_toml},
+                {"clippy.toml": clippy_toml},
             )
             clippy_env["CLIPPY_CONF_DIR"] = clippy_conf_dir
         clippy_invoke = _rustc_invoke(
