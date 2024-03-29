@@ -31,6 +31,7 @@ BUILD_MODE = struct(
 CONSTRAINT_PACKAGE = "prelude//platforms/apple/constraints" # @oss-enable
 # @oss-disable: CONSTRAINT_PACKAGE = "ovr_config//build_mode/apple/constraints" 
 
+# TODO: Drop providing the rule when we're not longer attempting to support buck1.
 def config_settings(config_setting_rule):
     for mode in APPLE_BUILD_MODES:
         config_setting_rule(
@@ -41,6 +42,7 @@ def config_settings(config_setting_rule):
             visibility = ["PUBLIC"],
         )
 
+# TODO: Drop providing the rule when we're not longer attempting to support buck1.
 def constraints(constraint_setting_rule, constraint_value_rule):
     constraint_setting_rule(
         name = "build_mode",
