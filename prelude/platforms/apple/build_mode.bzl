@@ -55,3 +55,6 @@ def constraints(constraint_setting_rule, constraint_value_rule):
             constraint_setting = ":build_mode",
             visibility = ["PUBLIC"],
         )
+
+def get_build_mode():
+    return None  # TODO: Implement OSS version

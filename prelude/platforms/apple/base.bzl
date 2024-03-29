@@ -5,11 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@fbsource//tools/build_defs/apple:build_mode_defs.bzl", _get_build_mode = "build_mode") 
+# @oss-disable: load("@fbsource//tools/build_defs/apple:build_mode_defs.bzl", get_build_mode = "build_mode") 
 # @oss-disable: load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2") 
 
 load("@prelude//:is_buck2.bzl", "is_buck2") # @oss-enable
-load("@prelude//platforms/apple:build_mode.bzl", "BUILD_MODE", "CONSTRAINT_PACKAGE")
+load(
+    "@prelude//platforms/apple:build_mode.bzl",
+    "BUILD_MODE",
+    "CONSTRAINT_PACKAGE",
+    "get_build_mode", # @oss-enable
+)
 load(
     "@prelude//platforms/apple:constants.bzl",
     "ios_platforms",
@@ -82,7 +87,7 @@ def apple_generated_platforms(name, constraint_values, deps, platform_rule, plat
     )
 
 def apple_build_mode_backed_platform(name, platform, build_mode = None):
-    build_mode = _get_build_mode() if build_mode == None else build_mode
+    build_mode = get_build_mode() if build_mode == None else build_mode
     return _get_generated_name(name, platform, build_mode)
 
 def is_mobile_platform(platform):
@@ -98,6 +103,3 @@ def _get_generated_name(name, platform, build_mode):
         return "{}-{}".format(name, build_mode)
     else:
         return name
-
-def _get_build_mode(): # @oss-enable
-   return None # TODO: Implement OSS version # @oss-enable
