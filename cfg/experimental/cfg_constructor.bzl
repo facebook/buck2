@@ -53,13 +53,15 @@ def cfg_constructor_pre_constraint_analysis(
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
     """
-    _unused = rule_name  # @unused
-
     package_modifiers = package_modifiers or []
     target_modifiers = target_modifiers or []
 
     # Convert JSONs back to TaggedModifiers
     package_modifiers = [json_to_tagged_modifiers(modifier_json) for modifier_json in package_modifiers]
+
+    # Filter PACKAGE modifiers based on rule name.
+    # This only filters out PACKAGE modifiers from `extra_cfg_modifiers_per_rule` argument of `set_cfg_modifiers` function.
+    package_modifiers = [tagged_modifiers for tagged_modifiers in package_modifiers if tagged_modifiers.rule_name == None or tagged_modifiers.rule_name == rule_name]
     merged_modifiers = package_modifiers
 
     # Add target modifiers as `TaggedModifiers`
