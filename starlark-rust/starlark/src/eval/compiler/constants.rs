@@ -19,6 +19,7 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::environment::Globals;
+use crate::values::structs::FrozenStructRef;
 use crate::values::FrozenValue;
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -46,6 +47,8 @@ pub(crate) struct Constants {
     pub(crate) fn_dict: BuiltinFn,
     pub(crate) fn_tuple: BuiltinFn,
     pub(crate) fn_isinstance: BuiltinFn,
+    // Technically, this is not a function.
+    pub(crate) typing_callable: BuiltinFn,
 }
 
 impl Constants {
@@ -59,6 +62,11 @@ impl Constants {
                 fn_dict: BuiltinFn(g.get_frozen("dict").unwrap()),
                 fn_tuple: BuiltinFn(g.get_frozen("tuple").unwrap()),
                 fn_isinstance: BuiltinFn(g.get_frozen("isinstance").unwrap()),
+                typing_callable: {
+                    let typing = g.get_frozen("typing").unwrap();
+                    let typing = FrozenStructRef::from_value(typing).unwrap();
+                    BuiltinFn(*typing.0.fields.get("Callable").unwrap())
+                },
             }
         });
         Lazy::force(&RES)

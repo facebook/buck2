@@ -65,7 +65,7 @@ impl<'v> UnpackValue<'v> for StructRef<'v> {
 
 /// Reference to the frozen struct.
 #[derive(Debug)]
-pub struct FrozenStructRef<'f>(&'f FrozenStruct);
+pub struct FrozenStructRef<'f>(pub(crate) &'f FrozenStruct);
 
 impl<'f> FrozenStructRef<'f> {
     /// Iterate over struct fields.

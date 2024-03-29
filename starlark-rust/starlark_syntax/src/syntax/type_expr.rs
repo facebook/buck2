@@ -66,12 +66,14 @@ pub enum TypeExprUnpackP<'a, P: AstPayload> {
     Path(TypePathP<'a, P>),
     /// `list[str]`.
     Index(&'a AstIdentP<P>, Box<Spanned<TypeExprUnpackP<'a, P>>>),
-    /// `dict[str, int]`.
+    /// `dict[str, int]` or `typing.Callable[[int], str]`.
     Index2(
-        &'a AstIdentP<P>,
+        Spanned<TypePathP<'a, P>>,
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
     ),
+    /// List argument in `typing.Callable[[int], str]`.
+    List(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Union(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Tuple(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Literal(Spanned<&'a str>),
@@ -140,6 +142,23 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
         }
     }
 
+    fn unpack_argument(
+        expr: &'a AstExprP<P>,
+        codemap: &CodeMap,
+    ) -> Result<Spanned<TypeExprUnpackP<'a, P>>, WithDiagnostic<TypeExprUnpackError>> {
+        let span = expr.span;
+        match &expr.node {
+            ExprP::List(items) => {
+                let items = items.try_map(|x| TypeExprUnpackP::unpack_argument(x, codemap))?;
+                Ok(Spanned {
+                    span,
+                    node: TypeExprUnpackP::List(items),
+                })
+            }
+            _ => TypeExprUnpackP::unpack(expr, codemap),
+        }
+    }
+
     pub fn unpack(
         expr: &'a AstExprP<P>,
         codemap: &CodeMap,
@@ -184,14 +203,12 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             }
             ExprP::Index2(a_i0_i1) => {
                 let (a, i0, i1) = &**a_i0_i1;
-                let ExprP::Identifier(ident) = &a.node else {
-                    return err("array indirection 2 where array is not an identifier");
-                };
-                let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
-                let i1 = TypeExprUnpackP::unpack(i1, codemap)?;
+                let path = Self::unpack_path(a, codemap)?;
+                let i0 = TypeExprUnpackP::unpack_argument(i0, codemap)?;
+                let i1 = TypeExprUnpackP::unpack_argument(i1, codemap)?;
                 Ok(Spanned {
                     span,
-                    node: TypeExprUnpackP::Index2(ident, Box::new(i0), Box::new(i1)),
+                    node: TypeExprUnpackP::Index2(path, Box::new(i0), Box::new(i1)),
                 })
             }
             ExprP::Slice(..) => err("slice"),

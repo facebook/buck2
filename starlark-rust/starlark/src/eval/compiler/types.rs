@@ -169,6 +169,13 @@ impl<'v> Compiler<'v, '_, '_, '_> {
     ) -> Result<Value<'v>, EvalException> {
         match expr.node {
             TypeExprUnpackP::Ellipsis => Ok(Ellipsis::new_value().to_value()),
+            TypeExprUnpackP::List(items) => {
+                let values: Vec<_> = items
+                    .into_iter()
+                    .map(|item| self.eval_expr(item))
+                    .collect::<Result<_, _>>()?;
+                Ok(self.eval.heap().alloc_list(&values))
+            }
             TypeExprUnpackP::Path(path) => self.eval_path(path),
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
@@ -185,9 +192,10 @@ impl<'v> Compiler<'v, '_, '_, '_> {
                     .map_err(|e| EvalException::new(e, expr.span, &self.codemap))
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
-                let a = self.eval_ident_in_type_expr(a)?;
+                let a = self.eval_path(a.node)?;
                 if a.ptr_eq(Constants::get().fn_dict.0.to_value())
                     || a.ptr_eq(Constants::get().fn_tuple.0.to_value())
+                    || a.ptr_eq(Constants::get().typing_callable.0.to_value())
                 {
                     let i0 = self.eval_expr(*i0)?;
                     let i1 = self.eval_expr(*i1)?;

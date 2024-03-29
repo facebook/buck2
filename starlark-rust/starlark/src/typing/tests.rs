@@ -360,6 +360,27 @@ def foo(x: [typing.Callable, str], y: [str, typing.Callable]):
 }
 
 #[test]
+fn test_callable_with_args() {
+    TypeCheck::new().check(
+        "callable_with_args",
+        r#"
+def accept_f(x: typing.Callable[[int, str], str]):
+    pass
+
+def good_function(x: int, y: str) -> str:
+    return ""
+
+def bad_function(x: int, y: bool) -> str:
+    return ""
+
+def test():
+    accept_f(good_function)
+    accept_f(bad_function)
+"#,
+    );
+}
+
+#[test]
 fn test_tuple() {
     TypeCheck::new().check(
         "tuple",

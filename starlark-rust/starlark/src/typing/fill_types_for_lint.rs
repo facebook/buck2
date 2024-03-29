@@ -561,6 +561,13 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                     .push(Approximation::new("Ellipsis cannot be used as type", x));
                 Ok(Ty::any())
             }
+            TypeExprUnpackP::List(..) => {
+                self.approximations.push(Approximation::new(
+                    "List literal [...] cannot be used as type",
+                    x,
+                ));
+                Ok(Ty::any())
+            }
             TypeExprUnpackP::Tuple(xs) => {
                 Ok(Ty::tuple(xs.try_map(|x| self.from_type_expr_impl(x))?))
             }
@@ -606,7 +613,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                 }
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
-                if let Some(a) = self.expr_ident(a)?.value {
+                if let Some(a) = self.eval_path(a)? {
                     if a.ptr_eq(Constants::get().fn_dict.0.to_value()) {
                         let i0 = self.from_type_expr_impl(i0)?;
                         let i1 = self.from_type_expr_impl(i1)?;
@@ -640,6 +647,38 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                             Ellipsis::new_value().to_value(),
                             self.heap,
                         ) {
+                            Ok(t) => match TypeCompiled::new(t, self.heap) {
+                                Ok(ty) => Ok(ty.as_ty().clone()),
+                                Err(_) => {
+                                    self.approximations
+                                        .push(Approximation::new("TypeCompiled::new failed", x));
+                                    Ok(Ty::any())
+                                }
+                            },
+                            Err(e) => {
+                                self.approximations
+                                    .push(Approximation::new("Getitem2 failed", e));
+                                Ok(Ty::any())
+                            }
+                        }
+                    } else if a.ptr_eq(Constants::get().typing_callable.0.to_value()) {
+                        let TypeExprUnpackP::List(items) = &i0.node else {
+                            self.approximations.push(Approximation::new(
+                                "Expecting list in Callable[[...], ...]",
+                                x,
+                            ));
+                            return Ok(Ty::any());
+                        };
+                        let args = items.try_map(|x| {
+                            Ok(
+                                TypeCompiled::from_ty(&self.from_type_expr_impl(x)?, self.heap)
+                                    .to_inner(),
+                            )
+                        })?;
+                        let args = self.heap.alloc_list(&args);
+                        let ret = self.from_type_expr_impl(i1)?;
+                        let ret = TypeCompiled::from_ty(&ret, self.heap).to_inner();
+                        match a.get_ref().at2(args, ret, self.heap) {
                             Ok(t) => match TypeCompiled::new(t, self.heap) {
                                 Ok(ty) => Ok(ty.as_ty().clone()),
                                 Err(_) => {

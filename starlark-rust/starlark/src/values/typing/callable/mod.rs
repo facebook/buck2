@@ -29,14 +29,21 @@ use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
+use crate::private::Private;
+use crate::typing::callable::TyCallable;
+use crate::typing::Param;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
 use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::list::UnpackList;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::typing::callable::param::StarlarkCallableParamAny;
 use crate::values::typing::callable::param::StarlarkCallableParamSpec;
+use crate::values::typing::TypeCompiled;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -66,8 +73,25 @@ impl<'v> StarlarkValue<'v> for TypingCallable {
         Some(StarlarkCallable::<StarlarkCallableParamAny, FrozenValue>::starlark_type_repr())
     }
 
-    // TODO(nga): implement `typing.Callable[[int], str]`.
-    //   Currently parameterized callable is only supported for native functions.
+    fn at2(
+        &self,
+        param_types: Value<'v>,
+        ret: Value<'v>,
+        heap: &'v Heap,
+        _private: Private,
+    ) -> crate::Result<Value<'v>> {
+        let param_types = UnpackList::<Value>::unpack_value_err(param_types)?;
+        let ret = TypeCompiled::new(ret, heap)?.as_ty().dupe();
+        let param_types: Vec<Param> = param_types
+            .items
+            .into_iter()
+            .map(|p| Ok(Param::pos_only(TypeCompiled::new(p, heap)?.as_ty().dupe())))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        Ok(heap.alloc_simple(TypingCallableAt2 {
+            callable: TyCallable::new(ParamSpec::new(param_types), ret),
+        }))
+    }
 }
 
 impl AllocFrozenValue for TypingCallable {
@@ -76,6 +100,25 @@ impl AllocFrozenValue for TypingCallable {
             alloc_static(Basic, TypingCallable);
 
         FrozenValue::new_repr(&CALLABLE)
+    }
+}
+
+#[derive(
+    Allocative,
+    Debug,
+    ProvidesStaticType,
+    NoSerialize,
+    derive_more::Display
+)]
+#[display(fmt = "{}", "callable")]
+pub(crate) struct TypingCallableAt2 {
+    callable: TyCallable,
+}
+
+#[starlark_value(type = "typing.Callable")]
+impl<'v> StarlarkValue<'v> for TypingCallableAt2 {
+    fn eval_type(&self) -> Option<Ty> {
+        Some(Ty::basic(TyBasic::Callable(self.callable.dupe())))
     }
 }
 
@@ -326,6 +369,59 @@ def test():
         a.globals_add(my_module);
         a.fail(
             r#"
+def f() -> int:
+    return 1
+
+def test():
+    accept_f(f)
+"#,
+            "Expected type `typing.Callable[[str], int]` but got",
+        );
+    }
+
+    #[test]
+    fn test_typing_callable_pass() {
+        let a = Assert::new();
+        a.pass(
+            r#"
+def accept_f(x: typing.Callable[[str], int]) -> None:
+    pass
+
+def f(x: str) -> int:
+    return len(x)
+
+def test():
+    accept_f(f)
+"#,
+        );
+    }
+
+    #[test]
+    fn test_typing_callable_fail_compile_time_wrong_param_type() {
+        let a = Assert::new();
+        a.fail(
+            r#"
+def accept_f(x: typing.Callable[[str], int]) -> None:
+    pass
+
+def f(x: list) -> int:
+    return 1
+
+def test():
+    accept_f(f)
+"#,
+            "Expected type `typing.Callable[[str], int]` but got",
+        );
+    }
+
+    #[test]
+    fn test_typing_callable_fail_compile_time_wrong_param_count() {
+        let a = Assert::new();
+        a.fail(
+            r#"
+def accept_f(x: typing.Callable[[str], int]) -> None:
+    pass
+
 def f() -> int:
     return 1
 
