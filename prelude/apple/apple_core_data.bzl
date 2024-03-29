@@ -77,6 +77,6 @@ def _get_tool_command(ctx: AnalysisContext, core_data_spec: AppleCoreDataSpec, p
         get_bundle_min_target_version(ctx, ctx.attrs.binary),
         "--module",
         core_data_spec.module if core_data_spec.module else product_name,
-        core_data_spec.path,
+        cmd_args(core_data_spec.path, format = "./{}"),
         output,
-    ], delimiter = " ")
+    ], delimiter = " ").hidden(core_data_spec.path)
