@@ -8,6 +8,7 @@
  */
 
 use buck2_util::late_binding::LateBinding;
+use starlark::values::list::UnpackList;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
@@ -15,7 +16,9 @@ use starlark_map::small_map::SmallMap;
 
 /// `rule()` value `impl` field.
 pub static FROZEN_RULE_GET_IMPL: LateBinding<
-    fn(FrozenValue) -> anyhow::Result<FrozenStarlarkCallable>,
+    fn(
+        FrozenValue,
+    ) -> anyhow::Result<FrozenStarlarkCallable<(FrozenValue,), UnpackList<FrozenValue>>>,
 > = LateBinding::new("FROZEN_RULE_GET_IMPL");
 
 pub static FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL: LateBinding<

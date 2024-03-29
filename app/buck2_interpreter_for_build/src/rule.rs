@@ -44,6 +44,7 @@ use starlark::starlark_simple_value;
 use starlark::typing::Param;
 use starlark::typing::Ty;
 use starlark::values::dict::DictOf;
+use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::typing::FrozenStarlarkCallable;
@@ -84,7 +85,7 @@ pub struct RuleCallable<'v> {
     id: RefCell<Option<StarlarkRuleType>>,
     /// The implementation function for this rule. Must be callable and take a
     /// ctx
-    implementation: StarlarkCallable<'v>,
+    implementation: StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
     // Field Name -> Attribute
     attributes: AttributeSpec,
     /// Type for the typechecker.
@@ -150,7 +151,7 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
 
 impl<'v> RuleCallable<'v> {
     fn new(
-        implementation: StarlarkCallable<'v>,
+        implementation: StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
         attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
         cfg: Option<Value>,
         doc: &str,
@@ -325,7 +326,7 @@ pub struct FrozenRuleCallable {
     rule: Arc<Rule>,
     /// Identical to `rule.rule_type` but more specific type.
     rule_type: Arc<StarlarkRuleType>,
-    implementation: FrozenStarlarkCallable,
+    implementation: FrozenStarlarkCallable<(FrozenValue,), UnpackList<FrozenValue>>,
     signature: ParametersSpec<FrozenValue>,
     rule_docs: DocItem,
     ty: Ty,
@@ -357,7 +358,9 @@ pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
 }
 
 impl FrozenRuleCallable {
-    pub fn implementation(&self) -> FrozenStarlarkCallable {
+    pub fn implementation(
+        &self,
+    ) -> FrozenStarlarkCallable<(FrozenValue,), UnpackList<FrozenValue>> {
         self.implementation
     }
 
@@ -441,7 +444,11 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     /// })
     /// ```
     fn rule<'v>(
-        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
+        #[starlark(require = named)] r#impl: StarlarkCallable<
+            'v,
+            (FrozenValue,),
+            UnpackList<FrozenValue>,
+        >,
         #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -468,12 +475,16 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     /// is a dict where the keys are the string name of the artifact, and the values are the callable functions that produce
     /// the artifact. This is only intended to be used with anon targets.
     fn anon_rule<'v>(
-        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
+        #[starlark(require = named)] r#impl: StarlarkCallable<
+            'v,
+            (FrozenValue,),
+            UnpackList<FrozenValue>,
+        >,
         #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named)] artifact_promise_mappings: SmallMap<
             StringValue<'v>,
-            StarlarkCallable<'v>,
+            StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {

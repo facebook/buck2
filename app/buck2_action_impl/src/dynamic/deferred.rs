@@ -50,8 +50,10 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
+use starlark::values::none::NoneType;
 use starlark::values::structs::StructRef;
 use starlark::values::typing::StarlarkCallable;
+use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
@@ -275,7 +277,7 @@ impl Deferred for DynamicLambda {
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
     pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
-    pub lambda: StarlarkCallable<'v>,
+    pub lambda: StarlarkCallable<'v, (FrozenValue, FrozenValue, FrozenValue), NoneType>,
     pub outputs: Value<'v>,
     pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
     pub artifacts: Value<'v>,

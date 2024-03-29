@@ -67,6 +67,7 @@ use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkIter;
 use starlark::values::AllocValue;
+use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -1023,7 +1024,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact>,
         >,
         #[starlark(require = named)] outputs: UnpackListOrTuple<StarlarkOutputOrDeclaredArtifact>,
-        #[starlark(require = named)] f: StarlarkCallable<'v>,
+        #[starlark(require = named)] f: StarlarkCallable<
+            'v,
+            (FrozenValue, FrozenValue, FrozenValue),
+            NoneType,
+        >,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // TODO(nga): delete.

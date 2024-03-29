@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use starlark::any::ProvidesStaticType;
+use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::typing::FrozenStarlarkCallable;
@@ -38,7 +39,7 @@ use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 pub struct DynamicLambdaParams<'v> {
     pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
     pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
-    pub lambda: StarlarkCallable<'v>,
+    pub lambda: StarlarkCallable<'v, (FrozenValue, FrozenValue, FrozenValue), NoneType>,
 }
 
 #[derive(
@@ -52,7 +53,7 @@ pub struct DynamicLambdaParams<'v> {
 pub struct FrozenDynamicLambdaParams {
     pub attributes: FrozenValue,
     pub plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins>,
-    pub lambda: FrozenStarlarkCallable,
+    pub lambda: FrozenStarlarkCallable<(FrozenValue, FrozenValue, FrozenValue), NoneType>,
 }
 
 #[starlark_value(type = "AttributesPluginLambda")]
