@@ -52,10 +52,8 @@ enum TypesError {
     TypePayloadNotSet,
     #[error("[] can only be applied to list function in type expression")]
     TypeIndexOnNonList,
-    #[error("[,] can only be applied to dict function in type expression")]
-    TypeIndexOnNonDict,
-    #[error("[,...] can only be applied to tuple function in type expression")]
-    TypeIndexEllipsisOnNonTuple,
+    #[error("[,] can only be applied to dict or tuple functions in type expression")]
+    TypeIndexOnNonDictOrTuple,
     #[error("String constants cannot be used as types")]
     StringConstantAsType,
 }
@@ -172,6 +170,7 @@ impl<'v> Compiler<'v, '_, '_, '_> {
         expr: Spanned<TypeExprUnpackP<CstPayload>>,
     ) -> Result<Value<'v>, EvalException> {
         match expr.node {
+            TypeExprUnpackP::Ellipsis => Ok(Ellipsis::new_value().to_value()),
             TypeExprUnpackP::Path(ident, rem) => self.eval_path(ident, &rem),
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
@@ -189,36 +188,21 @@ impl<'v> Compiler<'v, '_, '_, '_> {
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 let a = self.eval_ident_in_type_expr(a)?;
-                if !a.ptr_eq(Constants::get().fn_dict.0.to_value()) {
+                if a.ptr_eq(Constants::get().fn_dict.0.to_value())
+                    || a.ptr_eq(Constants::get().fn_tuple.0.to_value())
+                {
+                    let i0 = self.eval_expr(*i0)?;
+                    let i1 = self.eval_expr(*i1)?;
+                    a.get_ref()
+                        .at2(i0, i1, self.eval.heap())
+                        .map_err(|e| EvalException::new(e, expr.span, &self.codemap))
+                } else {
                     return Err(EvalException::new_anyhow(
-                        TypesError::TypeIndexOnNonDict.into(),
+                        TypesError::TypeIndexOnNonDictOrTuple.into(),
                         expr.span,
                         &self.codemap,
                     ));
                 }
-                let i0 = self.eval_expr_as_type(*i0)?;
-                let i1 = self.eval_expr_as_type(*i1)?;
-                a.get_ref()
-                    .at2(i0.to_inner(), i1.to_inner(), self.eval.heap())
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))
-            }
-            TypeExprUnpackP::Index2Ellipsis(a0, i) => {
-                let a = self.eval_ident_in_type_expr(a0)?;
-                if !a.ptr_eq(Constants::get().fn_tuple.0.to_value()) {
-                    return Err(EvalException::new_anyhow(
-                        TypesError::TypeIndexEllipsisOnNonTuple.into(),
-                        expr.span,
-                        &self.codemap,
-                    ));
-                }
-                let i = self.eval_expr_as_type(*i)?;
-                a.get_ref()
-                    .at2(
-                        i.to_inner(),
-                        Ellipsis::new_value().to_value(),
-                        self.eval.heap(),
-                    )
-                    .map_err(|e| EvalException::new(e, expr.span, &self.codemap))
             }
             TypeExprUnpackP::Union(xs) => {
                 let xs = xs.into_try_map(|x| self.eval_expr_as_type(x))?;

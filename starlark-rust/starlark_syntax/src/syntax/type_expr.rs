@@ -53,6 +53,7 @@ pub fn type_str_literal_is_wildcard(s: &str) -> bool {
 /// This type should be used instead of `TypeExprP`, but a lot of code needs to be updated.
 #[derive(Debug)]
 pub enum TypeExprUnpackP<'a, P: AstPayload> {
+    Ellipsis,
     Path(&'a AstIdentP<P>, Vec<Spanned<&'a str>>),
     /// `list[str]`.
     Index(&'a AstIdentP<P>, Box<Spanned<TypeExprUnpackP<'a, P>>>),
@@ -62,8 +63,6 @@ pub enum TypeExprUnpackP<'a, P: AstPayload> {
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
         Box<Spanned<TypeExprUnpackP<'a, P>>>,
     ),
-    /// `tuple[str, ...]`.
-    Index2Ellipsis(&'a AstIdentP<P>, Box<Spanned<TypeExprUnpackP<'a, P>>>),
     Union(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Tuple(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Literal(Spanned<&'a str>),
@@ -155,20 +154,12 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
                 let ExprP::Identifier(ident) = &a.node else {
                     return err("array indirection 2 where array is not an identifier");
                 };
-                if let ExprP::Literal(AstLiteral::Ellipsis) = &i1.node {
-                    let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
-                    Ok(Spanned {
-                        span,
-                        node: TypeExprUnpackP::Index2Ellipsis(ident, Box::new(i0)),
-                    })
-                } else {
-                    let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
-                    let i1 = TypeExprUnpackP::unpack(i1, codemap)?;
-                    Ok(Spanned {
-                        span,
-                        node: TypeExprUnpackP::Index2(ident, Box::new(i0), Box::new(i1)),
-                    })
-                }
+                let i0 = TypeExprUnpackP::unpack(i0, codemap)?;
+                let i1 = TypeExprUnpackP::unpack(i1, codemap)?;
+                Ok(Spanned {
+                    span,
+                    node: TypeExprUnpackP::Index2(ident, Box::new(i0), Box::new(i1)),
+                })
             }
             ExprP::Slice(..) => err("slice"),
             ExprP::Identifier(ident) => Ok(Spanned {
@@ -179,7 +170,10 @@ impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {
             ExprP::Literal(AstLiteral::String(_)) => err("string literal"),
             ExprP::Literal(AstLiteral::Int(_)) => err("int"),
             ExprP::Literal(AstLiteral::Float(_)) => err("float"),
-            ExprP::Literal(AstLiteral::Ellipsis) => err("ellipsis"),
+            ExprP::Literal(AstLiteral::Ellipsis) => Ok(Spanned {
+                span,
+                node: TypeExprUnpackP::Ellipsis,
+            }),
             ExprP::Not(..) => err("not"),
             ExprP::Minus(..) => err("minus"),
             ExprP::Plus(..) => err("plus"),

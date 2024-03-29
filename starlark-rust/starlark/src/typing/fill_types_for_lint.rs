@@ -546,6 +546,11 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         x: &Spanned<TypeExprUnpackP<CstPayload>>,
     ) -> Result<Ty, InternalError> {
         match &x.node {
+            TypeExprUnpackP::Ellipsis => {
+                self.approximations
+                    .push(Approximation::new("Ellipsis cannot be used as type", x));
+                Ok(Ty::any())
+            }
             TypeExprUnpackP::Tuple(xs) => {
                 Ok(Ty::tuple(xs.try_map(|x| self.from_type_expr_impl(x))?))
             }
@@ -592,61 +597,57 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 if let Some(a) = self.expr_ident(a)?.value {
-                    if !a.ptr_eq(Constants::get().fn_dict.0.to_value()) {
-                        self.approximations.push(Approximation::new("Not dict", x));
-                        return Ok(Ty::any());
-                    }
-                    let i0 = self.from_type_expr_impl(i0)?;
-                    let i1 = self.from_type_expr_impl(i1)?;
-                    let i0 = TypeCompiled::from_ty(&i0, self.heap);
-                    let i1 = TypeCompiled::from_ty(&i1, self.heap);
-                    match a.get_ref().at2(i0.to_inner(), i1.to_inner(), self.heap) {
-                        Ok(t) => match TypeCompiled::new(t, self.heap) {
-                            Ok(ty) => Ok(ty.as_ty().clone()),
-                            Err(_) => {
+                    if a.ptr_eq(Constants::get().fn_dict.0.to_value()) {
+                        let i0 = self.from_type_expr_impl(i0)?;
+                        let i1 = self.from_type_expr_impl(i1)?;
+                        let i0 = TypeCompiled::from_ty(&i0, self.heap);
+                        let i1 = TypeCompiled::from_ty(&i1, self.heap);
+                        match a.get_ref().at2(i0.to_inner(), i1.to_inner(), self.heap) {
+                            Ok(t) => match TypeCompiled::new(t, self.heap) {
+                                Ok(ty) => Ok(ty.as_ty().clone()),
+                                Err(_) => {
+                                    self.approximations
+                                        .push(Approximation::new("TypeCompiled::new failed", x));
+                                    Ok(Ty::any())
+                                }
+                            },
+                            Err(e) => {
                                 self.approximations
-                                    .push(Approximation::new("TypeCompiled::new failed", x));
+                                    .push(Approximation::new("Getitem2 failed", e));
                                 Ok(Ty::any())
                             }
-                        },
-                        Err(e) => {
-                            self.approximations
-                                .push(Approximation::new("Getitem2 failed", e));
-                            Ok(Ty::any())
                         }
-                    }
-                } else {
-                    self.approximations
-                        .push(Approximation::new("Not global", x));
-                    Ok(Ty::any())
-                }
-            }
-            TypeExprUnpackP::Index2Ellipsis(a, i) => {
-                if let Some(a) = self.expr_ident(a)?.value {
-                    if !a.ptr_eq(Constants::get().fn_tuple.0.to_value()) {
-                        // TODO(nga): this should be an error.
-                        self.approximations.push(Approximation::new("Not tuple", x));
-                        return Ok(Ty::any());
-                    }
-                    let i = self.from_type_expr_impl(i)?;
-                    let i = TypeCompiled::from_ty(&i, self.heap);
-                    match a
-                        .get_ref()
-                        .at2(i.to_inner(), Ellipsis::new_value().to_value(), self.heap)
-                    {
-                        Ok(t) => match TypeCompiled::new(t, self.heap) {
-                            Ok(ty) => Ok(ty.as_ty().clone()),
-                            Err(_) => {
+                    } else if a.ptr_eq(Constants::get().fn_tuple.0.to_value()) {
+                        let i0 = self.from_type_expr_impl(i0)?;
+                        let TypeExprUnpackP::Ellipsis = i1.node else {
+                            self.approximations
+                                .push(Approximation::new("Expecting ellipsis in tuple[x, ...]", x));
+                            return Ok(Ty::any());
+                        };
+                        let r0 = TypeCompiled::from_ty(&i0, self.heap);
+                        match a.get_ref().at2(
+                            r0.to_inner(),
+                            Ellipsis::new_value().to_value(),
+                            self.heap,
+                        ) {
+                            Ok(t) => match TypeCompiled::new(t, self.heap) {
+                                Ok(ty) => Ok(ty.as_ty().clone()),
+                                Err(_) => {
+                                    self.approximations
+                                        .push(Approximation::new("TypeCompiled::new failed", x));
+                                    Ok(Ty::any())
+                                }
+                            },
+                            Err(e) => {
                                 self.approximations
-                                    .push(Approximation::new("TypeCompiled::new failed", x));
+                                    .push(Approximation::new("Getitem2 failed", e));
                                 Ok(Ty::any())
                             }
-                        },
-                        Err(e) => {
-                            self.approximations
-                                .push(Approximation::new("Getitem2 failed", e));
-                            Ok(Ty::any())
                         }
+                    } else {
+                        self.approximations
+                            .push(Approximation::new("Not dict or tuple", x));
+                        return Ok(Ty::any());
                     }
                 } else {
                     self.approximations
