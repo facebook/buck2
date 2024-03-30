@@ -426,7 +426,7 @@ impl<'v> TypeCompiled<Value<'v>> {
             [] | [_] => Err(TypingError::List.into()),
             ts @ [_, _, ..] => {
                 // A union type, can match any
-                let ts = ts.try_map(|t| TypeCompiled::new(*t, heap))?;
+                let ts = ts.try_map(|t| TypeCompiled::new_with_string(*t, heap))?;
                 Ok(TypeCompiled::type_any_of(ts, heap))
             }
         }
@@ -437,15 +437,15 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     /// Evaluate type annotation at runtime.
-    pub fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    pub fn new_with_string(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         if let Some(s) = ty.unpack_str() {
             Ok(TypeCompiled::from_str(s, heap))
         } else if ty.is_none() {
             Ok(TypeCompiledFactory::alloc_ty(&Ty::none(), heap))
         } else if let Some(t) = Tuple::from_value(ty) {
-            let elems = t
-                .content()
-                .try_map(|t| anyhow::Ok(TypeCompiled::new(*t, heap)?.as_ty().clone()))?;
+            let elems = t.content().try_map(|t| {
+                anyhow::Ok(TypeCompiled::new_with_string(*t, heap)?.as_ty().clone())
+            })?;
             Ok(TypeCompiled::from_ty(&Ty::tuple(elems), heap))
         } else if let Some(t) = ListRef::from_value(ty) {
             TypeCompiled::from_list(t, heap)
@@ -466,7 +466,7 @@ impl TypeCompiled<FrozenValue> {
     pub(crate) fn new_frozen(ty: FrozenValue, frozen_heap: &FrozenHeap) -> anyhow::Result<Self> {
         // TODO(nga): trip to a heap is not free.
         let heap = Heap::new();
-        let ty = TypeCompiled::new(ty.to_value(), &heap)?;
+        let ty = TypeCompiled::new_with_string(ty.to_value(), &heap)?;
         Ok(ty.to_frozen(frozen_heap))
     }
 

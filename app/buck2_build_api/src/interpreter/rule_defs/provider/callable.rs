@@ -503,7 +503,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         #[starlark(require=named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<UserProviderField> {
-        let ty = TypeCompiled::new(ty, eval.heap())?.to_frozen(eval.frozen_heap());
+        let ty = TypeCompiled::new_with_string(ty, eval.heap())?.to_frozen(eval.frozen_heap());
         let default = match default {
             None => None,
             Some(x) => {
@@ -576,7 +576,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                     if let Some(field) = field.downcast_ref::<UserProviderField>() {
                         new_fields.insert(name, field.dupe());
                     } else {
-                        let ty = TypeCompiled::new(field, eval.heap())
+                        let ty = TypeCompiled::new_with_string(field, eval.heap())
                             .with_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?
                             .to_frozen(eval.frozen_heap());
                         new_fields.insert(name, UserProviderField { ty, default: None });

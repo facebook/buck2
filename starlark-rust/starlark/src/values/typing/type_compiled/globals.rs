@@ -30,7 +30,7 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] ty: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        TypeCompiled::new(ty, heap)
+        TypeCompiled::new_with_string(ty, heap)
     }
 
     /// Check if a value matches the given type.
@@ -39,6 +39,6 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] ty: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<bool> {
-        Ok(TypeCompiled::new(ty, heap)?.matches(value))
+        Ok(TypeCompiled::new_with_string(ty, heap)?.matches(value))
     }
 }

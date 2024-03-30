@@ -81,11 +81,15 @@ impl<'v> StarlarkValue<'v> for TypingCallable {
         _private: Private,
     ) -> crate::Result<Value<'v>> {
         let param_types = UnpackList::<Value>::unpack_value_err(param_types)?;
-        let ret = TypeCompiled::new(ret, heap)?.as_ty().dupe();
+        let ret = TypeCompiled::new_with_string(ret, heap)?.as_ty().dupe();
         let param_types: Vec<Param> = param_types
             .items
             .into_iter()
-            .map(|p| Ok(Param::pos_only(TypeCompiled::new(p, heap)?.as_ty().dupe())))
+            .map(|p| {
+                Ok(Param::pos_only(
+                    TypeCompiled::new_with_string(p, heap)?.as_ty().dupe(),
+                ))
+            })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         Ok(heap.alloc_simple(TypingCallableAt2 {

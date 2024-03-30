@@ -313,7 +313,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
             Some(SpecialBuiltinFunction::List) => {
-                let index = TypeCompiled::new(index, heap)?;
+                let index = TypeCompiled::new_with_string(index, heap)?;
                 Ok(TypeCompiled::type_list_of(index, heap).to_inner())
             }
             _ => ValueError::unsupported(self, "[]"),
@@ -329,12 +329,12 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     ) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
             Some(SpecialBuiltinFunction::Dict) => {
-                let index0 = TypeCompiled::new(index0, heap)?;
-                let index1 = TypeCompiled::new(index1, heap)?;
+                let index0 = TypeCompiled::new_with_string(index0, heap)?;
+                let index1 = TypeCompiled::new_with_string(index1, heap)?;
                 Ok(TypeCompiled::type_dict_of(index0, index1, heap).to_inner())
             }
             Some(SpecialBuiltinFunction::Tuple) => {
-                let item = TypeCompiled::new(index0, heap)?;
+                let item = TypeCompiled::new_with_string(index0, heap)?;
                 if index1.downcast_ref::<Ellipsis>().is_some() {
                     Ok(TypeCompiled::from_ty(
                         &Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(

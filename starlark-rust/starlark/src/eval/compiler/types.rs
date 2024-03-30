@@ -107,7 +107,7 @@ impl<'v> Compiler<'v, '_, '_, '_> {
                 &self.codemap,
             ));
         }
-        let ty = TypeCompiled::new(value, self.eval.heap());
+        let ty = TypeCompiled::new_with_string(value, self.eval.heap());
         ty.map_err(|e| EvalException::new_anyhow(e, span, &self.codemap))
     }
 
