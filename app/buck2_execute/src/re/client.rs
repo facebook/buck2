@@ -180,9 +180,10 @@ impl RemoteExecutionClient {
         .await
     }
 
-    fn decorate_error(&self, source: anyhow::Error) -> anyhow::Error {
+    fn decorate_error(&self, op: &str, source: anyhow::Error) -> anyhow::Error {
         source.context(format!(
-            "Remote Execution Error ({})",
+            "Remote Execution Error on {} ({})",
+            op,
             self.get_session_id()
         ))
     }
@@ -224,7 +225,7 @@ impl RemoteExecutionClient {
                     identity,
                     digest_config,
                 )
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("upload", e)))
             .await
     }
 
@@ -246,7 +247,7 @@ impl RemoteExecutionClient {
                     inlined_blobs_with_digest,
                     use_case,
                 )
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("upload_file_and_directories", e)))
             .await
     }
 
@@ -280,7 +281,7 @@ impl RemoteExecutionClient {
                     re_max_queue_time,
                     knobs,
                 )
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("execute", e)))
             .await
     }
 
@@ -307,7 +308,7 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .download_typed_blobs(identity, digests, use_case)
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("download_typed_blob", e)))
             .await
     }
 
@@ -322,7 +323,7 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .download_blob(digest, use_case)
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("download_blob", e)))
             .await
     }
 
@@ -337,7 +338,7 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .upload_blob(blob, use_case)
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("upload_blob", e)))
             .await
     }
 
@@ -352,7 +353,7 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .get_digest_expirations(digests, use_case)
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("get_digest_expirations", e)))
             .await
     }
 
@@ -368,7 +369,7 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .extend_digest_ttl(digests, ttl, use_case)
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("extend_digest_ttl", e)))
             .await
     }
 
@@ -385,7 +386,7 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .write_action_result(digest, result, use_case, platform)
-                .map_err(|e| self.decorate_error(e)))
+                .map_err(|e| self.decorate_error("write_action_result", e)))
             .await
     }
 
