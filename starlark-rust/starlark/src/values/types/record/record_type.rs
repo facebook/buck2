@@ -328,7 +328,8 @@ where
                 TypeInstanceId::gen(),
                 TyUserParams {
                     callable: Some(TyCallable::new(
-                        // TODO(nga): more precise parameter types.
+                        // TODO(nga): more precise parameter types
+                        //   https://www.internalfb.com/tasks/?t=184025179
                         ParamSpec::new(vec![Param::kwargs(Ty::any())]),
                         ty_record.dupe(),
                     )),

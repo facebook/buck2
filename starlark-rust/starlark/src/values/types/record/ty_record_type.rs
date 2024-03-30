@@ -121,4 +121,17 @@ def f(rec: MyRec) -> int:
             r#"The attribute `z` is not available on the type `MyRec`"#,
         );
     }
+
+    #[test]
+    fn test_typecheck_record_type_call() {
+        // TODO(nga): this should fail.
+        assert::pass(
+            r#"
+MyRec = record(x = int)
+
+def test():
+    MyRec(x = "")
+"#,
+        );
+    }
 }
