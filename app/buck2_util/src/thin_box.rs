@@ -24,17 +24,23 @@ use std::slice;
 
 use allocative::Allocative;
 
+#[repr(C)]
+struct ThinBoxSliceLayout<T> {
+    len: usize,
+    data: [T; 0],
+}
+
+impl<T> ThinBoxSliceLayout<T> {
+    fn offset_of_data() -> usize {
+        mem::offset_of!(ThinBoxSliceLayout::<T>, data)
+    }
+}
+
 /// `Box<[T]>` but thin pointer.
 ///
 /// Statically allocated for empty slice.
 pub struct ThinBoxSlice<T> {
-    /// Pointer to the first element.
-    ///
-    /// Memory layout:
-    /// ```ignore
-    /// [len, T, T, ...]
-    ///       ^ points here
-    /// ```
+    /// Pointer to the first element, `ThinBoxSliceLayout.data`.
     ptr: NonNull<T>,
 }
 
@@ -42,28 +48,22 @@ unsafe impl<T: Sync> Sync for ThinBoxSlice<T> {}
 unsafe impl<T: Send> Send for ThinBoxSlice<T> {}
 
 impl<T> ThinBoxSlice<T> {
-    const _ASSERTS: () = {
-        // Otherwise empty slice is not aligned properly.
-        assert!(mem::align_of::<T>() <= mem::align_of::<usize>());
-    };
-
     #[inline]
     pub const fn empty() -> ThinBoxSlice<T> {
-        const LEN_ZERO: usize = 0;
+        let instance = &ThinBoxSliceLayout::<T> { len: 0, data: [] };
         unsafe {
-            let ptr = (&LEN_ZERO as *const usize).add(1) as *mut T;
-            let ptr = NonNull::new_unchecked(ptr);
-            ThinBoxSlice { ptr }
+            ThinBoxSlice {
+                ptr: NonNull::new_unchecked(instance.data.as_ptr() as *mut T),
+            }
         }
     }
 
     /// Allocation layout for a slice of length `len`.
     #[inline]
     fn layout_for_len(len: usize) -> Layout {
-        let (layout, offset_of_data) = Layout::new::<usize>()
+        let (layout, _offset_of_data) = Layout::new::<ThinBoxSliceLayout<T>>()
             .extend(Layout::array::<T>(len).unwrap())
             .unwrap();
-        assert_eq!(mem::size_of::<usize>(), offset_of_data);
         layout
     }
 
@@ -71,7 +71,15 @@ impl<T> ThinBoxSlice<T> {
     // Not called `len` to avoid overload with `Deref::len`.
     #[inline]
     fn read_len(&self) -> usize {
-        unsafe { *self.ptr.cast::<usize>().as_ptr().sub(1) }
+        unsafe {
+            (&*self
+                .ptr
+                .as_ptr()
+                .cast::<u8>()
+                .sub(ThinBoxSliceLayout::<T>::offset_of_data())
+                .cast::<ThinBoxSliceLayout<T>>())
+                .len
+        }
     }
 
     /// Allocate uninitialized memory for a slice of length `len`.
