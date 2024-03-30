@@ -113,20 +113,6 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for EnumValueGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn matches_type(&self, ty: &str) -> bool {
-        if ty == EnumValue::TYPE {
-            return true;
-        }
-        let ty_enum_data = match self.get_enum_type() {
-            Either::Left(x) => x.ty_enum_data(),
-            Either::Right(x) => x.ty_enum_data(),
-        };
-        match ty_enum_data {
-            Some(ty_enum_data) => ty_enum_data.name == ty,
-            None => false,
-        }
-    }
-
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.value.write_hash(hasher)
     }
