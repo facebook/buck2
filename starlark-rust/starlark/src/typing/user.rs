@@ -28,12 +28,10 @@ use starlark_syntax::codemap::Spanned;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
-use crate::typing::TyFunction;
 use crate::typing::TypingOracleCtx;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
@@ -111,7 +109,7 @@ pub struct TyUserParams {
     /// Custom fields for this type (use `TyStarlarkValue` fields if not specified).
     pub fields: TyUserFields,
     /// Set if more precise callable signature is known than `base` provides.
-    pub callable: Option<TyFunction>,
+    pub callable: Option<TyCallable>,
     /// Set if more precise index signature is known than `base` provides.
     pub index: Option<TyUserIndex>,
     /// Set if more precise iter item is known than `base` provides.
@@ -133,7 +131,7 @@ pub struct TyUser {
     id: TypeInstanceId,
     fields: TyUserFields,
     /// Set if more precise callable signature is known than `base` provides.
-    callable: Option<TyFunction>,
+    callable: Option<TyCallable>,
     /// Set if more precise index signature is known than `base` provides.
     index: Option<TyUserIndex>,
     /// Set if more precise iter item is known than `base` provides.
@@ -304,9 +302,10 @@ mod tests {
     use crate::environment::GlobalsBuilder;
     use crate::eval::Arguments;
     use crate::eval::Evaluator;
+    use crate::typing::callable::TyCallable;
     use crate::typing::user::TyUserParams;
+    use crate::typing::ParamSpec;
     use crate::typing::Ty;
-    use crate::typing::TyFunction;
     use crate::typing::TyStarlarkValue;
     use crate::typing::TyUser;
     use crate::values::starlark_value_as_type::StarlarkValueAsType;
@@ -420,7 +419,10 @@ mod tests {
                 TyStarlarkValue::new::<FruitCallable>(),
                 TypeInstanceId::gen(),
                 TyUserParams {
-                    callable: Some(TyFunction::new(vec![], ty_fruit.clone())),
+                    callable: Some(TyCallable::new(
+                        ParamSpec::new(Vec::new()),
+                        ty_fruit.clone(),
+                    )),
 
                     ..TyUserParams::default()
                 },

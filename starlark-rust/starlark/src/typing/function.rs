@@ -167,6 +167,11 @@ impl TyFunction {
             callable: TyCallable::new(ParamSpec::new(params), result),
         }
     }
+
+    /// Callable signature of the function.
+    pub fn callable(&self) -> &TyCallable {
+        &self.callable
+    }
 }
 
 impl Display for TyFunction {

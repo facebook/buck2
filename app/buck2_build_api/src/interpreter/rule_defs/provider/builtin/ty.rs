@@ -91,9 +91,10 @@ fn builtin_provider_typechecker_ty<'v, C: StarlarkValue<'v> + ProviderCallableLi
         panic!("creator func is not a function");
     }
     let ty = Ty::of_value(first.1.to_value());
-    let ty_function = ty
+    let ty_callable = ty
         .as_function()
         .expect("creator func is not a function")
-        .clone();
-    ty_provider_callable::<C>(ty_function).unwrap()
+        .callable()
+        .dupe();
+    ty_provider_callable::<C>(ty_callable).unwrap()
 }

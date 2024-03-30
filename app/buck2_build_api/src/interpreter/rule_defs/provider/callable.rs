@@ -34,8 +34,9 @@ use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::typing::Param;
+use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
-use starlark::typing::TyFunction;
+use starlark::typing::TyCallable;
 use starlark::typing::TyStarlarkValue;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
@@ -92,7 +93,7 @@ fn create_callable_function_signature(
     function_name: &str,
     fields: &SmallMap<String, UserProviderField>,
     ret_ty: Ty,
-) -> (ParametersSpec<FrozenValue>, TyFunction) {
+) -> (ParametersSpec<FrozenValue>, TyCallable) {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
     let mut ty_params = Vec::with_capacity(fields.len());
     // TODO(nmj): Should double check we don't actually need positional args in-repo
@@ -107,7 +108,10 @@ fn create_callable_function_signature(
         }
     }
 
-    (signature.finish(), TyFunction::new(ty_params, ret_ty))
+    (
+        signature.finish(),
+        TyCallable::new(ParamSpec::new(ty_params), ret_ty),
+    )
 }
 
 #[derive(Debug, Allocative)]

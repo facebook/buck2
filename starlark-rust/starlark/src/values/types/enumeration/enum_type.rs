@@ -42,13 +42,14 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::typing::callable::TyCallable;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::user::TyUserIndex;
 use crate::typing::user::TyUserParams;
 use crate::typing::Param;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
-use crate::typing::TyFunction;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
 use crate::values::enumeration::value::EnumValueGen;
@@ -331,11 +332,11 @@ where
                         result: ty_enum_value.dupe(),
                     }),
                     iter_item: Some(ty_enum_value.dupe()),
-                    callable: Some(TyFunction::new(
-                        vec![Param::pos_only(
+                    callable: Some(TyCallable::new(
+                        ParamSpec::new(vec![Param::pos_only(
                             // TODO(nga): we can do better parameter type.
                             Ty::any(),
-                        )],
+                        )]),
                         ty_enum_value.dupe(),
                     )),
                     ..TyUserParams::default()

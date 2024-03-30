@@ -43,7 +43,8 @@ pub struct TyCallable {
 }
 
 impl TyCallable {
-    pub(crate) fn new(params: ParamSpec, result: Ty) -> TyCallable {
+    /// Create a new callable type.
+    pub fn new(params: ParamSpec, result: Ty) -> TyCallable {
         TyCallable {
             inner: ArcOrStatic::new(TyCallableInner { params, result }),
         }

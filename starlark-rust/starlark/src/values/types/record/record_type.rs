@@ -44,13 +44,14 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::starlark_complex_values;
+use crate::typing::callable::TyCallable;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserParams;
 use crate::typing::Param;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
-use crate::typing::TyFunction;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::field::FieldGen;
 use crate::values::record::matcher::RecordTypeMatcher;
@@ -326,9 +327,9 @@ where
                 TyStarlarkValue::new::<RecordType>(),
                 TypeInstanceId::gen(),
                 TyUserParams {
-                    callable: Some(TyFunction::new(
+                    callable: Some(TyCallable::new(
                         // TODO(nga): more precise parameter types.
-                        vec![Param::kwargs(Ty::any())],
+                        ParamSpec::new(vec![Param::kwargs(Ty::any())]),
                         ty_record.dupe(),
                     )),
                     ..TyUserParams::default()

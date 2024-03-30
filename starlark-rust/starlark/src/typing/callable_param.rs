@@ -194,7 +194,8 @@ impl ParamSpec {
         &self.params
     }
 
-    pub(crate) fn new(params: Vec<Param>) -> ParamSpec {
+    /// Constructor.
+    pub fn new(params: Vec<Param>) -> ParamSpec {
         if params.as_slice() == Self::any().params() {
             ParamSpec::any()
         } else {
