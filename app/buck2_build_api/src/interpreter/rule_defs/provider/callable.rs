@@ -17,6 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
+use buck2_core::soft_error;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
@@ -499,6 +500,27 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
     }
 }
 
+fn provider_field_parse_type<'v>(
+    ty: Value<'v>,
+    eval: &mut Evaluator<'v, '_, '_>,
+) -> anyhow::Result<TypeCompiled<FrozenValue>> {
+    match TypeCompiled::new(ty, eval.heap()).map(|ty| ty.to_frozen(eval.frozen_heap())) {
+        Ok(ty) => Ok(ty),
+        Err(e) => {
+            // This function is deprecated.
+            match TypeCompiled::new_with_string(ty, eval.heap())
+                .map(|ty| ty.to_frozen(eval.frozen_heap()))
+            {
+                Err(_e1) => Err(e),
+                Ok(ty) => {
+                    soft_error!("provider_field_type_str", e.into())?;
+                    Ok(ty)
+                }
+            }
+        }
+    }
+}
+
 #[starlark_module]
 pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// Create a field definition object which can be passed to `provider` type constructor.
@@ -507,7 +529,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         #[starlark(require=named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<UserProviderField> {
-        let ty = TypeCompiled::new_with_string(ty, eval.heap())?.to_frozen(eval.frozen_heap());
+        let ty = provider_field_parse_type(ty, eval)?;
         let default = match default {
             None => None,
             Some(x) => {
@@ -580,9 +602,8 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                     if let Some(field) = field.downcast_ref::<UserProviderField>() {
                         new_fields.insert(name, field.dupe());
                     } else {
-                        let ty = TypeCompiled::new_with_string(field, eval.heap())
-                            .with_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?
-                            .to_frozen(eval.frozen_heap());
+                        let ty = provider_field_parse_type(field, eval)
+                            .with_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?;
                         new_fields.insert(name, UserProviderField { ty, default: None });
                     }
                 }
