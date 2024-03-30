@@ -1058,8 +1058,10 @@ fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
     match s.split_once("$BUCK2_BINARY_DIR/") {
         Some(("", rest)) => {
             let exe = std::env::current_exe().context("Cannot get Buck2 executable")?;
-            let exe = fs_util::canonicalize(exe)
-                .context("Failed to canonicalize path to Buck2 executable")?;
+            let exe = fs_util::canonicalize(exe).context(
+                "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
+            )?;
+
             let exe = exe.as_abs_path();
             let mut exe_dir = exe
                 .parent()
