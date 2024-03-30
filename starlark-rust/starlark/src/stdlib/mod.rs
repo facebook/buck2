@@ -61,6 +61,7 @@ pub enum LibraryExtension {
     /// Definitions to support the `enum` type, the `enum()` constructor.
     EnumType,
     /// A function `map(f, xs)` which applies `f` to each element of `xs` and returns the result.
+    // TODO(nga): add set: https://www.internalfb.com/tasks/?t=184017710
     Map,
     /// A function `filter(f, xs)` which applies `f` to each element of `xs` and returns those for which `f` returns `True`.
     /// As a special case, `filter(None, xs)` removes all `None` values.
