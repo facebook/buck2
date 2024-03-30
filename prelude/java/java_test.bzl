@@ -50,7 +50,7 @@ def build_junit_test(
     java = ctx.attrs.java[RunInfo] if ctx.attrs.java else ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests
 
     cmd = [java] + extra_cmds + ctx.attrs.vm_args + ["-XX:-MaxFDLimit"]
-    if java_test_toolchain.jvm_args != None and len(java_test_toolchain.jvm_args) > 0:
+    if java_test_toolchain.jvm_args:
         cmd.extend(java_test_toolchain.jvm_args)
 
     classpath = []
