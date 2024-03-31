@@ -129,6 +129,6 @@ fn test_string_const_as_type() {
 T = ""
 def foo(x: T): pass
 "#,
-        "String constants cannot be used as types",
+        "String literals are not allowed in type expressions",
     );
 }

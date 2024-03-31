@@ -55,8 +55,6 @@ enum TypesError {
     TypeIndexOnNonList,
     #[error("[,] can only be applied to dict or tuple functions in type expression")]
     TypeIndexOnNonDictOrTuple,
-    #[error("String constants cannot be used as types")]
-    StringConstantAsType,
 }
 
 impl<'v> Compiler<'v, '_, '_, '_> {
@@ -94,20 +92,12 @@ impl<'v> Compiler<'v, '_, '_, '_> {
     }
 
     /// We evaluated type expression to `Value`, now convert it to `FrozenValue`.
-    // TODO(nga): this step is not really necessary, we should just create `TypeCompiled` directly.
     fn alloc_value_for_type(
         &mut self,
         value: Value<'v>,
         span: Span,
     ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
-        if value.is_str() {
-            return Err(EvalException::new_anyhow(
-                TypesError::StringConstantAsType.into(),
-                span,
-                &self.codemap,
-            ));
-        }
-        let ty = TypeCompiled::new_with_string(value, self.eval.heap());
+        let ty = TypeCompiled::new(value, self.eval.heap());
         ty.map_err(|e| EvalException::new_anyhow(e, span, &self.codemap))
     }
 
