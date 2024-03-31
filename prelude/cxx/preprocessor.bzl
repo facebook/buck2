@@ -32,7 +32,7 @@ SystemIncludeDirs = record(
     # Compiler type to infer correct include flags
     compiler_type = field(str),
     #  Directories to be included via [-isystem | /external:I] [arglike things]
-    include_dirs = field(list["label_relative_path"]),
+    include_dirs = field(list[CellPath]),
 )
 
 CPreprocessorArgs = record(
@@ -53,7 +53,7 @@ CPreprocessor = record(
     # Those should be mutually exclusive with normal headers as per documentation
     raw_headers = field(list[Artifact], []),
     # Directories to be included via -I, [arglike things]
-    include_dirs = field(list["label_relative_path"], []),
+    include_dirs = field(list[CellPath], []),
     # Directories to be included via -isystem, [arglike things]
     system_include_dirs = field([SystemIncludeDirs, None], None),
     # Whether to compile with modules support
