@@ -23,6 +23,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -173,6 +174,14 @@ fn plugins_module(registry: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn All<'v>(#[starlark(this)] _this: Value<'v>) -> anyhow::Result<AllPlugins> {
         Ok(AllPlugins)
+    }
+
+    /// Type symbol for `PluginKind`.
+    #[starlark(attribute, speculative_exec_safe)]
+    fn PluginKind(
+        #[starlark(this)] _this: Value,
+    ) -> anyhow::Result<StarlarkValueAsType<StarlarkPluginKind>> {
+        Ok(StarlarkValueAsType::new())
     }
 }
 
