@@ -44,6 +44,6 @@ pub fn starlark_value_bit_or_for_type<'v, S: StarlarkValue<'v>>(
         )));
     };
     let this = TypeCompiled::from_ty(&this, heap);
-    let other = TypeCompiled::new_with_string(other, heap).context("converting RHS to type")?;
+    let other = TypeCompiled::new(other, heap).context("converting RHS to type")?;
     Ok(TypeCompiled::type_any_of_two(this, other, heap).to_inner())
 }
