@@ -11,7 +11,7 @@ load(
     "JavaToolchainInfo",  # @unused Used as a type
 )
 
-def _class_to_src_map_args(mapping: [Artifact, None]):
+def _class_to_src_map_args(mapping: Artifact | None):
     if mapping != None:
         return cmd_args(mapping)
     return cmd_args()
@@ -34,8 +34,8 @@ JavaClassToSourceMapInfo = provider(
 
 def create_class_to_source_map_info(
         ctx: AnalysisContext,
-        mapping: [Artifact, None] = None,
-        mapping_debuginfo: [Artifact, None] = None,
+        mapping: Artifact | None = None,
+        mapping_debuginfo: Artifact | None = None,
         deps = [Dependency]) -> JavaClassToSourceMapInfo:
     # Only generate debuginfo if the debug info tool is available.
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
@@ -88,7 +88,7 @@ def maybe_create_class_to_source_map_debuginfo(
         actions: AnalysisActions,
         name: str,
         java_toolchain: JavaToolchainInfo,
-        srcs: list[Artifact]) -> [Artifact, None]:
+        srcs: list[Artifact]) -> Artifact | None:
     # Only generate debuginfo if the debug info tool is available.
     if java_toolchain.gen_class_to_source_map_debuginfo == None:
         return None
@@ -107,7 +107,7 @@ def merge_class_to_source_map_from_jar(
         actions: AnalysisActions,
         name: str,
         java_test_toolchain: JavaTestToolchainInfo,
-        mapping: [Artifact, None] = None,
+        mapping: Artifact | None = None,
         relative_to: [CellRoot, None] = None,
         # TODO(nga): I think this meant to be type, not default value.
         deps = [JavaClassToSourceMapInfo.type]) -> Artifact:

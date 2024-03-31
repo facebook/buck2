@@ -44,7 +44,7 @@ def build_bundle(
         dex_files_info: DexFilesInfo,
         native_library_info: AndroidBinaryNativeLibsInfo,
         resources_info: AndroidBinaryResourcesInfo,
-        bundle_config: [Artifact, None],
+        bundle_config: Artifact | None,
         validation_deps_outputs: [list[Artifact], None] = None) -> Artifact:
     output_bundle = actions.declare_output("{}.aab".format(label.name))
 

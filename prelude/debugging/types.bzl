@@ -60,7 +60,7 @@ Custom = record(
 # Java DAP server requires this file in order to correctly locate classes in the source files
 # The integration with a tool is available as a part of "JVM" rules. (java/kotlin_library/binary/test)
 JavaInfo = record(
-    classmap_file = field([Artifact, None]),
+    classmap_file = field(Artifact | None),
 )
 
 # Customizations that are understood by debugging tool

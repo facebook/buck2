@@ -83,8 +83,8 @@ CxxLinkResult = record(
 def link_external_debug_info(
         ctx: AnalysisContext,
         links: list[LinkArgs],
-        split_debug_output: [Artifact, None] = None,
-        pdb: [Artifact, None] = None) -> ArtifactTSet:
+        split_debug_output: Artifact | None = None,
+        pdb: Artifact | None = None) -> ArtifactTSet:
     external_debug_artifacts = []
 
     # When using LTO+split-dwarf, the link step will generate externally

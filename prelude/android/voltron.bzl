@@ -109,7 +109,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(default_output = output)]
 
-def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[str, list[Dependency]]) -> [Artifact, None]:
+def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[str, list[Dependency]]) -> Artifact | None:
     if not ctx.attrs.application_module_configs:
         return None
 

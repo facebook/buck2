@@ -14,10 +14,10 @@ load("@prelude//utils:set.bzl", "set")
 RDotJavaSourceCode = record(
     r_dot_java_source_code_dir = Artifact,
     r_dot_java_source_code_zipped = Artifact,
-    strings_source_code_dir = [Artifact, None],
-    strings_source_code_zipped = [Artifact, None],
-    ids_source_code_dir = [Artifact, None],
-    ids_source_code_zipped = [Artifact, None],
+    strings_source_code_dir = Artifact | None,
+    strings_source_code_zipped = Artifact | None,
+    ids_source_code_dir = Artifact | None,
+    ids_source_code_zipped = Artifact | None,
 )
 
 def get_dummy_r_dot_java(
@@ -39,7 +39,7 @@ def generate_r_dot_javas(
         banned_duplicate_resource_types: list[str],
         uber_r_dot_txt_files: list[Artifact],
         override_symbols_paths: list[Artifact],
-        duplicate_resources_allowlist: [Artifact, None],
+        duplicate_resources_allowlist: Artifact | None,
         union_package: [str, None],
         referenced_resources_lists: list[Artifact],
         generate_strings_and_ids_separately: [bool, None] = True,
@@ -107,7 +107,7 @@ def _generate_r_dot_java_source_code(
         banned_duplicate_resource_types: list[str] = [],
         uber_r_dot_txt_files: list[Artifact] = [],
         override_symbols_paths: list[Artifact] = [],
-        duplicate_resources_allowlist: [Artifact, None] = None,
+        duplicate_resources_allowlist: Artifact | None = None,
         union_package: [str, None] = None,
         referenced_resources_lists: list[Artifact] = []) -> RDotJavaSourceCode:
     merge_resources_cmd = cmd_args(merge_android_resources_tool)

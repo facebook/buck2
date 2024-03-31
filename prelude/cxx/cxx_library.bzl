@@ -227,13 +227,13 @@ CxxLibraryOutput = record(
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
     # for some types of synthetic link objects or for pre-built shared libraries.
-    dwp = field([Artifact, None], None),
+    dwp = field(Artifact | None, None),
 
     # A shared shared library may have an associated PDB file with
     # its corresponding Windows debug info.
-    pdb = field([Artifact, None], None),
+    pdb = field(Artifact | None, None),
     # The import library is the linkable output of a Windows shared library build.
-    implib = field([Artifact, None], None),
+    implib = field(Artifact | None, None),
     # Data about the linker map, only available on shared libraries
     # TODO(cjhopman): always available? when is it/is it not available?
     linker_map = field([CxxLinkerMapData, None], None),
@@ -1358,7 +1358,7 @@ _CxxSharedLibraryResult = record(
     link_result = CxxLinkResult,
     # Shared library name (e.g. SONAME)
     soname = str,
-    objects_bitcode_bundle = [Artifact, None],
+    objects_bitcode_bundle = Artifact | None,
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo,
 )

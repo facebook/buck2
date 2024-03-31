@@ -54,7 +54,7 @@ def generate_android_build_config(
         java_package: str,
         use_constant_expressions: bool,
         default_values: list[BuildConfigField],
-        values_file: [Artifact, None]) -> (JavaLibraryInfo, JavaPackagingInfo, Artifact):
+        values_file: Artifact | None) -> (JavaLibraryInfo, JavaPackagingInfo, Artifact):
     build_config_dot_java = _generate_build_config_dot_java(ctx, source, java_package, use_constant_expressions, default_values, values_file)
 
     compiled_build_config_dot_java = _compile_and_package_build_config_dot_java(ctx, java_package, build_config_dot_java)
@@ -76,7 +76,7 @@ def _generate_build_config_dot_java(
         java_package: str,
         use_constant_expressions: bool,
         default_values: list[BuildConfigField],
-        values_file: [Artifact, None]) -> Artifact:
+        values_file: Artifact | None) -> Artifact:
     generate_build_config_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_build_config[RunInfo])
     generate_build_config_cmd.add([
         "--source",

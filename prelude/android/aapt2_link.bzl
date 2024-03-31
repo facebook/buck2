@@ -23,7 +23,7 @@ def get_aapt2_link(
         no_resource_removal: bool,
         should_keep_raw_values: bool,
         package_id_offset: int,
-        resource_stable_ids: [Artifact, None],
+        resource_stable_ids: Artifact | None,
         preferred_density: [str, None],
         filter_locales: bool,
         locales: list[str],

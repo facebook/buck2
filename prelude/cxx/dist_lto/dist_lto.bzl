@@ -84,7 +84,7 @@ def cxx_dist_link(
         links: list[LinkArgs],
         # The destination for the link output.
         output: Artifact,
-        linker_map: [Artifact, None] = None,
+        linker_map: Artifact | None = None,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str, None] = None,
         # An identifier that will uniquely name this link action in the context of a category. Useful for

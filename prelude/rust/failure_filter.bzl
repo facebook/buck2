@@ -14,7 +14,7 @@ load(":context.bzl", "CompileContext")
 def failure_filter(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        predeclared_output: [Artifact, None],
+        predeclared_output: Artifact | None,
         build_status: Artifact,
         required: Artifact,
         stderr: Artifact,

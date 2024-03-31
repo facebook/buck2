@@ -12,7 +12,7 @@ load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustTool
 
 CrateName = record(
     simple = field(str),
-    dynamic = field([Artifact, None]),
+    dynamic = field(Artifact | None),
 )
 
 # Struct for sharing common args between rustc and rustdoc

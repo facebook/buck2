@@ -24,8 +24,8 @@ load("@prelude//decls/android_rules.bzl", "RType")
 _FilteredResourcesOutput = record(
     resource_infos = list[AndroidResourceInfo],
     voltron_res = list[Artifact],
-    override_symbols = [Artifact, None],
-    string_files_list = [Artifact, None],
+    override_symbols = Artifact | None,
+    string_files_list = Artifact | None,
     string_files_res_dirs = list[Artifact],
 )
 
@@ -36,7 +36,7 @@ def get_android_binary_resources_info(
         java_packaging_deps: list[JavaPackagingDep],
         use_proto_format: bool,
         referenced_resources_lists: list[Artifact],
-        apk_module_graph_file: [Artifact, None] = None,
+        apk_module_graph_file: Artifact | None = None,
         manifest_entries: dict = {},
         resource_infos_to_exclude: [set_type, None] = None,
         r_dot_java_packages_to_exclude: [list[str], None] = [],
@@ -367,7 +367,7 @@ def _maybe_generate_string_source_map(
         should_build_source_string_map: bool,
         res_dirs: list[Artifact],
         android_toolchain: AndroidToolchainInfo,
-        is_voltron_string_source_map: bool = False) -> [Artifact, None]:
+        is_voltron_string_source_map: bool = False) -> Artifact | None:
     if not should_build_source_string_map or len(res_dirs) == 0:
         return None
 
@@ -391,10 +391,10 @@ def _maybe_generate_string_source_map(
 
 def _maybe_package_strings_as_assets(
         ctx: AnalysisContext,
-        string_files_list: [Artifact, None],
+        string_files_list: Artifact | None,
         string_files_res_dirs: list[Artifact],
         r_dot_txt: Artifact,
-        android_toolchain: AndroidToolchainInfo) -> [Artifact, None]:
+        android_toolchain: AndroidToolchainInfo) -> Artifact | None:
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
     is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
     expect(is_store_strings_as_assets == (string_files_list != None))
@@ -481,7 +481,7 @@ def get_manifest(
 def _get_module_manifests(
         ctx: AnalysisContext,
         manifest_entries: dict,
-        apk_module_graph_file: [Artifact, None],
+        apk_module_graph_file: Artifact | None,
         use_proto_format: bool,
         primary_resources_apk: Artifact) -> list[Artifact]:
     if not apk_module_graph_file:
@@ -546,9 +546,9 @@ def _merge_assets(
         is_exopackaged_enabled_for_resources: bool,
         base_apk: Artifact,
         resource_infos: list[AndroidResourceInfo],
-        cxx_resources: [Artifact, None],
+        cxx_resources: Artifact | None,
         is_bundle_build: bool,
-        apk_module_graph_file: [Artifact, None]) -> (Artifact, [Artifact, None], [Artifact, None], [Artifact, None]):
+        apk_module_graph_file: Artifact | None) -> (Artifact, Artifact | None, Artifact | None, Artifact | None):
     expect(
         not (is_exopackaged_enabled_for_resources and is_bundle_build),
         "Cannot use exopackage-for-resources with AAB builds.",
@@ -565,7 +565,7 @@ def _merge_assets(
 
     def get_common_merge_assets_cmd(
             ctx: AnalysisContext,
-            output_apk: Artifact) -> (cmd_args, [Artifact, None]):
+            output_apk: Artifact) -> (cmd_args, Artifact | None):
         merge_assets_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_assets[RunInfo])
         merge_assets_cmd.add(["--output-apk", output_apk.as_output()])
 
@@ -657,7 +657,7 @@ def get_effective_banned_duplicate_resource_types(
     else:
         fail("Unrecognized duplicate_resource_behavior: {}".format(duplicate_resource_behavior))
 
-def get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency], dir_name: str = "cxx_resources_dir") -> [Artifact, None]:
+def get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency], dir_name: str = "cxx_resources_dir") -> Artifact | None:
     cxx_resources = gather_resources(
         label = ctx.label,
         resources = {},

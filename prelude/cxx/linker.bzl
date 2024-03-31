@@ -248,7 +248,7 @@ def get_output_flags(linker_type: str, output: Artifact) -> list[ArgLike]:
 def get_import_library(
         ctx: AnalysisContext,
         linker_type: str,
-        output_short_path: str) -> ([Artifact, None], list[ArgLike]):
+        output_short_path: str) -> (Artifact | None, list[ArgLike]):
     if linker_type == "windows":
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]

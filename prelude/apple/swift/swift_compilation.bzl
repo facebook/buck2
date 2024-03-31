@@ -88,7 +88,7 @@ SwiftCompilationDatabase = record(
 SwiftObjectOutput = record(
     object_files = field(list[Artifact]),
     argsfiles = field(CompileArgsfiles),
-    output_map_artifact = field([Artifact, None]),
+    output_map_artifact = field(Artifact | None),
 )
 
 SwiftCompilationOutput = record(
@@ -114,9 +114,9 @@ SwiftCompilationOutput = record(
     # Info required for `[swift-compilation-database]` subtarget.
     compilation_database = field(SwiftCompilationDatabase),
     # An artifact that represent the Swift module map for this target.
-    output_map_artifact = field([Artifact, None]),
+    output_map_artifact = field(Artifact | None),
     # An optional artifact of the partial tbd file emitted for this module.
-    tbd = field([Artifact, None]),
+    tbd = field(Artifact | None),
 )
 
 SwiftDebugInfo = record(
@@ -349,7 +349,7 @@ def _compile_swiftmodule(
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
         output_header: Artifact,
-        output_tbd: [Artifact, None]) -> CompileArgsfiles:
+        output_tbd: Artifact | None) -> CompileArgsfiles:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-emit-module",
@@ -735,7 +735,7 @@ def get_swift_pcm_uncompile_info(
 def get_swift_dependency_info(
         ctx: AnalysisContext,
         exported_pre: [CPreprocessor, None],
-        output_module: [Artifact, None],
+        output_module: Artifact | None,
         deps_providers: list) -> SwiftDependencyInfo:
     exported_deps = _exported_deps(ctx)
 

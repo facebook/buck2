@@ -328,10 +328,10 @@ def _replace_macros_in_script_template(
         script_template: Artifact,
         haskell_toolchain: HaskellToolchainInfo,
         # Optional artifacts
-        ghci_bin: [Artifact, None] = None,
-        start_ghci: [Artifact, None] = None,
-        iserv_script: [Artifact, None] = None,
-        squashed_so: [Artifact, None] = None,
+        ghci_bin: Artifact | None = None,
+        start_ghci: Artifact | None = None,
+        iserv_script: Artifact | None = None,
+        squashed_so: Artifact | None = None,
         # Optional cmd_args
         exposed_package_args: [cmd_args, None] = None,
         packagedb_args: [cmd_args, None] = None,

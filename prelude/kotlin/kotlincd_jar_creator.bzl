@@ -62,7 +62,7 @@ def create_jar_artifact_kotlincd(
         resources_root: [str, None],
         annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: [PluginParams, None],
-        manifest_file: [Artifact, None],
+        manifest_file: Artifact | None,
         source_level: int,
         target_level: int,
         deps: list[Dependency],
@@ -242,9 +242,9 @@ def create_jar_artifact_kotlincd(
             qualified_name: str,
             output_paths: OutputPaths,
             classpath_jars_tag: ArtifactTag,
-            abi_dir: [Artifact, None],
+            abi_dir: Artifact | None,
             target_type: TargetType,
-            path_to_class_hashes: [Artifact, None],
+            path_to_class_hashes: Artifact | None,
             source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
             is_creating_subtarget: bool = False):
         _unused = source_only_abi_compiling_deps

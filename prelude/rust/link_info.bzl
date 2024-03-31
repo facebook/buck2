@@ -115,7 +115,7 @@ RustLinkStrategyInfo = record(
     transitive_proc_macro_deps = field(dict[RustProcMacroMarker, ()]),
 
     # Path to PDB file with Windows debug data.
-    pdb = field([Artifact, None]),
+    pdb = field(Artifact | None),
     # Debug info which is referenced -- but not included -- by the linkable rlib.
     external_debug_info = field(ArtifactTSet),
 )
@@ -531,7 +531,7 @@ def inherited_rust_external_debug_info(
 def inherited_external_debug_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        dwo_output_directory: [Artifact, None],
+        dwo_output_directory: Artifact | None,
         dep_link_strategy: LinkStrategy) -> ArtifactTSet:
     inherited_debug_infos = []
     inherited_link_infos = []

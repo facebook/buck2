@@ -57,13 +57,13 @@ def linker_map_args(toolchain: CxxToolchainInfo, linker_map) -> LinkArgs:
 LinkArgsOutput = record(
     link_args = ArgLike,
     hidden = list[typing.Any],
-    pdb_artifact = [Artifact, None],
+    pdb_artifact = Artifact | None,
     # The filelist artifact which contains the list of all object files.
     # Only present for Darwin linkers. Note that object files referenced
     # _inside_ the filelist are _not_ part of the `hidden` field above.
     # That's by design - we do not want to materialise _all_ object files
     # to inspect the filelist. Intended to be used for debugging.
-    filelist = [Artifact, None],
+    filelist = Artifact | None,
 )
 
 def make_link_args(

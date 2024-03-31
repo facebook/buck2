@@ -863,7 +863,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
 def derive_indexing_tset(
         actions: AnalysisActions,
         link_style: LinkStyle,
-        value: [Artifact, None],
+        value: Artifact | None,
         children: list[Dependency]) -> HaskellIndexingTSet:
     index_children = []
     for dep in children:

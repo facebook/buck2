@@ -183,7 +183,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
     else:
         return get_apple_test_providers([])
 
-def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_bundle: [Artifact, None], dsym_artifact: [Artifact, None] = None) -> Provider:
+def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_bundle: Artifact | None, dsym_artifact: Artifact | None = None) -> Provider:
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
 
@@ -239,7 +239,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         },
     )
 
-def _get_test_host_app_bundle(ctx: AnalysisContext) -> [Artifact, None]:
+def _get_test_host_app_bundle(ctx: AnalysisContext) -> Artifact | None:
     """ Get the bundle for the test host app, if one exists for this test. """
     if ctx.attrs.test_host_app:
         # Copy the test host app bundle into test's output directory
@@ -250,7 +250,7 @@ def _get_test_host_app_bundle(ctx: AnalysisContext) -> [Artifact, None]:
 
     return None
 
-def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: [Artifact, None]) -> [cmd_args, None]:
+def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: Artifact | None) -> [cmd_args, None]:
     """ Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args. """
     if ctx.attrs.test_host_app == None:
         return None

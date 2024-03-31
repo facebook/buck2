@@ -23,7 +23,7 @@ SharedLibrary = record(
     # The sonames of the shared libraries that this links against.
     # TODO(cjhopman): This is currently always available.
     shlib_deps = field(list[str] | None),
-    stripped_lib = field([Artifact, None]),
+    stripped_lib = field(Artifact | None),
     can_be_asset = field(bool),
     for_primary_apk = field(bool),
     soname = field(str),

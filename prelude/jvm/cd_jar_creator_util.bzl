@@ -131,7 +131,7 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
     )
 
 # buildifier: disable=uninitialized
-def add_output_paths_to_cmd_args(cmd: cmd_args, output_paths: OutputPaths, path_to_class_hashes: [Artifact, None]) -> cmd_args:
+def add_output_paths_to_cmd_args(cmd: cmd_args, output_paths: OutputPaths, path_to_class_hashes: Artifact | None) -> cmd_args:
     if path_to_class_hashes != None:
         cmd.hidden(path_to_class_hashes.as_output())
     cmd.hidden(output_paths.jar_parent.as_output())
@@ -158,7 +158,7 @@ def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetTyp
         libraryTargetFullyQualifiedName = base_qualified_name(label),
     )
 
-def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths, manifest_file: [Artifact, None]) -> struct:
+def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths, manifest_file: Artifact | None) -> struct:
     return struct(
         jarPath = output_paths.jar.as_output(),
         removeEntryPredicate = struct(
@@ -289,7 +289,7 @@ def encode_base_jar_command(
         resources_map: dict[str, Artifact],
         annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: [PluginParams, None],
-        manifest_file: [Artifact, None],
+        manifest_file: Artifact | None,
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool) -> struct:
@@ -461,9 +461,9 @@ def prepare_cd_exe(
 def prepare_final_jar(
         actions: AnalysisActions,
         actions_identifier: [str, None],
-        output: [Artifact, None],
+        output: Artifact | None,
         output_paths: OutputPaths,
-        additional_compiled_srcs: [Artifact, None],
+        additional_compiled_srcs: Artifact | None,
         jar_builder: RunInfo,
         jar_postprocessor: [RunInfo, None]) -> Artifact:
     if not additional_compiled_srcs:
@@ -504,14 +504,14 @@ def generate_abi_jars(
         actions_identifier: [str, None],
         label: Label,
         abi_generation_mode: [AbiGenerationMode, None],
-        additional_compiled_srcs: [Artifact, None],
+        additional_compiled_srcs: Artifact | None,
         is_building_android_binary: bool,
         class_abi_generator: Dependency,
         final_jar: Artifact,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         source_only_abi_deps: list[Dependency],
-        class_abi_jar: [Artifact, None],
-        class_abi_output_dir: [Artifact, None],
+        class_abi_jar: Artifact | None,
+        class_abi_output_dir: Artifact | None,
         encode_abi_command: typing.Callable,
         define_action: typing.Callable) -> tuple:
     class_abi = None

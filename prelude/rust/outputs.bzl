@@ -18,11 +18,11 @@ RustcOutput = record(
     # Only available on metadata-like emits
     clippy_txt = field(Artifact | None),
     clippy_json = field(Artifact | None),
-    pdb = field([Artifact, None]),
-    dwp_output = field([Artifact, None]),
+    pdb = field(Artifact | None),
+    dwp_output = field(Artifact | None),
     # Zero or more Split DWARF debug info files are emitted into this directory
     # with unpredictable filenames.
-    dwo_output_directory = field([Artifact, None]),
+    dwo_output_directory = field(Artifact | None),
     extra_external_debug_info = field(list[ArtifactTSet]),
 )
 

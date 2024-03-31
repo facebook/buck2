@@ -162,8 +162,8 @@ load(
 CxxExecutableOutput = record(
     binary = Artifact,
     unstripped_binary = Artifact,
-    bitcode_bundle = field([Artifact, None], None),
-    dwp = field([Artifact, None]),
+    bitcode_bundle = field(Artifact | None, None),
+    dwp = field(Artifact | None),
     # Files that must be present for the executable to run successfully. These
     # are always materialized, whether the executable is the output of a build
     # or executed as a host tool. They become .hidden() arguments when executing

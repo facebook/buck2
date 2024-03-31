@@ -95,7 +95,7 @@ def get_android_binary_native_library_info(
         enhance_ctx: EnhancementContext,
         android_packageable_info: AndroidPackageableInfo,
         deps_by_platform: dict[str, list[Dependency]],
-        apk_module_graph_file: [Artifact, None] = None,
+        apk_module_graph_file: Artifact | None = None,
         prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
         shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo:
     ctx = enhance_ctx.ctx
@@ -526,8 +526,8 @@ _NativeLibsAndAssetsInfo = record(
     native_libs = Artifact,
     native_libs_metadata = Artifact,
     native_libs_always_in_primary_apk = Artifact,
-    native_lib_assets_for_primary_apk = [Artifact, None],
-    stripped_native_linkable_assets_for_primary_apk = [Artifact, None],
+    native_lib_assets_for_primary_apk = Artifact | None,
+    stripped_native_linkable_assets_for_primary_apk = Artifact | None,
     root_module_metadata_assets = Artifact,
     root_module_compressed_lib_assets = Artifact,
     non_root_module_metadata_assets = Artifact,
@@ -736,7 +736,7 @@ def _filter_prebuilt_native_library_dir(
 _StrippedNativeLinkables = record(
     linkables = Artifact,
     linkables_always_in_primary_apk = Artifact,
-    linkable_assets_for_primary_apk = [Artifact, None],
+    linkable_assets_for_primary_apk = Artifact | None,
     linkable_module_assets_map = dict[str, Artifact],
 )
 

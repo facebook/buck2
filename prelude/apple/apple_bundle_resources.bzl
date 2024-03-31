@@ -354,7 +354,7 @@ def _process_apple_resource_file_if_needed(
         destination: AppleBundleDestination,
         destination_relative_path: [str, None],
         codesign_on_copy: bool = False,
-        codesign_entitlements: [Artifact, None] = None) -> AppleBundlePart:
+        codesign_entitlements: Artifact | None = None) -> AppleBundlePart:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False

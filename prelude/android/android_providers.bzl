@@ -34,8 +34,8 @@ ExopackageNativeInfo = record(
 )
 
 ExopackageResourcesInfo = record(
-    assets = [Artifact, None],
-    assets_hash = [Artifact, None],
+    assets = Artifact | None,
+    assets_hash = Artifact | None,
     res = Artifact,
     res_hash = Artifact,
 )
@@ -66,9 +66,9 @@ AndroidBinaryResourcesInfo = record(
     # per-module manifests (packaged as assets)
     module_manifests = list[Artifact],
     # per-module assets APKs (for .aabs only)
-    module_assets = [Artifact, None],
+    module_assets = Artifact | None,
     # zip containing any strings packaged as assets
-    packaged_string_assets = [Artifact, None],
+    packaged_string_assets = Artifact | None,
     # "APK" containing resources to be used by the Android binary
     primary_resources_apk = Artifact,
     # proguard config needed to retain used resources
@@ -76,9 +76,9 @@ AndroidBinaryResourcesInfo = record(
     # R.java jars containing all the linked resources
     r_dot_java_infos = list[RDotJavaInfo],
     # directory containing filtered string resources files
-    string_source_map = [Artifact, None],
+    string_source_map = Artifact | None,
     # directory containing filtered string resources files for Voltron language packs
-    voltron_string_source_map = [Artifact, None],
+    voltron_string_source_map = Artifact | None,
     # list of jars that could contain resources that should be packaged into the APK
     jar_files_that_may_contain_resources = list[Artifact],
     # The resource infos that are used in this APK
@@ -219,11 +219,11 @@ ExportedAndroidResourceInfo = provider(
 
 DexFilesInfo = record(
     primary_dex = Artifact,
-    primary_dex_class_names = [Artifact, None],
+    primary_dex_class_names = Artifact | None,
     root_module_secondary_dex_dirs = list[Artifact],
     non_root_module_secondary_dex_dirs = list[Artifact],
     secondary_dex_exopackage_info = [ExopackageDexInfo, None],
-    proguard_text_files_path = [Artifact, None],
+    proguard_text_files_path = Artifact | None,
 )
 
 ExopackageInfo = record(
@@ -246,7 +246,7 @@ def merge_android_packageable_info(
         actions: AnalysisActions,
         deps: list[Dependency],
         build_config_info: [AndroidBuildConfigInfo, None] = None,
-        manifest: [Artifact, None] = None,
+        manifest: Artifact | None = None,
         prebuilt_native_library_dir: [PrebuiltNativeLibraryDir, None] = None,
         resource_info: [AndroidResourceInfo, None] = None,
         for_primary_apk: bool = False) -> AndroidPackageableInfo:

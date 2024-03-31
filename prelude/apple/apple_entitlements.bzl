@@ -29,7 +29,7 @@ def should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignTyp
 
     return False
 
-def _entitlements_file(ctx: AnalysisContext) -> [Artifact, None]:
+def _entitlements_file(ctx: AnalysisContext) -> Artifact | None:
     if hasattr(ctx.attrs, "entitlements_file"):
         # Bundling `apple_test` which doesn't have a binary to provide the entitlements, so they are provided via `entitlements_file` attribute directly.
         return ctx.attrs.entitlements_file

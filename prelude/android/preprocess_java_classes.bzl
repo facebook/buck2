@@ -11,7 +11,7 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:expect.bzl", "expect")
 
-def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: dict[Artifact, TargetLabel]) -> (dict[Artifact, TargetLabel], [Artifact, None]):
+def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: dict[Artifact, TargetLabel]) -> (dict[Artifact, TargetLabel], Artifact | None):
     if not input_jars:
         return {}, None
 

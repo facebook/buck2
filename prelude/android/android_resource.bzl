@@ -12,7 +12,7 @@ load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
 
-def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, Artifact, None], attr_name: str) -> [Artifact, None]:
+def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, Artifact, None], attr_name: str) -> Artifact | None:
     if isinstance(attr, Dependency):
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]
@@ -95,7 +95,7 @@ def aapt2_compile(
 
     return aapt2_output
 
-def _get_package(ctx: AnalysisContext, package: [str, None], manifest: [Artifact, None]) -> Artifact:
+def _get_package(ctx: AnalysisContext, package: [str, None], manifest: Artifact | None) -> Artifact:
     if package:
         return ctx.actions.write(JAVA_PACKAGE_FILENAME, package)
     else:

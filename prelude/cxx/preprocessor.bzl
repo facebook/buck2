@@ -254,7 +254,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         modular_args = modular_args,
     )
 
-def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor], project_root_file: [Artifact, None]) -> CPreprocessorArgs:
+def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor], project_root_file: Artifact | None) -> CPreprocessorArgs:
     header_root = prepare_headers(ctx, headers, "buck-headers", project_root_file)
 
     # Process args to handle the `$(cxx-header-tree)` macro.
@@ -289,7 +289,7 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Art
 def cxx_private_preprocessor_info(
         ctx: AnalysisContext,
         headers_layout: CxxHeadersLayout,
-        project_root_file: [Artifact, None],
+        project_root_file: Artifact | None,
         raw_headers: list[Artifact] = [],
         extra_preprocessors: list[CPreprocessor] = [],
         non_exported_deps: list[Dependency] = [],
@@ -310,7 +310,7 @@ def _cxx_private_preprocessor_info(
         headers_layout: CxxHeadersLayout,
         raw_headers: list[Artifact],
         extra_preprocessors: list[CPreprocessor],
-        project_root_file: [Artifact, None]) -> CPreprocessor:
+        project_root_file: Artifact | None) -> CPreprocessor:
     """
     This rule's preprocessor info which is only applied to the compilation of
     its source, and not propagated to dependents.
@@ -364,7 +364,7 @@ def _cxx_private_preprocessor_info(
         uses_modules = uses_modules,
     )
 
-def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact], project_root_file: [Artifact, None]) -> CPreprocessorArgs:
+def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact], project_root_file: Artifact | None) -> CPreprocessorArgs:
     # Create private header tree and propagate via args.
     args = []
     file_prefix_args = []

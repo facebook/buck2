@@ -15,7 +15,7 @@ XcodeDataInfo = provider(fields = {
 def generate_xcode_data(
         ctx: AnalysisContext,
         rule_type: str,
-        output: [Artifact, None],
+        output: Artifact | None,
         populate_rule_specific_attributes_func: [typing.Callable, None] = None,
         **kwargs) -> (list[DefaultInfo], XcodeDataInfo):
     data = {

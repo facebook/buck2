@@ -90,7 +90,7 @@ JavaClasspathEntry = record(
     abi = field(Artifact),
     # abi_as_dir is the abi .jar unzipped into a directory. If available, it is used to provide
     # .class level granularity for javacd and kotlincd dep-files.
-    abi_as_dir = field([Artifact, None]),
+    abi_as_dir = field(Artifact | None),
     required_for_source_only_abi = field(bool),
 )
 
@@ -125,11 +125,11 @@ JavaCompilingDepsTSet = transitive_set(
 
 JavaPackagingDep = record(
     label = Label,
-    jar = [Artifact, None],
+    jar = Artifact | None,
     dex = [DexLibraryInfo, None],
-    gwt_module = [Artifact, None],
+    gwt_module = Artifact | None,
     is_prebuilt_jar = bool,
-    proguard_config = [Artifact, None],
+    proguard_config = Artifact | None,
 
     # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
     # the right target from the given artifact).
@@ -204,11 +204,11 @@ KeystoreInfo = provider(
 
 JavaCompileOutputs = record(
     full_library = Artifact,
-    class_abi = [Artifact, None],
-    source_abi = [Artifact, None],
-    source_only_abi = [Artifact, None],
+    class_abi = Artifact | None,
+    source_abi = Artifact | None,
+    source_only_abi = Artifact | None,
     classpath_entry = JavaClasspathEntry,
-    annotation_processor_output = [Artifact, None],
+    annotation_processor_output = Artifact | None,
 )
 
 JavaProviders = record(
@@ -242,13 +242,13 @@ def to_list(java_providers: JavaProviders) -> list[Provider]:
 # specific artifact to be used as the abi for the JavaClasspathEntry.
 def make_compile_outputs(
         full_library: Artifact,
-        class_abi: [Artifact, None] = None,
-        source_abi: [Artifact, None] = None,
-        source_only_abi: [Artifact, None] = None,
-        classpath_abi: [Artifact, None] = None,
-        classpath_abi_dir: [Artifact, None] = None,
+        class_abi: Artifact | None = None,
+        source_abi: Artifact | None = None,
+        source_only_abi: Artifact | None = None,
+        classpath_abi: Artifact | None = None,
+        classpath_abi_dir: Artifact | None = None,
         required_for_source_only_abi: bool = False,
-        annotation_processor_output: [Artifact, None] = None) -> JavaCompileOutputs:
+        annotation_processor_output: Artifact | None = None) -> JavaCompileOutputs:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
         full_library = full_library,
@@ -303,15 +303,15 @@ def derive_compiling_deps(
 
 def create_java_packaging_dep(
         ctx: AnalysisContext,
-        library_jar: [Artifact, None] = None,
-        output_for_classpath_macro: [Artifact, None] = None,
+        library_jar: Artifact | None = None,
+        output_for_classpath_macro: Artifact | None = None,
         needs_desugar: bool = False,
         desugar_deps: list[Artifact] = [],
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         dex_weight_factor: int = 1,
-        proguard_config: [Artifact, None] = None,
-        gwt_module: [Artifact, None] = None) -> JavaPackagingDep:
+        proguard_config: Artifact | None = None,
+        gwt_module: Artifact | None = None) -> JavaPackagingDep:
     dex_toolchain = getattr(ctx.attrs, "_dex_toolchain", None)
     if library_jar != None and has_srcs and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
         dex = get_dex_produced_from_java_library(
@@ -396,8 +396,8 @@ def _create_non_template_providers(
         desugar_classpath: list[Artifact] = [],
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
-        proguard_config: [Artifact, None] = None,
-        gwt_module: [Artifact, None] = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
+        proguard_config: Artifact | None = None,
+        gwt_module: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
     Args:
@@ -460,9 +460,9 @@ def create_java_library_providers(
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
         generated_sources: list[Artifact] = [],
-        annotation_jars_dir: [Artifact, None] = None,
-        proguard_config: [Artifact, None] = None,
-        gwt_module: [Artifact, None] = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
+        annotation_jars_dir: Artifact | None = None,
+        proguard_config: Artifact | None = None,
+        gwt_module: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 

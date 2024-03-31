@@ -50,7 +50,7 @@ def _create_kotlin_sources(
         deps: list[Dependency],
         annotation_processor_properties: AnnotationProcessorProperties,
         ksp_annotation_processor_properties: AnnotationProcessorProperties,
-        additional_classpath_entries: list[Artifact]) -> (Artifact, [Artifact, None], [Artifact, None]):
+        additional_classpath_entries: list[Artifact]) -> (Artifact, Artifact | None, Artifact | None):
     """
     Runs kotlinc on the provided kotlin sources.
     """

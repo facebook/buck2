@@ -32,7 +32,7 @@ LinkOptions = record(
     strip = bool,
     # A function/lambda which will generate the strip args using the ctx.
     strip_args_factory = [typing.Callable, None],
-    import_library = [Artifact, None],
+    import_library = Artifact | None,
     allow_cache_upload = bool,
     cxx_toolchain = [CxxToolchainInfo, None],
     # Force callers to use link_options() or merge_link_options() to create.
@@ -49,7 +49,7 @@ def link_options(
         identifier: [str, None] = None,
         strip: bool = False,
         strip_args_factory = None,
-        import_library: [Artifact, None] = None,
+        import_library: Artifact | None = None,
         allow_cache_upload: bool = False,
         cxx_toolchain: [CxxToolchainInfo, None] = None) -> LinkOptions:
     """

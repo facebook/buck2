@@ -425,7 +425,7 @@ def rust_compile(
         params: BuildParams,
         default_roots: list[str],
         extra_link_args: list[typing.Any] = [],
-        predeclared_output: [Artifact, None] = None,
+        predeclared_output: Artifact | None = None,
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         designated_clippy: bool = False,
         allow_cache_upload: bool = False,
@@ -1179,7 +1179,7 @@ def _rustc_emit(
         emit: Emit,
         subdir: str,
         params: BuildParams,
-        predeclared_output: [Artifact, None] = None) -> EmitOperation:
+        predeclared_output: Artifact | None = None) -> EmitOperation:
     toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -1254,7 +1254,7 @@ def _rustc_emit(
 Invoke = record(
     diag_txt = field(Artifact),
     diag_json = field(Artifact),
-    build_status = field([Artifact, None]),
+    build_status = field(Artifact | None),
     identifier = field([str, None]),
 )
 

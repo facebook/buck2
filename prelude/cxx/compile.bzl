@@ -153,9 +153,9 @@ CxxCompileOutput = record(
     # Externally referenced debug info, which doesn't get linked with the
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
-    external_debug_info = field([Artifact, None], None),
-    clang_remarks = field([Artifact, None], None),
-    clang_trace = field([Artifact, None], None),
+    external_debug_info = field(Artifact | None, None),
+    clang_remarks = field(Artifact | None, None),
+    clang_trace = field(Artifact | None, None),
 )
 
 _ABSOLUTE_ARGSFILE_SUBSTITUTIONS = [

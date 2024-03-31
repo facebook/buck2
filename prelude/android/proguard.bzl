@@ -17,7 +17,7 @@ load("@prelude//utils:expect.bzl", "expect")
 
 ProguardOutput = record(
     jars_to_owners = dict[Artifact, TargetLabel],
-    proguard_configuration_output_file = [Artifact, None],
+    proguard_configuration_output_file = Artifact | None,
     proguard_mapping_output_file = Artifact,
     proguard_artifacts = list[Artifact],
     proguard_hidden_artifacts = list[Artifact],
@@ -29,9 +29,9 @@ def _get_proguard_command_line_args(
         proguard_configs: list[Artifact],
         additional_library_jars: list[Artifact],
         mapping: Artifact,
-        configuration: [Artifact, None],
-        seeds: [Artifact, None],
-        usage: [Artifact, None],
+        configuration: Artifact | None,
+        seeds: Artifact | None,
+        usage: Artifact | None,
         android_toolchain: AndroidToolchainInfo) -> (cmd_args, list[Artifact]):
     cmd = cmd_args()
     hidden = []
@@ -131,7 +131,7 @@ def get_proguard_output(
         ctx: AnalysisContext,
         input_jars: dict[Artifact, TargetLabel],
         java_packaging_deps: list[JavaPackagingDep],
-        aapt_generated_proguard_config: [Artifact, None],
+        aapt_generated_proguard_config: Artifact | None,
         additional_library_jars: list[Artifact]) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
