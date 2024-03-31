@@ -37,9 +37,12 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::typing::ty::AbstractType;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
+use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::Value;
 
 #[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
 struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty);
@@ -128,6 +131,12 @@ impl<T: StarlarkTypeRepr> Default for StarlarkValueAsType<T> {
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
     fn starlark_type_repr() -> Ty {
         AbstractType::starlark_type_repr()
+    }
+}
+
+impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for StarlarkValueAsType<T> {
+    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+        FrozenValue::new_repr(&Self::INSTANCE).to_value()
     }
 }
 
