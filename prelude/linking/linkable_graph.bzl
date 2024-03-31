@@ -52,8 +52,7 @@ LinkableRootInfo = provider(
 ###############################################################################
 
 _DisallowConstruction = record()
-_TUPLE_TYPE = type(())
-_TargetSourceType = [Artifact, str, _TUPLE_TYPE]
+_TargetSourceType = Artifact | str | tuple
 
 LinkableNode = record(
     # Attribute labels on the target.
