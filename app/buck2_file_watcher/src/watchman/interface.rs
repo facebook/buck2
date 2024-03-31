@@ -42,6 +42,9 @@ use crate::watchman::core::WatchmanEventType;
 use crate::watchman::core::WatchmanKind;
 
 struct WatchmanQueryProcessor {
+    // FIXME(JakobDegen): Storing these values statically is completely broken. See
+    // `tests/e2e/cells/test_file_watcher_resolution:test_changing_cell_location_bug` for a repro of
+    // a bug.
     cells: CellResolver,
     ignore_specs: HashMap<CellName, IgnoreSet>,
     retain_dep_files_on_watchman_fresh_instance: bool,
