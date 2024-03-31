@@ -15,7 +15,7 @@ CompileArgsfile = record(
     # This argsfile as a command form that would use the argsfile (includes dependent inputs).
     cmd_form = field(cmd_args),
     # Input args necessary for the argsfile to reference.
-    input_args = field(list[["artifacts", cmd_args]]),
+    input_args = field(list[cmd_args]),
     # Args as written to the argsfile (with shell quoting applied).
     args = field(cmd_args),
     # Args aggregated for the argsfile excluding file prefix args (excludes shell quoting).
