@@ -24,12 +24,19 @@ load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_cla
 load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
-load("@prelude//java:java_providers.bzl", "JavaPackagingInfo", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
+load(
+    "@prelude//java:java_providers.bzl",
+    "JavaPackagingDep",  # @unused Used as type
+    "JavaPackagingInfo",
+    "create_java_packaging_dep",
+    "get_all_java_packaging_deps",
+    "get_all_java_packaging_deps_from_packaging_infos",
+)
 load("@prelude//utils:expect.bzl", "expect")
 
 AndroidBinaryInfo = record(
     sub_targets = dict,
-    java_packaging_deps = list["JavaPackagingDep"],
+    java_packaging_deps = list[JavaPackagingDep],
     deps_by_platform = dict,
     primary_platform = str,
     dex_files_info = DexFilesInfo,

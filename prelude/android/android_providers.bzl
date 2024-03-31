@@ -82,7 +82,7 @@ AndroidBinaryResourcesInfo = record(
     # list of jars that could contain resources that should be packaged into the APK
     jar_files_that_may_contain_resources = list[Artifact],
     # The resource infos that are used in this APK
-    unfiltered_resource_infos = list["AndroidResourceInfo"],
+    unfiltered_resource_infos = list,  # list[AndroidResourceInfo]
 )
 
 # Information about an `android_build_config`
