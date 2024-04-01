@@ -304,8 +304,4 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
-
-    fn matches_type(&self, ty: &str) -> bool {
-        Self::TYPE == ty || ty == "artifact"
-    }
 }
