@@ -92,10 +92,6 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for UserProviderGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn matches_type(&self, ty: &str) -> bool {
-        ty == self.callable.provider_id.name
-    }
-
     fn dir_attr(&self) -> Vec<String> {
         self.callable.fields.keys().cloned().collect()
     }
