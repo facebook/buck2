@@ -39,6 +39,11 @@ use crate::values::typing::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
+mod call;
+mod list;
+mod special_function;
+mod tuple;
+
 #[derive(Default)]
 struct TypeCheck {
     expect_types: Vec<String>,
@@ -236,53 +241,6 @@ def test():
 }
 
 #[test]
-fn test_type_kwargs() {
-    TypeCheck::new().check(
-        "type_kwargs",
-        r#"
-def foo(**kwargs):
-    pass
-
-def bar():
-    foo(**{1: "x"})
-"#,
-    );
-}
-
-#[test]
-fn test_types_of_args_kwargs() {
-    TypeCheck::new().ty("args").ty("kwargs").check(
-        "types_of_args_kwargs",
-        r#"
-def foo(*args: str, **kwargs: int):
-    pass
-
-def test():
-    # Good
-    foo("a")
-    foo(b=1)
-    # Bad
-    foo(1)
-    foo(c="x")
-"#,
-    );
-}
-
-#[test]
-fn test_kwargs_in_native_code() {
-    TypeCheck::new().check(
-        "kwargs_in_native_code",
-        r#"
-def test():
-    # Good.
-    accepts_typed_kwargs(x=1)
-    # Bad.
-    accepts_typed_kwargs(x=None)
-"#,
-    );
-}
-
-#[test]
 fn test_dot_type() {
     TypeCheck::new().check(
         "dot_type_0",
@@ -313,197 +271,6 @@ fn test_special_function_zip() {
         r#"
 def test():
     x = zip([1,2], [True, False], ["a", "b"])
-"#,
-    );
-}
-
-#[test]
-fn test_special_function_struct() {
-    TypeCheck::new().ty("x").check(
-        "struct",
-        r#"
-def test():
-    x = struct(a = 1, b = "test")
-"#,
-    );
-}
-
-#[test]
-fn test_call_callable() {
-    TypeCheck::new().check(
-        "call_callable",
-        r#"
-def foo(x: typing.Callable):
-    x()
-"#,
-    );
-}
-
-#[test]
-fn test_call_not_callable() {
-    TypeCheck::new().check(
-        "call_not_callable",
-        r#"
-def foo(x: list):
-    x()
-"#,
-    );
-}
-
-#[test]
-fn test_call_callable_or_not_callable() {
-    TypeCheck::new().check(
-        "call_callable_or_not_callable",
-        r#"
-def foo(x: [typing.Callable, str], y: [str, typing.Callable]):
-    x()
-    y()
-"#,
-    );
-}
-
-#[test]
-fn test_callable_with_args() {
-    TypeCheck::new().check(
-        "callable_with_args",
-        r#"
-def accept_f(x: typing.Callable[[int, str], str]):
-    pass
-
-def good_function(x: int, y: str) -> str:
-    return ""
-
-def bad_function(x: int, y: bool) -> str:
-    return ""
-
-def test():
-    accept_f(good_function)
-    accept_f(bad_function)
-"#,
-    );
-}
-
-#[test]
-fn test_tuple() {
-    TypeCheck::new().check(
-        "tuple",
-        r#"
-def empty_tuple_fixed_name() -> (): return tuple()
-def empty_tuple_name_fixed() -> tuple: return ()
-"#,
-    );
-}
-
-#[test]
-fn test_tuple_ellipsis() {
-    TypeCheck::new().check(
-        "tuple_ellipsis",
-        r#"
-def f(t: tuple[int, ...]) -> int:
-    return t[0]
-
-def g():
-    # Good.
-    f((1, 2, 3))
-
-    # Bad.
-    f((1, "x"))
-"#,
-    );
-}
-
-#[test]
-fn test_test_new_syntax_without_dot_type() {
-    TypeCheck::new().check(
-        "new_syntax_without_dot_type",
-        r#"
-def foo(x: str): pass
-
-def bar():
-    # good
-    foo("test")
-
-    # bad
-    foo(1)
-"#,
-    );
-}
-
-#[test]
-fn test_calls() {
-    TypeCheck::new().check(
-        "calls",
-        r#"
-def f(y): pass
-
-def g():
-    # Extra parameter.
-    f(1, 2)
-
-    # Not enough parameters.
-    f()
-"#,
-    );
-}
-
-#[test]
-fn test_list_append() {
-    TypeCheck::new().ty("x").check(
-        "list_append",
-        r#"
-def test():
-    # Type of `x` should be inferred as list of either `int` or `str`.
-    x = []
-    x.append(1)
-    x.append("")
-"#,
-    );
-}
-
-#[test]
-fn test_list_append_bug() {
-    // TODO(nga): fix.
-    TypeCheck::new().ty("x").check(
-        "list_append_bug",
-        r#"
-def test():
-    x = []
-    x.append(x)
-"#,
-    );
-}
-
-#[test]
-fn test_list_function() {
-    TypeCheck::new().ty("x").check(
-        "list_function",
-        r#"
-def test():
-    x = list([1, 2])
-"#,
-    );
-}
-
-#[test]
-fn test_list_less() {
-    TypeCheck::new().check(
-        "list_less",
-        r#"
-def test(x: list[str], y: list[str]) -> bool:
-    return x < y
-"#,
-    );
-}
-
-#[test]
-fn test_list_bin_op() {
-    TypeCheck::new().ty("x").ty("y").ty("z").check(
-        "list_bin_op",
-        r#"
-def test(a: list[str]):
-    x = a + a
-    y = a * 3
-    z = 3 * a
 "#,
     );
 }
@@ -603,18 +370,6 @@ def test():
 }
 
 #[test]
-fn test_int_mul_list() {
-    // TODO(nga): fix.
-    TypeCheck::new().ty("x").check(
-        "int_mul_list",
-        r#"
-def test():
-    x = 1 * ["a"]
-"#,
-    );
-}
-
-#[test]
 fn test_un_op() {
     TypeCheck::new().ty("x").ty("y").ty("z").check(
         "un_op",
@@ -666,17 +421,6 @@ fn test_incorrect_type_dot() {
         r#"
 def foo(x: list.foo.bar):
     pass
-"#,
-    );
-}
-
-#[test]
-fn test_never_call_bug() {
-    TypeCheck::new().ty("y").check(
-        "never_call_bug",
-        r#"
-def foo(x: typing.Never):
-    y = x(1)
 "#,
     );
 }
