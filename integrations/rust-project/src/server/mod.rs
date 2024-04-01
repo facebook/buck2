@@ -54,18 +54,14 @@ impl State {
         };
 
         let capabilities = serde_json::to_value(capabilities)?;
-        let params = connection.initialize(capabilities)?;
-        let params: lsp_types::InitializeParams = serde_json::from_value(params)?;
-        let supports_multiple_projects = supports_multiple_projects(params).unwrap_or(false);
+        connection.initialize(capabilities)?;
 
         let (sender, receiver) = (connection.sender, connection.receiver);
         let server = Server {
             sender: sender.clone(),
             receiver,
             req_queue: ReqQueue::default(),
-            supports_multiple_projects,
         };
-        info!(?supports_multiple_projects);
 
         handle
             .modify(|layers| {
@@ -251,7 +247,6 @@ pub(crate) struct Server {
     sender: Sender<lsp_server::Message>,
     receiver: Receiver<lsp_server::Message>,
     req_queue: ReqQueue<(String, Instant), ReqHandler>,
-    supports_multiple_projects: bool,
 }
 
 impl Server {
@@ -342,13 +337,7 @@ fn handle_discover_buck_targets(
     tracing::info!(crate_len = &project.crates.len(), "created index");
     projects.push(project.clone());
 
-    // backwards compatibility hack for older clients that expect only a JsonProject, not a `Vec<JsonProject>`.
-    // We'll remove this after a few days.
-    if server.supports_multiple_projects {
-        Ok(DiscoverBuckTargetsResult::Many(projects.clone()))
-    } else {
-        Ok(DiscoverBuckTargetsResult::Single(project))
-    }
+    Ok(DiscoverBuckTargetsResult::Many(projects.clone()))
 }
 
 fn handle_did_save_buck_file(
@@ -489,12 +478,6 @@ where
     };
 
     Ok(res)
-}
-
-fn supports_multiple_projects(params: lsp_types::InitializeParams) -> Option<bool> {
-    let init_options = params.initialization_options?;
-    let supports_multiple_projects = init_options.get("multipleProjects")?.as_bool()?;
-    Some(supports_multiple_projects)
 }
 
 type ReqHandler = fn(&mut State, lsp_server::Response);
