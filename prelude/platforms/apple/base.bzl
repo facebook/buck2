@@ -43,14 +43,10 @@ BUILD_MODE_TO_CONSTRAINTS_MAP = {
 
 _MOBILE_PLATFORMS = [
     ios_platforms.IPHONEOS_ARM64,
-    ios_platforms.IPHONEOS_ARMV7,
     ios_platforms.IPHONESIMULATOR_ARM64,
-    ios_platforms.IPHONESIMULATOR_I386,
     ios_platforms.IPHONESIMULATOR_X86_64,
     watch_platforms.WATCHOS_ARM64_32,
-    watch_platforms.WATCHOS_ARMV7K,
     watch_platforms.WATCHSIMULATOR_ARM64,
-    watch_platforms.WATCHSIMULATOR_I386,
     watch_platforms.WATCHSIMULATOR_X86_64,
 ]
 

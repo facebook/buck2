@@ -34,11 +34,7 @@ APPLETVSIMULATOR_X86_64 = "appletvsimulator-x86_64"
 
 IPHONEOS_ARM64 = "iphoneos-arm64"
 
-IPHONEOS_ARMV7 = "iphoneos-armv7"
-
 IPHONESIMULATOR_ARM64 = "iphonesimulator-arm64"
-
-IPHONESIMULATOR_I386 = "iphonesimulator-i386"
 
 IPHONESIMULATOR_X86_64 = "iphonesimulator-x86_64"
 
@@ -60,11 +56,7 @@ MACOS_UNIVERSAL = "macosx-universal"
 
 WATCHOS_ARM64_32 = "watchos-arm64_32"
 
-WATCHOS_ARMV7K = "watchos-armv7k"
-
 WATCHSIMULATOR_ARM64 = "watchsimulator-arm64"
-
-WATCHSIMULATOR_I386 = "watchsimulator-i386"
 
 WATCHSIMULATOR_X86_64 = "watchsimulator-x86_64"
 
@@ -89,9 +81,7 @@ appletv_platforms = struct(
 
 ios_platforms = struct(
     IPHONEOS_ARM64 = IPHONEOS_ARM64,
-    IPHONEOS_ARMV7 = IPHONEOS_ARMV7,
     IPHONESIMULATOR_ARM64 = IPHONESIMULATOR_ARM64,
-    IPHONESIMULATOR_I386 = IPHONESIMULATOR_I386,
     IPHONESIMULATOR_X86_64 = IPHONESIMULATOR_X86_64,
 )
 
@@ -108,9 +98,7 @@ mac_platforms = struct(
 
 watch_platforms = struct(
     WATCHOS_ARM64_32 = WATCHOS_ARM64_32,
-    WATCHOS_ARMV7K = WATCHOS_ARMV7K,
     WATCHSIMULATOR_ARM64 = WATCHSIMULATOR_ARM64,
-    WATCHSIMULATOR_I386 = WATCHSIMULATOR_I386,
     WATCHSIMULATOR_X86_64 = WATCHSIMULATOR_X86_64,
 )
 
