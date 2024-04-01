@@ -288,12 +288,6 @@ pub trait StarlarkValue<'v>:
         false
     }
 
-    /// Is this value a match for a named type. Usually returns `true` for
-    /// values matching `get_type`, but might also work for subtypes it implements.
-    fn matches_type(&self, ty: &str) -> bool {
-        Self::TYPE == ty
-    }
-
     /// Function is implemented for types values.
     #[doc(hidden)]
     fn type_matches_value(&self, _value: Value<'v>, _private: Private) -> bool {

@@ -268,6 +268,6 @@ pub(crate) struct IsName(pub(crate) String);
 
 impl TypeMatcher for IsName {
     fn matches(&self, value: Value) -> bool {
-        value.get_ref().matches_type(&self.0)
+        self.0 == value.get_type()
     }
 }

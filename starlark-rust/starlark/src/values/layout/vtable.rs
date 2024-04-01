@@ -560,11 +560,6 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn matches_type(self, t: &str) -> bool {
-        (self.vtable.starlark_value.matches_type)(self.value, t)
-    }
-
-    #[inline]
     pub(crate) fn type_matches_value(self, value: Value<'v>) -> bool {
         (self.vtable.starlark_value.type_matches_value)(self.value, value, Private)
     }
