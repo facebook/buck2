@@ -174,15 +174,14 @@ fn test_type_compiled_display() {
         let ty = assert::pass(ty0);
         let heap = Heap::new();
         let ty = unsafe { ty.unchecked_frozen_value() }.to_value();
-        let ty = TypeCompiled::new_with_string(ty, &heap).unwrap();
+        let ty = TypeCompiled::new(ty, &heap).unwrap();
         assert_eq!(expected, ty.to_string(), "for `{}`", ty0);
     }
 
-    t("typing.Any", "\"\"");
+    t("typing.Any", "typing.Any");
     t("list[typing.Any]", "list");
-    t("list[typing.Any]", "list[\"\"]");
+    t("list[typing.Any]", "list[typing.Any]");
     t("None", "None");
-    t("\"a\" | \"b\"", "[\"a\", \"b\"]");
 }
 
 #[test]
