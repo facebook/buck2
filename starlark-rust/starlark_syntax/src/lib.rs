@@ -20,6 +20,7 @@
 #![allow(clippy::comparison_chain)]
 #![allow(clippy::comparison_to_empty)]
 #![allow(clippy::len_without_is_empty)]
+#![allow(clippy::needless_lifetimes)]
 #![allow(clippy::new_ret_no_self)]
 #![allow(clippy::should_implement_trait)]
 
