@@ -38,11 +38,13 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
     argsfile, _ = ctx.actions.write(name + ".argsfile", args, allow_args = True)
 
     command = cmd_args(argsfile, format = "@{}", delimiter = "").hidden(args)
-    llvm_cmd = cmd_args(llvm_link)
-    llvm_cmd.add(command)
-    llvm_cmd.add("-v")
-    llvm_cmd.add("-o")
-    llvm_cmd.add(bundle_output.as_output())
+    llvm_cmd = cmd_args(
+        llvm_link,
+        command,
+        "-v",
+        "-o",
+        bundle_output.as_output(),
+    )
 
     ctx.actions.run(llvm_cmd, category = "bitcode_bundle", identifier = name, prefer_local = prefer_local)
     return bundle_output

@@ -336,12 +336,10 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_a
     if get_cxx_toolchain_info(ctx).linker_info.type != "gnu":
         return None
 
-    debug_prefix_args = cmd_args()
     fmt = "-fdebug-prefix-map={}=" + value_or(header_dir.owner.cell, ".")
-    debug_prefix_args.add(
+    return cmd_args(
         cmd_args(header_dir, format = fmt),
     )
-    return debug_prefix_args
 
 def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], project_root_file: Artifact | None) -> Artifact:
     output = ctx.actions.declare_output(name + ".hmap")
