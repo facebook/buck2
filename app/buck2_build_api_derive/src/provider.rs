@@ -451,7 +451,6 @@ impl ProviderCodegen {
     }
 
     fn callable_impl_starlark_value(&self) -> syn::Result<Vec<syn::Item>> {
-        let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
         let documentation_function = self.documentation_function()?;
         let typechecker_ty_function = self.typechecker_ty_function()?;
@@ -466,14 +465,6 @@ impl ProviderCodegen {
                 #[starlark::values::starlark_value(type = #callable_name_snake_str)]
                 impl<'v> starlark::values::StarlarkValue<'v> for #callable_name
                 {
-                    fn get_methods() -> Option<&'static starlark::environment::Methods> {
-                        static RES: starlark::environment::MethodsStatic =
-                            starlark::environment::MethodsStatic::new();
-                        // TODO(nmj): This should use the docstring from the attribute, rather than
-                        //            None
-                        RES.methods(|x| x.set_attribute("type", #name_str, None))
-                    }
-
                     fn invoke(
                         &self,
                         _me: starlark::values::Value<'v>,

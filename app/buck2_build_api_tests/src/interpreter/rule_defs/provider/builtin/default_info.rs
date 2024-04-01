@@ -92,12 +92,7 @@ fn default_info_validates_types() -> buck2_error::Result<()> {
         "Type of parameter",
     );
 
-    tester.run_starlark_bzl_test(indoc!(
-        r#"
-            def test():
-                assert_eq(DefaultInfo.type, "DefaultInfo")
-            "#
-    ))
+    Ok(())
 }
 
 #[test]
