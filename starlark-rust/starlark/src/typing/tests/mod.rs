@@ -167,7 +167,10 @@ impl TypeCheck {
             module.freeze().unwrap()
         };
 
-        golden_test_template(&format!("src/typing/golden/{}.golden", test_name), &output);
+        golden_test_template(
+            &format!("src/typing/tests/golden/{}.golden", test_name),
+            &output,
+        );
 
         (interface, module)
     }
