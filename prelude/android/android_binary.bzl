@@ -10,6 +10,8 @@ load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary
 load("@prelude//android:android_build_config.bzl", "generate_android_build_config", "get_build_config_fields")
 load(
     "@prelude//android:android_providers.bzl",
+    "AndroidBinaryNativeLibsInfo",  # @unused Used as type
+    "AndroidBinaryResourcesInfo",  # @unused Used as type
     "AndroidBuildConfigInfo",  # @unused Used as type
     "BuildConfigField",
     "DexFilesInfo",
@@ -40,8 +42,8 @@ AndroidBinaryInfo = record(
     deps_by_platform = dict,
     primary_platform = str,
     dex_files_info = DexFilesInfo,
-    native_library_info = "AndroidBinaryNativeLibsInfo",
-    resources_info = "AndroidBinaryResourcesInfo",
+    native_library_info = AndroidBinaryNativeLibsInfo,
+    resources_info = AndroidBinaryResourcesInfo,
     materialized_artifacts = list[Artifact],
 )
 

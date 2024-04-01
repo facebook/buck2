@@ -51,7 +51,7 @@ AndroidBinaryNativeLibsInfo = record(
     # Indicates which shared lib producing targets are included in the binary. Used by instrumentation tests
     # to exclude those from the test apk.
     shared_libraries = list[TargetLabel],
-    exopackage_info = ["ExopackageNativeInfo", None],
+    exopackage_info = [ExopackageNativeInfo, None],
     root_module_native_lib_assets = list[Artifact],
     non_root_module_native_lib_assets = list[Artifact],
     native_libs_for_primary_apk = list[Artifact],
