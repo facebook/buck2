@@ -19,26 +19,44 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
+use crate::values::typing::ty::AbstractType;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
     /// Create a runtime type object which can be used to check if a value matches the given type.
     fn eval_type<'v>(
-        #[starlark(require = pos)] ty: Value<'v>,
+        #[starlark(require = pos)] ty: ValueOfUnchecked<'v, AbstractType>,
         heap: &'v Heap,
     ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        TypeCompiled::new_with_string(ty, heap)
+        TypeCompiled::new_with_string(ty.get(), heap)
     }
 
     /// Check if a value matches the given type.
     fn isinstance<'v>(
         #[starlark(require = pos)] value: Value<'v>,
-        #[starlark(require = pos)] ty: Value<'v>,
+        #[starlark(require = pos)] ty: ValueOfUnchecked<'v, AbstractType>,
         heap: &'v Heap,
     ) -> anyhow::Result<bool> {
-        Ok(TypeCompiled::new_with_string(ty, heap)?.matches(value))
+        Ok(TypeCompiled::new_with_string(ty.get(), heap)?.matches(value))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::assert;
+
+    #[test]
+    fn test_typechecking() {
+        assert::fail(
+            r#"
+def test():
+    isinstance(1, "")
+"#,
+            "Expected type `type` but got `str`",
+        );
     }
 }
