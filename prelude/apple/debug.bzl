@@ -32,7 +32,7 @@ AppleDebuggableInfo = provider(
 )
 
 _AppleDebugInfo = record(
-    debug_info_tset = "ArtifactTSet",
+    debug_info_tset = ArtifactTSet,
     filtered_map = field([dict[Label, list[Artifact]], None]),
 )
 
