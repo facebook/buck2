@@ -390,8 +390,6 @@ pub trait TransitiveSetDefinitionLike<'v> {
 
     fn as_debug(&self) -> &dyn fmt::Debug;
 
-    fn matches_type(&self, ty: &str) -> bool;
-
     fn operations(&self) -> &TransitiveSetOperations<'v>;
 }
 
@@ -402,13 +400,6 @@ impl<'v> TransitiveSetDefinitionLike<'v> for TransitiveSetDefinition<'v> {
 
     fn as_debug(&self) -> &dyn fmt::Debug {
         self
-    }
-
-    fn matches_type(&self, ty: &str) -> bool {
-        self.exported
-            .get()
-            .as_ref()
-            .map_or(false, |exported| exported.id.name == ty)
     }
 
     fn operations(&self) -> &TransitiveSetOperations<'v> {
@@ -423,10 +414,6 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
 
     fn as_debug(&self) -> &dyn fmt::Debug {
         self
-    }
-
-    fn matches_type(&self, ty: &str) -> bool {
-        self.exported.id.name == ty
     }
 
     fn operations(&self) -> &TransitiveSetOperations<'v> {

@@ -340,15 +340,6 @@ where
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(transitive_set_methods)
     }
-
-    fn matches_type(&self, ty: &str) -> bool {
-        if ty == "transitive_set" {
-            return true;
-        }
-
-        transitive_set_definition_from_value(self.definition.to_value())
-            .map_or(false, |d| d.matches_type(ty))
-    }
 }
 
 impl<'v> Freeze for TransitiveSet<'v> {
