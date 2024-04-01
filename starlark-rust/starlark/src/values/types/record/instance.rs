@@ -108,16 +108,6 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for RecordGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn matches_type(&self, ty: &str) -> bool {
-        if ty == Record::TYPE {
-            return true;
-        }
-        match self.get_record_type() {
-            Either::Left(x) => x.ty_record_data().map(|t| t.name.as_str()) == Some(ty),
-            Either::Right(x) => x.ty_record_data().map(|t| t.name.as_str()) == Some(ty),
-        }
-    }
-
     fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match Record::from_value(other) {
             Some(other) if self.typ.equals(other.typ)? => {
