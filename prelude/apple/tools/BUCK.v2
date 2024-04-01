@@ -81,3 +81,15 @@ python_bootstrap_binary(
     main = "swift_objc_header_postprocess.py",
     visibility = ["PUBLIC"],
 )
+
+python_bootstrap_binary(
+    name = "linker_wrapper",
+    main = "linker_wrapper.py",
+    visibility = ["PUBLIC"],
+)
+
+python_library(
+    name = "linker_wrapper_library",
+    srcs = ["linker_wrapper.py"],
+    visibility = ["PUBLIC"],
+)
