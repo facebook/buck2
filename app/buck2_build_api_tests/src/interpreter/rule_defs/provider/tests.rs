@@ -39,7 +39,6 @@ fn creates_providers() -> anyhow::Result<()> {
     assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo2))
 
     def test():
-        assert_eq(FooInfo.type, "FooInfo")
         assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo))
         assert_eq('provider[FooInfo](fields={"bar": provider_field(typing.Any, default=None), "baz": provider_field(typing.Any, default=None)})', repr(FooInfo2))
 

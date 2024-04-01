@@ -28,9 +28,6 @@ use starlark::docs::DocItem;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::Methods;
-use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
@@ -356,11 +353,6 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         Ok(())
     }
 
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(provider_callable_methods)
-    }
-
     fn invoke(
         &self,
         _me: Value<'v>,
@@ -439,11 +431,6 @@ impl ProviderCallableLike for FrozenUserProviderCallable {
 impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     type Canonical = Self;
 
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(provider_callable_methods)
-    }
-
     fn invoke(
         &self,
         _me: Value<'v>,
@@ -474,29 +461,6 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
 
     fn eval_type(&self) -> Option<Ty> {
         Some(self.callable.ty_provider.dupe())
-    }
-}
-
-#[starlark_module]
-fn provider_callable_methods(builder: &mut MethodsBuilder) {
-    #[starlark(attribute)]
-    fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        if let Some(x) = this.downcast_ref::<UserProviderCallable>() {
-            match x.callable.get() {
-                None => Err(ProviderCallableError::ProviderNotAssigned(
-                    x.fields.keys().cloned().collect(),
-                )
-                .into()),
-                Some(named) => Ok(heap.alloc(named.id.name.as_str())),
-            }
-        } else if let Some(x) = this.downcast_ref::<FrozenUserProviderCallable>() {
-            Ok(heap.alloc(x.callable.id.name.as_str()))
-        } else {
-            unreachable!(
-                "This parameter must be one of the types, but got `{}`",
-                this.get_type()
-            )
-        }
     }
 }
 
