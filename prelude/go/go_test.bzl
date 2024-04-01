@@ -35,19 +35,19 @@ def _gen_test_main(
     Generate a `main.go` which calls tests from the given sources.
     """
     output = ctx.actions.declare_output("main.go")
-    cmd = cmd_args()
-    cmd.add(ctx.attrs._testmaingen[RunInfo])
+    cmd = []
+    cmd.append(ctx.attrs._testmaingen[RunInfo])
 
     # if ctx.attrs.coverage_mode:
-    # cmd.add(cmd_args(ctx.attrs.coverage_mode, format = "--cover-mode={}"))
-    cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(pkg_name, format = "--import-path={}"))
+    # cmd.append(cmd_args(ctx.attrs.coverage_mode, format = "--cover-mode={}"))
+    cmd.append(cmd_args(output.as_output(), format = "--output={}"))
+    cmd.append(cmd_args(pkg_name, format = "--import-path={}"))
     if coverage_mode != None:
-        cmd.add("--cover-mode", coverage_mode.value)
+        cmd.extend(["--cover-mode", coverage_mode.value])
     for _, vars in coverage_vars.items():
-        cmd.add(vars)
-    cmd.add(srcs)
-    ctx.actions.run(cmd, category = "go_test_main_gen")
+        cmd.append(vars)
+    cmd.append(srcs)
+    ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
     return output
 
 def is_subpackage_of(other_pkg_name: str, pkg_name: str) -> bool:
