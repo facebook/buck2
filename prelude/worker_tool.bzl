@@ -28,9 +28,9 @@ def worker_tool(ctx: AnalysisContext) -> list[Provider]:
     expect(worker_tool_run_info != None, "Worker tool executable must have a RunInfo!")
 
     worker_tool_runner = ctx.attrs._worker_tool_runner[RunInfo]
-    worker_tool_cmd = cmd_args(worker_tool_runner)
-    worker_tool_cmd.add("--worker-tool")
-    worker_tool_cmd.add(worker_tool_run_info)
+    worker_tool_cmd = [worker_tool_runner]
+    worker_tool_cmd.append("--worker-tool")
+    worker_tool_cmd.append(worker_tool_run_info)
 
     worker_args = ctx.attrs.args
     if worker_args:
@@ -40,8 +40,8 @@ def worker_tool(ctx: AnalysisContext) -> list[Provider]:
             allow_args = True,
         )
 
-        worker_tool_cmd.add("--worker-args-file")
-        worker_tool_cmd.add(worker_args_file)
+        worker_tool_cmd.append("--worker-args-file")
+        worker_tool_cmd.append(worker_args_file)
 
     worker_env = ctx.attrs.env
     if worker_env:
@@ -56,9 +56,10 @@ def worker_tool(ctx: AnalysisContext) -> list[Provider]:
             allow_args = True,
         )
 
-        worker_tool_cmd.add("--worker-env-file")
-        worker_tool_cmd.add(env_args_file)
+        worker_tool_cmd.append("--worker-env-file")
+        worker_tool_cmd.append(env_args_file)
 
+    worker_tool_cmd = cmd_args(worker_tool_cmd)
     return [
         DefaultInfo(),
         RunInfo(
