@@ -212,7 +212,7 @@ def create_linkable_graph(
         deps: list[[LinkableGraph, Dependency]] = []) -> LinkableGraph:
     graph_deps = []
     for d in deps:
-        if eval_type(LinkableGraph.type).matches(d):
+        if isinstance(d, LinkableGraph):
             graph_deps.append(d)
         else:
             graph = d.get(LinkableGraph)
@@ -256,7 +256,7 @@ def linkable_deps(deps: list[Dependency | LinkableGraph]) -> list[Label]:
     labels = []
 
     for dep in deps:
-        if eval_type(LinkableGraph.type).matches(dep):
+        if isinstance(dep, LinkableGraph):
             labels.append(dep.label)
         else:
             dep_info = linkable_graph(dep)
