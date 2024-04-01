@@ -46,6 +46,7 @@ struct WatchmanQueryProcessor {
     // `tests/e2e/cells/test_file_watcher_resolution:test_changing_cell_location_bug` for a repro of
     // a bug.
     cells: CellResolver,
+    disable_watcher_ignore_spec_check: bool,
     ignore_specs: HashMap<CellName, IgnoreSet>,
     retain_dep_files_on_watchman_fresh_instance: bool,
     report_global_rev: bool,
@@ -113,11 +114,12 @@ impl WatchmanQueryProcessor {
     ) -> anyhow::Result<()> {
         let cell_path = self.cells.get_cell_path(path)?;
 
-        let ignore = self
-            .ignore_specs
-            .get(&cell_path.cell())
-            .expect("unexpected cell name mismatch")
-            .is_match(cell_path.path());
+        let ignore = !self.disable_watcher_ignore_spec_check
+            && self
+                .ignore_specs
+                .get(&cell_path.cell())
+                .expect("unexpected cell name mismatch")
+                .is_match(cell_path.path());
 
         info!("Watchman: {:?} (ignore = {})", ev, ignore);
 
@@ -348,6 +350,13 @@ impl WatchmanFileWatcher {
             })?
             .unwrap_or(false);
 
+        let disable_watcher_ignore_spec_check = root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "disable_watcher_ignore_spec_check",
+            })?
+            .unwrap_or(false);
+
         let query = SyncableQuery::new(
             Connector::new(),
             project_root,
@@ -358,6 +367,7 @@ impl WatchmanFileWatcher {
             ]),
             Box::new(WatchmanQueryProcessor {
                 cells,
+                disable_watcher_ignore_spec_check,
                 ignore_specs,
                 retain_dep_files_on_watchman_fresh_instance,
                 report_global_rev,
