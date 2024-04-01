@@ -22,7 +22,6 @@ load(
 
 _TARGET_LOCATION_STR = "`metadata` attribute of target"
 _CLI_LOCATION_STR = "command line"
-_LEGACY_PLATFORM_LOCATION_STR = "legacy target platform"
 
 def location_to_string(location: ModifierLocation) -> str:
     if isinstance(location, ModifierPackageLocation):
@@ -182,8 +181,6 @@ def _location_to_json(location: ModifierLocation) -> dict[str, str]:
         return {"package_path": location.package_path, "_type": "ModifierPackageLocation"}
     if isinstance(location, ModifierTargetLocation):
         return {"_type": "ModifierTargetLocation"}
-    if isinstance(location, _LEGACY_PLATFORM_LOCATION_STR) or isinstance(location, _CLI_LOCATION_STR):
-        fail("Internal error: location shouldn't be specified as `{}`".format(type(location)))
     fail("Internal error: unknown location `{}` with type `{}`".format(location, type(location)))
 
 def json_to_tagged_modifiers(j: dict[str, typing.Any]) -> TaggedModifiers:
