@@ -5,13 +5,34 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:xcode.bzl", "get_project_root_file")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
+load("@prelude//cxx:preprocessor.bzl", "cxx_merge_cpreprocessors", "cxx_private_preprocessor_info")
 load("@prelude//linking:link_groups.bzl", "LinkGroupLibInfo")
 load("@prelude//linking:link_info.bzl", "LibOutputStyle", "LinkInfo", "LinkInfos", "ObjectsLinkable", "create_merged_link_info")
 load("@prelude//linking:linkable_graph.bzl", "create_linkable_graph")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 
 def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
+    (own_non_exported_preprocessor_info, _) = cxx_private_preprocessor_info(
+        ctx = ctx,
+        headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
+        project_root_file = get_project_root_file(ctx),
+        raw_headers = ctx.attrs.raw_headers,
+        extra_preprocessors = [],
+        non_exported_deps = [],
+        is_test = False,
+    )
+
+    preprocessor = cxx_merge_cpreprocessors(
+        ctx,
+        [own_non_exported_preprocessor_info],
+        [],
+    )
+
+    headers_tag = ctx.actions.artifact_tag()
+
     objects = []
 
     toolchain = get_cxx_toolchain_info(ctx)
@@ -24,6 +45,8 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             toolchain.rc_compiler_info.compiler,
             toolchain.rc_compiler_info.compiler_flags,
             cmd_args(rc_output.as_output(), format = "/fo{}"),
+            headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")),
+            headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")),
             src,
         )
 
