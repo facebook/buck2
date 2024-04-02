@@ -20,13 +20,14 @@ def normalise_metadata(data: [str, list[str]]) -> [cmd_args, list[cmd_args]]:
 def to_term_args(data: typing.Any) -> cmd_args:
     """ convert nested lists/tuple/map data structure to Erlang Term cmd_args
     """
-    args = cmd_args([])
-    args.add(cmd_args([
-        convert(data),
-        ".",
-    ], delimiter = ""))
-    args.add("")
-    return args
+
+    return cmd_args(
+        cmd_args([
+            convert(data),
+            ".",
+        ], delimiter = ""),
+        "",
+    )
 
 # paths
 def app_file(ctx: AnalysisContext) -> str:
@@ -64,57 +65,57 @@ def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
     elif type(data) == "bool":
         return convert_bool(data)
 
-    args = cmd_args([], ignore_artifacts = ignore_artifacts)
-    args.add(cmd_args(["\"", data, "\""], delimiter = ""))
-    return args
+    return cmd_args(
+        cmd_args(["\"", data, "\""], delimiter = ""),
+        ignore_artifacts = ignore_artifacts,
+    )
 
 # internal
 def convert_list(ls: list, ob: str = "[", cb: str = "]") -> cmd_args:
-    args = cmd_args([])
-    args.add(ob)
+    args = []
+    args.append(ob)
     if len(ls) >= 1:
-        args.add(cmd_args([
+        args.append(cmd_args([
             convert(ls[0]),
         ], delimiter = ""))
         for item in ls[1:]:
-            args.add(cmd_args([
+            args.append(cmd_args([
                 ",",
                 convert(item),
             ], delimiter = ""))
-    args.add(cb)
-    return args
+    args.append(cb)
+    return cmd_args(args)
 
 def convert_dict(dt: dict) -> cmd_args:
-    args = cmd_args([])
-    args.add("#{")
+    args = []
+    args.append("#{")
     items = list(dt.items())
     if len(items) >= 1:
         k, v = items[0]
-        args.add(cmd_args([
+        args.append(cmd_args([
             convert(k),
             "=>",
             convert(v),
         ], delimiter = ""))
         for k, v in items[1:]:
-            args.add(cmd_args([
+            args.append(cmd_args([
                 ",",
                 convert(k),
                 "=>",
                 convert(v),
             ], delimiter = ""))
-    args.add("}")
-    return args
+    args.append("}")
+    return cmd_args(args)
 
 def convert_args(data: cmd_args) -> cmd_args:
-    args = cmd_args()
-    args.add("\"")
-    args.add(cmd_args(data, delimiter = " "))
-    args.add("\"")
-    return args
+    return cmd_args(
+        "\"",
+        cmd_args(data, delimiter = " "),
+        "\"",
+    )
 
 def convert_string(st: str) -> cmd_args:
-    args = cmd_args()
-    return args.add(cmd_args(["\"", st.replace("\"", "\\\""), "\""], delimiter = ""))
+    return cmd_args(cmd_args(["\"", st.replace("\"", "\\\""), "\""], delimiter = ""))
 
 def convert_bool(bl: bool) -> cmd_args:
     if bl:
