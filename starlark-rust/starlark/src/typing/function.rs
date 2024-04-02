@@ -129,12 +129,8 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         Ok(Ty::any())
     }
 
-    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
-        if attr == "type" && self.0.has_type_attr() {
-            Ok(Ty::string())
-        } else {
-            Err(())
-        }
+    fn attribute(&self, _attr: &str) -> Result<Ty, ()> {
+        Err(())
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
