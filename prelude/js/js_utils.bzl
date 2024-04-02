@@ -152,10 +152,14 @@ def run_worker_commands(
     ctx.actions.write(worker_argsfile.as_output(), worker_args)
 
     worker_tool_info = worker_tool[WorkerToolInfo]
-    worker_command = worker_tool_info.command.copy()
-    worker_command.hidden(hidden_artifacts)
-    worker_command.hidden(command_args_files)
-    worker_command.add(cmd_args(worker_argsfile, format = "@{}"))
+    worker_command = cmd_args(
+        worker_tool_info.command.copy(),
+        cmd_args(worker_argsfile, format = "@{}"),
+        hidden = [
+            hidden_artifacts,
+            command_args_files,
+        ],
+    )
 
     ctx.actions.run(
         worker_command,
