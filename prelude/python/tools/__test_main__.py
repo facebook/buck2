@@ -32,7 +32,6 @@ import sys
 import time
 import traceback
 import unittest
-import warnings
 from importlib.machinery import PathFinder
 
 
