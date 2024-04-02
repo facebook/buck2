@@ -222,7 +222,7 @@ def get_multi_dex(
 
         ctx.actions.symlinked_dir(outputs[secondary_dex_dir], secondary_dex_dir_srcs)
 
-    ctx.actions.dynamic_output(dynamic = inputs, inputs = [], outputs = outputs, f = do_multi_dex)
+    ctx.actions.dynamic_output(dynamic = inputs, inputs = [], outputs = [o.as_output() for o in outputs], f = do_multi_dex)
 
     return DexFilesInfo(
         primary_dex = primary_dex_file,
@@ -554,7 +554,7 @@ def merge_to_split_dex(
                         metadata_lines.append(artifacts[metadata_line_artifact].read_string().strip())
                     ctx.actions.write(outputs[metadata_dot_txt], metadata_lines)
 
-            ctx.actions.dynamic_output(dynamic = flatten(metadata_line_artifacts_by_module.values()), inputs = [], outputs = metadata_dot_txt_files_by_module.values(), f = write_metadata_dot_txts)
+            ctx.actions.dynamic_output(dynamic = flatten(metadata_line_artifacts_by_module.values()), inputs = [], outputs = [o.as_output() for o in metadata_dot_txt_files_by_module.values()], f = write_metadata_dot_txts)
 
         ctx.actions.symlinked_dir(
             outputs[root_module_secondary_dexes_dir],
@@ -565,7 +565,7 @@ def merge_to_split_dex(
             non_root_module_secondary_dexes_for_symlinking,
         )
 
-    ctx.actions.dynamic_output(dynamic = input_artifacts, inputs = [], outputs = outputs, f = merge_pre_dexed_libs)
+    ctx.actions.dynamic_output(dynamic = input_artifacts, inputs = [], outputs = [o.as_output() for o in outputs], f = merge_pre_dexed_libs)
 
     if is_exopackage_enabled_for_secondary_dex:
         root_module_secondary_dex_dirs = []

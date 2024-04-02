@@ -378,7 +378,7 @@ def get_android_binary_native_library_info(
         ctx.actions.symlink_file(outputs[non_root_module_metadata_assets], dynamic_info.non_root_module_metadata_assets)
         ctx.actions.symlink_file(outputs[non_root_module_lib_assets], dynamic_info.non_root_module_lib_assets)
 
-    ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = dynamic_outputs, f = dynamic_native_libs_info)
+    ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = dynamic_native_libs_info)
     all_native_libs = ctx.actions.symlinked_dir("debug_all_native_libs", {"others": native_libs, "primary": native_libs_always_in_primary_apk})
 
     lib_subtargets = _create_library_subtargets(lib_outputs_by_platform, native_libs)
@@ -1743,7 +1743,7 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist:
         version_script += "};\n"
         ctx.actions.write(outputs[output], version_script)
 
-    actions.dynamic_output(dynamic = needed_symbols + [provided_symbols], inputs = [], outputs = [output], f = create_version_script)
+    actions.dynamic_output(dynamic = needed_symbols + [provided_symbols], inputs = [], outputs = [output.as_output()], f = create_version_script)
 
 def extract_undefined_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
     return extract_undefined_syms(ctx, toolchain, lib, "relinker_extract_undefined_symbols")
@@ -1757,7 +1757,7 @@ def union_needed_symbols(actions: AnalysisActions, output: Artifact, needed_symb
         symbols = sorted(unioned_symbols.keys())
         ctx.actions.write(outputs[output], symbols)
 
-    actions.dynamic_output(dynamic = needed_symbols, inputs = [], outputs = [output], f = compute_union)
+    actions.dynamic_output(dynamic = needed_symbols, inputs = [], outputs = [output.as_output()], f = compute_union)
 
 def strip_lib(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, shlib: Artifact, output_path: [str, None] = None):
     strip_flags = cmd_args(get_strip_non_global_flags(cxx_toolchain))

@@ -533,7 +533,7 @@ def _get_module_manifests(
     ctx.actions.dynamic_output(
         dynamic = [apk_module_graph_file],
         inputs = [],
-        outputs = [module_manifests_dir],
+        outputs = [module_manifests_dir.as_output()],
         f = get_manifests_modular,
     )
 
@@ -615,7 +615,7 @@ def _merge_assets(
         ctx.actions.dynamic_output(
             dynamic = [apk_module_graph_file],
             inputs = [],
-            outputs = declared_outputs,
+            outputs = [o.as_output() for o in declared_outputs],
             f = merge_assets_modular,
         )
 
