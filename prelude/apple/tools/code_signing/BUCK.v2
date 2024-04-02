@@ -35,6 +35,7 @@ python_binary(
     main = "main.py",
     visibility = ["PUBLIC"],
     deps = [
+        "fbsource//third-party/pypi/typed-argument-parser:typed-argument-parser",
         ":lib",
     ],
 )
