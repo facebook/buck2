@@ -125,7 +125,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         inner_ctx.actions.dynamic_output(
             dynamic = [targets_json_file],
             inputs = [],
-            outputs = [output],
+            outputs = [output.as_output()],
             f = scrub_selected_debug_paths_action,
         )
 
