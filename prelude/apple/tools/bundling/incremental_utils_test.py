@@ -251,6 +251,8 @@ class TestIncrementalUtils(unittest.TestCase):
             codesign_identity="same_identity",
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
+        spec[0].codesign_on_copy = True
+        self.assertTrue(should_assemble_incrementally(spec, incremental_context))
 
     def test_not_run_incrementally_when_codesign_on_copy_entitlements_mismatch(self):
         spec = [
@@ -288,6 +290,8 @@ class TestIncrementalUtils(unittest.TestCase):
             codesign_identity="same_identity",
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
+        incremental_context.metadata[Path("baz/entitlements.plist")] = "old_digest"
+        self.assertTrue(should_assemble_incrementally(spec, incremental_context))
 
     def test_not_run_incrementally_when_codesign_configurations_mismatch(self):
         spec = [
