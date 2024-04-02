@@ -42,6 +42,8 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     instrumentation_apk_info = ctx.attrs.apk.get(AndroidInstrumentationApkInfo)
     if instrumentation_apk_info != None:
         cmd.extend(["--apk-under-test-path", instrumentation_apk_info.apk_under_test])
+    if ctx.attrs.is_self_instrumenting:
+        cmd.extend(["--is-self-instrumenting"])
 
     target_package_file = ctx.actions.declare_output("target_package_file")
     package_file = ctx.actions.declare_output("package_file")
