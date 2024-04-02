@@ -28,8 +28,12 @@
     }
   ],
   "codesign_identity": "Johny Appleseed",
+  "codesign_arguments": [
+    "--force",
+    "--deep"
+  ],
   "swift_stdlib_paths": [
     "Frameworks/libswiftCore.dylib"
   ],
-  "version": 4
+  "version": 5
 }

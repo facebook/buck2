@@ -353,6 +353,7 @@ def _main() -> None:
         codesigned=args.codesign,
         codesign_configuration=args.codesign_configuration,
         codesign_identity=selected_identity_argument,
+        codesign_arguments=args.codesign_args,
     )
 
     incremental_state = assemble_bundle(
@@ -422,6 +423,7 @@ def _main() -> None:
             codesigned=args.codesign,
             codesign_configuration=args.codesign_configuration,
             selected_codesign_identity=selected_identity_argument,
+            codesign_arguments=args.codesign_args,
             swift_stdlib_paths=swift_stdlib_paths,
             incremental_context=incremental_context,
         )
@@ -439,6 +441,7 @@ def _incremental_context(
     codesigned: bool,
     codesign_configuration: CodesignConfiguration,
     codesign_identity: Optional[str],
+    codesign_arguments: List[str],
 ) -> Optional[IncrementalContext]:
     action_metadata = action_metadata_if_present(_METADATA_PATH_KEY)
     if action_metadata is None:
@@ -457,6 +460,7 @@ def _incremental_context(
         codesigned=codesigned,
         codesign_configuration=codesign_configuration,
         codesign_identity=codesign_identity,
+        codesign_arguments=codesign_arguments,
     )
 
 
@@ -528,6 +532,7 @@ def _write_incremental_state(
     codesigned: bool,
     codesign_configuration: CodesignConfiguration,
     selected_codesign_identity: Optional[str],
+    codesign_arguments: List[str],
     swift_stdlib_paths: List[Path],
     incremental_context: IncrementalContext,
 ) -> None:
@@ -547,6 +552,7 @@ def _write_incremental_state(
             if i.codesign_on_copy
         ],
         codesign_identity=selected_codesign_identity,
+        codesign_arguments=codesign_arguments,
         swift_stdlib_paths=swift_stdlib_paths,
     )
     path.touch()

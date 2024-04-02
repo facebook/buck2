@@ -52,6 +52,12 @@ def should_assemble_incrementally(
             "Decided not to assemble incrementally — previous vs current builds have mismatching codesigning identities."
         )
         return False
+    # If previous codesign arguments are different from the current ones also perform non-incremental run.
+    if previous_run_state.codesign_arguments != incremental_context.codesign_arguments:
+        logging.getLogger(__name__).info(
+            "Decided not to assemble incrementally — previous vs current builds have mismatching codesigning arguments."
+        )
+        return False
     # If bundle from previous run was signed in a different configuration vs the current run (e.g. dry code signed while now regular code signing is required) perform non-incremental run.
     if (
         previous_run_state.codesign_configuration

@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
-_VERSION = 4
+_VERSION = 5
 
 
 @dataclass
@@ -63,6 +63,7 @@ class IncrementalState:
     codesign_configuration: CodesignConfiguration
     codesigned_on_copy: List[CodesignedOnCopy]
     codesign_identity: Optional[str]
+    codesign_arguments: List[str]
     swift_stdlib_paths: List[Path]
     version: int = _VERSION
 

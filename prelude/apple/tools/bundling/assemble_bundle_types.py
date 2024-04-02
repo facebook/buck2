@@ -12,7 +12,7 @@ from __future__ import annotations
 import functools
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
@@ -74,3 +74,4 @@ class IncrementalContext:
     codesigned: bool
     codesign_configuration: Optional[CodesignConfiguration]
     codesign_identity: Optional[str]
+    codesign_arguments: List[str]

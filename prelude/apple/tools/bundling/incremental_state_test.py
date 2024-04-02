@@ -59,6 +59,10 @@ class TestIncrementalState(unittest.TestCase):
                 ),
             ],
             codesign_identity="Johny Appleseed",
+            codesign_arguments=[
+                "--force",
+                "--deep",
+            ],
             swift_stdlib_paths=[Path("Frameworks/libswiftCore.dylib")],
         )
         self.assertEqual(
