@@ -227,7 +227,7 @@ def cxx_dist_link(
                         ),
                     )
                     index_link_data.append(data)
-                    plan_outputs.extend([bc_output, plan_output])
+                    plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
             elif isinstance(linkable, ArchiveLinkable) and linkable.supports_lto:
                 # Our implementation of Distributed ThinLTO operates on individual objects, not archives. Since these
                 # archives might still contain LTO-able bitcode, we first extract the objects within the archive into
@@ -275,7 +275,7 @@ def cxx_dist_link(
                 index_link_data.append(data)
                 archive_opt_manifests.append(archive_opt_manifest)
                 plan_inputs.extend([archive_manifest, archive_objects])
-                plan_outputs.extend([archive_indexes, archive_plan])
+                plan_outputs.extend([archive_indexes.as_output(), archive_plan.as_output()])
             else:
                 add_linkable(idx, linkable)
                 index_link_data.append(None)
@@ -398,7 +398,7 @@ def cxx_dist_link(
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
         plan_inputs.append(ctx.actions.write(output.basename + ".plan_hack.txt", ""))
-        plan_outputs.extend([link_plan, index_argsfile_out, final_link_index])
+        plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output()])
         ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = plan)
 
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
@@ -467,7 +467,7 @@ def cxx_dist_link(
             opt_cmd.hidden(archives)
             ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
 
-        ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object], f = optimize_object)
+        ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object.as_output()], f = optimize_object)
 
     def dynamic_optimize_archive(archive: _ArchiveLinkData):
         def optimize_archive(ctx: AnalysisContext, artifacts, outputs):
@@ -532,7 +532,7 @@ def cxx_dist_link(
             ctx.actions.write(outputs[archive.opt_manifest], output_manifest, allow_args = True)
 
         archive_opt_inputs = [archive.plan]
-        archive_opt_outputs = [archive.opt_objects_dir, archive.opt_manifest]
+        archive_opt_outputs = [archive.opt_objects_dir.as_output(), archive.opt_manifest.as_output()]
         ctx.actions.dynamic_output(dynamic = archive_opt_inputs, inputs = [], outputs = archive_opt_outputs, f = optimize_archive)
 
     for artifact in index_link_data:
@@ -611,7 +611,7 @@ def cxx_dist_link(
     ctx.actions.dynamic_output(
         dynamic = final_link_inputs,
         inputs = [],
-        outputs = [output] + ([linker_map] if linker_map else []) + [linker_argsfile_out],
+        outputs = [output.as_output()] + ([linker_map] if linker_map else []) + [linker_argsfile_out],
         f = thin_lto_final_link,
     )
 
