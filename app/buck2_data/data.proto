@@ -841,6 +841,9 @@ message CleanStaleStats {
   uint64 untracked_bytes = 6;
   uint64 cleaned_artifact_count = 8;
   uint64 cleaned_bytes = 9;
+  uint64 total_duration_s = 10;
+  uint64 scan_duration_s = 11;
+  uint64 clean_duration_s = 12;
 }
 
 enum CleanStaleResultKind {

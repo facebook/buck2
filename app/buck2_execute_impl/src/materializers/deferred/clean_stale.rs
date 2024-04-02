@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Context;
 use buck2_common::file_ops::FileType;
@@ -111,8 +112,9 @@ impl From<CleanResult> for buck2_cli_proto::CleanStaleResponse {
 fn create_result(
     result: Result<CleanResult, buck2_error::Error>,
     trace_id: Option<TraceId>,
+    total_duration_s: u64,
 ) -> buck2_data::CleanStaleResult {
-    let (kind, stats, error) = match result {
+    let (kind, mut stats, error) = match result {
         Ok(result) => (result.kind, result.stats, None),
         Err(e) => (
             CleanStaleResultKind::Failed,
@@ -120,6 +122,7 @@ fn create_result(
             Some(create_error_report(&e)),
         ),
     };
+    stats.total_duration_s = total_duration_s;
     buck2_data::CleanStaleResult {
         kind: kind.into(),
         stats: Some(stats),
@@ -131,6 +134,7 @@ fn create_result(
 
 impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        let start_time = Instant::now();
         let pending_result = self.create_pending_clean_result(processor);
         let dispatcher_dup = self.dispatcher.dupe();
         let fut = async move {
@@ -143,8 +147,11 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
             };
             let trace_id = dispatcher_dup.trace_id().clone();
             let result: Result<CleanResult, buck2_error::Error> = result.map_err(|e| e.into());
-            let result_event: buck2_data::CleanStaleResult =
-                create_result(result.clone(), Some(trace_id));
+            let result_event: buck2_data::CleanStaleResult = create_result(
+                result.clone(),
+                Some(trace_id),
+                (Instant::now() - start_time).as_secs(),
+            );
             dispatcher_dup.instant_event(result_event);
             Ok(result?.into())
         }
@@ -186,6 +193,7 @@ impl CleanStaleArtifacts {
         cancellations: &'static CancellationContext,
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
     ) -> anyhow::Result<PendingCleanResult> {
+        let start_time = Instant::now();
         let gen_path = io
             .buck_out_path()
             .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
@@ -222,7 +230,9 @@ impl CleanStaleArtifacts {
             .visit_recursively(gen_path, gen_subtree)?;
         };
 
-        let stats = stats_for_paths(&found_paths);
+        let mut stats = stats_for_paths(&found_paths);
+        stats.scan_duration_s = (Instant::now() - start_time).as_secs();
+
         // Log limited number of untracked artifacts to avoid logging spikes if schema changes.
         for (path, file_type) in found_paths
             .iter()
@@ -334,6 +344,7 @@ fn create_clean_fut<T: IoHandler>(
         tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
 
     let fut = async move {
+        let start_time = Instant::now();
         // Wait for all in-progress operations to finish on the paths we are about to
         // remove from disk.
         join_all_existing_futs(existing_futs).await?;
@@ -357,6 +368,7 @@ fn create_clean_fut<T: IoHandler>(
         let cleaned_sizes: Vec<u64> = res.iter().filter_map(|x| *x).collect();
         stats.cleaned_artifact_count += cleaned_sizes.len() as u64;
         stats.cleaned_bytes = cleaned_sizes.iter().sum();
+        stats.clean_duration_s = (Instant::now() - start_time).as_secs();
         let kind = if !liveliness_observer.is_alive().await {
             CleanStaleResultKind::Interrupted
         } else {
