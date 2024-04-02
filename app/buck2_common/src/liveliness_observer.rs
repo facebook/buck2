@@ -80,7 +80,7 @@ pub struct LivelinessGuard {
 }
 
 impl LivelinessGuard {
-    fn _create() -> (Arc<LivelinessObserverForGuard>, LivelinessGuard) {
+    fn create_impl() -> (Arc<LivelinessObserverForGuard>, LivelinessGuard) {
         let manager = Arc::new(LivelinessObserverForGuard::new(
             LivelinessObserverState::AliveWhenLocked,
         ));
@@ -94,12 +94,12 @@ impl LivelinessGuard {
     }
 
     pub fn create() -> (Arc<dyn LivelinessObserver>, LivelinessGuard) {
-        let (manager, guard) = LivelinessGuard::_create();
+        let (manager, guard) = LivelinessGuard::create_impl();
         (manager.dupe() as _, guard)
     }
 
     pub fn create_sync() -> (Arc<dyn LivelinessObserverSync>, LivelinessGuard) {
-        let (manager, guard) = LivelinessGuard::_create();
+        let (manager, guard) = LivelinessGuard::create_impl();
         (manager.dupe() as _, guard)
     }
 
@@ -255,6 +255,14 @@ mod tests {
         assert!(manager.is_alive().await);
         drop(guard);
         assert!(!manager.is_alive().await);
+    }
+
+    #[tokio::test]
+    async fn test_guard_is_alive_sync() {
+        let (manager, guard) = LivelinessGuard::create_sync();
+        assert!(manager.is_alive_sync());
+        drop(guard);
+        assert!(!manager.is_alive_sync());
     }
 
     #[tokio::test]
