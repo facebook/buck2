@@ -13,7 +13,7 @@ GoToolchainInfo = provider(
         "assembler": provider_field(RunInfo),
         "assembler_flags": provider_field(typing.Any, default = None),
         "c_compiler_flags": provider_field(typing.Any, default = None),
-        "cgo": provider_field(RunInfo | None, default = None),
+        "cgo": provider_field(RunInfo),
         "cgo_wrapper": provider_field(RunInfo),
         "gen_stdlib_importcfg": provider_field(RunInfo),
         "go_list_wrapper": provider_field(RunInfo),
@@ -23,9 +23,9 @@ GoToolchainInfo = provider(
         "concat_files": provider_field(RunInfo),
         "cover": provider_field(RunInfo),
         "cxx_toolchain_for_linking": provider_field(CxxToolchainInfo | None, default = None),
-        "env_go_arch": provider_field(typing.Any, default = None),
-        "env_go_os": provider_field(typing.Any, default = None),
-        "env_go_arm": provider_field(typing.Any, default = None),
+        "env_go_arch": provider_field(str),
+        "env_go_os": provider_field(str),
+        "env_go_arm": provider_field(str | None, default = None),
         "env_go_root": provider_field(typing.Any, default = None),
         "env_go_debug": provider_field(dict[str, str], default = {}),
         "external_linker_flags": provider_field(typing.Any, default = None),
@@ -33,7 +33,7 @@ GoToolchainInfo = provider(
         "linker": provider_field(RunInfo),
         "linker_flags": provider_field(typing.Any, default = None),
         "packer": provider_field(RunInfo),
-        "tags": provider_field(typing.Any, default = None),
+        "tags": provider_field(list[str], default = []),
     },
 )
 
@@ -43,10 +43,8 @@ def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_dis
     # opt-out from Go1.20 coverage redisign
     cmd.add("GOEXPERIMENT=nocoverageredesign")
 
-    if toolchain.env_go_arch != None:
-        cmd.add("GOARCH={}".format(toolchain.env_go_arch))
-    if toolchain.env_go_os != None:
-        cmd.add("GOOS={}".format(toolchain.env_go_os))
+    cmd.add("GOARCH={}".format(toolchain.env_go_arch))
+    cmd.add("GOOS={}".format(toolchain.env_go_os))
     if toolchain.env_go_arm != None:
         cmd.add("GOARM={}".format(toolchain.env_go_arm))
     if go_root and toolchain.env_go_root != None:
@@ -60,7 +58,8 @@ def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_dis
         # CGO is enabled by default for native compilation, but we need to set it
         # explicitly for cross-builds:
         # https://go-review.googlesource.com/c/go/+/12603/2/src/cmd/cgo/doc.go
-        if toolchain.cgo != None:
+        cxx_toolchain_available = toolchain.cxx_toolchain_for_linking != None
+        if cxx_toolchain_available:
             cmd.add("CGO_ENABLED=1")
 
     return cmd

@@ -92,7 +92,6 @@ def _cgo(
 
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    expect(go_toolchain.cgo != None)
     expect(CxxToolchainInfo in ctx.attrs._cxx_toolchain)
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
