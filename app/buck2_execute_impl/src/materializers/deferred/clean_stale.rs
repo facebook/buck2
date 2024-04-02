@@ -25,9 +25,12 @@ use buck2_core::soft_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::errors::create_error_report;
+use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
@@ -105,9 +108,31 @@ impl From<CleanResult> for buck2_cli_proto::CleanStaleResponse {
     }
 }
 
+fn create_result(
+    result: Result<CleanResult, buck2_error::Error>,
+    trace_id: Option<TraceId>,
+) -> buck2_data::CleanStaleResult {
+    let (kind, stats, error) = match result {
+        Ok(result) => (result.kind, result.stats, None),
+        Err(e) => (
+            CleanStaleResultKind::Failed,
+            CleanStaleStats::default(),
+            Some(create_error_report(&e)),
+        ),
+    };
+    buck2_data::CleanStaleResult {
+        kind: kind.into(),
+        stats: Some(stats),
+        metadata: metadata::collect(),
+        error,
+        command_uuid: trace_id.map(|id| id.to_string()),
+    }
+}
+
 impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         let pending_result = self.create_pending_clean_result(processor);
+        let dispatcher_dup = self.dispatcher.dupe();
         let fut = async move {
             let result = match pending_result {
                 Ok(res) => match res {
@@ -116,7 +141,11 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
                 },
                 Err(e) => Err(e),
             };
-            tracing::trace!("finished cleaning stale artifacts");
+            let trace_id = dispatcher_dup.trace_id().clone();
+            let result: Result<CleanResult, buck2_error::Error> = result.map_err(|e| e.into());
+            let result_event: buck2_data::CleanStaleResult =
+                create_result(result.clone(), Some(trace_id));
+            dispatcher_dup.instant_event(result_event);
             Ok(result?.into())
         }
         .boxed();

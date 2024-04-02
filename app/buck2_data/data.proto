@@ -258,6 +258,8 @@ message InstantEvent {
     ConsoleWarning console_warning = 35;
 
     MaterializerCommand materializer_command = 36;
+
+    CleanStaleResult clean_stale_result = 37;
   }
 }
 
@@ -849,6 +851,15 @@ enum CleanStaleResultKind {
   SKIPPED_NO_GEN_DIR = 4;
   SKIPPED_DEFER_WRITE_DISABLED = 5;
   SKIPPED_SQLITE_DISABLED = 6;
+}
+
+message CleanStaleResult {
+  map<string, string> metadata = 1;
+  CleanStaleResultKind kind = 2;
+  optional ErrorReport error = 3;
+  CleanStaleStats stats = 4;
+  // Set if clean stale is invoked as a command
+  optional string command_uuid = 5;
 }
 
 message InstallCommandEnd {

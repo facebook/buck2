@@ -241,6 +241,7 @@ mod fbcode {
                     Some(Data::ReSession(..)) => true,
                     Some(Data::StructuredError(..)) => true,
                     Some(Data::PersistEventLogSubprocess(..)) => true,
+                    Some(Data::CleanStaleResult(..)) => true,
                     None => false,
                     _ => false,
                 }
