@@ -22,6 +22,8 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_data::CleanStaleResultKind;
+use buck2_data::CleanStaleStats;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
@@ -55,56 +57,200 @@ pub struct CleanStaleArtifacts {
     pub dispatcher: EventDispatcher,
 }
 
-fn ready_clean_response(
-    message: Option<&str>,
-    stats: Option<buck2_data::CleanStaleStats>,
-) -> anyhow::Result<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>> {
-    Ok(
-        futures::future::ready(Ok(buck2_cli_proto::CleanStaleResponse {
+#[derive(Clone)]
+struct CleanResult {
+    kind: CleanStaleResultKind,
+    stats: CleanStaleStats,
+}
+
+enum PendingCleanResult {
+    Finished(CleanResult),
+    Pending(BoxFuture<'static, anyhow::Result<CleanResult>>),
+}
+
+impl From<CleanStaleResultKind> for PendingCleanResult {
+    fn from(val: CleanStaleResultKind) -> Self {
+        PendingCleanResult::Finished(CleanResult {
+            kind: val,
+            stats: CleanStaleStats::default(),
+        })
+    }
+}
+
+impl From<CleanResult> for PendingCleanResult {
+    fn from(val: CleanResult) -> Self {
+        PendingCleanResult::Finished(val)
+    }
+}
+
+impl From<CleanResult> for buck2_cli_proto::CleanStaleResponse {
+    fn from(result: CleanResult) -> Self {
+        let message = match result.kind {
+            CleanStaleResultKind::SkippedNoGenDir => Some("Nothing to clean"),
+            CleanStaleResultKind::SkippedDeferWriteDisabled => {
+                Some("Skipping clean, set buck2.defer_write_actions to use clean --stale")
+            }
+            CleanStaleResultKind::SkippedSqliteDisabled => {
+                Some("Skipping clean, set buck2.sqlite_materializer_state to use clean --stale")
+            }
+            CleanStaleResultKind::SkippedDryRun => None,
+            CleanStaleResultKind::Interrupted => Some("Interrupted"),
+            CleanStaleResultKind::Finished => None,
+            CleanStaleResultKind::Failed => None,
+        };
+        Self {
             message: message.map(|m| m.to_owned()),
-            stats,
-        }))
-        .boxed(),
-    )
+            stats: Some(result.stats),
+        }
+    }
 }
 
 impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
-        let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
-        *processor.command_sender.clean_guard.lock() = Some(liveliness_guard);
-
-        let fut = if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
-            if !processor.defer_write_actions {
-                ready_clean_response(
-                    Some("Skipping clean, set buck2.defer_write_actions to use clean --stale"),
-                    None,
-                )
-            } else {
-                gather_clean_futures_for_stale_artifacts(
-                    &mut processor.tree,
-                    self.keep_since_time,
-                    self.dry_run,
-                    self.tracked_only,
-                    sqlite_db,
-                    &processor.io,
-                    processor.cancellations,
-                    &self.dispatcher,
-                    liveliness_observer,
-                )
-            }
-        } else {
-            ready_clean_response(
-                Some("Skipping clean, set buck2.sqlite_materializer_state to use clean --stale"),
-                None,
-            )
-        };
+        let pending_result = self.create_pending_clean_result(processor);
         let fut = async move {
-            let response = fut?.await?;
+            let result = match pending_result {
+                Ok(res) => match res {
+                    PendingCleanResult::Finished(result) => Ok(result),
+                    PendingCleanResult::Pending(fut) => fut.await,
+                },
+                Err(e) => Err(e),
+            };
             tracing::trace!("finished cleaning stale artifacts");
-            Ok(response)
+            Ok(result?.into())
         }
         .boxed();
         let _ignored = self.sender.send(fut);
+    }
+}
+
+impl CleanStaleArtifacts {
+    fn create_pending_clean_result<T: IoHandler>(
+        &self,
+        processor: &mut DeferredMaterializerCommandProcessor<T>,
+    ) -> anyhow::Result<PendingCleanResult> {
+        let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
+        *processor.command_sender.clean_guard.lock() = Some(liveliness_guard);
+
+        if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
+            if !processor.defer_write_actions {
+                Ok(CleanStaleResultKind::SkippedDeferWriteDisabled.into())
+            } else {
+                self.scan_and_create_clean_fut(
+                    &mut processor.tree,
+                    sqlite_db,
+                    &processor.io,
+                    processor.cancellations,
+                    liveliness_observer.clone(),
+                )
+            }
+        } else {
+            Ok(CleanStaleResultKind::SkippedSqliteDisabled.into())
+        }
+    }
+
+    fn scan_and_create_clean_fut<T: IoHandler>(
+        &self,
+        tree: &mut ArtifactTree,
+        sqlite_db: &mut MaterializerStateSqliteDb,
+        io: &Arc<T>,
+        cancellations: &'static CancellationContext,
+        liveliness_observer: Arc<dyn LivelinessObserverSync>,
+    ) -> anyhow::Result<PendingCleanResult> {
+        let gen_path = io
+            .buck_out_path()
+            .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
+        let gen_dir = io.fs().resolve(&gen_path);
+        if !fs_util::try_exists(&gen_dir)? {
+            return Ok(CleanStaleResultKind::SkippedNoGenDir.into());
+        }
+        tracing::trace!(gen_dir = %gen_dir, "Scanning");
+
+        let mut found_paths = Vec::new();
+        if self.tracked_only {
+            find_stale_tracked_only(tree, self.keep_since_time, &mut found_paths)?
+        } else {
+            let gen_subtree = tree
+                .get_subtree(&mut gen_path.iter())
+                .context("Found a file where gen dir expected")?;
+
+            let empty;
+
+            let gen_subtree = match gen_subtree {
+                Some(t) => t,
+                None => {
+                    empty = HashMap::new();
+                    &empty
+                }
+            };
+
+            StaleFinder {
+                io: io.dupe(),
+                keep_since_time: self.keep_since_time,
+                found_paths: &mut found_paths,
+                liveliness_observer: liveliness_observer.clone(),
+            }
+            .visit_recursively(gen_path, gen_subtree)?;
+        };
+
+        let stats = stats_for_paths(&found_paths);
+        // Log limited number of untracked artifacts to avoid logging spikes if schema changes.
+        for (path, file_type) in found_paths
+            .iter()
+            .filter_map(|x| match x {
+                FoundPath::Untracked(path, file_type, _) => Some((path, file_type)),
+                _ => None,
+            })
+            .take(2000)
+        {
+            self.dispatcher.instant_event(buck2_data::UntrackedFile {
+                path: path.to_string(),
+                file_type: format!("{:?}", file_type),
+            });
+        }
+
+        if !liveliness_observer.is_alive_sync() {
+            return Ok(PendingCleanResult::Finished(CleanResult {
+                kind: CleanStaleResultKind::Interrupted,
+                stats,
+            }));
+        }
+
+        // If no stale or retained artifact founds, the db should be empty.
+        if stats.stale_artifact_count + stats.retained_artifact_count == 0 {
+            // Just need to know if any entries exist, could be a simpler query.
+            // Checking the db directly in case tree is somehow not in sync.
+            let materializer_state = sqlite_db
+                .materializer_state_table()
+                .read_all(io.digest_config())?;
+
+            // Entries in the db should have been found in buck-out, return error and skip cleaning untracked artifacts.
+            if !materializer_state.is_empty() {
+                let error = CleanStaleError {
+                    db_size: materializer_state.len(),
+                    stats,
+                };
+                // quiet just because it's also returned, soft_error to log to scribe
+                return Err(soft_error!("clean_stale_error", error.into(), quiet: true)?);
+            }
+        }
+
+        if self.dry_run {
+            Ok(PendingCleanResult::Finished(CleanResult {
+                kind: CleanStaleResultKind::SkippedDryRun,
+                stats,
+            }))
+        } else {
+            Ok(PendingCleanResult::Pending(create_clean_fut(
+                found_paths,
+                stats,
+                tree,
+                sqlite_db,
+                io,
+                cancellations,
+                liveliness_observer,
+            )?))
+        }
     }
 }
 
@@ -136,144 +282,60 @@ fn stats_for_paths(paths: &Vec<FoundPath>) -> buck2_data::CleanStaleStats {
     stats
 }
 
-fn gather_clean_futures_for_stale_artifacts<T: IoHandler>(
+fn create_clean_fut<T: IoHandler>(
+    found_paths: Vec<FoundPath>,
+    mut stats: CleanStaleStats,
     tree: &mut ArtifactTree,
-    keep_since_time: DateTime<Utc>,
-    dry_run: bool,
-    tracked_only: bool,
     sqlite_db: &mut MaterializerStateSqliteDb,
     io: &Arc<T>,
     cancellations: &'static CancellationContext,
-    dispatcher: &EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
-) -> anyhow::Result<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>> {
-    let gen_path = io
-        .buck_out_path()
-        .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
-    let gen_dir = io.fs().resolve(&gen_path);
-    if !fs_util::try_exists(&gen_dir)? {
-        return ready_clean_response(Some("Nothing to clean"), None);
-    }
-    tracing::trace!(gen_dir = %gen_dir, "Scanning");
+) -> anyhow::Result<BoxFuture<'static, anyhow::Result<CleanResult>>> {
+    let io = io.dupe();
 
-    let mut found_paths = Vec::new();
-    if tracked_only {
-        find_stale_tracked_only(tree, keep_since_time, &mut found_paths)?
-    } else {
-        let gen_subtree = tree
-            .get_subtree(&mut gen_path.iter())
-            .context("Found a file where gen dir expected")?;
-
-        let empty;
-
-        let gen_subtree = match gen_subtree {
-            Some(t) => t,
-            None => {
-                empty = HashMap::new();
-                &empty
-            }
-        };
-
-        StaleFinder {
-            io: io.dupe(),
-            keep_since_time,
-            found_paths: &mut found_paths,
-            liveliness_observer: liveliness_observer.clone(),
-        }
-        .visit_recursively(gen_path, gen_subtree)?;
-    };
-
-    let mut stats = stats_for_paths(&found_paths);
-    // Log limited number of untracked artifacts to avoid logging spikes if schema changes.
-    for (path, file_type) in found_paths
+    let paths_to_invalidate: Vec<ProjectRelativePathBuf> = found_paths
         .iter()
         .filter_map(|x| match x {
-            FoundPath::Untracked(path, file_type, _) => Some((path, file_type)),
+            FoundPath::Stale(p, ..) => Some(p.clone()),
             _ => None,
         })
-        .take(2000)
-    {
-        dispatcher.instant_event(buck2_data::UntrackedFile {
-            path: path.to_string(),
-            file_type: format!("{:?}", file_type),
-        });
-    }
-    if !liveliness_observer.is_alive_sync() {
-        return ready_clean_response(Some("Interrupted"), Some(stats));
-    }
+        .collect();
 
-    // If no stale or retained artifact founds, the db should be empty.
-    if stats.stale_artifact_count + stats.retained_artifact_count == 0 {
-        // Just need to know if any entries exist, could be a simpler query.
-        // Checking the db directly in case tree is somehow not in sync.
-        let materializer_state = sqlite_db
-            .materializer_state_table()
-            .read_all(io.digest_config())?;
+    let existing_futs =
+        tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
 
-        // Entries in the db should have been found in buck-out, return error and skip cleaning untracked artifacts.
-        if !materializer_state.is_empty() {
-            let error = CleanStaleError {
-                db_size: materializer_state.len(),
-                stats,
-            };
-            // quiet just because it's also returned, soft_error to log to scribe
-            return Err(soft_error!("clean_stale_error", error.into(), quiet: true)?);
-        }
-    }
+    let fut = async move {
+        // Wait for all in-progress operations to finish on the paths we are about to
+        // remove from disk.
+        join_all_existing_futs(existing_futs).await?;
 
-    let fut = if dry_run {
-        return ready_clean_response(None, Some(stats));
-    } else {
-        let io = io.dupe();
+        // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
+        // do this to get parallelism.
+        let res = futures::future::try_join_all(
+            found_paths
+                .into_iter()
+                .filter_map(|x| match x {
+                    FoundPath::Untracked(p, _, size) => Some((p, size)),
+                    FoundPath::Stale(p, size) => Some((p, size)),
+                    _ => None,
+                })
+                .map(|(path, size)| {
+                    clean_artifact(path, size, cancellations, &io, liveliness_observer.dupe())
+                }),
+        )
+        .await?;
 
-        let paths_to_invalidate: Vec<ProjectRelativePathBuf> = found_paths
-            .iter()
-            .filter_map(|x| match x {
-                FoundPath::Stale(p, ..) => Some(p.clone()),
-                _ => None,
-            })
-            .collect();
-
-        let existing_futs =
-            tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
-
-        async move {
-            // Wait for all in-progress operations to finish on the paths we are about to
-            // remove from disk.
-            join_all_existing_futs(existing_futs).await?;
-
-            // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
-            // do this to get parallelism.
-            let res = futures::future::try_join_all(
-                found_paths
-                    .into_iter()
-                    .filter_map(|x| match x {
-                        FoundPath::Untracked(p, _, size) => Some((p, size)),
-                        FoundPath::Stale(p, size) => Some((p, size)),
-                        _ => None,
-                    })
-                    .map(|(path, size)| {
-                        clean_artifact(path, size, cancellations, &io, liveliness_observer.dupe())
-                    }),
-            )
-            .await?;
-
-            let cleaned_sizes: Vec<u64> = res.iter().filter_map(|x| *x).collect();
-            stats.cleaned_artifact_count += cleaned_sizes.len() as u64;
-            stats.cleaned_bytes = cleaned_sizes.iter().sum();
-            let message = if !liveliness_observer.is_alive().await {
-                Some("Interrupted".to_owned())
-            } else {
-                None
-            };
-            anyhow::Ok(buck2_cli_proto::CleanStaleResponse {
-                message,
-                stats: Some(stats),
-            })
-        }
-        .boxed()
+        let cleaned_sizes: Vec<u64> = res.iter().filter_map(|x| *x).collect();
+        stats.cleaned_artifact_count += cleaned_sizes.len() as u64;
+        stats.cleaned_bytes = cleaned_sizes.iter().sum();
+        let kind = if !liveliness_observer.is_alive().await {
+            CleanStaleResultKind::Interrupted
+        } else {
+            CleanStaleResultKind::Finished
+        };
+        Ok(CleanResult { kind, stats })
     };
-    Ok(fut)
+    Ok(fut.boxed())
 }
 
 async fn clean_artifact<T: IoHandler>(

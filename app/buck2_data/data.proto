@@ -841,6 +841,16 @@ message CleanStaleStats {
   uint64 cleaned_bytes = 9;
 }
 
+enum CleanStaleResultKind {
+  FINISHED = 0;
+  INTERRUPTED = 1;
+  FAILED = 2;
+  SKIPPED_DRY_RUN = 3;
+  SKIPPED_NO_GEN_DIR = 4;
+  SKIPPED_DEFER_WRITE_DISABLED = 5;
+  SKIPPED_SQLITE_DISABLED = 6;
+}
+
 message InstallCommandEnd {
   repeated TargetPattern unresolved_target_patterns = 1;
 }
