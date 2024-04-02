@@ -74,6 +74,7 @@ class Arguments(Tap):  # pyre-ignore[13] ignore uninitialized attributes for typ
         self.add_argument(
             "--ad-hoc",
             action="store_true",
+            required=False,
             help="Perform ad-hoc signing if set.",
         )
         self.add_argument(
@@ -101,6 +102,7 @@ class Arguments(Tap):  # pyre-ignore[13] ignore uninitialized attributes for typ
         self.add_argument(
             "--fast-provisioning-profile-parsing",
             action="store_true",
+            required=False,
             help="Uses experimental faster provisioning profile parsing.",
         )
 
