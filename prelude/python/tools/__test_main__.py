@@ -756,12 +756,12 @@ class MainProgram:
             analysis[3][-1] if len(analysis[3]) else 0,
         )
         lines = ["N"] * numLines
-        for l in analysis[1]:
-            lines[l - 1] = "C"
-        for l in analysis[2]:
-            lines[l - 1] = "X"
-        for l in analysis[3]:
-            lines[l - 1] = "U"
+        for line in analysis[1]:
+            lines[line - 1] = "C"
+        for line in analysis[2]:
+            lines[line - 1] = "X"
+        for line in analysis[3]:
+            lines[line - 1] = "U"
         return "".join(lines)
 
 
