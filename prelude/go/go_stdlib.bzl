@@ -32,10 +32,10 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
         go_wrapper_args += [
-            cmd_args(c_compiler.compiler, format = "--cc={}").absolute_prefix("%cwd%/"),
-            cmd_args([c_compiler.compiler_flags, go_toolchain.c_compiler_flags], format = "--cgo_cflags={}").absolute_prefix("%cwd%/"),
-            cmd_args(c_compiler.preprocessor_flags, format = "--cgo_cppflags={}").absolute_prefix("%cwd%/"),
-            cmd_args(cgo_ldflags, format = "--cgo_ldflags={}").absolute_prefix("%cwd%/"),
+            cmd_args(c_compiler.compiler, format = "--cc={}", absolute_prefix = "%cwd%/"),
+            cmd_args([c_compiler.compiler_flags, go_toolchain.c_compiler_flags], format = "--cgo_cflags={}", absolute_prefix = "%cwd%/"),
+            cmd_args(c_compiler.preprocessor_flags, format = "--cgo_cppflags={}", absolute_prefix = "%cwd%/"),
+            cmd_args(cgo_ldflags, format = "--cgo_ldflags={}", absolute_prefix = "%cwd%/"),
         ]
 
     cmd = get_toolchain_cmd_args(go_toolchain, go_root = True)
