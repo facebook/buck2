@@ -148,7 +148,11 @@ def _relativize_path_unix(
         trampoline_args: cmd_args) -> Artifact:
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
-    trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
+    trampoline_args = cmd_args(
+        trampoline_args,
+        relative_to = (non_materialized_reference, 1),
+        absolute_prefix = "__BUCK_COMMAND_ALIAS_ABSOLUTE__/",
+    )
 
     trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.{}.pre".format(extension), trampoline_args, allow_args = True)
 
@@ -178,7 +182,11 @@ def _relativize_path_windows(
         trampoline_args: cmd_args) -> Artifact:
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
-    trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix(var + "/")
+    trampoline_args = cmd_args(
+        trampoline_args,
+        relative_to = (non_materialized_reference, 1),
+        absolute_prefix = var + "/",
+    )
 
     trampoline, _ = ctx.actions.write("__command_alias_trampoline.{}".format(extension), trampoline_args, allow_args = True)
 
