@@ -651,9 +651,14 @@ def _make_wrapper_script(ctx, name, tool):
         cmd_args([
             "#!/bin/sh",
             '_SCRIPTDIR=`dirname "$0"`',
-            cmd_args("exec", tool, '"$@"', delimiter = " ")
-                .relative_to(wrapper, parent = 1)
-                .absolute_prefix('"$_SCRIPTDIR"/'),
+            cmd_args(
+                "exec",
+                tool,
+                '"$@"',
+                delimiter = " ",
+                relative_to = (wrapper, 1),
+                absolute_prefix = '"$_SCRIPTDIR"/',
+            ),
         ]),
         allow_args = True,
         is_executable = True,
@@ -675,47 +680,50 @@ def _profile_env_tool(ctx, name, tool):
 def _conan_profile_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
-    content = cmd_args()
+    content = []
 
-    content.add("[settings]")
-    content.add(cmd_args(ctx.attrs.arch, format = "arch={}"))
-    content.add(cmd_args(ctx.attrs.os, format = "os={}"))
-    content.add(cmd_args(ctx.attrs.build_type, format = "build_type={}"))
+    content.append("[settings]")
+    content.append(cmd_args(ctx.attrs.arch, format = "arch={}"))
+    content.append(cmd_args(ctx.attrs.os, format = "os={}"))
+    content.append(cmd_args(ctx.attrs.build_type, format = "build_type={}"))
 
     # TODO[AH] Auto-generate the compiler setting based on the toolchain.
     #   Needs a translation of CxxToolProviderType to compiler setting.
-    content.add(cmd_args(ctx.attrs.compiler, format = "compiler={}"))
-    content.add(cmd_args(ctx.attrs.compiler_version, format = "compiler.version={}"))
-    content.add(cmd_args(ctx.attrs.compiler_libcxx, format = "compiler.libcxx={}"))
+    content.append(cmd_args(ctx.attrs.compiler, format = "compiler={}"))
+    content.append(cmd_args(ctx.attrs.compiler_version, format = "compiler.version={}"))
+    content.append(cmd_args(ctx.attrs.compiler_libcxx, format = "compiler.libcxx={}"))
 
-    content.add("")
-    content.add("[env]")
-    content.add(_profile_env_var("CMAKE_FIND_ROOT_PATH", ""))
+    content.append("")
+    content.append("[env]")
+    content.append(_profile_env_var("CMAKE_FIND_ROOT_PATH", ""))
 
     # TODO[AH] Define CMAKE_SYSROOT if needed.
     # TODO[AH] Define target CHOST for cross-compilation
-    content.add(_profile_env_tool(ctx, "AR", cxx.linker_info.archiver))
+    content.append(_profile_env_tool(ctx, "AR", cxx.linker_info.archiver))
     if cxx.as_compiler_info:
-        content.add(_profile_env_tool(ctx, "AS", cxx.as_compiler_info.compiler))
+        content.append(_profile_env_tool(ctx, "AS", cxx.as_compiler_info.compiler))
         # TODO[AH] Use asm_compiler_info for Windows
 
     if cxx.binary_utilities_info:
         if cxx.binary_utilities_info.nm:
-            content.add(_profile_env_tool(ctx, "NM", cxx.binary_utilities_info.nm))
+            content.append(_profile_env_tool(ctx, "NM", cxx.binary_utilities_info.nm))
         if cxx.binary_utilities_info.ranlib:
-            content.add(_profile_env_tool(ctx, "RANLIB", cxx.binary_utilities_info.ranlib))
+            content.append(_profile_env_tool(ctx, "RANLIB", cxx.binary_utilities_info.ranlib))
         if cxx.binary_utilities_info.strip:
-            content.add(_profile_env_tool(ctx, "STRIP", cxx.binary_utilities_info.strip))
+            content.append(_profile_env_tool(ctx, "STRIP", cxx.binary_utilities_info.strip))
     if cxx.c_compiler_info:
-        content.add(_profile_env_tool(ctx, "CC", cxx.c_compiler_info.compiler))
-        content.add(_profile_env_var("CFLAGS", cxx.c_compiler_info.compiler_flags))
+        content.append(_profile_env_tool(ctx, "CC", cxx.c_compiler_info.compiler))
+        content.append(_profile_env_var("CFLAGS", cxx.c_compiler_info.compiler_flags))
     if cxx.cxx_compiler_info:
-        content.add(_profile_env_tool(ctx, "CXX", cxx.cxx_compiler_info.compiler))
-        content.add(_profile_env_var("CXXFLAGS", cxx.cxx_compiler_info.compiler_flags))
+        content.append(_profile_env_tool(ctx, "CXX", cxx.cxx_compiler_info.compiler))
+        content.append(_profile_env_var("CXXFLAGS", cxx.cxx_compiler_info.compiler_flags))
 
     output = ctx.actions.declare_output(ctx.label.name)
-    content.relative_to(output, parent = 1)
-    content.absolute_prefix("$PROFILE_DIR/")
+    content = cmd_args(
+        content,
+        relative_to = (output, 1),
+        absolute_prefix = "$PROFILE_DIR/",
+    )
     _, args_inputs = ctx.actions.write(output, content, allow_args = True)
 
     return [
