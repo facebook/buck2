@@ -71,10 +71,6 @@ def _cgo(
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
 
-    pre = cxx_merge_cpreprocessors(ctx, own_pre, inherited_pre)
-    pre_args = pre.set.project_as_args("args")
-    pre_include_dirs = pre.set.project_as_args("include_dirs")
-
     # If you change this dir or naming convention, please
     # update the corresponding logic in `fbgolist`.
     # Otherwise editing and linting for Go will break.
@@ -92,41 +88,12 @@ def _cgo(
 
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    expect(CxxToolchainInfo in ctx.attrs._cxx_toolchain)
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
     cmd = cmd_args()
     cmd.add(go_toolchain.cgo_wrapper)
 
     args = cmd_args()
     args.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))
-
-    c_compiler = cxx_toolchain.c_compiler_info
-
-    # Construct the full C/C++ command needed to preprocess/compile sources.
-    cxx_cmd = cmd_args()
-    cxx_cmd.add(c_compiler.compiler)
-    cxx_cmd.add(c_compiler.preprocessor_flags)
-    cxx_cmd.add(c_compiler.compiler_flags)
-    cxx_cmd.add(pre_args)
-    cxx_cmd.add(pre_include_dirs)
-    cxx_cmd.add(go_toolchain.c_compiler_flags)
-
-    # Wrap the C/C++ command in a wrapper script to avoid arg length limits.
-    is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
-    cxx_sh = cmd_args(
-        [
-            cmd_args(cxx_cmd, quote = "shell"),
-            "%*" if is_win else "\"$@\"",
-        ],
-        delimiter = " ",
-    )
-    cxx_wrapper, _ = ctx.actions.write(
-        "__{}_cxx__.{}".format(ctx.label.name, "bat" if is_win else "sh"),
-        ([] if is_win else ["#!/bin/sh"]) + [cxx_sh],
-        allow_args = True,
-        is_executable = True,
-    )
 
     # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
     # sure how to pass in an output dir *and* enumerate the sources we know will
@@ -145,11 +112,50 @@ def _cgo(
         cmd.hidden(src.as_output())
 
     env = get_toolchain_env_vars(go_toolchain)
-    env["CC"] = cmd_args(cxx_wrapper, hidden = cxx_cmd)
+    env["CC"] = _cxx_wrapper(ctx, own_pre, inherited_pre)
 
     ctx.actions.run(cmd, env = env, category = "cgo")
 
     return go_srcs, c_headers, c_srcs
+
+def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_pre: list[CPreprocessorInfo]) -> cmd_args:
+    pre = cxx_merge_cpreprocessors(ctx, own_pre, inherited_pre)
+    pre_args = pre.set.project_as_args("args")
+    pre_include_dirs = pre.set.project_as_args("include_dirs")
+
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    expect(CxxToolchainInfo in ctx.attrs._cxx_toolchain)
+    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+
+    c_compiler = cxx_toolchain.c_compiler_info
+
+    # Construct the full C/C++ command needed to preprocess/compile sources.
+    cxx_cmd = cmd_args(
+        c_compiler.compiler,
+        c_compiler.preprocessor_flags,
+        c_compiler.compiler_flags,
+        pre_args,
+        pre_include_dirs,
+        go_toolchain.c_compiler_flags,
+    )
+
+    # Wrap the C/C++ command in a wrapper script to avoid arg length limits.
+    is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    cxx_sh = cmd_args(
+        [
+            cmd_args(cxx_cmd, quote = "shell"),
+            "%*" if is_win else "\"$@\"",
+        ],
+        delimiter = " ",
+    )
+    cxx_wrapper, _ = ctx.actions.write(
+        "__{}_cxx__.{}".format(ctx.label.name, "bat" if is_win else "sh"),
+        ([] if is_win else ["#!/bin/sh"]) + [cxx_sh],
+        allow_args = True,
+        is_executable = True,
+    )
+
+    return cmd_args(cxx_wrapper, hidden = cxx_cmd)
 
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
