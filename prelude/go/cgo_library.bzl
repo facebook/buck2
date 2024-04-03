@@ -90,27 +90,17 @@ def _cgo(
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
-    cmd = cmd_args()
-    cmd.add(go_toolchain.cgo_wrapper)
-
-    args = cmd_args()
-    args.add(cmd_args(go_toolchain.cgo, format = "--cgo={}"))
-
-    # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
-    # sure how to pass in an output dir *and* enumerate the sources we know will
-    # generated w/o v2 complaining that the output dir conflicts with the nested
-    # artifacts.
-    args.add(cmd_args(go_srcs[0].as_output(), format = "--output={}/.."))
-
-    args.add(srcs)
-
-    argsfile = ctx.actions.declare_output(paths.join(gen_dir, ".cgo.argsfile"))
-    ctx.actions.write(argsfile.as_output(), args, allow_args = True)
-
-    cmd.add(cmd_args(argsfile, format = "@{}").hidden([args]))
-
-    for src in go_srcs + c_headers + c_srcs:
-        cmd.hidden(src.as_output())
+    cmd = cmd_args(
+        go_toolchain.cgo_wrapper,
+        cmd_args(go_toolchain.cgo, format = "--cgo={}"),
+        # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
+        # sure how to pass in an output dir *and* enumerate the sources we know will
+        # generated w/o v2 complaining that the output dir conflicts with the nested
+        # artifacts.
+        cmd_args(go_srcs[0].as_output(), format = "--output={}/.."),
+        srcs,
+        hidden = [src.as_output() for src in go_srcs + c_headers + c_srcs],
+    )
 
     env = get_toolchain_env_vars(go_toolchain)
     env["CC"] = _cxx_wrapper(ctx, own_pre, inherited_pre)
