@@ -77,7 +77,7 @@ def erlang_tests_macro(
         if prop_target:
             property_tests = [prop_target]
 
-    common_attributes["labels"] = common_attributes.get("labels", []) + ["tpx-enable-artifact-reporting", "test-framework=39:erlang_common_test"]
+    common_attributes["labels"] = common_attributes.get("labels", [])
 
     common_attributes["labels"] = list_dedupe(common_attributes["labels"])
 
