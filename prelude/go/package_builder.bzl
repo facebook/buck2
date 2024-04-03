@@ -13,7 +13,7 @@ load(
     "GoCoverageMode",  # @Unused used as type
 )
 load(":packages.bzl", "GoPkg", "make_importcfg", "merge_pkgs", "pkg_artifacts")
-load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
+load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 def build_package(
         ctx: AnalysisContext,
@@ -99,7 +99,9 @@ def build_package(
 
 def _go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain, force_disable_cgo = force_disable_cgo)
+    env = get_toolchain_env_vars(go_toolchain, force_disable_cgo = force_disable_cgo)
+    env["GO111MODULE"] = "off"
+
     go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json")
 
     # Create file sructure that `go list` can recognize
@@ -110,8 +112,6 @@ def _go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_
     )
     tags = go_toolchain.tags + ctx.attrs._tags
     go_list_args = [
-        env_args,
-        "GO111MODULE=off",
         go_toolchain.go_list_wrapper,
         "-e",
         ["--go", go_toolchain.go],
@@ -123,7 +123,7 @@ def _go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_
     ]
 
     identifier = paths.basename(pkg_name)
-    ctx.actions.run(go_list_args, category = "go_list", identifier = identifier)
+    ctx.actions.run(go_list_args, env = env, category = "go_list", identifier = identifier)
 
     return go_list_out
 
@@ -186,7 +186,7 @@ def _compile(
         gen_asmhdr: bool = False) -> (Artifact, Artifact | None):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
-    env_args = get_toolchain_cmd_args(go_toolchain)
+    env = get_toolchain_env_vars(go_toolchain)
     out = ctx.actions.declare_output("go_compile_out.a")
 
     if len(go_srcs) == 0:
@@ -196,7 +196,6 @@ def _compile(
     asmhdr = ctx.actions.declare_output("__asmhdr__/go_asm.h") if gen_asmhdr else None
 
     compile_cmd = cmd_args([
-        env_args,
         go_toolchain.compiler,
         go_toolchain.compiler_flags,
         compiler_flags,
@@ -215,7 +214,7 @@ def _compile(
     compile_cmd.hidden(embed_files)  #  files and directories should be available for embedding
 
     identifier = paths.basename(pkg_name)
-    ctx.actions.run(compile_cmd, category = "go_compile", identifier = identifier)
+    ctx.actions.run(compile_cmd, env = env, category = "go_compile", identifier = identifier)
 
     return (out, asmhdr)
 
@@ -224,7 +223,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], assem
         return None
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain)
+    env = get_toolchain_env_vars(go_toolchain)
 
     # we have to supply "go_asm.h" with any content to make asm tool happy
     # its content doesn't matter if -gensymabis provided
@@ -232,7 +231,6 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], assem
     fake_asmhdr = ctx.actions.write("__fake_asmhdr__/go_asm.h", "")
     symabis = ctx.actions.declare_output("symabis")
     asm_cmd = [
-        env_args,
         go_toolchain.assembler,
         go_toolchain.assembler_flags,
         assembler_flags,
@@ -244,7 +242,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], assem
     ]
 
     identifier = paths.basename(pkg_name)
-    ctx.actions.run(asm_cmd, category = "go_symabis", identifier = identifier)
+    ctx.actions.run(asm_cmd, env = env, category = "go_symabis", identifier = identifier)
 
     return symabis
 
@@ -253,7 +251,7 @@ def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], asm
         return []
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain)
+    env = get_toolchain_env_vars(go_toolchain)
 
     o_files = []
     identifier = paths.basename(pkg_name)
@@ -262,7 +260,6 @@ def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], asm
         o_files.append(o_file)
 
         asm_cmd = [
-            env_args,
             go_toolchain.assembler,
             go_toolchain.assembler_flags,
             assembler_flags,
@@ -272,7 +269,7 @@ def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], asm
             s_file,
         ]
 
-        ctx.actions.run(asm_cmd, category = "go_assembly", identifier = identifier + "/" + s_file.short_path)
+        ctx.actions.run(asm_cmd, env = env, category = "go_assembly", identifier = identifier + "/" + s_file.short_path)
 
     return o_files
 
@@ -282,12 +279,11 @@ def _pack(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, o_files: list[A
         return a_file
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain)
+    env = get_toolchain_env_vars(go_toolchain)
 
     pkg_file = ctx.actions.declare_output("pkg.a")
 
     pack_cmd = [
-        env_args,
         go_toolchain.packer,
         "c",
         pkg_file.as_output(),
@@ -296,7 +292,7 @@ def _pack(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, o_files: list[A
     ]
 
     identifier = paths.basename(pkg_name)
-    ctx.actions.run(pack_cmd, category = "go_pack", identifier = identifier)
+    ctx.actions.run(pack_cmd, env = env, category = "go_pack", identifier = identifier)
 
     return pkg_file
 
@@ -315,7 +311,7 @@ def _cover(ctx: AnalysisContext, pkg_name: str, go_files: list[Artifact], covera
         return go_files, ""
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain)
+    env = get_toolchain_env_vars(go_toolchain)
     covered_files = []
     coverage_vars = {}
     for go_file in go_files:
@@ -326,7 +322,6 @@ def _cover(ctx: AnalysisContext, pkg_name: str, go_files: list[Artifact], covera
         coverage_vars[var] = go_file.short_path
 
         cover_cmd = [
-            env_args,
             go_toolchain.cover,
             ["-mode", coverage_mode.value],
             ["-var", var],
@@ -334,7 +329,7 @@ def _cover(ctx: AnalysisContext, pkg_name: str, go_files: list[Artifact], covera
             go_file,
         ]
 
-        ctx.actions.run(cover_cmd, category = "go_cover", identifier = paths.basename(pkg_name) + "/" + go_file.short_path)
+        ctx.actions.run(cover_cmd, env = env, category = "go_cover", identifier = paths.basename(pkg_name) + "/" + go_file.short_path)
 
     coverage_vars_out = ""
     if len(coverage_vars) > 0:

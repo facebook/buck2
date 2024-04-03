@@ -36,7 +36,7 @@ load(
     "merge_pkgs",
     "pkg_artifacts",
 )
-load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
+load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 # Provider wrapping packages used for linking.
 GoPkgLinkInfo = provider(fields = {
@@ -112,7 +112,7 @@ def link(
     file_extension = shared_extension if build_mode == GoBuildMode("c_shared") else executable_extension
     output = ctx.actions.declare_output(ctx.label.name + file_extension)
 
-    cmd = get_toolchain_cmd_args(go_toolchain)
+    cmd = cmd_args()
 
     cmd.add(go_toolchain.linker)
     cmd.add(go_toolchain.linker_flags)
@@ -193,6 +193,8 @@ def link(
 
     cmd.add(main)
 
-    ctx.actions.run(cmd, category = "go_link")
+    env = get_toolchain_env_vars(go_toolchain)
+
+    ctx.actions.run(cmd, env = env, category = "go_link")
 
     return (output, executable_args.runtime_files, executable_args.external_debug_info)

@@ -53,7 +53,7 @@ load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
-load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
+load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 # A map of expected linkages for provided link style
 _LINKAGE_FOR_LINK_STYLE = {
@@ -95,7 +95,7 @@ def _cgo(
     expect(CxxToolchainInfo in ctx.attrs._cxx_toolchain)
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
-    cmd = get_toolchain_cmd_args(go_toolchain)
+    cmd = cmd_args()
     cmd.add(go_toolchain.cgo_wrapper)
 
     args = cmd_args()
@@ -153,7 +153,10 @@ def _cgo(
 
     for src in go_srcs + c_headers + c_srcs:
         cmd.hidden(src.as_output())
-    ctx.actions.run(cmd, category = "cgo")
+
+    env = get_toolchain_env_vars(go_toolchain)
+
+    ctx.actions.run(cmd, env = env, category = "cgo")
 
     return go_srcs, c_headers, c_srcs
 

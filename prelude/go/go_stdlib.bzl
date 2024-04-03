@@ -6,7 +6,7 @@
 # of this source tree.
 
 load(":packages.bzl", "GoStdlib")
-load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_cmd_args")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -38,10 +38,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd_args(cgo_ldflags, format = "--cgo_ldflags={}", absolute_prefix = "%cwd%/"),
         ]
 
-    cmd = get_toolchain_cmd_args(go_toolchain)
-    cmd.add([
-        "GODEBUG={}".format("installgoroot=all"),
-        "CGO_ENABLED={}".format("1" if cgo_enabled else "0"),
+    cmd = cmd_args([
         go_toolchain.go_wrapper,
         go_toolchain.go,
         go_wrapper_args,
@@ -56,7 +53,11 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         "std",
     ])
 
-    ctx.actions.run(cmd, category = "go_build_stdlib", identifier = "go_build_stdlib")
+    env = get_toolchain_env_vars(go_toolchain)
+    env["GODEBUG"] = "installgoroot=all"
+    env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
+
+    ctx.actions.run(cmd, env = env, category = "go_build_stdlib", identifier = "go_build_stdlib")
 
     importcfg = ctx.actions.declare_output("stdlib.importcfg")
     ctx.actions.run(

@@ -37,32 +37,33 @@ GoToolchainInfo = provider(
     },
 )
 
-def get_toolchain_cmd_args(toolchain: GoToolchainInfo, force_disable_cgo = False) -> cmd_args:
-    cmd = cmd_args("env")
+def get_toolchain_env_vars(toolchain: GoToolchainInfo, force_disable_cgo = False) -> dict[str, str | cmd_args]:
+    env = {
+        "GOARCH": toolchain.env_go_arch,
+        # opt-out from Go1.20 coverage redisign
+        "GOEXPERIMENT": "nocoverageredesign",
+        "GOOS": toolchain.env_go_os,
+    }
 
-    # opt-out from Go1.20 coverage redisign
-    cmd.add("GOEXPERIMENT=nocoverageredesign")
-
-    cmd.add("GOARCH={}".format(toolchain.env_go_arch))
-    cmd.add("GOOS={}".format(toolchain.env_go_os))
     if toolchain.env_go_arm != None:
-        cmd.add("GOARM={}".format(toolchain.env_go_arm))
+        env["GOARM"] = toolchain.env_go_arm
     if toolchain.env_go_root != None:
-        cmd.add(cmd_args(toolchain.env_go_root, format = "GOROOT={}"))
+        env["GOROOT"] = toolchain.env_go_root
     if toolchain.env_go_debug:
         godebug = ",".join(["{}={}".format(k, v) for k, v in toolchain.env_go_debug.items()])
-        cmd.add("GODEBUG={}".format(godebug))
+        env["GODEBUG"] = godebug
+
     if force_disable_cgo:
-        cmd.add("CGO_ENABLED=0")
+        env["CGO_ENABLED"] = "0"
     else:
         # CGO is enabled by default for native compilation, but we need to set it
         # explicitly for cross-builds:
         # https://go-review.googlesource.com/c/go/+/12603/2/src/cmd/cgo/doc.go
         cxx_toolchain_available = toolchain.cxx_toolchain_for_linking != None
         if cxx_toolchain_available:
-            cmd.add("CGO_ENABLED=1")
+            env["CGO_ENABLED"] = "1"
 
-    return cmd
+    return env
 
 # Sets default value of cgo_enabled attribute based on the presence of C++ toolchain.
 def evaluate_cgo_enabled(toolchain: GoToolchainInfo, cgo_enabled: [bool, None]) -> bool:
