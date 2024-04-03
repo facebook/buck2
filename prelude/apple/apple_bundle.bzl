@@ -262,10 +262,7 @@ def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: Apple
         return binary_output.debuggable_info.dsyms
 
 def _get_all_agg_debug_info(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, deps_debuggable_infos: list[AppleDebuggableInfo]) -> AggregatedAppleDebugInfo:
-    all_debug_infos = deps_debuggable_infos
-    if not binary_output.is_watchkit_stub_binary:
-        binary_debuggable_info = binary_output.debuggable_info
-        all_debug_infos = all_debug_infos + [binary_debuggable_info]
+    all_debug_infos = deps_debuggable_infos + ([binary_output.debuggable_info] if binary_output.debuggable_info else [])
     return get_aggregated_debug_info(ctx, all_debug_infos)
 
 def _maybe_scrub_selected_debug_paths_file(ctx: AnalysisContext, package_names: list[str]) -> Artifact:
