@@ -8,8 +8,6 @@
 _APPLE_ARCHES = [
     "arm64",
     "arm64_32",
-    "armv7k",
-    "i386",
     "x86_64",
 ]
 

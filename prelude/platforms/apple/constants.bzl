@@ -54,6 +54,8 @@ MACOS_UNIVERSAL = "macosx-universal"
 
 # Watch OS Platforms/Flavors
 
+WATCHOS_ARM64 = "watchos-arm64"
+
 WATCHOS_ARM64_32 = "watchos-arm64_32"
 
 WATCHSIMULATOR_ARM64 = "watchsimulator-arm64"
@@ -97,6 +99,7 @@ mac_platforms = struct(
 )
 
 watch_platforms = struct(
+    WATCHOS_ARM64 = WATCHOS_ARM64,
     WATCHOS_ARM64_32 = WATCHOS_ARM64_32,
     WATCHSIMULATOR_ARM64 = WATCHSIMULATOR_ARM64,
     WATCHSIMULATOR_X86_64 = WATCHSIMULATOR_X86_64,

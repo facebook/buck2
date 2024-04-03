@@ -45,6 +45,7 @@ _MOBILE_PLATFORMS = [
     ios_platforms.IPHONEOS_ARM64,
     ios_platforms.IPHONESIMULATOR_ARM64,
     ios_platforms.IPHONESIMULATOR_X86_64,
+    watch_platforms.WATCHOS_ARM64,
     watch_platforms.WATCHOS_ARM64_32,
     watch_platforms.WATCHSIMULATOR_ARM64,
     watch_platforms.WATCHSIMULATOR_X86_64,
