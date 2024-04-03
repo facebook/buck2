@@ -99,7 +99,7 @@ def build_package(
 
 def _go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain, go_root = True, force_disable_cgo = force_disable_cgo)
+    env_args = get_toolchain_cmd_args(go_toolchain, force_disable_cgo = force_disable_cgo)
     go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json")
 
     # Create file sructure that `go list` can recognize
@@ -186,7 +186,7 @@ def _compile(
         gen_asmhdr: bool = False) -> (Artifact, Artifact | None):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
-    env_args = get_toolchain_cmd_args(go_toolchain, go_root = True)
+    env_args = get_toolchain_cmd_args(go_toolchain)
     out = ctx.actions.declare_output("go_compile_out.a")
 
     if len(go_srcs) == 0:
@@ -224,7 +224,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], assem
         return None
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain, go_root = True)
+    env_args = get_toolchain_cmd_args(go_toolchain)
 
     # we have to supply "go_asm.h" with any content to make asm tool happy
     # its content doesn't matter if -gensymabis provided
@@ -253,7 +253,7 @@ def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], asm
         return []
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain, go_root = True)
+    env_args = get_toolchain_cmd_args(go_toolchain)
 
     o_files = []
     identifier = paths.basename(pkg_name)
@@ -282,7 +282,7 @@ def _pack(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, o_files: list[A
         return a_file
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain, go_root = True)
+    env_args = get_toolchain_cmd_args(go_toolchain)
 
     pkg_file = ctx.actions.declare_output("pkg.a")
 
@@ -315,7 +315,7 @@ def _cover(ctx: AnalysisContext, pkg_name: str, go_files: list[Artifact], covera
         return go_files, ""
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env_args = get_toolchain_cmd_args(go_toolchain, go_root = True)
+    env_args = get_toolchain_cmd_args(go_toolchain)
     covered_files = []
     coverage_vars = {}
     for go_file in go_files:

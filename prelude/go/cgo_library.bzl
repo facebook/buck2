@@ -95,7 +95,7 @@ def _cgo(
     expect(CxxToolchainInfo in ctx.attrs._cxx_toolchain)
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
-    cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
+    cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add(go_toolchain.cgo_wrapper)
 
     args = cmd_args()

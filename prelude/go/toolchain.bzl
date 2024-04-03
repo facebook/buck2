@@ -37,7 +37,7 @@ GoToolchainInfo = provider(
     },
 )
 
-def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_disable_cgo = False) -> cmd_args:
+def get_toolchain_cmd_args(toolchain: GoToolchainInfo, force_disable_cgo = False) -> cmd_args:
     cmd = cmd_args("env")
 
     # opt-out from Go1.20 coverage redisign
@@ -47,7 +47,7 @@ def get_toolchain_cmd_args(toolchain: GoToolchainInfo, go_root = True, force_dis
     cmd.add("GOOS={}".format(toolchain.env_go_os))
     if toolchain.env_go_arm != None:
         cmd.add("GOARM={}".format(toolchain.env_go_arm))
-    if go_root and toolchain.env_go_root != None:
+    if toolchain.env_go_root != None:
         cmd.add(cmd_args(toolchain.env_go_root, format = "GOROOT={}"))
     if toolchain.env_go_debug:
         godebug = ",".join(["{}={}".format(k, v) for k, v in toolchain.env_go_debug.items()])

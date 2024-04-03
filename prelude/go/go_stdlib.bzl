@@ -38,7 +38,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd_args(cgo_ldflags, format = "--cgo_ldflags={}", absolute_prefix = "%cwd%/"),
         ]
 
-    cmd = get_toolchain_cmd_args(go_toolchain, go_root = True)
+    cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add([
         "GODEBUG={}".format("installgoroot=all"),
         "CGO_ENABLED={}".format("1" if cgo_enabled else "0"),
