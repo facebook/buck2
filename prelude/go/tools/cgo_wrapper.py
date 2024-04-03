@@ -12,7 +12,6 @@ import argparse
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -20,7 +19,6 @@ def main(argv):
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("--cgo", action="append", default=[])
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--cpp", action="append", default=[])
     parser.add_argument("srcs", type=Path, nargs="*")
     args = parser.parse_args(argv[1:])
 
@@ -31,19 +29,8 @@ def main(argv):
 
     cmd = []
     cmd.extend(args.cgo)
-    # cmd.append("-importpath={}")
-    # cmd.append("-srcdir={}")
     cmd.append(f"-objdir={output}")
-    # cmd.append(cgoCompilerFlags)
     cmd.append("--")
-    # cmd.append(cxxCompilerFlags)
-
-    if args.cpp:
-        with tempfile.NamedTemporaryFile("w", delete=False) as argsfile:
-            for arg in args.cpp:
-                print(arg, file=argsfile)
-                argsfile.flush()
-        cmd.append("@" + argsfile.name)
 
     cmd.extend(args.srcs)
     return subprocess.call(cmd, env=env)
