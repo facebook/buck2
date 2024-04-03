@@ -582,7 +582,12 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) ->
     if outputs == []:
         ctx.actions.write(cmxs_order, "")
     else:
-        ctx.actions.dynamic_output(dynamic = [depends_output], inputs = todo_inputs, outputs = outputs + [cmxs_order], f = f)
+        ctx.actions.dynamic_output(
+            dynamic = [depends_output],
+            inputs = todo_inputs,
+            outputs = [o.as_output() for o in outputs + [cmxs_order]],
+            f = f,
+        )
 
     return CompileResultInfo(cmxs_order = cmxs_order, stbs = stbs, objs = objs, cmis = cmis, cmos = cmos, cmxs = cmxs, cmts = cmts, cmtis = cmtis, ppmlis = ppmlis, ppmls = ppmls)
 
