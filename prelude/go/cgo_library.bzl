@@ -43,6 +43,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
@@ -140,22 +141,12 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
     )
 
     # Wrap the C/C++ command in a wrapper script to avoid arg length limits.
-    is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
-    cxx_sh = cmd_args(
-        [
-            cmd_args(cxx_cmd, quote = "shell"),
-            "%*" if is_win else "\"$@\"",
-        ],
-        delimiter = " ",
+    return cmd_script(
+        ctx = ctx,
+        name = "cxx_wrapper",
+        cmd = cxx_cmd,
+        os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
     )
-    cxx_wrapper, _ = ctx.actions.write(
-        "__{}_cxx__.{}".format(ctx.label.name, "bat" if is_win else "sh"),
-        ([] if is_win else ["#!/bin/sh"]) + [cxx_sh],
-        allow_args = True,
-        is_executable = True,
-    )
-
-    return cmd_args(cxx_wrapper, hidden = cxx_cmd)
 
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
