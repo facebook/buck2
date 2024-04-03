@@ -21,8 +21,6 @@ def main(argv):
     parser.add_argument("--cgo", action="append", default=[])
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--cpp", action="append", default=[])
-    parser.add_argument("--env-cc", action="append", default=[])
-    parser.add_argument("--env-ldflags", action="append", default=[])
     parser.add_argument("srcs", type=Path, nargs="*")
     args = parser.parse_args(argv[1:])
 
@@ -30,8 +28,6 @@ def main(argv):
     os.makedirs(output, exist_ok=True)
 
     env = os.environ.copy()
-    env["CC"] = " ".join(args.env_cc)
-    env["CGO_LDFLAGS"] = " ".join(args.env_ldflags)
 
     cmd = []
     cmd.extend(args.cgo)

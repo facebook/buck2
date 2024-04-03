@@ -187,6 +187,7 @@ def link(
             cxx_toolchain.linker_info.linker_flags,
             go_toolchain.external_linker_flags,
             delimiter = " ",
+            quote = "shell",
         ))
 
     cmd.add(linker_flags)

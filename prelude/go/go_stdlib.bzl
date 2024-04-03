@@ -21,7 +21,10 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         assembler_flags += ["-shared"]
         compiler_flags += ["-shared"]
 
-    go_wrapper_args = []
+    env = get_toolchain_env_vars(go_toolchain)
+    env["GODEBUG"] = "installgoroot=all"
+    env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
+
     cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
     if cxx_toolchain != None:
         c_compiler = cxx_toolchain.c_compiler_info
@@ -29,19 +32,17 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         cgo_ldflags = cmd_args(
             cxx_toolchain.linker_info.linker_flags,
             go_toolchain.external_linker_flags,
+            quote = "shell",
         )
 
-        go_wrapper_args += [
-            cmd_args(c_compiler.compiler, format = "--cc={}", absolute_prefix = "%cwd%/"),
-            cmd_args([c_compiler.compiler_flags, go_toolchain.c_compiler_flags], format = "--cgo_cflags={}", absolute_prefix = "%cwd%/"),
-            cmd_args(c_compiler.preprocessor_flags, format = "--cgo_cppflags={}", absolute_prefix = "%cwd%/"),
-            cmd_args(cgo_ldflags, format = "--cgo_ldflags={}", absolute_prefix = "%cwd%/"),
-        ]
+        env["CC"] = cmd_args(c_compiler.compiler, delimiter = " ", absolute_prefix = "%cwd%/")
+        env["CGO_CFLAGS"] = cmd_args(c_compiler.compiler_flags, delimiter = " ", absolute_prefix = "%cwd%/")
+        env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = " ", absolute_prefix = "%cwd%/")
+        env["CGO_LDFLAGS"] = cmd_args(cgo_ldflags, delimiter = " ", absolute_prefix = "%cwd%/")
 
     cmd = cmd_args([
         go_toolchain.go_wrapper,
         go_toolchain.go,
-        go_wrapper_args,
         "install",
         "-pkgdir",
         stdlib_pkgdir.as_output(),
@@ -52,10 +53,6 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         ["-race"] if ctx.attrs._race else [],
         "std",
     ])
-
-    env = get_toolchain_env_vars(go_toolchain)
-    env["GODEBUG"] = "installgoroot=all"
-    env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
     ctx.actions.run(cmd, env = env, category = "go_build_stdlib", identifier = "go_build_stdlib")
 
