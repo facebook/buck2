@@ -76,6 +76,9 @@ def create_class_to_source_map_from_jar(
         srcs: list[Artifact]) -> Artifact:
     output = actions.declare_output(name)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
+    if java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages != None:
+        for item in java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages:
+            cmd.add("-i", item)
     cmd.add("-o", output.as_output())
     cmd.add(jar)
     inputs_file = actions.write("class_to_srcs_map_argsfile.txt", srcs)

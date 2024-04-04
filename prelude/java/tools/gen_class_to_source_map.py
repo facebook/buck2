@@ -15,6 +15,13 @@ import zipfile
 def main(argv):
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument(
+        "--include_classes_prefixes",
+        "-i",
+        default=[],
+        nargs="*",
+        help="Prefixes of classes to include in the output, even if their source isn't present",
+    )
+    parser.add_argument(
         "--output", "-o", type=argparse.FileType("w"), default=sys.stdin
     )
     parser.add_argument("jar")
@@ -44,6 +51,7 @@ def main(argv):
             if "$" in base:
                 continue
 
+            found = False
             for src_base, src_path in sources.items():
                 if base == src_base or src_base.endswith("/" + base):
                     classes.append(
@@ -52,7 +60,21 @@ def main(argv):
                             "srcPath": src_path,
                         }
                     )
+                    found = True
                     break
+
+            if not found:
+                # If the class is not present in the sources, we stil want to
+                # include it if it has a prefix that we are interested in.
+                # certain classes in "androidx.databinding.*" are generated and its useful to know their presense in jars
+                for prefix in args.include_classes_prefixes:
+                    if classname.startswith(prefix):
+                        classes.append(
+                            {
+                                "className": classname,
+                            }
+                        )
+                        break
 
     json.dump(
         {
