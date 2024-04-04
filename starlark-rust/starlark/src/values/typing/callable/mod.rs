@@ -21,6 +21,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
+use std::sync::atomic::AtomicPtr;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -130,7 +131,7 @@ pub struct StarlarkCallable<
     'v,
     P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
     R: StarlarkTypeRepr = FrozenValue,
->(pub Value<'v>, PhantomData<(P, R)>);
+>(pub Value<'v>, PhantomData<PhantomData<AtomicPtr<(P, R)>>>);
 
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Copy for StarlarkCallable<'v, P, R> {}
 
@@ -200,11 +201,7 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
 pub struct FrozenStarlarkCallable<
     P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
     R: StarlarkTypeRepr = FrozenValue,
->(
-    pub FrozenValue,
-    // TODO(nga): this is replaced with parameters in the following diff.
-    PhantomData<(P, R)>,
-);
+>(pub FrozenValue, PhantomData<AtomicPtr<(P, R)>>);
 
 impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Debug for FrozenStarlarkCallable<P, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -212,6 +209,12 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Debug for FrozenStarlark
             .field(&self.0)
             .finish()
     }
+}
+
+fn _assert_sync_send() {
+    fn _assert<T: Sync + Send>() {}
+    // `Value` is not `Sync` nor `Send`, but `FrozenStarlarkCallable` should be.
+    _assert::<FrozenStarlarkCallable<(Value,), Value>>();
 }
 
 impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Copy for FrozenStarlarkCallable<P, R> {}
