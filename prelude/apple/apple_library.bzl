@@ -144,15 +144,18 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         )
         output = cxx_library_parameterized(ctx, constructor_params)
 
-        return output.providers + [_make_mockingbird_library_info_provider(ctx)]
+        return output.providers + _make_mockingbird_library_info_provider(ctx)
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])
 
-def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> MockingbirdLibraryInfo:
+def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[MockingbirdLibraryInfo]:
     _, swift_sources = _filter_swift_srcs(ctx)
+
+    if len(swift_sources) == 0:
+        return []
 
     all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
     deps_mockingbird_infos = filter(None, [dep.get(MockingbirdLibraryInfo) for dep in all_deps])
@@ -163,7 +166,7 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> Mockingbird
         dep_names.append(info.name)
         children.append(info.tset)
 
-    mockingbird_srcs_folder = ctx.actions.declare_output("mockingbird_srcs" + "_" + ctx.attrs.name, dir = True)
+    mockingbird_srcs_folder = ctx.actions.declare_output("mockingbird_srcs_" + ctx.attrs.name, dir = True)
 
     ctx.actions.symlinked_dir(
         mockingbird_srcs_folder,
@@ -180,14 +183,14 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> Mockingbird
 
     mockingbird_tset = ctx.actions.tset(MockingbirdLibraryInfoTSet, value = mockingbird_record, children = children)
 
-    return MockingbirdLibraryInfo(
+    return [MockingbirdLibraryInfo(
         name = ctx.attrs.name,
         tset = mockingbird_tset,
-    )
+    )]
 
 def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams:
     mockingbird_gen_sources = []
-    if is_test_target:
+    if not "dummy_library" in ctx.attrs.labels:
         for dep in cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx):
             if MockingbirdSourcesInfo in dep:
                 for src in dep[MockingbirdSourcesInfo].srcs:
