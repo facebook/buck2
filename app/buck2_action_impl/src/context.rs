@@ -45,6 +45,7 @@ use buck2_common::cas_digest::CasDigest;
 use buck2_core::category::Category;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::soft_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use chrono::TimeZone;
@@ -101,6 +102,8 @@ use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
+    #[error("dynamic_output output artifacts must be output artifacts: `{0}`")]
+    NotOutputArtifact(String),
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -1051,6 +1054,19 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             .iter()
             .map(|x| x.artifact())
             .collect::<anyhow::Result<_>>()?;
+
+        for output in &outputs {
+            match output {
+                StarlarkOutputOrDeclaredArtifact::Output(_) => {}
+                StarlarkOutputOrDeclaredArtifact::Declared(d) => {
+                    soft_error!(
+                        "dynamic_output_output_declared",
+                        DynamicOutputError::NotOutputArtifact(d.to_string()).into()
+                    )?;
+                }
+            }
+        }
+
         let outputs = outputs.items.iter().map(|x| x.output_artifact()).collect();
 
         // Registration
