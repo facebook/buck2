@@ -611,7 +611,7 @@ def cxx_dist_link(
     ctx.actions.dynamic_output(
         dynamic = final_link_inputs,
         inputs = [],
-        outputs = [output.as_output()] + ([linker_map] if linker_map else []) + [linker_argsfile_out],
+        outputs = [output.as_output()] + ([linker_map.as_output()] if linker_map else []) + [linker_argsfile_out.as_output()],
         f = thin_lto_final_link,
     )
 
