@@ -21,6 +21,7 @@ use crate::buck::utf8_output;
 use crate::buck::Buck;
 use crate::json_project::Sysroot;
 
+#[derive(Debug)]
 pub enum SysrootConfig {
     Sysroot(PathBuf),
     BuckConfig,

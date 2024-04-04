@@ -25,6 +25,7 @@ use crate::sysroot::resolve_rustup_sysroot;
 use crate::sysroot::SysrootConfig;
 use crate::target::Target;
 
+#[derive(Debug)]
 pub struct Develop {
     pub input: Input,
     pub sysroot: SysrootConfig,
@@ -37,6 +38,7 @@ pub struct OutputCfg {
     pretty: bool,
 }
 
+#[derive(Debug)]
 pub enum Input {
     Targets(Vec<Target>),
     Files(Vec<PathBuf>),
