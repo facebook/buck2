@@ -887,10 +887,7 @@ where
 
     // Prohibit parsing `:foo` as `root//:foo`.
     if relative.dir().is_none() && cell_alias.is_none() {
-        soft_error!(
-            "adjacent_target_no_path",
-            TargetPatternParseError::AbsoluteRequired.into()
-        )?;
+        return Err(TargetPatternParseError::AbsoluteRequired.into());
     }
 
     // We ask for the cell, but if the pattern is relative we might not use it
