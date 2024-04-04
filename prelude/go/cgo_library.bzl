@@ -91,13 +91,13 @@ def _cgo(
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     cmd = cmd_args(
-        go_toolchain.cgo,
+        go_toolchain.cgo_wrapper,
+        cmd_args(go_toolchain.cgo, format = "--cgo={}"),
         # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
         # sure how to pass in an output dir *and* enumerate the sources we know will
         # generated w/o v2 complaining that the output dir conflicts with the nested
         # artifacts.
-        cmd_args(go_srcs[0].as_output(), format = "-objdir={}", parent = 1),
-        "--",
+        cmd_args(go_srcs[0].as_output(), format = "--output={}/.."),
         srcs,
         hidden = [src.as_output() for src in go_srcs + c_headers + c_srcs],
     )
