@@ -36,6 +36,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -171,6 +172,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) allow_dep_file_cache_upload: bool,
     pub(crate) force_full_hybrid_if_capable: bool,
     pub(crate) unique_input_inodes: bool,
+    pub(crate) remote_execution_dependencies: Vec<RemoteExecutorDependency>,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
@@ -649,7 +651,8 @@ impl IncrementalActionExecutable for RunAction {
             .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
             .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
-            .with_unique_input_inodes(self.inner.unique_input_inodes);
+            .with_unique_input_inodes(self.inner.unique_input_inodes)
+            .with_remote_execution_dependencies(self.inner.remote_execution_dependencies.clone());
 
         let (mut dep_file_bundle, req) = if let Some(visitor) = dep_file_visitor {
             let bundle = make_dep_file_bundle(ctx, visitor, cmdline_digest, req.paths())?;

@@ -17,6 +17,7 @@ use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
@@ -321,6 +322,8 @@ pub struct CommandExecutionRequest {
     /// Remote dep file key, if the action has a dep file.
     /// If this key is set and remote dep file caching is enabled, it will be used to query the cache.
     pub remote_dep_file_key: Option<DepFileDigest>,
+    /// RE dependencies to pass in action metadata.
+    remote_execution_dependencies: Vec<RemoteExecutorDependency>,
 }
 
 impl CommandExecutionRequest {
@@ -349,6 +352,7 @@ impl CommandExecutionRequest {
             worker: None,
             unique_input_inodes: false,
             remote_dep_file_key: None,
+            remote_execution_dependencies: Vec::new(),
         }
     }
 
@@ -527,6 +531,18 @@ impl CommandExecutionRequest {
 
     pub fn unique_input_inodes(&self) -> bool {
         self.unique_input_inodes
+    }
+
+    pub fn with_remote_execution_dependencies(
+        mut self,
+        remote_execution_dependencies: Vec<RemoteExecutorDependency>,
+    ) -> Self {
+        self.remote_execution_dependencies = remote_execution_dependencies;
+        self
+    }
+
+    pub fn remote_execution_dependencies(&self) -> &Vec<RemoteExecutorDependency> {
+        &self.remote_execution_dependencies
     }
 }
 

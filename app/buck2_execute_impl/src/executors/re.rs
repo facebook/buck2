@@ -251,6 +251,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 PreparedAction {
                     action_and_blobs,
                     platform,
+                    remote_execution_dependencies,
                 },
             digest_config,
         } = command;
@@ -296,7 +297,9 @@ impl PreparedCommandExecutor for ReExecutor {
                 &action_and_blobs.action,
                 *digest_config,
                 platform,
-                &self.dependencies,
+                self.dependencies
+                    .iter()
+                    .chain(remote_execution_dependencies.iter()),
             )
             .await?;
 

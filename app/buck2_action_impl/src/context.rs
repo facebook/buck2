@@ -43,6 +43,7 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use buck2_common::cas_digest::CasDigest;
 use buck2_core::category::Category;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::soft_error;
@@ -64,6 +65,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::DictOf;
+use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
@@ -642,6 +644,10 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     ///     and `--local-only` CLI flags. The CLI flags take precedence.
     ///     * The `force_full_hybrid_if_capable` option overrides the `use_limited_hybrid` hybrid.
     ///     The options listed above take precedence if set.
+    /// * `remote_execution_dependencies`: list of dependencies which is passed to Remote Execution.
+    ///   Each dependency is dictionary with the following keys:
+    ///     * `smc_tier`: name of the SMC tier to call by RE Scheduler.
+    ///     * `id`: name of the dependency.
     ///
     /// When actions execute, they'll do so from the root of the repository. As they execute,
     /// actions have exclusive access to their output directory.
@@ -679,6 +685,8 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] unique_input_inodes: bool,
         #[starlark(require = named)] error_handler: Option<StarlarkCallable<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
+        #[starlark(require = named, default=UnpackList::default())]
+        remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -843,6 +851,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             worker: heap.alloc(starlark_worker),
         });
 
+        let re_dependencies = remote_execution_dependencies
+            .into_iter()
+            .map(RemoteExecutorDependency::parse)
+            .collect::<anyhow::Result<Vec<RemoteExecutorDependency>>>()?;
+
         let action = UnregisteredRunAction {
             category,
             identifier,
@@ -857,6 +870,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             allow_dep_file_cache_upload,
             force_full_hybrid_if_capable,
             unique_input_inodes,
+            remote_execution_dependencies: re_dependencies,
         };
         this.state().register_action(
             artifacts.inputs,

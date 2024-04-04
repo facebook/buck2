@@ -16,6 +16,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
+use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_futures::cancellation::CancellationContext;
@@ -188,6 +189,7 @@ impl CommandExecutor {
                 digest_config,
                 self.0.options.output_paths_behavior,
                 request.unique_input_inodes(),
+                request.remote_execution_dependencies(),
             )?;
 
             anyhow::Ok(action)
@@ -208,6 +210,7 @@ fn re_create_action(
     digest_config: DigestConfig,
     output_paths_behavior: OutputPathsBehavior,
     unique_input_inodes: bool,
+    remote_execution_dependencies: &Vec<RemoteExecutorDependency>,
 ) -> anyhow::Result<PreparedAction> {
     let mut command = RE::Command {
         arguments: args,
@@ -309,5 +312,6 @@ fn re_create_action(
         platform: command
             .platform
             .expect("We did put a platform a few lines up"),
+        remote_execution_dependencies: remote_execution_dependencies.to_owned(),
     })
 }
