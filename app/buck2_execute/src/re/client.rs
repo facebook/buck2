@@ -251,11 +251,11 @@ impl RemoteExecutionClient {
             .await
     }
 
-    pub async fn execute(
+    pub async fn execute<'a>(
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
-        dependencies: &[RemoteExecutorDependency],
+        dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
@@ -967,11 +967,11 @@ impl RemoteExecutionClientImpl {
         }
     }
 
-    pub async fn execute(
+    pub async fn execute<'a>(
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
-        dependencies: &[RemoteExecutorDependency],
+        dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
@@ -991,7 +991,7 @@ impl RemoteExecutionClientImpl {
                 ..Default::default()
             }),
             dependencies: dependencies
-                .iter()
+                .into_iter()
                 .map(|dep| TDependency {
                     smc_tier: dep.smc_tier.clone(),
                     id: dep.id.clone(),

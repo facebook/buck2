@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -25,7 +24,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use derive_more::Display;
-use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -45,8 +43,6 @@ enum CommandExecutorConfigErrors {
     RePropertiesNotADict(String, String),
     #[error("expected `{0}` to be set")]
     MissingField(&'static str),
-    #[error("invalid fields in RemoteExecution Dependency: actual `{0}`, expected `{1}`")]
-    InvalidFieldsInReDependency(String, String),
     #[error("invalid value in `{0}`")]
     InvalidField(&'static str),
     #[error(
@@ -114,9 +110,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         >,
         #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
         #[starlark(default = NoneOr::None, require = named)] remote_output_paths: NoneOr<&str>,
-        #[starlark(default=UnpackList::default())] remote_execution_dependencies: UnpackList<
-            SmallMap<String, String>,
-        >,
+        #[starlark(default=UnpackList::default(), require = named)]
+        remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
     ) -> anyhow::Result<StarlarkCommandExecutorConfig> {
         let command_executor_config = {
             let remote_execution_max_input_files_mebibytes =
@@ -148,9 +143,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 })
             };
 
-            let re_dependencies: Vec<RemoteExecutorDependency> = remote_execution_dependencies
+            let re_dependencies = remote_execution_dependencies
                 .into_iter()
-                .map(parse_dependency)
+                .map(RemoteExecutorDependency::parse)
                 .collect::<anyhow::Result<Vec<RemoteExecutorDependency>>>()?;
 
             let re_use_case = if remote_execution_use_case.is_none() {
@@ -313,32 +308,4 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             command_executor_config,
         )))
     }
-}
-
-// todo we could probably define a type for this
-fn parse_dependency(dep_map: SmallMap<String, String>) -> anyhow::Result<RemoteExecutorDependency> {
-    let expected_fields: HashSet<std::string::String> =
-        HashSet::from_iter(["smc_tier".to_owned(), "id".to_owned()]);
-    let actual_fields: HashSet<std::string::String> =
-        dep_map.keys().cloned().collect::<HashSet<_>>();
-
-    if expected_fields != actual_fields {
-        return Err(CommandExecutorConfigErrors::InvalidFieldsInReDependency(
-            actual_fields.iter().join(", "),
-            expected_fields.iter().join(", "),
-        )
-        .into());
-    }
-
-    let get_field = |name: &str| -> anyhow::Result<String> {
-        dep_map
-            .get(name)
-            .map(|f| f.to_string())
-            .context("Failed to parse RE dependency")
-    };
-
-    Ok(RemoteExecutorDependency {
-        smc_tier: get_field("smc_tier")?,
-        id: get_field("id")?,
-    })
 }

@@ -15,10 +15,13 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
+use itertools::Itertools;
 use once_cell::sync::Lazy;
+use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 use static_interner::Intern;
 use static_interner::Interner;
@@ -36,6 +39,14 @@ impl Default for LocalExecutorOptions {
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+enum RemoteExecutorDependencyErrors {
+    #[error("RE dependency requires `{0}` to be set")]
+    MissingField(&'static str),
+    #[error("too many fields set for RE dependency: `{0}`")]
+    UnsupportedFields(String),
+}
+
 /// A Remote Action can specify a list of dependencies that are required before starting the execution `https://fburl.com/wiki/offzl3ox`
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub struct RemoteExecutorDependency {
@@ -43,6 +54,27 @@ pub struct RemoteExecutorDependency {
     pub smc_tier: String,
     /// The id of the dependency to acquire
     pub id: String,
+}
+
+impl RemoteExecutorDependency {
+    pub fn parse(dep_map: SmallMap<&str, &str>) -> anyhow::Result<RemoteExecutorDependency> {
+        let smc_tier = dep_map
+            .get("smc_tier")
+            .context(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
+        let id = dep_map
+            .get("id")
+            .context(RemoteExecutorDependencyErrors::MissingField("id"))?;
+        if dep_map.len() > 2 {
+            return Err(RemoteExecutorDependencyErrors::UnsupportedFields(
+                dep_map.keys().join(", "),
+            )
+            .into());
+        }
+        Ok(RemoteExecutorDependency {
+            smc_tier: smc_tier.to_string(),
+            id: id.to_string(),
+        })
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative)]

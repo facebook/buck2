@@ -382,11 +382,11 @@ impl ManagedRemoteExecutionClient {
             .await
     }
 
-    pub async fn execute(
+    pub async fn execute<'a>(
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
-        dependencies: &[RemoteExecutorDependency],
+        dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,

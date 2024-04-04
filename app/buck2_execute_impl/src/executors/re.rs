@@ -120,7 +120,7 @@ impl ReExecutor {
         ControlFlow::Continue(manager)
     }
 
-    async fn re_execute(
+    async fn re_execute<'a>(
         &self,
         mut manager: CommandExecutionManager,
         identity: &ReActionIdentity<'_>,
@@ -128,7 +128,7 @@ impl ReExecutor {
         action_digest: &ActionDigest,
         digest_config: DigestConfig,
         platform: &RE::Platform,
-        dependencies: &[RemoteExecutorDependency],
+        dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
