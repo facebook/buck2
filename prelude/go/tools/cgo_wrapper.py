@@ -23,6 +23,8 @@ def main(argv):
     args = parser.parse_args(argv[1:])
 
     output = args.output.resolve(strict=False)
+    # the only reason we need this whapper is to create `-objdir`,
+    # because neither `go tool cgo` nor buck can create it.
     os.makedirs(output, exist_ok=True)
 
     env = os.environ.copy()

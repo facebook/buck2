@@ -67,7 +67,7 @@ def _cgo(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         own_pre: list[CPreprocessor],
-        inherited_pre: list[CPreprocessorInfo]) -> (list[Artifact], list[Artifact], list[Artifact]):
+        inherited_pre: list[CPreprocessorInfo]) -> (list[Artifact], list[Artifact], list[Artifact], Artifact):
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
@@ -75,17 +75,17 @@ def _cgo(
     # If you change this dir or naming convention, please
     # update the corresponding logic in `fbgolist`.
     # Otherwise editing and linting for Go will break.
-    gen_dir = "cgo_gen"
+    gen_dir = ctx.actions.declare_output("cgo_gen", dir = True)
 
     go_srcs = []
     c_headers = []
     c_srcs = []
-    go_srcs.append(ctx.actions.declare_output(paths.join(gen_dir, "_cgo_gotypes.go")))
-    c_srcs.append(ctx.actions.declare_output(paths.join(gen_dir, "_cgo_export.c")))
-    c_headers.append(ctx.actions.declare_output(paths.join(gen_dir, "_cgo_export.h")))
+    go_srcs.append(gen_dir.project("_cgo_gotypes.go"))
+    c_srcs.append(gen_dir.project("_cgo_export.c"))
+    c_headers.append(gen_dir.project("_cgo_export.h"))
     for src in srcs:
-        go_srcs.append(ctx.actions.declare_output(paths.join(gen_dir, paths.replace_extension(src.basename, ".cgo1.go"))))
-        c_srcs.append(ctx.actions.declare_output(paths.join(gen_dir, paths.replace_extension(src.basename, ".cgo2.c"))))
+        go_srcs.append(gen_dir.project(paths.replace_extension(src.basename, ".cgo1.go")))
+        c_srcs.append(gen_dir.project(paths.replace_extension(src.basename, ".cgo2.c")))
 
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -93,13 +93,8 @@ def _cgo(
     cmd = cmd_args(
         go_toolchain.cgo_wrapper,
         cmd_args(go_toolchain.cgo, format = "--cgo={}"),
-        # TODO(agallagher): cgo outputs a dir with generated sources, but I'm not
-        # sure how to pass in an output dir *and* enumerate the sources we know will
-        # generated w/o v2 complaining that the output dir conflicts with the nested
-        # artifacts.
-        cmd_args(go_srcs[0].as_output(), format = "--output={}/.."),
+        cmd_args(gen_dir.as_output(), format = "--output={}"),
         srcs,
-        hidden = [src.as_output() for src in go_srcs + c_headers + c_srcs],
     )
 
     env = get_toolchain_env_vars(go_toolchain)
@@ -107,7 +102,7 @@ def _cgo(
 
     ctx.actions.run(cmd, env = env, category = "cgo")
 
-    return go_srcs, c_headers, c_srcs
+    return go_srcs, c_headers, c_srcs, gen_dir
 
 def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_pre: list[CPreprocessorInfo]) -> cmd_args:
     pre = cxx_merge_cpreprocessors(ctx, own_pre, inherited_pre)
@@ -163,7 +158,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
             fail("unexpected extension: {}".format(src))
 
     # Generate CGO and C sources.
-    go_srcs, c_headers, c_srcs = _cgo(ctx, cgo_srcs, [own_pre], inherited_pre)
+    go_srcs, c_headers, c_srcs, gen_dir = _cgo(ctx, cgo_srcs, [own_pre], inherited_pre)
     cxx_srcs.extend(c_srcs)
 
     # Wrap the generated CGO C headers in a CPreprocessor object for compiling.
@@ -233,7 +228,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # to work with cgo. And when nearly every FB service client is cgo,
     # we need to support it well.
     return [
-        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = go_srcs),
+        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = [gen_dir]),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),
