@@ -63,7 +63,7 @@ def idx(x: [typing.Any, None], key: typing.Any) -> [typing.Any, None]:
 def dedupe_by_value(vals: list[typing.Any]) -> list[typing.Any]:
     return {val: None for val in vals}.keys()
 
-def map_val(func: typing.Callable, val: [typing.Any, None]) -> [typing.Any, None]:
+def map_val(func: typing.Callable[[typing.Any], typing.Any], val: [typing.Any, None]) -> [typing.Any, None]:
     """
     If `val` if `None`, return `None`, else apply `func` to `val` and return the
     result.

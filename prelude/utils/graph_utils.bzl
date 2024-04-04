@@ -9,7 +9,7 @@ load("@prelude//utils:expect.bzl", "expect")
 
 def pre_order_traversal(
         graph: dict[typing.Any, list[typing.Any]],
-        node_formatter: typing.Callable = str) -> list[typing.Any]:
+        node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
     """
     Perform a pre-order (topologically sorted) traversal of `graph` and return the ordered nodes
     """
@@ -46,7 +46,7 @@ def pre_order_traversal(
 
 def post_order_traversal(
         graph: dict[typing.Any, list[typing.Any]],
-        node_formatter: typing.Callable = str) -> list[typing.Any]:
+        node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
     """
     Performs a post-order traversal of `graph`.
     """
@@ -82,7 +82,7 @@ def post_order_traversal(
 
 def fail_cycle(
         graph: dict[typing.Any, list[typing.Any]],
-        node_formatter: typing.Callable) -> typing.Never:
+        node_formatter: typing.Callable[[typing.Any], str]) -> typing.Never:
     cycle = find_cycle(graph)
     if cycle:
         fail(
@@ -182,7 +182,7 @@ def breadth_first_traversal_by(
         graph_nodes: [dict[typing.Any, typing.Any], None],
         roots: list[typing.Any],
         get_nodes_to_traverse_func: typing.Callable,
-        node_formatter: typing.Callable = str) -> list[typing.Any]:
+        node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
     """
     Performs a breadth first traversal of `graph_nodes`, beginning
     with the `roots` and queuing the nodes returned by`get_nodes_to_traverse_func`.

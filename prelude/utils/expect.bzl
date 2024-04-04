@@ -43,7 +43,7 @@ def expect_non_none(val, msg: str = "unexpected none", *fmt_args, **fmt_kwargs):
         fail(msg.format(*fmt_args, **fmt_kwargs))
     return val
 
-def expect_type(name: str, check: typing.Callable, desc: str, val: typing.Any):
+def expect_type(name: str, check: typing.Callable[[typing.Any], bool], desc: str, val: typing.Any):
     """Fails if check(val) if not truthy. name, desc are used for the error message.
 
     Usually you shouldn't need to directly use this, and prefer the expect_* family of functions
