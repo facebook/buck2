@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -15,10 +14,8 @@ use std::sync::Mutex;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::file_ops::FileChangeTracker;
-use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
@@ -33,7 +30,6 @@ use notify::EventKind;
 use notify::RecommendedWatcher;
 use notify::Watcher;
 use starlark_map::ordered_set::OrderedSet;
-use tracing::info;
 
 use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
@@ -81,14 +77,12 @@ impl ChangeType {
 /// Used to dedupe events, since notify sends a notification on every change.
 #[derive(Allocative)]
 struct NotifyFileData {
-    ignored: u64,
     events: OrderedSet<(CellPath, ChangeType)>,
 }
 
 impl NotifyFileData {
     fn new() -> Self {
         Self {
-            ignored: 0,
             events: OrderedSet::new(),
         }
     }
@@ -98,7 +92,6 @@ impl NotifyFileData {
         event: notify::Result<notify::Event>,
         root: &ProjectRoot,
         cells: &CellResolver,
-        ignore_specs: &HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<()> {
         let event = event?;
         let change_type = ChangeType::new(event.kind);
@@ -118,19 +111,8 @@ impl NotifyFileData {
             }
 
             let cell_path = cells.get_cell_path(&path)?;
-            let ignore = ignore_specs
-                .get(&cell_path.cell())
-                .expect("unexpected cell name mismatch")
-                .is_match(cell_path.path());
 
-            info!(
-                "FileWatcher: {:?} {:?} (ignore = {})",
-                path, change_type, ignore
-            );
-
-            if ignore || change_type == ChangeType::None {
-                self.ignored += 1;
-            } else {
+            if change_type != ChangeType::None {
                 self.events.insert((cell_path, change_type));
             }
         }
@@ -160,7 +142,6 @@ impl NotifyFileData {
         }
 
         let mut stats = FileWatcherStats::new(changed_paths.len(), None, None, None);
-        stats.add_ignored(self.ignored);
         for path in changed_paths {
             // The event type and watcher kind are just made up, but that's not a big deal
             // since we only use this path open source, where we don't log the information to Scuba anyway.
@@ -184,18 +165,14 @@ pub struct NotifyFileWatcher {
 }
 
 impl NotifyFileWatcher {
-    pub fn new(
-        root: &ProjectRoot,
-        cells: CellResolver,
-        ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<Self> {
+    pub fn new(root: &ProjectRoot, cells: CellResolver) -> anyhow::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
         let mut watcher = notify::recommended_watcher(move |event| {
             let mut guard = data2.lock().unwrap();
             if let Ok(state) = &mut *guard {
-                if let Err(e) = state.process(event, &root2, &cells, &ignore_specs) {
+                if let Err(e) = state.process(event, &root2, &cells) {
                     *guard = Err(e);
                 }
             }

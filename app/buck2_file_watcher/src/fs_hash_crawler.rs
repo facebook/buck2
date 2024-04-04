@@ -21,10 +21,8 @@ use async_trait::async_trait;
 use blake3::Hash;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::FileType;
-use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -48,21 +46,15 @@ use crate::stats::FileWatcherStats;
 pub struct FsHashCrawler {
     root: ProjectRoot,
     cells: CellResolver,
-    ignore_specs: HashMap<CellName, IgnoreSet>,
     snapshot: Arc<Mutex<FsSnapshot>>,
 }
 
 impl FsHashCrawler {
-    pub fn new(
-        root: &ProjectRoot,
-        cells: CellResolver,
-        ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<Self> {
+    pub fn new(root: &ProjectRoot, cells: CellResolver) -> anyhow::Result<Self> {
         let snapshot = Arc::new(Mutex::new(FsSnapshot::build(root, &cells)?));
         Ok(Self {
             root: root.dupe(),
             cells,
-            ignore_specs,
             snapshot,
         })
     }
@@ -77,7 +69,7 @@ impl FsHashCrawler {
             tokio::task::spawn_blocking(move || FsSnapshot::build(&root, &cells)).await??;
         let mut guard = self.snapshot.lock().unwrap();
         let old_snapshot = mem::replace(&mut *guard, new_snapshot);
-        let (stats, changes) = old_snapshot.get_updates_for_dice(&guard, &self.ignore_specs)?;
+        let (stats, changes) = old_snapshot.get_updates_for_dice(&guard)?;
         changes.write_to_dice(&mut dice)?;
         Ok((stats, dice))
     }
@@ -186,22 +178,11 @@ impl FsSnapshot {
     fn get_updates_for_dice(
         &self,
         new_snapshot: &FsSnapshot,
-        ignore_specs: &HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, FileChangeTracker)> {
         let events = self.get_updates(new_snapshot)?;
         let mut changed = FileChangeTracker::new();
         let mut stats = FileWatcherStats::new(events.len(), None, None, None);
-        let mut ignored = 0;
         for event in events.into_iter() {
-            let ignore = ignore_specs
-                .get(&event.cell_path.cell())
-                .map_or(false, |i| i.is_match(event.cell_path.path()));
-
-            if ignore {
-                ignored += 1;
-                continue;
-            }
-
             stats.add(event.cell_path.to_string(), event.event, event.kind);
             match (event.event, event.kind) {
                 (
@@ -233,7 +214,6 @@ impl FsSnapshot {
                 }
             }
         }
-        stats.add_ignored(ignored);
         Ok((stats.finish(), changed))
     }
 
