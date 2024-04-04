@@ -23,7 +23,11 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
+use starlark_map::small_map::SmallMap;
 
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
+use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
 use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 
@@ -39,7 +43,15 @@ use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 pub struct DynamicLambdaParams<'v> {
     pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
     pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
-    pub lambda: StarlarkCallable<'v, (FrozenValue, FrozenValue, FrozenValue), NoneType>,
+    pub lambda: StarlarkCallable<
+        'v,
+        (
+            FrozenValue,
+            SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+            SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
+        ),
+        NoneType,
+    >,
 }
 
 #[derive(
@@ -53,7 +65,14 @@ pub struct DynamicLambdaParams<'v> {
 pub struct FrozenDynamicLambdaParams {
     pub attributes: FrozenValue,
     pub plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins>,
-    pub lambda: FrozenStarlarkCallable<(FrozenValue, FrozenValue, FrozenValue), NoneType>,
+    pub lambda: FrozenStarlarkCallable<
+        (
+            FrozenValue,
+            SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+            SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
+        ),
+        NoneType,
+    >,
 }
 
 #[starlark_value(type = "AttributesPluginLambda")]

@@ -17,7 +17,9 @@ use buck2_build_api::analysis::dynamic_lambda_params::DynamicLambdaParams;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
@@ -1026,7 +1028,11 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] outputs: UnpackListOrTuple<StarlarkOutputOrDeclaredArtifact>,
         #[starlark(require = named)] f: StarlarkCallable<
             'v,
-            (FrozenValue, FrozenValue, FrozenValue),
+            (
+                FrozenValue,
+                SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+                SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
+            ),
             NoneType,
         >,
         heap: &'v Heap,

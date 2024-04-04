@@ -277,7 +277,15 @@ impl Deferred for DynamicLambda {
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
     pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
-    pub lambda: StarlarkCallable<'v, (FrozenValue, FrozenValue, FrozenValue), NoneType>,
+    pub lambda: StarlarkCallable<
+        'v,
+        (
+            FrozenValue,
+            SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+            SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
+        ),
+        NoneType,
+    >,
     pub outputs: Value<'v>,
     pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
     pub artifacts: Value<'v>,
