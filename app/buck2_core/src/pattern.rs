@@ -8,7 +8,7 @@
  */
 
 //! Implements target pattern resolution.
-#![doc = include_str!("target_pattern.md")]
+#![doc = include_str!("pattern/target_pattern.md")]
 
 mod ascii_pattern;
 pub mod parse_package;
