@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -333,7 +334,14 @@ impl Buck {
         Buck { mode }
     }
 
-    fn command(&self, subcommand_name: &str) -> Command {
+    /// Invoke `buck2` with the given subcommands.
+    ///
+    /// If you want to pass config options, use `command_with_config`.
+    fn command<I, S>(&self, subcommands: I) -> Command
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
         let mut cmd = Command::new("buck2");
 
         // rust-analyzer invokes the check-on-save command with `RUST_BACKTRACE=short`
@@ -344,22 +352,28 @@ impl Buck {
             .env_remove("RUST_LIB_BACKTRACE");
 
         cmd.args(["--isolation-dir", ".rust-analyzer"]);
-        cmd.arg(subcommand_name);
+        cmd.args(subcommands);
         cmd.args(["--oncall", "rust_devx"]);
 
         cmd
     }
 
-    fn bxl_command(&self) -> Command {
-        let mut cmd = self.command("bxl");
-        cmd.args(["-c", "client.id=rust-project"]);
-
+    /// Invoke `buck2` with the given subcommands that accept config options.
+    ///
+    /// You must use this when invoking a buck subcommand that accepts config options to ensure the cache is not invalidated.
+    fn command_with_config<I, S>(&self, subcommands: I) -> Command
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let mut cmd = self.command(subcommands);
+        cmd.args(["-c=client.id=rust-project", "-c=rust.failure_filter=true"]);
         cmd
     }
 
     /// Return the absolute path of the current Buck project root.
     pub fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command("root");
+        let mut command = self.command(["root"]);
         command.arg("--kind=project");
 
         let mut stdout = utf8_output(command.output(), &command)?;
@@ -373,7 +387,7 @@ impl Buck {
     }
 
     pub fn resolve_root_of_file(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command("root");
+        let mut command = self.command(["root"]);
         command.arg("--kind=project");
 
         if let Some(parent) = path.parent() {
@@ -392,14 +406,8 @@ impl Buck {
     }
 
     pub fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command("audit");
-        command.args([
-            "config",
-            "-c=rust.failure_filter=true",
-            "--json",
-            "--",
-            "rust.sysroot_src_path",
-        ]);
+        let mut command = self.command_with_config(["audit", "config"]);
+        command.args(["--json", "--", "rust.sysroot_src_path"]);
         command
             .stderr(Stdio::null())
             .stdout(Stdio::piped())
@@ -428,16 +436,13 @@ impl Buck {
         use_clippy: bool,
         saved_file: &Path,
     ) -> Result<Vec<PathBuf>, anyhow::Error> {
-        let mut command = self.bxl_command();
+        let mut command = self.command_with_config(["bxl"]);
 
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
 
-        command.args([
-            "prelude//rust/rust-analyzer/check.bxl:check",
-            "-c=rust.failure_filter=true",
-        ]);
+        command.arg("prelude//rust/rust-analyzer/check.bxl:check");
 
         let mut file_path = saved_file.to_owned();
         if !file_path.is_absolute() {
@@ -476,13 +481,12 @@ impl Buck {
             return Ok(ExpandedAndResolved::default());
         }
 
-        let mut command = self.bxl_command();
+        let mut command = self.command_with_config(["bxl"]);
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
         command.args([
             "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
-            "-c=rust.failure_filter=true",
             "--",
             "--targets",
         ]);
@@ -496,7 +500,7 @@ impl Buck {
         targets: &[Target],
     ) -> Result<BTreeMap<Target, AliasedTargetInfo>, anyhow::Error> {
         // FIXME: Do this in bxl as well instead of manually writing a separate query
-        let mut command = self.command("cquery");
+        let mut command = self.command_with_config(["cquery"]);
 
         // Fetch all aliases used by transitive deps. This is so we
         // can translate an apparent dependency of e.g.
@@ -507,11 +511,7 @@ impl Buck {
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
-        command.args([
-            "-c=rust.failure_filter=true",
-            "--output-all-attributes",
-            "kind('^alias$', deps(%Ss))",
-        ]);
+        command.args(["--output-all-attributes", "kind('^alias$', deps(%Ss))"]);
         command.args(targets);
 
         info!("resolving aliased libraries");
@@ -531,17 +531,9 @@ impl Buck {
         &self,
         files: &Vec<PathBuf>,
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let mut command = self.command("uquery");
+        let mut command = self.command_with_config(["uquery"]);
 
-        command.args([
-            // Limit fb_xplat to just generate CXX targets (unsuffixed)
-            // so that we don't end up with a bunch of duplicate targets
-            // pointing to the same crate
-            "-c=xplat.available_platforms=CXX",
-            "--json",
-            "owner(\"%s\")",
-            "--",
-        ]);
+        command.args(["--json", "owner(\"%s\")", "--"]);
         command.args(files);
 
         info!(?files, "querying buck to determine owner");
