@@ -13,6 +13,7 @@
 # their own constraints.
 CONSTRAINT_SETTING_ORDER = [
     "ovr_config//build_mode/constraints:build_mode",
+    "ovr_config//build_mode/constraints:core_build_mode",
     "ovr_config//os/constraints:os",
     "ovr_config//cpu/constraints:cpu",
     "ovr_config//build_mode/constraints:lto",
