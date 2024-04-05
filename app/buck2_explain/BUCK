@@ -1,0 +1,18 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("build_infra")
+
+# TODO: use rust_library later
+rust_binary(
+    name = "buck2_explain",
+    srcs = glob(
+        ["src/*"],
+    ),
+    mapped_srcs = {
+        "//buck2/app/buck2_explain/js:explain_html": "src/explain.html",
+    },
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+    ],
+)
