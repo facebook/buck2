@@ -52,9 +52,7 @@ pub fn to_json_project(
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(mode);
-
-    let cwd = std::env::current_dir()?;
-    let project_root = buck.resolve_project_root(&cwd)?;
+    let project_root = buck.resolve_project_root()?;
 
     let ExpandedAndResolved {
         expanded_targets: _,
@@ -360,7 +358,21 @@ impl Buck {
     }
 
     /// Return the absolute path of the current Buck project root.
-    pub fn resolve_project_root(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
+    pub fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
+        let mut command = self.command("root");
+        command.arg("--kind=project");
+
+        let mut stdout = utf8_output(command.output(), &command)?;
+        truncate_line_ending(&mut stdout);
+
+        if enabled!(Level::TRACE) {
+            trace!(%stdout, "got root from buck");
+        }
+
+        Ok(stdout.into())
+    }
+
+    pub fn resolve_root_of_file(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command("root");
         command.arg("--kind=project");
 

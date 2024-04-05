@@ -34,7 +34,7 @@ impl Check {
     pub fn run(&self) -> Result<(), anyhow::Error> {
         let buck = &self.buck;
 
-        let cell_root = buck.resolve_project_root(&self.saved_file)?;
+        let cell_root = buck.resolve_root_of_file(&self.saved_file)?;
         let diagnostic_files = buck.check_saved_file(self.use_clippy, &self.saved_file)?;
 
         let mut diagnostics = vec![];

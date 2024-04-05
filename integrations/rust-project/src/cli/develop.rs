@@ -137,8 +137,7 @@ impl Develop {
             ..
         } = self;
 
-        let cwd = std::env::current_dir()?;
-        let project_root = buck.resolve_project_root(&cwd)?;
+        let project_root = buck.resolve_project_root()?;
 
         info!("building generated code");
         let expanded_and_resolved = buck.expand_and_resolve(&targets)?;
