@@ -10,6 +10,7 @@
 #![feature(once_cell_try)]
 #![feature(async_closure)]
 #![feature(error_generic_member_access)]
+#![feature(option_get_or_insert_default)]
 #![feature(if_let_guard)]
 #![feature(let_chains)]
 #![feature(try_blocks)]

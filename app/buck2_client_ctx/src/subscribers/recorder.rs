@@ -112,6 +112,7 @@ pub(crate) struct InvocationRecorder<'a> {
     time_to_first_test_discovery: Option<Duration>,
     system_total_memory_bytes: Option<u64>,
     file_watcher_stats: Option<buck2_data::FileWatcherStats>,
+    file_watcher_duration: Option<Duration>,
     time_to_last_action_execution_end: Option<Duration>,
     initial_sink_success_count: Option<u64>,
     initial_sink_failure_count: Option<u64>,
@@ -209,6 +210,7 @@ impl<'a> InvocationRecorder<'a> {
             time_to_first_test_discovery: None,
             system_total_memory_bytes: Some(system_memory_stats()),
             file_watcher_stats: None,
+            file_watcher_duration: None,
             time_to_last_action_execution_end: None,
             initial_sink_success_count: None,
             initial_sink_failure_count: None,
@@ -420,6 +422,9 @@ impl<'a> InvocationRecorder<'a> {
                 .and_then(|d| u64::try_from(d.as_millis()).ok()),
             system_total_memory_bytes: self.system_total_memory_bytes,
             file_watcher_stats: self.file_watcher_stats.take(),
+            file_watcher_duration_ms: self
+                .file_watcher_duration
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
             time_to_last_action_execution_end_ms: self
                 .time_to_last_action_execution_end
                 .and_then(|d| u64::try_from(d.as_millis()).ok()),
@@ -865,13 +870,16 @@ impl<'a> InvocationRecorder<'a> {
     fn handle_file_watcher_end(
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,
+        duration: Option<&prost_types::Duration>,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         // We might receive this event twice, so ... deal with it by merging the two.
         // See: https://fb.workplace.com/groups/buck2dev/permalink/3396726613948720/
         self.file_watcher_stats =
             merge_file_watcher_stats(self.file_watcher_stats.take(), file_watcher.stats.clone());
-
+        if let Some(duration) = duration.cloned().and_then(|x| Duration::try_from(x).ok()) {
+            *self.file_watcher_duration.get_or_insert_default() += duration;
+        }
         if let Some(stats) = &file_watcher.stats {
             self.watchman_version = stats.watchman_version.to_owned();
         }
@@ -1005,7 +1013,7 @@ impl<'a> InvocationRecorder<'a> {
                         self.handle_action_execution_end(action, event)
                     }
                     buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
-                        self.handle_file_watcher_end(file_watcher, event)
+                        self.handle_file_watcher_end(file_watcher, end.duration.as_ref(), event)
                     }
                     buck2_data::span_end_event::Data::CacheUpload(cache_upload) => {
                         self.handle_cache_upload_end(cache_upload, event)
