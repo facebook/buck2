@@ -12,6 +12,7 @@ load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnd
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
+load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
@@ -65,6 +66,8 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         for r_dot_java in resources_info.r_dot_java_infos
     ]
 
+    enhance_ctx = create_enhancement_context(ctx)
+    materialized_artifacts = []
     if not ctx.attrs.disable_pre_dex:
         pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
         if ctx.attrs.use_split_dex:
@@ -79,6 +82,10 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
     else:
         jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in java_packaging_deps}
+        if ctx.attrs.preprocess_java_classes_bash:
+            jars_to_owners, materialized_artifacts_dir = get_preprocessed_java_classes(enhance_ctx, jars_to_owners)
+            if materialized_artifacts_dir:
+                materialized_artifacts.append(materialized_artifacts_dir)
         if ctx.attrs.use_split_dex:
             dex_files_info = get_multi_dex(
                 ctx,
@@ -119,7 +126,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
     )
 
     return [
-        AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
+        AndroidApkInfo(apk = output_apk, materialized_artifacts = materialized_artifacts, manifest = resources_info.manifest),
         AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk),
         DefaultInfo(default_output = output_apk, sub_targets = enhance_ctx.get_sub_targets()),
         class_to_srcs,

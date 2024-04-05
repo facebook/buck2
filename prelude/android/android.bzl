@@ -151,6 +151,7 @@ extra_attributes = {
         "native_library_merge_sequence": attrs.option(attrs.list(attrs.any()), default = None),
         "_android_toolchain": toolchains_common.android(),
         "_dex_toolchain": toolchains_common.dex(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),

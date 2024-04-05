@@ -579,6 +579,9 @@ android_instrumentation_apk = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "use_split_dex": attrs.option(attrs.bool(), default = None),
             "primary_dex_patterns": attrs.list(attrs.string(), default = []),
+            "preprocess_java_classes_bash": attrs.option(attrs.arg(), default = None),
+            "preprocess_java_classes_cmd": attrs.option(attrs.arg(), default = None),
+            "preprocess_java_classes_deps": attrs.list(attrs.dep(), default = []),
         }
     ),
 )
