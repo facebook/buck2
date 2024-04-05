@@ -17,7 +17,6 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
-use buck2_core::soft_error;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
@@ -468,21 +467,7 @@ fn provider_field_parse_type<'v>(
     ty: Value<'v>,
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> anyhow::Result<TypeCompiled<FrozenValue>> {
-    match TypeCompiled::new(ty, eval.heap()).map(|ty| ty.to_frozen(eval.frozen_heap())) {
-        Ok(ty) => Ok(ty),
-        Err(e) => {
-            // This function is deprecated.
-            match TypeCompiled::new_with_string(ty, eval.heap())
-                .map(|ty| ty.to_frozen(eval.frozen_heap()))
-            {
-                Err(_e1) => Err(e),
-                Ok(ty) => {
-                    soft_error!("provider_field_type_str", e.into())?;
-                    Ok(ty)
-                }
-            }
-        }
-    }
+    TypeCompiled::new(ty, eval.heap()).map(|ty| ty.to_frozen(eval.frozen_heap()))
 }
 
 #[starlark_module]
