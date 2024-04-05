@@ -188,6 +188,9 @@ impl IncrementalActionExecutable for CopyAction {
             .declare_copy(
                 dest.clone(),
                 value.dupe(),
+                // FIXME(JakobDegen): This is wrong in cases where the input artifact is a source
+                // directory with ignored paths, as the materializer will incorrectly assume that
+                // the source directory matches the artifact value when it doesn't.
                 vec![CopiedArtifact::new(
                     src,
                     dest,
