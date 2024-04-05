@@ -388,6 +388,7 @@ async fn start_persist_event_log_subprocess(
         command.process_group(0);
     }
     let manifold_name = &format!("{}{}", trace_id, path.extension());
+    // TODO T184566736: detach subprocess
     command
         .args(["debug", "persist-event-logs"])
         .args(["--manifold-name", manifold_name])
