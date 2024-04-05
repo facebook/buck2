@@ -29,16 +29,9 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     if cxx_toolchain != None:
         c_compiler = cxx_toolchain.c_compiler_info
 
-        cgo_ldflags = cmd_args(
-            cxx_toolchain.linker_info.linker_flags,
-            go_toolchain.external_linker_flags,
-            quote = "shell",
-        )
-
-        env["CC"] = cmd_args(c_compiler.compiler, delimiter = " ", absolute_prefix = "%cwd%/")
-        env["CGO_CFLAGS"] = cmd_args(c_compiler.compiler_flags, delimiter = " ", absolute_prefix = "%cwd%/")
-        env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = " ", absolute_prefix = "%cwd%/")
-        env["CGO_LDFLAGS"] = cmd_args(cgo_ldflags, delimiter = " ", absolute_prefix = "%cwd%/")
+        env["CC"] = cmd_args(c_compiler.compiler, delimiter = " ", quote = "shell", absolute_prefix = "%cwd%/")
+        env["CGO_CFLAGS"] = cmd_args(c_compiler.compiler_flags, delimiter = " ", quote = "shell", absolute_prefix = "%cwd%/")
+        env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = " ", quote = "shell", absolute_prefix = "%cwd%/")
 
     cmd = cmd_args([
         go_toolchain.go_wrapper,
