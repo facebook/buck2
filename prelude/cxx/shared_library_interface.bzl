@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifact_tset.bzl", "ArtifactTSet", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorInfo")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -83,7 +84,7 @@ def shared_library_interface(
             identifier = shared_lib.short_path,
         )
 
-def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_preprocessor: CPreprocessor, transitive_preprocessor: list[CPreprocessorInfo], target: str) -> DefaultInfo:
+def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_preprocessor: CPreprocessor, transitive_preprocessor: list[CPreprocessorInfo], target: str) -> Artifact:
     # Use the c++ compiler to correctly generate c++ symbols.
     compiler_info = get_cxx_toolchain_info(ctx).cxx_compiler_info
 
@@ -133,4 +134,23 @@ def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_p
         identifier = ctx.attrs.name,
     )
 
-    return DefaultInfo(default_output = tbd_file)
+    return tbd_file
+
+def merge_tbds(ctx: AnalysisContext, tbd_set: ArtifactTSet) -> Artifact:
+    # Run the shlib interface tool with the merge command
+    tbd_file = ctx.actions.declare_output(
+        paths.join("__tbd__", ctx.attrs.name + ".merged.tbd"),
+    )
+    args = cmd_args(get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf[RunInfo])
+    args.add([
+        "merge",
+        project_artifacts(ctx.actions, [tbd_set]),
+        "-o",
+        tbd_file.as_output(),
+    ])
+    ctx.actions.run(
+        args,
+        category = "merge_tbd",
+        identifier = ctx.attrs.name,
+    )
+    return tbd_file

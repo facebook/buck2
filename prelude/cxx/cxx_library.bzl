@@ -67,6 +67,7 @@ load(
     "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
+    "SharedInterfaceLinkable",
     "SharedLibLinkable",
     "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
@@ -198,6 +199,7 @@ load(
 load(
     ":shared_library_interface.bzl",
     "create_tbd",
+    "merge_tbds",
     "shared_library_interface",
 )
 
@@ -439,18 +441,25 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         providers.append(comp_db_info)
 
     # TBD generation is done per-target for stub_from_headers mode and collected at link time.
-    if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
-        if impl_params.shared_library_interface_target == None:
-            fail("tbd generation requires setting the cxx constructor param 'shared_library_interface_target'")
-
-        tbd = create_tbd(
+    shared_interface_linkable = None
+    tbd_output = None
+    if impl_params.shared_library_interface_target and \
+       cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
+        tbd_output = create_tbd(
             ctx,
             cxx_attr_exported_headers(ctx, impl_params.headers_layout),
             own_exported_preprocessor_info,
             inherited_exported_preprocessor_infos,
             impl_params.shared_library_interface_target,
         )
-        sub_targets["tbd"] = [tbd]
+        sub_targets["tbd"] = [DefaultInfo(default_output = tbd_output)]
+        shared_interface_linkable = SharedInterfaceLinkable(
+            interfaces = make_artifact_tset(
+                actions = ctx.actions,
+                label = ctx.label,
+                artifacts = [tbd_output],
+            ),
+        )
 
     # Link Groups
     link_group = get_link_group(ctx)
@@ -516,6 +525,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         extra_static_linkables = extra_static_linkables,
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
         link_execution_preference = link_execution_preference,
+        tbd_output = tbd_output,
     )
     solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
 
@@ -611,6 +621,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             # Export link info from out (exported) deps.
             exported_deps = inherited_exported_link,
             frameworks_linkable = frameworks_linkable,
+            shared_interfaces_linkable = shared_interface_linkable,
             swiftmodule_linkable = swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
         )
@@ -648,6 +659,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             pic_behavior = pic_behavior,
             preferred_linkage = Linkage("static"),
             frameworks_linkable = frameworks_linkable,
+            shared_interfaces_linkable = shared_interface_linkable,
             swiftmodule_linkable = swiftmodule_linkable,
         ), LinkGroupLibInfo(libs = {}), SharedLibraryInfo(set = None)] + additional_providers
 
@@ -951,7 +963,8 @@ def _form_library_outputs(
         dep_infos: LinkArgs,
         extra_static_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         gnu_use_link_groups: bool,
-        link_execution_preference: LinkExecutionPreference) -> _CxxAllLibraryOutputs:
+        link_execution_preference: LinkExecutionPreference,
+        tbd_output: [Artifact, None]) -> _CxxAllLibraryOutputs:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     solib = None
@@ -1036,16 +1049,18 @@ def _form_library_outputs(
                 )
 
                 extra_linker_flags, extra_linker_outputs = impl_params.extra_linker_outputs_factory(ctx)
+
                 result = _shared_library(
-                    ctx,
-                    impl_params,
-                    compiled_srcs.pic.objects,
-                    external_debug_info,
-                    dep_infos,
-                    gnu_use_link_groups,
+                    ctx = ctx,
+                    impl_params = impl_params,
+                    objects = compiled_srcs.pic.objects,
+                    external_debug_info = external_debug_info,
+                    dep_infos = dep_infos,
+                    gnu_use_link_groups = gnu_use_link_groups,
                     extra_linker_flags = extra_linker_flags,
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
                     link_execution_preference = link_execution_preference,
+                    tbd_output = tbd_output,
                 )
                 shlib = result.link_result.linked_object
                 info = result.info
@@ -1374,7 +1389,8 @@ def _shared_library(
         gnu_use_link_groups: bool,
         extra_linker_flags: list[ArgLike],
         link_execution_preference: LinkExecutionPreference,
-        link_ordering: [LinkOrdering, None] = None) -> _CxxSharedLibraryResult:
+        link_ordering: [LinkOrdering, None],
+        tbd_output: [Artifact, None]) -> _CxxSharedLibraryResult:
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.
@@ -1443,10 +1459,31 @@ def _shared_library(
     if cxx_use_shlib_intfs(ctx):
         mode = get_cxx_toolchain_info(ctx).linker_info.shlib_interfaces
         if mode == ShlibInterfacesMode("stub_from_library"):
-            shlib_for_interface = exported_shlib
+            # Generate a library interface from the linked library output.
+            # This will prevent relinking rdeps when changes do not affect
+            # the library symbols.
+            exported_shlib = shared_library_interface(
+                ctx = ctx,
+                shared_lib = exported_shlib,
+            )
         elif mode == ShlibInterfacesMode("stub_from_headers"):
-            # TODO: collect tbd output from providers and merge
-            shlib_for_interface = None
+            # Generate a library interface from its deps exported_headers.
+            # This will allow for linker parallelisation as we do not have
+            # to wait for dependent libraries to link.
+            # If the tbd output is missing this is a non apple_library target,
+            # so skip producing the interface.
+            if tbd_output != None:
+                # collect tbd output from providers and merge
+                all_deps = dedupe(cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx))
+                deps_merged_link_infos = cxx_inherited_link_info(all_deps)
+                children = [li.shared_interfaces[LinkStrategy("shared")].interfaces for li in deps_merged_link_infos]
+                tbd_set = make_artifact_tset(
+                    actions = ctx.actions,
+                    label = ctx.label,
+                    artifacts = [tbd_output],
+                    children = children,
+                )
+                exported_shlib = merge_tbds(ctx, tbd_set)
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link
             # groups, where we don't include the symbols we're meant to export from
@@ -1478,18 +1515,10 @@ def _shared_library(
                 ),
                 name = soname,
             )
-            shlib_for_interface = intf_link_result.linked_object.output
-        else:
-            shlib_for_interface = None
-
-        if shlib_for_interface:
-            # Convert the shared library into an interface.
-            shlib_interface = shared_library_interface(
+            exported_shlib = shared_library_interface(
                 ctx = ctx,
-                shared_lib = shlib_for_interface,
+                shared_lib = intf_link_result.linked_object.output,
             )
-
-            exported_shlib = shlib_interface
 
     # Link against import library on Windows.
     if link_result.linked_object.import_library:

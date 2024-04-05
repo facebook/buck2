@@ -123,6 +123,12 @@ FrameworksLinkable = record(
     library_names = field(list[str], []),
 )
 
+# The transitive artifacts of partial shared interface for a linkable.
+# These need to be collected and merged to produce the final shared interface.
+SharedInterfaceLinkable = record(
+    interfaces = field(ArtifactTSet, ArtifactTSet()),
+)
+
 SwiftmoduleLinkable = record(
     swiftmodules = field(ArtifactTSet, ArtifactTSet()),
 )
@@ -245,7 +251,10 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
-    elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+    elif isinstance(linkable, FrameworksLinkable) or \
+         isinstance(linkable, SharedInterfaceLinkable) or \
+         isinstance(linkable, SwiftRuntimeLinkable) or \
+         isinstance(linkable, SwiftmoduleLinkable):
         # These flags are handled separately so they can be deduped.
         #
         # We've seen in apps with larger dependency graphs that failing
@@ -285,7 +294,10 @@ def link_info_filelist(value: LinkInfo) -> list[Artifact]:
         elif isinstance(linkable, ObjectsLinkable):
             if linkable.linker_type == "darwin":
                 filelists += linkable.objects
-        elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+        elif isinstance(linkable, FrameworksLinkable) or \
+             isinstance(linkable, SharedInterfaceLinkable) or \
+             isinstance(linkable, SwiftRuntimeLinkable) or \
+             isinstance(linkable, SwiftmoduleLinkable):
             pass
         else:
             fail("Encountered unhandled linkable {}".format(str(linkable)))
@@ -434,6 +446,7 @@ MergedLinkInfo = provider(fields = [
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
     # structure, based on the link-style.
     "frameworks",  # dict[LinkStrategy, FrameworksLinkable | None]
+    "shared_interfaces",  # dict[LinkStrategy, SharedInterfaceLinkable | None]
     "swiftmodules",  # dict[LinkStrategy, SwiftmoduleLinkable | None]
     "swift_runtime",  # dict[LinkStrategy, SwiftRuntimeLinkable | None]
 ])
@@ -478,6 +491,7 @@ def create_merged_link_info(
         # Link info to always propagate from exported deps.
         exported_deps: list[MergedLinkInfo] = [],
         frameworks_linkable: [FrameworksLinkable, None] = None,
+        shared_interfaces_linkable: [SharedInterfaceLinkable, None] = None,
         swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> MergedLinkInfo:
     """
@@ -487,6 +501,7 @@ def create_merged_link_info(
     infos = {}
     external_debug_info = {}
     frameworks = {}
+    shared_interfaces = {}
     swift_runtime = {}
     swiftmodules = {}
 
@@ -499,6 +514,7 @@ def create_merged_link_info(
         children = []
         external_debug_info_children = []
         framework_linkables = []
+        shared_interface_linkables = []
         swift_runtime_linkables = []
         swiftmodule_linkables = []
 
@@ -511,6 +527,9 @@ def create_merged_link_info(
             # Doing so breaks the encapsulation of what is in linked in the library vs. the main executable.
             framework_linkables.append(frameworks_linkable)
             framework_linkables += [dep_info.frameworks[link_strategy] for dep_info in exported_deps]
+
+            shared_interface_linkables.append(shared_interfaces_linkable)
+            shared_interface_linkables += [dep_info.shared_interfaces[link_strategy] for dep_info in exported_deps]
 
             swiftmodule_linkables.append(swiftmodule_linkable)
             swiftmodule_linkables += [dep_info.swiftmodules[link_strategy] for dep_info in exported_deps]
@@ -527,7 +546,9 @@ def create_merged_link_info(
                 value = dep_info._external_debug_info.get(link_strategy)
                 if value:
                     external_debug_info_children.append(value)
+
                 framework_linkables.append(dep_info.frameworks[link_strategy])
+                shared_interface_linkables.append(dep_info.shared_interfaces[link_strategy])
                 swiftmodule_linkables.append(dep_info.swiftmodules[link_strategy])
                 swift_runtime_linkables.append(dep_info.swift_runtime[link_strategy])
 
@@ -541,6 +562,7 @@ def create_merged_link_info(
                 external_debug_info_children.append(value)
 
         frameworks[link_strategy] = merge_framework_linkables(framework_linkables)
+        shared_interfaces[link_strategy] = merge_shared_interface_linkables(ctx, shared_interface_linkables)
         swift_runtime[link_strategy] = merge_swift_runtime_linkables(swift_runtime_linkables)
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, swiftmodule_linkables)
 
@@ -567,6 +589,7 @@ def create_merged_link_info(
         _infos = infos,
         _external_debug_info = external_debug_info,
         frameworks = frameworks,
+        shared_interfaces = shared_interfaces,
         swift_runtime = swift_runtime,
         swiftmodules = swiftmodules,
     )
@@ -582,6 +605,7 @@ def create_merged_link_info_for_propagation(
     merged = {}
     merged_external_debug_info = {}
     frameworks = {}
+    shared_interfaces = {}
     swift_runtime = {}
     swiftmodules = {}
     for link_strategy in LinkStrategy:
@@ -595,12 +619,14 @@ def create_merged_link_info_for_propagation(
             children = filter(None, [x._external_debug_info.get(link_strategy) for x in xs]),
         )
         frameworks[link_strategy] = merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
+        shared_interfaces[link_strategy] = merge_shared_interface_linkables(ctx, [x.shared_interfaces[link_strategy] for x in xs])
         swift_runtime[link_strategy] = merge_swift_runtime_linkables([x.swift_runtime[link_strategy] for x in xs])
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, [x.swiftmodules[link_strategy] for x in xs])
     return MergedLinkInfo(
         _infos = merged,
         _external_debug_info = merged_external_debug_info,
         frameworks = frameworks,
+        shared_interfaces = shared_interfaces,
         swift_runtime = swift_runtime,
         swiftmodules = swiftmodules,
     )
@@ -858,6 +884,17 @@ def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> Fr
         unresolved_framework_paths = unique_framework_paths.keys(),
         library_names = unique_library_names.keys(),
     )
+
+def merge_shared_interface_linkables(ctx: AnalysisContext, linkables: list[[SharedInterfaceLinkable, None]]) -> SharedInterfaceLinkable:
+    return SharedInterfaceLinkable(interfaces = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        children = [
+            linkable.interfaces
+            for linkable in linkables
+            if linkable != None
+        ],
+    ))
 
 def merge_swiftmodule_linkables(ctx: AnalysisContext, linkables: list[[SwiftmoduleLinkable, None]]) -> SwiftmoduleLinkable:
     return SwiftmoduleLinkable(swiftmodules = make_artifact_tset(
