@@ -1483,7 +1483,7 @@ def _shared_library(
                     artifacts = [tbd_output],
                     children = children,
                 )
-                exported_shlib = merge_tbds(ctx, tbd_set)
+                exported_shlib = merge_tbds(ctx, soname, tbd_set)
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link
             # groups, where we don't include the symbols we're meant to export from

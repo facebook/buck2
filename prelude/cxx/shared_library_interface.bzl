@@ -136,7 +136,7 @@ def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_p
 
     return tbd_file
 
-def merge_tbds(ctx: AnalysisContext, tbd_set: ArtifactTSet) -> Artifact:
+def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet) -> Artifact:
     # Run the shlib interface tool with the merge command
     tbd_file = ctx.actions.declare_output(
         paths.join("__tbd__", ctx.attrs.name + ".merged.tbd"),
@@ -144,6 +144,8 @@ def merge_tbds(ctx: AnalysisContext, tbd_set: ArtifactTSet) -> Artifact:
     args = cmd_args(get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf[RunInfo])
     args.add([
         "merge",
+        "-install_name",
+        "@rpath/" + soname,
         project_artifacts(ctx.actions, [tbd_set]),
         "-o",
         tbd_file.as_output(),
