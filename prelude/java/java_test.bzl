@@ -115,7 +115,7 @@ def build_junit_test(
         cmd.extend(java_test_toolchain.junit_test_runner_main_class_args)
 
     if ctx.attrs.test_case_timeout_ms:
-        cmd.extend(["--default_test_timeout", str(ctx.attrs.test_case_timeout_ms)])
+        cmd.extend(["--default-test-timeout", str(ctx.attrs.test_case_timeout_ms)])
 
     if ctx.attrs.test_class_names_file:
         class_names = ctx.attrs.test_class_names_file
