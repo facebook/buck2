@@ -57,3 +57,18 @@ def get_resources_map(
             resource_name = get_src_package(java_toolchain.src_root_prefixes, java_toolchain.src_root_elements, full_resource)
         resources_to_copy[resource_name] = resource
     return resources_to_copy
+
+def parse_src_roots(src_roots: list[str]) -> (list[str], list[str]):
+    prefixes = []
+    elements = []
+    for src_root in src_roots:
+        if src_root.startswith("/"):
+            if not src_root.endswith("/"):
+                fail("Elements in java.src_roots config that begin with a / must end in one too, but {} does not".format(src_root))
+            prefixes.append(src_root[1:])
+        elif "/" in src_root:
+            fail("No / is permitted in java.src_roots config elements, but {} has one".format(src_root))
+        else:
+            elements.append(src_root)
+
+    return elements, prefixes
