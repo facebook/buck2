@@ -529,7 +529,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         let Some(value) = self.eval_path(path)? else {
             return Ok(None);
         };
-        match TypeCompiled::new_with_string(value, self.heap) {
+        match TypeCompiled::new(value, self.heap) {
             Ok(ty) => Ok(Some(ty.as_ty().clone())),
             Err(e) => {
                 let span =
@@ -591,7 +591,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                     let i = self.from_type_expr_impl(i)?;
                     let i = TypeCompiled::from_ty(&i, self.heap);
                     match a.get_ref().at(i.to_inner(), self.heap) {
-                        Ok(t) => match TypeCompiled::new_with_string(t, self.heap) {
+                        Ok(t) => match TypeCompiled::new(t, self.heap) {
                             Ok(ty) => Ok(ty.as_ty().clone()),
                             Err(_) => {
                                 // TODO(nga): proper error, not approximation.
@@ -620,7 +620,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                         let i0 = TypeCompiled::from_ty(&i0, self.heap);
                         let i1 = TypeCompiled::from_ty(&i1, self.heap);
                         match a.get_ref().at2(i0.to_inner(), i1.to_inner(), self.heap) {
-                            Ok(t) => match TypeCompiled::new_with_string(t, self.heap) {
+                            Ok(t) => match TypeCompiled::new(t, self.heap) {
                                 Ok(ty) => Ok(ty.as_ty().clone()),
                                 Err(_) => {
                                     self.approximations
@@ -647,7 +647,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                             Ellipsis::new_value().to_value(),
                             self.heap,
                         ) {
-                            Ok(t) => match TypeCompiled::new_with_string(t, self.heap) {
+                            Ok(t) => match TypeCompiled::new(t, self.heap) {
                                 Ok(ty) => Ok(ty.as_ty().clone()),
                                 Err(_) => {
                                     self.approximations
@@ -679,7 +679,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                         let ret = self.from_type_expr_impl(i1)?;
                         let ret = TypeCompiled::from_ty(&ret, self.heap).to_inner();
                         match a.get_ref().at2(args, ret, self.heap) {
-                            Ok(t) => match TypeCompiled::new_with_string(t, self.heap) {
+                            Ok(t) => match TypeCompiled::new(t, self.heap) {
                                 Ok(ty) => Ok(ty.as_ty().clone()),
                                 Err(_) => {
                                     self.approximations
