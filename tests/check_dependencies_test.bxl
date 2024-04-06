@@ -1,0 +1,68 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+"""BXL tests for checking dependencies."""
+
+load(":dependencies_test_util.bzl", "rule_list_regex")
+
+_MAX_DEPTH = 2147483647
+
+def _impl_check_dependencies_test(
+        ctx: BxlContext,
+        allowlist_patterns: list[str] | None,
+        blocklist_patterns: list[str] | None,
+        target: TargetLabel):
+    """Test the dependencies of a given rule.
+
+    If allowlist_patterns is set, only dependencies which match a pattern
+    in the allowlist will be allowed. In this mode, blocklist_patterns can
+    be used to remove targets from the set of allowlisted items.
+    If allowlist_patterns is not set, then all targets are assumed to be
+    allowed unless they match a pattern in the blocklist_patterns.
+    Each pattern list may contain target names (e.g. //foo/bar:bar)
+    or regex patterns (e.g. //foo/.*)
+    """
+    if not allowlist_patterns and not blocklist_patterns:
+        fail("Self-check and self-documentation: must provide allow or block list")
+    cquery = ctx.cquery()
+    transitive_deps = cquery.deps(
+        ctx.target_universe(target).target_set(),
+        _MAX_DEPTH,
+        filter = "target_deps()",
+    )
+
+    blocklist_regex = rule_list_regex(blocklist_patterns)
+    if allowlist_patterns != None and len(allowlist_patterns) > 0:
+        allowlist_regex = rule_list_regex(allowlist_patterns)
+        blocklisted = filter(lambda target: regex_match(blocklist_regex, str(target.label.raw_target())), transitive_deps)
+        allowlisted = filter(lambda target: regex_match(allowlist_regex, str(target.label.raw_target())), transitive_deps)
+        allowlisted_deps = ctx.target_universe(allowlisted).target_set()
+        blocklisted_deps = ctx.target_universe(blocklisted).target_set()
+
+        # We expect transitive_deps = allowlisted_deps - blocklisted_deps following line means the same.
+        res = transitive_deps - allowlisted_deps + blocklisted_deps
+
+        # TODO(ezgi): Add shortest path from target to the banned/blocklisted targets
+        if len(res) > 0:
+            fail("Found banned targets: {}! ".format(res))
+    elif blocklist_patterns != None and len(blocklist_patterns) > 0:
+        blocklisted = filter(lambda target: regex_match(blocklist_regex, str(target.label)), transitive_deps)
+        res = ctx.target_universe(blocklisted).target_set()
+        if len(res) > 0:
+            fail("Found blocklisted targets: {}!".format(res))
+
+def _impl(ctx: BxlContext):
+    _impl_check_dependencies_test(ctx, ctx.cli_args.allowlist_patterns, ctx.cli_args.blocklist_patterns, ctx.cli_args.target)
+
+test = bxl_main(
+    cli_args = {
+        "allowlist_patterns": cli_args.option(cli_args.list(cli_args.string())),
+        "blocklist_patterns": cli_args.option(cli_args.list(cli_args.string())),
+        "target": cli_args.target_label(),
+    },
+    impl = _impl,
+)

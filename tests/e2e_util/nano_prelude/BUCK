@@ -1,0 +1,11 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+
+oncall("build_infra")
+
+buck_filegroup(
+    name = "nano_prelude",
+    srcs = glob(["*.bzl"]),
+    visibility = [
+        "fbcode//buck2/tests/e2e/...",
+    ],
+)
