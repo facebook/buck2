@@ -520,9 +520,10 @@ impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::assert;
+    use crate::coerce::coerce;
     use crate::collections::SmallMap;
+    use crate::values::dict::Dict;
     use crate::values::Heap;
 
     #[test]

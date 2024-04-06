@@ -121,9 +121,9 @@ impl HeapProfile {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::environment::Globals;
     use crate::environment::Module;
+    use crate::eval::runtime::profile::heap::HeapProfile;
     use crate::eval::Evaluator;
     use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
