@@ -87,144 +87,146 @@ impl PartialEq for dyn FileOpsDelegate {
     }
 }
 
+/// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
+///
+/// This is used for everything except 1) tests, and 2) external cells.
+#[derive(Clone, Dupe, Derivative, Allocative)]
+#[derivative(PartialEq)]
+struct IoFileOpsDelegate {
+    // Safe to ignore because `io` does not change during the lifetime of the daemon.
+    #[derivative(PartialEq = "ignore")]
+    io: Arc<dyn IoProvider>,
+    cells: CellResolver,
+    ignores: Arc<CellFileIgnores>,
+    cell: CellName,
+}
+
+impl IoFileOpsDelegate {
+    fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
+        let cell_root = self.cells.get(self.cell).unwrap().path();
+        cell_root.as_project_relative_path().join(path)
+    }
+
+    fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath> {
+        self.cells.get_cell_path(path)
+    }
+
+    fn io_provider(&self) -> &dyn IoProvider {
+        self.io.as_ref()
+    }
+}
+
+#[async_trait]
+impl FileOpsDelegate for IoFileOpsDelegate {
+    async fn read_file_if_exists(
+        &self,
+        path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<Option<String>> {
+        // TODO(cjhopman): error on ignored paths, maybe.
+        let project_path = self.resolve(path);
+        self.io_provider().read_file_if_exists(project_path).await
+    }
+
+    async fn read_dir(
+        &self,
+        path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<ReadDirOutput> {
+        // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
+        self.ignores
+            .check(UncheckedCellRelativePath::new(path))
+            .into_result()
+            .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
+
+        let project_path = self.resolve(path);
+        let mut entries = self
+            .io_provider()
+            .read_dir(project_path)
+            .await
+            .with_context(|| format!("Error listing dir `{}`", path))?;
+
+        // Make sure entries are deterministic, since read_dir isn't.
+        entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
+
+        let is_ignored = |file_name: &str| {
+            let mut cell_relative_path_buf;
+            let cell_relative_path: &str = if path.is_empty() {
+                file_name
+            } else {
+                cell_relative_path_buf =
+                    String::with_capacity(path.as_str().len() + 1 + file_name.len());
+                cell_relative_path_buf.push_str(path.as_str());
+                cell_relative_path_buf.push('/');
+                cell_relative_path_buf.push_str(file_name);
+                &cell_relative_path_buf
+            };
+
+            let cell_relative_path = UncheckedCellRelativePath::unchecked_new(cell_relative_path);
+            let is_ignored = self.ignores.check(cell_relative_path).is_ignored();
+            anyhow::Ok(is_ignored)
+        };
+
+        // Filter out any entries that are ignored.
+        let mut included_entries = Vec::new();
+        for e in entries {
+            let RawDirEntry {
+                file_type,
+                file_name,
+            } = e;
+
+            if !is_ignored(&file_name)? {
+                let file_name = match FileNameBuf::try_from_or_get_back(file_name) {
+                    Ok(file_name) => file_name,
+                    Err(file_name) => {
+                        console_message(format!(
+                            "File name `{file_name}` is not valid. \
+                                Add the path to `project.ignore` to mute this message",
+                        ));
+                        continue;
+                    }
+                };
+                included_entries.push(SimpleDirEntry {
+                    file_name,
+                    file_type,
+                });
+            }
+        }
+
+        Ok(ReadDirOutput {
+            included: included_entries.into(),
+        })
+    }
+
+    async fn read_path_metadata_if_exists(
+        &self,
+        path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<Option<RawPathMetadata>> {
+        let project_path = self.resolve(path);
+
+        let res = self
+            .io_provider()
+            .read_path_metadata_if_exists(project_path)
+            .await
+            .with_context(|| format!("Error accessing metadata for path `{}`", path))?;
+        res.map(|meta| meta.try_map(|path| Ok(Arc::new(self.get_cell_path(&path)?))))
+            .transpose()
+    }
+
+    async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
+        Ok(self
+            .ignores
+            .check(UncheckedCellRelativePath::new(path))
+            .is_ignored())
+    }
+
+    fn eq_token(&self) -> PartialEqAny {
+        PartialEqAny::new(self)
+    }
+}
+
 pub(crate) async fn get_delegated_file_ops(
     dice: &mut DiceComputations<'_>,
     cell: CellName,
 ) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
-    #[derive(Clone, Dupe, Derivative, Allocative)]
-    #[derivative(PartialEq)]
-    struct DiceFileOpsDelegate {
-        // Safe to ignore because `io` does not change during the lifetime of the daemon.
-        #[derivative(PartialEq = "ignore")]
-        io: Arc<dyn IoProvider>,
-        cells: CellResolver,
-        ignores: Arc<CellFileIgnores>,
-        cell: CellName,
-    }
-
-    impl DiceFileOpsDelegate {
-        fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
-            let cell_root = self.cells.get(self.cell).unwrap().path();
-            cell_root.as_project_relative_path().join(path)
-        }
-
-        fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath> {
-            self.cells.get_cell_path(path)
-        }
-
-        fn io_provider(&self) -> &dyn IoProvider {
-            self.io.as_ref()
-        }
-    }
-
-    #[async_trait]
-    impl FileOpsDelegate for DiceFileOpsDelegate {
-        async fn read_file_if_exists(
-            &self,
-            path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<Option<String>> {
-            // TODO(cjhopman): error on ignored paths, maybe.
-            let project_path = self.resolve(path);
-            self.io_provider().read_file_if_exists(project_path).await
-        }
-
-        async fn read_dir(
-            &self,
-            path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<ReadDirOutput> {
-            // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
-            self.ignores
-                .check(UncheckedCellRelativePath::new(path))
-                .into_result()
-                .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
-
-            let project_path = self.resolve(path);
-            let mut entries = self
-                .io_provider()
-                .read_dir(project_path)
-                .await
-                .with_context(|| format!("Error listing dir `{}`", path))?;
-
-            // Make sure entries are deterministic, since read_dir isn't.
-            entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-
-            let is_ignored = |file_name: &str| {
-                let mut cell_relative_path_buf;
-                let cell_relative_path: &str = if path.is_empty() {
-                    file_name
-                } else {
-                    cell_relative_path_buf =
-                        String::with_capacity(path.as_str().len() + 1 + file_name.len());
-                    cell_relative_path_buf.push_str(path.as_str());
-                    cell_relative_path_buf.push('/');
-                    cell_relative_path_buf.push_str(file_name);
-                    &cell_relative_path_buf
-                };
-
-                let cell_relative_path =
-                    UncheckedCellRelativePath::unchecked_new(cell_relative_path);
-                let is_ignored = self.ignores.check(cell_relative_path).is_ignored();
-                anyhow::Ok(is_ignored)
-            };
-
-            // Filter out any entries that are ignored.
-            let mut included_entries = Vec::new();
-            for e in entries {
-                let RawDirEntry {
-                    file_type,
-                    file_name,
-                } = e;
-
-                if !is_ignored(&file_name)? {
-                    let file_name = match FileNameBuf::try_from_or_get_back(file_name) {
-                        Ok(file_name) => file_name,
-                        Err(file_name) => {
-                            console_message(format!(
-                                "File name `{file_name}` is not valid. \
-                                    Add the path to `project.ignore` to mute this message",
-                            ));
-                            continue;
-                        }
-                    };
-                    included_entries.push(SimpleDirEntry {
-                        file_name,
-                        file_type,
-                    });
-                }
-            }
-
-            Ok(ReadDirOutput {
-                included: included_entries.into(),
-            })
-        }
-
-        async fn read_path_metadata_if_exists(
-            &self,
-            path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<Option<RawPathMetadata>> {
-            let project_path = self.resolve(path);
-
-            let res = self
-                .io_provider()
-                .read_path_metadata_if_exists(project_path)
-                .await
-                .with_context(|| format!("Error accessing metadata for path `{}`", path))?;
-            res.map(|meta| meta.try_map(|path| Ok(Arc::new(self.get_cell_path(&path)?))))
-                .transpose()
-        }
-
-        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
-            Ok(self
-                .ignores
-                .check(UncheckedCellRelativePath::new(path))
-                .is_ignored())
-        }
-
-        fn eq_token(&self) -> PartialEqAny {
-            PartialEqAny::new(self)
-        }
-    }
-
     #[async_trait]
     impl Key for FileOpsKey {
         type Value = buck2_error::Result<FileOpsValue>;
@@ -238,7 +240,7 @@ pub(crate) async fn get_delegated_file_ops(
 
             let ignores = ctx.new_cell_ignores(self.0).await?;
 
-            Ok(FileOpsValue(Arc::new(DiceFileOpsDelegate {
+            Ok(FileOpsValue(Arc::new(IoFileOpsDelegate {
                 io,
                 cells,
                 ignores,
