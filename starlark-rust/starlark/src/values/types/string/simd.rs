@@ -54,12 +54,12 @@ where
             #[cfg(target_arch = "x86_64")]
             use std::arch::x86_64::*;
 
-            self.simd::<__m128i>()
+            if true {
+                return self.simd::<__m128i>();
+            }
         }
-        #[cfg(not(target_feature = "sse2"))]
-        {
-            self.no_simd()
-        }
+
+        self.no_simd()
     }
 }
 
