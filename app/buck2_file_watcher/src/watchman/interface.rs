@@ -116,8 +116,7 @@ impl WatchmanQueryProcessor {
         let ignore = self
             .ignore_specs
             .get(&cell_path.cell())
-            .expect("unexpected cell name mismatch")
-            .is_match(cell_path.path());
+            .map_or(false, |ignore| ignore.is_match(cell_path.path()));
 
         info!("Watchman: {:?} (ignore = {})", ev, ignore);
 
