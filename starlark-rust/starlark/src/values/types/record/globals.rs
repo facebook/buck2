@@ -107,7 +107,7 @@ mod tests {
     fn test_record() {
         assert::pass(
             r#"
-rec_type = record(host=str.type, port=int.type)
+rec_type = record(host=str, port=int)
 rec1 = rec_type(host = "test", port=80)
 rec2 = rec_type(host = "test", port=90)
 assert_eq(rec1, rec1)
@@ -119,7 +119,7 @@ assert_eq(dir(rec1), ["host", "port"])
         );
         assert::fails(
             r#"
-rec_type = record(host=str.type, port=int.type)
+rec_type = record(host=str, port=int)
 rec_type(host=1, port=80)
 "#,
             &[
@@ -128,28 +128,28 @@ rec_type(host=1, port=80)
         );
         assert::fails(
             r#"
-rec_type = record(host=str.type, port=int.type)
+rec_type = record(host=str, port=int)
 rec_type(port=80)
 "#,
             &["Missing parameter", "`host`"],
         );
         assert::fails(
             r#"
-rec_type = record(host=str.type, port=int.type)
+rec_type = record(host=str, port=int)
 rec_type(host="localhost", port=80, mask=255)
 "#,
             &["extra named", "mask"],
         );
         assert::pass(
             r#"
-rec_type = record(host=str.type, port=int.type)
+rec_type = record(host=str, port=int)
 def foo(x: rec_type) -> rec_type:
     return x
 foo(rec_type(host="localhost", port=80))"#,
         );
         assert::pass(
             r#"
-v = [record(host=str.type, port=int.type)]
+v = [record(host=str, port=int)]
 v_0 = v[0]
 def foo(y: v_0) -> v_0:
     # TODO(nga): fails at compile time.
@@ -158,14 +158,14 @@ foo(v[0](host="localhost", port=80))"#,
         );
         assert::pass(
             r#"
-rec_type = record(host=str.type, port=field(int.type, 80), mask=int.type)
+rec_type = record(host=str, port=field(int, 80), mask=int)
 assert_eq(rec_type(host="localhost", mask=255), rec_type(host="localhost", port=80, mask=255))"#,
         );
         // Make sure the default value is heap allocated (used to fail with a GC issue)
         assert::pass(
             r#"
 heap_string = "test{}".format(42)
-rec_type = record(test_gc=field(str.type, heap_string))
+rec_type = record(test_gc=field(str, heap_string))
 assert_eq(rec_type().test_gc, "test42")"#,
         );
     }
@@ -174,7 +174,7 @@ assert_eq(rec_type().test_gc, "test42")"#,
     fn test_record_equality() {
         assert::pass(
             r#"
-rec_type = record(host=str.type, port=field(int.type, 80))
+rec_type = record(host=str, port=field(int, 80))
 assert_eq(rec_type(host="s"), rec_type(host="s"))
 assert_eq(rec_type(host="s"), rec_type(host="s", port=80))
 assert_ne(rec_type(host="s"), rec_type(host="t"))
@@ -185,7 +185,7 @@ assert_ne(rec_type(host="s"), rec_type(host="t"))
         a.module(
             "m",
             r#"
-rec_type = record(host=str.type, port=field(int.type, 80))
+rec_type = record(host=str, port=field(int, 80))
 rec_val = rec_type(host="s")
 "#,
         );
@@ -201,14 +201,14 @@ assert_ne(rec_val, rec_type(host="t"))
         a.module(
             "m",
             r#"
-rt = record(host=str.type)
+rt = record(host=str)
 "#,
         );
         a.pass(
             r#"
 load('m', r1='rt')
-rt = record(host=str.type)
-diff = record(host=str.type)
+rt = record(host=str)
+diff = record(host=str)
 assert_ne(r1(host="test"), rt(host="test"))
 assert_ne(r1(host="test"), diff(host="test"))
 "#,
@@ -218,7 +218,7 @@ assert_ne(r1(host="test"), diff(host="test"))
     #[test]
     fn test_field_invalid() {
         assert::fails(
-            "field(str.type, None)",
+            "field(str, None)",
             &["does not match the type", "`default`"],
         );
         assert::fails("field(True)", &["`True`", "not a valid type"]);
