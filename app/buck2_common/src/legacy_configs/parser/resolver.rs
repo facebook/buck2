@@ -14,8 +14,8 @@ use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::parse_config_section_and_key;
+use crate::legacy_configs::parser::ConfigError;
 use crate::legacy_configs::parser::SectionBuilder;
-use crate::legacy_configs::ConfigError;
 use crate::legacy_configs::LegacyBuckConfigSection;
 use crate::legacy_configs::ResolvedValue;
 

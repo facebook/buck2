@@ -40,7 +40,6 @@ use derive_more::Display;
 use dupe::Dupe;
 use gazebo::eq_chain;
 use gazebo::prelude::*;
-use itertools::Itertools;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
@@ -50,23 +49,13 @@ use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::target_aliases::BuckConfigTargetAliasResolver;
 
 #[derive(buck2_error::Error, Debug)]
-pub(crate) enum ConfigError {
-    #[error("Expected line of the form `key = value` but key was empty. Line was `{0}`")]
-    EmptyKey(String),
-    #[error("Included file doesn't exist `{0}`")]
-    MissingInclude(String),
-    #[error("Improperly formatted section. Expected something of the form `[section]`, got {0}")]
-    SectionMissingTrailingBracket(String),
-    #[error("Improperly include directive path. Got {0}")]
-    BadIncludePath(String),
-    #[error(
-        "Couldn't parse line. Expected include directive (`<file:/file.bcfg>`), section(`[some_section]`), or key assignment (`some_key = some_value`). Got `{0}`"
-    )]
-    InvalidLine(String),
-    #[error("Detected cycles in buckconfig $(config) references: {}", format_cycle(.0))]
-    ReferenceCycle(Vec<(String, String)>),
+enum ConfigCellResolutionError {
     #[error("Unable to resolve cell-relative path `{0}`")]
     UnableToResolveCellRelativePath(String),
+}
+
+#[derive(buck2_error::Error, Debug)]
+enum ConfigValueError {
     #[error(
         "Invalid value for buckconfig `{section}.{key}`: conversion to {ty} failed, value as `{value}`"
     )]
@@ -97,7 +86,7 @@ impl LegacyBuckConfigs {
     pub fn get<'a>(&'a self, cell_name: CellName) -> anyhow::Result<&'a LegacyBuckConfig> {
         self.data
             .get(&cell_name)
-            .ok_or_else(|| ConfigError::UnknownCell(cell_name).into())
+            .ok_or_else(|| ConfigValueError::UnknownCell(cell_name).into())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (CellName, &LegacyBuckConfig)> {
@@ -115,13 +104,6 @@ impl LegacyBuckConfigs {
             })
         }
     }
-}
-
-fn format_cycle(cycle: &[(String, String)]) -> String {
-    cycle
-        .iter()
-        .map(|(section, key)| format!("`{}.{}`", section, key))
-        .join(" -> ")
 }
 
 #[derive(Clone, Debug, Allocative)]
@@ -623,10 +605,9 @@ impl LegacyBuckConfig {
     ) -> anyhow::Result<AbsNormPathBuf> {
         if let Some(cell_alias) = &file_arg.cell {
             let cell_resolution_state = cell_resolution.ok_or_else(|| {
-                anyhow::anyhow!(ConfigError::UnableToResolveCellRelativePath(format!(
-                    "{}//{}",
-                    cell_alias, file_arg.path
-                )))
+                anyhow::anyhow!(ConfigCellResolutionError::UnableToResolveCellRelativePath(
+                    format!("{}//{}", cell_alias, file_arg.path)
+                ))
             })?;
             if let Some(cell_resolver) = cell_resolution_state.cell_resolver.get() {
                 return cell_resolver.resolve_cell_relative_path(
@@ -753,7 +734,7 @@ impl LegacyBuckConfig {
         value
             .parse()
             .map_err(anyhow::Error::from)
-            .with_context(|| ConfigError::ParseFailed {
+            .with_context(|| ConfigValueError::ParseFailed {
                 section: section.to_owned(),
                 key: property.to_owned(),
                 value: value.to_owned(),

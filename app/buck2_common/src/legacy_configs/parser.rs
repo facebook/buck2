@@ -24,7 +24,6 @@ use crate::legacy_configs::parser::resolver::ConfigResolver;
 use crate::legacy_configs::ConfigArgumentPair;
 use crate::legacy_configs::ConfigArgumentParseError;
 use crate::legacy_configs::ConfigData;
-use crate::legacy_configs::ConfigError;
 use crate::legacy_configs::ConfigFile;
 use crate::legacy_configs::ConfigFileLocation;
 use crate::legacy_configs::ConfigParserFileOps;
@@ -34,6 +33,31 @@ use crate::legacy_configs::LegacyBuckConfigSection;
 use crate::legacy_configs::Location;
 
 mod resolver;
+
+#[derive(buck2_error::Error, Debug)]
+enum ConfigError {
+    #[error("Expected line of the form `key = value` but key was empty. Line was `{0}`")]
+    EmptyKey(String),
+    #[error("Included file doesn't exist `{0}`")]
+    MissingInclude(String),
+    #[error("Improperly formatted section. Expected something of the form `[section]`, got {0}")]
+    SectionMissingTrailingBracket(String),
+    #[error("Improperly include directive path. Got {0}")]
+    BadIncludePath(String),
+    #[error(
+        "Couldn't parse line. Expected include directive (`<file:/file.bcfg>`), section(`[some_section]`), or key assignment (`some_key = some_value`). Got `{0}`"
+    )]
+    InvalidLine(String),
+    #[error("Detected cycles in buckconfig $(config) references: {}", format_cycle(.0))]
+    ReferenceCycle(Vec<(String, String)>),
+}
+
+fn format_cycle(cycle: &[(String, String)]) -> String {
+    cycle
+        .iter()
+        .map(|(section, key)| format!("`{}.{}`", section, key))
+        .join(" -> ")
+}
 
 #[derive(Debug, Default)]
 struct SectionBuilder {
