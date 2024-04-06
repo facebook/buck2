@@ -488,7 +488,7 @@ impl TypeCompiled<FrozenValue> {
     pub(crate) fn new_frozen(ty: FrozenValue, frozen_heap: &FrozenHeap) -> anyhow::Result<Self> {
         // TODO(nga): trip to a heap is not free.
         let heap = Heap::new();
-        let ty = TypeCompiled::new_with_string(ty.to_value(), &heap)?;
+        let ty = TypeCompiled::new(ty.to_value(), &heap)?;
         Ok(ty.to_frozen(frozen_heap))
     }
 
