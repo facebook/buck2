@@ -201,23 +201,13 @@ impl BuckConfigBasedCells {
                 .filter(|main_config_file| file_ops.file_exists(&main_config_file.path))
                 .collect();
 
-            // Must contains a buckconfig owned by project, otherwise no cell can be found.
-            // This also check if existing_configs is empty
-            let has_project_owned_config = existing_configs
-                .iter()
-                .any(|main_config_file| main_config_file.owned_by_project);
-
-            let config = if has_project_owned_config {
-                LegacyBuckConfig::parse_with_file_ops_with_includes(
-                    existing_configs.as_slice(),
-                    project_fs.resolve(path.as_project_relative_path()),
-                    &mut file_ops,
-                    &processed_config_args,
-                    options.follow_includes,
-                )?
-            } else {
-                LegacyBuckConfig::empty()
-            };
+            let config = LegacyBuckConfig::parse_with_file_ops_with_includes(
+                existing_configs.as_slice(),
+                project_fs.resolve(path.as_project_relative_path()),
+                &mut file_ops,
+                &processed_config_args,
+                options.follow_includes,
+            )?;
 
             let is_root = path.is_repo_root();
 
@@ -838,6 +828,34 @@ mod tests {
         assert_config_value(other_config, "apple", "key3", "othervalue4");
         // local override new section
         assert_config_value(other_config, "orange", "key", "othervalue3");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_arg_with_no_buckconfig() -> anyhow::Result<()> {
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            "/.buckconfig",
+            indoc!(
+                r#"
+                        [repositories]
+                            root = .
+                            other = other
+                    "#
+            ),
+        )])?;
+        let project_fs = create_project_filesystem();
+
+        let configs = BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut file_ops,
+            &[LegacyConfigCmdArg::flag("some_section.key=value1")?],
+            ProjectRelativePath::empty(),
+        )?
+        .configs_by_name;
+        let config = configs.get(CellName::testing_new("other")).unwrap();
+
+        assert_config_value(config, "some_section", "key", "value1");
 
         Ok(())
     }
