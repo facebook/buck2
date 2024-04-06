@@ -539,29 +539,20 @@ impl LegacyBuckConfig {
 
     fn parse_with_file_ops_with_includes(
         main_config_files: &[MainConfigFile],
+        cell_path: AbsNormPathBuf,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[ResolvedLegacyConfigArg],
         follow_includes: bool,
     ) -> anyhow::Result<Self> {
         let mut parser = LegacyConfigParser::new(file_ops);
-        let mut cell_path = None;
         for main_config_file in main_config_files {
             parser.parse_file(&main_config_file.path, None, follow_includes)?;
-            if main_config_file.owned_by_project {
-                cell_path = match main_config_file.path.parent() {
-                    Some(cell) => Some(cell),
-                    None => panic!("Encountered invalid .buckconfig directory (no parent)"),
-                };
-            }
-        }
-        if cell_path.is_none() {
-            panic!("Could not find cell path");
         }
 
         for config_arg in config_args {
             match config_arg {
                 ResolvedLegacyConfigArg::Flag(config_value) => {
-                    parser.apply_config_arg(config_value, cell_path.unwrap().to_buf())?
+                    parser.apply_config_arg(config_value, cell_path.clone())?
                 }
                 ResolvedLegacyConfigArg::File(file_path) => parser.parse_file(
                     file_path,
@@ -662,6 +653,7 @@ pub mod testing {
                 path: path.to_buf(),
                 owned_by_project: true,
             }],
+            path.clone(),
             &mut file_ops,
             &processed_config_args,
             true,

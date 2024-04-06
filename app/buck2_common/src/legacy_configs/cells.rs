@@ -209,6 +209,7 @@ impl BuckConfigBasedCells {
             let config = if has_project_owned_config {
                 LegacyBuckConfig::parse_with_file_ops_with_includes(
                     existing_configs.as_slice(),
+                    project_fs.resolve(path.as_project_relative_path()),
                     &mut file_ops,
                     &processed_config_args,
                     options.follow_includes,
