@@ -1378,21 +1378,6 @@ pub mod testing {
 
     use super::*;
 
-    pub fn legacy_buck_config_from_entries<'a>(
-        entries: impl IntoIterator<Item = (&'a str, &'a str, &'a str)>,
-    ) -> anyhow::Result<LegacyBuckConfig> {
-        let mut values: BTreeMap<String, SectionBuilder> = BTreeMap::new();
-        for (section, key, value) in entries {
-            values
-                .entry(section.to_owned())
-                .or_default()
-                .values
-                .insert(key.to_owned(), ConfigValue::new_raw_arg(value.to_owned()));
-        }
-        let values = ConfigResolver::resolve(values)?;
-        Ok(LegacyBuckConfig(Arc::new(ConfigData { values })))
-    }
-
     pub fn parse(data: &[(&str, &str)], path: &str) -> anyhow::Result<LegacyBuckConfig> {
         parse_with_config_args(data, path, &[])
     }
