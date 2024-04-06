@@ -311,7 +311,7 @@ fn get_buckconfig_paths_for_cell(
         }
 
         match buckconfig {
-            BuckConfigFile::ProjectRelativeFile(file) => {
+            BuckConfigFile::CellRelativeFile(file) => {
                 let buckconfig_path = ForwardRelativePath::new(file)?;
                 buckconfig_paths.push(MainConfigFile {
                     path: project_fs
@@ -320,7 +320,7 @@ fn get_buckconfig_paths_for_cell(
                 });
             }
 
-            BuckConfigFile::ProjectRelativeFolder(folder) => {
+            BuckConfigFile::CellRelativeFolder(folder) => {
                 let buckconfig_folder_path = ForwardRelativePath::new(folder)?;
                 let buckconfig_folder_abs_path = project_fs
                     .resolve(&path.as_project_relative_path().join(buckconfig_folder_path));

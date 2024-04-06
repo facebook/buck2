@@ -9,10 +9,10 @@
 
 pub(crate) enum BuckConfigFile {
     // Buckconfig file in the cell relative to project root, such as .buckconfig or .buckconfig.local
-    ProjectRelativeFile(&'static str),
+    CellRelativeFile(&'static str),
 
     // Buckconfig folder in the cell, assuming all files in this folder are buckconfig
-    ProjectRelativeFolder(&'static str),
+    CellRelativeFolder(&'static str),
 
     // Buckconfig file in the user's home directory
     UserFile(&'static str),
@@ -31,7 +31,7 @@ impl BuckConfigFile {
     /// Returns whether this specific BuckConfigFile is external to the current project.
     pub fn is_external(&self) -> bool {
         match self {
-            Self::ProjectRelativeFile(..) | Self::ProjectRelativeFolder(..) => false,
+            Self::CellRelativeFile(..) | Self::CellRelativeFolder(..) => false,
             Self::UserFile(..)
             | Self::UserFolder(..)
             | Self::GlobalFile(..)
@@ -60,7 +60,7 @@ pub(crate) static DEFAULT_BUCK_CONFIG_FILES: &[BuckConfigFile] = &[
     BuckConfigFile::GlobalFile("C:\\ProgramData\\buckconfig"),
     BuckConfigFile::UserFolder(".buckconfig.d"),
     BuckConfigFile::UserFile(".buckconfig.local"),
-    BuckConfigFile::ProjectRelativeFolder(".buckconfig.d"),
-    BuckConfigFile::ProjectRelativeFile(".buckconfig"),
-    BuckConfigFile::ProjectRelativeFile(".buckconfig.local"),
+    BuckConfigFile::CellRelativeFolder(".buckconfig.d"),
+    BuckConfigFile::CellRelativeFile(".buckconfig"),
+    BuckConfigFile::CellRelativeFile(".buckconfig.local"),
 ];
