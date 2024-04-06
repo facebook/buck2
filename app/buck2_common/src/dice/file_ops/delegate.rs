@@ -30,7 +30,6 @@ use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
-use crate::dice::file_ops::delegate::keys::FileOpsDelegate;
 use crate::dice::file_ops::delegate::keys::FileOpsKey;
 use crate::dice::file_ops::delegate::keys::FileOpsValue;
 use crate::file_ops::RawDirEntry;
@@ -43,19 +42,15 @@ use crate::io::IoProvider;
 
 /// Note: Everything in this mini-module exists only so that it can be replaced by a `TestFileOps`
 /// in unittests
-pub mod keys {
+mod keys {
     use std::sync::Arc;
 
     use allocative::Allocative;
-    use async_trait::async_trait;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::paths::CellRelativePath;
-    use cmp_any::PartialEqAny;
     use derive_more::Display;
     use dupe::Dupe;
 
-    use crate::file_ops::RawPathMetadata;
-    use crate::file_ops::ReadDirOutput;
+    use crate::dice::file_ops::delegate::FileOpsDelegate;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
@@ -63,34 +58,32 @@ pub mod keys {
 
     #[derive(Dupe, Clone, Allocative)]
     pub struct FileOpsValue(#[allocative(skip)] pub Arc<dyn FileOpsDelegate>);
+}
 
-    #[async_trait]
-    pub trait FileOpsDelegate: Send + Sync {
-        async fn read_file_if_exists(
-            &self,
-            path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<Option<String>>;
+#[async_trait]
+pub trait FileOpsDelegate: Send + Sync {
+    async fn read_file_if_exists(
+        &self,
+        path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<Option<String>>;
 
-        /// Return the list of file outputs, sorted.
-        async fn read_dir(
-            &self,
-            path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<ReadDirOutput>;
+    /// Return the list of file outputs, sorted.
+    async fn read_dir(&self, path: &'async_trait CellRelativePath)
+    -> anyhow::Result<ReadDirOutput>;
 
-        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool>;
+    async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool>;
 
-        async fn read_path_metadata_if_exists(
-            &self,
-            path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<Option<RawPathMetadata>>;
+    async fn read_path_metadata_if_exists(
+        &self,
+        path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<Option<RawPathMetadata>>;
 
-        fn eq_token(&self) -> PartialEqAny;
-    }
+    fn eq_token(&self) -> PartialEqAny;
+}
 
-    impl PartialEq for dyn FileOpsDelegate {
-        fn eq(&self, other: &Self) -> bool {
-            self.eq_token() == other.eq_token()
-        }
+impl PartialEq for dyn FileOpsDelegate {
+    fn eq(&self, other: &Self) -> bool {
+        self.eq_token() == other.eq_token()
     }
 }
 
@@ -269,7 +262,6 @@ pub(crate) async fn get_delegated_file_ops(
 }
 
 pub mod testing {
-    pub use super::keys::FileOpsDelegate;
     pub use super::keys::FileOpsKey;
     pub use super::keys::FileOpsValue;
 }
