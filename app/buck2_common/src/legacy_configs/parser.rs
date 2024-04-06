@@ -109,10 +109,12 @@ impl LegacyConfigParser {
         follow_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()> {
-        self.start_file(path, source)?;
-        self.parse_file_on_stack(path, follow_includes, file_ops)
-            .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
-        self.finish_file();
+        if file_ops.file_exists(path) {
+            self.start_file(path, source)?;
+            self.parse_file_on_stack(path, follow_includes, file_ops)
+                .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
+            self.finish_file();
+        }
         Ok(())
     }
 

@@ -196,13 +196,8 @@ impl BuckConfigBasedCells {
 
             let buckconfig_paths = get_buckconfig_paths_for_cell(&path, project_fs, &file_ops)?;
 
-            let existing_configs: Vec<MainConfigFile> = buckconfig_paths
-                .into_iter()
-                .filter(|main_config_file| file_ops.file_exists(&main_config_file.path))
-                .collect();
-
             let config = LegacyBuckConfig::parse_with_file_ops_with_includes(
-                existing_configs.as_slice(),
+                buckconfig_paths.as_slice(),
                 project_fs.resolve(path.as_project_relative_path()),
                 &mut file_ops,
                 &processed_config_args,
