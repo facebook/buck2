@@ -45,6 +45,7 @@ pub struct DiceFileComputations;
 
 /// Functions for accessing files with keys on the dice graph.
 impl DiceFileComputations {
+    /// Filters out ignored paths
     pub async fn read_dir(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
@@ -54,6 +55,9 @@ impl DiceFileComputations {
             .map_err(anyhow::Error::from)
     }
 
+    /// Does not check if the path is ignored
+    ///
+    /// TODO(cjhopman): error on ignored paths, maybe.
     async fn read_file_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
@@ -66,6 +70,7 @@ impl DiceFileComputations {
         file_ops.read_file_if_exists(path.path()).await
     }
 
+    /// Does not check if the path is ignored
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
@@ -75,6 +80,7 @@ impl DiceFileComputations {
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
     }
 
+    /// Does not check if the path is ignored
     pub async fn read_path_metadata_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
@@ -84,6 +90,7 @@ impl DiceFileComputations {
             .map_err(anyhow::Error::from)
     }
 
+    /// Does not check if the path is ignored
     pub async fn read_path_metadata(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,

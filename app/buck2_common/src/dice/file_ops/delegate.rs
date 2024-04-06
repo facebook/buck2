@@ -229,7 +229,6 @@ impl FileOpsDelegateWithIgnores {
         &self,
         path: &CellRelativePath,
     ) -> anyhow::Result<Option<String>> {
-        // TODO(cjhopman): error on ignored paths, maybe.
         self.delegate.read_file_if_exists(path).await
     }
 
