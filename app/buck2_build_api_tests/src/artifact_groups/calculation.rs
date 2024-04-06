@@ -26,8 +26,8 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrderi
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::dice::file_ops::keys::FileOpsKey;
-use buck2_common::dice::file_ops::keys::FileOpsValue;
+use buck2_common::dice::file_ops::delegate::testing::FileOpsKey;
+use buck2_common::dice::file_ops::delegate::testing::FileOpsValue;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;

@@ -394,7 +394,7 @@ pub mod testing {
     use itertools::Itertools;
 
     use crate::cas_digest::CasDigestConfig;
-    use crate::dice::file_ops::keys::FileOpsDelegate;
+    use crate::dice::file_ops::delegate::testing::FileOpsDelegate;
     use crate::external_symlink::ExternalSymlink;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
