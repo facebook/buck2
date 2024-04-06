@@ -20,6 +20,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
+use crate::legacy_configs::parser::resolver::ConfigResolver;
 use crate::legacy_configs::ConfigArgumentPair;
 use crate::legacy_configs::ConfigArgumentParseError;
 use crate::legacy_configs::ConfigData;
@@ -27,19 +28,20 @@ use crate::legacy_configs::ConfigError;
 use crate::legacy_configs::ConfigFile;
 use crate::legacy_configs::ConfigFileLocation;
 use crate::legacy_configs::ConfigParserFileOps;
-use crate::legacy_configs::ConfigResolver;
 use crate::legacy_configs::ConfigValue;
 use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigSection;
 use crate::legacy_configs::Location;
 
+mod resolver;
+
 #[derive(Debug, Default)]
-pub(crate) struct SectionBuilder {
-    pub(crate) values: BTreeMap<String, ConfigValue>,
+struct SectionBuilder {
+    values: BTreeMap<String, ConfigValue>,
 }
 
 impl SectionBuilder {
-    pub(crate) fn finish(self) -> LegacyBuckConfigSection {
+    fn finish(self) -> LegacyBuckConfigSection {
         LegacyBuckConfigSection {
             values: SortedMap::from_iter(self.values),
         }
