@@ -70,9 +70,3 @@ macro_rules! if_else_opensource {
 pub fn is_open_source() -> bool {
     if_else_opensource!(true, false)
 }
-
-/// Internal build with `buck2`.
-#[inline]
-pub fn is_fbcode_build() -> bool {
-    cfg!(fbcode_build)
-}
