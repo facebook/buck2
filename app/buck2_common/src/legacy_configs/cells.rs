@@ -159,10 +159,6 @@ impl BuckConfigBasedCells {
             fn file_exists(&self, path: &AbsNormPath) -> bool {
                 self.inner.file_exists(path)
             }
-
-            fn file_id(&self, path: &AbsNormPath) -> String {
-                self.inner.file_id(path)
-            }
         }
 
         let mut file_ops = TracingFileOps {

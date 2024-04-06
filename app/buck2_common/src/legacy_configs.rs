@@ -76,7 +76,7 @@ struct MainConfigFile {
 
 #[derive(Debug, Allocative)]
 struct ConfigFile {
-    id: String,
+    path: String,
     include_source: Option<Location>,
 }
 
@@ -107,7 +107,7 @@ enum Location {
 impl Location {
     fn as_legacy_buck_config_location(&self) -> LegacyBuckConfigLocation {
         match self {
-            Self::File(x) => LegacyBuckConfigLocation::File(&x.source_file.id, x.line),
+            Self::File(x) => LegacyBuckConfigLocation::File(&x.source_file.path, x.line),
             Self::CommandLineArgument => LegacyBuckConfigLocation::CommandLineArgument,
         }
     }
@@ -357,10 +357,6 @@ pub trait ConfigParserFileOps {
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>>;
 
     fn file_exists(&self, path: &AbsNormPath) -> bool;
-
-    fn file_id(&self, path: &AbsNormPath) -> String {
-        path.to_string()
-    }
 }
 
 struct DefaultConfigParserFileOps {}
@@ -414,7 +410,9 @@ impl<'a> LegacyBuckConfigValue<'a> {
 
     pub fn location(&self) -> LegacyBuckConfigLocation {
         match &self.value.source {
-            Location::File(file) => LegacyBuckConfigLocation::File(&file.source_file.id, file.line),
+            Location::File(file) => {
+                LegacyBuckConfigLocation::File(&file.source_file.path, file.line)
+            }
             Location::CommandLineArgument => LegacyBuckConfigLocation::CommandLineArgument,
         }
     }
@@ -427,7 +425,7 @@ impl<'a> LegacyBuckConfigValue<'a> {
             match &loc {
                 Location::File(loc) => {
                     res.push(LegacyBuckConfigLocation::File(
-                        &loc.source_file.id,
+                        &loc.source_file.path,
                         loc.line,
                     ));
                     location = loc.source_file.include_source.as_ref();

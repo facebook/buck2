@@ -126,7 +126,7 @@ impl<'a> LegacyConfigParser<'a> {
         self.include_stack.push(include_source.clone());
 
         let source_file = Arc::new(ConfigFile {
-            id: self.file_ops.file_id(path),
+            path: path.to_string(),
             include_source: Some(Location::File(include_source)),
         });
         self.current_file = Some(source_file);
@@ -135,7 +135,7 @@ impl<'a> LegacyConfigParser<'a> {
 
     fn start_file(&mut self, path: &AbsNormPath, source: Option<Location>) -> anyhow::Result<()> {
         let source_file = Arc::new(ConfigFile {
-            id: self.file_ops.file_id(path),
+            path: path.to_string(),
             include_source: source,
         });
         self.current_file = Some(source_file);
