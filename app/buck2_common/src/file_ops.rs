@@ -395,10 +395,12 @@ pub mod testing {
 
     use crate::cas_digest::CasDigestConfig;
     use crate::dice::file_ops::delegate::FileOpsDelegate;
+    use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
     use crate::external_symlink::ExternalSymlink;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
     use crate::file_ops::FileType;
+    use crate::file_ops::RawDirEntry;
     use crate::file_ops::RawPathMetadata;
     use crate::file_ops::RawSymlink;
     use crate::file_ops::ReadDirOutput;
@@ -501,12 +503,15 @@ pub mod testing {
             )
         }
 
-        pub fn for_cell(&self, cell: CellName) -> TestCellFileOps {
-            TestCellFileOps(
-                cell,
-                Self {
-                    entries: Arc::clone(&self.entries),
-                },
+        pub fn for_cell(&self, cell: CellName) -> FileOpsDelegateWithIgnores {
+            FileOpsDelegateWithIgnores::new(
+                None,
+                Arc::new(TestCellFileOps(
+                    cell,
+                    Self {
+                        entries: Arc::clone(&self.entries),
+                    },
+                )),
             )
         }
     }
@@ -585,14 +590,16 @@ pub mod testing {
         async fn read_dir(
             &self,
             path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<ReadDirOutput> {
+        ) -> anyhow::Result<Vec<RawDirEntry>> {
             let path = CellPath::new(self.0, path.to_owned());
-            FileOps::read_dir(&self.1, path.as_ref()).await
-        }
-
-        async fn is_ignored(&self, path: &'async_trait CellRelativePath) -> anyhow::Result<bool> {
-            let path = CellPath::new(self.0, path.to_owned());
-            FileOps::is_ignored(&self.1, path.as_ref()).await
+            let simple_entries = FileOps::read_dir(&self.1, path.as_ref()).await?.included;
+            Ok(simple_entries
+                .iter()
+                .map(|e| RawDirEntry {
+                    file_name: e.file_name.clone().into_inner(),
+                    file_type: e.file_type.clone(),
+                })
+                .collect())
         }
 
         async fn read_path_metadata_if_exists(
