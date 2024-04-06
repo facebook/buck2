@@ -65,11 +65,6 @@ impl EdenIoProvider {
         fs: &ProjectRoot,
         cas_digest_config: CasDigestConfig,
     ) -> anyhow::Result<Option<Self>> {
-        if cfg!(not(fbcode_build)) {
-            tracing::warn!("Disabling Eden I/O: Cargo build detected");
-            return Ok(None);
-        }
-
         let (digest, min_eden_version) = if cas_digest_config.source_files_config().allows_sha1() {
             (Digest::Sha1, "20220905-214046")
         } else if cas_digest_config

@@ -12,6 +12,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Display;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -228,6 +229,20 @@ struct EdenConnector {
     socket: PathBuf,
 }
 
+fn thrift_builder<P: AsRef<Path>>(
+    fb: FacebookInit,
+    socket: P,
+) -> anyhow::Result<::thriftclient::ThriftChannelBuilder> {
+    // NOTE: This timeout is absurdly high, but bear in mind that what we're
+    // "comparing" to is a FS call that has no timeouts at all.
+    const THRIFT_TIMEOUT_MS: u32 = 120_000;
+
+    Ok(::thriftclient::ThriftChannelBuilder::from_path(fb, socket)?
+        .with_conn_timeout(THRIFT_TIMEOUT_MS)
+        .with_recv_timeout(THRIFT_TIMEOUT_MS)
+        .with_secure(false))
+}
+
 impl EdenConnector {
     fn connect(&self) -> EdenClientFuture {
         let socket = self.socket.clone();
@@ -236,22 +251,9 @@ impl EdenConnector {
 
         tokio::task::spawn(async move {
             tracing::info!("Creating a new Eden connection via `{}`", socket.display());
-            let eden: anyhow::Result<Arc<dyn EdenService + Send + Sync>>;
-
-            #[cfg(fbcode_build)]
-            {
-                eden = fbcode::thrift_builder(fb, socket)?
-                    .build_client(::edenfs_clients::make_EdenService);
-            }
-
-            #[cfg(not(fbcode_build))]
-            {
-                let _ignored = fb;
-                let _ignored = socket;
-                eden = Err(anyhow::anyhow!("Eden I/O is not available in Cargo builds"))
-            }
-
-            let eden = eden.context("Error constructing Eden client")?;
+            let eden: Arc<dyn EdenService + Send + Sync> = thrift_builder(fb, socket)?
+                .build_client(::edenfs_clients::make_EdenService)
+                .context("Error constructing Eden client")?;
 
             wait_until_mount_is_ready(eden.as_ref(), &root).await?;
 
@@ -265,15 +267,8 @@ impl EdenConnector {
         .shared()
     }
 
-    #[cfg(fbcode_build)]
     fn connect_fb303(&self) -> anyhow::Result<Arc<dyn BaseService + Send + Sync>> {
-        fbcode::thrift_builder(self.fb, &self.socket)?
-            .build_client(::fb303_core_clients::make_BaseService)
-    }
-
-    #[cfg(not(fbcode_build))]
-    fn connect_fb303(&self) -> anyhow::Result<Arc<dyn BaseService + Send + Sync>> {
-        Err(anyhow::anyhow!("Eden I/O is not available in Cargo builds"))
+        thrift_builder(self.fb, &self.socket)?.build_client(::fb303_core_clients::make_BaseService)
     }
 }
 
@@ -472,24 +467,3 @@ impl_eden_data_into_result!(
     SortedVectorMap<PathString, FileAttributeDataOrErrorV2>,
     dirListAttributeData
 );
-
-#[cfg(fbcode_build)]
-mod fbcode {
-    use std::path::Path;
-
-    use super::*;
-
-    pub fn thrift_builder<P: AsRef<Path>>(
-        fb: FacebookInit,
-        socket: P,
-    ) -> anyhow::Result<::thriftclient::ThriftChannelBuilder> {
-        // NOTE: This timeout is absurdly high, but bear in mind that what we're
-        // "comparing" to is a FS call that has no timeouts at all.
-        const THRIFT_TIMEOUT_MS: u32 = 120_000;
-
-        Ok(::thriftclient::ThriftChannelBuilder::from_path(fb, socket)?
-            .with_conn_timeout(THRIFT_TIMEOUT_MS)
-            .with_recv_timeout(THRIFT_TIMEOUT_MS)
-            .with_secure(false))
-    }
-}
