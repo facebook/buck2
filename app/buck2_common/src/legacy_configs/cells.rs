@@ -10,6 +10,7 @@
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::buck2_env;
@@ -39,6 +40,7 @@ use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
 use crate::legacy_configs::LegacyConfigCmdArg;
 use crate::legacy_configs::MainConfigFile;
+use crate::legacy_configs::ResolvedLegacyConfigArg;
 
 #[derive(Debug, buck2_error::Error)]
 enum CellsError {
@@ -58,10 +60,12 @@ enum CellsError {
 ///
 /// We don't (currently) enforce that all aliases appear in the root config, but
 /// unlike v1, our cells implementation works just fine if that isn't the case.
+#[derive(Clone)]
 pub struct BuckConfigBasedCells {
     pub configs_by_name: LegacyBuckConfigs,
     pub cell_resolver: CellResolver,
     pub config_paths: HashSet<AbsNormPathBuf>,
+    pub resolved_args: Arc<[ResolvedLegacyConfigArg]>,
 }
 
 impl BuckConfigBasedCells {
@@ -277,6 +281,7 @@ impl BuckConfigBasedCells {
             configs_by_name: LegacyBuckConfigs::new(configs_by_name),
             cell_resolver,
             config_paths: file_ops.trace,
+            resolved_args: processed_config_args.into_iter().collect(),
         })
     }
 }

@@ -71,6 +71,7 @@ pub async fn configure_dice_for_buck(
     let mut dice_ctx = dice.updater();
     dice_ctx.set_none_cell_resolver()?;
     dice_ctx.set_none_legacy_configs()?;
+    dice_ctx.set_none_legacy_config_overrides()?;
     dice_ctx.commit().await;
 
     Ok(dice)

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_common::legacy_configs::ResolvedLegacyConfigArg;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
@@ -27,6 +28,7 @@ pub fn setup_interpreter(
     cell_resolver: CellResolver,
     configuror: Arc<BuildInterpreterConfiguror>,
     legacy_configs: LegacyBuckConfigs,
+    legacy_config_overrides: Arc<[ResolvedLegacyConfigArg]>,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
     unstable_typecheck: bool,
@@ -34,6 +36,7 @@ pub fn setup_interpreter(
     updater.set_cell_resolver(cell_resolver)?;
     updater.set_interpreter_context(configuror)?;
     updater.set_legacy_configs(legacy_configs)?;
+    updater.set_legacy_config_overrides(legacy_config_overrides)?;
     updater.set_starlark_profiler_instrumentation_override(
         starlark_profiler_instrumentation_override,
     )?;
@@ -53,6 +56,7 @@ pub fn setup_interpreter_basic(
         cell_resolver,
         configuror,
         legacy_configs,
+        Arc::new([]),
         StarlarkProfilerConfiguration::default(),
         false,
         false,

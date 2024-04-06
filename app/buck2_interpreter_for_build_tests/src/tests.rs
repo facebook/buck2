@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
@@ -101,6 +103,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     )
     .unwrap();
     ctx.set_legacy_configs(cell_configs).unwrap();
+    ctx.set_legacy_config_overrides(Arc::new([])).unwrap();
     ctx.set_starlark_profiler_instrumentation_override(StarlarkProfilerConfiguration::default())
         .unwrap();
     ctx.set_starlark_types(false, false).unwrap();

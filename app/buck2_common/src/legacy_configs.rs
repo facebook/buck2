@@ -113,7 +113,7 @@ impl Location {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, allocative::Allocative)]
 struct ConfigArgumentPair {
     section: String,
     key: String,
@@ -214,10 +214,10 @@ impl fmt::Display for LegacyConfigCmdArgFile {
     }
 }
 
-/// Private representation of a processed config arg, namely after file
-/// path resolution has been performed.
-#[derive(Debug)]
-enum ResolvedLegacyConfigArg {
+/// Representation of a processed config arg, namely after file path resolution has been performed.
+#[derive(Debug, Clone, PartialEq, allocative::Allocative)]
+#[allow(private_interfaces)] // contents are not meant to be publicly inspectable
+pub enum ResolvedLegacyConfigArg {
     /// A single config key-value pair (in `a.b=c` format).
     Flag(ConfigArgumentPair),
     /// A file containing additional config values (in `.buckconfig` format).

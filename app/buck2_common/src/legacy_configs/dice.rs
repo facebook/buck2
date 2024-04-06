@@ -32,6 +32,7 @@ use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::LegacyBuckConfig;
 use crate::legacy_configs::LegacyBuckConfigs;
+use crate::legacy_configs::ResolvedLegacyConfigArg;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
 #[derive(Clone, Dupe)]
@@ -110,6 +111,15 @@ pub trait HasInjectedLegacyConfigs {
 
     /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
     fn is_injected_legacy_configs_key_set(&mut self) -> impl Future<Output = anyhow::Result<bool>>;
+
+    /// Returns the list of overrides passed to the command line.
+    fn get_injected_legacy_config_overrides(
+        &mut self,
+    ) -> impl Future<Output = anyhow::Result<Arc<[ResolvedLegacyConfigArg]>>>;
+
+    fn is_injected_legacy_config_override_key_set(
+        &mut self,
+    ) -> impl Future<Output = anyhow::Result<bool>>;
 }
 
 #[async_trait]
@@ -156,6 +166,13 @@ pub trait SetLegacyConfigs {
     fn set_legacy_configs(&mut self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()>;
 
     fn set_none_legacy_configs(&mut self) -> anyhow::Result<()>;
+
+    fn set_legacy_config_overrides(
+        &mut self,
+        overrides: Arc<[ResolvedLegacyConfigArg]>,
+    ) -> anyhow::Result<()>;
+
+    fn set_none_legacy_config_overrides(&mut self) -> anyhow::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -171,6 +188,18 @@ impl InjectedKey for LegacyBuckConfigKey {
             (None, None) => true,
             (_, _) => false,
         }
+    }
+}
+
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[display(fmt = "{:?}", self)]
+struct LegacyBuckConfigOverridesKey;
+
+impl InjectedKey for LegacyBuckConfigOverridesKey {
+    type Value = Option<Arc<[ResolvedLegacyConfigArg]>>;
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x == y
     }
 }
 
@@ -246,6 +275,18 @@ impl HasInjectedLegacyConfigs for DiceComputations<'_> {
     async fn is_injected_legacy_configs_key_set(&mut self) -> anyhow::Result<bool> {
         Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
     }
+
+    async fn get_injected_legacy_config_overrides(
+        &mut self,
+    ) -> anyhow::Result<Arc<[ResolvedLegacyConfigArg]>> {
+        self.compute(&LegacyBuckConfigOverridesKey).await?.ok_or_else(|| {
+            panic!("Tried to retrieve LegacyBuckConfigOverridesKey from the graph, but key has None value")
+        })
+    }
+
+    async fn is_injected_legacy_config_override_key_set(&mut self) -> anyhow::Result<bool> {
+        Ok(self.compute(&LegacyBuckConfigOverridesKey).await?.is_some())
+    }
 }
 
 #[async_trait]
@@ -313,6 +354,17 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
 
     fn set_none_legacy_configs(&mut self) -> anyhow::Result<()> {
         Ok(self.changed_to(vec![(LegacyBuckConfigKey, None)])?)
+    }
+
+    fn set_legacy_config_overrides(
+        &mut self,
+        overrides: Arc<[ResolvedLegacyConfigArg]>,
+    ) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(LegacyBuckConfigOverridesKey, Some(overrides))])?)
+    }
+
+    fn set_none_legacy_config_overrides(&mut self) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(LegacyBuckConfigOverridesKey, None)])?)
     }
 }
 

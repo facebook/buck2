@@ -42,15 +42,14 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::http::SetHttpClient;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
+use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
-use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_core::async_once_cell::AsyncOnceCell;
-use buck2_core::cells::CellResolver;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::facebook_only;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -117,7 +116,6 @@ use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::configs::get_legacy_config_args;
-use crate::configs::parse_legacy_cells;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
@@ -462,22 +460,21 @@ struct CellConfigLoader {
     /// Reuses build config from the previous invocation if there is one
     reuse_current_config: bool,
     config_overrides: Vec<LegacyConfigCmdArg>,
-    loaded_cell_configs: AsyncOnceCell<
-        buck2_error::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)>,
-    >,
+    loaded_cell_configs: AsyncOnceCell<buck2_error::Result<BuckConfigBasedCells>>,
 }
 
 impl CellConfigLoader {
     async fn cells_and_configs(
         &self,
         dice_ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
+    ) -> buck2_error::Result<BuckConfigBasedCells> {
         self.loaded_cell_configs
             .get_or_init(async move {
                 if self.reuse_current_config {
                     // If there is a previous command and --reuse-current-config is set, then the old config is used, ignoring any overrides.
                     if dice_ctx.is_cell_resolver_key_set().await?
                         && dice_ctx.is_injected_legacy_configs_key_set().await?
+                        && dice_ctx.is_injected_legacy_config_override_key_set().await?
                     {
                         if !self.config_overrides.is_empty() {
                             warn!(
@@ -485,11 +482,12 @@ impl CellConfigLoader {
                                 truncate_container(self.config_overrides.iter().map(|o| o.to_string()), 200),
                             );
                         }
-                        return buck2_error::Ok((
-                            dice_ctx.get_cell_resolver().await?,
-                            dice_ctx.get_injected_legacy_configs().await?,
-                            HashSet::new(),
-                        ));
+                        return buck2_error::Ok(BuckConfigBasedCells {
+                            cell_resolver: dice_ctx.get_cell_resolver().await?,
+                            configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
+                            config_paths: HashSet::new(),
+                            resolved_args: dice_ctx.get_injected_legacy_config_overrides().await?,
+                        });
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
                         warn!(
@@ -497,7 +495,7 @@ impl CellConfigLoader {
                         );
                     }
                 }
-                parse_legacy_cells(&self.config_overrides, &self.working_dir, &self.project_root)
+                BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir)
                     .map_err(buck2_error::Error::from)
             })
             .await
@@ -532,8 +530,9 @@ struct DiceCommandDataProvider {
 #[async_trait]
 impl DiceDataProvider for DiceCommandDataProvider {
     async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
-        let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) =
-            self.cell_configs_loader.cells_and_configs(ctx).await?;
+        let cells_and_configs = self.cell_configs_loader.cells_and_configs(ctx).await?;
+        let cell_resolver = cells_and_configs.cell_resolver;
+        let legacy_configs = cells_and_configs.configs_by_name;
 
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
@@ -724,10 +723,12 @@ impl DiceUpdater for DiceCommandUpdater {
         ctx: DiceTransactionUpdater,
         user_data: &mut UserComputationData,
     ) -> anyhow::Result<DiceTransactionUpdater> {
-        let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) = self
+        let cells_and_configs = self
             .cell_config_loader
             .cells_and_configs(&mut ctx.existing_state().await.clone())
             .await?;
+        let cell_resolver = cells_and_configs.cell_resolver;
+        let legacy_configs = cells_and_configs.configs_by_name;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
 
@@ -755,6 +756,7 @@ impl DiceUpdater for DiceCommandUpdater {
             cell_resolver,
             configuror,
             legacy_configs,
+            cells_and_configs.resolved_args,
             self.starlark_profiler_instrumentation_override.dupe(),
             self.disable_starlark_types,
             self.unstable_typecheck,
@@ -983,7 +985,11 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         &self,
         ctx: &mut DiceComputations<'_>,
     ) -> anyhow::Result<()> {
-        let (_, _, paths) = self.cell_configs_loader.cells_and_configs(ctx).await?;
+        let paths = self
+            .cell_configs_loader
+            .cells_and_configs(ctx)
+            .await?
+            .config_paths;
 
         // Add legacy config paths to I/O tracing (if enabled).
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
