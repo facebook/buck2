@@ -246,8 +246,8 @@ enum ConfigArgumentParseError {
     #[error("Contains whitespace in key-value pair `{0}`")]
     WhitespaceInKeyOrValue(String),
 
-    #[error("Specifying cells via cli config overrides is banned (`repositories.key=value`)")]
-    CellOverrideViaCliConfig,
+    #[error("Specifying cells via cli config overrides is banned (`{0}.key=value`)")]
+    CellOverrideViaCliConfig(&'static str),
 }
 
 // Parses config key in the format `section.key`

@@ -173,11 +173,13 @@ impl LegacyConfigParser {
         config_pair: &ConfigArgumentPair,
         current_cell_path: AbsNormPathBuf,
     ) -> anyhow::Result<()> {
-        if config_pair.section == "repositories" {
-            return Err(anyhow::anyhow!(
-                ConfigArgumentParseError::CellOverrideViaCliConfig
-            ));
-        };
+        for banned_section in ["repositories", "cells"] {
+            if config_pair.section == banned_section {
+                return Err(
+                    ConfigArgumentParseError::CellOverrideViaCliConfig(banned_section).into(),
+                );
+            };
+        }
         let pair = config_pair.to_owned();
         let cell_matches = pair.cell_path == Some(current_cell_path) || pair.cell_path.is_none();
         if cell_matches {
