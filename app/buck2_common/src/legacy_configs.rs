@@ -24,7 +24,6 @@ use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
-use std::fs;
 use std::io::BufRead;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -35,6 +34,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use derive_more::Display;
 use dupe::Dupe;
@@ -350,6 +350,11 @@ impl ConfigValue {
     }
 }
 
+pub struct ConfigDirEntry {
+    name: FileNameBuf,
+    is_dir: bool,
+}
+
 pub trait ConfigParserFileOps {
     fn read_file_lines(
         &mut self,
@@ -357,6 +362,14 @@ pub trait ConfigParserFileOps {
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>>;
 
     fn file_exists(&self, path: &AbsNormPath) -> bool;
+
+    fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
+}
+
+#[derive(buck2_error::Error, Debug)]
+enum ReadDirError {
+    #[error("Non-utf8 entry `{0}` in directory `{1}`")]
+    NotUtf8(String, String),
 }
 
 struct DefaultConfigParserFileOps {}
@@ -373,6 +386,45 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
 
     fn file_exists(&self, path: &AbsNormPath) -> bool {
         PathBuf::from(path.as_os_str()).exists()
+    }
+
+    fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+        let read_dir = match std::fs::read_dir(path.as_path()) {
+            Ok(read_dir) => read_dir,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotADirectory => {
+                tracing::warn!("Expected a directory of buckconfig files at: `{}`", path);
+                return Ok(Vec::new());
+            }
+            Err(e) => return Err(e.into()),
+        };
+        let mut entries = Vec::new();
+        for entry in read_dir {
+            let entry = entry?;
+            let name = entry.file_name().into_string().map_err(|s| {
+                ReadDirError::NotUtf8(
+                    std::path::Path::display(s.as_ref()).to_string(),
+                    path.to_string(),
+                )
+            })?;
+            let name = FileNameBuf::try_from(name)?;
+            let file_type = entry.file_type()?;
+            if file_type.is_file() {
+                entries.push(ConfigDirEntry {
+                    name,
+                    is_dir: false,
+                });
+            } else if file_type.is_dir() {
+                entries.push(ConfigDirEntry { name, is_dir: true });
+            } else {
+                tracing::warn!(
+                    "Expected a directory of buckconfig files at `{}`, but this entry was not a file or directory: `{}`",
+                    path,
+                    name,
+                );
+            }
+        }
+        Ok(entries)
     }
 }
 
@@ -574,42 +626,22 @@ fn push_all_files_from_a_directory(
     buckconfig_paths: &mut Vec<MainConfigFile>,
     folder_path: &AbsNormPath,
     owned_by_project: bool,
+    file_ops: &dyn ConfigParserFileOps,
 ) -> anyhow::Result<()> {
-    let readdir = match fs::read_dir(folder_path) {
-        Ok(p) => p,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotADirectory => {
-            tracing::warn!(
-                "Expected a directory of buckconfig files at: `{}`",
-                folder_path
-            );
-            return Ok(());
-        }
-        Err(e) => {
-            return Err(anyhow::Error::from(e)
-                .context(format!("Error reading configs in `{}`", folder_path)));
-        }
-    };
-
-    for entry in readdir {
-        let entry_path = entry?.path();
-        if entry_path.is_file() {
-            buckconfig_paths.push(MainConfigFile {
-                path: AbsNormPath::new(&entry_path)?.to_buf(),
-                owned_by_project,
-            });
-        } else if entry_path.is_dir() {
+    for entry in file_ops.read_dir(folder_path)? {
+        let entry_path = folder_path.join(&entry.name);
+        if entry.is_dir {
             push_all_files_from_a_directory(
                 buckconfig_paths,
-                &AbsNormPathBuf::try_from(entry_path)?,
+                &entry_path,
                 owned_by_project,
+                file_ops,
             )?;
         } else {
-            tracing::warn!(
-                "Expected a directory of buckconfig files at `{}`, but this entry was not a file or directory: `{}`",
-                folder_path,
-                entry_path.display()
-            );
+            buckconfig_paths.push(MainConfigFile {
+                path: entry_path,
+                owned_by_project,
+            });
         }
     }
 
@@ -706,6 +738,12 @@ pub mod testing {
             }
             let file = std::io::BufReader::new(StringReader(content.into_bytes(), 0));
             Ok(Box::new(file.lines()))
+        }
+
+        fn read_dir(&self, _path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+            // This is only used for listing files in `buckconfig.d` directories, which we can just
+            // say are always empty in tests
+            Ok(Vec::new())
         }
     }
 }
@@ -1215,7 +1253,7 @@ mod tests {
             let file = AbsNormPath::new(&file)?;
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false)?;
+            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
             assert_eq!(
                 v,
                 vec![MainConfigFile {
@@ -1233,7 +1271,7 @@ mod tests {
             let dir = tempfile::tempdir()?;
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false)?;
+            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1246,7 +1284,7 @@ mod tests {
             let dir = dir.path().join("bad");
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false)?;
+            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1259,7 +1297,12 @@ mod tests {
             let dir = AbsPath::new(dir.path())?;
             fs_util::create_dir_all(dir.join("bad"))?;
 
-            push_all_files_from_a_directory(&mut v, AbsNormPath::new(dir)?, false)?;
+            push_all_files_from_a_directory(
+                &mut v,
+                AbsNormPath::new(dir)?,
+                false,
+                &DefaultConfigParserFileOps {},
+            )?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1271,7 +1314,7 @@ mod tests {
             let file = tempfile::NamedTempFile::new()?;
             let file = AbsNormPath::new(file.path())?;
 
-            push_all_files_from_a_directory(&mut v, file, false)?;
+            push_all_files_from_a_directory(&mut v, file, false, &DefaultConfigParserFileOps {})?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1290,7 +1333,7 @@ mod tests {
             let file = AbsNormPath::new(&file)?;
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false)?;
+            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
             assert_eq!(
                 v,
                 vec![MainConfigFile {

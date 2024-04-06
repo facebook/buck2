@@ -32,6 +32,7 @@ use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
 use crate::legacy_configs::push_all_files_from_a_directory;
 use crate::legacy_configs::BuckConfigParseOptions;
 use crate::legacy_configs::CellResolutionState;
+use crate::legacy_configs::ConfigDirEntry;
 use crate::legacy_configs::ConfigParserFileOps;
 use crate::legacy_configs::DefaultConfigParserFileOps;
 use crate::legacy_configs::LegacyBuckConfig;
@@ -159,6 +160,10 @@ impl BuckConfigBasedCells {
             fn file_exists(&self, path: &AbsNormPath) -> bool {
                 self.inner.file_exists(path)
             }
+
+            fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+                self.inner.read_dir(path)
+            }
         }
 
         let mut file_ops = TracingFileOps {
@@ -189,7 +194,7 @@ impl BuckConfigBasedCells {
                 continue;
             }
 
-            let buckconfig_paths = get_buckconfig_paths_for_cell(&path, project_fs)?;
+            let buckconfig_paths = get_buckconfig_paths_for_cell(&path, project_fs, &file_ops)?;
 
             let existing_configs: Vec<MainConfigFile> = buckconfig_paths
                 .into_iter()
@@ -294,6 +299,7 @@ impl BuckConfigBasedCells {
 fn get_buckconfig_paths_for_cell(
     path: &CellRootPath,
     project_fs: &ProjectRoot,
+    file_ops: &dyn ConfigParserFileOps,
 ) -> anyhow::Result<Vec<MainConfigFile>> {
     let skip_default_external_config = buck2_env!("BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG", bool)?;
 
@@ -322,6 +328,7 @@ fn get_buckconfig_paths_for_cell(
                     &mut buckconfig_paths,
                     &buckconfig_folder_abs_path,
                     true,
+                    file_ops,
                 )?;
             }
             BuckConfigFile::UserFile(file) => {
@@ -344,6 +351,7 @@ fn get_buckconfig_paths_for_cell(
                         &mut buckconfig_paths,
                         &buckconfig_folder_abs_path,
                         false,
+                        file_ops,
                     )?;
                 }
             }
@@ -359,6 +367,7 @@ fn get_buckconfig_paths_for_cell(
                     &mut buckconfig_paths,
                     &buckconfig_folder_abs_path,
                     false,
+                    file_ops,
                 )?;
             }
         }
