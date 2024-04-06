@@ -454,27 +454,6 @@ impl LegacyBuckConfig {
         }))
     }
 
-    pub fn parse_with_file_ops(
-        path: &AbsNormPath,
-        file_ops: &mut dyn ConfigParserFileOps,
-        config_args: &[LegacyConfigCmdArg],
-    ) -> anyhow::Result<Self> {
-        // This function is only used internally for tests, so it's to skip cell resolution
-        // as we do not have a `ProjectFilesystem`. Either way, this will fail gracefully
-        // if there's a cell-relative config arg, so this can updated appropriately.
-        let processed_config_args =
-            LegacyBuckConfig::process_config_args(config_args, None, file_ops)?;
-        Self::parse_with_file_ops_with_includes(
-            &[MainConfigFile {
-                path: path.to_buf(),
-                owned_by_project: true,
-            }],
-            file_ops,
-            &processed_config_args,
-            true,
-        )
-    }
-
     fn resolve_config_flag_arg(
         flag_arg: &LegacyConfigCmdArgFlag,
         cell_resolution: Option<&CellResolutionState>,
@@ -679,7 +658,20 @@ pub mod testing {
         // Need to add some disk drive on Windows to make path absolute.
         #[cfg(windows)]
         let path = &AbsNormPathBuf::from(format!("C:{}", path))?;
-        LegacyBuckConfig::parse_with_file_ops(path, &mut file_ops, config_args)
+        // This function is only used internally for tests, so it's to skip cell resolution
+        // as we do not have a `ProjectFilesystem`. Either way, this will fail gracefully
+        // if there's a cell-relative config arg, so this can updated appropriately.
+        let processed_config_args =
+            LegacyBuckConfig::process_config_args(config_args, None, &mut file_ops)?;
+        LegacyBuckConfig::parse_with_file_ops_with_includes(
+            &[MainConfigFile {
+                path: path.to_buf(),
+                owned_by_project: true,
+            }],
+            &mut file_ops,
+            &processed_config_args,
+            true,
+        )
     }
 
     pub struct TestConfigParserFileOps {
