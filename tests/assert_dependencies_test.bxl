@@ -1,0 +1,38 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//utils:set.bzl", "set")
+
+_MAX_DEPTH = 2147483647
+
+def _assert_dependencies_test(ctx: BxlContext, expected_deps: list[TargetLabel], target: TargetLabel):
+    """Checks the dependencies of a given rule looking for expected dependencies.
+
+       Test passes if each of expected_deps is a dependency of the target.
+    """
+
+    cquery = ctx.cquery()
+    transitive_deps = cquery.deps(
+        ctx.target_universe(target).target_set(),
+        _MAX_DEPTH,
+        filter = "target_deps()",
+    )
+    result = set([target.label.raw_target() for target in transitive_deps])
+    not_found = [item for item in expected_deps if not result.contains(item)]
+    if len(not_found) > 0:
+        fail("Expected dependencies not found: {}".format(not_found))
+
+def _impl_assert_dep_test(ctx: BxlContext):
+    _assert_dependencies_test(ctx, ctx.cli_args.deps, ctx.cli_args.target)
+
+test = bxl_main(
+    cli_args = {
+        "deps": cli_args.list(cli_args.target_label()),
+        "target": cli_args.target_label(),
+    },
+    impl = _impl_assert_dep_test,
+)

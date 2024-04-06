@@ -1,0 +1,52 @@
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+
+oncall("build_infra")
+
+python_library(
+    name = "assert_occurrences",
+    srcs = ["helper/assert_occurrences.py"],
+)
+
+python_library(
+    name = "utils",
+    srcs = ["helper/utils.py"],
+    deps = [
+        "//buck2/tests/e2e_util/api:api",
+    ],
+)
+
+python_library(
+    name = "golden",
+    srcs = ["helper/golden.py"],
+)
+
+python_library(
+    name = "utilities",
+    srcs = [
+        "asserts.py",
+        "buck_workspace.py",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "fbsource//third-party/pypi/decorator:decorator",
+        "fbsource//third-party/pypi/pytest:pytest",
+        "//buck2/tests/e2e_util/api:api",
+    ],
+)
+
+export_file(
+    name = "conftest.py",
+    src = "conftest.py",
+    visibility = ["PUBLIC"],
+)
+
+export_file(name = "test_bxl_template.py")
+
+export_file(name = "test_bxl_check_dependencies_template.py")
+
+export_file(name = "test_bxl_assert_dependencies_template.py")
+
+export_file(name = "test_bxl_audit_dependents_template.py")

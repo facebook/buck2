@@ -1,0 +1,17 @@
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+# @oss-disable: load(":visibility.fb.bzl", "visibility") 
+
+oncall("build_infra")
+
+visibility = ["PUBLIC"] # @oss-enable
+
+python_library(
+    name = "api",
+    srcs = glob(["*.py"]),
+    # This is not public API for buck invocation, but a part of buck2_e2e testing framwork.
+    # We may want to make it public API, and when we do, let's do it explicitly:
+    # * clean
+    # * with tests
+    # * with public announcement
+    visibility = visibility,
+)
