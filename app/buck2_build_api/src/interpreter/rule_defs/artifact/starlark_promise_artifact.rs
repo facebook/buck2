@@ -45,7 +45,6 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
@@ -230,7 +229,7 @@ impl StarlarkArtifactLike for StarlarkPromiseArtifact {
         &'v self,
         path: &str,
         hide_prefix: bool,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+    ) -> anyhow::Result<EitherStarlarkArtifact> {
         let _ = (path, hide_prefix);
         Err(PromiseArtifactError::CannotProject(self.clone()).into())
     }

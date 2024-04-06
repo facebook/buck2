@@ -206,14 +206,16 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         &'v self,
         path: &str,
         hide_prefix: bool,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+    ) -> anyhow::Result<EitherStarlarkArtifact> {
         let path = ForwardRelativePath::new(path)?;
         // Not sure if this.declaration_location is or the project() call is more appropriate here.
-        Ok(StarlarkDeclaredArtifact {
-            declaration_location: self.declaration_location.dupe(),
-            artifact: self.artifact.project(path, hide_prefix),
-            associated_artifacts: self.associated_artifacts.dupe(),
-        })
+        Ok(EitherStarlarkArtifact::DeclaredArtifact(
+            StarlarkDeclaredArtifact {
+                declaration_location: self.declaration_location.dupe(),
+                artifact: self.artifact.project(path, hide_prefix),
+                associated_artifacts: self.associated_artifacts.dupe(),
+            },
+        ))
     }
 
     fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact> {

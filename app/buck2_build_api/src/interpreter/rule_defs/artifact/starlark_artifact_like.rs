@@ -109,7 +109,7 @@ pub trait StarlarkArtifactLike: Display {
         &'v self,
         path: &str,
         hide_prefix: bool,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact>;
+    ) -> anyhow::Result<EitherStarlarkArtifact>;
 
     fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact>;
 

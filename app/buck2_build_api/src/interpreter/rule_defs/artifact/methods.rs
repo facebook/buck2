@@ -125,7 +125,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
         this: &'v dyn StarlarkArtifactLike,
         #[starlark(require = pos)] path: &str,
         #[starlark(require = named, default = false)] hide_prefix: bool,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+    ) -> anyhow::Result<EitherStarlarkArtifact> {
         this.project(path, hide_prefix)
     }
 
