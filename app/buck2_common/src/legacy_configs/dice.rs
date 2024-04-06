@@ -319,37 +319,30 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
 #[cfg(test)]
 mod tests {
     use buck2_core::cells::name::CellName;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use dice::InjectedKey;
 
     use crate::legacy_configs::dice::LegacyBuckConfigKey;
-    use crate::legacy_configs::testing::TestConfigParserFileOps;
-    use crate::legacy_configs::LegacyBuckConfig;
+    use crate::legacy_configs::testing::parse_with_config_args;
     use crate::legacy_configs::LegacyBuckConfigs;
     use crate::legacy_configs::LegacyConfigCmdArg;
 
     #[test]
     fn config_equals() -> anyhow::Result<()> {
-        #[cfg(not(windows))]
-        let path = &AbsNormPathBuf::from("/test".to_owned())?;
-        #[cfg(windows)]
-        let path = &AbsNormPathBuf::from("C:/test".to_owned())?;
+        let path = "/test";
         let config1 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
-                LegacyBuckConfig::parse_with_file_ops(
+                parse_with_config_args(
+                    &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
-                    &mut file_ops,
                     &[LegacyConfigCmdArg::flag("sec1.a=c")?],
                 )?
             },
             CellName::testing_new("cell2")
             => {
-                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\nx=y\n[sec2]\na=b")])?;
-                LegacyBuckConfig::parse_with_file_ops(
+                parse_with_config_args(
+                    &[("/test", "[sec1]\nx=y\n[sec2]\na=b")],
                     path,
-                    &mut file_ops,
                     &[],
                 )?
             }
@@ -358,10 +351,9 @@ mod tests {
         let config2 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
-                LegacyBuckConfig::parse_with_file_ops(
+                parse_with_config_args(
+                    &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
-                    &mut file_ops,
                     &[LegacyConfigCmdArg::flag("sec1.a=c")?],
                 )?
             },
@@ -370,10 +362,9 @@ mod tests {
         let config3 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=c\n[sec2]\nx=y")])?;
-                LegacyBuckConfig::parse_with_file_ops(
+                parse_with_config_args(
+                    &[("/test", "[sec1]\na=c\n[sec2]\nx=y")],
                     path,
-                    &mut file_ops,
                     &[],
                 )?
             },
@@ -382,10 +373,9 @@ mod tests {
         let config4 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
-                LegacyBuckConfig::parse_with_file_ops(
+                parse_with_config_args(
+                    &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
-                    &mut file_ops,
                     &[LegacyConfigCmdArg::flag("sec1.d=e")?],
                 )?
             },

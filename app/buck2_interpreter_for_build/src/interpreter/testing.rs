@@ -9,8 +9,7 @@
 
 use std::sync::Arc;
 
-use buck2_common::legacy_configs::testing::TestConfigParserFileOps;
-use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::testing::parse_with_config_args;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
@@ -21,7 +20,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::*;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -93,17 +91,11 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
     )?;
     let resolver = agg.make_cell_resolver()?;
-    let root_path = if cfg!(windows) {
-        AbsNormPath::new("c:/root").unwrap()
-    } else {
-        AbsNormPath::new("/root").unwrap()
-    };
 
     let configs = hashmap![
         CellName::testing_new("root") =>
-        LegacyBuckConfig::parse_with_file_ops(
-            root_path,
-            &mut TestConfigParserFileOps::new(&[
+        parse_with_config_args(
+            &[
                 (
                     "/root",
                     indoc!(
@@ -121,7 +113,8 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
                     ),
                 ),
                 ("/extra_cfg", extra_root_config.unwrap_or("")),
-            ])?,
+            ],
+            "/root",
             &[],
         )?
     ];
