@@ -10,6 +10,7 @@
 //! Contains utilities for dealing with buckv1 concepts (ex. buckv1's
 //! .buckconfig files as configuration)
 
+mod access;
 pub mod buildfiles;
 pub mod cells;
 pub mod dice;
@@ -26,7 +27,6 @@ use std::fmt::Display;
 use std::fs;
 use std::io::BufRead;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -38,35 +38,17 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::eq_chain;
 use gazebo::prelude::*;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
-use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::LegacyConfigParser;
 use crate::legacy_configs::view::LegacyBuckConfigView;
-use crate::target_aliases::BuckConfigTargetAliasResolver;
 
 #[derive(buck2_error::Error, Debug)]
 enum ConfigCellResolutionError {
     #[error("Unable to resolve cell-relative path `{0}`")]
     UnableToResolveCellRelativePath(String),
-}
-
-#[derive(buck2_error::Error, Debug)]
-enum ConfigValueError {
-    #[error(
-        "Invalid value for buckconfig `{section}.{key}`: conversion to {ty} failed, value as `{value}`"
-    )]
-    ParseFailed {
-        section: String,
-        key: String,
-        value: String,
-        ty: &'static str,
-    },
-    #[error("Unknown cell: `{0}`")]
-    UnknownCell(CellName),
 }
 
 /// A collection of configs, keyed by cell.
@@ -80,28 +62,6 @@ impl LegacyBuckConfigs {
         let data = SortedMap::from_iter(data);
         Self {
             data: Arc::new(data),
-        }
-    }
-
-    pub fn get<'a>(&'a self, cell_name: CellName) -> anyhow::Result<&'a LegacyBuckConfig> {
-        self.data
-            .get(&cell_name)
-            .ok_or_else(|| ConfigValueError::UnknownCell(cell_name).into())
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (CellName, &LegacyBuckConfig)> {
-        self.data.iter().map(|(name, config)| (*name, config))
-    }
-
-    pub(crate) fn compare(&self, other: &Self) -> bool {
-        let x = &self.data;
-        let y = &other.data;
-
-        eq_chain! {
-            x.len() == y.len(),
-            x.iter().all(|(cell, config)| {
-                y.get(cell).map_or(false, |y_config| y_config.compare(config))
-            })
         }
     }
 }
@@ -128,28 +88,6 @@ struct ConfigFile {
 
 #[derive(Clone, Dupe, Debug, Allocative)]
 pub struct LegacyBuckConfig(Arc<ConfigData>);
-
-impl LegacyBuckConfig {
-    /// configs are equal if the data they resolve in is equal, regardless of the origin of the config
-    pub(crate) fn compare(&self, other: &Self) -> bool {
-        eq_chain!(
-            self.0.values.len() == other.0.values.len(),
-            self.0.values.iter().all(|(section_name, section)| {
-                other
-                    .0
-                    .values
-                    .get(section_name)
-                    .map_or(false, |other_sec| other_sec.compare(section))
-            })
-        )
-    }
-}
-
-impl LegacyBuckConfigView for &LegacyBuckConfig {
-    fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(LegacyBuckConfig::get(self, key).map(|v| v.to_owned().into()))
-    }
-}
 
 #[derive(Debug, Allocative)]
 struct ConfigData {
@@ -386,35 +324,6 @@ pub struct LegacyBuckConfigSection {
     values: SortedMap<String, ConfigValue>,
 }
 
-impl LegacyBuckConfigSection {
-    /// configs are equal if the data they resolve in is equal, regardless of the origin of the config
-    pub(crate) fn compare(&self, other: &Self) -> bool {
-        eq_chain!(
-            self.values.len() == other.values.len(),
-            self.values.iter().all(|(name, value)| other
-                .values
-                .get(name)
-                .map_or(false, |other_val| other_val.as_str() == value.as_str()))
-        )
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&str, LegacyBuckConfigValue)> {
-        self.values
-            .iter()
-            .map(move |(key, value)| (key.as_str(), LegacyBuckConfigValue { value }))
-    }
-
-    pub fn keys(&self) -> impl Iterator<Item = &String> {
-        self.values.keys()
-    }
-
-    pub fn get(&self, key: &str) -> Option<LegacyBuckConfigValue> {
-        self.values
-            .get(key)
-            .map(move |value| LegacyBuckConfigValue { value })
-    }
-}
-
 impl ConfigValue {
     fn new_raw(source: ConfigFileLocation, value: String) -> Self {
         Self {
@@ -543,10 +452,6 @@ impl LegacyBuckConfig {
         Self(Arc::new(ConfigData {
             values: SortedMap::new(),
         }))
-    }
-
-    pub fn target_alias_resolver(&self) -> BuckConfigTargetAliasResolver {
-        BuckConfigTargetAliasResolver::new(self.dupe())
     }
 
     pub fn parse_with_file_ops(
@@ -700,115 +605,6 @@ impl LegacyBuckConfig {
 
         parser.finish()
     }
-
-    fn get_config_value(&self, key: BuckconfigKeyRef) -> Option<&ConfigValue> {
-        let BuckconfigKeyRef { section, property } = key;
-        self.0
-            .values
-            .get(section)
-            .and_then(|s| s.values.get(property))
-    }
-
-    pub fn get(&self, key: BuckconfigKeyRef) -> Option<&str> {
-        self.get_config_value(key).map(|s| s.as_str())
-    }
-
-    /// Iterate all entries.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, impl IntoIterator<Item = (&str, &str)>)> {
-        self.0.values.iter().map(|(section, section_values)| {
-            (
-                section.as_str(),
-                section_values
-                    .values
-                    .iter()
-                    .map(|(key, value)| (key.as_str(), value.as_str())),
-            )
-        })
-    }
-
-    fn parse_impl<T: FromStr>(key: BuckconfigKeyRef, value: &str) -> anyhow::Result<T>
-    where
-        anyhow::Error: From<<T as FromStr>::Err>,
-    {
-        let BuckconfigKeyRef { section, property } = key;
-        value
-            .parse()
-            .map_err(anyhow::Error::from)
-            .with_context(|| ConfigValueError::ParseFailed {
-                section: section.to_owned(),
-                key: property.to_owned(),
-                value: value.to_owned(),
-                ty: std::any::type_name::<T>(),
-            })
-    }
-
-    pub fn parse<T: FromStr>(&self, key: BuckconfigKeyRef) -> anyhow::Result<Option<T>>
-    where
-        anyhow::Error: From<<T as FromStr>::Err>,
-    {
-        self.get_config_value(key)
-            .map(|s| {
-                Self::parse_impl(key, s.as_str()).with_context(|| {
-                    format!("Defined {}", s.source.as_legacy_buck_config_location())
-                })
-            })
-            .transpose()
-    }
-
-    pub fn parse_value<T: FromStr>(
-        key: BuckconfigKeyRef,
-        value: Option<&str>,
-    ) -> anyhow::Result<Option<T>>
-    where
-        anyhow::Error: From<<T as FromStr>::Err>,
-    {
-        value.map(|s| Self::parse_impl(key, s)).transpose()
-    }
-
-    pub fn parse_list<T: FromStr>(&self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Vec<T>>>
-    where
-        anyhow::Error: From<<T as FromStr>::Err>,
-    {
-        Self::parse_list_value(key, self.get(key))
-    }
-
-    pub fn parse_list_value<T: FromStr>(
-        key: BuckconfigKeyRef,
-        value: Option<&str>,
-    ) -> anyhow::Result<Option<Vec<T>>>
-    where
-        anyhow::Error: From<<T as FromStr>::Err>,
-    {
-        /// A wrapper type so we can use .parse() on this.
-        struct ParseList<T>(Vec<T>);
-
-        impl<T> FromStr for ParseList<T>
-        where
-            T: FromStr,
-        {
-            type Err = <T as FromStr>::Err;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                Ok(Self(
-                    s.split(',').map(T::from_str).collect::<Result<_, _>>()?,
-                ))
-            }
-        }
-
-        Ok(Self::parse_value::<ParseList<T>>(key, value)?.map(|l| l.0))
-    }
-
-    pub fn sections(&self) -> impl Iterator<Item = &String> {
-        self.0.values.keys()
-    }
-
-    pub fn all_sections(&self) -> impl Iterator<Item = (&String, &LegacyBuckConfigSection)> + '_ {
-        self.0.values.iter()
-    }
-
-    pub fn get_section(&self, section: &str) -> Option<&LegacyBuckConfigSection> {
-        self.0.values.get(section)
-    }
 }
 
 // Options on how to exactly parse config files
@@ -946,6 +742,7 @@ mod tests {
 
     use super::testing::*;
     use super::*;
+    use crate::legacy_configs::key::BuckconfigKeyRef;
 
     pub(crate) fn assert_config_value(
         config: &LegacyBuckConfig,
