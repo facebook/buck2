@@ -151,22 +151,23 @@ impl BuckConfigBasedCells {
             trace: HashSet<AbsNormPathBuf>,
         }
 
+        #[async_trait::async_trait]
         impl ConfigParserFileOps for TracingFileOps<'_> {
-            fn read_file_lines(
+            async fn read_file_lines(
                 &mut self,
                 path: &AbsNormPath,
-            ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>>
+            ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>
             {
                 self.trace.insert(path.to_buf());
-                self.inner.read_file_lines(path)
+                self.inner.read_file_lines(path).await
             }
 
-            fn file_exists(&self, path: &AbsNormPath) -> bool {
-                self.inner.file_exists(path)
+            async fn file_exists(&self, path: &AbsNormPath) -> bool {
+                self.inner.file_exists(path).await
             }
 
-            fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
-                self.inner.read_dir(path)
+            async fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+                self.inner.read_dir(path).await
             }
         }
 
@@ -198,15 +199,19 @@ impl BuckConfigBasedCells {
                 continue;
             }
 
-            let buckconfig_paths = get_buckconfig_paths_for_cell(&path, project_fs, &file_ops)?;
+            // Blocking is ok because we know the fileops don't suspend
+            let buckconfig_paths = futures::executor::block_on(get_buckconfig_paths_for_cell(
+                &path, project_fs, &file_ops,
+            ))?;
 
-            let config = LegacyBuckConfig::parse_with_file_ops_with_includes(
-                buckconfig_paths.as_slice(),
-                project_fs.resolve(path.as_project_relative_path()),
-                &mut file_ops,
-                &processed_config_args,
-                options.follow_includes,
-            )?;
+            let config =
+                futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
+                    buckconfig_paths.as_slice(),
+                    project_fs.resolve(path.as_project_relative_path()),
+                    &mut file_ops,
+                    &processed_config_args,
+                    options.follow_includes,
+                ))?;
 
             let is_root = path.is_repo_root();
 
@@ -286,7 +291,7 @@ impl BuckConfigBasedCells {
     }
 }
 
-fn get_buckconfig_paths_for_cell(
+async fn get_buckconfig_paths_for_cell(
     path: &CellRootPath,
     project_fs: &ProjectRoot,
     file_ops: &dyn ConfigParserFileOps,
@@ -319,7 +324,8 @@ fn get_buckconfig_paths_for_cell(
                     &buckconfig_folder_abs_path,
                     true,
                     file_ops,
-                )?;
+                )
+                .await?;
             }
             BuckConfigFile::UserFile(file) => {
                 let home_dir = dirs::home_dir();
@@ -342,7 +348,8 @@ fn get_buckconfig_paths_for_cell(
                         &buckconfig_folder_abs_path,
                         false,
                         file_ops,
-                    )?;
+                    )
+                    .await?;
                 }
             }
             BuckConfigFile::GlobalFile(file) => {
@@ -358,7 +365,8 @@ fn get_buckconfig_paths_for_cell(
                     &buckconfig_folder_abs_path,
                     false,
                     file_ops,
-                )?;
+                )
+                .await?;
             }
         }
     }

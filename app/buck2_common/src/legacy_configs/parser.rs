@@ -15,6 +15,8 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::RelativePath;
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -102,16 +104,17 @@ impl LegacyConfigParser {
         ("__unspecified__".to_owned(), BTreeMap::new())
     }
 
-    pub(crate) fn parse_file(
+    pub(crate) async fn parse_file(
         &mut self,
         path: &AbsNormPath,
         source: Option<Location>,
         follow_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()> {
-        if file_ops.file_exists(path) {
+        if file_ops.file_exists(path).await {
             self.start_file(path, source)?;
             self.parse_file_on_stack(path, follow_includes, file_ops)
+                .await
                 .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
             self.finish_file();
         }
@@ -194,17 +197,21 @@ impl LegacyConfigParser {
         Ok(())
     }
 
-    fn parse_file_on_stack(
-        &mut self,
-        path: &AbsNormPath,
+    fn parse_file_on_stack<'a>(
+        &'a mut self,
+        path: &'a AbsNormPath,
         parse_includes: bool,
-        file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<()> {
-        let parent = path
-            .parent()
-            .context("parent should give directory containing the config file")?;
-        let file_lines = file_ops.read_file_lines(path)?;
-        self.parse_lines(parent, file_lines, parse_includes, file_ops)
+        file_ops: &'a mut dyn ConfigParserFileOps,
+    ) -> BoxFuture<'a, anyhow::Result<()>> {
+        async move {
+            let parent = path
+                .parent()
+                .context("parent should give directory containing the config file")?;
+            let file_lines = file_ops.read_file_lines(path).await?;
+            self.parse_lines(parent, file_lines, parse_includes, file_ops)
+                .await
+        }
+        .boxed()
     }
 
     fn strip_line_comment(line: &str) -> &str {
@@ -226,7 +233,7 @@ impl LegacyConfigParser {
         }
     }
 
-    fn parse_lines<T, E>(
+    async fn parse_lines<T, E>(
         &mut self,
         dir: &AbsNormPath,
         lines: T,
@@ -304,10 +311,11 @@ impl LegacyConfigParser {
                         }
                     };
 
-                    match (optional, file_ops.file_exists(&include_file)) {
+                    match (optional, file_ops.file_exists(&include_file).await) {
                         (_, true) => {
                             self.push_file(i, &include_file)?;
-                            self.parse_file_on_stack(&include_file, parse_includes, file_ops)?;
+                            self.parse_file_on_stack(&include_file, parse_includes, file_ops)
+                                .await?;
                             self.pop_file();
                         }
                         (false, false) => {

@@ -38,6 +38,8 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use starlark_map::sorted_map::SortedMap;
 
@@ -355,15 +357,16 @@ pub struct ConfigDirEntry {
     is_dir: bool,
 }
 
-pub trait ConfigParserFileOps {
-    fn read_file_lines(
+#[async_trait::async_trait]
+pub trait ConfigParserFileOps: Send + Sync {
+    async fn read_file_lines(
         &mut self,
         path: &AbsNormPath,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>>;
+    ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>;
 
-    fn file_exists(&self, path: &AbsNormPath) -> bool;
+    async fn file_exists(&self, path: &AbsNormPath) -> bool;
 
-    fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
+    async fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -374,21 +377,22 @@ enum ReadDirError {
 
 struct DefaultConfigParserFileOps {}
 
+#[async_trait::async_trait]
 impl ConfigParserFileOps for DefaultConfigParserFileOps {
-    fn read_file_lines(
+    async fn read_file_lines(
         &mut self,
         path: &AbsNormPath,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>> {
+    ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>> {
         let f = std::fs::File::open(path).with_context(|| format!("Reading file `{:?}`", path))?;
         let file = std::io::BufReader::new(f);
         Ok(Box::new(file.lines()))
     }
 
-    fn file_exists(&self, path: &AbsNormPath) -> bool {
+    async fn file_exists(&self, path: &AbsNormPath) -> bool {
         PathBuf::from(path.as_os_str()).exists()
     }
 
-    fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+    async fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
         let read_dir = match std::fs::read_dir(path.as_path()) {
             Ok(read_dir) => read_dir,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -587,7 +591,7 @@ impl LegacyBuckConfig {
         resolved_args.into_try_map(|x| x)
     }
 
-    fn parse_with_file_ops_with_includes(
+    async fn parse_with_file_ops_with_includes(
         main_config_files: &[MainConfigFile],
         cell_path: AbsNormPathBuf,
         file_ops: &mut dyn ConfigParserFileOps,
@@ -596,7 +600,9 @@ impl LegacyBuckConfig {
     ) -> anyhow::Result<Self> {
         let mut parser = LegacyConfigParser::new();
         for main_config_file in main_config_files {
-            parser.parse_file(&main_config_file.path, None, follow_includes, file_ops)?;
+            parser
+                .parse_file(&main_config_file.path, None, follow_includes, file_ops)
+                .await?;
         }
 
         for config_arg in config_args {
@@ -604,12 +610,16 @@ impl LegacyBuckConfig {
                 ResolvedLegacyConfigArg::Flag(config_value) => {
                     parser.apply_config_arg(config_value, cell_path.clone())?
                 }
-                ResolvedLegacyConfigArg::File(file_path) => parser.parse_file(
-                    file_path,
-                    Some(Location::CommandLineArgument),
-                    follow_includes,
-                    file_ops,
-                )?,
+                ResolvedLegacyConfigArg::File(file_path) => {
+                    parser
+                        .parse_file(
+                            file_path,
+                            Some(Location::CommandLineArgument),
+                            follow_includes,
+                            file_ops,
+                        )
+                        .await?
+                }
             };
         }
 
@@ -623,30 +633,34 @@ struct BuckConfigParseOptions {
     follow_includes: bool,
 }
 
-fn push_all_files_from_a_directory(
-    buckconfig_paths: &mut Vec<MainConfigFile>,
-    folder_path: &AbsNormPath,
+fn push_all_files_from_a_directory<'a>(
+    buckconfig_paths: &'a mut Vec<MainConfigFile>,
+    folder_path: &'a AbsNormPath,
     owned_by_project: bool,
-    file_ops: &dyn ConfigParserFileOps,
-) -> anyhow::Result<()> {
-    for entry in file_ops.read_dir(folder_path)? {
-        let entry_path = folder_path.join(&entry.name);
-        if entry.is_dir {
-            push_all_files_from_a_directory(
-                buckconfig_paths,
-                &entry_path,
-                owned_by_project,
-                file_ops,
-            )?;
-        } else {
-            buckconfig_paths.push(MainConfigFile {
-                path: entry_path,
-                owned_by_project,
-            });
+    file_ops: &'a dyn ConfigParserFileOps,
+) -> BoxFuture<'a, anyhow::Result<()>> {
+    async move {
+        for entry in file_ops.read_dir(folder_path).await? {
+            let entry_path = folder_path.join(&entry.name);
+            if entry.is_dir {
+                push_all_files_from_a_directory(
+                    buckconfig_paths,
+                    &entry_path,
+                    owned_by_project,
+                    file_ops,
+                )
+                .await?;
+            } else {
+                buckconfig_paths.push(MainConfigFile {
+                    path: entry_path,
+                    owned_by_project,
+                });
+            }
         }
-    }
 
-    Ok(())
+        Ok(())
+    }
+    .boxed()
 }
 
 pub mod testing {
@@ -679,7 +693,7 @@ pub mod testing {
         };
         let processed_config_args =
             LegacyBuckConfig::process_config_args(config_args, &cell_resolution, &mut file_ops)?;
-        LegacyBuckConfig::parse_with_file_ops_with_includes(
+        futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
             &[MainConfigFile {
                 path: path.to_buf(),
                 owned_by_project: true,
@@ -688,7 +702,7 @@ pub mod testing {
             &mut file_ops,
             &processed_config_args,
             true,
-        )
+        ))
     }
 
     pub struct TestConfigParserFileOps {
@@ -710,16 +724,17 @@ pub mod testing {
         }
     }
 
+    #[async_trait::async_trait]
     impl ConfigParserFileOps for TestConfigParserFileOps {
-        fn file_exists(&self, path: &AbsNormPath) -> bool {
+        async fn file_exists(&self, path: &AbsNormPath) -> bool {
             self.data.contains_key(path)
         }
 
-        fn read_file_lines(
+        async fn read_file_lines(
             &mut self,
             path: &AbsNormPath,
         ) -> anyhow::Result<
-            Box<(dyn std::iter::Iterator<Item = Result<String, std::io::Error>> + 'static)>,
+            Box<(dyn std::iter::Iterator<Item = Result<String, std::io::Error>> + Send + 'static)>,
         > {
             let content = self
                 .data
@@ -741,7 +756,7 @@ pub mod testing {
             Ok(Box::new(file.lines()))
         }
 
-        fn read_dir(&self, _path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+        async fn read_dir(&self, _path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
             // This is only used for listing files in `buckconfig.d` directories, which we can just
             // say are always empty in tests
             Ok(Vec::new())
@@ -1254,7 +1269,12 @@ mod tests {
             let file = AbsNormPath::new(&file)?;
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
+            futures::executor::block_on(push_all_files_from_a_directory(
+                &mut v,
+                dir,
+                false,
+                &DefaultConfigParserFileOps {},
+            ))?;
             assert_eq!(
                 v,
                 vec![MainConfigFile {
@@ -1272,7 +1292,12 @@ mod tests {
             let dir = tempfile::tempdir()?;
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
+            futures::executor::block_on(push_all_files_from_a_directory(
+                &mut v,
+                dir,
+                false,
+                &DefaultConfigParserFileOps {},
+            ))?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1285,7 +1310,12 @@ mod tests {
             let dir = dir.path().join("bad");
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
+            futures::executor::block_on(push_all_files_from_a_directory(
+                &mut v,
+                dir,
+                false,
+                &DefaultConfigParserFileOps {},
+            ))?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1298,12 +1328,12 @@ mod tests {
             let dir = AbsPath::new(dir.path())?;
             fs_util::create_dir_all(dir.join("bad"))?;
 
-            push_all_files_from_a_directory(
+            futures::executor::block_on(push_all_files_from_a_directory(
                 &mut v,
                 AbsNormPath::new(dir)?,
                 false,
                 &DefaultConfigParserFileOps {},
-            )?;
+            ))?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1315,7 +1345,12 @@ mod tests {
             let file = tempfile::NamedTempFile::new()?;
             let file = AbsNormPath::new(file.path())?;
 
-            push_all_files_from_a_directory(&mut v, file, false, &DefaultConfigParserFileOps {})?;
+            futures::executor::block_on(push_all_files_from_a_directory(
+                &mut v,
+                file,
+                false,
+                &DefaultConfigParserFileOps {},
+            ))?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1334,7 +1369,12 @@ mod tests {
             let file = AbsNormPath::new(&file)?;
             let dir = AbsNormPath::new(&dir)?;
 
-            push_all_files_from_a_directory(&mut v, dir, false, &DefaultConfigParserFileOps {})?;
+            futures::executor::block_on(push_all_files_from_a_directory(
+                &mut v,
+                dir,
+                false,
+                &DefaultConfigParserFileOps {},
+            ))?;
             assert_eq!(
                 v,
                 vec![MainConfigFile {
