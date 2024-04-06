@@ -138,8 +138,6 @@ fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
     }
     #[cfg(not(fbcode_build))]
     {
-        #[cfg(fbcode_build)]
-        compile_error!("this code is not meant to be compiled in fbcode");
         let _unused = use_vpnless;
         None
     }
