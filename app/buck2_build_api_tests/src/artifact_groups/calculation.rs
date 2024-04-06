@@ -18,8 +18,9 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::deferred::calculation::DeferredResolve;
-use buck2_build_api::deferred::types::AnyValue;
+use buck2_build_api::deferred::types::DeferredAny;
 use buck2_build_api::deferred::types::DeferredValueAnyReady;
+use buck2_build_api::deferred::types::TrivialDeferredValue;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_build_api::keep_going::HasKeepGoing;
@@ -55,8 +56,10 @@ fn mock_deferred_tset(dice_builder: DiceBuilder, value: OwnedFrozenValue) -> Dic
     let tset = TransitiveSet::from_value(value.value()).unwrap();
     let resolve = DeferredResolve(tset.key().deferred_key().dupe());
 
-    let data: Arc<dyn AnyValue + 'static> = Arc::new(DeferredTransitiveSetData::testing_new(value));
-    let any = DeferredValueAnyReady::AnyValue(data);
+    let data: Arc<dyn DeferredAny> = Arc::new(TrivialDeferredValue(
+        DeferredTransitiveSetData::testing_new(value),
+    ));
+    let any = DeferredValueAnyReady::TrivialDeferred(data);
     dice_builder.mock_and_return(resolve, anyhow::Ok(any).map_err(buck2_error::Error::from))
 }
 

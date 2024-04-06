@@ -73,6 +73,7 @@ use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::deferred::types::AnyValue;
+use crate::deferred::types::DeferredOutput;
 use crate::deferred::types::TrivialDeferred;
 
 pub mod artifact;
@@ -308,6 +309,9 @@ pub struct RegisteredAction {
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     executor_config: Arc<CommandExecutorConfig>,
 }
+
+/// Output is when registered action is produced by dynamic output.
+impl DeferredOutput for RegisteredAction {}
 
 impl TrivialDeferred for RegisteredAction {
     fn as_any_value(&self) -> &dyn AnyValue {

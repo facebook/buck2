@@ -27,6 +27,7 @@ use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
 use buck2_build_api::deferred::types::DeferredInputsRef;
+use buck2_build_api::deferred::types::DeferredOutput;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::DeferredValue;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -160,6 +161,8 @@ pub struct DynamicLambdaOutput {
     /// `DynamicAction.index` is an index into this Vec.
     output: Box<[ActionKey]>,
 }
+
+impl DeferredOutput for DynamicLambdaOutput {}
 
 impl provider::Provider for DynamicAction {
     fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}

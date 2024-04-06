@@ -25,6 +25,7 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredCtx;
     use buck2_build_api::deferred::types::DeferredInput;
     use buck2_build_api::deferred::types::DeferredInputsRef;
+    use buck2_build_api::deferred::types::DeferredOutput;
     use buck2_build_api::deferred::types::DeferredRegistry;
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
@@ -48,6 +49,11 @@ mod tests {
     use crate::bxl::eval::mk_stream_cache;
     use crate::bxl::key::BxlKey;
 
+    #[derive(Allocative, Clone, Debug, Eq, PartialEq)]
+    struct FakeDeferredOutput(usize);
+
+    impl DeferredOutput for FakeDeferredOutput {}
+
     #[derive(Debug, Allocative)]
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
@@ -56,7 +62,7 @@ mod tests {
     }
 
     impl Deferred for FakeDeferred {
-        type Output = usize;
+        type Output = FakeDeferredOutput;
 
         fn inputs(&self) -> DeferredInputsRef<'_> {
             DeferredInputsRef::IndexSet(&self.1)
@@ -68,7 +74,7 @@ mod tests {
             _dice: &mut DiceComputations<'_>,
         ) -> anyhow::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
-            Ok(DeferredValue::Ready(self.0))
+            Ok(DeferredValue::Ready(FakeDeferredOutput(self.0)))
         }
     }
 
@@ -123,20 +129,20 @@ mod tests {
 
         let mut dice = dice.build(dice_data)?.commit().await;
         let deferred_result = dice.compute_deferred_data(&data0).await?;
-        assert_eq!(*deferred_result, 1);
+        assert_eq!(deferred_result.0, 1);
         assert!(executed0.load(Ordering::SeqCst));
         // we should cache deferred execution
         executed0.store(false, Ordering::SeqCst);
         let deferred_result = dice.compute_deferred_data(&data0).await?;
-        assert_eq!(*deferred_result, 1);
+        assert_eq!(deferred_result.0, 1);
         assert!(!executed0.load(Ordering::SeqCst));
 
         let deferred_result = dice.compute_deferred_data(&data1).await?;
-        assert_eq!(*deferred_result, 5);
+        assert_eq!(deferred_result.0, 5);
         assert!(executed1.load(Ordering::SeqCst));
         // we should cache deferred execution
         executed1.store(false, Ordering::SeqCst);
-        assert_eq!(*deferred_result, 5);
+        assert_eq!(deferred_result.0, 5);
         assert!(!executed1.load(Ordering::SeqCst));
 
         Ok(())

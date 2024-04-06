@@ -52,7 +52,7 @@ use crate::deferred::arc_borrow::ArcBorrow;
 ///
 /// `any::Provider` can be used to obtain data for introspection.
 pub trait Deferred: Debug + Allocative + provider::Provider {
-    type Output;
+    type Output: DeferredOutput;
 
     /// the set of 'Deferred's that should be computed first before executing this 'Deferred'
     fn inputs(&self) -> DeferredInputsRef<'_>;
@@ -362,7 +362,7 @@ impl DeferredRegistry {
     pub fn bind<D, T>(&mut self, reserved: ReservedDeferredData<T>, d: D) -> DeferredData<T>
     where
         D: Deferred<Output = T> + Send + Sync + 'static,
-        T: Allocative + Clone + Debug + Send + Sync + 'static,
+        T: DeferredOutput,
     {
         let id = reserved.0.deferred_key().id().as_usize();
 
@@ -404,10 +404,7 @@ impl DeferredRegistry {
     }
 
     /// creates a new 'DeferredData'
-    pub fn defer<
-        D: Deferred<Output = T> + Send + Sync + 'static,
-        T: Allocative + Debug + Send + Sync + 'static,
-    >(
+    pub fn defer<D: Deferred<Output = T> + Send + Sync + 'static, T: DeferredOutput>(
         &mut self,
         d: D,
     ) -> DeferredData<T> {
@@ -554,7 +551,7 @@ pub enum DeferredValue<T> {
 /// Enum of AnyValue or TrivialDeferreds.
 #[derive(Allocative, Debug, Dupe, Clone)]
 pub enum DeferredValueAnyReady {
-    AnyValue(Arc<dyn AnyValue>),
+    AnyValue(Arc<dyn DeferredOutput>),
     TrivialDeferred(
         // This must be `TriviallyDeferred`.
         Arc<dyn DeferredAny>,
@@ -631,7 +628,7 @@ pub enum DeferredValueAny {
 }
 
 impl DeferredValueAny {
-    fn ready<T: Allocative + Debug + Send + Sync + 'static>(t: T) -> Self {
+    fn ready<T: DeferredOutput>(t: T) -> Self {
         Self::Ready(DeferredValueAnyReady::AnyValue(Arc::new(t)))
     }
 
@@ -641,7 +638,7 @@ impl DeferredValueAny {
 }
 
 /// An 'Any' that is the return type of a 'Deferred'. This is box cloneable, and castable.
-pub trait AnyValue: Allocative + Any + Debug + Send + Sync {
+pub trait AnyValue: Allocative + Any + Debug + Send + Sync + 'static {
     fn into_any(&self) -> &(dyn Any);
 
     fn type_name(&self) -> &str;
@@ -660,12 +657,18 @@ where
     }
 }
 
-impl dyn AnyValue {
+/// Marker trait for output of deferred computations.
+///
+/// This trait has no semantic significance.
+/// It's only used to help keep track of what types are used as a deferred output.
+pub trait DeferredOutput: AnyValue {}
+
+impl dyn DeferredOutput {
     pub(crate) fn downcast<T: Send + 'static>(&self) -> anyhow::Result<&T> {
         match self.into_any().downcast_ref::<T>() {
             Some(t) => Ok(t),
             None => Err(anyhow::anyhow!(
-                "Cannot cast Deferred of value type `{}` into type `{}`",
+                "Cannot cast DeferredOutput of value type `{}` into type `{}`",
                 self.type_name(),
                 type_name::<T>()
             )),
@@ -673,7 +676,7 @@ impl dyn AnyValue {
     }
 
     pub(crate) fn downcast_arc<T: Send + 'static>(
-        self: Arc<dyn AnyValue>,
+        self: Arc<dyn DeferredOutput>,
     ) -> anyhow::Result<Arc<T>> {
         self.downcast::<T>()?;
         // SAFETY: just checked type.
@@ -742,7 +745,7 @@ impl dyn DeferredAny {
 impl<D, T> DeferredAny for D
 where
     D: Deferred<Output = T> + Send + Sync + Any + 'static,
-    T: Allocative + Debug + Send + Sync + 'static,
+    T: DeferredOutput,
 {
     fn inputs(&self) -> DeferredInputsRef<'_> {
         self.inputs()
@@ -867,6 +870,7 @@ mod tests {
     use super::deferred_execute;
     use super::AnyValue;
     use super::DeferredInputsRef;
+    use super::DeferredOutput;
     use super::DeferredTableEntry;
     use super::TrivialDeferred;
     use crate::deferred::arc_borrow::ArcBorrow;
@@ -900,7 +904,7 @@ mod tests {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
-    impl<T: Clone + Send + Sync> Deferred for FakeDeferred<T> {
+    impl<T: DeferredOutput + Clone> Deferred for FakeDeferred<T> {
         type Output = T;
 
         fn inputs(&self) -> DeferredInputsRef<'_> {
@@ -916,7 +920,12 @@ mod tests {
         }
     }
 
-    impl TrivialDeferred for FakeDeferred<i32> {
+    #[derive(Allocative, Clone, Debug, Eq, PartialEq)]
+    struct IntOutput(i32);
+
+    impl DeferredOutput for IntOutput {}
+
+    impl TrivialDeferred for FakeDeferred<IntOutput> {
         fn as_any_value(&self) -> &dyn AnyValue {
             self
         }
@@ -948,7 +957,7 @@ mod tests {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
     }
 
-    impl<T: Clone + Debug + Allocative + Send + Sync + 'static> Deferred for TestDeferringDeferred<T> {
+    impl<T: DeferredOutput + Clone> Deferred for TestDeferringDeferred<T> {
         type Output = T;
 
         fn inputs(&self) -> DeferredInputsRef<'_> {
@@ -995,7 +1004,7 @@ mod tests {
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
-            val: 2,
+            val: IntOutput(2),
         };
 
         let deferred_data = registry.defer(deferred);
@@ -1031,7 +1040,7 @@ mod tests {
                         .unwrap()
                         .assert_ready()
                         .resolve(&deferred_data)?,
-                    2
+                    IntOutput(2)
                 );
                 Ok(())
             })
@@ -1042,6 +1051,7 @@ mod tests {
     async fn register_nested_deferred() -> anyhow::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
+
         let id = DeferredId {
             id: 1,
             trivial: false,
@@ -1052,7 +1062,7 @@ mod tests {
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
-            val: 2,
+            val: IntOutput(2),
         };
 
         let deferring_deferred = TestDeferringDeferred {
@@ -1112,7 +1122,7 @@ mod tests {
                 let mut registry =
                     DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_key.dupe())));
                 assert_eq!(
-                    *deferred
+                    deferred
                         .test_execute(
                             &mut ResolveDeferredCtx::new(
                                 deferred_key,
@@ -1129,7 +1139,8 @@ mod tests {
                         .await
                         .unwrap()
                         .assert_ready()
-                        .downcast::<i32>()?,
+                        .downcast::<IntOutput>()?
+                        .0,
                     2
                 );
 
@@ -1148,7 +1159,7 @@ mod tests {
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
-            val: 2,
+            val: IntOutput(2),
         };
 
         let reserved = registry.reserve();
@@ -1191,7 +1202,7 @@ mod tests {
                         .unwrap()
                         .assert_ready()
                         .resolve(&deferred_data)?,
-                    2
+                    IntOutput(2)
                 );
 
                 Ok(())
@@ -1223,12 +1234,12 @@ mod tests {
 
         let deferred0 = FakeDeferred {
             inputs: IndexSet::new(),
-            val: 123,
+            val: IntOutput(123),
         };
 
         let deferred1 = FakeDeferred {
             inputs: IndexSet::new(),
-            val: 456,
+            val: IntOutput(456),
         };
         let deferred_data0 = registry.defer_trivial(deferred0.clone());
         let deferred_data1 = registry.reserve_trivial();

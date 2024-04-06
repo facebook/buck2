@@ -31,7 +31,7 @@ use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::deferred::calculation::DeferredResolve;
-use buck2_build_api::deferred::types::AnyValue;
+use buck2_build_api::deferred::types::DeferredOutput;
 use buck2_build_api::deferred::types::DeferredValueAnyReady;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
@@ -143,7 +143,7 @@ fn mock_deferred_resolution_calculation(
     deferred_resolve: DeferredResolve,
     registered_action_arc: Arc<RegisteredAction>,
 ) -> DiceBuilder {
-    let arc_any: Arc<dyn AnyValue + 'static> = registered_action_arc;
+    let arc_any: Arc<dyn DeferredOutput> = registered_action_arc;
     let an_any = DeferredValueAnyReady::AnyValue(arc_any);
     dice_builder.mock_and_return(deferred_resolve, buck2_error::Ok(an_any))
 }

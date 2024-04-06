@@ -22,6 +22,7 @@ use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
 use buck2_build_api::deferred::types::DeferredInputsRef;
+use buck2_build_api::deferred::types::DeferredOutput;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::deferred::types::DeferredValue;
@@ -52,8 +53,13 @@ impl provider::Provider for FakeDeferred {
     fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
 }
 
+#[derive(Allocative, Clone, Debug, Eq, PartialEq)]
+struct UsizeOutput(usize);
+
+impl DeferredOutput for UsizeOutput {}
+
 impl Deferred for FakeDeferred {
-    type Output = usize;
+    type Output = UsizeOutput;
 
     fn inputs(&self) -> DeferredInputsRef<'_> {
         DeferredInputsRef::IndexSet(&self.1)
@@ -65,7 +71,7 @@ impl Deferred for FakeDeferred {
         _dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         self.2.store(true, Ordering::SeqCst);
-        Ok(DeferredValue::Ready(self.0))
+        Ok(DeferredValue::Ready(UsizeOutput(self.0)))
     }
 }
 
@@ -119,20 +125,20 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
 
     let mut dice = dice.build(dice_data)?.commit().await;
     let deferred_result = dice.compute_deferred_data(&data0).await?;
-    assert_eq!(*deferred_result, 1);
+    assert_eq!(deferred_result.0, 1);
     assert_eq!(executed0.load(Ordering::SeqCst), true);
     // we should cache deferred execution
     executed0.store(false, Ordering::SeqCst);
     let deferred_result = dice.compute_deferred_data(&data0).await?;
-    assert_eq!(*deferred_result, 1);
+    assert_eq!(deferred_result.0, 1);
     assert_eq!(executed0.load(Ordering::SeqCst), false);
 
     let deferred_result = dice.compute_deferred_data(&data1).await?;
-    assert_eq!(*deferred_result, 5);
+    assert_eq!(deferred_result.0, 5);
     assert_eq!(executed1.load(Ordering::SeqCst), true);
     // we should cache deferred execution
     executed1.store(false, Ordering::SeqCst);
-    assert_eq!(*deferred_result, 5);
+    assert_eq!(deferred_result.0, 5);
     assert_eq!(executed1.load(Ordering::SeqCst), false);
 
     Ok(())
@@ -148,7 +154,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
     }
 
     impl Deferred for TestDeferringDeferred {
-        type Output = usize;
+        type Output = UsizeOutput;
 
         fn inputs(&self) -> DeferredInputsRef<'_> {
             DeferredInputsRef::IndexSet(&self.1)
@@ -212,12 +218,12 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
 
     let mut dice = dice.build(dice_data)?.commit().await;
     let deferred_result = dice.compute_deferred_data(&data).await?;
-    assert_eq!(*deferred_result, 8);
+    assert_eq!(deferred_result.0, 8);
     assert_eq!(executed.load(Ordering::SeqCst), true);
     // we should cache deferred execution
     executed.store(false, Ordering::SeqCst);
     let deferred_result = dice.compute_deferred_data(&data).await?;
-    assert_eq!(*deferred_result, 8);
+    assert_eq!(deferred_result.0, 8);
     assert_eq!(executed.load(Ordering::SeqCst), false);
 
     Ok(())
