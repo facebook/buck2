@@ -127,7 +127,7 @@ fn exec_impl(
 
 fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyhow::Result<()> {
     let mut buckconfig = std::fs::File::create(repo_root.join(".buckconfig"))?;
-    writeln!(buckconfig, "[repositories]")?;
+    writeln!(buckconfig, "[cells]")?;
     writeln!(buckconfig, "root = .")?;
     writeln!(buckconfig, "prelude = prelude")?;
 
@@ -136,7 +136,7 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
         writeln!(buckconfig, "toolchains = toolchains")?;
         writeln!(buckconfig, "none = none")?;
         writeln!(buckconfig)?;
-        writeln!(buckconfig, "[repository_aliases]")?;
+        writeln!(buckconfig, "[cell_aliases]")?;
         writeln!(buckconfig, "config = prelude")?;
         writeln!(buckconfig, "ovr_config = prelude")?;
         writeln!(buckconfig, "fbcode = none")?;
@@ -343,13 +343,13 @@ mod tests {
         let buckconfig_path = tempdir_path.join(".buckconfig");
         initialize_buckconfig(tempdir_path, true, true)?;
         let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
-        let expected_buckconfig = "[repositories]
+        let expected_buckconfig = "[cells]
 root = .
 prelude = prelude
 toolchains = toolchains
 none = none
 
-[repository_aliases]
+[cell_aliases]
 config = prelude
 ovr_config = prelude
 fbcode = none
@@ -377,7 +377,7 @@ ignore = .git
         let buckconfig_path = tempdir_path.join(".buckconfig");
         initialize_buckconfig(tempdir_path, false, false)?;
         let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
-        let expected_buckconfig = "[repositories]
+        let expected_buckconfig = "[cells]
 root = .
 prelude = prelude
 ";

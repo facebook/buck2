@@ -210,8 +210,8 @@ buck2 run //:main
 
 In summary, a `buck2` project requires:
 
-1. A `.buckconfig` file in the root which has a `[repositories]` section listing
-   out [cells](https://buck2.build/docs/concepts/glossary/#cell)
+1. A `.buckconfig` file in the root which has a `[cells]` section listing out
+   [cells](https://buck2.build/docs/concepts/glossary/#cell)
 2. A `prelude` directory, which contains a collection of
    [rules](https://buck2.build/docs/concepts/glossary/#rule) of your choice.
    `buck2 init` will pull in the

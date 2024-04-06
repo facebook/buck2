@@ -129,7 +129,7 @@ mod tests {
                 "/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = .
                                 other = other/
                                 third_party = third_party/
@@ -140,7 +140,7 @@ mod tests {
                 "/other/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 other = .
                             [buildfile]
                                 name = TARGETS
@@ -152,7 +152,7 @@ mod tests {
                 "/third_party/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 third_party = .
                             [buildfile]
                                 name_v2 = OKAY

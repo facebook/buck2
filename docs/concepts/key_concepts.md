@@ -49,10 +49,10 @@ where Buck2 is invoked, or if that directory doesn't contain a `.buckconfig`,
 the project is defined by the `.buckconfig` in the nearest ancestor directory.
 The `.buckconfig` for the project specifies the cells that constitute the Buck2
 project. Specifically, these cells are specified in the
-[repositories](buckconfig.md#repositories) section of the `.buckconfig`. Note
-that the directory tree rooted at this `.buckconfig` is automatically considered
-a cell by Buck2; in other words, the project's `.buckconfig` doesn't need to
-specify the project cell explicitly—although it is a good practice to do so.
+[cells](buckconfig.md#cells) section of the `.buckconfig`. Note that the
+directory tree rooted at this `.buckconfig` is automatically considered a cell
+by Buck2; in other words, the project's `.buckconfig` doesn't need to specify
+the project cell explicitly—although it is a good practice to do so.
 
 <img src={useBaseUrl('/img/packages-1.png')} alt='justifyContent'/>
 

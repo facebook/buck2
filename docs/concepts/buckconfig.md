@@ -245,14 +245,14 @@ $ buck2 build app
 $ buck2 test apptest
 ```
 
-## [repositories]
+## [cells]
 
 Lists the cells that constitute the Buck2 project. Buck2 builds that are part of
 this project—that is, which use this `.buckconfig`—can access the cells
 specified in this section.
 
 ```
-[repositories]
+[cells]
     buck = .
     bazel_skylib = ./third-party/skylark/bazel-skylib
 ```
@@ -268,8 +268,6 @@ buck = .
 ```
 
 You can view the contents of this section using the `buck2 audit cell` command.
-Although the name of the section is _repositories_, the section actually lists
-_cells_. In practice, Buck cells often correspond to repositories, but this is
-not a requirement. For more information about the relationship between Buck
-projects, cells, and repositories, see the [Key Concepts](key_concepts.md)
-topic.
+
+`[repositories]` is additionally supported as a deprecated alternative name for
+this section.

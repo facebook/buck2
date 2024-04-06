@@ -6,7 +6,7 @@ https://github.com/facebook/buck2-prelude. Instead the prelude cell points to a
 
 ```
 #.buckconfig
-[repositories]
+[cells]
 root = .
 prelude = prelude
 ```

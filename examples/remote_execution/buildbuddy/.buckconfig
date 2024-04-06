@@ -1,4 +1,4 @@
-[repositories]
+[cells]
 root = .
 prelude = prelude
 

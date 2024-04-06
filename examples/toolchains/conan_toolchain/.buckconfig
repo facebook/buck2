@@ -1,10 +1,10 @@
-[repositories]
+[cells]
 self = .
 prelude = prelude
 toolchains = toolchains
 none = none
 
-[repository_aliases]
+[cell_aliases]
 config = prelude
 buck = none
 fbcode = none

@@ -177,8 +177,8 @@ https://github.com/facebook/buck2/tree/main/prelude.
 The Outermost directory where there is a [.buckconfig](#buckconfig): also known
 as the [root cell](#cell). The .buckconfig for the project specifies the
 [cells](#cell) that constitute the Buck2 project. Specifically, these cells are
-specified in the '[repositories]' section of the `.buckconfig`. All command
-invocations are executed from the project root.
+specified in the '[cells]' section of the `.buckconfig`. All command invocations
+are executed from the project root.
 
 #### Provider
 

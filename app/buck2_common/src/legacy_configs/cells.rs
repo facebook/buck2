@@ -45,7 +45,7 @@ use crate::legacy_configs::ResolvedLegacyConfigArg;
 #[derive(Debug, buck2_error::Error)]
 enum CellsError {
     #[error(
-        "Repository root buckconfig must have `[repositories]` section with a pointer to itself \
+        "Repository root buckconfig must have `[cells]` section with a pointer to itself \
         like `root = .` which defines the root cell name"
     )]
     MissingRootCellName,
@@ -54,7 +54,7 @@ enum CellsError {
 /// Used for creating a CellResolver in a buckv1-compatible way based on values
 /// in .buckconfig in each cell.
 ///
-/// We'll traverse the structure of the `[repositories]` sections starting from
+/// We'll traverse the structure of the `[cells]` sections starting from
 /// the root .buckconfig. All aliases found in the root config will also be
 /// available in all other cells (v1 provides that same behavior).
 ///
@@ -422,7 +422,7 @@ mod tests {
                 "/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = .
                                 other = other/
                                 other_alias = other/
@@ -434,7 +434,7 @@ mod tests {
                 "/other/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = ..
                                 other = .
                                 third_party = ../third_party/
@@ -445,7 +445,7 @@ mod tests {
                 "/third_party/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 third_party = .
                         "#
                 ),
@@ -496,7 +496,7 @@ mod tests {
                 "/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = .
                                 other = other/
                                 other_alias = other/
@@ -508,7 +508,7 @@ mod tests {
                 "/other/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = ..
                                 other = .
                                 third_party = ../third_party/
@@ -521,7 +521,7 @@ mod tests {
                 "/third_party/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 third_party = .
                             [buildfile]
                                 name_v2 = OKAY
@@ -589,7 +589,7 @@ mod tests {
                 "/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = .
                                 other = other/
                         "#
@@ -636,7 +636,7 @@ mod tests {
                 "/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = .
                                 other = other/
                         "#
@@ -655,7 +655,7 @@ mod tests {
                 "/other/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = ..
                                 other = .
                             [buildfile]
@@ -713,7 +713,7 @@ mod tests {
                 "/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = .
                             [apple]
                                 key = value1
@@ -764,7 +764,7 @@ mod tests {
                 "/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = .
                                 other = other/
                             [apple]
@@ -789,7 +789,7 @@ mod tests {
                 "/other/.buckconfig",
                 indoc!(
                     r#"
-                            [repositories]
+                            [cells]
                                 root = ..
                                 other = .
                             [apple]
@@ -879,10 +879,10 @@ mod tests {
             "/.buckconfig",
             indoc!(
                 r#"
-                            [cells]
+                            [repositories]
                                 root = .
                                 other = other/
-                            [cell_aliases]
+                            [repository_aliases]
                                 other_alias = other
                         "#
             ),

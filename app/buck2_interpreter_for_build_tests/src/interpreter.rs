@@ -197,7 +197,7 @@ fn cells() -> CellsData {
             "/.buckconfig",
             indoc!(
                 r#"
-                    [repositories]
+                    [cells]
                         root = .
                         cell1 = project/cell1
                         cell2 = project/cell2

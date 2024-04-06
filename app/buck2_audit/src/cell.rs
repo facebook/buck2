@@ -16,7 +16,7 @@ use crate::AuditSubcommand;
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "audit-cell",
-    about = "Query information about the [repositories] list in .buckconfig."
+    about = "Query information about the [cells] list in .buckconfig."
 )]
 pub struct AuditCellCommand {
     #[clap(flatten)]

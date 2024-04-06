@@ -292,7 +292,7 @@ mod tests {
         fs_util::create_dir(root.join("foo/bar")).unwrap();
         fs_util::write(root.join("foo/bar/arg1.txt"), "@bar/arg2.txt").unwrap();
         fs_util::write(root.join("foo/bar/arg2.txt"), "--magic").unwrap();
-        fs_util::write(root.join(".buckconfig"), "[repositories]\nroot = .").unwrap();
+        fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .").unwrap();
         let cwd = WorkingDir::unchecked_new(
             AbsNormPathBuf::new(root.canonicalize().unwrap().join("foo")).unwrap(),
         );
