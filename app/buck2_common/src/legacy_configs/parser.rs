@@ -13,7 +13,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::*;
+use buck2_core::fs::paths::RelativePath;
 use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;

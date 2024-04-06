@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::fs;
-use std::io::prelude::*;
+use std::io::BufRead;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -35,7 +35,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::project::*;
+use buck2_core::fs::project::ProjectRoot;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::eq_chain;
@@ -942,7 +942,7 @@ pub mod testing {
                 .to_owned();
             // Need a Read implementation that owns the bytes.
             struct StringReader(Vec<u8>, usize);
-            impl Read for StringReader {
+            impl std::io::Read for StringReader {
                 fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
                     let remaining = self.0.len() - self.1;
                     let to_return = min(remaining, buf.len());
