@@ -45,12 +45,6 @@ use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::parser::LegacyConfigParser;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
-#[derive(buck2_error::Error, Debug)]
-enum ConfigCellResolutionError {
-    #[error("Unable to resolve cell-relative path `{0}`")]
-    UnableToResolveCellRelativePath(String),
-}
-
 /// A collection of configs, keyed by cell.
 #[derive(Clone, Dupe, Debug, Allocative)]
 pub struct LegacyBuckConfigs {
@@ -456,7 +450,7 @@ impl LegacyBuckConfig {
 
     fn resolve_config_flag_arg(
         flag_arg: &LegacyConfigCmdArgFlag,
-        cell_resolution: Option<&CellResolutionState>,
+        cell_resolution: &CellResolutionState,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<ConfigArgumentPair> {
         let cell_path = flag_arg
@@ -484,15 +478,10 @@ impl LegacyBuckConfig {
 
     fn resolve_config_file_arg(
         file_arg: &LegacyConfigCmdArgFile,
-        cell_resolution: Option<&CellResolutionState>,
+        cell_resolution_state: &CellResolutionState,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<AbsNormPathBuf> {
         if let Some(cell_alias) = &file_arg.cell {
-            let cell_resolution_state = cell_resolution.ok_or_else(|| {
-                anyhow::anyhow!(ConfigCellResolutionError::UnableToResolveCellRelativePath(
-                    format!("{}//{}", cell_alias, file_arg.path)
-                ))
-            })?;
             if let Some(cell_resolver) = cell_resolution_state.cell_resolver.get() {
                 return cell_resolver.resolve_cell_relative_path(
                     cell_alias,
@@ -530,7 +519,7 @@ impl LegacyBuckConfig {
 
     fn process_config_args(
         args: &[LegacyConfigCmdArg],
-        cell_resolution: Option<&CellResolutionState>,
+        cell_resolution: &CellResolutionState,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
         let resolved_args = args.map(|unprocessed_arg| match unprocessed_arg {
@@ -642,6 +631,7 @@ pub mod testing {
     use std::cmp::min;
 
     use super::*;
+    use crate::legacy_configs::cells::create_project_filesystem;
 
     pub fn parse(data: &[(&str, &str)], path: &str) -> anyhow::Result<LegacyBuckConfig> {
         parse_with_config_args(data, path, &[])
@@ -658,11 +648,15 @@ pub mod testing {
         // Need to add some disk drive on Windows to make path absolute.
         #[cfg(windows)]
         let path = &AbsNormPathBuf::from(format!("C:{}", path))?;
-        // This function is only used internally for tests, so it's to skip cell resolution
-        // as we do not have a `ProjectFilesystem`. Either way, this will fail gracefully
-        // if there's a cell-relative config arg, so this can updated appropriately.
+        let project_fs = create_project_filesystem();
+        // As long as people don't pass config files, making up values here is ok
+        let cell_resolution = CellResolutionState {
+            project_filesystem: &project_fs,
+            cwd: path,
+            cell_resolver: OnceCell::new(),
+        };
         let processed_config_args =
-            LegacyBuckConfig::process_config_args(config_args, None, &mut file_ops)?;
+            LegacyBuckConfig::process_config_args(config_args, &cell_resolution, &mut file_ops)?;
         LegacyBuckConfig::parse_with_file_ops_with_includes(
             &[MainConfigFile {
                 path: path.to_buf(),

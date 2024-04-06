@@ -185,11 +185,8 @@ impl BuckConfigBasedCells {
             cwd: &project_fs.resolve(cwd),
         };
         // NOTE: This will _not_ perform IO unless it needs to.
-        let processed_config_args = LegacyBuckConfig::process_config_args(
-            config_args,
-            Some(&cell_resolution),
-            &mut file_ops,
-        )?;
+        let processed_config_args =
+            LegacyBuckConfig::process_config_args(config_args, &cell_resolution, &mut file_ops)?;
 
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) {
@@ -388,7 +385,6 @@ pub struct ImmediateConfig {
     pub daemon_startup_config: DaemonStartupConfig,
 }
 
-#[cfg(test)]
 pub(crate) fn create_project_filesystem() -> ProjectRoot {
     #[cfg(not(windows))]
     let root_path = "/".to_owned();
