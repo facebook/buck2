@@ -15,6 +15,7 @@ pub mod cells;
 pub mod dice;
 pub mod init;
 pub mod key;
+mod parser;
 pub(crate) mod path;
 pub mod view;
 
@@ -35,7 +36,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::*;
 use buck2_core::fs::project::*;
 use derive_more::Display;
 use dupe::Dupe;
@@ -48,6 +48,8 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::key::BuckconfigKeyRef;
+use crate::legacy_configs::parser::LegacyConfigParser;
+use crate::legacy_configs::parser::SectionBuilder;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::target_aliases::BuckConfigTargetAliasResolver;
 
@@ -168,19 +170,6 @@ impl LegacyBuckConfig {
 impl LegacyBuckConfigView for &LegacyBuckConfig {
     fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
         Ok(LegacyBuckConfig::get(self, key).map(|v| v.to_owned().into()))
-    }
-}
-
-#[derive(Debug, Default)]
-struct SectionBuilder {
-    values: BTreeMap<String, ConfigValue>,
-}
-
-impl SectionBuilder {
-    fn finish(self) -> LegacyBuckConfigSection {
-        LegacyBuckConfigSection {
-            values: SortedMap::from_iter(self.values),
-        }
     }
 }
 
@@ -480,23 +469,6 @@ impl ConfigValue {
     }
 }
 
-struct LegacyConfigParser<'a> {
-    file_ops: &'a mut dyn ConfigParserFileOps,
-    include_stack: Vec<ConfigFileLocation>,
-    current_file: Option<Arc<ConfigFile>>,
-    values: BTreeMap<String, SectionBuilder>,
-    current_section: (String, BTreeMap<String, ConfigValue>),
-}
-
-/// Matches file include directives. `optional` indicates whether it's an
-/// optional include, `include` is the path.  Examples:
-///   <file:/some/absolute>
-///   <?file:/optional/absolute>
-///   <file:relative/to/current>
-///   <file:../../doesnt/need/to/be/forward/relative>
-static FILE_INCLUDE: Lazy<Regex> =
-    Lazy::new(|| Regex::new("<(?P<optional>\\?)?file:(?P<include>..*)>").unwrap());
-
 pub trait ConfigParserFileOps {
     fn read_file_lines(
         &mut self,
@@ -524,269 +496,6 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
 
     fn file_exists(&self, path: &AbsNormPath) -> bool {
         PathBuf::from(path.as_os_str()).exists()
-    }
-}
-
-impl<'a> LegacyConfigParser<'a> {
-    fn new(file_ops: &'a mut dyn ConfigParserFileOps) -> Self {
-        LegacyConfigParser {
-            values: BTreeMap::new(),
-            include_stack: Vec::new(),
-            current_file: None,
-            current_section: Self::unspecified_section(),
-            file_ops,
-        }
-    }
-
-    fn unspecified_section() -> (String, BTreeMap<String, ConfigValue>) {
-        ("__unspecified__".to_owned(), BTreeMap::new())
-    }
-
-    fn parse_file(
-        &mut self,
-        path: &AbsNormPath,
-        source: Option<Location>,
-        follow_includes: bool,
-    ) -> anyhow::Result<()> {
-        self.start_file(path, source)?;
-        self.parse_file_on_stack(path, follow_includes)
-            .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
-        self.finish_file();
-        Ok(())
-    }
-
-    fn push_file(&mut self, line: usize, path: &AbsNormPath) -> anyhow::Result<()> {
-        let include_source = ConfigFileLocation {
-            source_file: self.current_file.dupe().unwrap_or_else(|| panic!("push_file() called without any files on the include stack. top-level files should use start_file()")),
-            line,
-        };
-
-        self.include_stack.push(include_source.clone());
-
-        let source_file = Arc::new(ConfigFile {
-            id: self.file_ops.file_id(path),
-            include_source: Some(Location::File(include_source)),
-        });
-        self.current_file = Some(source_file);
-        Ok(())
-    }
-
-    fn start_file(&mut self, path: &AbsNormPath, source: Option<Location>) -> anyhow::Result<()> {
-        let source_file = Arc::new(ConfigFile {
-            id: self.file_ops.file_id(path),
-            include_source: source,
-        });
-        self.current_file = Some(source_file);
-        Ok(())
-    }
-
-    fn pop_file(&mut self) {
-        match self.include_stack.pop() {
-            Some(loc) => {
-                self.current_file = Some(loc.source_file);
-            }
-            None => {
-                self.current_file = None;
-            }
-        }
-    }
-
-    fn location(&self, line_number: usize) -> ConfigFileLocation {
-        ConfigFileLocation {
-            source_file: self
-                .current_file
-                .dupe()
-                .unwrap_or_else(|| panic!("tried to get location without any current file.")),
-            // Our line numbers at this point are 0-based, but most people expect file line numbers to be 1-based.
-            line: line_number + 1,
-        }
-    }
-
-    fn apply_config_arg(
-        &mut self,
-        config_pair: &ConfigArgumentPair,
-        current_cell_path: AbsNormPathBuf,
-    ) -> anyhow::Result<()> {
-        if config_pair.section == "repositories" {
-            return Err(anyhow::anyhow!(
-                ConfigArgumentParseError::CellOverrideViaCliConfig
-            ));
-        };
-        let pair = config_pair.to_owned();
-        let cell_matches = pair.cell_path == Some(current_cell_path) || pair.cell_path.is_none();
-        if cell_matches {
-            let config_section = self
-                .values
-                .entry(pair.section)
-                .or_insert_with(SectionBuilder::default);
-
-            match pair.value {
-                Some(raw_value) => {
-                    let config_value = ConfigValue::new_raw_arg(raw_value);
-                    config_section.values.insert(pair.key, config_value)
-                }
-                None => config_section.values.remove(&pair.key),
-            };
-        }
-        Ok(())
-    }
-
-    fn parse_file_on_stack(
-        &mut self,
-        path: &AbsNormPath,
-        parse_includes: bool,
-    ) -> anyhow::Result<()> {
-        let parent = path
-            .parent()
-            .context("parent should give directory containing the config file")?;
-        let file_lines = self.file_ops.read_file_lines(path)?;
-        self.parse_lines(parent, file_lines, parse_includes)
-    }
-
-    fn strip_line_comment(line: &str) -> &str {
-        match line.split_once(" #") {
-            Some((before, _)) => before,
-            None => line,
-        }
-    }
-
-    fn parse_section_marker(line: &str) -> anyhow::Result<Option<&str>> {
-        // We allow trailing comment markers at the end of sections, since otherwise
-        // using oss-enable/oss-disable is super tricky
-        match line.strip_prefix('[') {
-            Some(remaining) => match Self::strip_line_comment(remaining).strip_suffix(']') {
-                None => Err(ConfigError::SectionMissingTrailingBracket(line.to_owned()).into()),
-                Some(section) => Ok(Some(section)),
-            },
-            None => Ok(None),
-        }
-    }
-
-    fn parse_lines<T, E>(
-        &mut self,
-        dir: &AbsNormPath,
-        lines: T,
-        parse_includes: bool,
-    ) -> anyhow::Result<()>
-    where
-        T: IntoIterator<Item = Result<String, E>>,
-        E: std::error::Error + Send + Sync + 'static,
-    {
-        let lines: Vec<String> = lines.into_iter().collect::<Result<Vec<_>, _>>()?;
-
-        let lines = lines
-            .into_iter()
-            // Trim leading/trailing whitespace.
-            .map(|line| line.trim().to_owned())
-            // add line numbers
-            .enumerate()
-            // Coalesce escaped newlines.
-            .coalesce(|(i, mut prev), (j, next)| {
-                if prev.ends_with('\\') {
-                    prev.truncate(prev.len() - 1);
-                    prev.push_str(&next);
-                    Ok((i, prev))
-                } else {
-                    Err(((i, prev), (j, next)))
-                }
-            })
-            // Remove commented lines.
-            // This needs to come after the coalesce in case someone has an empty line after an escaped newline
-            // Remove empty lines and comment lines (support both '#' and ';' for comment lines)
-            .filter(|(_, l)| !l.is_empty() && !l.starts_with('#') && !l.starts_with(';'));
-
-        for (i, line) in lines {
-            if let Some(section) = Self::parse_section_marker(&line)? {
-                // Start the new section, grabbing the recorded values for the previous
-                // section.
-                let section = std::mem::replace(
-                    &mut self.current_section,
-                    (section.to_owned(), BTreeMap::new()),
-                );
-                self.commit_section(section)
-            } else if let Some((key, val)) = line.split_once('=') {
-                let key = key.trim();
-                let val = val.trim();
-                if key.is_empty() {
-                    return Err(anyhow::anyhow!(ConfigError::EmptyKey(line.to_owned())));
-                }
-                self.current_section.1.insert(
-                    key.to_owned(),
-                    ConfigValue::new_raw(self.location(i), val.to_owned()),
-                );
-            } else if let Some(m) = FILE_INCLUDE.captures(&line) {
-                if parse_includes {
-                    let include = m.name("include").unwrap().as_str();
-                    let include = if cfg!(windows) && include.contains(':') {
-                        // On Windows absolute includes look like /C:/foo/bar.
-                        // For compatibility with Python parser we need to support this.
-                        include.trim_start_matches('/')
-                    } else {
-                        include
-                    };
-                    let optional = m.name("optional").is_some();
-                    let include_file = if let Ok(absolute) = AbsNormPath::new(include) {
-                        absolute.to_owned()
-                    } else {
-                        let relative = RelativePath::new(include);
-                        match dir.join_normalized(relative) {
-                            Ok(d) => d,
-                            Err(_) => {
-                                return Err(anyhow::anyhow!(ConfigError::BadIncludePath(
-                                    include.to_owned()
-                                )));
-                            }
-                        }
-                    };
-
-                    match (optional, self.file_ops.file_exists(&include_file)) {
-                        (_, true) => {
-                            self.push_file(i, &include_file)?;
-                            self.parse_file_on_stack(&include_file, parse_includes)?;
-                            self.pop_file();
-                        }
-                        (false, false) => {
-                            return Err(anyhow::anyhow!(ConfigError::MissingInclude(
-                                include.to_owned()
-                            )));
-                        }
-                        (true, _) => {
-                            // optional case, missing is okay.
-                        }
-                    }
-                }
-            } else {
-                return Err(anyhow::anyhow!(ConfigError::InvalidLine(line.to_owned())));
-            }
-        }
-        Ok(())
-    }
-
-    fn commit_section(&mut self, section: (String, BTreeMap<String, ConfigValue>)) {
-        let (section, values) = section;
-        // Commit the previous section.
-        let committed = self
-            .values
-            .entry(section)
-            .or_insert_with(SectionBuilder::default);
-        values.into_iter().for_each(|(k, v)| {
-            committed.values.insert(k, v);
-        });
-    }
-
-    fn finish_file(&mut self) {
-        self.pop_file();
-
-        let section = std::mem::replace(&mut self.current_section, Self::unspecified_section());
-        self.commit_section(section);
-    }
-
-    fn finish(self) -> anyhow::Result<LegacyBuckConfig> {
-        let LegacyConfigParser { values, .. } = self;
-
-        let values = ConfigResolver::resolve(values)?;
-
-        Ok(LegacyBuckConfig(Arc::new(ConfigData { values })))
     }
 }
 
