@@ -37,8 +37,6 @@ use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::dice::file_ops::delegate::testing::FileOpsKey;
-use buck2_common::dice::file_ops::delegate::testing::FileOpsValue;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
@@ -411,14 +409,9 @@ async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
     let dice_builder = DiceBuilder::new().set_data(|data| {
         data.set_digest_config(DigestConfig::testing_default());
     });
-    let mut dice_computations = dice_builder
-        .mock_and_return(
-            FileOpsKey(CellName::testing_new("cell")),
-            Ok(FileOpsValue(
-                TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()])
-                    .for_cell(CellName::testing_new("cell")),
-            )),
-        )
+    let file_ops = TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()]);
+    let mut dice_computations = file_ops
+        .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())?
         .commit()
         .await;
@@ -465,14 +458,9 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
     let dice_builder = DiceBuilder::new().set_data(|data| {
         data.set_digest_config(DigestConfig::testing_default());
     });
-    let mut dice_computations = dice_builder
-        .mock_and_return(
-            FileOpsKey(CellName::testing_new("cell")),
-            Ok(FileOpsValue(
-                TestFileOps::new_with_symlinks(btreemap![path => symlink.dupe()])
-                    .for_cell(CellName::testing_new("cell")),
-            )),
-        )
+    let file_ops = TestFileOps::new_with_symlinks(btreemap![path => symlink.dupe()]);
+    let mut dice_computations = file_ops
+        .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())?
         .commit()
         .await;

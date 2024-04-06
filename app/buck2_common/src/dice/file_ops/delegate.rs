@@ -53,10 +53,10 @@ mod keys {
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
-    pub struct FileOpsKey(pub CellName);
+    pub(crate) struct FileOpsKey(pub CellName);
 
     #[derive(Dupe, Clone, Allocative)]
-    pub struct FileOpsValue(#[allocative(skip)] pub FileOpsDelegateWithIgnores);
+    pub(crate) struct FileOpsValue(#[allocative(skip)] pub FileOpsDelegateWithIgnores);
 }
 
 #[async_trait]
@@ -304,7 +304,7 @@ impl FileOpsDelegateWithIgnores {
     }
 }
 
-pub mod testing {
-    pub use super::keys::FileOpsKey;
-    pub use super::keys::FileOpsValue;
+pub(crate) mod testing {
+    pub(crate) use super::keys::FileOpsKey;
+    pub(crate) use super::keys::FileOpsValue;
 }

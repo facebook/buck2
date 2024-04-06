@@ -26,8 +26,6 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrderi
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::dice::file_ops::delegate::testing::FileOpsKey;
-use buck2_common::dice::file_ops::delegate::testing::FileOpsValue;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -138,19 +136,12 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
 
     let cell_root = CellName::testing_new("root");
     let cell_parent = CellName::testing_new("parent");
-    let mut dice_builder = DiceBuilder::new()
-        .mock_and_return(
-            FileOpsKey(cell_root),
-            Ok(FileOpsValue(files.for_cell(cell_root))),
-        )
-        .mock_and_return(
-            FileOpsKey(cell_parent),
-            Ok(FileOpsValue(files.for_cell(cell_parent))),
-        )
-        .set_data(|data| {
-            data.set_testing_io_provider(&fs);
-            data.set_digest_config(DigestConfig::testing_default());
-        });
+    let dice_builder = files.mock_in_cell(cell_root, DiceBuilder::new());
+    let dice_builder = files.mock_in_cell(cell_parent, dice_builder);
+    let mut dice_builder = dice_builder.set_data(|data| {
+        data.set_testing_io_provider(&fs);
+        data.set_digest_config(DigestConfig::testing_default());
+    });
 
     // Register all the sets as deferreds.
     dice_builder = mock_deferred_tset(dice_builder, set.to_owned_frozen_value());

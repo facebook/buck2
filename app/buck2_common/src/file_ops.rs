@@ -390,10 +390,13 @@ pub mod testing {
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use cmp_any::PartialEqAny;
+    use dice::testing::DiceBuilder;
     use dupe::Dupe;
     use itertools::Itertools;
 
     use crate::cas_digest::CasDigestConfig;
+    use crate::dice::file_ops::delegate::testing::FileOpsKey;
+    use crate::dice::file_ops::delegate::testing::FileOpsValue;
     use crate::dice::file_ops::delegate::FileOpsDelegate;
     use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
     use crate::external_symlink::ExternalSymlink;
@@ -503,8 +506,8 @@ pub mod testing {
             )
         }
 
-        pub fn for_cell(&self, cell: CellName) -> FileOpsDelegateWithIgnores {
-            FileOpsDelegateWithIgnores::new(
+        pub fn mock_in_cell(&self, cell: CellName, builder: DiceBuilder) -> DiceBuilder {
+            let data = Ok(FileOpsValue(FileOpsDelegateWithIgnores::new(
                 None,
                 Arc::new(TestCellFileOps(
                     cell,
@@ -512,7 +515,8 @@ pub mod testing {
                         entries: Arc::clone(&self.entries),
                     },
                 )),
-            )
+            )));
+            builder.mock_and_return(FileOpsKey(cell), data)
         }
     }
 
