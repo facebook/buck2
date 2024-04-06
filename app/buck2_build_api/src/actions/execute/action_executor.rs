@@ -210,26 +210,12 @@ impl ActionOutputs {
     }
 }
 
-/// Executes 'Actions'
-#[async_trait]
-pub trait ActionExecutor: Send + Sync {
-    async fn execute(
-        &self,
-        inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
-        action: &RegisteredAction,
-        cancellation: &CancellationContext,
-    ) -> (
-        Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
-        Vec<CommandExecutionReport>,
-    );
-}
-
 #[async_trait]
 pub trait HasActionExecutor {
     async fn get_action_executor(
         &mut self,
         config: &CommandExecutorConfig,
-    ) -> anyhow::Result<Arc<dyn ActionExecutor>>;
+    ) -> anyhow::Result<Arc<BuckActionExecutor>>;
 }
 
 #[async_trait]
@@ -237,7 +223,7 @@ impl HasActionExecutor for DiceComputations<'_> {
     async fn get_action_executor(
         &mut self,
         executor_config: &CommandExecutorConfig,
-    ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
+    ) -> anyhow::Result<Arc<BuckActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await?;
         let digest_config = self.global_data().get_digest_config();
 
@@ -564,13 +550,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 }
 
-#[async_trait]
-impl ActionExecutor for BuckActionExecutor {
-    async fn execute(
+impl BuckActionExecutor {
+    pub(crate) async fn execute(
         &self,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
-        cancellations: &CancellationContext,
+        cancellations: &CancellationContext<'_>,
     ) -> (
         Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,
@@ -729,7 +714,6 @@ mod tests {
     use crate::actions::box_slice_set::BoxSliceSet;
     use crate::actions::execute::action_executor::ActionExecutionKind;
     use crate::actions::execute::action_executor::ActionExecutionMetadata;
-    use crate::actions::execute::action_executor::ActionExecutor;
     use crate::actions::execute::action_executor::ActionOutputs;
     use crate::actions::execute::action_executor::BuckActionExecutor;
     use crate::actions::key::ActionKeyExt;
