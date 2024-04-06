@@ -594,9 +594,9 @@ impl LegacyBuckConfig {
         config_args: &[ResolvedLegacyConfigArg],
         follow_includes: bool,
     ) -> anyhow::Result<Self> {
-        let mut parser = LegacyConfigParser::new(file_ops);
+        let mut parser = LegacyConfigParser::new();
         for main_config_file in main_config_files {
-            parser.parse_file(&main_config_file.path, None, follow_includes)?;
+            parser.parse_file(&main_config_file.path, None, follow_includes, file_ops)?;
         }
 
         for config_arg in config_args {
@@ -608,6 +608,7 @@ impl LegacyBuckConfig {
                     file_path,
                     Some(Location::CommandLineArgument),
                     follow_includes,
+                    file_ops,
                 )?,
             };
         }

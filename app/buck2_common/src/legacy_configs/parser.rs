@@ -72,8 +72,7 @@ impl SectionBuilder {
     }
 }
 
-pub(crate) struct LegacyConfigParser<'a> {
-    file_ops: &'a mut dyn ConfigParserFileOps,
+pub(crate) struct LegacyConfigParser {
     include_stack: Vec<ConfigFileLocationWithLine>,
     current_file: Option<Arc<ConfigFileLocation>>,
     values: BTreeMap<String, SectionBuilder>,
@@ -89,14 +88,13 @@ pub(crate) struct LegacyConfigParser<'a> {
 static FILE_INCLUDE: Lazy<Regex> =
     Lazy::new(|| Regex::new("<(?P<optional>\\?)?file:(?P<include>..*)>").unwrap());
 
-impl<'a> LegacyConfigParser<'a> {
-    pub(crate) fn new(file_ops: &'a mut dyn ConfigParserFileOps) -> Self {
+impl LegacyConfigParser {
+    pub(crate) fn new() -> Self {
         LegacyConfigParser {
             values: BTreeMap::new(),
             include_stack: Vec::new(),
             current_file: None,
             current_section: Self::unspecified_section(),
-            file_ops,
         }
     }
 
@@ -109,9 +107,10 @@ impl<'a> LegacyConfigParser<'a> {
         path: &AbsNormPath,
         source: Option<Location>,
         follow_includes: bool,
+        file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()> {
         self.start_file(path, source)?;
-        self.parse_file_on_stack(path, follow_includes)
+        self.parse_file_on_stack(path, follow_includes, file_ops)
             .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
         self.finish_file();
         Ok(())
@@ -197,12 +196,13 @@ impl<'a> LegacyConfigParser<'a> {
         &mut self,
         path: &AbsNormPath,
         parse_includes: bool,
+        file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()> {
         let parent = path
             .parent()
             .context("parent should give directory containing the config file")?;
-        let file_lines = self.file_ops.read_file_lines(path)?;
-        self.parse_lines(parent, file_lines, parse_includes)
+        let file_lines = file_ops.read_file_lines(path)?;
+        self.parse_lines(parent, file_lines, parse_includes, file_ops)
     }
 
     fn strip_line_comment(line: &str) -> &str {
@@ -229,6 +229,7 @@ impl<'a> LegacyConfigParser<'a> {
         dir: &AbsNormPath,
         lines: T,
         parse_includes: bool,
+        file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()>
     where
         T: IntoIterator<Item = Result<String, E>>,
@@ -301,10 +302,10 @@ impl<'a> LegacyConfigParser<'a> {
                         }
                     };
 
-                    match (optional, self.file_ops.file_exists(&include_file)) {
+                    match (optional, file_ops.file_exists(&include_file)) {
                         (_, true) => {
                             self.push_file(i, &include_file)?;
-                            self.parse_file_on_stack(&include_file, parse_includes)?;
+                            self.parse_file_on_stack(&include_file, parse_includes, file_ops)?;
                             self.pop_file();
                         }
                         (false, false) => {
