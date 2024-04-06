@@ -364,9 +364,9 @@ pub trait ConfigParserFileOps: Send + Sync {
         path: &AbsNormPath,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>;
 
-    async fn file_exists(&self, path: &AbsNormPath) -> bool;
+    async fn file_exists(&mut self, path: &AbsNormPath) -> bool;
 
-    async fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
+    async fn read_dir(&mut self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -388,11 +388,11 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
         Ok(Box::new(file.lines()))
     }
 
-    async fn file_exists(&self, path: &AbsNormPath) -> bool {
+    async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
         PathBuf::from(path.as_os_str()).exists()
     }
 
-    async fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+    async fn read_dir(&mut self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
         let read_dir = match std::fs::read_dir(path.as_path()) {
             Ok(read_dir) => read_dir,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -637,7 +637,7 @@ fn push_all_files_from_a_directory<'a>(
     buckconfig_paths: &'a mut Vec<MainConfigFile>,
     folder_path: &'a AbsNormPath,
     owned_by_project: bool,
-    file_ops: &'a dyn ConfigParserFileOps,
+    file_ops: &'a mut dyn ConfigParserFileOps,
 ) -> BoxFuture<'a, anyhow::Result<()>> {
     async move {
         for entry in file_ops.read_dir(folder_path).await? {
@@ -726,7 +726,7 @@ pub mod testing {
 
     #[async_trait::async_trait]
     impl ConfigParserFileOps for TestConfigParserFileOps {
-        async fn file_exists(&self, path: &AbsNormPath) -> bool {
+        async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
             self.data.contains_key(path)
         }
 
@@ -756,7 +756,7 @@ pub mod testing {
             Ok(Box::new(file.lines()))
         }
 
-        async fn read_dir(&self, _path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+        async fn read_dir(&mut self, _path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
             // This is only used for listing files in `buckconfig.d` directories, which we can just
             // say are always empty in tests
             Ok(Vec::new())
@@ -1273,7 +1273,7 @@ mod tests {
                 &mut v,
                 dir,
                 false,
-                &DefaultConfigParserFileOps {},
+                &mut DefaultConfigParserFileOps {},
             ))?;
             assert_eq!(
                 v,
@@ -1296,7 +1296,7 @@ mod tests {
                 &mut v,
                 dir,
                 false,
-                &DefaultConfigParserFileOps {},
+                &mut DefaultConfigParserFileOps {},
             ))?;
             assert_eq!(v, vec![]);
 
@@ -1314,7 +1314,7 @@ mod tests {
                 &mut v,
                 dir,
                 false,
-                &DefaultConfigParserFileOps {},
+                &mut DefaultConfigParserFileOps {},
             ))?;
             assert_eq!(v, vec![]);
 
@@ -1332,7 +1332,7 @@ mod tests {
                 &mut v,
                 AbsNormPath::new(dir)?,
                 false,
-                &DefaultConfigParserFileOps {},
+                &mut DefaultConfigParserFileOps {},
             ))?;
             assert_eq!(v, vec![]);
 
@@ -1349,7 +1349,7 @@ mod tests {
                 &mut v,
                 file,
                 false,
-                &DefaultConfigParserFileOps {},
+                &mut DefaultConfigParserFileOps {},
             ))?;
             assert_eq!(v, vec![]);
 
@@ -1373,7 +1373,7 @@ mod tests {
                 &mut v,
                 dir,
                 false,
-                &DefaultConfigParserFileOps {},
+                &mut DefaultConfigParserFileOps {},
             ))?;
             assert_eq!(
                 v,

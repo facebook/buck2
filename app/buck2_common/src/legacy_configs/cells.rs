@@ -162,11 +162,14 @@ impl BuckConfigBasedCells {
                 self.inner.read_file_lines(path).await
             }
 
-            async fn file_exists(&self, path: &AbsNormPath) -> bool {
+            async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
                 self.inner.file_exists(path).await
             }
 
-            async fn read_dir(&self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+            async fn read_dir(
+                &mut self,
+                path: &AbsNormPath,
+            ) -> anyhow::Result<Vec<ConfigDirEntry>> {
                 self.inner.read_dir(path).await
             }
         }
@@ -201,7 +204,9 @@ impl BuckConfigBasedCells {
 
             // Blocking is ok because we know the fileops don't suspend
             let buckconfig_paths = futures::executor::block_on(get_buckconfig_paths_for_cell(
-                &path, project_fs, &file_ops,
+                &path,
+                project_fs,
+                &mut file_ops,
             ))?;
 
             let config =
@@ -294,7 +299,7 @@ impl BuckConfigBasedCells {
 async fn get_buckconfig_paths_for_cell(
     path: &CellRootPath,
     project_fs: &ProjectRoot,
-    file_ops: &dyn ConfigParserFileOps,
+    file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<Vec<MainConfigFile>> {
     let skip_default_external_config = buck2_env!("BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG", bool)?;
 
