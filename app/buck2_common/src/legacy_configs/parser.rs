@@ -24,8 +24,8 @@ use crate::legacy_configs::parser::resolver::ConfigResolver;
 use crate::legacy_configs::ConfigArgumentPair;
 use crate::legacy_configs::ConfigArgumentParseError;
 use crate::legacy_configs::ConfigData;
-use crate::legacy_configs::ConfigFile;
 use crate::legacy_configs::ConfigFileLocation;
+use crate::legacy_configs::ConfigFileLocationWithLine;
 use crate::legacy_configs::ConfigParserFileOps;
 use crate::legacy_configs::ConfigValue;
 use crate::legacy_configs::LegacyBuckConfig;
@@ -74,8 +74,8 @@ impl SectionBuilder {
 
 pub(crate) struct LegacyConfigParser<'a> {
     file_ops: &'a mut dyn ConfigParserFileOps,
-    include_stack: Vec<ConfigFileLocation>,
-    current_file: Option<Arc<ConfigFile>>,
+    include_stack: Vec<ConfigFileLocationWithLine>,
+    current_file: Option<Arc<ConfigFileLocation>>,
     values: BTreeMap<String, SectionBuilder>,
     current_section: (String, BTreeMap<String, ConfigValue>),
 }
@@ -118,14 +118,14 @@ impl<'a> LegacyConfigParser<'a> {
     }
 
     fn push_file(&mut self, line: usize, path: &AbsNormPath) -> anyhow::Result<()> {
-        let include_source = ConfigFileLocation {
+        let include_source = ConfigFileLocationWithLine {
                 source_file: self.current_file.dupe().unwrap_or_else(|| panic!("push_file() called without any files on the include stack. top-level files should use start_file()")),
                 line,
             };
 
         self.include_stack.push(include_source.clone());
 
-        let source_file = Arc::new(ConfigFile {
+        let source_file = Arc::new(ConfigFileLocation {
             path: path.to_string(),
             include_source: Some(Location::File(include_source)),
         });
@@ -134,7 +134,7 @@ impl<'a> LegacyConfigParser<'a> {
     }
 
     fn start_file(&mut self, path: &AbsNormPath, source: Option<Location>) -> anyhow::Result<()> {
-        let source_file = Arc::new(ConfigFile {
+        let source_file = Arc::new(ConfigFileLocation {
             path: path.to_string(),
             include_source: source,
         });
@@ -153,8 +153,8 @@ impl<'a> LegacyConfigParser<'a> {
         }
     }
 
-    fn location(&self, line_number: usize) -> ConfigFileLocation {
-        ConfigFileLocation {
+    fn location(&self, line_number: usize) -> ConfigFileLocationWithLine {
+        ConfigFileLocationWithLine {
             source_file: self
                 .current_file
                 .dupe()

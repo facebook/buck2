@@ -60,24 +60,12 @@ impl LegacyBuckConfigs {
     }
 }
 
-#[derive(Clone, Debug, Allocative)]
-struct ConfigFileLocation {
-    source_file: Arc<ConfigFile>,
-    line: usize,
-}
-
 #[derive(Debug, PartialEq, Eq)]
 struct MainConfigFile {
     path: AbsNormPathBuf,
 
     /// if a main config file is in project or global
     owned_by_project: bool,
-}
-
-#[derive(Debug, Allocative)]
-struct ConfigFile {
-    path: String,
-    include_source: Option<Location>,
 }
 
 #[derive(Clone, Dupe, Debug, Allocative)]
@@ -98,9 +86,21 @@ enum ResolvedValue {
     Resolved(String),
 }
 
+#[derive(Debug, Allocative)]
+struct ConfigFileLocation {
+    path: String,
+    include_source: Option<Location>,
+}
+
+#[derive(Clone, Debug, Allocative)]
+struct ConfigFileLocationWithLine {
+    source_file: Arc<ConfigFileLocation>,
+    line: usize,
+}
+
 #[derive(Clone, Debug, Allocative)]
 enum Location {
-    File(ConfigFileLocation),
+    File(ConfigFileLocationWithLine),
     CommandLineArgument,
 }
 
@@ -319,7 +319,7 @@ pub struct LegacyBuckConfigSection {
 }
 
 impl ConfigValue {
-    fn new_raw(source: ConfigFileLocation, value: String) -> Self {
+    fn new_raw(source: ConfigFileLocationWithLine, value: String) -> Self {
         Self {
             raw_value: value,
             resolved_value: ResolvedValue::Unknown,
