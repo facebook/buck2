@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -14,8 +15,10 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::file_ops::FileChangeTracker;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -23,6 +26,7 @@ use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::span_async;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
+use tracing::info;
 use tracing::warn;
 use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
@@ -42,6 +46,7 @@ struct WatchmanQueryProcessor {
     // `tests/e2e/cells/test_file_watcher_resolution:test_changing_cell_location_bug` for a repro of
     // a bug.
     cells: CellResolver,
+    ignore_specs: HashMap<CellName, IgnoreSet>,
     retain_dep_files_on_watchman_fresh_instance: bool,
     report_global_rev: bool,
     last_mergebase: Option<String>,
@@ -108,80 +113,92 @@ impl WatchmanQueryProcessor {
     ) -> anyhow::Result<()> {
         let cell_path = self.cells.get_cell_path(path)?;
 
-        let cell_path_str = cell_path.to_string();
-        let log_kind;
-        let log_event;
+        let ignore = self
+            .ignore_specs
+            .get(&cell_path.cell())
+            .expect("unexpected cell name mismatch")
+            .is_match(cell_path.path());
 
-        match ev {
-            ChangeEvent::Watchman(ev) => {
-                match (&ev.kind, &ev.event) {
-                    (WatchmanKind::File, typ) => {
-                        log_kind = buck2_data::FileWatcherKind::File;
-                        match typ {
-                            WatchmanEventType::Modify => {
-                                handler.file_changed(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Modify;
-                            }
-                            WatchmanEventType::Create => {
-                                handler.file_added(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Create;
-                            }
-                            WatchmanEventType::Delete => {
-                                handler.file_removed(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Delete;
-                            }
-                        }
-                    }
-                    (WatchmanKind::Directory, typ) => {
-                        log_kind = buck2_data::FileWatcherKind::Directory;
-                        match typ {
-                            WatchmanEventType::Modify => {
-                                // We can safely ignore this, as it corresponds to files being added or removed,
-                                // but there are always file add/remove notifications sent too.
-                                // See https://fb.workplace.com/groups/watchman.users/permalink/2858842194433249
-                                return Ok(());
-                            }
-                            WatchmanEventType::Create => {
-                                handler.dir_added(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Create;
-                            }
-                            WatchmanEventType::Delete => {
-                                handler.dir_removed(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Delete;
+        info!("Watchman: {:?} (ignore = {})", ev, ignore);
+
+        if ignore {
+            stats.add_ignored(1);
+        } else {
+            let cell_path_str = cell_path.to_string();
+            let log_kind;
+            let log_event;
+
+            match ev {
+                ChangeEvent::Watchman(ev) => {
+                    match (&ev.kind, &ev.event) {
+                        (WatchmanKind::File, typ) => {
+                            log_kind = buck2_data::FileWatcherKind::File;
+                            match typ {
+                                WatchmanEventType::Modify => {
+                                    handler.file_changed(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Modify;
+                                }
+                                WatchmanEventType::Create => {
+                                    handler.file_added(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Create;
+                                }
+                                WatchmanEventType::Delete => {
+                                    handler.file_removed(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Delete;
+                                }
                             }
                         }
-                    }
-                    (WatchmanKind::Symlink, typ) => {
-                        log_kind = buck2_data::FileWatcherKind::Symlink;
-                        match typ {
-                            WatchmanEventType::Modify => {
-                                handler.file_changed(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Modify;
+                        (WatchmanKind::Directory, typ) => {
+                            log_kind = buck2_data::FileWatcherKind::Directory;
+                            match typ {
+                                WatchmanEventType::Modify => {
+                                    // We can safely ignore this, as it corresponds to files being added or removed,
+                                    // but there are always file add/remove notifications sent too.
+                                    // See https://fb.workplace.com/groups/watchman.users/permalink/2858842194433249
+                                    return Ok(());
+                                }
+                                WatchmanEventType::Create => {
+                                    handler.dir_added(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Create;
+                                }
+                                WatchmanEventType::Delete => {
+                                    handler.dir_removed(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Delete;
+                                }
                             }
-                            WatchmanEventType::Create => {
-                                warn!(
-                                    "New symlink detected (source symlinks are not supported): {}",
-                                    cell_path
-                                );
-                                handler.file_added(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Create;
-                            }
-                            WatchmanEventType::Delete => {
-                                handler.file_removed(cell_path);
-                                log_event = buck2_data::FileWatcherEventType::Delete;
+                        }
+                        (WatchmanKind::Symlink, typ) => {
+                            log_kind = buck2_data::FileWatcherKind::Symlink;
+                            match typ {
+                                WatchmanEventType::Modify => {
+                                    handler.file_changed(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Modify;
+                                }
+                                WatchmanEventType::Create => {
+                                    warn!(
+                                        "New symlink detected (source symlinks are not supported): {}",
+                                        cell_path
+                                    );
+                                    handler.file_added(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Create;
+                                }
+                                WatchmanEventType::Delete => {
+                                    handler.file_removed(cell_path);
+                                    log_event = buck2_data::FileWatcherEventType::Delete;
+                                }
                             }
                         }
                     }
                 }
-            }
-            ChangeEvent::SyntheticDirectoryChange => {
-                log_kind = buck2_data::FileWatcherKind::Directory;
-                log_event = buck2_data::FileWatcherEventType::Modify;
-                handler.dir_changed(cell_path);
-            }
-        };
+                ChangeEvent::SyntheticDirectoryChange => {
+                    log_kind = buck2_data::FileWatcherKind::Directory;
+                    log_event = buck2_data::FileWatcherEventType::Modify;
+                    handler.dir_changed(cell_path);
+                }
+            };
 
-        stats.add(cell_path_str, log_event, log_kind);
+            stats.add(cell_path_str, log_event, log_kind);
+        }
 
         Ok(())
     }
@@ -307,6 +324,7 @@ impl WatchmanFileWatcher {
         project_root: &AbsNormPath,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
+        ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Self> {
         let watchman_merge_base = root_config
             .get(BuckconfigKeyRef {
@@ -340,6 +358,7 @@ impl WatchmanFileWatcher {
             ]),
             Box::new(WatchmanQueryProcessor {
                 cells,
+                ignore_specs,
                 retain_dep_files_on_watchman_fresh_instance,
                 report_global_rev,
                 last_mergebase: None,

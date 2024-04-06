@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::is_open_source;
@@ -39,6 +42,7 @@ impl dyn FileWatcher {
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
+        ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> anyhow::Result<Arc<dyn FileWatcher>> {
         let default = if is_open_source() {
             "notify"
@@ -54,15 +58,15 @@ impl dyn FileWatcher {
             .unwrap_or(default)
         {
             "watchman" => Ok(Arc::new(
-                WatchmanFileWatcher::new(project_root.root(), root_config, cells)
+                WatchmanFileWatcher::new(project_root.root(), root_config, cells, ignore_specs)
                     .context("Creating watchman file watcher")?,
             )),
             "notify" => Ok(Arc::new(
-                NotifyFileWatcher::new(project_root, cells)
+                NotifyFileWatcher::new(project_root, cells, ignore_specs)
                     .context("Creating notify file watcher")?,
             )),
             "fs_hash_crawler" => Ok(Arc::new(
-                FsHashCrawler::new(project_root, cells)
+                FsHashCrawler::new(project_root, cells, ignore_specs)
                     .context("Creating fs_crawler file watcher")?,
             )),
             other => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),

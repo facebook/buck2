@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -19,6 +20,7 @@ use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
@@ -26,6 +28,7 @@ use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_common::legacy_configs::init::Timeout;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::buck2_env;
+use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
@@ -287,6 +290,24 @@ impl DaemonState {
                 root_config,
             )?);
 
+            let ignore_specs: HashMap<CellName, IgnoreSet> = legacy_configs
+                .iter()
+                .map(|(cell, config)| {
+                    Ok((
+                        cell,
+                        IgnoreSet::from_ignore_spec(
+                            config
+                                .get(BuckconfigKeyRef {
+                                    section: "project",
+                                    property: "ignore",
+                                })
+                                .unwrap_or(""),
+                            cells.is_root_cell(cell),
+                        )?,
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?;
+
             let disk_state_options = DiskStateOptions::new(root_config, materializations.dupe())?;
             let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
             let cache_dir_path = paths.cache_dir_path();
@@ -430,14 +451,18 @@ impl DaemonState {
             // https://github.com/facebook/watchman/issues/911. Adding other filetypes to
             // this list should be safe until we can revert it to Expr::True.
 
-            let file_watcher =
-                <dyn FileWatcher>::new(paths.project_root(), root_config, cells.dupe())
-                    .with_context(|| {
-                        format!(
-                            "Error creating a FileWatcher for project root `{}`",
-                            paths.project_root()
-                        )
-                    })?;
+            let file_watcher = <dyn FileWatcher>::new(
+                paths.project_root(),
+                root_config,
+                cells.dupe(),
+                ignore_specs,
+            )
+            .with_context(|| {
+                format!(
+                    "Error creating a FileWatcher for project root `{}`",
+                    paths.project_root()
+                )
+            })?;
 
             let hash_all_commands = root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {
