@@ -240,7 +240,6 @@ async fn compute_deferred(
                 }
             }
 
-            // TODO(nga): do we need to compute artifacts?
             let (targets, deferreds, materialized_artifacts) = {
                 // don't move span
                 let span = &span;

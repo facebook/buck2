@@ -173,6 +173,8 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
 pub enum DeferredInput {
     ConfiguredTarget(ConfiguredTargetLabel),
     Deferred(DeferredKey),
+    /// Materialized artifact is an input of `dynamic_output`.
+    /// Regular actions like `run` do not have `MaterializedArtifact` inputs.
     MaterializedArtifact(Artifact),
 }
 
