@@ -259,6 +259,7 @@ mod tests {
         struct Value<'a>(&'a str);
 
         #[derive(ProvidesStaticType)]
+        #[allow(dead_code)] // field `0` is never read
         struct Value2<'a>(&'a str);
 
         // Changing the return type too `Value<'static>` causes a compile error.
@@ -299,6 +300,7 @@ mod tests {
         test::<Aaa>(TypeId::of::<Aaa>());
 
         #[derive(ProvidesStaticType)]
+        #[allow(dead_code)] // field `0` is never read
         struct Bbb<'a>(&'a str);
         test::<Bbb>(TypeId::of::<Bbb<'static>>());
 
@@ -328,6 +330,7 @@ mod tests {
         trait My<'a> {}
 
         #[derive(ProvidesStaticType)]
+        #[allow(dead_code)] // field `0` is never read
         struct FooBar<'x, P: My<'x>>(&'x P);
     }
 }
