@@ -9,7 +9,8 @@ RuleRegistrationSpec = record(
     name = field(str),
     impl = field(typing.Callable),
     attrs = field(dict[str, Attr]),
-    cfg = field([None, "transition"], None),
+    # TODO(nga): should be `transition | None`, but `transition` does not work as type.
+    cfg = field(typing.Any | None, None),
     is_toolchain_rule = field(bool, False),
     doc = field(str, ""),
 )
