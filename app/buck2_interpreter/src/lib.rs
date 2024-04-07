@@ -39,6 +39,7 @@ pub mod paths;
 pub mod plugins;
 pub mod prelude_path;
 pub mod print_handler;
+pub mod soft_error;
 pub mod starlark_debug;
 pub mod starlark_profiler;
 pub mod starlark_promise;

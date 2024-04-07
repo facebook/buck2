@@ -45,6 +45,7 @@ use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::eval_result::EvaluationResultWithStats;
 use buck2_node::super_package::SuperPackage;
@@ -510,6 +511,7 @@ impl InterpreterForCell {
             is_profiling_enabled = is_profiling_enabled_by_provider;
             eval.enable_static_typechecking(unstable_typecheck);
             eval.set_print_handler(&print);
+            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
             eval.set_loader(&file_loader);
             eval.extra = Some(&extra);
             if self.verbose_gc {

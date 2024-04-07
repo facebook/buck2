@@ -30,6 +30,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
@@ -86,6 +87,7 @@ async fn eval_pre_constraint_analysis<'v>(
         |provider, _| {
             let (mut eval, _) = provider.make(module)?;
             eval.set_print_handler(print);
+            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
             let legacy_platform = if cfg.is_bound() {
                 eval.heap()

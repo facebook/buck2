@@ -62,6 +62,7 @@ use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -610,6 +611,7 @@ impl BxlEvalContext<'_> {
         let (analysis_registry, declared_outputs) = {
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
+            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
             eval.extra = Some(&BxlEvalExtraTag);
 
             let dynamic_lambda_ctx_data =

@@ -44,6 +44,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -234,6 +235,7 @@ impl Deferred for DynamicLambda {
                 let print = EventDispatcherPrintHandler(get_dispatcher());
                 let mut eval = Evaluator::new(&env);
                 eval.set_print_handler(&print);
+                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
                 let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
                 let ctx = AnalysisContext::prepare(
                     heap,

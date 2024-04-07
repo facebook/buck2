@@ -42,6 +42,7 @@ use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
@@ -184,6 +185,7 @@ impl BxlInnerEvaluator {
             let bxl_function_name = key.label().name.clone();
             let frozen_callable = get_bxl_callable(key.label(), &module)?;
             eval.set_print_handler(&print);
+            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
             eval.extra = Some(&BxlEvalExtraTag);
 
             let force_print_stacktrace = key.force_print_stacktrace();

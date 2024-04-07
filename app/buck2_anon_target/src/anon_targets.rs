@@ -64,6 +64,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -334,6 +335,7 @@ impl AnonTargetKey {
                     |provider, dice| {
                         let (mut eval, _) = provider.make(&env)?;
                         eval.set_print_handler(&print);
+                        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
                         // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
                         let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {

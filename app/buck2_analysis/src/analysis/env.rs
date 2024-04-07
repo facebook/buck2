@@ -33,6 +33,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
@@ -288,6 +289,7 @@ async fn run_analysis_with_env_underlying(
         |provider, dice| {
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&print);
+            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
             let ctx = AnalysisContext::prepare(
                 eval.heap(),

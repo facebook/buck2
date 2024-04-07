@@ -31,6 +31,7 @@ use buck2_execute::output_size::OutputSize;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -332,6 +333,7 @@ fn try_run_error_handler(
                     let print = EventDispatcherPrintHandler(get_dispatcher());
                     let mut eval = Evaluator::new(&env);
                     eval.set_print_handler(&print);
+                    eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
                     let error_handler_ctx =
                         StarlarkActionErrorContext::new_from_command_execution(last_command);
