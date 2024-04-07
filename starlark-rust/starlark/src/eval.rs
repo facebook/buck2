@@ -21,6 +21,7 @@
 pub(crate) mod bc;
 pub(crate) mod compiler;
 pub(crate) mod runtime;
+pub(crate) mod soft_error;
 
 use std::collections::HashMap;
 use std::mem;
@@ -37,6 +38,7 @@ pub use runtime::params::ParametersSpec;
 pub use runtime::params::ParametersSpecBuilder;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::ProfileMode;
+pub use soft_error::SoftErrorHandler;
 pub use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::module::AstModule;

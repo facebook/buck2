@@ -63,8 +63,10 @@ use crate::eval::runtime::profile::ProfileMode;
 use crate::eval::runtime::rust_loc::rust_loc;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::eval::soft_error::HardErrorSoftErrorHandler;
 use crate::eval::CallStack;
 use crate::eval::FileLoader;
+use crate::eval::SoftErrorHandler;
 use crate::stdlib::breakpoint::BreakpointConsole;
 use crate::stdlib::breakpoint::RealBreakpointConsole;
 use crate::stdlib::extra::PrintHandler;
@@ -162,6 +164,8 @@ pub struct Evaluator<'v, 'a, 'e> {
         Option<Box<dyn Fn() -> anyhow::Result<Box<dyn BreakpointConsole>>>>,
     /// Use in implementation of `print` function.
     pub(crate) print_handler: &'a (dyn PrintHandler + 'a),
+    /// Deprecation handler.
+    pub(crate) soft_error_handler: &'a (dyn SoftErrorHandler + 'a),
     /// Max size of starlark stack
     pub(crate) max_callstack_size: Option<usize>,
     // The Starlark-level call-stack of functions.
@@ -233,6 +237,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             string_pool: StringPool::default(),
             breakpoint_handler: None,
             print_handler: &StderrPrintHandler,
+            soft_error_handler: &HardErrorSoftErrorHandler,
             verbose_gc: false,
             static_typechecking: false,
             max_callstack_size: None,
@@ -433,6 +438,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// Set the handler invoked when `print` function is used.
     pub fn set_print_handler(&mut self, handler: &'a (dyn PrintHandler + 'a)) {
         self.print_handler = handler;
+    }
+
+    /// Set deprecation handler. If not set, deprecations are treated as hard errors.
+    pub fn set_soft_error_handler(&mut self, handler: &'a (dyn SoftErrorHandler + 'a)) {
+        self.soft_error_handler = handler;
     }
 
     /// Called to add an entry to the call stack, by the function being invoked.
