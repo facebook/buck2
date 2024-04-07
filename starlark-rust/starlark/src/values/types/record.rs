@@ -25,7 +25,7 @@
 //!
 //! ```
 //! # starlark::assert::is_true(r#"
-//! IpAddress = record(host=str.type, port=int.type)
+//! IpAddress = record(host=str, port=int)
 //! rec = IpAddress(host="localhost", port=80)
 //! rec.port == 80
 //! # "#);
@@ -35,7 +35,7 @@
 //!
 //! ```
 //! # starlark::assert::is_true(r#"
-//! IpAddress = record(host=str.type, port=field(int.type, 80))
+//! IpAddress = record(host=str, port=field(int, 80))
 //! rec = IpAddress(host="localhost")
 //! rec.port == 80
 //! # "#);

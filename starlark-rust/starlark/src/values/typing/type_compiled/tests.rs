@@ -98,9 +98,9 @@ def g():
         r#"
 isinstance(1, int)
 isinstance(True, bool)
-isinstance(True, "")
+isinstance(True, typing.Any)
 isinstance(None, None)
-isinstance(assert_type, "function")
+isinstance(assert_type, typing.Callable)
 isinstance([], list[int])
 isinstance([], list[typing.Any])
 isinstance([1, 2, 3], list[int])
@@ -117,8 +117,8 @@ not isinstance([1,2,None], list[int])
 not isinstance({"test": 1, 8: 2}, dict[str, int])
 not isinstance({"test": 1, "more": None}, dict[str, int])
 
-isinstance(1, "")
-isinstance([1,2,"test"], list["_a"])
+isinstance(1, typing.Any)
+isinstance([1,2,"test"], list)
 "#,
     );
 
