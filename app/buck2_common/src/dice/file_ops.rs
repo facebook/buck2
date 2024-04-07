@@ -50,9 +50,24 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<ReadDirOutput> {
-        ctx.compute(&ReadDirKey(path.to_owned()))
-            .await?
-            .map_err(anyhow::Error::from)
+        ctx.compute(&ReadDirKey {
+            path: path.to_owned(),
+            check_ignores: CheckIgnores::Yes,
+        })
+        .await?
+        .map_err(anyhow::Error::from)
+    }
+
+    pub async fn read_dir_include_ignores(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> anyhow::Result<ReadDirOutput> {
+        ctx.compute(&ReadDirKey {
+            path: path.to_owned(),
+            check_ignores: CheckIgnores::No,
+        })
+        .await?
+        .map_err(anyhow::Error::from)
     }
 
     /// Does not check if the path is ignored
@@ -62,7 +77,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<Option<String>> {
-        let file_ops = get_delegated_file_ops(ctx, path.cell()).await?;
+        let file_ops = get_delegated_file_ops(ctx, path.cell(), CheckIgnores::No).await?;
         let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
         // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
         // However, that also means that the `ReadFileKey` is not marked as transient if this
@@ -104,7 +119,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<bool> {
-        get_delegated_file_ops(ctx, path.cell())
+        get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
             .await?
             .is_ignored(path.path())
             .await
@@ -116,6 +131,12 @@ impl DiceFileComputations {
     ) -> anyhow::Result<Arc<[FileNameBuf]>> {
         ctx.get_buildfiles(cell).await
     }
+}
+
+#[derive(Debug, Display, Clone, Dupe, Copy, PartialEq, Eq, Hash, Allocative)]
+pub(crate) enum CheckIgnores {
+    Yes,
+    No,
 }
 
 #[derive(Allocative)]
@@ -148,6 +169,17 @@ impl FileChangeTracker {
         self.paths_to_dirty.insert(PathMetadataKey(path));
     }
 
+    fn insert_dir_keys(&mut self, path: CellPath) {
+        self.dirs_to_dirty.insert(ReadDirKey {
+            path: path.clone(),
+            check_ignores: CheckIgnores::No,
+        });
+        self.dirs_to_dirty.insert(ReadDirKey {
+            path,
+            check_ignores: CheckIgnores::Yes,
+        });
+    }
+
     pub fn file_added_or_removed(&mut self, path: CellPath) {
         let parent = path.parent();
 
@@ -157,7 +189,7 @@ impl FileChangeTracker {
             // That never happens in established repos, but if you are setting one up, it's not uncommon.
             // Since we don't include paths in different cells, the fact we don't dirty the parent
             // (which is in an enclosing cell) doesn't matter.
-            self.dirs_to_dirty.insert(ReadDirKey(parent.to_owned()));
+            self.insert_dir_keys(parent.to_owned());
         }
     }
 
@@ -169,8 +201,7 @@ impl FileChangeTracker {
             // That never happens in established repos, but if you are setting one up, it's not uncommon.
             // Since we don't include paths in different cells, the fact we don't dirty the parent
             // (which is in an enclosing cell) doesn't matter.
-            self.dirs_to_dirty
-                .extend([ReadDirKey(path), ReadDirKey(parent)]);
+            self.insert_dir_keys(parent);
         }
     }
 
@@ -188,7 +219,7 @@ impl FileChangeTracker {
 
     pub fn dir_changed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
-        self.dirs_to_dirty.insert(ReadDirKey(path));
+        self.insert_dir_keys(path);
     }
 
     pub fn dir_added(&mut self, path: CellPath) {
@@ -219,7 +250,11 @@ impl Key for ReadFileKey {
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-struct ReadDirKey(CellPath);
+#[display(fmt = "{}", path)]
+struct ReadDirKey {
+    path: CellPath,
+    check_ignores: CheckIgnores,
+}
 
 #[async_trait]
 impl Key for ReadDirKey {
@@ -229,9 +264,9 @@ impl Key for ReadDirKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.0.cell())
+        get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores)
             .await?
-            .read_dir(self.0.as_ref().path())
+            .read_dir(self.path.as_ref().path())
             .await
             .map_err(buck2_error::Error::from)
     }
@@ -259,7 +294,7 @@ impl Key for PathMetadataKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let res = get_delegated_file_ops(ctx, self.0.cell())
+        let res = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
             .await?
             .read_path_metadata_if_exists(self.0.as_ref().path())
             .await?;

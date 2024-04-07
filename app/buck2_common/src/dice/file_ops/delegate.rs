@@ -32,6 +32,7 @@ use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::dice::file_ops::delegate::keys::FileOpsKey;
 use crate::dice::file_ops::delegate::keys::FileOpsValue;
+use crate::dice::file_ops::CheckIgnores;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
@@ -50,10 +51,14 @@ mod keys {
     use dupe::Dupe;
 
     use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
+    use crate::dice::file_ops::CheckIgnores;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display(fmt = "{:?}", self)]
-    pub(crate) struct FileOpsKey(pub CellName);
+    pub(crate) struct FileOpsKey {
+        pub cell: CellName,
+        pub check_ignores: CheckIgnores,
+    }
 
     #[derive(Dupe, Clone, Allocative)]
     pub(crate) struct FileOpsValue(#[allocative(skip)] pub FileOpsDelegateWithIgnores);
@@ -158,6 +163,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
 pub(crate) async fn get_delegated_file_ops(
     dice: &mut DiceComputations<'_>,
     cell: CellName,
+    check_ignores: CheckIgnores,
 ) -> buck2_error::Result<FileOpsDelegateWithIgnores> {
     #[async_trait]
     impl Key for FileOpsKey {
@@ -169,14 +175,18 @@ pub(crate) async fn get_delegated_file_ops(
         ) -> Self::Value {
             let cells = ctx.get_cell_resolver().await?;
             let io = ctx.global_data().get_io_provider();
-            let ignores = ctx.new_cell_ignores(self.0).await?;
+            let ignores = if self.check_ignores == CheckIgnores::Yes {
+                Some(ctx.new_cell_ignores(self.cell).await?)
+            } else {
+                None
+            };
 
             let delegate = IoFileOpsDelegate {
                 io,
                 cells,
-                cell: self.0,
+                cell: self.cell,
             };
-            let out = FileOpsDelegateWithIgnores::new(Some(ignores), Arc::new(delegate));
+            let out = FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate));
 
             Ok(FileOpsValue(out))
         }
@@ -193,7 +203,13 @@ pub(crate) async fn get_delegated_file_ops(
         }
     }
 
-    Ok(dice.compute(&FileOpsKey(cell)).await??.0)
+    Ok(dice
+        .compute(&FileOpsKey {
+            cell,
+            check_ignores,
+        })
+        .await??
+        .0)
 }
 
 #[derive(Clone, Dupe)]

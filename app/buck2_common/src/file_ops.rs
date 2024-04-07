@@ -399,6 +399,7 @@ pub mod testing {
     use crate::dice::file_ops::delegate::testing::FileOpsValue;
     use crate::dice::file_ops::delegate::FileOpsDelegate;
     use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
+    use crate::dice::file_ops::CheckIgnores;
     use crate::external_symlink::ExternalSymlink;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
@@ -516,7 +517,21 @@ pub mod testing {
                     },
                 )),
             )));
-            builder.mock_and_return(FileOpsKey(cell), data)
+            builder
+                .mock_and_return(
+                    FileOpsKey {
+                        cell,
+                        check_ignores: CheckIgnores::Yes,
+                    },
+                    data.dupe(),
+                )
+                .mock_and_return(
+                    FileOpsKey {
+                        cell,
+                        check_ignores: CheckIgnores::No,
+                    },
+                    data,
+                )
         }
     }
 
