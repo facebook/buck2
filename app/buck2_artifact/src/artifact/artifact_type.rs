@@ -244,6 +244,7 @@ impl BoundBuildArtifact {
 #[derive(Clone, Debug, Dupe, Display, Allocative)]
 #[display(fmt = "{}", "self.get_path()")]
 pub struct DeclaredArtifact {
+    /// `Rc` here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
     artifact: Rc<RefCell<DeclaredArtifactKind>>,
     projected_path: Option<Arc<ForwardRelativePathBuf>>,
     hidden_components_count: usize,
@@ -369,7 +370,7 @@ impl PartialEq for DeclaredArtifact {
 impl Eq for DeclaredArtifact {}
 
 /// A 'DeclaredArtifact' can be either "bound" to an 'Action', or "unbound"
-#[derive(Clone, Dupe, Debug, Display, Allocative)]
+#[derive(Debug, Display, Allocative)]
 enum DeclaredArtifactKind {
     Bound(BuildArtifact),
     Unbound(UnboundArtifact),
