@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+use rustc_hash::FxHashMap;
 use tracing::info;
 
 use crate::buck;
@@ -118,7 +118,7 @@ impl Develop {
     pub fn resolve_file_owners(
         &self,
         files: Vec<PathBuf>,
-    ) -> Result<HashMap<String, Vec<Target>>, anyhow::Error> {
+    ) -> Result<FxHashMap<String, Vec<Target>>, anyhow::Error> {
         self.buck.query_owner(&files)
     }
 
@@ -168,7 +168,7 @@ impl Develop {
         let targets = match input {
             Input::Targets(targets) => targets,
             Input::Files(files) => {
-                let targets: HashMap<String, Vec<Target>> = self.resolve_file_owners(files)?;
+                let targets: FxHashMap<String, Vec<Target>> = self.resolve_file_owners(files)?;
                 targets
                     .values()
                     .into_iter()

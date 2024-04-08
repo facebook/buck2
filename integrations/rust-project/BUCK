@@ -1,7 +1,7 @@
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
-oncall("cpplangex")
+oncall("rust_devx")
 
 rust_binary(
     name = "rust-project",
@@ -9,7 +9,7 @@ rust_binary(
         "src/**/*.rs",
         "templates/*",
     ]),
-    contacts = ["oncall+cpplangex@xmail.facebook.com"],
+    contacts = ["oncall+rust_devx@xmail.facebook.com"],
     crate_root = "src/main.rs",
     link_style = "static",
     deps = [
@@ -18,6 +18,7 @@ rust_binary(
         "fbsource//third-party/rust:crossbeam",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:lsp-types",
+        "fbsource//third-party/rust:rustc-hash",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tracing",

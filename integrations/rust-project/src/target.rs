@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
@@ -15,6 +14,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -106,7 +106,7 @@ pub struct TargetInfo {
     ///
     /// Asking buck to build the targets and tell us the output path
     /// is how we are able to support generated sources.
-    pub mapped_srcs: BTreeMap<PathBuf, PathBuf>,
+    pub mapped_srcs: FxHashMap<PathBuf, PathBuf>,
     #[serde(rename = "crate")]
     pub crate_name: Option<String>,
     pub crate_dynamic: Option<PathBuf>,
@@ -116,11 +116,11 @@ pub struct TargetInfo {
     pub tests: Vec<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with
     // `buck.direct_dependencies` and are instead a separate entry.
-    pub named_deps: BTreeMap<String, Target>,
+    pub named_deps: FxHashMap<String, Target>,
     pub proc_macro: Option<bool>,
     // Set of features enabled for this crate.
     pub features: Vec<String>,
-    pub env: BTreeMap<String, String>,
+    pub env: FxHashMap<String, String>,
     // The ensured folder containing symlinks to all sources
     pub source_folder: PathBuf,
     pub project_relative_buildfile: PathBuf,
@@ -212,6 +212,6 @@ impl TargetInfo {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
 pub struct ExpandedAndResolved {
     pub expanded_targets: Vec<Target>,
-    pub queried_proc_macros: BTreeMap<Target, MacroOutput>,
-    pub resolved_deps: BTreeMap<Target, TargetInfo>,
+    pub queried_proc_macros: FxHashMap<Target, MacroOutput>,
+    pub resolved_deps: FxHashMap<Target, TargetInfo>,
 }

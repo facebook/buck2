@@ -15,10 +15,10 @@
 //!
 //! [documentation]: https://rust-analyzer.github.io/manual.html#non-cargo-based-projects
 
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 use std::path::PathBuf;
 
+use rustc_hash::FxHashMap;
+use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -86,7 +86,7 @@ pub struct Crate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_spec: Option<TargetSpec>,
     /// Environment for the crate, often used by `env!`.
-    pub env: BTreeMap<String, String>,
+    pub env: FxHashMap<String, String>,
     /// Whether the crate is a proc-macro crate/
     pub is_proc_macro: bool,
     /// For proc-macro crates, path to compiled
@@ -206,8 +206,8 @@ pub enum Edition {
 /// specified in `include_dirs`.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Source {
-    pub include_dirs: BTreeSet<PathBuf>,
-    pub exclude_dirs: BTreeSet<PathBuf>,
+    pub include_dirs: FxHashSet<PathBuf>,
+    pub exclude_dirs: FxHashSet<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

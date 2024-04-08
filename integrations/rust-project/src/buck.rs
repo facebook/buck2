@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::io;
 use std::path::Path;
@@ -20,6 +17,8 @@ use std::process::Output;
 use std::process::Stdio;
 
 use anyhow::Context;
+use rustc_hash::FxHashMap;
+use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use tracing::enabled;
 use tracing::info;
@@ -48,7 +47,7 @@ use crate::Dep;
 pub fn to_json_project(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
-    aliases: BTreeMap<Target, AliasedTargetInfo>,
+    aliases: FxHashMap<Target, AliasedTargetInfo>,
     relative_paths: bool,
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
@@ -117,7 +116,7 @@ pub fn to_json_project(
             build_file = path;
         }
 
-        let mut env: BTreeMap<String, String> = BTreeMap::new();
+        let mut env: FxHashMap<String, String> = FxHashMap::default();
         if let Some(rel_cargo_manifest_dir) = info.env.get("CARGO_MANIFEST_DIR") {
             let cargo_manifest_dir = info.source_folder.join(rel_cargo_manifest_dir);
             env.insert(
@@ -126,7 +125,7 @@ pub fn to_json_project(
             );
         }
 
-        let mut include_dirs = BTreeSet::new();
+        let mut include_dirs = FxHashSet::default();
         if let Some(out_dir) = &info.out_dir {
             env.insert("OUT_DIR".to_owned(), out_dir.to_string_lossy().into_owned());
             // to ensure that the `OUT_DIR` is included as part of the `PackageRoot` in rust-analyzer,
@@ -175,7 +174,7 @@ pub fn to_json_project(
             is_workspace_member: info.in_workspace,
             source: Some(Source {
                 include_dirs,
-                exclude_dirs: BTreeSet::new(),
+                exclude_dirs: FxHashSet::default(),
             }),
             cfg,
             env,
@@ -209,9 +208,9 @@ pub fn relative_to(path: &Path, base: &Path) -> PathBuf {
 
 fn resolve_dependencies_aliases(
     info: &TargetInfo,
-    target_index: &BTreeMap<Target, TargetInfoEntry>,
-    aliases: &BTreeMap<Target, AliasedTargetInfo>,
-    proc_macros: &BTreeMap<Target, MacroOutput>,
+    target_index: &FxHashMap<Target, TargetInfoEntry>,
+    aliases: &FxHashMap<Target, AliasedTargetInfo>,
+    proc_macros: &FxHashMap<Target, MacroOutput>,
 ) -> Vec<Dep> {
     let mut deps = vec![];
     for dependency_target in &info.deps {
@@ -244,7 +243,7 @@ fn resolve_dependencies_aliases(
 
 fn resolve_renamed_dependencies(
     info: &TargetInfo,
-    target_index: &BTreeMap<Target, TargetInfoEntry>,
+    target_index: &FxHashMap<Target, TargetInfoEntry>,
     deps: &mut Vec<Dep>,
 ) {
     // we handled named_deps when constructing the dependency, as rust-analyzer cares about the
@@ -284,18 +283,18 @@ fn resolve_renamed_dependencies(
 /// target's dependencies in the target that references the test
 /// target.
 fn merge_unit_test_targets(
-    target_map: BTreeMap<Target, TargetInfo>,
-) -> BTreeMap<Target, TargetInfoEntry> {
-    let mut target_index = BTreeMap::new();
+    target_map: FxHashMap<Target, TargetInfo>,
+) -> FxHashMap<Target, TargetInfoEntry> {
+    let mut target_index = FxHashMap::default();
 
-    let (tests, mut targets): (BTreeMap<Target, TargetInfo>, BTreeMap<Target, TargetInfo>) =
+    let (tests, mut targets): (FxHashMap<Target, TargetInfo>, FxHashMap<Target, TargetInfo>) =
         target_map
             .into_iter()
             .partition(|(_, info)| info.kind == Kind::Test);
 
     let (generated_unit_tests, standalone_tests): (
-        BTreeMap<Target, TargetInfo>,
-        BTreeMap<Target, TargetInfo>,
+        FxHashMap<Target, TargetInfo>,
+        FxHashMap<Target, TargetInfo>,
     ) = tests.into_iter().partition(|(target, _)| {
         targets
             .iter()
@@ -500,7 +499,7 @@ impl Buck {
     pub fn query_aliased_libraries(
         &self,
         targets: &[Target],
-    ) -> Result<BTreeMap<Target, AliasedTargetInfo>, anyhow::Error> {
+    ) -> Result<FxHashMap<Target, AliasedTargetInfo>, anyhow::Error> {
         // FIXME: Do this in bxl as well instead of manually writing a separate query
         let mut command = self.command(["cquery"]);
 
@@ -517,7 +516,7 @@ impl Buck {
         command.args(targets);
 
         info!("resolving aliased libraries");
-        let raw: BTreeMap<Target, AliasedTargetInfo> =
+        let raw: FxHashMap<Target, AliasedTargetInfo> =
             deserialize_output(command.output(), &command)?;
 
         if enabled!(Level::TRACE) {
@@ -532,7 +531,7 @@ impl Buck {
     pub fn query_owner(
         &self,
         files: &Vec<PathBuf>,
-    ) -> Result<HashMap<String, Vec<Target>>, anyhow::Error> {
+    ) -> Result<FxHashMap<String, Vec<Target>>, anyhow::Error> {
         let mut command = self.command(["bxl"]);
 
         command.args([
@@ -632,7 +631,7 @@ pub fn select_mode(mode: Option<&str>) -> Option<String> {
 /// with a target that depends on itself.
 #[test]
 fn merge_tests_no_cycles() {
-    let mut targets = BTreeMap::new();
+    let mut targets = FxHashMap::default();
 
     targets.insert(
         Target::new("//foo"),
@@ -642,16 +641,16 @@ fn merge_tests_no_cycles() {
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
-            mapped_srcs: BTreeMap::new(),
+            mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
             crate_root: None,
             deps: vec![],
             tests: vec![Target::new("//foo-unittest")],
-            named_deps: BTreeMap::new(),
+            named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
-            env: BTreeMap::new(),
+            env: FxHashMap::default(),
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
@@ -667,16 +666,16 @@ fn merge_tests_no_cycles() {
             kind: Kind::Test,
             edition: None,
             srcs: vec![],
-            mapped_srcs: BTreeMap::new(),
+            mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//foo")],
             tests: vec![],
-            named_deps: BTreeMap::new(),
+            named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
-            env: BTreeMap::new(),
+            env: FxHashMap::default(),
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo-unittest/BUCK"),
             in_workspace: false,
@@ -691,7 +690,7 @@ fn merge_tests_no_cycles() {
 
 #[test]
 fn merge_target_multiple_tests_no_cycles() {
-    let mut targets = BTreeMap::new();
+    let mut targets = FxHashMap::default();
 
     targets.insert(
         Target::new("//foo"),
@@ -701,7 +700,7 @@ fn merge_target_multiple_tests_no_cycles() {
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
-            mapped_srcs: BTreeMap::new(),
+            mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
             crate_root: None,
@@ -710,10 +709,10 @@ fn merge_target_multiple_tests_no_cycles() {
                 Target::new("//foo_test"),
                 Target::new("//foo@rust-unittest"),
             ],
-            named_deps: BTreeMap::new(),
+            named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
-            env: BTreeMap::new(),
+            env: FxHashMap::default(),
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
@@ -729,7 +728,7 @@ fn merge_target_multiple_tests_no_cycles() {
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
-            mapped_srcs: BTreeMap::new(),
+            mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
             crate_root: None,
@@ -738,10 +737,10 @@ fn merge_target_multiple_tests_no_cycles() {
                 Target::new("//foo_test"),
                 Target::new("//foo@rust-unittest"),
             ],
-            named_deps: BTreeMap::new(),
+            named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
-            env: BTreeMap::new(),
+            env: FxHashMap::default(),
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
@@ -757,7 +756,7 @@ fn merge_target_multiple_tests_no_cycles() {
             kind: Kind::Test,
             edition: None,
             srcs: vec![],
-            mapped_srcs: BTreeMap::new(),
+            mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
             crate_root: None,
@@ -766,10 +765,10 @@ fn merge_target_multiple_tests_no_cycles() {
             // dependencies of foo@rust to avoid creating cycles.
             deps: vec![Target::new("//foo"), Target::new("//bar")],
             tests: vec![],
-            named_deps: BTreeMap::new(),
+            named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
-            env: BTreeMap::new(),
+            env: FxHashMap::default(),
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo_test/BUCK"),
             in_workspace: false,
@@ -785,16 +784,16 @@ fn merge_target_multiple_tests_no_cycles() {
             kind: Kind::Test,
             edition: None,
             srcs: vec![],
-            mapped_srcs: BTreeMap::new(),
+            mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//test-framework")],
             tests: vec![],
-            named_deps: BTreeMap::new(),
+            named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
-            env: BTreeMap::new(),
+            env: FxHashMap::default(),
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
@@ -820,7 +819,7 @@ fn merge_target_multiple_tests_no_cycles() {
 
 #[test]
 fn named_deps_underscores() {
-    let mut target_index = BTreeMap::new();
+    let mut target_index = FxHashMap::default();
     target_index.insert(
         Target::new("//bar"),
         TargetInfoEntry {
@@ -831,16 +830,16 @@ fn named_deps_underscores() {
                 kind: Kind::Library,
                 edition: None,
                 srcs: vec![],
-                mapped_srcs: BTreeMap::new(),
+                mapped_srcs: FxHashMap::default(),
                 crate_name: None,
                 crate_dynamic: None,
                 crate_root: None,
                 deps: vec![],
                 tests: vec![],
-                named_deps: BTreeMap::new(),
+                named_deps: FxHashMap::default(),
                 proc_macro: None,
                 features: vec![],
-                env: BTreeMap::new(),
+                env: FxHashMap::default(),
                 source_folder: PathBuf::from("/tmp"),
                 project_relative_buildfile: PathBuf::from("bar/BUCK"),
                 in_workspace: false,
@@ -849,7 +848,7 @@ fn named_deps_underscores() {
         },
     );
 
-    let mut named_deps = BTreeMap::new();
+    let mut named_deps = FxHashMap::default();
     named_deps.insert("bar-baz".to_owned(), Target::new("//bar"));
 
     let info = TargetInfo {
@@ -858,7 +857,7 @@ fn named_deps_underscores() {
         kind: Kind::Library,
         edition: None,
         srcs: vec![],
-        mapped_srcs: BTreeMap::new(),
+        mapped_srcs: FxHashMap::default(),
         crate_name: None,
         crate_dynamic: None,
         crate_root: None,
@@ -867,15 +866,19 @@ fn named_deps_underscores() {
         named_deps,
         proc_macro: None,
         features: vec![],
-        env: BTreeMap::new(),
+        env: FxHashMap::default(),
         source_folder: PathBuf::from("/tmp"),
         project_relative_buildfile: PathBuf::from("foo/BUCK"),
         in_workspace: false,
         out_dir: None,
     };
 
-    let mut deps =
-        resolve_dependencies_aliases(&info, &target_index, &BTreeMap::new(), &BTreeMap::new());
+    let mut deps = resolve_dependencies_aliases(
+        &info,
+        &target_index,
+        &FxHashMap::default(),
+        &FxHashMap::default(),
+    );
     resolve_renamed_dependencies(&info, &target_index, &mut deps);
 
     assert_eq!(
