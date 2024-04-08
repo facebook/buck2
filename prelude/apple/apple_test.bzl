@@ -5,6 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "project_artifacts",
+)
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
@@ -42,7 +46,7 @@ load(
     ":apple_sdk_metadata.bzl",
     "MacOSXSdkMetadata",
 )
-load(":debug.bzl", "DEBUGINFO_SUBTARGET")
+load(":debug.bzl", "AppleDebuggableInfo")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "XCTestSwiftSupportInfo")
 
@@ -92,7 +96,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                     compilation_database = True,
                     default = False,
                     linkable_graph = False,
-                    link_style_outputs = False,
+                    link_style_outputs = True,
                     merged_native_link_info = False,
                     omnibus_root = False,
                     preprocessors = False,
@@ -120,11 +124,14 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
 
         xctest_swift_support_needed = None
+        debug_info = None
         for p in cxx_library_output.providers:
             if isinstance(p, XCTestSwiftSupportInfo):
                 xctest_swift_support_needed = p.support_needed
-                break
+            if isinstance(p, AppleDebuggableInfo):
+                debug_info = project_artifacts(ctx.actions, [p.debug_info_tset])
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
+        expect(debug_info != None, "Expected `AppleDebuggableInfo` provider to be present")
 
         bundle_parts = part_list_output.parts + _get_xctest_framework(ctx, xctest_swift_support_needed)
 
@@ -153,11 +160,11 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         )
 
         sub_targets.update(cxx_library_output.sub_targets)
-        (debuginfo,) = sub_targets[DEBUGINFO_SUBTARGET]
+
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
             executable = test_binary,
-            debug_info = debuginfo.default_outputs,
+            debug_info = debug_info,
             action_identifier = "generate_apple_test_dsym",
             output_path_override = get_bundle_dir_name(ctx) + ".dSYM",
         )
