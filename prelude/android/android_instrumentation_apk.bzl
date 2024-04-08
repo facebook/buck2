@@ -128,7 +128,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
     return [
         AndroidApkInfo(apk = output_apk, materialized_artifacts = materialized_artifacts, manifest = resources_info.manifest),
         AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk),
-        DefaultInfo(default_output = output_apk, sub_targets = enhance_ctx.get_sub_targets()),
+        DefaultInfo(default_output = output_apk, other_outputs = materialized_artifacts, sub_targets = enhance_ctx.get_sub_targets()),
         class_to_srcs,
     ]
 
