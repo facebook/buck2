@@ -51,6 +51,7 @@ fn hash(key: u32) -> u64 {
     hasher.finish()
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn hash_fn(key: &u32) -> u64 {
     hash(*key)
 }

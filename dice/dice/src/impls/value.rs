@@ -94,7 +94,7 @@ impl MaybeValidDiceValue {
 
     #[cfg(test)]
     pub(crate) fn instance_equal(&self, other: &DiceValidValue) -> bool {
-        #[allow(clippy::vtable_address_comparisons)]
+        #[allow(ambiguous_wide_pointer_comparisons)]
         // we literally just want to compare the exact pointer
         std::sync::Arc::ptr_eq(&self.value, &other.0)
     }

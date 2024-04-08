@@ -237,6 +237,7 @@ impl DiceLegacy {
 }
 
 #[derive(Clone, Dupe)]
+#[allow(dead_code)] // field `0` is never read
 struct Eval(Weak<DiceLegacy>);
 
 #[async_trait]

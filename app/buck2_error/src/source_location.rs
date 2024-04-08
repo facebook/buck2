@@ -22,9 +22,7 @@ pub(crate) fn from_file(path: &str, extra: Option<&str>) -> Option<String> {
         .collect();
     // `buck2_error` should only be used within `buck2/app`, giving us a nice way to make sure we
     // strip any leading parts of the path we don't want.
-    let Some((_, path)) = path.split_once("app/") else {
-        return None;
-    };
+    let (_, path) = path.split_once("app/")?;
 
     let extra_delimiter = if extra.is_some() { "::" } else { "" };
 
@@ -94,7 +92,11 @@ mod tests {
         let err: crate::Error = err.into();
         // This doesn't work because the `#[track_caller]` location points to the body of the
         // `impl<T: From> Into for T` in std. This is not really fixable with this approach.
-        assert_eq!(err.source_location(), None);
+        // Update: Since 1.77.1 this now has a value not `None`.
+        assert_eq!(
+            err.source_location(),
+            Some("buck2_error/src/source_location.rs")
+        );
     }
 
     #[test]

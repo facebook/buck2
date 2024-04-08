@@ -256,6 +256,7 @@ struct ExclusiveCommandLock {
     owning_command: Arc<parking_lot::Mutex<VecDeque<String>>>,
 }
 
+#[allow(dead_code)] // fields never read
 enum ExclusiveCommandLockGuard<'a> {
     Shared(tokio::sync::RwLockReadGuard<'a, ()>),
     Exclusive(

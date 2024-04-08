@@ -31,7 +31,7 @@ use crate::cancellation::future::CancellationNotificationFuture;
 
 thread_local! {
     /// The ExecutionContext for the currently executing CancellableFuture.
-    static CURRENT: RefCell<Option<Box<ExecutionContext>>> = RefCell::new(None);
+    static CURRENT: RefCell<Option<Box<ExecutionContext>>> = const { RefCell::new(None) };
 }
 
 enum State {

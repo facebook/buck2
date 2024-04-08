@@ -349,7 +349,7 @@ mod tests {
         let new_snapshot = FsSnapshot::build(&proj_root, &cell_resolver)?;
         let events = old_snapshot.get_updates(&new_snapshot)?;
 
-        let expected = vec![
+        let expected = [
             FsEvent {
                 cell_path: file1_cell,
                 event: FileWatcherEventType::Modify,

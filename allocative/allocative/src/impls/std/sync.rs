@@ -93,6 +93,7 @@ impl<T: Allocative> Allocative for Rc<T> {
                 Rc::as_ptr(self) as *const (),
             );
             if let Some(mut visitor) = visitor {
+                #[allow(dead_code)] // fields `0` and `1` are never read
                 struct RcInner(AtomicUsize, AtomicUsize, ());
                 {
                     let val: &T = self;

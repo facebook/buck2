@@ -149,6 +149,7 @@ async fn write_task(
 async fn create_log_file(local_path: AbsPathBuf) -> Result<tokio::fs::File, anyhow::Error> {
     let file = OpenOptions::new()
         .create(true)
+        .append(true)
         .write(true)
         .read(true)
         .open(&local_path)

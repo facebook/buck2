@@ -92,12 +92,13 @@ impl BuckdLifecycleLock {
         create_dir_all(&daemon_dir.path)?;
         let lifecycle_path = daemon_dir.path.as_path().join(Self::BUCKD_LIFECYCLE);
         let file = File::create(lifecycle_path)?;
+        let fileref = &file;
         deadline
             .retrying(
                 "locking buckd lifecycle",
                 Duration::from_millis(5),
                 Duration::from_millis(100),
-                async || Ok(file.try_lock_exclusive()?),
+                async || Ok(fileref.try_lock_exclusive()?),
             )
             .await?;
 

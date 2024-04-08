@@ -58,7 +58,7 @@ impl ValidStackRange {
 }
 
 thread_local! {
-    static STACK_RANGE: Cell<Option<ValidStackRange >> = Cell::new(None);
+    static STACK_RANGE: Cell<Option<ValidStackRange >> = const { Cell::new(None) };
 }
 
 pub(crate) fn on_thread_start() {

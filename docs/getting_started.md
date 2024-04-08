@@ -18,8 +18,8 @@ To get started, first install [rustup](https://rustup.rs/), then compile the
 `buck2` executable:
 
 ```bash
-rustup install nightly-2023-12-11
-cargo +nightly-2023-12-11 install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2024-02-01
+cargo +nightly-2024-02-01 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 The above commands install `buck2` into a suitable directory, such as

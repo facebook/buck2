@@ -8,7 +8,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(offset_of)]
 #![feature(round_char_boundary)]
 
 pub mod arc_str;

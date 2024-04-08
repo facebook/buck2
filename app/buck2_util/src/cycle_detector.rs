@@ -466,6 +466,7 @@ mod tests {
     struct SimpleCycleDescriptor;
 
     #[derive(Clone, Debug)]
+    #[allow(dead_code)] // field `0` is never read
     struct Error(Arc<Vec<u64>>);
 
     impl std::fmt::Display for Error {

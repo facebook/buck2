@@ -12,8 +12,6 @@
 //! This is similar to [`internment` crate](https://github.com/droundy/internment)
 //! but with changes for performance and flexibility.
 
-#![feature(offset_of)]
-
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;

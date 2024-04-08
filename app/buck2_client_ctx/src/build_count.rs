@@ -105,11 +105,12 @@ impl BuildCountManager {
     async fn lock_with_timeout(&mut self, timeout: Duration) -> anyhow::Result<FileLockGuard> {
         self.ensure_dir().await?;
         let file = std::fs::File::create(self.base_dir.join(FileName::new(Self::LOCK_FILE_NAME)?))?;
+        let fileref = &file;
         client_utils::retrying(
             Duration::from_millis(5),
             Duration::from_millis(100),
             timeout,
-            async || anyhow::Ok(file.try_lock_exclusive()?),
+            async || anyhow::Ok(fileref.try_lock_exclusive()?),
         )
         .await?;
         Ok(FileLockGuard { file })

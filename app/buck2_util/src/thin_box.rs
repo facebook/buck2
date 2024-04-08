@@ -72,13 +72,13 @@ impl<T> ThinBoxSlice<T> {
     #[inline]
     fn read_len(&self) -> usize {
         unsafe {
-            (&*self
+            (*self
                 .ptr
                 .as_ptr()
                 .cast::<u8>()
                 .sub(ThinBoxSliceLayout::<T>::offset_of_data())
                 .cast::<ThinBoxSliceLayout<T>>())
-                .len
+            .len
         }
     }
 

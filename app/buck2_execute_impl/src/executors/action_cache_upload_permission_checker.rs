@@ -113,7 +113,7 @@ impl ActionCacheUploadPermissionChecker {
             .has_permission_to_upload_to_cache
             .get_or_try_init(self.do_has_permission_to_upload_to_cache(re_use_case, platform))
             .await
-            .map(|result| result.clone())
+            .cloned()
             .context("Upload for permission check")
     }
 }

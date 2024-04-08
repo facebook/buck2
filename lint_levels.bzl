@@ -9,6 +9,7 @@
 CLIPPY_ALLOW = [
     "clippy::arc-with-non-send-sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
     "clippy::await_holding_lock",  # FIXME new in Rust 1.74
+    "clippy::blocks-in-conditions",  # FIXME new in Rust 1.77.1
     "clippy::bool-assert-comparison",  # Sometimes more clear to write it this way
     "clippy::bool-to-int-with-if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
     "clippy::cognitive_complexity",  # This is an arbitrary linter
@@ -36,9 +37,11 @@ CLIPPY_ALLOW = [
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
     "clippy::new_without_default",  # Default is not always useful
     "clippy::non_canonical_partial_ord_impl",  # Almost exclusively identifies cases where a type delegates ord/partial ord to something else (including Derivative-derived PartialOrd) and in that case being explicit about that delegation is better than following some canonical partialord impl.
+    "clippy::question_mark",
     "clippy::single_match",  # Sometimes a single match looks good
     "clippy::too_many_arguments",  # This is an arbitrary limit set on number of arguments and not always useful
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
+    "clippy::unconditional_recursion",  # FIXME new in Rust 1.77.1
     "clippy::unnecessary-wraps",  # Sometimes unnecessary wraps provide the right API
     "clippy::unwrap-or-default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix

@@ -1210,7 +1210,7 @@ mod tests {
         );
 
         // should have created a new entry because of key2
-        #[allow(clippy::vtable_address_comparisons)] // this should be same exact ptr copy
+        #[allow(ambiguous_wide_pointer_comparisons)] // this should be same exact ptr copy
         let is_same_ptr = !std::sync::Arc::ptr_eq(
             value.0.value().testing_value(),
             value3.0.value().testing_value(),

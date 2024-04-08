@@ -143,6 +143,7 @@ impl<'v> AllocValue<'v> for AnalysisActions<'v> {
     }
 }
 
+#[allow(dead_code)] // field `0` is never read
 struct RefAnalysisAction<'v>(&'v AnalysisActions<'v>);
 
 impl<'v> StarlarkTypeRepr for RefAnalysisAction<'v> {

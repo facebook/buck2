@@ -77,6 +77,7 @@ impl Stdin {
     }
 }
 
+#[allow(dead_code)] // field `0` is never read
 enum State {
     Pending {
         buffer_size: usize,

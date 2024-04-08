@@ -351,7 +351,7 @@ impl Drop for Span {
 }
 
 thread_local! {
-    static CURRENT_SPAN: Cell<Option<SpanId>> = Cell::new(None);
+    static CURRENT_SPAN: Cell<Option<SpanId>> = const { Cell::new(None) };
 }
 
 use allocative::Allocative;
@@ -515,7 +515,7 @@ where
     for<'a> F: FnOnce(&'a mut Option<RootSpansRecorder>) -> O,
 {
     thread_local! {
-        static ROOT_SPAN_RECORDER: UnsafeCell<Option<RootSpansRecorder>> = UnsafeCell::new(None);
+        static ROOT_SPAN_RECORDER: UnsafeCell<Option<RootSpansRecorder>> = const { UnsafeCell::new(None) };
     }
 
     // SAFETY: Nobody can possibly hold a reference to the contents of this cell, since the thread

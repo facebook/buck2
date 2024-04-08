@@ -507,6 +507,7 @@ mod tests {
         let mut file = OpenOptions::new()
             .mode(0o755)
             .write(true)
+            .truncate(true)
             .create(true)
             .open(&bin)
             .await?;
