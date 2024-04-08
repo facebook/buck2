@@ -12,6 +12,7 @@ load(
     ":coverage.bzl",
     "GoCoverageMode",  # @Unused used as type
 )
+load(":go_list.bzl", "go_list", "parse_go_list_out")
 load(":packages.bzl", "GoPkg", "make_importcfg", "merge_pkgs", "pkg_artifacts")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
@@ -55,7 +56,7 @@ def build_package(
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
-    go_list_out = _go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo)
+    go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo)
 
     srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.argsfile")
@@ -68,7 +69,7 @@ def build_package(
     importcfg = make_importcfg(ctx, pkg_name, all_pkgs, with_importmap = True)
 
     def f(ctx: AnalysisContext, artifacts, outputs, go_list_out = go_list_out):
-        go_list = _parse_go_list_out(srcs, package_root, artifacts[go_list_out])
+        go_list = parse_go_list_out(srcs, package_root, artifacts[go_list_out])
 
         symabis = _symabis(ctx, pkg_name, go_list.s_files, assembler_flags, shared)
 
@@ -96,81 +97,6 @@ def build_package(
         coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
         srcs_list = cmd_args(srcs_list_argsfile, format = "@{}").hidden(srcs),
     )
-
-def _go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool):
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env = get_toolchain_env_vars(go_toolchain, force_disable_cgo = force_disable_cgo)
-    env["GO111MODULE"] = "off"
-
-    go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json")
-
-    # Create file sructure that `go list` can recognize
-    # Use copied_dir, because embed doesn't work with symlinks
-    srcs_dir = ctx.actions.copied_dir(
-        "__{}_srcs_dir__".format(paths.basename(pkg_name)),
-        {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
-    )
-    tags = go_toolchain.tags + ctx.attrs._tags
-    go_list_args = [
-        go_toolchain.go_list_wrapper,
-        "-e",
-        ["--go", go_toolchain.go],
-        ["--workdir", srcs_dir],
-        ["--output", go_list_out.as_output()],
-        "-json=GoFiles,CgoFiles,SFiles,TestGoFiles,XTestGoFiles,EmbedFiles",
-        ["-tags", ",".join(tags) if tags else []],
-        ".",
-    ]
-
-    identifier = paths.basename(pkg_name)
-    ctx.actions.run(go_list_args, env = env, category = "go_list", identifier = identifier)
-
-    return go_list_out
-
-GoListOut = record(
-    go_files = field(list[Artifact], default = []),
-    cgo_files = field(list[Artifact], default = []),
-    s_files = field(list[Artifact], default = []),
-    test_go_files = field(list[Artifact], default = []),
-    x_test_go_files = field(list[Artifact], default = []),
-    embed_files = field(list[Artifact], default = []),
-)
-
-def _parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out) -> GoListOut:
-    go_list = go_list_out.read_json()
-    go_files, cgo_files, s_files, test_go_files, x_test_go_files, embed_files = [], [], [], [], [], []
-
-    for src in srcs:
-        # remove package_root prefix from src artifact path to match `go list` outout format
-        src_path = src.short_path.removeprefix(package_root).lstrip("/")
-        if src_path in go_list.get("GoFiles", []):
-            go_files.append(src)
-        if src_path in go_list.get("CgoFiles", []):
-            cgo_files.append(src)
-        if src_path in go_list.get("SFiles", []):
-            s_files.append(src)
-        if src_path in go_list.get("TestGoFiles", []):
-            test_go_files.append(src)
-        if src_path in go_list.get("XTestGoFiles", []):
-            x_test_go_files.append(src)
-        if _any_starts_with(go_list.get("EmbedFiles", []), src_path):
-            embed_files.append(src)
-
-    return GoListOut(
-        go_files = go_files,
-        cgo_files = cgo_files,
-        s_files = s_files,
-        test_go_files = test_go_files,
-        x_test_go_files = x_test_go_files,
-        embed_files = embed_files,
-    )
-
-def _any_starts_with(files: list[str], path: str):
-    for file in files:
-        if paths.starts_with(file, path):
-            return True
-
-    return False
 
 def _compile(
         ctx: AnalysisContext,
