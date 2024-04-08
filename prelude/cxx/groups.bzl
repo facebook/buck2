@@ -281,6 +281,44 @@ def _find_targets_in_mapping(
 
     return matching_targets.keys()
 
+# Extracted from `_update_target_to_group_mapping` to avoid function allocations inside the loop
+def _assign_target_to_group(
+        target_to_group_map,  #: {"label": str}
+        node_traversed_targets,  #: {"label": None}
+        group,  #  Group,
+        groups_map,  # {str: Group}
+        mapping,  # GroupMapping
+        target,  # Label
+        node_traversal):  # bool
+    # If the target hasn't already been assigned to a group, assign it to the
+    # first group claiming the target. Return whether the target was already assigned.
+    if target not in target_to_group_map:
+        if mapping.traversal == Traversal("subfolders"):
+            generated_group_name = _generate_group_subfolder_name(group.name, target.package)
+            _add_to_implicit_link_group(generated_group_name, group, groups_map, target_to_group_map, target)
+        else:
+            target_to_group_map[target] = group.name
+
+        if node_traversal:
+            node_traversed_targets[target] = None
+        return False
+    else:
+        return True
+
+# Extracted from `_update_target_to_group_mapping` to avoid function allocations inside the loop
+def _transitively_add_targets_to_group_mapping(
+        assign_target_to_group,  # (Label, bool) -> bool
+        node_traversed_targets,  #: {"label": None}
+        graph_map,  # {"label": "_b"}
+        node):  # Label
+    previously_processed = assign_target_to_group(node, False)
+
+    # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned
+    if previously_processed and node not in node_traversed_targets:
+        return []
+    graph_node = graph_map[node]
+    return graph_node.deps + graph_node.exported_deps
+
 # Types removed to avoid unnecessary type checking which degrades performance.
 def _update_target_to_group_mapping(
         graph_map,  # {"label": "_b"}
@@ -290,35 +328,11 @@ def _update_target_to_group_mapping(
         groups_map,  # {str: Group}
         mapping,  # GroupMapping
         target):  # Label
-    def assign_target_to_group(
-            target: Label,
-            node_traversal: bool) -> bool:
-        # If the target hasn't already been assigned to a group, assign it to the
-        # first group claiming the target. Return whether the target was already assigned.
-        if target not in target_to_group_map:
-            if mapping.traversal == Traversal("subfolders"):
-                generated_group_name = _generate_group_subfolder_name(group.name, target.package)
-                _add_to_implicit_link_group(generated_group_name, group, groups_map, target_to_group_map, target)
-            else:
-                target_to_group_map[target] = group.name
-
-            if node_traversal:
-                node_traversed_targets[target] = None
-            return False
-        else:
-            return True
-
-    def transitively_add_targets_to_group_mapping(node: Label) -> list[Label]:
-        previously_processed = assign_target_to_group(target = node, node_traversal = False)
-
-        # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned
-        if previously_processed and node not in node_traversed_targets:
-            return []
-        graph_node = graph_map[node]
-        return graph_node.deps + graph_node.exported_deps
+    assign_target_to_group = partial(_assign_target_to_group, target_to_group_map, node_traversed_targets, group, groups_map, mapping)  # (Label, bool) -> bool
+    transitively_add_targets_to_group_mapping = partial(_transitively_add_targets_to_group_mapping, assign_target_to_group, node_traversed_targets, graph_map)  # (Label) -> list[Label]
 
     if mapping.traversal in _TRAVERSALS_TO_ASSIGN_NODE:
-        assign_target_to_group(target = target, node_traversal = True)
+        assign_target_to_group(target, True)
     else:  # tree
         breadth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
 
