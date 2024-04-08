@@ -66,6 +66,10 @@ class CodesignedPath:
     """
     Path to entitlements to be used when codesigning, relative to buck project
     """
+    flags: List[str]
+    """
+    Flags to be passed to codesign command when codesigning this particular path
+    """
 
 
 def _select_provisioning_profile(
@@ -187,7 +191,6 @@ def codesign_bundle(
     signing_context: Union[AdhocSigningContext, SigningContextWithProfileSelection],
     platform: ApplePlatform,
     codesign_on_copy_paths: List[CodesignedPath],
-    codesign_args: List[str],
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
 ) -> None:
@@ -237,7 +240,6 @@ def codesign_bundle(
                 tmp_dir=tmp_dir,
                 codesign_tool=codesign_tool,
                 platform=platform,
-                codesign_args=codesign_args,
             )
         else:
             fast_adhoc_signing_enabled = (
@@ -253,7 +255,6 @@ def codesign_bundle(
                 codesign_command_factory=DefaultCodesignCommandFactory(codesign_tool),
                 platform=platform,
                 fast_adhoc_signing=fast_adhoc_signing_enabled,
-                codesign_args=codesign_args,
             )
 
 
@@ -286,7 +287,9 @@ def _prepare_entitlements_and_info_plist(
         bundle_path.path / platform.embedded_provisioning_profile_path(),
     )
     return CodesignedPath(
-        path=bundle_path.path, entitlements=prepared_entitlements_path
+        path=bundle_path.path,
+        entitlements=prepared_entitlements_path,
+        flags=bundle_path.flags,
     )
 
 
@@ -397,7 +400,6 @@ def _dry_codesign_everything(
     tmp_dir: str,
     codesign_tool: Path,
     platform: ApplePlatform,
-    codesign_args: List[str],
 ) -> None:
     codesign_command_factory = DryRunCodesignCommandFactory(codesign_tool)
 
@@ -412,7 +414,6 @@ def _dry_codesign_everything(
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
         platform=platform,
-        codesign_args=codesign_args,
     )
 
     # Dry codesigning creates a .plist inside every directory it signs.
@@ -433,7 +434,6 @@ def _dry_codesign_everything(
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
         platform=platform,
-        codesign_args=codesign_args,
     )
 
 
@@ -445,7 +445,6 @@ def _codesign_everything(
     codesign_command_factory: ICodesignCommandFactory,
     platform: ApplePlatform,
     fast_adhoc_signing: bool,
-    codesign_args: List[str],
 ) -> None:
     # First sign codesign-on-copy paths
     codesign_on_copy_filtered_paths = _filter_out_fast_adhoc_paths(
@@ -460,7 +459,6 @@ def _codesign_everything(
         tmp_dir,
         codesign_command_factory,
         platform,
-        codesign_args,
     )
     # Lastly sign whole bundle
     root_filtered_paths = _filter_out_fast_adhoc_paths(
@@ -475,7 +473,6 @@ def _codesign_everything(
         tmp_dir,
         codesign_command_factory,
         platform,
-        codesign_args,
     )
 
 
@@ -529,10 +526,9 @@ def _spawn_codesign_process(
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
     stack: ExitStack,
-    codesign_args: List[str],
 ) -> ParallelProcess:
     command = codesign_command_factory.codesign_command(
-        path.path, identity_fingerprint, path.entitlements, codesign_args
+        path.path, identity_fingerprint, path.entitlements, path.flags
     )
     return _spawn_process(command=command, tmp_dir=tmp_dir, stack=stack)
 
@@ -543,7 +539,6 @@ def _codesign_paths(
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
     platform: ApplePlatform,
-    codesign_args: List[str],
 ) -> None:
     """Codesigns several paths in parallel."""
     processes: List[ParallelProcess] = []
@@ -555,7 +550,6 @@ def _codesign_paths(
                 tmp_dir=tmp_dir,
                 codesign_command_factory=codesign_command_factory,
                 stack=stack,
-                codesign_args=codesign_args,
             )
             processes.append(process)
         for p in processes:

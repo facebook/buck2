@@ -135,11 +135,13 @@ def _main() -> None:
             )
 
         bundle_path = CodesignedPath(
-            path=args.bundle_path, entitlements=args.entitlements
+            path=args.bundle_path, entitlements=args.entitlements, flags=[]
         )
         codesign_on_copy_paths = (
             [
-                CodesignedPath(path=bundle_path.path / path, entitlements=None)
+                CodesignedPath(
+                    path=bundle_path.path / path, entitlements=None, flags=[]
+                )
                 for path in args.codesign_on_copy
             ]
             if args.codesign_on_copy
@@ -151,7 +153,6 @@ def _main() -> None:
             signing_context=signing_context,
             platform=args.platform,
             codesign_on_copy_paths=codesign_on_copy_paths,
-            codesign_args=[],
         )
     except CodeSignProvisioningError as e:
         print(decorate_error_message(str(e)), file=sys.stderr)

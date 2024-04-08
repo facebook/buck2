@@ -386,18 +386,25 @@ def _main() -> None:
                 "Expected signing context to be created before bundling is done if codesign is requested."
             )
 
-        bundle_path = CodesignedPath(path=args.output, entitlements=args.entitlements)
+        bundle_path = CodesignedPath(
+            path=args.output, entitlements=args.entitlements, flags=args.codesign_args
+        )
         codesign_on_copy_paths = [
             CodesignedPath(
                 path=bundle_path.path / i.dst,
                 entitlements=(
                     Path(i.codesign_entitlements) if i.codesign_entitlements else None
                 ),
+                flags=args.codesign_args,
             )
             for i in spec
             if i.codesign_on_copy
         ] + [
-            CodesignedPath(path=bundle_path.path / path, entitlements=None)
+            CodesignedPath(
+                path=bundle_path.path / path,
+                entitlements=None,
+                flags=args.codesign_args,
+            )
             for path in swift_stdlib_paths
         ]
 
@@ -406,7 +413,6 @@ def _main() -> None:
             signing_context=signing_context,
             platform=args.platform,
             codesign_on_copy_paths=codesign_on_copy_paths,
-            codesign_args=args.codesign_args,
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
         )
