@@ -336,8 +336,23 @@ impl Buck {
 
     /// Invoke `buck2` with the given subcommands.
     ///
-    /// If you want to pass config options, use `command_with_config`.
+    /// Care should be taken to ensure that buck is invoked with the same set
+    /// options and configuration to avoid invalidating caches.
     fn command<I, S>(&self, subcommands: I) -> Command
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let mut cmd = self.command_without_config(subcommands);
+        cmd.args(["-c=client.id=rust-project", "-c=rust.failure_filter=true"]);
+        cmd
+    }
+
+    /// Invoke `buck` with the given subcommands.
+    ///
+    /// This method should only be used with with buck commands that do not accept
+    /// configuration options, such as `root`. [`Buck::command`] should be preferred.
+    fn command_without_config<I, S>(&self, subcommands: I) -> Command
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
@@ -358,22 +373,9 @@ impl Buck {
         cmd
     }
 
-    /// Invoke `buck2` with the given subcommands that accept config options.
-    ///
-    /// You must use this when invoking a buck subcommand that accepts config options to ensure the cache is not invalidated.
-    fn command_with_config<I, S>(&self, subcommands: I) -> Command
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
-    {
-        let mut cmd = self.command(subcommands);
-        cmd.args(["-c=client.id=rust-project", "-c=rust.failure_filter=true"]);
-        cmd
-    }
-
     /// Return the absolute path of the current Buck project root.
     pub fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command(["root"]);
+        let mut command = self.command_without_config(["root"]);
         command.arg("--kind=project");
 
         let mut stdout = utf8_output(command.output(), &command)?;
@@ -387,7 +389,7 @@ impl Buck {
     }
 
     pub fn resolve_root_of_file(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command(["root"]);
+        let mut command = self.command_without_config(["root"]);
         command.arg("--kind=project");
 
         if let Some(parent) = path.parent() {
@@ -406,7 +408,7 @@ impl Buck {
     }
 
     pub fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command_with_config(["audit", "config"]);
+        let mut command = self.command(["audit", "config"]);
         command.args(["--json", "--", "rust.sysroot_src_path"]);
         command
             .stderr(Stdio::null())
@@ -436,7 +438,7 @@ impl Buck {
         use_clippy: bool,
         saved_file: &Path,
     ) -> Result<Vec<PathBuf>, anyhow::Error> {
-        let mut command = self.command_with_config(["bxl"]);
+        let mut command = self.command(["bxl"]);
 
         if let Some(mode) = &self.mode {
             command.arg(mode);
@@ -481,7 +483,7 @@ impl Buck {
             return Ok(ExpandedAndResolved::default());
         }
 
-        let mut command = self.command_with_config(["bxl"]);
+        let mut command = self.command(["bxl"]);
         if let Some(mode) = &self.mode {
             command.arg(mode);
         }
@@ -500,7 +502,7 @@ impl Buck {
         targets: &[Target],
     ) -> Result<BTreeMap<Target, AliasedTargetInfo>, anyhow::Error> {
         // FIXME: Do this in bxl as well instead of manually writing a separate query
-        let mut command = self.command_with_config(["cquery"]);
+        let mut command = self.command(["cquery"]);
 
         // Fetch all aliases used by transitive deps. This is so we
         // can translate an apparent dependency of e.g.
@@ -531,7 +533,7 @@ impl Buck {
         &self,
         files: &Vec<PathBuf>,
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let mut command = self.command_with_config(["uquery"]);
+        let mut command = self.command(["uquery"]);
 
         command.args(["--json", "owner(\"%s\")", "--"]);
         command.args(files);

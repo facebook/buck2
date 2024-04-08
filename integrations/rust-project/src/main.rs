@@ -138,8 +138,8 @@ fn main() -> Result<(), anyhow::Error> {
             saved_file,
         } => cli::Check::new(mode, use_clippy, saved_file).run(),
         c @ Command::Develop { .. } => {
-            let (develop, out) = cli::Develop::from_command(c);
-            develop.run_as_cli(out)
+            let (develop, input) = cli::Develop::from_command(c);
+            develop.run_as_cli(input)
         }
         Command::LspServer => {
             let state = server::State::new(reload_handle)?;
@@ -148,42 +148,35 @@ fn main() -> Result<(), anyhow::Error> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use clap::Parser;
+#[test]
+fn test_parse_use_clippy() {
+    assert!(matches!(
+        Opt::try_parse_from([
+            "rust-project",
+            "check",
+            "--use-clippy=true",
+            "fbcode/foo.rs",
+        ]),
+        Ok(Opt {
+            command: Command::Check {
+                use_clippy: true,
+                ..
+            }
+        })
+    ));
 
-    use super::*;
-
-    #[test]
-    fn test_parse_use_clippy() {
-        assert!(matches!(
-            Opt::try_parse_from([
-                "rust-project",
-                "check",
-                "--use-clippy=true",
-                "fbcode/foo.rs",
-            ]),
-            Ok(Opt {
-                command: Command::Check {
-                    use_clippy: true,
-                    ..
-                }
-            })
-        ));
-
-        assert!(matches!(
-            Opt::try_parse_from([
-                "rust-project",
-                "check",
-                "--use-clippy=false",
-                "fbcode/foo.rs",
-            ]),
-            Ok(Opt {
-                command: Command::Check {
-                    use_clippy: false,
-                    ..
-                }
-            })
-        ));
-    }
+    assert!(matches!(
+        Opt::try_parse_from([
+            "rust-project",
+            "check",
+            "--use-clippy=false",
+            "fbcode/foo.rs",
+        ]),
+        Ok(Opt {
+            command: Command::Check {
+                use_clippy: false,
+                ..
+            }
+        })
+    ));
 }

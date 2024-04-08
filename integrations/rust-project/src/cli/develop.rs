@@ -116,7 +116,7 @@ impl Develop {
 }
 
 impl Develop {
-    // the split between "resolve owners" is necessary, in order provide meaningful progress reporting to users.
+    // the split between "resolve owners" is necessary in order provide meaningful progress reporting to users.
     pub fn resolve_owners(&self) -> Result<Vec<Target>, anyhow::Error> {
         let Develop { input, buck, .. } = self;
 
