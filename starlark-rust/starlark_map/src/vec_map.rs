@@ -41,24 +41,6 @@ pub(crate) use crate::vec_map::iter::Values;
 pub(crate) use crate::vec_map::iter::ValuesMut;
 use crate::vec_map::simd::find_hash_in_array;
 
-/// Bucket in [`VecMap`].
-#[derive(Debug, Clone, Eq, PartialEq, Allocative)]
-pub(crate) struct Bucket<K, V> {
-    hash: StarlarkHashValue,
-    key: K,
-    value: V,
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<K: Hash, V: Hash> Hash for Bucket<K, V> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash.hash(state);
-        // Ignore the key, because `hash` is already the hash of the key,
-        // although maybe not as good hash as what is requested.
-        self.value.hash(state);
-    }
-}
-
 #[derive(Debug, Clone, Allocative)]
 pub(crate) struct VecMap<K, V> {
     buckets: Vec2<(K, V), StarlarkHashValue>,
