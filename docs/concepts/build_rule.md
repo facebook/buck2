@@ -124,3 +124,31 @@ Finally, note that you can define functions that generate build rules. In
 general, this should not be something that you need to do, but taking advantage
 of this option might help you add needed functionality to Buck2's without
 editing its source code.
+
+## String Parameter Macros
+
+Some rules allow the use of specialized macros embedded within the strings of
+their parameters. These string parameter macros provide additional
+functionality, such as exposing the output paths of other rules.
+
+### Format
+
+String parameter macros have the form
+
+```
+ $([@]macroname [ argument ... ])
+```
+
+String parameter macros take a space-separated list of arguments, where each
+argument is a [target pattern](../concepts/target_pattern.md).
+
+### Supported macros
+
+- `$(exe //:foo)` expands to the executable output of the given target—if the
+  target produces such an executable.
+
+- `$(location //:foo)` expands to the output file or directory of the given
+  target.
+
+- `$(location //:foo[output])` expands to the named output file or directory of
+  the given target, for rules that expose supplementary outputs.
