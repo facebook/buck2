@@ -578,6 +578,50 @@ def find_relevant_roots(
 
     return relevant_roots
 
+def _get_roots_from_mappings(
+        spec: LinkGroupLibSpec,
+        linkable_graph_node_map: dict[Label, LinkableNode]) -> (list[Label], bool):
+    roots = []
+    has_empty_root = False
+    for mapping in spec.group.mappings:
+        # If there's no explicit root, this means we need to search the entire
+        # graph to find candidate nodes.
+        if not mapping.roots:
+            has_empty_root = True
+        elif spec.group.attrs.requires_root_node_exists:
+            # If spec requires root to always exist (default True), always include to traversal to fail hard if it is not in deps.
+            # Otherwise add to traversal only if we sure it is in deps graph.
+            roots.extend(mapping.roots)
+        else:
+            roots.extend([root for root in mapping.roots if root in linkable_graph_node_map])
+    return (roots, has_empty_root)
+
+def _get_link_group_roots(
+        spec: LinkGroupLibSpec,
+        linkable_graph_node_map: dict[Label, LinkableNode],
+        link_group_mappings: dict[Label, str],
+        executable_deps: list[Label],
+        other_roots: list[Label]) -> list[Label]:
+    # Get roots to begin the linkable search.
+    # TODO(agallagher): We should use the groups "public" nodes as the roots.
+    if spec.root != None:
+        return spec.root.deps
+    roots, has_empty_root = _get_roots_from_mappings(spec, linkable_graph_node_map)
+
+    # If this link group has an empty mapping, we need to search everything
+    # -- even the additional roots -- to find potential nodes in the link
+    # group.
+    if has_empty_root:
+        roots.extend(
+            find_relevant_roots(
+                link_group = spec.group.name,
+                linkable_graph_node_map = linkable_graph_node_map,
+                link_group_mappings = link_group_mappings,
+                roots = executable_deps + other_roots,
+            ),
+        )
+    return roots
+
 def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec,
@@ -616,10 +660,6 @@ def _create_link_group(
             get_ignore_undefined_symbols_flags(linker_type),
     ))
 
-    # Get roots to begin the linkable search.
-    # TODO(agallagher): We should use the groups "public" nodes as the roots.
-    roots = []
-    has_empty_root = False
     if spec.root != None:
         # If there's a linkable root attached to the spec, use that to guide
         # linking, as that will contain things like private linker flags that
@@ -628,32 +668,14 @@ def _create_link_group(
             spec.root.link_infos,
             prefer_stripped = prefer_stripped_objects,
         ))
-        roots.extend(spec.root.deps)
-    else:
-        for mapping in spec.group.mappings:
-            # If there's no explicit root, this means we need to search the entire
-            # graph to find candidate nodes.
-            if not mapping.roots:
-                has_empty_root = True
-            elif spec.group.attrs.requires_root_node_exists:
-                # If spec requires root to always exist (default True), always include to traversal to fail hard if it is not in deps.
-                # Otherwise add to traversal only if we sure it is in deps graph.
-                roots.extend(mapping.roots)
-            else:
-                roots.extend([root for root in mapping.roots if root in linkable_graph_node_map])
 
-        # If this link group has an empty mapping, we need to search everything
-        # -- even the additional roots -- to find potential nodes in the link
-        # group.
-        if has_empty_root:
-            roots.extend(
-                find_relevant_roots(
-                    link_group = spec.group.name,
-                    linkable_graph_node_map = linkable_graph_node_map,
-                    link_group_mappings = link_group_mappings,
-                    roots = executable_deps + other_roots,
-                ),
-            )
+    roots = _get_link_group_roots(
+        spec = spec,
+        linkable_graph_node_map = linkable_graph_node_map,
+        link_group_mappings = link_group_mappings,
+        executable_deps = executable_deps,
+        other_roots = other_roots,
+    )
 
     # Add roots...
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
