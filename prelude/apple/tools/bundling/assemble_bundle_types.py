@@ -52,7 +52,10 @@ class BundleSpecItem:
             or self.codesign_on_copy < other.codesign_on_copy
             or (
                 self.codesign_entitlements < other.codesign_entitlements
-                if (self.codesign_entitlements and other.codesign_entitlements)
+                if (
+                    self.codesign_entitlements is not None
+                    and other.codesign_entitlements is not None
+                )
                 else (
                     self.codesign_entitlements is None
                     and other.codesign_entitlements is not None
