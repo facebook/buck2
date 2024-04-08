@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
@@ -24,10 +25,10 @@ use crate::sysroot::resolve_buckconfig_sysroot;
 use crate::sysroot::resolve_rustup_sysroot;
 use crate::sysroot::SysrootConfig;
 use crate::target::Target;
+use crate::Command;
 
 #[derive(Debug)]
 pub struct Develop {
-    pub input: Input,
     pub sysroot: SysrootConfig,
     pub relative_paths: bool,
     pub buck: buck::Buck,
@@ -51,22 +52,21 @@ pub enum Output {
 }
 
 impl Develop {
-    pub fn new(input: Input) -> Self {
+    pub fn new() -> Self {
         let mode = select_mode(None);
         let buck = buck::Buck::new(mode);
 
         Self {
-            input,
             sysroot: SysrootConfig::BuckConfig,
             buck,
             relative_paths: false,
         }
     }
 
-    pub fn from_command(command: crate::Command) -> (Develop, OutputCfg) {
+    pub fn from_command(command: Command) -> (Develop, Input, OutputCfg) {
         if let crate::Command::Develop {
-            targets,
             files,
+            targets,
             out,
             stdout,
             prefer_rustup_managed_toolchain,
@@ -76,13 +76,6 @@ impl Develop {
             mode,
         } = command
         {
-            let input = if !targets.is_empty() {
-                let targets = targets.into_iter().map(Target::new).collect();
-                Input::Targets(targets)
-            } else {
-                Input::Files(files)
-            };
-
             let out = if stdout {
                 Output::Stdout
             } else {
@@ -101,14 +94,20 @@ impl Develop {
             let buck = buck::Buck::new(mode);
 
             let develop = Develop {
-                input,
                 sysroot,
                 relative_paths,
                 buck,
             };
             let out = OutputCfg { out, pretty };
 
-            return (develop, out);
+            let input = if !targets.is_empty() {
+                let targets = targets.into_iter().map(Target::new).collect();
+                Input::Targets(targets)
+            } else {
+                Input::Files(files)
+            };
+
+            return (develop, input, out);
         }
 
         unreachable!("No other subcommand is supported.")
@@ -116,17 +115,11 @@ impl Develop {
 }
 
 impl Develop {
-    // the split between "resolve owners" is necessary in order provide meaningful progress reporting to users.
-    pub fn resolve_owners(&self) -> Result<Vec<Target>, anyhow::Error> {
-        let Develop { input, buck, .. } = self;
-
-        let targets = match input {
-            Input::Targets(targets) => targets.to_owned(),
-            // the owners query returns a `HashMap<PathBuf, Vec<Target>>`
-            Input::Files(files) => buck.query_owner(files)?.into_values().flatten().collect(),
-        };
-
-        Ok(targets)
+    pub fn resolve_file_owners(
+        &self,
+        files: Vec<PathBuf>,
+    ) -> Result<HashMap<String, Vec<Target>>, anyhow::Error> {
+        self.buck.query_owner(&files)
     }
 
     pub fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
@@ -134,7 +127,6 @@ impl Develop {
             sysroot,
             relative_paths,
             buck,
-            ..
         } = self;
 
         let project_root = buck.resolve_project_root()?;
@@ -172,8 +164,20 @@ impl Develop {
         Ok(rust_project)
     }
 
-    pub fn run_as_cli(self, cfg: OutputCfg) -> Result<(), anyhow::Error> {
-        let targets = self.resolve_owners()?;
+    pub fn run_as_cli(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
+        let targets = match input {
+            Input::Targets(targets) => targets,
+            Input::Files(files) => {
+                let targets: HashMap<String, Vec<Target>> = self.resolve_file_owners(files)?;
+                targets
+                    .values()
+                    .into_iter()
+                    .map(|v| v.iter().cloned())
+                    .flatten()
+                    .collect::<Vec<Target>>()
+            }
+        };
+
         let rust_project = self.run(targets)?;
 
         let mut writer: BufWriter<Box<dyn Write>> = match cfg.out {

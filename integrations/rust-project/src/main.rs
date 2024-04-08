@@ -138,8 +138,8 @@ fn main() -> Result<(), anyhow::Error> {
             saved_file,
         } => cli::Check::new(mode, use_clippy, saved_file).run(),
         c @ Command::Develop { .. } => {
-            let (develop, input) = cli::Develop::from_command(c);
-            develop.run_as_cli(input)
+            let (develop, input, out) = cli::Develop::from_command(c);
+            develop.run_as_cli(input, out)
         }
         Command::LspServer => {
             let state = server::State::new(reload_handle)?;

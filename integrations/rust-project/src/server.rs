@@ -30,7 +30,6 @@ use tracing_subscriber::Layer;
 use tracing_subscriber::Registry;
 
 use crate::cli::Develop;
-use crate::cli::Input;
 use crate::json_project::Crate;
 use crate::json_project::JsonProject;
 use crate::progress::ProgressLayer;
@@ -294,7 +293,7 @@ fn handle_discover_buck_targets(
     let State {
         server, projects, ..
     } = state;
-    let develop = Develop::new(Input::Files(params.text_documents));
+    let develop = Develop::new();
 
     // this request is load-bearing: it is necessary in order to start showing in-editor progress.
     let token = lsp_types::ProgressToken::String(DiscoverBuckTargets::METHOD.to_owned());
@@ -310,9 +309,9 @@ fn handle_discover_buck_targets(
         "resolving targets",
         token = DiscoverBuckTargets::METHOD.to_owned(),
     )
-    .in_scope(|| develop.resolve_owners())?;
+    .in_scope(|| develop.resolve_file_owners(params.text_documents))?;
 
-    let Some(target) = targets.last() else {
+    let Some(target) = targets.keys().last() else {
         return Err(anyhow::anyhow!("Could not find any targets."));
     };
 
@@ -333,6 +332,12 @@ fn handle_discover_buck_targets(
     );
     let _guard = span.entered();
 
+    let targets = targets
+        .values()
+        .into_iter()
+        .map(|v| v.iter().cloned())
+        .flatten()
+        .collect::<Vec<Target>>();
     let project = develop.run(targets)?;
     tracing::info!(crate_len = &project.crates.len(), "created index");
     projects.push(project.clone());
@@ -388,7 +393,7 @@ fn handle_did_save_buck_file(
     )
     .entered();
 
-    let develop = Develop::new(Input::Targets(targets.clone()));
+    let develop = Develop::new();
     let project = match develop.run(targets) {
         Ok(project) => project,
         Err(e) => {

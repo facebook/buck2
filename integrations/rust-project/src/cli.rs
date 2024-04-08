@@ -13,6 +13,5 @@ mod new;
 
 pub use check::Check;
 pub use develop::Develop;
-pub use develop::Input;
 pub use new::New;
 pub use new::ProjectKind;

@@ -532,10 +532,15 @@ impl Buck {
     pub fn query_owner(
         &self,
         files: &Vec<PathBuf>,
-    ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let mut command = self.command(["uquery"]);
+    ) -> Result<HashMap<String, Vec<Target>>, anyhow::Error> {
+        let mut command = self.command(["bxl"]);
 
-        command.args(["--json", "owner(\"%s\")", "--"]);
+        command.args([
+            "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_owning_buildfile",
+            "--",
+            "--files",
+        ]);
+
         command.args(files);
 
         info!(?files, "querying buck to determine owner");
