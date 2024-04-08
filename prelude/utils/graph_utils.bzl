@@ -215,3 +215,42 @@ def breadth_first_traversal_by(
     expect(not queue, "Expected to be done with graph traversal queue.")
 
     return visited.keys()
+
+# That is version of `breadth_first_traversal_by` that allocates much less memory
+# via avoiding intermediate list allocations.
+def breadth_first_traversal_with_callback(
+        graph_nodes: [dict[typing.Any, typing.Any], None],
+        roots: list[typing.Any],
+        iter_children_with_callback: typing.Callable[[typing.Any, typing.Callable[[list[typing.Any]], None]], None],
+        node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
+    """
+    Performs a breadth first traversal of `graph_nodes`, beginning
+    with the `roots` and queuing the nodes returned by`iter_children_with_callback`.
+    Returns a list of all visisted nodes.
+
+    Starlark does not offer while loops, so this implementation
+    must make use of a for loop. We pop from the end of the queue
+    as a matter of performance.
+    """
+
+    # Dictify for O(1) lookup
+    visited = {k: None for k in roots}
+
+    queue = visited.keys()
+
+    def populate_queue(nodes):
+        for node in nodes:
+            if node not in visited:
+                visited[node] = None
+                queue.append(node)
+
+    for _ in range(len(graph_nodes) if graph_nodes else 2000000000):
+        if not queue:
+            break
+        node = queue.pop()
+        if graph_nodes and node not in graph_nodes:
+            fail("Expected node {} in graph nodes".format(node_formatter(node)))
+        iter_children_with_callback(node, populate_queue)
+    expect(not queue, "Expected to be done with graph traversal queue.")
+
+    return visited.keys()
