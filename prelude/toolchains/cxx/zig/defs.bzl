@@ -32,7 +32,7 @@ the toolchain like so:
 
 `toolchains//BUILD`
 ```bzl
-load("@prelude//toolchains/cxx:zig.bzl", "download_zig_distribution", "cxx_zig_toolchain")
+load("@prelude//toolchains/cxx/zig:defs.bzl", "download_zig_distribution", "cxx_zig_toolchain")
 
 download_zig_distribution(
     name = "zig",
@@ -50,7 +50,7 @@ To define toolchains for multiple platforms and configure cross-compilation you
 can configure the toolchain like so:
 
 ```bzl
-load("@prelude//toolchains/cxx:zig.bzl", "download_zig_distribution", "cxx_zig_toolchain")
+load("@prelude//toolchains/cxx/zig:defs.bzl", "download_zig_distribution", "cxx_zig_toolchain")
 
 download_zig_distribution(
     name = "zig-x86_64-linux",
