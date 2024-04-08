@@ -262,8 +262,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::fmt;
-
     use super::*;
 
     #[test]
