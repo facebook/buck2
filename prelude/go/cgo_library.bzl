@@ -19,12 +19,11 @@ load(
     "@prelude//utils:utils.bzl",
     "map_idx",
 )
-load(":cgo_builder.bzl", "build_cgo")
 load(":compile.bzl", "GoPkgCompileInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":package_builder.bzl", "build_package")
-load(":packages.bzl", "GoPkg", "go_attr_pkg_name", "merge_pkgs")
+load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
 
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
@@ -40,9 +39,6 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         else:
             fail("unexpected extension: {}".format(src))
 
-    # Generate CGO and C sources.
-    go_gen_files, o_files, gen_dir = build_cgo(ctx, cgo_srcs, cxx_srcs)
-
     shared = ctx.attrs._compile_shared
     race = ctx.attrs._race
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
@@ -51,21 +47,13 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     compiled_pkg = build_package(
         ctx,
         pkg_name,
-        ctx.attrs.go_srcs,
+        ctx.attrs.go_srcs + cgo_srcs + cxx_srcs,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-        compiled_objects = o_files,
-        extra_go_files = go_gen_files,
         shared = shared,
         race = race,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
-    )
-
-    # Temporarily hack, it seems like we can update record, so create new one
-    compiled_pkg = GoPkg(
-        pkg = compiled_pkg.pkg,
-        coverage_vars = compiled_pkg.coverage_vars,
     )
 
     pkgs = {
@@ -77,7 +65,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # to work with cgo. And when nearly every FB service client is cgo,
     # we need to support it well.
     return [
-        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = [gen_dir] if gen_dir else []),
+        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = [compiled_pkg.cgo_gen_dir]),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),

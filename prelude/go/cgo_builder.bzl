@@ -55,11 +55,7 @@ def _cgo(
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
-
-    # If you change this dir or naming convention, please
-    # update the corresponding logic in `fbgolist`.
-    # Otherwise editing and linting for Go will break.
-    gen_dir = ctx.actions.declare_output("cgo_gen", dir = True)
+    gen_dir = ctx.actions.declare_output("cgo_gen_tmp", dir = True)
 
     go_srcs = []
     c_headers = []
@@ -117,9 +113,9 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
         os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
     )
 
-def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], c_files: list[Artifact]) -> (list[Artifact], list[Artifact], Artifact | None):
+def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], c_files: list[Artifact]) -> (list[Artifact], list[Artifact], Artifact):
     if len(cgo_files) == 0:
-        return [], [], None
+        return [], [], ctx.actions.copied_dir("cgo_gen_tmp", {})
 
     project_root_file = get_project_root_file(ctx)
 

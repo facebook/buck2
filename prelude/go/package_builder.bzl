@@ -7,6 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
+load(":cgo_builder.bzl", "build_cgo")
 load(":compile.bzl", "get_inherited_compile_pkgs", "infer_package_root")
 load(
     ":coverage.bzl",
@@ -23,9 +24,6 @@ def build_package(
         package_root: str | None,
         pkgs: dict[str, Artifact] = {},
         deps: list[Dependency] = [],
-        compiled_objects: list[Artifact] = [],
-        # hack: extra go files will bypass filtration to enable cgo_library migration
-        extra_go_files: list[Artifact] = [],
         compiler_flags: list[str] = [],
         assembler_flags: list[str] = [],
         shared: bool = False,
@@ -33,16 +31,22 @@ def build_package(
         coverage_mode: GoCoverageMode | None = None,
         embedcfg: Artifact | None = None,
         tests: bool = False,
-        force_disable_cgo: bool = False) -> GoPkg:
+        force_disable_cgo: bool = False,
+        # If you change this dir or naming convention, please
+        # update the corresponding logic in `fbgolist`.
+        # Otherwise editing and linting for Go will break.
+        cgo_gen_dir_name: str = "cgo_gen") -> GoPkg:
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 
     out = ctx.actions.declare_output(paths.basename(pkg_name) + ".a")
 
+    cgo_gen_dir = ctx.actions.declare_output(cgo_gen_dir_name, dir = True)
+
     srcs = dedupe_by_value(srcs)
 
     has_go_files = False
-    for src in (srcs + extra_go_files):
+    for src in srcs:
         if src.extension == ".go":
             has_go_files = True
             break
@@ -52,6 +56,7 @@ def build_package(
             pkg = ctx.actions.write(out.as_output(), ""),
             coverage_vars = cmd_args(),
             srcs_list = cmd_args(),
+            cgo_gen_dir = ctx.actions.copied_dir(cgo_gen_dir.as_output(), {}),
         )
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
@@ -60,7 +65,7 @@ def build_package(
 
     srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.argsfile")
-    dynamic_outputs = [out, srcs_list_argsfile, coverage_vars_argsfile]
+    dynamic_outputs = [out, srcs_list_argsfile, coverage_vars_argsfile, cgo_gen_dir]
 
     all_pkgs = merge_pkgs([
         pkgs,
@@ -73,7 +78,11 @@ def build_package(
 
         symabis = _symabis(ctx, pkg_name, go_list.s_files, assembler_flags, shared)
 
-        go_files = go_list.go_files + extra_go_files
+        # Generate CGO and C sources.
+        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.c_files)
+        ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
+
+        go_files = go_list.go_files + cgo_go_files
 
         src_list_for_argsfile = go_files + (go_list.test_go_files + go_list.x_test_go_files if tests else [])
         ctx.actions.write(outputs[srcs_list_argsfile], cmd_args(src_list_for_argsfile, ""))
@@ -86,7 +95,7 @@ def build_package(
 
         asm_o_files = _asssembly(ctx, pkg_name, go_list.s_files, asmhdr, assembler_flags, shared)
 
-        pkg_file = _pack(ctx, pkg_name, go_a_file, compiled_objects + asm_o_files)
+        pkg_file = _pack(ctx, pkg_name, go_a_file, cgo_o_files + asm_o_files)
 
         ctx.actions.copy_file(outputs[out], pkg_file)
 
@@ -96,6 +105,7 @@ def build_package(
         pkg = out,
         coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
         srcs_list = cmd_args(srcs_list_argsfile, format = "@{}").hidden(srcs),
+        cgo_gen_dir = cgo_gen_dir,
     )
 
 def _compile(
