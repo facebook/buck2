@@ -32,6 +32,8 @@ AppleBundlePart = record(
     codesign_on_copy = field(bool, False),
     # Entitlements to use when this part is code signed separately.
     codesign_entitlements = field(Artifact | None, None),
+    # If present, override the codesign flags with these flags, when this part is code signed separately.
+    codesign_flags_override = field([list[str], None], None),
 )
 
 SwiftStdlibArguments = record(

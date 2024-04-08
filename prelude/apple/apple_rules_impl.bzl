@@ -171,6 +171,7 @@ extra_attributes = {
     },
     "apple_resource": {
         "codesign_entitlements": attrs.option(attrs.source(), default = None),
+        "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
         "codesign_on_copy": attrs.bool(default = False),
         "content_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
