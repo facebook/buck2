@@ -324,15 +324,7 @@ def get_filtered_labels_to_links_map(
         populate_queue(linkable_node.exported_deps)
 
         # If the preferred linkage is `static` or `any` we need to link against the deps too.
-        # TODO(cjhopman): This code originally was as commented out below and the comment indicated that the
-        # intent was to not traverse in the second case if link style was shared, but at this point idk which
-        # behavior we actually want.
-        should_traverse_private_deps = False
-        if linkable_node.preferred_linkage == Linkage("static"):
-            should_traverse_private_deps = True
-        elif linkable_node.preferred_linkage == Linkage("any"):
-            should_traverse_private_deps = True
-            # should_traverse = link_style != Linkage("shared")
+        should_traverse_private_deps = linkable_node.preferred_linkage == Linkage("static") or linkable_node.preferred_linkage == Linkage("any")
 
         if should_traverse_private_deps:
             populate_queue(linkable_node.deps)
