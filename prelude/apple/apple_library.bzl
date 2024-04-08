@@ -350,6 +350,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         link_groups_force_static_follows_dependents = False,
         extra_linker_outputs_factory = _get_extra_linker_flags_and_outputs,
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
+        extra_shared_library_interfaces = [swift_compile.tbd] if (swift_compile and swift_compile.tbd) else None,
     )
 
 def _get_extra_linker_flags_and_outputs(

@@ -442,22 +442,23 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # TBD generation is done per-target for stub_from_headers mode and collected at link time.
     shared_interface_linkable = None
-    tbd_output = None
+    tbd_outputs = impl_params.extra_shared_library_interfaces if impl_params.extra_shared_library_interfaces else []
     if impl_params.shared_library_interface_target and \
        cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
-        tbd_output = create_tbd(
+        cxx_tbd_output = create_tbd(
             ctx,
             cxx_attr_exported_headers(ctx, impl_params.headers_layout),
             own_exported_preprocessor_info,
             inherited_exported_preprocessor_infos,
             impl_params.shared_library_interface_target,
         )
-        sub_targets["tbd"] = [DefaultInfo(default_output = tbd_output)]
+        tbd_outputs.append(cxx_tbd_output)
+        sub_targets["tbd"] = [DefaultInfo(default_output = cxx_tbd_output)]
         shared_interface_linkable = SharedInterfaceLinkable(
             interfaces = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
-                artifacts = [tbd_output],
+                artifacts = tbd_outputs,
             ),
         )
 
@@ -525,7 +526,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         extra_static_linkables = extra_static_linkables,
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
         link_execution_preference = link_execution_preference,
-        tbd_output = tbd_output,
+        tbd_outputs = tbd_outputs,
     )
     solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
 
@@ -964,7 +965,7 @@ def _form_library_outputs(
         extra_static_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference,
-        tbd_output: [Artifact, None]) -> _CxxAllLibraryOutputs:
+        tbd_outputs: list[Artifact]) -> _CxxAllLibraryOutputs:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     solib = None
@@ -1060,7 +1061,7 @@ def _form_library_outputs(
                     extra_linker_flags = extra_linker_flags,
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
                     link_execution_preference = link_execution_preference,
-                    tbd_output = tbd_output,
+                    tbd_outputs = tbd_outputs,
                 )
                 shlib = result.link_result.linked_object
                 info = result.info
@@ -1390,7 +1391,7 @@ def _shared_library(
         extra_linker_flags: list[ArgLike],
         link_execution_preference: LinkExecutionPreference,
         link_ordering: [LinkOrdering, None],
-        tbd_output: [Artifact, None]) -> _CxxSharedLibraryResult:
+        tbd_outputs: list[Artifact]) -> _CxxSharedLibraryResult:
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.
@@ -1472,7 +1473,7 @@ def _shared_library(
             # to wait for dependent libraries to link.
             # If the tbd output is missing this is a non apple_library target,
             # so skip producing the interface.
-            if tbd_output != None:
+            if len(tbd_outputs) > 0:
                 # collect tbd output from providers and merge
                 all_deps = dedupe(cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx))
                 deps_merged_link_infos = cxx_inherited_link_info(all_deps)
@@ -1480,7 +1481,7 @@ def _shared_library(
                 tbd_set = make_artifact_tset(
                     actions = ctx.actions,
                     label = ctx.label,
-                    artifacts = [tbd_output],
+                    artifacts = tbd_outputs,
                     children = children,
                 )
                 exported_shlib = merge_tbds(ctx, soname, tbd_set)
