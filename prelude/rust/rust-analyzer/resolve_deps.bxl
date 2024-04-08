@@ -234,9 +234,30 @@ def expand_and_resolve_impl(ctx):
         "resolved_deps": resolved_deps,
     })
 
+def resolve_owning_buildfile_impl(ctx):
+    owners = ctx.uquery().owner(ctx.cli_args.files)
+    out = {}
+    for owner in owners:
+        buildfile = "{}".format(owner.buildfile_path)
+        targets_in_buildfile = ctx.uquery().targets_in_buildfile(buildfile)
+        rust_targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test)$", targets_in_buildfile)
+        targets = []
+        for target in rust_targets:
+            targets.append(target.label)
+        out[buildfile] = targets
+
+    ctx.output.print_json(out)
+
 expand_and_resolve = bxl_main(
     impl = expand_and_resolve_impl,
     cli_args = {
         "targets": cli_args.list(cli_args.target_expr()),
+    },
+)
+
+resolve_owning_buildfile = bxl_main(
+    impl = resolve_owning_buildfile_impl,
+    cli_args = {
+        "files": cli_args.list(cli_args.string()),
     },
 )
