@@ -240,6 +240,8 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart], codesi
             part_spec["codesign_on_copy"] = True
             if include_entitlements and part.codesign_entitlements:
                 part_spec["codesign_entitlements"] = part.codesign_entitlements
+            if part.codesign_flags_override:
+                part_spec["codesign_flags_override"] = part.codesign_flags_override
         specs.append(part_spec)
 
     return ctx.actions.write_json("bundle_spec.json", specs)

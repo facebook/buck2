@@ -27,6 +27,7 @@ class BundleSpecItem:
     dst: str
     codesign_on_copy: bool = False
     codesign_entitlements: Optional[str] = None
+    codesign_flags_override: Optional[List[str]] = None
 
     def __eq__(self: BundleSpecItem, other: Optional[BundleSpecItem]) -> bool:
         return (
@@ -35,6 +36,7 @@ class BundleSpecItem:
             and self.dst == other.dst
             and self.codesign_on_copy == other.codesign_on_copy
             and self.codesign_entitlements == other.codesign_entitlements
+            and self.codesign_flags_override == other.codesign_flags_override
         )
 
     def __ne__(self: BundleSpecItem, other: BundleSpecItem) -> bool:
@@ -42,7 +44,13 @@ class BundleSpecItem:
 
     def __hash__(self: BundleSpecItem) -> int:
         return hash(
-            (self.src, self.dst, self.codesign_on_copy, self.codesign_entitlements)
+            (
+                self.src,
+                self.dst,
+                self.codesign_on_copy,
+                self.codesign_entitlements,
+                self.codesign_flags_override,
+            )
         )
 
     def __lt__(self: BundleSpecItem, other: BundleSpecItem) -> bool:
@@ -59,6 +67,17 @@ class BundleSpecItem:
                 else (
                     self.codesign_entitlements is None
                     and other.codesign_entitlements is not None
+                )
+            )
+            or (
+                self.codesign_flags_override < other.codesign_flags_override
+                if (
+                    self.codesign_flags_override is not None
+                    and other.codesign_flags_override is not None
+                )
+                else (
+                    self.codesign_flags_override is None
+                    and other.codesign_flags_override is not None
                 )
             )
         )
