@@ -38,6 +38,7 @@ use crate::coerce::Coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
+use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::dict::DictRef;
@@ -448,6 +449,33 @@ impl<'v> TypeCompiled<Value<'v>> {
     /// This function accepts string literals in type expressions. It is deprecated.
     pub(crate) fn new_with_string(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         TypeCompiled::new_impl(ty, heap, true)
+    }
+
+    pub(crate) fn new_with_deprecation(
+        ty: Value<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> anyhow::Result<Self> {
+        // Try shiny new types.
+        match Self::new(ty, eval.heap()) {
+            Ok(ty) => Ok(ty),
+            Err(e) => {
+                // If shiny new types do not work, try deprecated types.
+                match Self::new_with_string(ty, eval.heap()) {
+                    Ok(ty) => {
+                        eval.soft_error_handler
+                            .soft_error(
+                                "string_in_type",
+                                crate::Error::new_other(TypingError::StringLiteralNotAllowed(
+                                    ty.to_string(),
+                                )),
+                            )
+                            .map_err(|e| e.into_anyhow())?;
+                        Ok(ty)
+                    }
+                    Err(_) => Err(e),
+                }
+            }
+        }
     }
 
     /// Evaluate type annotation at runtime.

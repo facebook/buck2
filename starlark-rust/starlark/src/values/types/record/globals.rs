@@ -23,10 +23,10 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
+use crate::eval::Evaluator;
 use crate::values::record::field::Field;
 use crate::values::record::record_type::RecordType;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::Heap;
 use crate::values::Value;
 
 #[starlark_module]
@@ -60,13 +60,13 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
     /// Records are stored deduplicating their field names, making them more memory efficient than dictionaries.
     fn record<'v>(
         #[starlark(kwargs)] kwargs: SmallMap<String, Value<'v>>,
-        heap: &'v Heap,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RecordType<'v>> {
         // Every Value must either be a field or a value (the type)
         let mut mp = SmallMap::with_capacity(kwargs.len());
         for (k, v) in kwargs.into_iter_hashed() {
             let field = match Field::from_value(v) {
-                None => Field::new(TypeCompiled::new_with_string(v, heap)?, None),
+                None => Field::new(TypeCompiled::new_with_deprecation(v, eval)?, None),
                 Some(v) => v.dupe(),
             };
             mp.insert_hashed(k, field);
@@ -87,10 +87,10 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
     fn field<'v>(
         #[starlark(require = pos)] typ: Value<'v>,
         default: Option<Value<'v>>,
-        heap: &'v Heap,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Field<'v>> {
         // We compile the type even if we don't have a default to raise the error sooner
-        let compiled = TypeCompiled::new_with_string(typ, heap)?;
+        let compiled = TypeCompiled::new_with_deprecation(typ, eval)?;
         if let Some(d) = default {
             compiled.check_type(d, Some("default"))?;
         }
