@@ -14,7 +14,7 @@ load(
 )
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal_by",
+    "breadth_first_traversal_with_callback",
 )
 load(
     "@prelude//utils:strings.bzl",
@@ -246,7 +246,7 @@ def _find_targets_in_mapping(
                 return False
         return True
 
-    def find_matching_targets(node):  # Label -> [Label]:
+    def populate_matching_targets(node):  # Label -> bool:
         graph_node = graph_map[node]
         if matches_target(node, graph_node.labels):
             matching_targets[node] = None
@@ -254,20 +254,26 @@ def _find_targets_in_mapping(
                 # We can stop traversing the tree at this point because we've added the
                 # build target to the list of all targets that will be traversed by the
                 # algorithm that applies the groups.
-                return []
-        return graph_node.deps + graph_node.exported_deps
+                return False
+        return True
+
+    def populate_matching_targets_bfs_wrapper(node, populate_queue):  # (Label, typing.Callable) -> None
+        if populate_matching_targets(node):
+            graph_node = graph_map[node]
+            populate_queue(graph_node.deps)
+            populate_queue(graph_node.exported_deps)
 
     if not mapping.roots:
         for node in graph_map:
-            find_matching_targets(node)
+            populate_matching_targets(node)
     elif mapping.traversal == Traversal("intersect"):
         intersected_targets = None
         for root in mapping.roots:
-            # This is a captured variable inside `find_matching_targets`.
+            # This is a captured variable inside `populate_matching_targets`.
             # We reset it for each root we visit so that we don't have results
             # from other roots.
             matching_targets = {}
-            breadth_first_traversal_by(graph_map, [root], find_matching_targets)
+            breadth_first_traversal_with_callback(graph_map, [root], populate_matching_targets_bfs_wrapper)
             if intersected_targets == None:
                 intersected_targets = {target: True for target in matching_targets}
             else:
@@ -277,7 +283,7 @@ def _find_targets_in_mapping(
 
         return intersected_targets.keys()
     else:
-        breadth_first_traversal_by(graph_map, mapping.roots, find_matching_targets)
+        breadth_first_traversal_with_callback(graph_map, mapping.roots, populate_matching_targets_bfs_wrapper)
 
     return matching_targets.keys()
 
@@ -310,14 +316,16 @@ def _transitively_add_targets_to_group_mapping(
         assign_target_to_group,  # (Label, bool) -> bool
         node_traversed_targets,  #: {"label": None}
         graph_map,  # {"label": "_b"}
-        node):  # Label
+        node,
+        populate_queue):  # ([Label]) -> None
     previously_processed = assign_target_to_group(node, False)
 
     # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned
     if previously_processed and node not in node_traversed_targets:
-        return []
+        return
     graph_node = graph_map[node]
-    return graph_node.deps + graph_node.exported_deps
+    populate_queue(graph_node.deps)
+    populate_queue(graph_node.exported_deps)
 
 # Types removed to avoid unnecessary type checking which degrades performance.
 def _update_target_to_group_mapping(
@@ -334,7 +342,7 @@ def _update_target_to_group_mapping(
     if mapping.traversal in _TRAVERSALS_TO_ASSIGN_NODE:
         assign_target_to_group(target, True)
     else:  # tree
-        breadth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
+        breadth_first_traversal_with_callback(graph_map, [target], transitively_add_targets_to_group_mapping)
 
 def _add_to_implicit_link_group(
         generated_group_name,  # str
