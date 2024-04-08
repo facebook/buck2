@@ -81,6 +81,7 @@ def genrule_attributes() -> dict[str, Attr]:
         "metadata_env_var": attrs.option(attrs.string(), default = None),
         "metadata_path": attrs.option(attrs.string(), default = None),
         "no_outputs_cleanup": attrs.bool(default = False),
+        "remote_execution_dependencies": attrs.list(attrs.dict(key = attrs.string(), value = attrs.string()), default = []),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_genrule_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:genrule", providers = [GenruleToolchainInfo])),
     }
@@ -326,6 +327,8 @@ def process_genrule(
         metadata_args["metadata_env_var"] = ctx.attrs.metadata_env_var
     if ctx.attrs.metadata_path:
         metadata_args["metadata_path"] = ctx.attrs.metadata_path
+    if ctx.attrs.remote_execution_dependencies:
+        metadata_args["remote_execution_dependencies"] = ctx.attrs.remote_execution_dependencies
 
     category = "genrule"
     if ctx.attrs.type != None:
