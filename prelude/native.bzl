@@ -381,7 +381,7 @@ def _swift_toolchain_macro_stub(**kwargs):
         **kwargs
     )
 
-def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
+def _cxx_toolchain_macro_stub(inherit_target_platform = True, **kwargs):
     if inherit_target_platform:
         rule = cxx_toolchain_inheriting_target_platform
         if is_full_meta_repo():
