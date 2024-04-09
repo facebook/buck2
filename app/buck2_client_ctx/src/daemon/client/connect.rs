@@ -794,15 +794,24 @@ async fn establish_connection_inner(
         }
     };
 
-    start_new_buckd_and_connect(
-        deadline,
-        &lifecycle_lock,
-        paths,
-        &constraints,
-        event_subscribers,
-        daemon_was_started_reason,
-    )
-    .await
+    deadline
+        .down(
+            &format!(
+                "starting new buck2 daemon for reason: {}",
+                explain_failed_to_connect_reason(daemon_was_started_reason)
+            ),
+            |deadline| {
+                start_new_buckd_and_connect(
+                    deadline,
+                    &lifecycle_lock,
+                    paths,
+                    &constraints,
+                    event_subscribers,
+                    daemon_was_started_reason,
+                )
+            },
+        )
+        .await
 }
 
 async fn start_new_buckd_and_connect(
