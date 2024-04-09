@@ -37,11 +37,7 @@ use fbinit::FacebookInit;
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
 // Making jemalloc the default only when we do a cargo build.
 #[global_allocator]
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    not(fbcode_build),
-    not(buck_oss_build)
-))]
+#[cfg(all(any(target_os = "linux", target_os = "macos"), not(buck_build)))]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn init_logging(_fb: FacebookInit) -> anyhow::Result<Arc<dyn LogConfigurationReloadHandle>> {
