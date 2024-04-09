@@ -8,7 +8,7 @@
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
-def zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
+def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
     """
      zip_file() rule implementation
 
@@ -64,7 +64,7 @@ def zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo(default_output = output)]
 
 implemented_rules = {
-    "zip_file": zip_file_impl,
+    "zip_file": _zip_file_impl,
 }
 
 extra_attributes = {
