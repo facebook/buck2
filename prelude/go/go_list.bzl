@@ -11,6 +11,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 GoListOut = record(
     go_files = field(list[Artifact], default = []),
     c_files = field(list[Artifact], default = []),
+    cxx_files = field(list[Artifact], default = []),
     cgo_files = field(list[Artifact], default = []),
     s_files = field(list[Artifact], default = []),
     test_go_files = field(list[Artifact], default = []),
@@ -38,7 +39,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         ["--go", go_toolchain.go],
         ["--workdir", srcs_dir],
         ["--output", go_list_out.as_output()],
-        "-json=GoFiles,CgoFiles,CFiles,SFiles,TestGoFiles,XTestGoFiles,EmbedFiles",
+        "-json=GoFiles,CgoFiles,CFiles,CXXFiles,SFiles,TestGoFiles,XTestGoFiles,EmbedFiles",
         ["-tags", ",".join(tags) if tags else []],
         ".",
     ]
@@ -50,7 +51,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
 
 def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: ArtifactValue) -> GoListOut:
     go_list = go_list_out.read_json()
-    go_files, cgo_files, c_files, s_files, test_go_files, x_test_go_files, embed_files = [], [], [], [], [], [], []
+    go_files, cgo_files, c_files, cxx_files, s_files, test_go_files, x_test_go_files, embed_files = [], [], [], [], [], [], [], []
 
     for src in srcs:
         # remove package_root prefix from src artifact path to match `go list` outout format
@@ -61,6 +62,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
             cgo_files.append(src)
         if src_path in go_list.get("CFiles", []):
             c_files.append(src)
+        if src_path in go_list.get("CXXFiles", []):
+            cxx_files.append(src)
         if src_path in go_list.get("SFiles", []):
             s_files.append(src)
         if src_path in go_list.get("TestGoFiles", []):
@@ -72,6 +75,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
 
     return GoListOut(
         go_files = go_files,
+        c_files = c_files,
+        cxx_files = cxx_files,
         cgo_files = cgo_files,
         s_files = s_files,
         test_go_files = test_go_files,
