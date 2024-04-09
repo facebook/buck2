@@ -381,21 +381,17 @@ def _swift_toolchain_macro_stub(**kwargs):
         **kwargs
     )
 
-def _cxx_toolchain_macro_stub(inherit_target_platform = True, **kwargs):
-    if inherit_target_platform:
-        rule = cxx_toolchain_inheriting_target_platform
-        if is_full_meta_repo():
-            cache_links = kwargs.get("cache_links")
-            kwargs["cache_links"] = select({
-                "DEFAULT": cache_links,
-                "ovr_config//build_mode:fbcode-build-info-mode-disable": True,
-                "ovr_config//build_mode:fbcode-build-info-mode-full": False,
-                "ovr_config//build_mode:fbcode-build-info-mode-stable": True,
-            })
-    else:
-        rule = __rules__["cxx_toolchain"]
+def _cxx_toolchain_macro_stub(**kwargs):
+    if is_full_meta_repo():
+        cache_links = kwargs.get("cache_links")
+        kwargs["cache_links"] = select({
+            "DEFAULT": cache_links,
+            "ovr_config//build_mode:fbcode-build-info-mode-disable": True,
+            "ovr_config//build_mode:fbcode-build-info-mode-full": False,
+            "ovr_config//build_mode:fbcode-build-info-mode-stable": True,
+        })
     cxx_toolchain_macro_impl(
-        cxx_toolchain_rule = rule,
+        cxx_toolchain_rule = cxx_toolchain_inheriting_target_platform,
         **kwargs
     )
 
