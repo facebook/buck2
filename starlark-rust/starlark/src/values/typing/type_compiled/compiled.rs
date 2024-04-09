@@ -87,6 +87,8 @@ enum TypingError {
     ValueDoesNotMatchType(String, &'static str, String),
     #[error("String literals are not allowed in type expressions: `{0}`")]
     StringLiteralNotAllowed(String),
+    #[error("String literals are not allowed in type expressions: `{0}` (at {1})")]
+    StringLiteralNotAllowedWithLoc(String, String),
 }
 
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
@@ -465,9 +467,14 @@ impl<'v> TypeCompiled<Value<'v>> {
                         eval.soft_error_handler
                             .soft_error(
                                 "string_in_type",
-                                crate::Error::new_other(TypingError::StringLiteralNotAllowed(
-                                    ty.to_string(),
-                                )),
+                                crate::Error::new_other(
+                                    TypingError::StringLiteralNotAllowedWithLoc(
+                                        ty.to_string(),
+                                        eval.call_stack_top_location()
+                                            .map(|s| s.to_string())
+                                            .unwrap_or_else(|| "<unknown>".to_owned()),
+                                    ),
+                                ),
                             )
                             .map_err(|e| e.into_anyhow())?;
                         Ok(ty)
@@ -543,5 +550,20 @@ fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
         TypingError::PerhapsYouMeant(ty.to_str(), name.into())
     } else {
         TypingError::InvalidTypeAnnotation(ty.to_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::assert;
+
+    #[test]
+    fn test_new_with_deprecation() {
+        assert::fail(
+            r#"
+isinstance(1, "int")
+"#,
+            "String literals are not allowed in type expressions: `int` (at assert.bzl:2:1-21)",
+        );
     }
 }
