@@ -13,7 +13,7 @@ load("@prelude//apple/user:apple_toolchain_override.bzl", _apple_toolchain_overr
 load("@prelude//apple/user:apple_tools.bzl", _apple_tools_spec = "registration_spec")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
 load("@prelude//apple/user:resource_group_map.bzl", _resource_group_map_spec = "registration_spec")
-load("@prelude//cxx/user:cxx_toolchain_override.bzl", _cxx_toolchain_override_inheriting_target_platform_spec = "cxx_toolchain_override_inheriting_target_platform_registration_spec", _cxx_toolchain_override_spec = "cxx_toolchain_override_registration_spec")
+load("@prelude//cxx/user:cxx_toolchain_override.bzl", _cxx_toolchain_override_spec = "cxx_toolchain_override_registration_spec")
 load("@prelude//cxx/user:link_group_map.bzl", _link_group_map_spec = "registration_spec")
 load(":cxx_headers_bundle.bzl", _cxx_headers_bundle_spec = "registration_spec")
 load(":extract_archive.bzl", _extract_archive_spec = "registration_spec")
@@ -30,7 +30,6 @@ _all_specs = [
     _apple_toolchain_override_spec,
     _cxx_headers_bundle_spec,
     _cxx_toolchain_override_spec,
-    _cxx_toolchain_override_inheriting_target_platform_spec,
     _apple_simulators_spec,
     _write_file_spec,
     _mockingbird_mock_spec,

@@ -399,13 +399,9 @@ def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
         **kwargs
     )
 
-def _cxx_toolchain_override_macro_stub(inherit_target_platform = False, **kwargs):
-    if inherit_target_platform:
-        rule = _user_rules["cxx_toolchain_override_inheriting_target_platform"]
-    else:
-        rule = _user_rules["cxx_toolchain_override"]
+def _cxx_toolchain_override_macro_stub(**kwargs):
     cxx_toolchain_macro_impl(
-        cxx_toolchain_rule = rule,
+        cxx_toolchain_rule = _user_rules["cxx_toolchain_override"],
         **kwargs
     )
 
