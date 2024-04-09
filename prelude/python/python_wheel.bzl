@@ -89,7 +89,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         if manifests.srcs != None:
             srcs.append(manifests.srcs)
         if manifests.resources != None:
-            srcs.append(manifests.resources)
+            expect(not manifests.resources[1])
+            srcs.append(manifests.resources[0])
         if manifests.extensions != None:
             toolchain_info = get_cxx_toolchain_info(ctx)
             items = manifests.extensions.items()
