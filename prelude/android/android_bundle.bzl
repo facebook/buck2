@@ -9,6 +9,8 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
+load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 
 def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -25,9 +27,25 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         validation_deps_outputs = get_validation_deps_outputs(ctx),
     )
 
+    sub_targets = {}
+    sub_targets.update(android_binary_info.sub_targets)
+    if ctx.attrs.use_derived_apk:
+        keystore = ctx.attrs.keystore[KeystoreInfo]
+        default_output = derive_universal_apk(
+            ctx,
+            android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
+            app_bundle = output_bundle,
+            keystore = keystore,
+        )
+        sub_targets["aab"] = [DefaultInfo(
+            default_outputs = [output_bundle],
+        )]
+    else:
+        default_output = output_bundle
+
     java_packaging_deps = android_binary_info.java_packaging_deps
     return [
-        DefaultInfo(default_output = output_bundle, other_outputs = android_binary_info.materialized_artifacts, sub_targets = android_binary_info.sub_targets),
+        DefaultInfo(default_output = default_output, other_outputs = android_binary_info.materialized_artifacts, sub_targets = sub_targets),
         AndroidAabInfo(aab = output_bundle, manifest = android_binary_info.resources_info.manifest, materialized_artifacts = android_binary_info.materialized_artifacts),
         TemplatePlaceholderInfo(
             keyed_variables = {
