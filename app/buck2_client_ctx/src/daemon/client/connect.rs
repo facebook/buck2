@@ -794,6 +794,25 @@ async fn establish_connection_inner(
         }
     };
 
+    start_new_buckd_and_connect(
+        deadline,
+        &lifecycle_lock,
+        paths,
+        &constraints,
+        event_subscribers,
+        daemon_was_started_reason,
+    )
+    .await
+}
+
+async fn start_new_buckd_and_connect(
+    deadline: StartupDeadline,
+    lifecycle_lock: &BuckdLifecycle<'_>,
+    paths: &InvocationPaths,
+    constraints: &DaemonConstraintsRequest,
+    event_subscribers: &mut EventSubscribers<'_>,
+    daemon_was_started_reason: buck2_data::DaemonWasStartedReason,
+) -> anyhow::Result<BootstrapBuckdClient> {
     // Daemon dir may be corrupted. Safer to delete it.
     lifecycle_lock
         .clean_daemon_dir()
