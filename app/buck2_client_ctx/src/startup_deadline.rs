@@ -61,6 +61,7 @@ impl StartupDeadline {
             .with_context(|| format!("timed out before {}", op))
     }
 
+    /// Decrease the deadline by 100ms and invoke the given function with the new deadline.
     pub(crate) async fn down<R, Fut, F>(&self, op: &str, f: F) -> anyhow::Result<R>
     where
         F: FnOnce(StartupDeadline) -> Fut,
