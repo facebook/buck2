@@ -800,7 +800,6 @@ async fn establish_connection_inner(
         .context("Cleaning daemon dir")?;
 
     // Now there's definitely no server that can be connected to
-    // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
     lifecycle_lock.start_server().await?;
     // It might take a little bit for the daemon server to start up. We could wait for the buckd.info
     // file to appear, but it's just as easy to just retry the connection itself.
