@@ -293,6 +293,11 @@ fn handle_discover_buck_targets(
     let State {
         server, projects, ..
     } = state;
+
+    if params.text_documents.is_empty() {
+        return Ok(DiscoverBuckTargetsResult::Many(projects.clone()));
+    }
+
     let develop = Develop::new();
 
     // this request is load-bearing: it is necessary in order to start showing in-editor progress.
