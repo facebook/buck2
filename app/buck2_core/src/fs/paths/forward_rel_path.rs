@@ -381,28 +381,31 @@ impl ForwardRelativePath {
     /// ```
     pub fn strip_prefix<P: AsRef<ForwardRelativePath>>(
         &self,
-        base: P,
+        prefix: P,
     ) -> anyhow::Result<&ForwardRelativePath> {
-        let base = base.as_ref();
-        self.strip_prefix_opt(base).ok_or_else(|| {
-            ForwardRelativePathError::StripPrefix(base.as_str().to_owned(), self.0.to_owned())
-                .into()
+        let prefix = prefix.as_ref();
+        self.strip_prefix_opt(prefix).ok_or_else(|| {
+            ForwardRelativePathError::StripPrefix(
+                self.as_str().to_owned(),
+                prefix.as_str().to_owned(),
+            )
+            .into()
         })
     }
 
     pub fn strip_prefix_opt<P: AsRef<ForwardRelativePath>>(
         &self,
-        base: P,
+        prefix: P,
     ) -> Option<&ForwardRelativePath> {
-        let base = base.as_ref();
-        if base.0.is_empty() {
+        let prefix = prefix.as_ref();
+        if prefix.0.is_empty() {
             Some(self)
-        } else if self.starts_with(base) {
-            if self.0.len() == base.0.len() {
+        } else if self.starts_with(prefix) {
+            if self.0.len() == prefix.0.len() {
                 Some(ForwardRelativePath::empty())
             } else {
                 Some(ForwardRelativePath::unchecked_new(
-                    &self.0[base.0.len() + 1..],
+                    &self.0[prefix.0.len() + 1..],
                 ))
             }
         } else {
@@ -917,7 +920,7 @@ enum ForwardRelativePathError {
     PathNotUtf8(String),
     #[error("relativizing path `{0}` results would result in a non-forward relative path")]
     RelativizationError(String),
-    #[error("`{0}` is not a base of `{1}`")]
+    #[error("`{0}` does not start with `{1}`")]
     StripPrefix(String, String),
 }
 
