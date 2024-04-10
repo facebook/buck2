@@ -87,6 +87,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         embedcfg = ctx.attrs.embedcfg,
         tests = True,
+        # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
+        force_disable_cgo = True,
     )
 
     if coverage_mode != None:
