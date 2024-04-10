@@ -55,10 +55,7 @@ def _generate_script(
             "set -e",
             # This is awkward for two reasons: args doesn't support format strings
             # and will insert a newline between items and so __RESOURCES_ROOT
-            # is put in a bash array, and we want it to be relative to script's
-            # dir, not the script itself, but there's no way to do that in
-            # starlark.  To deal with this, we strip the first 3 characters
-            # (`../`).
+            # is put in a bash array.
             "__RESOURCES_ROOT=(",
             resources_dir,
             ")",
@@ -72,7 +69,7 @@ def _generate_script(
             # identify what the right format is. For now, this variable lets
             # callees disambiguate (see D28960177 for more context).
             "export BUCK_SH_BINARY_VERSION_UNSTABLE=2",
-            "export BUCK_PROJECT_ROOT=$__SCRIPT_DIR/\"${__RESOURCES_ROOT:3}\"",
+            "export BUCK_PROJECT_ROOT=$__SCRIPT_DIR/\"${__RESOURCES_ROOT}\"",
             # In buck1, the paths for resources that are outputs of rules have
             # different paths in BUCK_PROJECT_ROOT and
             # BUCK_DEFAULT_RUNTIME_RESOURCES, but we use the same paths. buck1's
@@ -82,7 +79,7 @@ def _generate_script(
             # sources, the paths are the same for both.
             "export BUCK_DEFAULT_RUNTIME_RESOURCES=\"$BUCK_PROJECT_ROOT\"",
             "exec \"$BUCK_PROJECT_ROOT/{}\" \"$@\"".format(main_link),
-        ]).relative_to(script)
+        ]).relative_to(script, parent = 1)
     else:
         script_content = cmd_args([
             "@echo off",
@@ -96,11 +93,10 @@ def _generate_script(
             # Get parent folder.
             'for %%a in ("%__SRC%") do set "__SCRIPT_DIR=%%~dpa"',
             "set BUCK_SH_BINARY_VERSION_UNSTABLE=2",
-            # ':~3' strips the first 3 chars of __RESOURCES_ROOT.
-            "set BUCK_PROJECT_ROOT=%__SCRIPT_DIR%\\!__RESOURCES_ROOT:~3!",
+            "set BUCK_PROJECT_ROOT=%__SCRIPT_DIR%\\%__RESOURCES_ROOT%",
             "set BUCK_DEFAULT_RUNTIME_RESOURCES=%BUCK_PROJECT_ROOT%",
             "%BUCK_PROJECT_ROOT%\\{} %*".format(main_link),
-        ]).relative_to(script)
+        ]).relative_to(script, parent = 1)
     actions.write(
         script,
         script_content,
