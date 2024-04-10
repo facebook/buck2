@@ -587,6 +587,6 @@ def attr_crate(ctx: AnalysisContext) -> CrateName:
     if dynamic:
         dynamic = dynamic.get(DefaultInfo).default_outputs[0]
     return CrateName(
-        simple = ctx.attrs.crate or normalize_crate(ctx.label.name),
+        simple = normalize_crate(ctx.attrs.crate or ctx.label.name),
         dynamic = dynamic,
     )
