@@ -231,7 +231,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
             type = "erlang_test",
             command = [cmd],
             env = ctx.attrs.env,
-            labels = ["tpx-fb-test-type=16"] + ctx.attrs.labels,
+            labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             run_from_project_root = True,
             use_project_relative_paths = True,
