@@ -384,8 +384,10 @@ impl ForwardRelativePath {
         base: P,
     ) -> anyhow::Result<&ForwardRelativePath> {
         let base = base.as_ref();
-        self.strip_prefix_opt(base)
-            .ok_or_else(|| StripPrefixError(base.as_str().to_owned(), self.0.to_owned()).into())
+        self.strip_prefix_opt(base).ok_or_else(|| {
+            ForwardRelativePathError::StripPrefix(base.as_str().to_owned(), self.0.to_owned())
+                .into()
+        })
     }
 
     pub fn strip_prefix_opt<P: AsRef<ForwardRelativePath>>(
@@ -915,12 +917,9 @@ enum ForwardRelativePathError {
     PathNotUtf8(String),
     #[error("relativizing path `{0}` results would result in a non-forward relative path")]
     RelativizationError(String),
+    #[error("`{0}` is not a base of `{1}`")]
+    StripPrefix(String, String),
 }
-
-/// Error from 'strip_prefix'
-#[derive(buck2_error::Error, Debug)]
-#[error("`{0}` is not a base of `{1}`")]
-pub struct StripPrefixError(String, String);
 
 impl<'a> IntoIterator for &'a ForwardRelativePath {
     type Item = &'a FileName;
