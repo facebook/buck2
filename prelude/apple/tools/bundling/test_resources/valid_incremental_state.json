@@ -25,6 +25,10 @@
     {
       "path": "Resources/baz.txt",
       "entitlements_digest": "abc"
+    },
+    {
+      "path": "Resources/qux.txt",
+      "codesign_flags_override": ["--deep", "--force"]
     }
   ],
   "codesign_identity": "Johny Appleseed",
@@ -35,5 +39,5 @@
   "swift_stdlib_paths": [
     "Frameworks/libswiftCore.dylib"
   ],
-  "version": 5
+  "version": 6
 }

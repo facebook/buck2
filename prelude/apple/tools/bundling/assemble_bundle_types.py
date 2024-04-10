@@ -49,7 +49,11 @@ class BundleSpecItem:
                 self.dst,
                 self.codesign_on_copy,
                 self.codesign_entitlements,
-                self.codesign_flags_override,
+                (
+                    tuple(self.codesign_flags_override)
+                    if self.codesign_flags_override is not None
+                    else hash(None)
+                ),
             )
         )
 

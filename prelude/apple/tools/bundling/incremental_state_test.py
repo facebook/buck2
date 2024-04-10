@@ -52,10 +52,17 @@ class TestIncrementalState(unittest.TestCase):
                 CodesignedOnCopy(
                     path=Path("Resources/bar.txt"),
                     entitlements_digest=None,
+                    codesign_flags_override=None,
                 ),
                 CodesignedOnCopy(
                     path=Path("Resources/baz.txt"),
                     entitlements_digest="abc",
+                    codesign_flags_override=None,
+                ),
+                CodesignedOnCopy(
+                    path=Path("Resources/qux.txt"),
+                    entitlements_digest=None,
+                    codesign_flags_override=["--deep", "--force"],
                 ),
             ],
             codesign_identity="Johny Appleseed",

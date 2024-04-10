@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
-_VERSION = 5
+_VERSION = 6
 
 
 @dataclass
@@ -47,9 +47,23 @@ class CodesignedOnCopy:
     """
     Digest of entitlements used when the given path is codesigned on copy
     """
+    codesign_flags_override: Optional[List[str]]
+    """
+    If present, overrides codesign arguments (which are used for root bundle) when the given path is codesigned on copy
+    """
 
     def __hash__(self: CodesignedOnCopy) -> int:
-        return hash((self.path, self.entitlements_digest))
+        return hash(
+            (
+                self.path,
+                self.entitlements_digest,
+                (
+                    tuple(self.codesign_flags_override)
+                    if self.codesign_flags_override is not None
+                    else hash(None)
+                ),
+            )
+        )
 
 
 @dataclass
@@ -93,11 +107,12 @@ class IncrementalStateJSONEncoder(json.JSONEncoder):
                 result["resolved_symlink"] = str(o.resolved_symlink)
             return result
         elif isinstance(o, CodesignedOnCopy):
-            result = {
-                "path": str(o.path),
-            }
+            result = {}
+            result["path"] = str(o.path)
             if o.entitlements_digest is not None:
                 result["entitlements_digest"] = str(o.entitlements_digest)
+            if o.codesign_flags_override is not None:
+                result["codesign_flags_override"] = o.codesign_flags_override
             return result
         else:
             return super().default(o)
@@ -127,6 +142,7 @@ def _object_hook(
     else:
         dict["path"] = Path(dict.pop("path"))
         dict["entitlements_digest"] = dict.pop("entitlements_digest", None)
+        dict["codesign_flags_override"] = dict.pop("codesign_flags_override", None)
         return CodesignedOnCopy(**dict)
 
 

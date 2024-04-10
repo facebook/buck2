@@ -210,9 +210,15 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesigned=True,
                 codesign_configuration=None,
                 codesigned_on_copy=[
-                    CodesignedOnCopy(path=Path("foo"), entitlements_digest=None),
                     CodesignedOnCopy(
-                        path=Path("baz"), entitlements_digest="entitlements_digest"
+                        path=Path("foo"),
+                        entitlements_digest=None,
+                        codesign_flags_override=None,
+                    ),
+                    CodesignedOnCopy(
+                        path=Path("baz"),
+                        entitlements_digest="entitlements_digest",
+                        codesign_flags_override=None,
                     ),
                 ],
                 codesign_identity="same_identity",
@@ -250,7 +256,11 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesign_configuration=None,
                 # but it was codesigned in old build
                 codesigned_on_copy=[
-                    CodesignedOnCopy(path=Path("foo"), entitlements_digest=None)
+                    CodesignedOnCopy(
+                        path=Path("foo"),
+                        entitlements_digest=None,
+                        codesign_flags_override=None,
+                    )
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],
@@ -291,7 +301,11 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesigned=True,
                 codesign_configuration=None,
                 codesigned_on_copy=[
-                    CodesignedOnCopy(path=Path("foo"), entitlements_digest="old_digest")
+                    CodesignedOnCopy(
+                        path=Path("foo"),
+                        entitlements_digest="old_digest",
+                        codesign_flags_override=None,
+                    )
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],
@@ -304,6 +318,52 @@ class TestIncrementalUtils(unittest.TestCase):
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
         incremental_context.metadata[Path("baz/entitlements.plist")] = "old_digest"
+        self.assertTrue(should_assemble_incrementally(spec, incremental_context))
+
+    def test_not_run_incrementally_when_codesign_on_copy_flags_mismatch(self):
+        spec = [
+            BundleSpecItem(
+                src="src/foo",
+                dst="foo",
+                codesign_on_copy=True,
+                codesign_flags_override=["--force"],
+            )
+        ]
+        incremental_context = IncrementalContext(
+            metadata={
+                Path("src/foo"): "digest",
+            },
+            state=IncrementalState(
+                items=[
+                    IncrementalStateItem(
+                        source=Path("src/foo"),
+                        destination_relative_to_bundle=Path("foo"),
+                        digest="digest",
+                        resolved_symlink=None,
+                    )
+                ],
+                codesigned=True,
+                codesign_configuration=None,
+                codesigned_on_copy=[
+                    CodesignedOnCopy(
+                        path=Path("foo"),
+                        entitlements_digest=None,
+                        codesign_flags_override=["--force", "--deep"],
+                    )
+                ],
+                codesign_identity="same_identity",
+                codesign_arguments=[],
+                swift_stdlib_paths=[],
+            ),
+            codesigned=True,
+            codesign_configuration=None,
+            codesign_identity="same_identity",
+            codesign_arguments=[],
+        )
+        self.assertFalse(should_assemble_incrementally(spec, incremental_context))
+        incremental_context.state.codesigned_on_copy[0].codesign_flags_override = [
+            "--force"
+        ]
         self.assertTrue(should_assemble_incrementally(spec, incremental_context))
 
     def test_not_run_incrementally_when_codesign_arguments_mismatch(self):
@@ -365,7 +425,11 @@ class TestIncrementalUtils(unittest.TestCase):
                 # Dry codesigned in old build
                 codesign_configuration=CodesignConfiguration.dryRun,
                 codesigned_on_copy=[
-                    CodesignedOnCopy(path=Path("foo"), entitlements_digest=None)
+                    CodesignedOnCopy(
+                        path=Path("foo"),
+                        entitlements_digest=None,
+                        codesign_flags_override=None,
+                    )
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],

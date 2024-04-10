@@ -395,7 +395,11 @@ def _main() -> None:
                 entitlements=(
                     Path(i.codesign_entitlements) if i.codesign_entitlements else None
                 ),
-                flags=args.codesign_args,
+                flags=(
+                    i.codesign_flags_override
+                    if (i.codesign_flags_override is not None)
+                    else args.codesign_args
+                ),
             )
             for i in spec
             if i.codesign_on_copy
@@ -553,6 +557,7 @@ def _write_incremental_state(
                     Path(i.codesign_entitlements) if i.codesign_entitlements else None
                 ),
                 incremental_context=incremental_context,
+                codesign_flags_override=i.codesign_flags_override,
             )
             for i in spec
             if i.codesign_on_copy
