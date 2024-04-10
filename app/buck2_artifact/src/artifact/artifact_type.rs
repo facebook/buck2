@@ -147,6 +147,32 @@ impl Artifact {
             hidden_components_count: self.0.hidden_components_count,
         }
     }
+
+    pub fn project(&self, path: &ForwardRelativePath, hide_prefix: bool) -> Artifact {
+        if path.is_empty() {
+            return self.dupe();
+        }
+
+        let hidden_components_count = self.0.hidden_components_count
+            + if hide_prefix {
+                self.get_path().with_short_path(|p| p.iter().count())
+            } else {
+                0
+            };
+
+        let (base, already_projected) = self.as_parts();
+
+        let projected = already_projected
+            .unwrap_or(ForwardRelativePath::empty())
+            .to_owned()
+            .join(path);
+
+        Self::new(
+            base.dupe(),
+            Some(Arc::new(projected)),
+            hidden_components_count,
+        )
+    }
 }
 
 impl ArtifactDyn for Artifact {

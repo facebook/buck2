@@ -13,6 +13,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::path::artifact_path::ArtifactPath;
@@ -203,17 +204,11 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         path: &str,
         hide_prefix: bool,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
-        let _ignored = hide_prefix;
-
-        let err = anyhow::Error::from(match self.artifact.owner() {
-            Some(owner) => CannotProject::DeclaredElsewhere(owner.dupe()),
-            None => CannotProject::SourceArtifact,
-        });
-
-        Err(err.context(format!(
-            "Cannot project path `{}` in artifact `{}`",
-            path, self
-        )))
+        let path = ForwardRelativePath::new(path)?;
+        Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
+            artifact: self.artifact.dupe().project(path, hide_prefix),
+            associated_artifacts: self.associated_artifacts.dupe(),
+        }))
     }
 
     fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact> {
@@ -294,14 +289,6 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
-}
-
-#[derive(buck2_error::Error, Debug)]
-enum CannotProject {
-    #[error("Source artifacts cannot be projected")]
-    SourceArtifact,
-    #[error("This artifact was declared by another rule: `{0}`")]
-    DeclaredElsewhere(BaseDeferredKey),
 }
 
 pub(crate) struct StarlarkArtifactHelpers;
