@@ -318,6 +318,7 @@ pub(crate) struct DeferredMaterializerCommandProcessor<T: 'static> {
     stats: Arc<DeferredMaterializerStats>,
     access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
     verbose_materializer_log: bool,
+    _daemon_dispatcher: EventDispatcher,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -968,6 +969,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
         http_client: HttpClient,
+        daemon_dispatcher: EventDispatcher,
     ) -> anyhow::Result<Self> {
         let (high_priority_sender, high_priority_receiver) = mpsc::unbounded_channel();
         let (low_priority_sender, low_priority_receiver) = mpsc::unbounded_channel();
@@ -1029,6 +1031,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 stats,
                 access_times_buffer,
                 verbose_materializer_log: configs.verbose_materializer_log,
+                _daemon_dispatcher: daemon_dispatcher,
             }
         };
 

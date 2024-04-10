@@ -441,6 +441,7 @@ mod state_machine {
                 stats: Arc::new(DeferredMaterializerStats::default()),
                 access_times_buffer: Default::default(),
                 verbose_materializer_log: true,
+                _daemon_dispatcher: EventDispatcher::null(),
             },
             command_sender,
             command_receiver,

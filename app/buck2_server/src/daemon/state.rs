@@ -248,6 +248,39 @@ impl DaemonState {
                 .get(cells.root_cell())
                 .context("No config for root cell")?;
 
+            let buffer_size = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "event_log_buffer_size",
+                })?
+                .unwrap_or(10000);
+            let retry_backoff = Duration::from_millis(
+                root_config
+                    .parse(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "event_log_retry_backoff_duration_ms",
+                    })?
+                    .unwrap_or(500),
+            );
+            let retry_attempts = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "event_log_retry_attempts",
+                })?
+                .unwrap_or(5);
+            let message_batch_size = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "event_log_message_batch_size",
+            })?;
+            let scribe_sink = Self::init_scribe_sink(
+                fb,
+                buffer_size,
+                retry_backoff,
+                retry_attempts,
+                message_batch_size,
+            )
+            .context("failed to init scribe sink")?;
+
             let default_digest_algorithm =
                 buck2_env!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmKind)?;
 
@@ -424,6 +457,14 @@ impl DaemonState {
                 paths.buck_out_path(),
                 init_ctx.daemon_startup_config.paranoid,
             ));
+            // Used only to dispatch events to scribe that are not associated with a specific command (ex. materializer clean up events)
+            let daemon_dispatcher = if let Some(sink) = scribe_sink.dupe() {
+                EventDispatcher::new(TraceId::null(), sink.to_event_sync())
+            } else {
+                // If needed this could log to a sink that redirects to a daemon event log (maybe `~/.buck/buckd/repo-path/event-log`)
+                // but for now seems fine to drop events if scribe isn't enabled.
+                EventDispatcher::null()
+            };
             let materializer = Self::create_materializer(
                 fb,
                 io.project_root().dupe(),
@@ -436,6 +477,7 @@ impl DaemonState {
                 materializer_db,
                 materializer_state,
                 http_client.dupe(),
+                daemon_dispatcher,
             )?;
 
             // Create this after the materializer because it'll want to write to buck-out, and an Eden
@@ -484,39 +526,6 @@ impl DaemonState {
                 .unwrap_or(false);
 
             let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
-
-            let buffer_size = root_config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "event_log_buffer_size",
-                })?
-                .unwrap_or(10000);
-            let retry_backoff = Duration::from_millis(
-                root_config
-                    .parse(BuckconfigKeyRef {
-                        section: "buck2",
-                        property: "event_log_retry_backoff_duration_ms",
-                    })?
-                    .unwrap_or(500),
-            );
-            let retry_attempts = root_config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "event_log_retry_attempts",
-                })?
-                .unwrap_or(5);
-            let message_batch_size = root_config.parse(BuckconfigKeyRef {
-                section: "buck2",
-                property: "event_log_message_batch_size",
-            })?;
-            let scribe_sink = Self::init_scribe_sink(
-                fb,
-                buffer_size,
-                retry_backoff,
-                retry_attempts,
-                message_batch_size,
-            )
-            .context("failed to init scribe sink")?;
 
             let enable_restarter = root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {
@@ -578,6 +587,7 @@ impl DaemonState {
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
         http_client: HttpClient,
+        daemon_dispatcher: EventDispatcher,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materializations {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
@@ -598,6 +608,7 @@ impl DaemonState {
                     materializer_db,
                     materializer_state,
                     http_client,
+                    daemon_dispatcher,
                 )?))
             }
             MaterializationMethod::Eden => {
