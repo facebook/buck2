@@ -80,6 +80,13 @@ impl AsRef<RelativePath> for ForwardRelativePathBuf {
 
 pub struct ForwardRelativePathIter<'a>(&'a ForwardRelativePath);
 
+impl<'a> ForwardRelativePathIter<'a> {
+    /// Remaining path in the iterator.
+    pub fn as_path(&self) -> &'a ForwardRelativePath {
+        self.0
+    }
+}
+
 impl<'a> Iterator for ForwardRelativePathIter<'a> {
     type Item = &'a FileName;
 
@@ -1368,6 +1375,23 @@ mod tests {
         assert_eq!(from_iter::<2, _>(parts.iter().copied()), expected);
         assert_eq!(from_iter::<3, _>(parts.iter().copied()), expected);
         assert_eq!(from_iter::<4, _>(parts.iter().copied()), expected);
+    }
+
+    #[test]
+    fn test_iter_as_path() {
+        let path = ForwardRelativePath::new("foo/bar/baz").unwrap();
+        let mut iter = path.iter();
+        assert_eq!(
+            ForwardRelativePath::new("foo/bar/baz").unwrap(),
+            iter.as_path()
+        );
+        iter.next().unwrap();
+        assert_eq!(ForwardRelativePath::new("bar/baz").unwrap(), iter.as_path());
+        iter.next().unwrap();
+        assert_eq!(ForwardRelativePath::new("baz").unwrap(), iter.as_path());
+        iter.next().unwrap();
+        assert_eq!(ForwardRelativePath::new("").unwrap(), iter.as_path());
+        assert_eq!(None, iter.next());
     }
 
     #[test]
