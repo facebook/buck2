@@ -283,17 +283,14 @@ impl ProjectRelativePath {
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn strip_prefix<'a, P: ?Sized>(
-        &'a self,
-        base: &'a P,
-    ) -> anyhow::Result<&'a ForwardRelativePath>
+    pub fn strip_prefix<'a, P>(&'a self, base: P) -> anyhow::Result<&'a ForwardRelativePath>
     where
         P: AsRef<ProjectRelativePath>,
     {
         self.0.strip_prefix(&base.as_ref().0)
     }
 
-    pub fn strip_prefix_opt<'a, P: ?Sized>(&'a self, base: &'a P) -> Option<&'a ForwardRelativePath>
+    pub fn strip_prefix_opt<'a, P>(&'a self, base: P) -> Option<&'a ForwardRelativePath>
     where
         P: AsRef<ProjectRelativePath>,
     {
