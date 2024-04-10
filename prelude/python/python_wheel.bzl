@@ -82,9 +82,17 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     for key, val in ctx.attrs.extra_metadata.items():
         cmd.add("--metadata={}:{}".format(key, val))
 
+    libraries = {}
+    for lib in ctx.attrs.libraries:
+        libraries[lib.label] = lib
+    if ctx.attrs.libraries_query != None:
+        for lib in ctx.attrs.libraries_query:
+            if PythonLibraryInfo in lib:
+                libraries[lib.label] = lib
+
     srcs = []
     extensions = {}
-    for dep in ctx.attrs.libraries:
+    for dep in libraries.values():
         manifests = dep[PythonLibraryInfo].manifests.value
         if manifests.srcs != None:
             srcs.append(manifests.srcs)
@@ -105,13 +113,13 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 prefer_stripped = ctx.attrs.prefer_stripped_objects,
             ))
             link_infos = get_linkable_graph_node_map_func(dep[LinkableGraph])()
-            for dep in _link_deps(
+            for ext_dep in _link_deps(
                 link_infos,
                 root.deps,
                 LinkStrategy("static_pic"),
                 toolchain_info.pic_behavior,
             ):
-                node = link_infos[dep]
+                node = link_infos[ext_dep]
                 output_style = get_lib_output_style(
                     LinkStrategy("static_pic"),
                     node.preferred_linkage,
@@ -196,6 +204,7 @@ python_wheel = rule(
         ),
         constraint_overrides = attrs.list(attrs.string(), default = []),
         libraries = attrs.list(attrs.dep(providers = [PythonLibraryInfo]), default = []),
+        libraries_query = attrs.option(attrs.query(), default = None),
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _cxx_toolchain = toolchains_common.cxx(),
