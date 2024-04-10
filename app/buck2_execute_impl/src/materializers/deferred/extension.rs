@@ -38,7 +38,8 @@ use tokio::sync::oneshot::Sender;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use crate::materializers::deferred::clean_stale::CleanStaleArtifacts;
+use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
+use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommand;
 use crate::materializers::deferred::io_handler::create_ttl_refresh;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
@@ -410,15 +411,17 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         let (sender, recv) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(Box::new(
-                CleanStaleArtifacts {
-                    keep_since_time,
-                    dry_run,
-                    tracked_only,
+                CleanStaleArtifactsExtensionCommand {
+                    cmd: CleanStaleArtifactsCommand {
+                        keep_since_time,
+                        dry_run,
+                        tracked_only,
+                        dispatcher,
+                    },
                     sender,
-                    dispatcher,
                 },
             )))?;
-        recv.await?.await
+        recv.await?.await.map(|res| res.into())
     }
 
     async fn test_iter(&self, count: usize) -> anyhow::Result<String> {

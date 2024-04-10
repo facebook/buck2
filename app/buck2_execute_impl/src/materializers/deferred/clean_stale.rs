@@ -50,19 +50,24 @@ use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct CleanStaleArtifacts {
+#[derive(Debug, Clone)]
+pub struct CleanStaleArtifactsCommand {
     pub keep_since_time: DateTime<Utc>,
     pub dry_run: bool,
     pub tracked_only: bool,
-    #[derivative(Debug = "ignore")]
-    pub sender: Sender<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>>,
     pub dispatcher: EventDispatcher,
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct CleanStaleArtifactsExtensionCommand {
+    pub cmd: CleanStaleArtifactsCommand,
+    #[derivative(Debug = "ignore")]
+    pub sender: Sender<BoxFuture<'static, anyhow::Result<CleanResult>>>,
+}
+
 #[derive(Clone)]
-struct CleanResult {
+pub struct CleanResult {
     kind: CleanStaleResultKind,
     stats: CleanStaleStats,
 }
@@ -132,12 +137,24 @@ fn create_result(
     }
 }
 
-impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
+impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        let trace_id = self.cmd.dispatcher.trace_id().clone();
+        let fut = self.cmd.create_clean_fut(processor, Some(trace_id));
+        let _ignored = self.sender.send(fut);
+    }
+}
+
+impl CleanStaleArtifactsCommand {
+    pub(crate) fn create_clean_fut<T: IoHandler>(
+        &self,
+        processor: &mut DeferredMaterializerCommandProcessor<T>,
+        trace_id: Option<TraceId>,
+    ) -> BoxFuture<'static, anyhow::Result<CleanResult>> {
         let start_time = Instant::now();
         let pending_result = self.create_pending_clean_result(processor);
         let dispatcher_dup = self.dispatcher.dupe();
-        let fut = async move {
+        async move {
             let result = match pending_result {
                 Ok(res) => match res {
                     PendingCleanResult::Finished(result) => Ok(result),
@@ -145,22 +162,18 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifacts {
                 },
                 Err(e) => Err(e),
             };
-            let trace_id = dispatcher_dup.trace_id().clone();
             let result: Result<CleanResult, buck2_error::Error> = result.map_err(|e| e.into());
             let result_event: buck2_data::CleanStaleResult = create_result(
                 result.clone(),
-                Some(trace_id),
+                trace_id,
                 (Instant::now() - start_time).as_secs(),
             );
             dispatcher_dup.instant_event(result_event);
             Ok(result?.into())
         }
-        .boxed();
-        let _ignored = self.sender.send(fut);
+        .boxed()
     }
-}
 
-impl CleanStaleArtifacts {
     fn create_pending_clean_result<T: IoHandler>(
         &self,
         processor: &mut DeferredMaterializerCommandProcessor<T>,
