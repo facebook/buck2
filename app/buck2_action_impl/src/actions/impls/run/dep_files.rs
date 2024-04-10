@@ -39,7 +39,7 @@ use buck2_core::directory::DirectorySelector;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::span_async;
@@ -1243,10 +1243,11 @@ impl DeclaredDepFiles {
                     if line.is_empty() {
                         continue;
                     }
-                    let path = ProjectRelativePath::new(line)
-                        .context("Invalid line encountered in dep file")?;
 
-                    selector.select(path);
+                    // On windows, valid dep files can contain backslashes in paths, normalize them.
+                    let path = ForwardRelativePathNormalizer::normalize_path(line)
+                        .context("Invalid line encountered in dep file")?;
+                    selector.select(path.as_ref());
                 }
             };
 
