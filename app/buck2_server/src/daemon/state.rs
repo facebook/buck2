@@ -47,6 +47,7 @@ use buck2_execute::execute::blocking::BuckBlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_execute_impl::materializers::deferred::AccessTimesUpdates;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
@@ -361,6 +362,8 @@ impl DaemonState {
                     })?
                     .unwrap_or(false);
 
+                let clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
+
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         materializations,
@@ -374,6 +377,7 @@ impl DaemonState {
                     },
                     update_access_times,
                     verbose_materializer_log,
+                    clean_stale_config,
                 }
             };
 

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-mod clean_stale;
+pub mod clean_stale;
 mod extension;
 mod file_tree;
 mod io_handler;
@@ -100,6 +100,7 @@ use tokio::time::Instant;
 use tokio::time::Interval;
 use tracing::instrument;
 
+use crate::materializers::deferred::clean_stale::CleanStaleConfig;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
@@ -182,6 +183,7 @@ pub struct DeferredMaterializerConfigs {
     pub ttl_refresh: TtlRefreshConfiguration,
     pub update_access_times: AccessTimesUpdates,
     pub verbose_materializer_log: bool,
+    pub clean_stale_config: Option<CleanStaleConfig>,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -290,7 +292,7 @@ struct MaterializerReceiver<T: 'static> {
     counters: MaterializerCounters,
 }
 
-struct DeferredMaterializerCommandProcessor<T: 'static> {
+pub(crate) struct DeferredMaterializerCommandProcessor<T: 'static> {
     io: Arc<T>,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
@@ -1046,6 +1048,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                     configs.ttl_refresh,
                     access_time_update_max_buffer_size,
                     configs.update_access_times,
+                    configs.clean_stale_config,
                 ));
             }
         })
@@ -1171,6 +1174,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         ttl_refresh: TtlRefreshConfiguration,
         access_time_update_max_buffer_size: usize,
         access_time_updates: AccessTimesUpdates,
+        _clean_stale_config: Option<CleanStaleConfig>,
     ) {
         let MaterializerReceiver {
             high_priority,

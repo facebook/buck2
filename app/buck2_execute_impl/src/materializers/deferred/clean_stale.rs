@@ -13,6 +13,8 @@ use std::time::Instant;
 
 use anyhow::Context;
 use buck2_common::file_ops::FileType;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserverSync;
 use buck2_core::fs::fs_util;
@@ -593,4 +595,66 @@ fn find_stale_tracked_only(
         }
     }
     Ok(())
+}
+
+pub struct CleanStaleConfig {
+    // Time before running first clean, after daemon start
+    pub start_offset: std::time::Duration,
+    pub clean_period: std::time::Duration,
+    pub artifact_ttl: std::time::Duration,
+    pub dry_run: bool,
+}
+
+impl CleanStaleConfig {
+    pub fn from_buck_config(root_config: &LegacyBuckConfig) -> anyhow::Result<Option<Self>> {
+        let clean_stale_enabled = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_enabled",
+            })?
+            .unwrap_or(false);
+        let clean_stale_artifact_ttl_hours = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_artifact_ttl_hours",
+            })?
+            .unwrap_or(24.0 * 7.0);
+        let clean_stale_period_hours = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_period_hours",
+            })?
+            .unwrap_or(24.0);
+        let clean_stale_start_offset_hours = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_start_offset_hours",
+            })?
+            .unwrap_or(12.0);
+        let clean_stale_dry_run = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_dry_run",
+            })?
+            .unwrap_or(false);
+
+        let secs_in_hour = 60.0 * 60.0;
+        let clean_stale_config = if clean_stale_enabled {
+            Some(Self {
+                clean_period: std::time::Duration::from_secs_f64(
+                    secs_in_hour * clean_stale_period_hours,
+                ),
+                artifact_ttl: std::time::Duration::from_secs_f64(
+                    secs_in_hour * clean_stale_artifact_ttl_hours,
+                ),
+                start_offset: std::time::Duration::from_secs_f64(
+                    secs_in_hour * clean_stale_start_offset_hours,
+                ),
+                dry_run: clean_stale_dry_run,
+            })
+        } else {
+            None
+        };
+        Ok(clean_stale_config)
+    }
 }
