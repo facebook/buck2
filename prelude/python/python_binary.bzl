@@ -84,7 +84,7 @@ load(
     "EntryPointKind",
     "PythonLibraryInterface",
 )
-load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package")
+load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package", "make_run_info")
 load(
     ":manifest.bzl",
     "create_dep_manifest_for_source_map",
@@ -771,5 +771,5 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     return [
         make_default_info(pex),
-        RunInfo(pex.run_cmd),
+        make_run_info(pex, ctx.attrs.run_with_inplace),
     ]

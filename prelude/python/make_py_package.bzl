@@ -64,7 +64,11 @@ def make_default_info(pex: PexProviders) -> Provider:
         sub_targets = pex.sub_targets,
     )
 
-def make_run_info(pex: PexProviders) -> Provider:
+def make_run_info(pex: PexProviders, run_with_inplace: bool = False) -> Provider:
+    if run_with_inplace and "inplace" in pex.sub_targets:
+        # If running with inplace, we want to use the RunInfo of inplace subtarget.
+        return pex.sub_targets["inplace"][1]
+
     return RunInfo(pex.run_cmd)
 
 def _srcs(srcs: list[typing.Any], format = "{}") -> cmd_args:

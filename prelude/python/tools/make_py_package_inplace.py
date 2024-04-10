@@ -139,6 +139,10 @@ def parse_args() -> argparse.Namespace:
     )
     # Compatibility with existing make_par scripts
     parser.add_argument("--passthrough", action="append", default=[])
+    # No-op, added for compatibility with existing make_par scripts
+    parser.add_argument(
+        "--omnibus-debug-info", choices=["separate", "strip", "extract"]
+    )
 
     return parser.parse_args()
 
