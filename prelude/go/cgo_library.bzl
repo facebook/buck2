@@ -28,17 +28,6 @@ load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
 
-    # Separate sources into C++ and CGO sources.
-    cgo_srcs = []
-    cxx_srcs = []
-    for src in ctx.attrs.srcs:
-        if src.extension == ".go":
-            cgo_srcs.append(src)
-        elif src.extension in (".c", ".cpp"):
-            cxx_srcs.append(src)
-        else:
-            fail("unexpected extension: {}".format(src))
-
     shared = ctx.attrs._compile_shared
     race = ctx.attrs._race
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
@@ -47,7 +36,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     compiled_pkg = build_package(
         ctx,
         pkg_name,
-        ctx.attrs.go_srcs + cgo_srcs + cxx_srcs,
+        ctx.attrs.go_srcs + ctx.attrs.srcs,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         shared = shared,
