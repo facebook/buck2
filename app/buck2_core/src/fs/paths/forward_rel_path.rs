@@ -413,6 +413,40 @@ impl ForwardRelativePath {
         }
     }
 
+    pub fn strip_suffix<P: AsRef<ForwardRelativePath>>(
+        &self,
+        suffix: P,
+    ) -> anyhow::Result<&ForwardRelativePath> {
+        let suffix = suffix.as_ref();
+        self.strip_suffix_opt(suffix).ok_or_else(|| {
+            ForwardRelativePathError::StripSuffix(
+                self.as_str().to_owned(),
+                suffix.as_str().to_owned(),
+            )
+            .into()
+        })
+    }
+
+    pub fn strip_suffix_opt<P: AsRef<ForwardRelativePath>>(
+        &self,
+        suffix: P,
+    ) -> Option<&ForwardRelativePath> {
+        let suffix = suffix.as_ref();
+        if suffix.0.is_empty() {
+            Some(self)
+        } else if self.ends_with(suffix) {
+            if self.0.len() == suffix.0.len() {
+                Some(ForwardRelativePath::empty())
+            } else {
+                Some(ForwardRelativePath::unchecked_new(
+                    &self.0[..self.0.len() - suffix.0.len() - 1],
+                ))
+            }
+        } else {
+            None
+        }
+    }
+
     /// Determines whether `base` is a prefix of `self`.
     ///
     /// ```
@@ -922,6 +956,8 @@ enum ForwardRelativePathError {
     RelativizationError(String),
     #[error("`{0}` does not start with `{1}`")]
     StripPrefix(String, String),
+    #[error("`{0}` does not end with `{1}`")]
+    StripSuffix(String, String),
 }
 
 impl<'a> IntoIterator for &'a ForwardRelativePath {
@@ -1394,6 +1430,48 @@ mod tests {
         iter.next().unwrap();
         assert_eq!(ForwardRelativePath::new("").unwrap(), iter.as_path());
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_strip_suffix() {
+        let path = ForwardRelativePath::new("foo/bar/baz").unwrap();
+        assert_eq!(
+            Some(ForwardRelativePath::new("foo/bar/baz").unwrap()),
+            path.strip_suffix_opt(ForwardRelativePath::new("").unwrap()),
+        );
+        assert_eq!(
+            Some(ForwardRelativePath::new("foo/bar").unwrap()),
+            path.strip_suffix_opt(ForwardRelativePath::new("baz").unwrap()),
+        );
+        assert_eq!(
+            Some(ForwardRelativePath::new("foo").unwrap()),
+            path.strip_suffix_opt(ForwardRelativePath::new("bar/baz").unwrap()),
+        );
+        assert_eq!(
+            Some(ForwardRelativePath::new("").unwrap()),
+            path.strip_suffix_opt(ForwardRelativePath::new("foo/bar/baz").unwrap()),
+        );
+        assert_eq!(
+            None,
+            path.strip_suffix_opt(ForwardRelativePath::new("foo/bar/baz/qux").unwrap()),
+        );
+        assert_eq!(
+            None,
+            path.strip_suffix_opt(ForwardRelativePath::new("az").unwrap()),
+        );
+
+        assert_eq!(
+            Some(ForwardRelativePath::new("").unwrap()),
+            ForwardRelativePath::new("")
+                .unwrap()
+                .strip_suffix_opt(ForwardRelativePath::new("").unwrap())
+        );
+        assert_eq!(
+            None,
+            ForwardRelativePath::new("")
+                .unwrap()
+                .strip_suffix_opt(ForwardRelativePath::new("xx").unwrap())
+        );
     }
 
     #[test]
