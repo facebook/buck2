@@ -1704,7 +1704,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     #[instrument(level = "debug", skip(self), fields(path = %path))]
     fn materialize_artifact(
         &mut self,
-        mut path: &ProjectRelativePath,
+        path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
     ) -> Option<MaterializingFuture> {
         // TODO(nga): rewrite without recursion.
@@ -1721,12 +1721,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             Some(data) => data,
         };
 
-        // Rewind the `path` up to the entry we *actually* found.
-        for _ in path_iter {
-            path = path
-                .parent()
-                .expect("Path iterator cannot cause us to rewind past the last parent");
-        }
+        let path = path.strip_suffix(path_iter.as_path()).unwrap();
 
         let cleaning_fut = match &data.processing {
             Processing::Active {
