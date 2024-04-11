@@ -7,10 +7,6 @@
 
 load("@prelude//:paths.bzl", "paths")
 load(
-    "@prelude//apple:xcode.bzl",
-    "get_project_root_file",
-)
-load(
     "@prelude//cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
@@ -20,7 +16,7 @@ load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
-load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout", "prepare_headers")
+load("@prelude//cxx:headers.bzl", "cxx_attr_header_namespace", "cxx_get_regular_cxx_headers_layout", "prepare_headers")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
@@ -28,7 +24,6 @@ load(
     "CPreprocessorInfo",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
-    "cxx_private_preprocessor_info",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -113,18 +108,22 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
         os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
     )
 
-def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], c_files: list[Artifact]) -> (list[Artifact], list[Artifact], Artifact):
+# build CPreprocessor similar as cxx_private_preprocessor_info does, but with our filtered headers
+def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
+    namespace = cxx_attr_header_namespace(ctx)
+    header_map = {paths.join(namespace, h.short_path): h for h in h_files}
+    header_root = prepare_headers(ctx, header_map, "h_files-private-headers", None)
+
+    return CPreprocessor(
+        relative_args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
+    )
+
+def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Artifact], c_files: list[Artifact]) -> (list[Artifact], list[Artifact], Artifact):
     if len(cgo_files) == 0:
         return [], [], ctx.actions.copied_dir("cgo_gen_tmp", {})
 
-    project_root_file = get_project_root_file(ctx)
-
     # Gather preprocessor inputs.
-    (own_pre, _) = cxx_private_preprocessor_info(
-        ctx,
-        cxx_get_regular_cxx_headers_layout(ctx),
-        project_root_file = project_root_file,
-    )
+    own_pre = _own_pre(ctx, h_files)
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
 
     # Separate sources into C++ and GO sources.
