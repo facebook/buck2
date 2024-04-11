@@ -69,6 +69,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",  # @unused Used as a type
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
@@ -178,7 +179,7 @@ CxxExecutableOutput = record(
     # materialized when this executable is the output of a build, not when it is
     # used by other rules. They become other_outputs on DefaultInfo.
     external_debug_info_artifacts = list[TransitiveSetArgsProjection],
-    shared_libs = dict[str, LinkedObject],
+    shared_libs = list[SharedLibrary],
     # All link group links that were generated in the executable.
     auto_link_groups = field(dict[str, LinkedObject], {}),
     compilation_db = CxxCompilationDbInfo,
@@ -428,11 +429,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
 
     # Set up shared libraries symlink tree only when needed
-    shared_libs = {}
+    shared_libs = []
 
     # Add in extra, rule-specific shared libs.
-    for name, shlib in impl_params.extra_shared_libs.items():
-        shared_libs[name] = shlib.lib
+    shared_libs.extend(impl_params.extra_shared_libs)
 
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
     gnu_use_link_groups = cxx_is_gnu(ctx) and link_group_mappings
@@ -452,17 +452,18 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         labels_to_links_map = labels_to_links_map,
     )
 
-    def shlib_filter(_name, shared_lib):
-        return not gnu_use_link_groups or is_link_group_shlib(shared_lib.label, link_group_ctx)
-
-    for name, shared_lib in traverse_shared_library_info(shlib_info, filter_func = shlib_filter).items():
-        shared_libs[name] = shared_lib.lib
+    for shlib in traverse_shared_library_info(shlib_info):
+        if not gnu_use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx):
+            shared_libs.append(shlib)
 
     if gnu_use_link_groups:
         # When there are no matches for a pattern based link group,
         # `link_group_mappings` will not have an entry associated with the lib.
         for _name, link_group_lib in link_group_libs.items():
-            shared_libs.update(link_group_lib.shared_libs)
+            shared_libs.extend([
+                SharedLibrary(soname = name, lib = lib, label = ctx.label)
+                for name, lib in link_group_lib.shared_libs.items()
+            ])
 
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
@@ -500,7 +501,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         ctx,
         # If shlib lib tree generation is enabled, pass in the shared libs (which
         # will trigger the necessary link tree and link args).
-        shared_libs if impl_params.exe_shared_libs_link_tree else {},
+        shared_libs if impl_params.exe_shared_libs_link_tree else [],
         impl_params.executable_name,
         linker_info.binary_extension,
         link_options(
@@ -540,29 +541,29 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         sub_targets["rpath-tree"] = [DefaultInfo(
             default_output = shared_libs_symlink_tree,
             other_outputs = [
-                lib.output
-                for lib in shared_libs.values()
+                shlib.lib.output
+                for shlib in shared_libs
             ] + [
-                lib.dwp
-                for lib in shared_libs.values()
-                if lib.dwp
+                shlib.lib.dwp
+                for shlib in shared_libs
+                if shlib.lib.dwp
             ],
         )]
     sub_targets["shared-libraries"] = [DefaultInfo(
         default_output = ctx.actions.write_json(
             binary.output.basename + ".shared-libraries.json",
             {
-                "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, name) for name in shared_libs.keys()],
-                "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, name) for name, lib in shared_libs.items() if lib.dwp],
+                "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, shlib.soname) for shlib in shared_libs],
+                "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, shlib.soname) for shlib in shared_libs if shlib.lib.dwp],
                 "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
             },
         ),
         sub_targets = {
-            name: [DefaultInfo(
-                default_output = lib.output,
-                sub_targets = {"dwp": [DefaultInfo(default_output = lib.dwp)]} if lib.dwp else {},
+            shlib.soname: [DefaultInfo(
+                default_output = shlib.lib.output,
+                sub_targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {},
             )]
-            for name, lib in shared_libs.items()
+            for shlib in shared_libs
         },
     )]
     if link_group_mappings:
@@ -650,7 +651,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         actions = ctx.actions,
         children = (
             [binary.external_debug_info] +
-            [s.external_debug_info for s in shared_libs.values()] +
+            [s.lib.external_debug_info for s in shared_libs] +
             impl_params.additional.static_external_debug_info
         ),
     )
@@ -713,7 +714,7 @@ _CxxLinkExecutableResult = record(
 
 def _link_into_executable(
         ctx: AnalysisContext,
-        shared_libs: dict[str, LinkedObject],
+        shared_libs: list[SharedLibrary],
         executable_name: [str, None],
         binary_extension: str,
         opts: LinkOptions) -> _CxxLinkExecutableResult:

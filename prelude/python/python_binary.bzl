@@ -455,8 +455,8 @@ def _convert_python_library_to_executable(
     # Convert preloaded deps to a set of their names to be loaded by.
     preload_labels = {d.label: None for d in ctx.attrs.preload_deps}
     preload_names = {
-        name: None
-        for name, shared_lib in library.shared_libraries().items()
+        shared_lib.soname: None
+        for shared_lib in library.shared_libraries()
         if shared_lib.label in preload_labels
     }
 
@@ -632,8 +632,8 @@ def _convert_python_library_to_executable(
         extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
 
         # Add sub-targets for libs.
-        for name, lib in executable_info.shared_libs.items():
-            extra[name] = [DefaultInfo(default_output = lib.output)]
+        for shlib in executable_info.shared_libs:
+            extra[shlib.soname] = [DefaultInfo(default_output = shlib.lib.output)]
 
         for name, group in executable_info.auto_link_groups.items():
             extra[name] = [DefaultInfo(default_output = group.output)]
@@ -650,8 +650,8 @@ def _convert_python_library_to_executable(
         # Put native libraries into the runtime location, as we need to unpack
         # potentially all of them before startup.
         native_libs = {
-            paths.join("runtime", "lib", name): lib
-            for name, lib in executable_info.shared_libs.items()
+            paths.join("runtime", "lib", shlib.soname): shlib.lib
+            for shlib in executable_info.shared_libs
         }
         preload_names = [paths.join("runtime", "lib", n) for n in preload_names]
 
@@ -665,7 +665,7 @@ def _convert_python_library_to_executable(
 
         extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
     else:
-        native_libs = {name: shared_lib.lib for name, shared_lib in library.shared_libraries().items()}
+        native_libs = {shared_lib.soname: shared_lib.lib for shared_lib in library.shared_libraries()}
 
     if dbg_source_db:
         extra_artifacts["dbg-db.json"] = dbg_source_db.default_outputs[0]

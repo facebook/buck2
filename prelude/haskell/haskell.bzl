@@ -128,8 +128,10 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",
     "SharedLibraryInfo",
     "create_shared_libraries",
+    "create_shlib_symlink_tree",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
@@ -928,7 +930,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = slis,
     )
 
-    sos = {}
+    sos = []
 
     if link_group_info != None:
         own_binary_link_flags = []
@@ -1032,15 +1034,16 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             labels_to_links_map = labels_to_links_map,
         )
 
-        for name, shared_lib in traverse_shared_library_info(shlib_info).items():
+        for shared_lib in traverse_shared_library_info(shlib_info):
             label = shared_lib.label
             if is_link_group_shlib(label, link_group_ctx):
-                sos[name] = shared_lib.lib
+                sos.append(shared_lib)
 
         # When there are no matches for a pattern based link group,
         # `link_group_mappings` will not have an entry associated with the lib.
         for _name, link_group_lib in link_group_libs.items():
-            sos.update(link_group_lib.shared_libs)
+            for soname, lib in link_group_lib.shared_libs.items():
+                sos.append(SharedLibrary(soname = soname, lib = lib, label = ctx.label))
 
     else:
         nlis = []
@@ -1053,8 +1056,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             li = lib.get(MergedLinkInfo)
             if li != None:
                 nlis.append(li)
-        for name, shared_lib in traverse_shared_library_info(shlib_info).items():
-            sos[name] = shared_lib.lib
+        sos.extend(traverse_shared_library_info(shlib_info))
         infos = get_link_args_for_strategy(ctx, nlis, to_link_strategy(link_style))
 
     link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
@@ -1068,7 +1070,11 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         rpath_ref = get_rpath_origin(get_cxx_toolchain_info(ctx).linker_info.type)
         rpath_ldflag = "-Wl,{}/{}".format(rpath_ref, sos_dir)
         link.add("-optl", "-Wl,-rpath", "-optl", rpath_ldflag)
-        symlink_dir = ctx.actions.symlinked_dir(sos_dir, {n: o.output for n, o in sos.items()})
+        symlink_dir = create_shlib_symlink_tree(
+            actions = ctx.actions,
+            out = sos_dir,
+            shared_libs = sos,
+        )
         run.hidden(symlink_dir)
 
     providers = [

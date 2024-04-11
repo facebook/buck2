@@ -178,7 +178,7 @@ CxxRuleConstructorParams = record(
     # shared libs to include in the symlink tree).
     extra_link_roots = field(list[LinkableProviders], []),
     # Additional shared libs to "package".
-    extra_shared_libs = field(dict[str, SharedLibrary], {}),
+    extra_shared_libs = field(list[SharedLibrary], []),
     auto_link_group_specs = field([list[LinkGroupLibSpec], None], None),
     link_group_info = field([LinkGroupInfo, None], None),
     # Whether to use pre-stripped objects when linking.
