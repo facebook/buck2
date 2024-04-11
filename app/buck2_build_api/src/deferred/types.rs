@@ -482,7 +482,7 @@ struct DeferredResultData {
 }
 
 #[derive(Allocative)]
-pub struct DeferredTable(Vec<DeferredTableEntry>);
+pub struct DeferredTable(Box<[DeferredTableEntry]>);
 
 impl Debug for DeferredResultData {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -503,7 +503,7 @@ impl Debug for DeferredTable {
 
 impl DeferredTable {
     pub fn new(deferreds: Vec<DeferredTableEntry>) -> Self {
-        DeferredTable(deferreds)
+        DeferredTable(deferreds.into_boxed_slice())
     }
 
     pub fn len(&self) -> usize {
