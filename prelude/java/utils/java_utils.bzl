@@ -123,14 +123,13 @@ def get_class_to_source_map_info(
     class_to_srcs_debuginfo = None
     if outputs != None:
         name = ctx.label.name
-        if not ctx.attrs._is_building_android_binary:
-            class_to_srcs = create_class_to_source_map_from_jar(
-                actions = ctx.actions,
-                java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
-                name = name + ".class_to_srcs.json",
-                jar = outputs.classpath_entry.full_library,
-                srcs = ctx.attrs.srcs,
-            )
+        class_to_srcs = create_class_to_source_map_from_jar(
+            actions = ctx.actions,
+            java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
+            name = name + ".class_to_srcs.json",
+            jar = outputs.classpath_entry.full_library,
+            srcs = ctx.attrs.srcs,
+        )
         class_to_srcs_debuginfo = maybe_create_class_to_source_map_debuginfo(
             actions = ctx.actions,
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
