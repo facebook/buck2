@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::io::Write;
+use std::fs;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
@@ -19,9 +19,7 @@ pub fn main(data: String, output: &AbsPathBuf) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("HTML template is not valid"));
     }
 
-    let mut writer = std::fs::File::create(output)?;
-    writer.write_all(&html_out.into_bytes()[..])?;
-    writer.flush()?;
+    fs::write(output, &html_out)?;
 
     Ok(())
 }
