@@ -523,6 +523,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         shared_interface_info = shared_interface_info,
     )
     solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
+    shared_libs = create_shared_libraries(ctx, solib_as_dict)
 
     for _, link_style_output in library_outputs.outputs.items():
         for key in link_style_output.sub_targets.keys():
@@ -635,7 +636,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_providers.shared_libraries:
         providers.append(merge_shared_libraries(
             ctx.actions,
-            create_shared_libraries(ctx, solib_as_dict),
+            shared_libs,
             filter(None, [x.get(SharedLibraryInfo) for x in non_exported_deps]) +
             filter(None, [x.get(SharedLibraryInfo) for x in exported_deps]),
         ))
@@ -744,7 +745,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     # that omnibus knows to avoid it.
                     include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True) and default_output != None,
                     link_infos = library_outputs.link_infos,
-                    shared_libs = solib_as_dict,
+                    shared_libs = shared_libs,
                     linker_flags = linker_flags,
                     can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                 ),
@@ -861,7 +862,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             merge_link_group_lib_info(
                 label = ctx.label,
                 name = link_group,
-                shared_libs = solib_as_dict,
+                shared_libs = shared_libs,
                 shared_link_infos = library_outputs.link_infos.get(LibOutputStyle("shared_lib")),
                 deps = exported_deps + non_exported_deps,
             ),

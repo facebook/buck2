@@ -556,9 +556,10 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ))
 
     # Propagate shared libraries up the tree.
+    shared_libs = create_shared_libraries(ctx, solibs)
     providers.append(merge_shared_libraries(
         ctx.actions,
-        create_shared_libraries(ctx, solibs),
+        shared_libs,
         filter(None, [x.get(SharedLibraryInfo) for x in exported_first_order_deps]),
     ))
 
@@ -603,7 +604,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 # If we don't have link input for this link style, we pass in `None` so
                 # that omnibus knows to avoid it.
                 link_infos = libraries,
-                shared_libs = solibs,
+                shared_libs = shared_libs,
                 linker_flags = linker_flags,
                 can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
             ),

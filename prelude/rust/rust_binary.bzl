@@ -40,7 +40,6 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
@@ -179,10 +178,7 @@ def _rust_binary_common(
             # When there are no matches for a pattern based link group,
             # `link_group_mappings` will not have an entry associated with the lib.
             for _name, link_group_lib in link_group_libs.items():
-                shared_libs.extend([
-                    SharedLibrary(soname = name, lib = lib, label = ctx.label)
-                    for name, lib in link_group_lib.shared_libs.items()
-                ])
+                shared_libs.extend(link_group_lib.shared_libs.libraries)
 
         # link groups shared libraries link args are directly added to the link command,
         # we don't have to add them here

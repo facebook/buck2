@@ -1045,7 +1045,7 @@ def _shared_lib_for_prebuilt_shared(
         transitive_linkable_cache: dict[Label, bool],
         platform: [str, None] = None) -> SharedLibrary:
     expect(
-        len(node_data.shared_libs) == 1,
+        len(node_data.shared_libs.libraries) == 1,
         "unexpected shared_libs length for somerge of {} ({})".format(target, node_data.shared_libs),
     )
 
@@ -1063,7 +1063,9 @@ def _shared_lib_for_prebuilt_shared(
             "prebuilt shared library `{}` with exported_deps not supported by somerge".format(target),
         )
 
-    soname, shlib = node_data.shared_libs.items()[0]
+    shlib = node_data.shared_libs.libraries[0]
+    soname = shlib.soname
+    shlib = shlib.lib
     output_path = _platform_output_path(soname, platform)
     return SharedLibrary(
         lib = shlib,
@@ -1270,7 +1272,7 @@ def _get_merged_linkables_for_platform(
             expect(target_to_link_group[key] == group)
             node = linkable_nodes[key]
 
-            default_solibs = list(node.shared_libs.keys())
+            default_solibs = list([shlib.soname for shlib in node.shared_libs.libraries])
             if not default_solibs and node.preferred_linkage == Linkage("static"):
                 default_solibs = [node.default_soname]
 
