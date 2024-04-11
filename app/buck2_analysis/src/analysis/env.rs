@@ -15,7 +15,6 @@ use buck2_build_api::analysis::extra_v::AnalysisExtraValue;
 use buck2_build_api::analysis::extra_v::FrozenAnalysisExtraValue;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
@@ -357,7 +356,7 @@ async fn run_analysis_with_env_underlying(
     let provider_collection = FrozenProviderCollectionValue::from_value(provider_collection);
 
     // this could look nicer if we had the entire analysis be a deferred
-    let deferred = DeferredTable::new(deferreds.take_result()?);
+    let deferred = deferreds.take_result()?;
     Ok(AnalysisResult::new(
         provider_collection,
         deferred,

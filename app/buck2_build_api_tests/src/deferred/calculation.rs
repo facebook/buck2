@@ -24,7 +24,6 @@ use buck2_build_api::deferred::types::DeferredInput;
 use buck2_build_api::deferred::types::DeferredInputsRef;
 use buck2_build_api::deferred::types::DeferredOutput;
 use buck2_build_api::deferred::types::DeferredRegistry;
-use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::deferred::types::DeferredValue;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
@@ -96,7 +95,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
     let executed1 = Arc::new(AtomicBool::new(false));
     let data0 = deferred.defer(FakeDeferred(1, IndexSet::new(), executed0.dupe()));
     let data1 = deferred.defer(FakeDeferred(5, IndexSet::new(), executed1.dupe()));
-    let deferred_result = DeferredTable::new(deferred.take_result()?);
+    let deferred_result = deferred.take_result()?;
 
     let fs = ProjectRootTemp::new()?;
     let dice = DiceBuilder::new()
@@ -189,7 +188,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
 
     let executed = Arc::new(AtomicBool::new(false));
     let data = deferred.defer(TestDeferringDeferred(8, IndexSet::new(), executed.dupe()));
-    let deferred_result = DeferredTable::new(deferred.take_result()?);
+    let deferred_result = deferred.take_result()?;
 
     let fs = ProjectRootTemp::new()?;
     let dice = DiceBuilder::new()

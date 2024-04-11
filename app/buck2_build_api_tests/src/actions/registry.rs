@@ -220,15 +220,8 @@ fn finalizing_actions() -> anyhow::Result<()> {
 
     assert_eq!(
         registered_deferreds
-            .get(
-                declared
-                    .testing_action_key()
-                    .unwrap()
-                    .deferred_key()
-                    .id()
-                    .as_usize()
-            )
-            .is_some(),
+            .lookup_deferred(declared.testing_action_key().unwrap().deferred_key().id())
+            .is_ok(),
         true
     );
 

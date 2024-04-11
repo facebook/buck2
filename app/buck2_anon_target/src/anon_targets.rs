@@ -29,7 +29,6 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
-use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
@@ -410,7 +409,7 @@ impl AnonTargetKey {
                     .expect("just created this, this shouldn't happen");
 
                 // this could look nicer if we had the entire analysis be a deferred
-                let deferred = DeferredTable::new(deferreds.take_result()?);
+                let deferred = deferreds.take_result()?;
                 Ok(AnalysisResult::new(
                     provider_collection,
                     deferred,

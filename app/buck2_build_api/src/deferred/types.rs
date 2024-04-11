@@ -437,17 +437,19 @@ impl DeferredRegistry {
         DeferredData::unchecked_new(self.base_key.make_key(id))
     }
 
-    pub fn take_result(self) -> anyhow::Result<Vec<DeferredTableEntry>> {
-        self.registry
-            .into_iter()
-            .enumerate()
-            .map(|(i, e)| match e {
-                DeferredRegistryEntry::Set(e) => anyhow::Ok(e),
-                DeferredRegistryEntry::Pending => {
-                    Err(DeferredErrors::UnboundReservedDeferred(i).into())
-                }
-            })
-            .collect()
+    pub fn take_result(self) -> anyhow::Result<DeferredTable> {
+        Ok(DeferredTable::new(
+            self.registry
+                .into_iter()
+                .enumerate()
+                .map(|(i, e)| match e {
+                    DeferredRegistryEntry::Set(e) => anyhow::Ok(e),
+                    DeferredRegistryEntry::Pending => {
+                        Err(DeferredErrors::UnboundReservedDeferred(i).into())
+                    }
+                })
+                .collect::<anyhow::Result<_>>()?,
+        ))
     }
 }
 
@@ -475,7 +477,7 @@ pub struct DeferredResult(Arc<DeferredResultData>);
 
 #[derive(Allocative)]
 struct DeferredResultData {
-    deferreds: Vec<DeferredTableEntry>,
+    deferreds: DeferredTable,
     value: DeferredValueAny,
 }
 
@@ -504,6 +506,10 @@ impl DeferredTable {
         DeferredTable(deferreds)
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// looks up an 'Deferred' given the id
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
         match self.0.get(id.as_usize()) {
@@ -523,18 +529,13 @@ impl DeferredTable {
 }
 
 impl DeferredResult {
-    pub fn new(value: DeferredValueAny, deferreds: Vec<DeferredTableEntry>) -> Self {
+    pub fn new(value: DeferredValueAny, deferreds: DeferredTable) -> Self {
         Self(Arc::new(DeferredResultData { deferreds, value }))
     }
 
     /// looks up an 'Deferred' given the id
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
-        match self.0.deferreds.get(id.as_usize()) {
-            Some(value) => Ok(DeferredLookup {
-                any: ArcBorrow::borrow(&value.any),
-            }),
-            None => Err(anyhow::anyhow!(DeferredErrors::DeferredNotFound(id.id))),
-        }
+        self.0.deferreds.lookup_deferred(id)
     }
 
     pub fn value(&self) -> &DeferredValueAny {
@@ -785,7 +786,6 @@ pub mod testing {
     use crate::deferred::types::AnyValue;
     use crate::deferred::types::DeferredResult;
     use crate::deferred::types::DeferredTable;
-    use crate::deferred::types::DeferredTableEntry;
     use crate::deferred::types::DeferredValueAny;
     use crate::deferred::types::DeferredValueAnyReady;
 
@@ -827,18 +827,18 @@ pub mod testing {
     }
 
     pub trait DeferredAnalysisResultExt {
-        fn get_registered(&self) -> &Vec<DeferredTableEntry>;
+        fn get_registered(&self) -> &DeferredTable;
     }
 
     impl DeferredAnalysisResultExt for DeferredResult {
-        fn get_registered(&self) -> &Vec<DeferredTableEntry> {
+        fn get_registered(&self) -> &DeferredTable {
             &self.0.deferreds
         }
     }
 
     impl DeferredAnalysisResultExt for DeferredTable {
-        fn get_registered(&self) -> &Vec<DeferredTableEntry> {
-            &self.0
+        fn get_registered(&self) -> &DeferredTable {
+            self
         }
     }
 }
@@ -873,7 +873,6 @@ mod tests {
     use super::AnyValue;
     use super::DeferredInputsRef;
     use super::DeferredOutput;
-    use super::DeferredTableEntry;
     use super::TrivialDeferred;
     use crate::deferred::arc_borrow::ArcBorrow;
     use crate::deferred::types::testing::DeferredValueAnyExt;
@@ -882,7 +881,6 @@ mod tests {
     use crate::deferred::types::DeferredCtx;
     use crate::deferred::types::DeferredInput;
     use crate::deferred::types::DeferredRegistry;
-    use crate::deferred::types::DeferredTable;
     use crate::deferred::types::DeferredValue;
     use crate::deferred::types::DeferredValueAny;
     use crate::deferred::types::DeferredValueAnyReady;
@@ -933,16 +931,6 @@ mod tests {
         }
 
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
-    }
-
-    impl DeferredTableEntry {
-        async fn test_execute(
-            &self,
-            ctx: &mut dyn DeferredCtx,
-            dice: &mut DiceComputations<'_>,
-        ) -> anyhow::Result<DeferredValueAny> {
-            deferred_execute(ArcBorrow::borrow(&self.any), ctx, dice).await
-        }
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Allocative)]
@@ -1022,26 +1010,27 @@ mod tests {
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
                 assert_eq!(
-                    *result
-                        .get(deferred_data.deferred_key().id().as_usize())
-                        .unwrap()
-                        .test_execute(
-                            &mut ResolveDeferredCtx::new(
-                                deferred_data.deferred_key().dupe(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                &mut ctx,
-                                dummy_project_filesystem(),
-                                DigestConfig::testing_default(),
-                                observer
-                            ),
-                            &mut dummy_dice_transaction
-                        )
-                        .await
-                        .unwrap()
-                        .assert_ready()
-                        .resolve(&deferred_data)?,
+                    *deferred_execute(
+                        result
+                            .lookup_deferred(deferred_data.deferred_key().id())
+                            .unwrap()
+                            .any,
+                        &mut ResolveDeferredCtx::new(
+                            deferred_data.deferred_key().dupe(),
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                            &mut ctx,
+                            dummy_project_filesystem(),
+                            DigestConfig::testing_default(),
+                            observer
+                        ),
+                        &mut dummy_dice_transaction
+                    )
+                    .await
+                    .unwrap()
+                    .assert_ready()
+                    .resolve(&deferred_data)?,
                     IntOutput(2)
                 );
                 Ok(())
@@ -1083,24 +1072,25 @@ mod tests {
 
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
-                let exec_result = result
-                    .get(deferring_deferred_data.deferred_key().id().as_usize())
-                    .unwrap()
-                    .test_execute(
-                        &mut ResolveDeferredCtx::new(
-                            deferring_deferred_data.deferred_key().dupe(),
-                            Default::default(),
-                            Default::default(),
-                            Default::default(),
-                            &mut registry,
-                            dummy_project_filesystem(),
-                            DigestConfig::testing_default(),
-                            observer.dupe(),
-                        ),
-                        &mut dummy_dice_transaction,
-                    )
-                    .await
-                    .unwrap();
+                let exec_result = deferred_execute(
+                    result
+                        .lookup_deferred(deferring_deferred_data.deferred_key().id())
+                        .unwrap()
+                        .any,
+                    &mut ResolveDeferredCtx::new(
+                        deferring_deferred_data.deferred_key().dupe(),
+                        Default::default(),
+                        Default::default(),
+                        Default::default(),
+                        &mut registry,
+                        dummy_project_filesystem(),
+                        DigestConfig::testing_default(),
+                        observer.dupe(),
+                    ),
+                    &mut dummy_dice_transaction,
+                )
+                .await
+                .unwrap();
 
                 let deferred_key = match exec_result {
                     DeferredValueAny::Ready(_) => panic!("expected a deferred"),
@@ -1119,30 +1109,30 @@ mod tests {
                 );
 
                 let result = registry.take_result()?;
-                let deferred = result.get(deferred_key.id().as_usize()).unwrap();
+                let deferred = result.lookup_deferred(deferred_key.id()).unwrap();
 
                 let mut registry =
                     DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_key.dupe())));
                 assert_eq!(
-                    deferred
-                        .test_execute(
-                            &mut ResolveDeferredCtx::new(
-                                deferred_key,
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                &mut registry,
-                                dummy_project_filesystem(),
-                                DigestConfig::testing_default(),
-                                observer,
-                            ),
-                            &mut dummy_dice_transaction
-                        )
-                        .await
-                        .unwrap()
-                        .assert_ready()
-                        .downcast::<IntOutput>()?
-                        .0,
+                    deferred_execute(
+                        deferred.any,
+                        &mut ResolveDeferredCtx::new(
+                            deferred_key,
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                            &mut registry,
+                            dummy_project_filesystem(),
+                            DigestConfig::testing_default(),
+                            observer,
+                        ),
+                        &mut dummy_dice_transaction
+                    )
+                    .await
+                    .unwrap()
+                    .assert_ready()
+                    .downcast::<IntOutput>()?
+                    .0,
                     2
                 );
 
@@ -1184,26 +1174,27 @@ mod tests {
         CancellationContext::testing()
             .with_structured_cancellation(|observer| async move {
                 assert_eq!(
-                    *result
-                        .get(deferred_data.deferred_key().id().as_usize())
-                        .unwrap()
-                        .test_execute(
-                            &mut ResolveDeferredCtx::new(
-                                key,
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                &mut registry,
-                                dummy_project_filesystem(),
-                                DigestConfig::testing_default(),
-                                observer,
-                            ),
-                            &mut dummy_dice_transaction,
-                        )
-                        .await
-                        .unwrap()
-                        .assert_ready()
-                        .resolve(&deferred_data)?,
+                    *deferred_execute(
+                        result
+                            .lookup_deferred(deferred_data.deferred_key().id())
+                            .unwrap()
+                            .any,
+                        &mut ResolveDeferredCtx::new(
+                            key,
+                            Default::default(),
+                            Default::default(),
+                            Default::default(),
+                            &mut registry,
+                            dummy_project_filesystem(),
+                            DigestConfig::testing_default(),
+                            observer,
+                        ),
+                        &mut dummy_dice_transaction,
+                    )
+                    .await
+                    .unwrap()
+                    .assert_ready()
+                    .resolve(&deferred_data)?,
                     IntOutput(2)
                 );
 
@@ -1247,7 +1238,7 @@ mod tests {
         let deferred_data1 = registry.reserve_trivial();
         let deferred_data1 = registry.bind_trivial(deferred_data1, deferred1.clone());
 
-        let result = DeferredTable::new(registry.take_result()?);
+        let result = registry.take_result()?;
 
         assert_eq!(
             *DeferredValueAnyReady::TrivialDeferred(ArcBorrow::clone_arc(

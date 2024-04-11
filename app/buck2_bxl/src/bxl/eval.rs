@@ -247,7 +247,7 @@ impl BxlInnerEvaluator {
                 // this bxl registered actions, so extract the deferreds from it
                 let (frozen_module, deferred) = actions_finalizer(env)?;
 
-                let deferred_table = DeferredTable::new(deferred.take_result()?);
+                let deferred_table = deferred.take_result()?;
 
                 (
                     frozen_module,
