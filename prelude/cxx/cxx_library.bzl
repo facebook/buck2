@@ -1242,7 +1242,12 @@ def _get_shared_library_links(
     if additional_links:
         filtered_links.append(additional_links)
 
-    return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference, None
+    # Collect the TBD providers from the targets in this link group, these will
+    # be merged when linking shared library output.
+    link_group_deps = [d for d in dedupe(non_exported_deps + exported_deps) if d.label in filtered_labels_to_links_map]
+    shared_interface_info = create_shared_interface_info(ctx, tbd_outputs, link_group_deps)
+
+    return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference, shared_interface_info
 
 def _use_pic(output_style: LibOutputStyle) -> bool:
     """
