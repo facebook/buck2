@@ -19,6 +19,7 @@ use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -34,11 +35,18 @@ use crate::commands::query::printer::ShouldPrintProviders;
 pub(crate) async fn explain_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-    _req: ExplainRequest,
+    req: ExplainRequest,
 ) -> anyhow::Result<ExplainResponse> {
-    run_server_command(ExplainServerCommand {}, ctx, partial_result_dispatcher).await
+    run_server_command(
+        ExplainServerCommand { output: req.output },
+        ctx,
+        partial_result_dispatcher,
+    )
+    .await
 }
-struct ExplainServerCommand {}
+struct ExplainServerCommand {
+    output: AbsPathBuf,
+}
 
 #[async_trait]
 impl ServerCommandTemplate for ExplainServerCommand {
@@ -53,7 +61,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        explain(server_ctx, ctx).await
+        explain(server_ctx, ctx, &self.output).await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
@@ -69,6 +77,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
 pub(crate) async fn explain(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
+    destination_path: &AbsPathBuf,
 ) -> anyhow::Result<ExplainResponse> {
     let query_result = QUERY_FRONTEND
         .get()?
@@ -125,7 +134,12 @@ pub(crate) async fn explain(
     {
         let base64 = base64::encode(&output);
         // write the output to html
-        buck2_explain::main(base64)?;
+        buck2_explain::main(base64, destination_path)?;
+    }
+    #[cfg(not(fbcode_build))]
+    {
+        // just "using" unused variable
+        let _destination_path = destination_path;
     }
 
     Ok(ExplainResponse {})

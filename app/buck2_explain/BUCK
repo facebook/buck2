@@ -13,5 +13,6 @@ rust_library(
     },
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "//buck2/app/buck2_core:buck2_core",
     ],
 )

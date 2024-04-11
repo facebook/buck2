@@ -9,7 +9,9 @@
 
 use std::io::Write;
 
-pub fn main(data: String) -> anyhow::Result<()> {
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
+
+pub fn main(data: String, output: &AbsPathBuf) -> anyhow::Result<()> {
     let html_in = include_str!("explain.html");
     let html_out = html_in.replace("XXDATAXX", &data);
     // TODO: find a better way to assert it actually replaced something
@@ -17,7 +19,7 @@ pub fn main(data: String) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("HTML template is not valid"));
     }
 
-    let mut writer = std::fs::File::create("/tmp/index.html")?;
+    let mut writer = std::fs::File::create(output)?;
     writer.write_all(&html_out.into_bytes()[..])?;
     writer.flush()?;
 

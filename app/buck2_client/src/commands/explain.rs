@@ -15,6 +15,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use clap::ArgMatches;
 use tonic::async_trait;
@@ -25,7 +26,13 @@ use tonic::async_trait;
 /// builds, without requiring a solid grasp of Buck2 concepts
 #[derive(Debug, clap::Parser)]
 #[clap(name = "explain")]
-pub struct ExplainCommand {}
+pub struct ExplainCommand {
+    /// Output file path for profile data.
+    ///
+    /// File will be created if it does not exist, and overwritten if it does.
+    #[clap(long, short = 'o')]
+    output: PathArg,
+}
 
 // TODO: not sure I need StreamingCommand
 #[async_trait]
@@ -38,11 +45,17 @@ impl StreamingCommand for ExplainCommand {
         matches: &ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
+        let output = self.output.resolve(&ctx.working_dir);
+
         if !cfg!(windows) {
             let context = ctx.client_context(matches, &self)?;
             buckd
                 .with_flushing()
-                .new_generic(context, NewGenericRequest::Explain(ExplainRequest {}), None)
+                .new_generic(
+                    context,
+                    NewGenericRequest::Explain(ExplainRequest { output }),
+                    None,
+                )
                 .await??;
 
             ExitResult::success()

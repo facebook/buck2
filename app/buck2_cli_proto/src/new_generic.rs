@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -42,7 +43,9 @@ pub struct DebugEvalRequest {
 pub struct DebugEvalResponse {}
 
 #[derive(Serialize, Deserialize)]
-pub struct ExplainRequest {}
+pub struct ExplainRequest {
+    pub output: AbsPathBuf,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExplainResponse {}
