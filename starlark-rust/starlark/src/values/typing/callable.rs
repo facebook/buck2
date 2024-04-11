@@ -163,6 +163,13 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkCallable<'v,
     pub fn unchecked_new(value: Value<'v>) -> Self {
         StarlarkCallable(value, PhantomData)
     }
+
+    /// Convert to `FrozenValue` version.
+    pub fn unpack_frozen(self) -> Option<FrozenStarlarkCallable<P, R>> {
+        self.0
+            .unpack_frozen()
+            .map(FrozenStarlarkCallable::unchecked_new)
+    }
 }
 
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
