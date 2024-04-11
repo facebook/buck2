@@ -42,7 +42,9 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_data::error::ErrorTag;
 use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
@@ -1764,8 +1766,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
     ) -> anyhow::Result<Option<MaterializingFuture>> {
-        // TODO(nga): rewrite without recursion.
-        check_stack_overflow().unwrap();
+        // TODO(nga): rewrite without recursion or figure out why we overflow stack here.
+        check_stack_overflow().tag(ErrorTag::ServerStackOverflow)?;
 
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
