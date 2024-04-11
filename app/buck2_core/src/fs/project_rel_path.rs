@@ -297,6 +297,22 @@ impl ProjectRelativePath {
         self.0.strip_prefix_opt(&base.as_ref().0)
     }
 
+    pub fn strip_suffix<'a, P>(&'a self, suffix: P) -> anyhow::Result<&'a ProjectRelativePath>
+    where
+        P: AsRef<ForwardRelativePath>,
+    {
+        Ok(ProjectRelativePath::ref_cast(self.0.strip_suffix(suffix)?))
+    }
+
+    pub fn strip_suffix_opt<'a, P>(&'a self, suffix: P) -> Option<&'a ProjectRelativePath>
+    where
+        P: AsRef<ForwardRelativePath>,
+    {
+        Some(ProjectRelativePath::ref_cast(
+            self.0.strip_suffix_opt(suffix)?,
+        ))
+    }
+
     /// Determines whether `base` is a prefix of `self`.
     ///
     /// ```
