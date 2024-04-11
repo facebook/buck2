@@ -71,7 +71,7 @@ def get_dex_produced_from_java_library(
     identifier = "{}:{} {}".format(ctx.label.package, ctx.label.name, output_dex_file.short_path)
     ctx.actions.run(
         d8_cmd,
-        category = "d8",
+        category = "pre_dex",
         identifier = identifier,
     )
 

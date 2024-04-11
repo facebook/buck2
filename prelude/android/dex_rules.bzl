@@ -110,7 +110,7 @@ def get_single_primary_dex(
     if not is_optimized:
         d8_cmd.add("--no-optimize")
 
-    ctx.actions.run(d8_cmd, category = "d8", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
+    ctx.actions.run(d8_cmd, category = "get_single_primary_dex", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
@@ -620,7 +620,7 @@ def _merge_dexes(
 
     ctx.actions.run(
         d8_cmd,
-        category = "d8",
+        category = "merge_dexes",
         identifier = "{}:{} {}".format(ctx.label.package, ctx.label.name, output_dex_file.short_path),
     )
 
