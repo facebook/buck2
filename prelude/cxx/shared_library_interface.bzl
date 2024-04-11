@@ -5,12 +5,18 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "ArtifactTSet", "project_artifacts")
+load("@prelude//:artifact_tset.bzl", "ArtifactTSet", "make_artifact_tset", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorInfo")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":headers.bzl", "CHeader")
+
+# The transitive artifacts of partial shared interface for a library.
+# These need to be collected and merged to produce the final shared interface.
+SharedInterfaceInfo = provider(fields = {
+    "interfaces": provider_field(ArtifactTSet),
+})
 
 def _shared_library_interface(
         ctx: AnalysisContext,
@@ -156,3 +162,17 @@ def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet) -> Arti
         identifier = ctx.attrs.name,
     )
     return tbd_file
+
+def create_shared_interface_info(ctx: AnalysisContext, tbd_outputs: list[Artifact], deps: list[Dependency]) -> [SharedInterfaceInfo, None]:
+    children = [d[SharedInterfaceInfo].interfaces for d in deps if SharedInterfaceInfo in d]
+    if len(tbd_outputs) == 0 and len(children) == 0:
+        return None
+
+    return SharedInterfaceInfo(
+        interfaces = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = tbd_outputs,
+            children = children,
+        ),
+    )
