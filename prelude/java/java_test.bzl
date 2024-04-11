@@ -52,8 +52,9 @@ def build_junit_test(
         extra_cmds: list = [],
         extra_classpath_entries: list[Artifact] = []) -> ExternalRunnerTestInfo:
     java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
 
-    java = ctx.attrs.java[RunInfo] if ctx.attrs.java else ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests
+    java = ctx.attrs.java[RunInfo] if ctx.attrs.java else java_toolchain.java_for_tests
 
     cmd = [java] + extra_cmds + ctx.attrs.vm_args + ["-XX:-MaxFDLimit"]
     if java_test_toolchain.jvm_args:
@@ -153,7 +154,7 @@ def build_junit_test(
         transitive_class_to_src_map = merge_class_to_source_map_from_jar(
             actions = ctx.actions,
             name = ctx.label.name + ".transitive_class_to_src.json",
-            java_test_toolchain = java_test_toolchain,
+            java_toolchain = java_toolchain,
             relative_to = ctx.label.cell_root if run_from_cell_root else None,
             deps = [tests_class_to_source_info],
         )

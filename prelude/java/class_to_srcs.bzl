@@ -7,7 +7,6 @@
 
 load(
     "@prelude//java:java_toolchain.bzl",
-    "JavaTestToolchainInfo",  # @unused Used as a type
     "JavaToolchainInfo",  # @unused Used as a type
 )
 
@@ -109,11 +108,11 @@ def maybe_create_class_to_source_map_debuginfo(
 def merge_class_to_source_map_from_jar(
         actions: AnalysisActions,
         name: str,
-        java_test_toolchain: JavaTestToolchainInfo,
+        java_toolchain: JavaToolchainInfo,
         relative_to: [CellRoot, None],
         deps: list[JavaClassToSourceMapInfo]) -> Artifact:
     output = actions.declare_output(name)
-    cmd = cmd_args(java_test_toolchain.merge_class_to_source_maps[RunInfo])
+    cmd = cmd_args(java_toolchain.merge_class_to_source_maps[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     if relative_to != None:
         cmd.add(cmd_args(str(relative_to), format = "--relative-to={}"))
