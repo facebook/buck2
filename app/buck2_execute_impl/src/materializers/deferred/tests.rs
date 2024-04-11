@@ -98,6 +98,7 @@ mod state_machine {
     use buck2_core::fs::fs_util::ReadDir;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
     use buck2_execute::execute::blocking::IoRequest;
@@ -419,9 +420,14 @@ mod state_machine {
         DeferredMaterializerCommandProcessor<StubIoHandler>,
         MaterializerSender<StubIoHandler>,
         MaterializerReceiver<StubIoHandler>,
+        ChannelEventSource,
     ) {
         let (db, sqlite_state) = make_db(io.fs());
         let tree = ArtifactTree::initialize(sqlite_state);
+
+        let (daemon_dispatcher_events, daemon_dispatcher_sink) =
+            buck2_events::create_source_sink_pair();
+        let daemon_dispatcher = EventDispatcher::new(TraceId::null(), daemon_dispatcher_sink);
 
         let (command_sender, command_receiver) = channel();
         (
@@ -441,10 +447,11 @@ mod state_machine {
                 stats: Arc::new(DeferredMaterializerStats::default()),
                 access_times_buffer: Default::default(),
                 verbose_materializer_log: true,
-                daemon_dispatcher: EventDispatcher::null(),
+                daemon_dispatcher,
             },
             command_sender,
             command_receiver,
+            daemon_dispatcher_events,
         )
     }
 
@@ -454,7 +461,7 @@ mod state_machine {
         DeferredMaterializerCommandProcessor<StubIoHandler>,
         MaterializerReceiver<StubIoHandler>,
     ) {
-        let (dm, _, receiver) = make_processor_for_io(Arc::new(
+        let (dm, _, receiver, _) = make_processor_for_io(Arc::new(
             StubIoHandler::new(temp_root()).with_materialization_config(materialization_config),
         ));
         (dm, receiver)
@@ -462,11 +469,14 @@ mod state_machine {
 
     async fn make_materializer(
         io: Arc<StubIoHandler>,
+        clean_stale_config: Option<CleanStaleConfig>,
     ) -> (
         DeferredMaterializerAccessor<StubIoHandler>,
         SubscriptionHandle<StubIoHandler>,
+        ChannelEventSource,
     ) {
-        let (mut processor, command_sender, command_receiver) = make_processor_for_io(io.dupe());
+        let (mut processor, command_sender, command_receiver, daemon_dispatcher_events) =
+            make_processor_for_io(io.dupe());
 
         let handle = {
             let (sender, recv) = oneshot::channel();
@@ -490,7 +500,7 @@ mod state_machine {
                     },
                     0,
                     AccessTimesUpdates::Disabled,
-                    None,
+                    clean_stale_config,
                 ));
             }
         })
@@ -511,6 +521,7 @@ mod state_machine {
                 verbose_materializer_log: true,
             },
             handle,
+            daemon_dispatcher_events,
         )
     }
 
@@ -1093,12 +1104,12 @@ mod state_machine {
             let path = make_path("buck-out/v2/gen/foo/bar");
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
-            let (dm, mut handle) = make_materializer(io.dupe()).await;
+            let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
             materialize_write(&path, b"contents", &mut handle, &dm).await?;
             // Drop dm and flush sqlite connection.
             dm.abort();
             // Create new materializer from db state so that artifacts are not active
-            let (dm, _) = make_materializer(io).await;
+            let (dm, _, _) = make_materializer(io, None).await;
 
             let res = dm
                 .clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false)
@@ -1134,7 +1145,7 @@ mod state_machine {
             let path = make_path("buck-out/v2/gen/foo/bar");
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
-            let (dm, mut handle) = make_materializer(io.dupe()).await;
+            let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
             materialize_write(&path, b"contents", &mut handle, &dm).await?;
 
             let read_dir_barriers =
@@ -1143,7 +1154,7 @@ mod state_machine {
                 StubIoHandler::new(project_root.dupe())
                     .with_read_dir_barriers(read_dir_barriers.dupe()),
             );
-            let (dm, _) = make_materializer(io).await;
+            let (dm, _, _) = make_materializer(io, None).await;
 
             // Interrupt while scanning buck-out
             let dm = Arc::new(dm);
@@ -1180,7 +1191,7 @@ mod state_machine {
             let io = Arc::new(
                 StubIoHandler::new(project_root.dupe()).with_clean_barriers(clean_barriers.dupe()),
             );
-            let (dm, _) = make_materializer(io).await;
+            let (dm, _, _) = make_materializer(io, None).await;
 
             // Interrupt while deleting files
             let dm = Arc::new(dm);
@@ -1214,6 +1225,54 @@ mod state_machine {
                 (1, 8, 0, 0)
             );
 
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_clean_stale_schedule() -> anyhow::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path("buck-out/v2/gen/foo/bar");
+            let project_root = temp_root();
+            // dry run because it's easier and since this is only testing that cleans are triggered by the materializer
+            let clean_stale_config = CleanStaleConfig {
+                clean_period: std::time::Duration::from_secs(1),
+                artifact_ttl: std::time::Duration::from_secs(0),
+                start_offset: std::time::Duration::from_secs(0),
+                dry_run: true,
+            };
+            let io = Arc::new(StubIoHandler::new(project_root.dupe()));
+            let (dm, mut handle, mut daemon_dispatcher_events) =
+                make_materializer(io.dupe(), Some(clean_stale_config)).await;
+            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+
+            let receive_clean_result = |events: &mut ChannelEventSource| {
+                let event = events.receive().unwrap();
+                match event.unpack_buck().unwrap().data() {
+                    buck2_data::buck_event::Data::Instant(instant) => match instant.data.as_ref() {
+                        Some(buck2_data::instant_event::Data::CleanStaleResult(res)) => {
+                            Some(res.clone())
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                }
+                .unwrap()
+            };
+            let res = receive_clean_result(&mut daemon_dispatcher_events);
+            let buck2_data::CleanStaleStats {
+                retained_artifact_count,
+                ..
+            } = res.stats.unwrap();
+            // check it's scheduled more than once
+            let res = receive_clean_result(&mut daemon_dispatcher_events);
+            assert_eq!(retained_artifact_count, 1);
+            let buck2_data::CleanStaleStats {
+                retained_artifact_count,
+                ..
+            } = res.stats.unwrap();
+            assert_eq!(retained_artifact_count, 1);
             Ok(())
         })
         .await
