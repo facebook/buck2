@@ -481,8 +481,12 @@ struct DeferredResultData {
     value: DeferredValueAny,
 }
 
+/// All direct deferreds for some `BaseKey`.
 #[derive(Allocative)]
-pub struct DeferredTable(Box<[DeferredTableEntry]>);
+pub struct DeferredTable(
+    /// Indexed by `DeferredId`.
+    Box<[DeferredTableEntry]>,
+);
 
 impl Debug for DeferredResultData {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
