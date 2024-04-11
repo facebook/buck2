@@ -86,6 +86,7 @@ use futures::stream::BoxStream;
 use futures::stream::FuturesOrdered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
+use futures::Future;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use parking_lot::Mutex;
@@ -100,6 +101,8 @@ use tokio::time::Instant;
 use tokio::time::Interval;
 use tracing::instrument;
 
+use crate::materializers::deferred::clean_stale::CleanResult;
+use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::FileTree;
@@ -318,7 +321,7 @@ pub(crate) struct DeferredMaterializerCommandProcessor<T: 'static> {
     stats: Arc<DeferredMaterializerStats>,
     access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
     verbose_materializer_log: bool,
-    _daemon_dispatcher: EventDispatcher,
+    daemon_dispatcher: EventDispatcher,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -1031,7 +1034,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 stats,
                 access_times_buffer,
                 verbose_materializer_log: configs.verbose_materializer_log,
-                _daemon_dispatcher: daemon_dispatcher,
+                daemon_dispatcher,
             }
         };
 
@@ -1105,6 +1108,8 @@ struct CommandStream<T: 'static> {
     low_priority: UnboundedReceiver<LowPriorityMaterializerCommand>,
     refresh_ttl_ticker: Option<Interval>,
     io_buffer_ticker: Interval,
+    clean_stale_ticker: Option<Interval>,
+    clean_stale_fut: Option<BoxFuture<'static, anyhow::Result<CleanResult>>>,
 }
 
 enum Op<T: 'static> {
@@ -1112,6 +1117,7 @@ enum Op<T: 'static> {
     LowPriorityCommand(LowPriorityMaterializerCommand),
     RefreshTtls,
     Tick,
+    CleanStaleRequest,
 }
 
 impl<T: 'static> Stream for CommandStream<T> {
@@ -1139,6 +1145,17 @@ impl<T: 'static> Stream for CommandStream<T> {
 
         if this.io_buffer_ticker.poll_tick(cx).is_ready() {
             return Poll::Ready(Some(Op::Tick));
+        }
+
+        // Ensure last clean completed before requesting a new one.
+        if let Some(fut) = this.clean_stale_fut.as_mut() {
+            if std::pin::pin!(fut).poll(cx).is_ready() {
+                *this.clean_stale_fut = None;
+            }
+        } else if let Some(ticker) = this.clean_stale_ticker.as_mut() {
+            if ticker.poll_tick(cx).is_ready() {
+                return Poll::Ready(Some(Op::CleanStaleRequest));
+            }
         }
 
         // We can never be done because we never drop the senders, so let's not bother.
@@ -1177,7 +1194,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         ttl_refresh: TtlRefreshConfiguration,
         access_time_update_max_buffer_size: usize,
         access_time_updates: AccessTimesUpdates,
-        _clean_stale_config: Option<CleanStaleConfig>,
+        clean_stale_config: Option<CleanStaleConfig>,
     ) {
         let MaterializerReceiver {
             high_priority,
@@ -1194,6 +1211,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             None
         };
 
+        let clean_stale_ticker = clean_stale_config.as_ref().map(|clean_stale_config| {
+            tokio::time::interval_at(
+                tokio::time::Instant::now() + clean_stale_config.start_offset,
+                clean_stale_config.clean_period,
+            )
+        });
+
         let io_buffer_ticker = tokio::time::interval(std::time::Duration::from_secs(5));
 
         let mut stream = CommandStream {
@@ -1201,6 +1225,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             low_priority,
             refresh_ttl_ticker,
             io_buffer_ticker,
+            clean_stale_ticker,
+            clean_stale_fut: None,
         };
 
         while let Some(op) = stream.next().await {
@@ -1258,6 +1284,26 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         // Force a periodic flush.
                         self.flush_access_times(0);
                     };
+                }
+                Op::CleanStaleRequest => {
+                    if let Some(config) = clean_stale_config.as_ref() {
+                        let dispatcher = self.daemon_dispatcher.dupe();
+                        let cmd = CleanStaleArtifactsCommand {
+                            keep_since_time: chrono::Utc::now() - config.artifact_ttl,
+                            dry_run: config.dry_run,
+                            tracked_only: false,
+                            dispatcher,
+                        };
+                        stream.clean_stale_fut = Some(cmd.create_clean_fut(&mut self, None));
+                    } else {
+                        // This should never happen
+                        soft_error!(
+                            "clean_stale_no_config",
+                            anyhow::anyhow!("clean scheduled without being configured"),
+                            quiet: true
+                        )
+                        .unwrap();
+                    }
                 }
             }
         }
