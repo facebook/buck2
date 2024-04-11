@@ -9,7 +9,9 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:set.bzl", "set")
@@ -52,6 +54,14 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         outputs = None,
         deps = android_binary_info.deps_by_platform[android_binary_info.primary_platform],
     )
+    transitive_class_to_src_map = merge_class_to_source_map_from_jar(
+        actions = ctx.actions,
+        name = ctx.label.name + ".transitive_class_to_src.json",
+        java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
+        relative_to = None,
+        deps = [class_to_srcs],
+    )
+    sub_targets["transitive_class_to_src_map"] = [DefaultInfo(default_output = transitive_class_to_src_map)]
 
     # We can only be sure that an APK has native libs if it has any shared libraries. Prebuilt native libraries dirs can exist but be empty.
     definitely_has_native_libs = bool(native_library_info.shared_libraries)
