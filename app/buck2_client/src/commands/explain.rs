@@ -32,6 +32,10 @@ pub struct ExplainCommand {
     /// File will be created if it does not exist, and overwritten if it does.
     #[clap(long, short = 'o')]
     output: PathArg,
+    // TODO iguridi: pass target for now, eventually read it from the logs for an actual build
+    /// Target to get information from
+    #[clap(long, short = 't')]
+    target: String,
 }
 
 // TODO: not sure I need StreamingCommand
@@ -53,7 +57,10 @@ impl StreamingCommand for ExplainCommand {
                 .with_flushing()
                 .new_generic(
                     context,
-                    NewGenericRequest::Explain(ExplainRequest { output }),
+                    NewGenericRequest::Explain(ExplainRequest {
+                        output,
+                        target: self.target,
+                    }),
                     None,
                 )
                 .await??;

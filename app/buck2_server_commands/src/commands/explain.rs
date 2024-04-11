@@ -38,7 +38,10 @@ pub(crate) async fn explain_command(
     req: ExplainRequest,
 ) -> anyhow::Result<ExplainResponse> {
     run_server_command(
-        ExplainServerCommand { output: req.output },
+        ExplainServerCommand {
+            output: req.output,
+            target: req.target,
+        },
         ctx,
         partial_result_dispatcher,
     )
@@ -46,6 +49,7 @@ pub(crate) async fn explain_command(
 }
 struct ExplainServerCommand {
     output: AbsPathBuf,
+    target: String,
 }
 
 #[async_trait]
@@ -61,7 +65,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        explain(server_ctx, ctx, &self.output).await
+        explain(server_ctx, ctx, &self.output, &self.target).await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
@@ -78,6 +82,7 @@ pub(crate) async fn explain(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     destination_path: &AbsPathBuf,
+    target: &str,
 ) -> anyhow::Result<ExplainResponse> {
     let query_result = QUERY_FRONTEND
         .get()?
@@ -85,13 +90,13 @@ pub(crate) async fn explain(
             &mut ctx,
             server_ctx.working_dir(),
             CqueryOwnerBehavior::Correct,
-            "fbcode//buck2:buck2", // TODO: dehardcode
-            &[],                   // TODO:
+            target,
+            &[], // TODO:
             GlobalCfgOptions {
                 target_platform: None,
                 cli_modifiers: Arc::new(vec![]),
             }, // TODO:
-            None,                  // TODO:
+            None, // TODO:
         )
         .await?;
 

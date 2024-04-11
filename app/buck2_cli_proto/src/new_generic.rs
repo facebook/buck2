@@ -45,6 +45,7 @@ pub struct DebugEvalResponse {}
 #[derive(Serialize, Deserialize)]
 pub struct ExplainRequest {
     pub output: AbsPathBuf,
+    pub target: String,
 }
 
 #[derive(Serialize, Deserialize)]
