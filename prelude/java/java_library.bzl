@@ -59,7 +59,7 @@ def _process_classpath(
     # add classpath args file to cmd
     cmd.add(option_name, classpath_args_file)
 
-def classpath_args(ctx: AnalysisContext, args):
+def _classpath_args(ctx: AnalysisContext, args):
     return cmd_args(args, delimiter = get_path_separator_for_exec_os(ctx))
 
 def _process_plugins(
@@ -110,7 +110,7 @@ def _process_plugins(
         processors_classpath_tset = None
 
     if processors_classpath_tset:
-        processors_classpath = classpath_args(ctx, processors_classpath_tset.project_as_args("full_jar_args"))
+        processors_classpath = _classpath_args(ctx, processors_classpath_tset.project_as_args("full_jar_args"))
         _process_classpath(
             ctx.actions,
             processors_classpath,
@@ -171,7 +171,7 @@ def _append_javac_params(
     if compiling_classpath:
         _process_classpath(
             ctx.actions,
-            classpath_args(ctx, compiling_classpath),
+            _classpath_args(ctx, compiling_classpath),
             cmd,
             declare_prefixed_name("classpath_args", actions_identifier),
             "--javac_classpath_file",
@@ -188,7 +188,7 @@ def _append_javac_params(
     if bootclasspath_list:
         _process_classpath(
             ctx.actions,
-            classpath_args(ctx, bootclasspath_list),
+            _classpath_args(ctx, bootclasspath_list),
             cmd,
             declare_prefixed_name("bootclasspath_args", actions_identifier),
             "--javac_bootclasspath_file",

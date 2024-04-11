@@ -46,7 +46,7 @@ load(
 )
 load("@prelude//utils:expect.bzl", "expect")
 
-base_command_params = struct(
+_base_command_params = struct(
     withDownwardApi = True,
     spoolMode = "DIRECT_TO_JAR",
 )
@@ -136,7 +136,7 @@ def create_jar_artifact_javacd(
         )
 
         return struct(
-            baseCommandParams = base_command_params,
+            _baseCommandParams = _base_command_params,
             libraryJarCommand = struct(
                 baseJarCommand = base_jar_command,
                 libraryJarBaseCommand = struct(
@@ -182,7 +182,7 @@ def create_jar_artifact_javacd(
         )
 
         return struct(
-            baseCommandParams = base_command_params,
+            _baseCommandParams = _base_command_params,
             abiJarCommand = abi_command,
         )
 

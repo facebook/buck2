@@ -14,7 +14,7 @@ load(
     "get_all_java_packaging_deps",
 )
 
-GWT_COMPILER_CLASS = "com.google.gwt.dev.Compiler"
+_GWT_COMPILER_CLASS = "com.google.gwt.dev.Compiler"
 
 def gwt_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     expect(ctx.attrs.local_workers > 0, "local workers must be greater than zero")
@@ -35,7 +35,7 @@ def gwt_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.vm_args,
         "-classpath",
         cmd_args(module_deps_classpath + deps_classpath, delimiter = get_path_separator_for_exec_os(ctx)),
-        GWT_COMPILER_CLASS,
+        _GWT_COMPILER_CLASS,
         "-war",
         output.as_output(),
         "-style",
