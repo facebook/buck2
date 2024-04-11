@@ -81,7 +81,7 @@ def _write_submodules(
         module = root_module
         for i, component in enumerate(h.split(os.sep)):
             if i == 0 and component == name:
-                # The common case is we have a singe header path prefix that matches the module name.
+                # The common case is we have a single header path prefix that matches the module name.
                 # In this case we add the headers directly to the root module.
                 pass
             else:

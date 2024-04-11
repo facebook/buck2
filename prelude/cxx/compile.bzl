@@ -572,7 +572,7 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
         # Should it?
         return None
 
-    # Return the file type aswell
+    # Return the file type as well
     if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
         return DepFileType("cpp")
     elif ext.value in (".c", ".m"):

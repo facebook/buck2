@@ -115,7 +115,7 @@ execute_method_on_provider(Method, ProviderName, ProviderState, Args) ->
         {error, Reason} ->
             ErrorMsg = unicode:characters_to_list(
                 io_lib:format(
-                    "Method ~p on provider ~p with sate ~p ~n returned with error ~p ~n", [
+                    "Method ~p on provider ~p with state ~p ~n returned with error ~p ~n", [
                         Method, ProviderName, ProviderState, Reason
                     ]
                 )
@@ -138,7 +138,7 @@ execute_method_on_provider(Method, ProviderName, ProviderState, Args) ->
     catch
         Class:Reason:StackTrace ->
             ErrorMsg = unicode:characters_to_list(
-                io_lib:format("Method ~p on provider ~p with sate ~p ~n ~s ~n", [
+                io_lib:format("Method ~p on provider ~p with state ~p ~n ~s ~n", [
                     Method,
                     ProviderName,
                     ProviderState,

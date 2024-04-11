@@ -64,9 +64,9 @@ def main(argv):
                     break
 
             if not found:
-                # If the class is not present in the sources, we stil want to
+                # If the class is not present in the sources, we still want to
                 # include it if it has a prefix that we are interested in.
-                # certain classes in "androidx.databinding.*" are generated and its useful to know their presense in jars
+                # certain classes in "androidx.databinding.*" are generated and it's useful to know their presence in jars
                 for prefix in args.include_classes_prefixes:
                     if classname.startswith(prefix):
                         classes.append(

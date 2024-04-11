@@ -87,7 +87,7 @@ def build_junit_test(
     re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
     # We implicitly make the target run from the project root if remote
-    # excution options were specified.
+    # execution options were specified.
     run_from_cell_root = "buck2_run_from_cell_root" in labels
 
     uses_java8 = "run_with_java8" in labels

@@ -88,7 +88,7 @@ def is_bool(arg):
     """Checks if provided instance is a boolean value.
 
     Args:
-      arg: An instance ot check. type: Any
+      arg: An instance of check. type: Any
 
     Returns:
       True for boolean values, False otherwise. rtype: bool
@@ -101,7 +101,7 @@ def is_number(arg):
     """Checks if provided instance is a number value.
 
     Args:
-      arg: An instance ot check. type: Any
+      arg: An instance of check. type: Any
 
     Returns:
       True for number values, False otherwise. rtype: bool

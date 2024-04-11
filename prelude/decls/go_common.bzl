@@ -138,7 +138,7 @@ def _cgo_enabled_arg():
     return {
         "cgo_enabled": attrs.option(attrs.bool(), default = None, doc = """
     Experimental: Analog of CGO_ENABLED environment-variable.
-    None will be coverted to True if cxx_toolchain availabe for current configuration, otherwiese False.
+    None will be converted to True if cxx_toolchain available for current configuration, otherwise False.
 """),
     }
 

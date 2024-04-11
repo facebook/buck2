@@ -167,7 +167,7 @@ initialize_hooks() ->
         end
      || {Mod, Opts, Prio} <- NormalizedConfiguredHooks
     ],
-    %% according to documentation, if two hooks have the same ID, the latter one get's dropped
+    %% according to documentation, if two hooks have the same ID, the latter one gets dropped
     PreInitHooks0 = lists:ukeysort(2, HooksWithId),
     %% now sort with configured prio the inits (default prio being 0)
     PreInitHooks1 = lists:keysort(1, PreInitHooks0),

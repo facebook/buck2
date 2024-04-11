@@ -27,7 +27,7 @@ load("@prelude//paths.bzl", "paths")
 # 1. Finding its owner target, if the input is a file
 # 2. Finding the target's "project", which involves a rdeps search
 # 3. Computing the project solution (flags, sources and dependencies)
-# 4. Outputing the solution as JSON
+# 4. Outputting the solution as JSON
 
 _HASKELL_BIN = "prelude//rules.bzl:haskell_binary"
 _HASKELL_IDE = "prelude//rules.bzl:haskell_ide"
@@ -156,7 +156,7 @@ def _solution_for_haskell_lib(ctx, target, exclude):
     import_dirs = {}
     root = ctx.root()
     for key, item in resolved_attrs.srcs.items():
-        # because BXL wont give you the path of an ensured artifact
+        # because BXL won't give you the path of an ensured artifact
         sp = get_path_without_materialization(item, ctx)
         (_, ext) = paths.split_extension(sp)
         diff = sp.removesuffix(paths.replace_extension(key, ext))

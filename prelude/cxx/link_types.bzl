@@ -72,7 +72,7 @@ def link_options(
         __private_use_link_options_function_to_construct = None,
     )
 
-# A marker instance to differentiate explicitly-passed None and a field tha
+# A marker instance to differentiate explicitly-passed None and a field that
 # isn't provided in merge_link_options.
 _NotProvided = record()
 _NOT_PROVIDED = _NotProvided()

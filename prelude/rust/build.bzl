@@ -872,7 +872,7 @@ def _compute_common_args(
     #     don't contain any generated code. Rustc can't distinguish these
     #     from real rlibs, and so doesn't throw an error
     #
-    # The benefit of doing this is that there's no requirment that the
+    # The benefit of doing this is that there's no requirement that the
     # dependency's generated code be provided to the linker via an rlib. It
     # could be provided by other means, say, a link group
     dep_metadata_kind = dep_metadata_of_emit(emit)

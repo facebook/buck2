@@ -40,7 +40,7 @@ GoToolchainInfo = provider(
 def get_toolchain_env_vars(toolchain: GoToolchainInfo, force_disable_cgo = False) -> dict[str, str | cmd_args]:
     env = {
         "GOARCH": toolchain.env_go_arch,
-        # opt-out from Go1.20 coverage redisign
+        # opt-out from Go1.20 coverage redesign
         "GOEXPERIMENT": "nocoverageredesign",
         "GOOS": toolchain.env_go_os,
     }
@@ -75,5 +75,5 @@ def evaluate_cgo_enabled(toolchain: GoToolchainInfo, cgo_enabled: [bool, None]) 
     if cgo_enabled != None:
         return cgo_enabled
 
-    # Return True if cxx_toolchain availabe for current configuration, otherwiese to False.
+    # Return True if cxx_toolchain available for current configuration, otherwise to False.
     return cxx_toolchain_available

@@ -165,7 +165,7 @@ def link(
         # Delegate to C++ linker...
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
-        # we can generate te platform-specific stuff once and re-use?
+        # we can generate the platform-specific stuff once and re-use?
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,

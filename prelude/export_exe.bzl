@@ -45,7 +45,7 @@ export_exe = rule(
         src = "bin/script.sh",
     )
 
-    The latter form allows executing checked in binaries with required resouces (eg. runtime shared libraries)
+    The latter form allows executing checked in binaries with required resources (eg. runtime shared libraries)
     without unnecessary indirection via another rule which allows args, like command_alias. Eg. instead of
 
     export_file(

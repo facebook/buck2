@@ -45,7 +45,7 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
     re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
     # We implicitly make the target run from the project root if remote
-    # excution options were specified
+    # execution options were specified
     run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executor != None
 
     # TODO support default info and runinfo properly by writing a sh script that invokes the command properly

@@ -88,7 +88,7 @@ rules_attributes = {
                 This attribute controls if the output of the builds also create edoc chunks.
             """),
         "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None, doc = """
-                The `env` field allows to set the application env variables. The key value pairs will materialise in tha applications `.app`
+                The `env` field allows to set the application env variables. The key value pairs will materialise in the application's `.app`
                 file and can then be accessed by [`application:get_env/2`](https://www.erlang.org/doc/man/application.html#get_env-2).
            """),
         "erl_opts": attrs.option(attrs.list(attrs.string()), default = None, doc = """
@@ -122,7 +122,7 @@ rules_attributes = {
                 applications `.app` file and can be accessed by `file:consult/1`.
             """),
         "include_src": attrs.bool(default = True, doc = """
-                This field controlls if the generated application directory contains a src/ directory with the Erlang code or not.
+                This field controls if the generated application directory contains a src/ directory with the Erlang code or not.
             """),
         "includes": attrs.list(attrs.source(), default = [], doc = """
                 The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
@@ -133,9 +133,9 @@ rules_attributes = {
                 of the corresponding Erlang terms.
              """),
         "peek_private_includes": attrs.bool(default = False, doc = """
-                This attribute allows you to use the private includes of the applictions dependencies. This can be useful for
+                This attribute allows you to use the private includes of the application's dependencies. This can be useful for
                 test applications, to create shared abstractions for tests. It's not advisable to use this attribute for prodution
-                code. All private inclues transitively must be non-ambiguous.
+                code. All private includes transitively must be non-ambiguous.
             """),
         "resources": attrs.list(attrs.dep(), default = [], doc = """
                 The `resources` field specifies targets whose default output are placed in the applications `priv/` directory. For
@@ -176,7 +176,7 @@ rules_attributes = {
                 `resources` field, the `priv` folders files can then be accessed by `escript"extract/2`.
             """),
         "main_module": attrs.option(attrs.string(), default = None, doc = """
-                Overrides the default main module. Instead of defering the main module from the scripts filename, the specified module
+                Overrides the default main module. Instead of deferring the main module from the scripts filename, the specified module
                 is used. That module needs to export a `main/1` function that is called as entry point.
             """),
         "resources": attrs.list(attrs.dep(), default = [], doc = """
@@ -209,11 +209,11 @@ rules_attributes = {
                 [`permanent`](https://www.erlang.org/doc/man/application.html#type-restart_type).
             """),
         "include_erts": attrs.bool(default = False, doc = """
-                This field controls wether OTP applications and the Erlang runtime system should be included as part of the release.
+                This field controls whether OTP applications and the Erlang runtime system should be included as part of the release.
                 Please note, that at the moment the erts folder is just `erts/`.
             """),
         "multi_toolchain": attrs.option(attrs.list(attrs.dep()), default = None, doc = """
-                This field controls wether the release should be built with a single toolchain, or multiple toolchains. In the
+                This field controls whether the release should be built with a single toolchain, or multiple toolchains. In the
                 latter case, all output paths are prefixed with the toolchain name.
             """),
         "overlays": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), default = {}, doc = """
@@ -272,7 +272,7 @@ rules_attributes = {
         "suite": attrs.source(doc = """
                 The source file for the test suite. If you are using the macro, you should use the `suites` attribute instead.
 
-                The suites attribtue specify which erlang_test targets should be generated. For each suite "path_to_suite/suite_SUITE.erl" an
+                The suites attribute specifies which erlang_test targets should be generated. For each suite "path_to_suite/suite_SUITE.erl" an
                 implicit 'erlang_test' target suite_SUITE will be generated.
             """),
         "_artifact_annotation_mfa": attrs.string(default = "artifact_annotations:default_annotation/1"),
@@ -528,7 +528,7 @@ erlang_test = prelude_rule(
 
         For each suite  `<name>_SUITE.erl`, if a data_dir `<name>_SUITE_data` is present along the suite,
         (as per [the data_dir naming scheme for ct](https://www.erlang.org/doc/apps/common_test/write_test_chapter.html#data-and-private-directories)),
-        it will automatically adds the coresponding resource target to the generated test target of the suite.
+        it will automatically adds the corresponding resource target to the generated test target of the suite.
         Resources will be placed in the [Data directory (data_dir)](https://www.erlang.org/doc/apps/common_test/write_test_chapter.html#data_priv_dir)
         of each of the suite.
 
@@ -544,7 +544,7 @@ erlang_test = prelude_rule(
           of the tests.
 
         One can call
-        - `buck2 build //my_app:test_SUITE` to compile the test files together with its depedencies.
+        - `buck2 build //my_app:test_SUITE` to compile the test files together with its dependencies.
         - `buck2 test //my_app:other_test_SUITE` to run the test.
         - `buck2 run //my_app:other_test_SUITE` to open an interactive test shell, where tests can be run iteratively.
 

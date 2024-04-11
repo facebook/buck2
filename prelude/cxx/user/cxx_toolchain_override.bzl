@@ -70,7 +70,7 @@ def _cxx_toolchain_override(ctx):
     linker_type = ctx.attrs.linker_type if ctx.attrs.linker_type != None else base_linker_info.type
     pdb_expected = is_pdb_generated(linker_type, ctx.attrs.linker_flags) if ctx.attrs.linker_flags != None else base_linker_info.is_pdb_generated
 
-    # This handles case when linker type is overriden to non-windows from
+    # This handles case when linker type is overridden to non-windows from
     # windows but linker flags are inherited.
     # When it's changed from non-windows to windows but flags are not changed,
     # we can't inspect base linker flags and disable PDB subtargets.

@@ -70,7 +70,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         # any xctests altogether, provided the test dylib is adhoc signed
         shared_library_flags += entitlements_link_flags(ctx)
 
-        # The linker will incluide adhoc signature for ARM64 by default, lets
+        # The linker will include adhoc signature for ARM64 by default, lets
         # ensure we always have an adhoc signature regardless of arch/linker logic.
         shared_library_flags += ["-Wl,-adhoc_codesign"]
 

@@ -86,9 +86,9 @@ load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "xctest_swift_support_info")
 
 AppleSharedLibraryMachOFileType = enum(
-    # dynamicly bound shared library file
+    # dynamically bound shared library file
     "dylib",
-    # dynamicly bound bundle file aka Mach-O bundle
+    # dynamically bound bundle file aka Mach-O bundle
     "bundle",
 )
 

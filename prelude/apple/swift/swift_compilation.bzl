@@ -822,7 +822,7 @@ def get_swift_debug_infos(
         ctx: AnalysisContext,
         swift_dependency_info: [SwiftDependencyInfo, None],
         swift_output: [SwiftCompilationOutput, None]) -> SwiftDebugInfo:
-    # When determing the debug info for shared libraries, if the shared library is a link group, we rely on the link group links to
+    # When determining the debug info for shared libraries, if the shared library is a link group, we rely on the link group links to
     # obtain the debug info for linked libraries and only need to provide any swift debug info for this library itself. Otherwise
     # if linking standard shared, we need to obtain the transitive debug info.
     if get_link_group(ctx):

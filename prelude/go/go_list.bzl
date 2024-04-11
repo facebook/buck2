@@ -27,7 +27,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
 
     go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json")
 
-    # Create file sructure that `go list` can recognize
+    # Create file structure that `go list` can recognize
     # Use copied_dir, because embed doesn't work with symlinks
     srcs_dir = ctx.actions.copied_dir(
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
@@ -55,7 +55,7 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
     go_files, cgo_files, h_files, c_files, cxx_files, s_files, test_go_files, x_test_go_files, embed_files = [], [], [], [], [], [], [], [], []
 
     for src in srcs:
-        # remove package_root prefix from src artifact path to match `go list` outout format
+        # remove package_root prefix from src artifact path to match `go list` output format
         src_path = src.short_path.removeprefix(package_root).lstrip("/")
         if src_path in go_list.get("GoFiles", []):
             go_files.append(src)

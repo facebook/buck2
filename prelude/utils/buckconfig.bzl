@@ -188,4 +188,4 @@ def resolve_alias(alias):
             return target
         else:
             alias = target
-    fail("This should never happen - either the alias exists or it doesnt")
+    fail("This should never happen - either the alias exists or it doesn't")

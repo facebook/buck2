@@ -172,7 +172,7 @@ provide_output_file(
                     Tests, Suite, "test binary internal crash", ResultExec, OutLog
                 );
             Other when Other =:= passed orelse Other =:= timeout ->
-                % Here we either pased or timeout.
+                % Here we either passed or timeout.
                 case file:read_file(ResultsFile) of
                     {ok, JsonFile} ->
                         TreeResults = binary_to_term(JsonFile),

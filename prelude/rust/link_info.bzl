@@ -230,7 +230,7 @@ def enable_link_groups(
         specified_link_strategy: LinkStrategy,
         is_binary: bool):
     if not (cxx_is_gnu(ctx) and is_binary):
-        # check minium requirements
+        # check minimum requirements
         return False
     if link_strategy == LinkStrategy("shared") or link_strategy != specified_link_strategy:
         # check whether we should run link groups analysis for the given link strategy

@@ -12,7 +12,7 @@ def _cgo_enabled_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
 
     # Cancel transition if the value already set
-    # to enable using configuration modifiers for overiding this option
+    # to enable using configuration modifiers for overriding this option
     cgo_enabled_setting = refs.cgo_enabled_auto[ConstraintValueInfo].setting
     if cgo_enabled_setting.label in constraints:
         return platform
@@ -55,7 +55,7 @@ def _race_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
 
     # Cancel transition if the value already set
-    # to enable using configuration modifiers for overiding this option
+    # to enable using configuration modifiers for overriding this option
     race_setting = refs.race_false[ConstraintValueInfo].setting
     if race_setting.label in constraints:
         return platform
@@ -82,7 +82,7 @@ def _coverage_mode_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
 
     # Cancel transition if the value already set
-    # to enable using configuration modifiers for overiding this option
+    # to enable using configuration modifiers for overriding this option
     coverage_mode_setting = refs.coverage_mode_set[ConstraintValueInfo].setting
     if coverage_mode_setting.label in constraints:
         return platform
@@ -116,7 +116,7 @@ def _tags_transition(platform, refs, attrs):
     for tag in attrs.tags:
         ref_name = "tag_{}__value".format(tag)
         if not hasattr(refs, ref_name):
-            fail("Add tag '{}' to .buckconfig attrubute `go.allowed_tags` to allow using it".format(tag))
+            fail("Add tag '{}' to .buckconfig attribute `go.allowed_tags` to allow using it".format(tag))
 
         tag_value = getattr(refs, ref_name)[ConstraintValueInfo]
         constraints[tag_value.setting.label] = tag_value

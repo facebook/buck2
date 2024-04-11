@@ -53,7 +53,7 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
 
     # Add _apple_platforms to all rules so that we may query the target platform to use until we support configuration
     # modifiers and can use them to set the configuration to use for operations.
-    # Map of string identifer to platform.
+    # Map of string identifier to platform.
     attributes["_apple_platforms"] = attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {})
 
     extra_args = dict(kwargs)
