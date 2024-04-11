@@ -21,6 +21,9 @@ load("@prelude//utils:expect.bzl", "expect")
 def android_instrumentation_apk_impl(ctx: AnalysisContext):
     _verify_params(ctx)
 
+    # jar preprocessing cannot be used when the jars were dexed already, so we have to disable predex when we want to preprocess the jars.
+    disable_pre_dex = ctx.attrs.disable_pre_dex or ctx.attrs.preprocess_java_classes_bash
+
     apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
 
     # android_instrumentation_apk uses the same platforms as the APK-under-test
@@ -68,7 +71,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
 
     enhance_ctx = create_enhancement_context(ctx)
     materialized_artifacts = []
-    if not ctx.attrs.disable_pre_dex:
+    if not disable_pre_dex:
         pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
         if ctx.attrs.use_split_dex:
             dex_merge_config = get_split_dex_merge_config(ctx, android_toolchain)
@@ -100,7 +103,6 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
                 jars_to_owners.keys(),
             )
 
-    enhance_ctx = create_enhancement_context(ctx)
     native_library_info = get_android_binary_native_library_info(
         enhance_ctx,
         android_packageable_info,
