@@ -27,6 +27,7 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -72,7 +73,10 @@ struct Validate<'v>(#[trace(unsafe_ignore)] fn(Value<'v>) -> anyhow::Result<()>)
 enum PromiseValue<'v> {
     Unresolved,
     Resolved(Value<'v>),
-    Map(ValueTyped<'v, StarlarkPromise<'v>>, Value<'v>),
+    Map(
+        ValueTyped<'v, StarlarkPromise<'v>>,
+        StarlarkCallable<'v, (Value<'v>,), Value<'v>>,
+    ),
     Join(PromiseJoin<'v>),
 }
 
@@ -162,17 +166,17 @@ impl<'v> StarlarkPromise<'v> {
     }
 
     fn apply(
-        f: Value<'v>,
+        f: StarlarkCallable<'v, (Value<'v>,), Value<'v>>,
         x: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        eval.eval_function(f, &[x], &[])
+        eval.eval_function(f.0, &[x], &[])
             .map_err(|e| BuckStarlarkError::new(e).into())
     }
 
     pub fn map(
         x: ValueTyped<'v, StarlarkPromise<'v>>,
-        f: Value<'v>,
+        f: StarlarkCallable<'v, (Value<'v>,), Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         match x.get() {
@@ -303,7 +307,7 @@ fn promise_methods(builder: &mut MethodsBuilder) {
     /// Given a promise, apply a function to the value it contains, producing a promise with the resulting value.
     fn map<'v>(
         this: ValueTyped<'v, StarlarkPromise<'v>>,
-        #[starlark(require = pos)] func: Value<'v>,
+        #[starlark(require = pos)] func: StarlarkCallable<'v, (Value<'v>,), Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         StarlarkPromise::map(this, func, eval)
