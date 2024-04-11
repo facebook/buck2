@@ -479,8 +479,8 @@ struct DeferredResultData {
     value: DeferredValueAny,
 }
 
-#[derive(Clone, Dupe, Allocative)]
-pub struct DeferredTable(Arc<Vec<DeferredTableEntry>>);
+#[derive(Allocative)]
+pub struct DeferredTable(Vec<DeferredTableEntry>);
 
 impl Debug for DeferredResultData {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -501,7 +501,7 @@ impl Debug for DeferredTable {
 
 impl DeferredTable {
     pub fn new(deferreds: Vec<DeferredTableEntry>) -> Self {
-        Self(Arc::new(deferreds))
+        DeferredTable(deferreds)
     }
 
     /// looks up an 'Deferred' given the id

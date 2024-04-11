@@ -38,7 +38,7 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 pub struct AnalysisResult {
     /// The actual provider collection, validated to be the correct type (`FrozenProviderCollection`)
     pub provider_collection: FrozenProviderCollectionValue,
-    deferred: DeferredTable,
+    deferred: Arc<DeferredTable>,
     pub profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
     promise_artifact_map: Arc<HashMap<PromiseArtifactId, Artifact>>,
 }
@@ -53,7 +53,7 @@ impl AnalysisResult {
     ) -> Self {
         Self {
             provider_collection,
-            deferred,
+            deferred: Arc::new(deferred),
             profile_data,
             promise_artifact_map: Arc::new(promise_artifact_map),
         }
