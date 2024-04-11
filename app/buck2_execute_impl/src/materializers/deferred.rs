@@ -18,6 +18,8 @@ mod tests;
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
@@ -78,6 +80,7 @@ use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use futures::future;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;
@@ -1163,6 +1166,30 @@ impl<T: 'static> Stream for CommandStream<T> {
     }
 }
 
+#[derive(Copy, Clone, Dupe)]
+enum MaterializeStack<'a> {
+    Empty,
+    Child(&'a MaterializeStack<'a>, &'a ProjectRelativePath),
+}
+
+impl<'a> Display for MaterializeStack<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let MaterializeStack::Empty = self {
+            return write!(f, "(empty)");
+        }
+
+        // Avoid recursion because we are fighting with stack overflow here,
+        // and we do not want another stack overflow when producing error message.
+        let mut stack = Vec::new();
+        let mut current = *self;
+        while let MaterializeStack::Child(parent, path) = current {
+            stack.push(path);
+            current = *parent;
+        }
+        write!(f, "{}", stack.iter().rev().join(" -> "))
+    }
+}
+
 impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     fn spawn_from_rt<F>(rt: &Handle, f: F) -> JoinHandle<F::Output>
     where
@@ -1707,6 +1734,36 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
     ) -> Option<MaterializingFuture> {
+        self.materialize_artifact_recurse(MaterializeStack::Empty, path, event_dispatcher)
+    }
+
+    fn materialize_artifact_recurse(
+        &mut self,
+        stack: MaterializeStack<'_>,
+        path: &ProjectRelativePath,
+        event_dispatcher: EventDispatcher,
+    ) -> Option<MaterializingFuture> {
+        let stack = MaterializeStack::Child(&stack, path);
+        // We only add context to outer error, because adding context to the future
+        // is expensive. Errors in futures should add stack context themselves.
+        match self.materialize_artifact_inner(stack, path, event_dispatcher) {
+            Ok(res) => res,
+            Err(e) => Some(
+                future::err(SharedMaterializingError::Error(
+                    e.context(format!("materializing {}", stack)).into(),
+                ))
+                .boxed()
+                .shared(),
+            ),
+        }
+    }
+
+    fn materialize_artifact_inner(
+        &mut self,
+        stack: MaterializeStack<'_>,
+        path: &ProjectRelativePath,
+        event_dispatcher: EventDispatcher,
+    ) -> anyhow::Result<Option<MaterializingFuture>> {
         // TODO(nga): rewrite without recursion.
         check_stack_overflow().unwrap();
 
@@ -1716,7 +1773,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             // Never declared, nothing to do
             None => {
                 tracing::debug!("not known");
-                return None;
+                return Ok(None);
             }
             Some(data) => data,
         };
@@ -1733,7 +1790,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 ..
             } => {
                 tracing::debug!("join existing future");
-                return Some(f.clone());
+                return Ok(Some(f.clone()));
             }
             Processing::Done(..) => None,
         };
@@ -1772,7 +1829,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         }
                     }
 
-                    return None;
+                    return Ok(None);
                 }
             },
         };
@@ -1797,7 +1854,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => copied_artifacts
                     .iter()
                     .filter_map(|a| {
-                        self.materialize_artifact(a.src.as_ref(), event_dispatcher.dupe())
+                        self.materialize_artifact_recurse(
+                            MaterializeStack::Child(&stack, path),
+                            a.src.as_ref(),
+                            event_dispatcher.dupe(),
+                        )
                     })
                     .collect::<Vec<_>>(),
                 #[cfg(test)]
@@ -1814,7 +1875,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .tree
                 .find_artifacts(deps)
                 .into_iter()
-                .filter_map(|p| self.materialize_artifact(p.as_ref(), event_dispatcher.dupe()))
+                .filter_map(|p| {
+                    self.materialize_artifact_recurse(
+                        MaterializeStack::Child(&stack, path),
+                        p.as_ref(),
+                        event_dispatcher.dupe(),
+                    )
+                })
                 .collect::<Vec<_>>(),
         };
 
@@ -1907,7 +1974,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             version,
         };
 
-        Some(task)
+        Ok(Some(task))
     }
 
     #[instrument(level = "debug", skip(self, result), fields(path = %artifact_path))]
