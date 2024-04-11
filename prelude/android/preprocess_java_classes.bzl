@@ -20,15 +20,18 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
     input_srcs = {}
     output_jars_to_owners = {}
     output_dir = ctx.actions.declare_output("preprocessed_java_classes/output_dir")
+    input_jars_to_owners = {}
 
     for i, (input_jar, target_label) in enumerate(input_jars.items()):
         expect(input_jar.extension == ".jar", "Expected {} to have extension .jar!".format(input_jar))
         jar_name = "{}_{}".format(i, input_jar.basename)
         input_srcs[jar_name] = input_jar
+        input_jars_to_owners[jar_name] = target_label
         output_jar = output_dir.project(jar_name)
         output_jars_to_owners[output_jar] = target_label
 
     input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs)
+    input_jars_map = ctx.actions.write_json("preprocessed_java_classes/input_jars_map.json", input_jars_to_owners)
     materialized_artifacts_dir = ctx.actions.declare_output("preprocessed_java_classes/materialized_artifacts")
 
     env = {
@@ -37,6 +40,7 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
             delimiter = get_path_separator_for_exec_os(ctx),
         ),
         "IN_JARS_DIR": cmd_args(input_dir),
+        "IN_JARS_MAP": cmd_args(input_jars_map),
         "MATERIALIZED_ARTIFACTS_DIR": materialized_artifacts_dir.as_output(),
         "OUT_JARS_DIR": output_dir.as_output(),
         "PREPROCESS": ctx.attrs.preprocess_java_classes_bash,
@@ -64,5 +68,6 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
     ctx.actions.run(preprocess_cmd, env = env, category = "preprocess_java_classes")
 
     enhance_ctx.debug_output("preprocess_java_classes_input_dir", input_dir)
+    enhance_ctx.debug_output("preprocess_java_classes_input_jars_map", input_jars_map)
 
     return output_jars_to_owners, materialized_artifacts_dir
