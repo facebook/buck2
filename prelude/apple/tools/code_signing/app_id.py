@@ -36,7 +36,12 @@ class AppId:
     def from_string(cls, string: str) -> AppId:
         match = re.match(cls._re_pattern, string)
         if not match:
-            raise RuntimeError("Malformed app ID string: {}".format(string))
+            raise RuntimeError(
+                "Malformed app ID string: '{}'. "
+                "We expected a prefix of a ten-character alphanumeric sequence and a Bundle ID which may be a fully-qualified name or a wildcard ending in '*'.".format(
+                    string
+                )
+            )
         return AppId(
             match.group(cls._ReGroupName.team_id),
             match.group(cls._ReGroupName.bundle_id),
@@ -45,8 +50,13 @@ class AppId:
     # Returns the App ID if it can be inferred from keys in the entitlement. Otherwise, it returns `None`.
     @staticmethod
     def infer_from_entitlements(entitlements: Dict[str, Any]) -> Optional[AppId]:
-        keychain_access_groups = entitlements.get("keychain-access-groups")
-        if not keychain_access_groups:
-            return None
-        app_id_string = keychain_access_groups[0]
-        return AppId.from_string(app_id_string)
+        try:
+            keychain_access_groups = entitlements.get("keychain-access-groups")
+            if not keychain_access_groups:
+                return None
+            app_id_string = keychain_access_groups[0]
+            return AppId.from_string(app_id_string)
+        except Exception as e:
+            raise RuntimeError(
+                "Error when parsing the entitlements for the app ID: {}".format(e)
+            )
