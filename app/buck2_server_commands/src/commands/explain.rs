@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -73,43 +76,19 @@ pub(crate) async fn explain(
             &mut ctx,
             server_ctx.working_dir(),
             CqueryOwnerBehavior::Correct,
-            "deps('fbcode//buck2:buck2')", // TODO: dehardcode
-            &[],                           // TODO:
+            "fbcode//buck2:buck2", // TODO: dehardcode
+            &[],                   // TODO:
             GlobalCfgOptions {
                 target_platform: None,
                 cli_modifiers: Arc::new(vec![]),
             }, // TODO:
-            None,                          // TODO:
+            None,                  // TODO:
         )
         .await?;
 
-    // TODO: remove some duplication and flushes
-    let mut writer = std::fs::File::create("/tmp/index.js")?;
-    let res = include_bytes!("explain/index.js").as_slice();
-    writer.write_all(res)?;
-    writer.flush()?;
-
-    let mut writer = std::fs::File::create("/tmp/styles.css")?;
-    let res = include_bytes!("explain/styles.css").as_slice();
-    writer.write_all(res)?;
-    writer.flush()?;
-
-    let mut writer = std::fs::File::create("/tmp/index.html")?;
-    let res = include_bytes!("explain/index.html").as_slice();
-    writer.write_all(res)?;
-    writer.flush()?;
-
-    let mut writer = std::fs::File::create("/tmp/target.js")?;
-    let res = include_bytes!("explain/target.js").as_slice();
-    writer.write_all(res)?;
-    writer.flush()?;
-
-    let mut writer = std::fs::File::create("/tmp/data.js")?;
-    let res = include_bytes!("explain/data.js").as_slice();
-    writer.write_all(res)?;
-    writer.flush()?;
-
-    let writer_ref = &mut writer;
+    // TODO iguridi: a cursor is fine for now
+    let mut buffer = std::io::Cursor::new(vec![]);
+    let buffer_ref = &mut buffer;
 
     let cell_resolver = ctx.get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
@@ -122,12 +101,12 @@ pub(crate) async fn explain(
         match query_result {
             QueryEvaluationResult::Single(targets) => {
                 output_configuration
-                    .print_single_output(writer_ref, targets, false, ShouldPrintProviders::No)
+                    .print_single_output(buffer_ref, targets, false, ShouldPrintProviders::No)
                     .await?
             }
             QueryEvaluationResult::Multiple(results) => {
                 output_configuration
-                    .print_multi_output(writer_ref, results, false, ShouldPrintProviders::No)
+                    .print_multi_output(buffer_ref, results, false, ShouldPrintProviders::No)
                     .await?
             }
         };
@@ -135,7 +114,19 @@ pub(crate) async fn explain(
     })
     .await?;
 
-    writer.flush()?;
+    buffer.flush()?;
+
+    buffer.seek(SeekFrom::Start(0))?;
+    let mut output = String::new();
+    buffer.read_to_string(&mut output)?;
+
+    // TODO iguridi: make it work for OSS
+    #[cfg(fbcode_build)]
+    {
+        let base64 = base64::encode(&output);
+        // write the output to html
+        buck2_explain::main(base64)?;
+    }
 
     Ok(ExplainResponse {})
 }
