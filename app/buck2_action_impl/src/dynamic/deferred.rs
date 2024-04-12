@@ -35,7 +35,6 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
-use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -52,11 +51,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::dict::Dict;
-use starlark::values::none::NoneType;
 use starlark::values::structs::StructRef;
-use starlark::values::typing::StarlarkCallable;
-use starlark::values::FrozenValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
@@ -240,16 +235,22 @@ impl Deferred for DynamicLambda {
                 let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
                 let ctx = AnalysisContext::prepare(
                     heap,
-                    dynamic_lambda_ctx_data.attributes,
+                    ValueOfUnchecked::<StructRef>::new_checked(
+                        dynamic_lambda_ctx_data.lambda.attributes.to_value(),
+                    )
+                    .internal_error("attributes must be struct")?,
                     self.owner.configured_label(),
-                    dynamic_lambda_ctx_data.plugins,
+                    ValueTypedComplex::<AnalysisPlugins>::new(
+                        dynamic_lambda_ctx_data.lambda.plugins.to_value(),
+                    )
+                    .internal_error("plugins must be AnalysisPlugins")?,
                     dynamic_lambda_ctx_data.registry,
                     dynamic_lambda_ctx_data.digest_config,
                 );
 
                 DynamicLambda::invoke_dynamic_output_lambda(
                     &mut eval,
-                    dynamic_lambda_ctx_data.lambda.0,
+                    dynamic_lambda_ctx_data.lambda.lambda.0.to_value(),
                     ctx.to_value(),
                     dynamic_lambda_ctx_data.artifacts,
                     dynamic_lambda_ctx_data.outputs,
@@ -282,18 +283,8 @@ impl Deferred for DynamicLambda {
 
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
-    pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
-    pub lambda: StarlarkCallable<
-        'v,
-        (
-            FrozenValue,
-            SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-            SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
-        ),
-        NoneType,
-    >,
+    pub lambda: &'v FrozenDynamicLambdaParams,
     pub outputs: Value<'v>,
-    pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
     pub artifacts: Value<'v>,
     pub key: &'v BaseDeferredKey,
     pub digest_config: DigestConfig,
@@ -311,20 +302,12 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let mut outputs = SmallMap::with_capacity(dynamic_lambda.outputs.len());
     let mut declared_outputs = IndexSet::with_capacity(dynamic_lambda.outputs.len());
 
-    let attributes_lambda = dynamic_lambda
+    let attributes_lambda = &dynamic_lambda
         .attributes_lambda
         .as_ref()
         .internal_error("attributes_lambda not set")?
-        .owned_as_ref(env.frozen_heap());
-    let FrozenDynamicLambdaParams {
-        attributes,
-        plugins,
-        lambda,
-    } = &attributes_lambda.value;
-
-    let plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins> = *plugins;
-    let plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>> =
-        ValueTypedComplex::new(plugins.to_value()).internal_error("incorrect plugins type")?;
+        .owned_as_ref(env.frozen_heap())
+        .value;
 
     let execution_platform = {
         match &dynamic_lambda.owner {
@@ -389,9 +372,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let outputs = Dict::new(outputs);
 
     Ok(DynamicLambdaCtxData {
-        attributes: ValueOfUnchecked::new_checked(attributes.to_value())?,
-        lambda: lambda.to_callable(),
-        plugins,
+        lambda: attributes_lambda,
         outputs: heap.alloc(outputs),
         artifacts: heap.alloc(artifacts),
         key: &dynamic_lambda.owner,

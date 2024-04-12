@@ -43,10 +43,10 @@ pub(crate) struct DynamicLambdaParams<'v> {
 }
 
 #[derive(Allocative, Debug, ProvidesStaticType)]
-pub(crate) struct FrozenDynamicLambdaParams {
+pub struct FrozenDynamicLambdaParams {
     pub(crate) attributes: FrozenValue,
     pub(crate) plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins>,
-    pub(crate) lambda: FrozenStarlarkCallable<
+    pub lambda: FrozenStarlarkCallable<
         (
             FrozenValue,
             SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
