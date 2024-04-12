@@ -29,7 +29,6 @@
 //! extern crate starlark;
 //! # fn main() {
 //! use std::fmt;
-//! use std::fmt::Display;
 //! use std::time::Instant;
 //!
 //! use starlark::assert::Assert;
@@ -39,12 +38,6 @@
 //!
 //! #[derive(Debug)]
 //! struct MyInstant(Instant);
-//!
-//! impl Display for MyInstant {
-//!     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//!         write!(f, "{:?}", self)
-//!     }
-//! }
 //!
 //! #[starlark_module]
 //! fn globals(builder: &mut GlobalsBuilder) {
@@ -66,11 +59,8 @@
 //! a.globals_add(globals);
 //! a.pass(
 //!     r#"
-//! duration = start()
-//! y = 100
-//! for x in range(100):
-//!     y += x
-//! print(elapsed(duration))
+//! instant = start()
+//! print(elapsed(instant))
 //! "#,
 //! );
 //! # }
@@ -78,7 +68,6 @@
 
 use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
 
 use allocative::Allocative;
 use starlark_derive::starlark_value;
@@ -95,37 +84,32 @@ use crate::values::ValueLike;
 /// A type that can be passed around as a Starlark [`Value`], but in most
 /// ways is uninteresting/opaque to Starlark. Constructed with
 /// [`new`](StarlarkAny::new) and decomposed with [`get`](StarlarkAny::get).
-#[derive(ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(ProvidesStaticType, NoSerialize, Allocative, derive_more::Display)]
 #[allocative(bound = "")]
-pub struct StarlarkAny<T: Debug + Display + Send + Sync + 'static>(
+#[display(fmt = "{:?}", "self")]
+pub struct StarlarkAny<T: Debug + Send + Sync + 'static>(
     #[allocative(skip)] // TODO(nga): do not skip.
     pub  T,
 );
 
 #[starlark_value(type = "any")]
-impl<'v, T: Debug + Display + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> {
+impl<'v, T: Debug + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> {
     type Canonical = Self;
 }
 
-impl<'v, T: Debug + Display + Send + Sync + 'static> AllocValue<'v> for StarlarkAny<T> {
+impl<'v, T: Debug + Send + Sync + 'static> AllocValue<'v> for StarlarkAny<T> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }
 
-impl<T: Debug + Display + Send + Sync + 'static> Debug for StarlarkAny<T> {
+impl<T: Debug + Send + Sync + 'static> Debug for StarlarkAny<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Debug::fmt(&self.0, f)
     }
 }
 
-impl<T: Debug + Display + Send + Sync + 'static> Display for StarlarkAny<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl<T: Debug + Display + Send + Sync + 'static> StarlarkAny<T> {
+impl<T: Debug + Send + Sync + 'static> StarlarkAny<T> {
     /// Create a new [`StarlarkAny`] value. Such a value can be allocated on a heap with
     /// `heap.alloc(StarlarkAny::new(x))`.
     pub fn new(x: T) -> Self {

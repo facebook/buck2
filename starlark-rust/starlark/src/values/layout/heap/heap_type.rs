@@ -20,7 +20,6 @@ use std::cell::RefCell;
 use std::cmp;
 use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -411,10 +410,7 @@ impl FrozenHeap {
     }
 
     /// Allocate any value in the frozen heap.
-    pub(crate) fn alloc_any<T: Debug + Display + Send + Sync>(
-        &self,
-        value: T,
-    ) -> FrozenRef<'static, T> {
+    pub(crate) fn alloc_any<T: Debug + Send + Sync>(&self, value: T) -> FrozenRef<'static, T> {
         let value = self.alloc_simple_frozen_ref(StarlarkAny::new(value));
         value.map(|r| &r.0)
     }

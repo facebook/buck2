@@ -547,7 +547,7 @@ mod tests {
         let mut j = 0;
         arena.for_each_ordered(|i| {
             if let Some(i) = i.unpack_header() {
-                assert_eq!(to_repr(i), j.to_string());
+                assert_eq!(to_repr(i), format!("{:?}", j.to_string()));
                 j += 1;
             }
         });
@@ -572,8 +572,8 @@ mod tests {
             }
         });
         assert_eq!(res.len(), 3);
-        assert_eq!(to_repr(res[0]), "test");
-        assert_eq!(to_repr(res[2]), "hello");
+        assert_eq!(to_repr(res[0]), "\"test\"");
+        assert_eq!(to_repr(res[2]), "\"hello\"");
     }
 
     #[test]
