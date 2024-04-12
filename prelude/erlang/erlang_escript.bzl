@@ -28,9 +28,9 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.bundled:
         return _bundled_escript_impl(ctx, dependencies, toolchain)
     else:
-        return _unbundles_escript_impl(ctx, dependencies, toolchain)
+        return _unbundled_escript_impl(ctx, dependencies, toolchain)
 
-def _unbundles_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies, toolchain: Toolchain) -> list[Provider]:
+def _unbundled_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies, toolchain: Toolchain) -> list[Provider]:
     if ctx.attrs.resources:
         fail("resources are not supported with unbundled escripts, add them to an applications priv/ directory instead")
 
@@ -43,7 +43,8 @@ def _unbundles_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependenci
         dependencies,
     )
 
-    escript_trampoline = build_escript_trampoline(ctx, toolchain)
+    config_files = _escript_config_files(ctx)
+    escript_trampoline = build_escript_unbundled_trampoline(ctx, toolchain, config_files)
 
     trampoline = {
         "run.escript": escript_trampoline,
@@ -52,6 +53,9 @@ def _unbundles_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependenci
     all_outputs = {}
     for outputs in [lib_dir, trampoline]:
         all_outputs.update(outputs)
+
+    for config_file in config_files:
+        all_outputs[config_file.short_path] = config_file
 
     output = ctx.actions.symlinked_dir(
         escript_name,
@@ -99,8 +103,15 @@ def _bundled_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies
     output = ctx.actions.declare_output(escript_name)
 
     args = ctx.attrs.emu_args
-    if ctx.attrs.main_module:
-        args += ["-escript", "main", ctx.attrs.main_module]
+
+    config_files = _escript_config_files(ctx)
+    for config_file in config_files:
+        artifacts[config_file.short_path] = config_file
+
+    escript_trampoline = build_escript_bundled_trampoline(ctx, toolchain, config_files)
+    artifacts[escript_trampoline.basename] = escript_trampoline
+
+    args += ["-escript", "main", "erlang_escript_trampoline"]
 
     escript_build_spec = {
         "artifacts": artifacts,
@@ -147,6 +158,7 @@ def create_escript(
     )
     escript_build_cmd.hidden(output.as_output())
     escript_build_cmd.hidden(files)
+
     erlang_build.utils.run_with_env(
         ctx,
         toolchain,
@@ -168,7 +180,7 @@ def _main_module(ctx: AnalysisContext) -> str:
     else:
         return ctx.attrs.name
 
-def build_escript_trampoline(ctx: AnalysisContext, toolchain) -> Artifact:
+def build_escript_unbundled_trampoline(ctx: AnalysisContext, toolchain, config_files: list[Artifact]) -> Artifact:
     data = cmd_args()
 
     data.add("#!/usr/bin/env escript")
@@ -178,10 +190,12 @@ def build_escript_trampoline(ctx: AnalysisContext, toolchain) -> Artifact:
     data.add("-module('{}').".format(_escript_name(ctx)))
     data.add("-export([main/1]).")
     data.add("main(Args) ->")
-    data.add("    ScriptDir = filename:dirname(escript:script_name()),")
-    data.add('    EBinDirs = filelib:wildcard(filename:join([ScriptDir, "lib", "*", "ebin"])),')
+    data.add("EscriptDir = filename:dirname(escript:script_name()),")
+    _add_config_files_code_to_erl(data, config_files)
+    data.add('    EBinDirs = filelib:wildcard(filename:join([EscriptDir, "lib", "*", "ebin"])),')
     data.add("    code:add_paths(EBinDirs),")
     data.add("    {}:main(Args).".format(_main_module(ctx)))
+    _add_parse_bin(data)
 
     return ctx.actions.write(
         paths.join(erlang_build.utils.build_dir(toolchain), "run.escript"),
@@ -189,8 +203,67 @@ def build_escript_trampoline(ctx: AnalysisContext, toolchain) -> Artifact:
         is_executable = True,
     )
 
+def build_escript_bundled_trampoline(ctx: AnalysisContext, toolchain, config_files: list[Artifact]) -> Artifact:
+    data = cmd_args()
+
+    data.add("-module('erlang_escript_trampoline').")
+    data.add("-export([main/1]).")
+    data.add("main(Args) ->")
+    data.add("EscriptDir = escript:script_name(),")
+    _add_config_files_code_to_erl(data, config_files)
+    data.add("    {}:main(Args).".format(_main_module(ctx)))
+    _add_parse_bin(data)
+    escript_trampoline_erl = ctx.actions.write(
+        paths.join(erlang_build.utils.build_dir(toolchain), "erlang_escript_trampoline.erl"),
+        data,
+    )
+    my_output = ctx.actions.declare_output("erlang_escript_trampoline.beam")
+
+    ctx.actions.run(
+        cmd_args(
+            toolchain.otp_binaries.erlc,
+            "-o",
+            cmd_args(my_output.as_output()).parent(),
+            escript_trampoline_erl,
+        ),
+        category = "erlc_escript_trampoline",
+    )
+
+    return my_output
+
 def _ebin_path(file: Artifact, app_name: str) -> str:
     return paths.join(app_name, "ebin", file.basename)
 
 def _priv_path(app_name: str) -> str:
     return paths.join(app_name, "priv")
+
+def _escript_config_files(ctx: AnalysisContext) -> list[Artifact]:
+    config_files = []
+    for config_dep in ctx.attrs.configs:
+        for artifact in config_dep[DefaultInfo].default_outputs + config_dep[DefaultInfo].other_outputs:
+            (_, ext) = paths.split_extension(artifact.short_path)
+            if ext == ".config":
+                config_files.append(artifact)
+    return config_files
+
+def _add_config_files_code_to_erl(cmd: cmd_args, config_files: list[Artifact]) -> None:
+    cmd.add("ConfigFiles = [")
+    for i in range(0, len(config_files)):
+        cmd.add(cmd_args("\"", config_files[i].short_path, "\"", delimiter = ""))
+        if i < len(config_files) - 1:
+            cmd.add(",")
+    cmd.add("],")
+    cmd.add("[begin ")
+    cmd.add("{ok, AppConfigBin, _FullName} = erl_prim_loader:get_file(filename:join(EscriptDir, ConfigFile)),")
+    cmd.add("{ok, AppConfig} = parse_bin(AppConfigBin), ")
+    cmd.add(" ok = application:set_env(AppConfig, [{persistent, true}])")
+    cmd.add("end || ConfigFile <- ConfigFiles],")
+
+def _add_parse_bin(cmd: cmd_args) -> None:
+    cmd.add("""
+parse_bin(<<"">>) ->
+    [];
+parse_bin(Bin) ->
+        {ok, Tokens, _} = erl_scan:string(binary_to_list(Bin)),
+        erl_parse:parse_term(Tokens).
+        """)

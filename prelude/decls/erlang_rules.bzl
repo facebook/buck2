@@ -163,6 +163,9 @@ rules_attributes = {
         "bundled": attrs.bool(default = True, doc = """
                 Setting bundled to `True` does generate a folder structure and escript trampoline instead of an archive.
         """),
+        "configs": attrs.list(attrs.dep(), default = [], doc = """
+            This attribute allows to set config files for the escript. The dependencies that are typically used
+            here are `export_file` targets."""),
         "deps": attrs.list(attrs.dep(), doc = """
                 List of Erlang applications that are bundled in the escript. This includes all transitive dependencies as well.
             """),
@@ -254,7 +257,7 @@ rules_attributes = {
                 List of additional Common Test hooks. The strings are interpreted as Erlang terms.
             """),
         "extra_erl_flags": attrs.list(attrs.string(), default = [], doc = """
-                List of additional command line arguments given to the erl command invocation. These 
+                List of additional command line arguments given to the erl command invocation. These
                 arguments are added to the front of the argument list.
             """),
         "preamble": attrs.string(default = read_root_config("erlang", "erlang_test_preamble", "test:info(),test:ensure_initialized(),test:start_shell()."), doc = """
