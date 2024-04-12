@@ -57,8 +57,8 @@ pub(crate) fn recover_crate_error(
     value: &'_ (dyn StdError + 'static),
     source_location: Option<String>,
 ) -> crate::Error {
-    // Instead of just turning this into an error root, we will first check if this error has any
-    // information associated with it that would allow us to recover more structure.
+    // Instead of just turning this into an error root, we'll extract the whole context stack and
+    // convert it manually.
     let mut context_stack = Vec::new();
     let mut cur = value;
     // We allow all of these to appear more than once in the context chain, however we always use
@@ -105,8 +105,8 @@ pub(crate) fn recover_crate_error(
         )))));
         break 'base maybe_add_context_from_metadata(e, cur);
     };
-    // We were able to convert the error into a `buck2_error::Error` in some non-trivial way. We'll
-    // now need to add back any context that is not included in the `base` buck2_error yet.
+    // We've converted the base error to a `buck2_error::Error`. Next, we need to add back any
+    // context that is not included in the `base` error yet.
     let mut e = base;
     for context_value in context_stack.into_iter().rev() {
         // First, just add the value directly. This value is only used for formatting
