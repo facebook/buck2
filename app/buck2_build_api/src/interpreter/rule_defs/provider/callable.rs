@@ -338,13 +338,11 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             anyhow::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
                 signature,
-                data: eval
-                    .frozen_heap()
-                    .alloc_any_display_from_debug(UserProviderCallableData {
-                        provider_id,
-                        fields: self.fields.clone(),
-                        ty_provider_type_instance_id,
-                    }),
+                data: eval.frozen_heap().alloc_any(UserProviderCallableData {
+                    provider_id,
+                    fields: self.fields.clone(),
+                    ty_provider_type_instance_id,
+                }),
                 ty_provider,
                 ty_callable,
             })
