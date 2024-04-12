@@ -9,4 +9,5 @@
 
 pub mod bxl;
 pub mod deferred;
+pub(crate) mod dynamic_lambda_params;
 pub(crate) mod registry;

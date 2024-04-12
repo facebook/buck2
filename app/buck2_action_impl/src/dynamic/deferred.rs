@@ -20,7 +20,6 @@ use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_build_api::actions::key::ActionKeyExt;
 use buck2_build_api::actions::RegisteredAction;
-use buck2_build_api::analysis::dynamic_lambda_params::FrozenDynamicLambdaParams;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::Deferred;
@@ -63,6 +62,7 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
+use crate::dynamic::dynamic_lambda_params::FrozenDynamicLambdaParams;
 
 /// The artifacts that are returned are dynamic actions, which depend on the `DynamicLambda`
 /// to get their real `RegisteredAction`.
