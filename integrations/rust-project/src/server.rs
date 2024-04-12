@@ -345,7 +345,10 @@ fn handle_discover_buck_targets(
         .collect::<Vec<Target>>();
     let project = develop.run(targets)?;
     tracing::info!(crate_len = &project.crates.len(), "created index");
-    projects.push(project.clone());
+
+    if !projects.iter().any(|p| *p == project) {
+        projects.push(project.clone());
+    }
 
     Ok(DiscoverBuckTargetsResult::Many(projects.clone()))
 }
