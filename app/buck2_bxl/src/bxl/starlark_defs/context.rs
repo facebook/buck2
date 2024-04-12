@@ -634,10 +634,12 @@ impl BxlEvalContext<'_> {
             let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))?;
 
             DynamicLambda::invoke_dynamic_output_lambda(
+                &env,
                 &mut eval,
                 dynamic_lambda_ctx_data.lambda.0,
                 ctx.to_value(),
                 dynamic_lambda_ctx_data.artifacts,
+                dynamic_lambda_ctx_data.promises,
                 dynamic_lambda_ctx_data.outputs,
             )?;
 

@@ -1,0 +1,18 @@
+load("defs.bzl", "dynamic_value")
+
+dynamic_value(
+    name = "target_a",
+    srcs = [
+        "package_a/A1.json",
+        "package_a/A2.json",
+    ],
+)
+
+dynamic_value(
+    name = "target_b",
+    srcs = [
+        "package_b/B1.json",
+        "package_b/B2.json",
+    ],
+    deps = [":target_a"],
+)

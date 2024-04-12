@@ -233,6 +233,19 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
         Ok(ProviderCollection::<'v> { providers })
     }
 
+    /// Takes a value, e.g. a return from a `dynamic_output` function, and builds a `ProviderCollection` from it.
+    ///
+    /// An error is returned if:
+    ///  - `value` is not a list
+    ///  - Two instances of the same provider are provided
+    pub fn try_from_value_dynamic_output(
+        value: Value<'v>,
+    ) -> anyhow::Result<ProviderCollection<'v>> {
+        let providers = Self::try_from_value_impl(value)?;
+
+        Ok(ProviderCollection::<'v> { providers })
+    }
+
     /// Common implementation of `[]`, `in`, and `.get`.
     fn get_impl(
         &self,

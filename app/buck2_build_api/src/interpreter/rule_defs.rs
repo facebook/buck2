@@ -17,6 +17,7 @@ pub mod cmd_args;
 pub mod command_executor_config;
 pub mod context;
 pub mod digest_config;
+pub mod dynamic_value;
 pub mod label_relative_path;
 pub mod plugins;
 pub mod provider;

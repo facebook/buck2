@@ -13,6 +13,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::interpreter::rule_defs::dynamic_value::DynamicValue;
 use buck2_core::soft_error;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
@@ -75,6 +76,9 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = named)] dynamic: UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact>,
+        // TODO(ah) consider merging with `dynamic`.
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        promises: UnpackListOrTuple<DynamicValue>,
         #[starlark(require = named)] inputs: Option<
             UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact>,
         >,
@@ -89,7 +93,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             NoneType,
         >,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneType> {
+    ) -> anyhow::Result<DynamicValue> {
         // TODO(nga): delete.
         let _unused = inputs;
 
@@ -104,6 +108,8 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .iter()
             .map(|x| x.artifact())
             .collect::<anyhow::Result<_>>()?;
+
+        let promises = promises.items.iter().map(|x| x.clone()).collect();
 
         for output in &outputs {
             match output {
@@ -126,7 +132,11 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             lambda: f,
         });
         let mut this = this.state();
-        this.register_dynamic_output(dynamic, outputs, attributes_plugins_lambda)?;
-        Ok(NoneType)
+        let key =
+            this.register_dynamic_output(dynamic, promises, outputs, attributes_plugins_lambda)?;
+        let result = DynamicValue {
+            dynamic_output_key: key,
+        };
+        Ok(result)
     }
 }
