@@ -130,7 +130,12 @@ def main(argv: List[str]) -> int:
             )
             if diagnosis:
                 _eprintln(diagnosis)
-        _eprintln(result.stderr)
+
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+
     return result.returncode
 
 
