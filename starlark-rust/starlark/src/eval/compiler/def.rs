@@ -474,25 +474,19 @@ impl Compiler<'_, '_, '_, '_> {
 
         let param_count = params.count_param_variables();
 
-        let used = self
-            .eval
-            .frozen_heap()
-            .alloc_any_slice_display_from_debug(&scope_names.used);
+        let used = self.eval.frozen_heap().alloc_any_slice(&scope_names.used);
         let info = self.eval.module_env.frozen_heap().alloc_any(DefInfo {
             name,
             signature_span,
             parameter_captures: self
                 .eval
                 .frozen_heap()
-                .alloc_any_slice_display_from_debug(&params.parameter_captures()),
+                .alloc_any_slice(&params.parameter_captures()),
             ty,
             codemap: self.codemap,
             docstring,
             used,
-            parent: self
-                .eval
-                .frozen_heap()
-                .alloc_any_slice_display_from_debug(&scope_names.parent),
+            parent: self.eval.frozen_heap().alloc_any_slice(&scope_names.parent),
             stmt_compiled: body.as_bc(
                 &self.compile_context(return_type.is_some()),
                 used,

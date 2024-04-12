@@ -109,7 +109,7 @@ mod tests {
         }
 
         let heap = FrozenHeap::new();
-        let values = heap.alloc_any_slice_display_from_debug(&[
+        let values = heap.alloc_any_slice(&[
             IncrementOnDrop(counter1.dupe()),
             IncrementOnDrop(counter1.dupe()),
             IncrementOnDrop(counter2.dupe()),
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn test_allocation_size() {
         let heap = FrozenHeap::new();
-        heap.alloc_any_slice_display_from_debug(&[1, 2, 3]);
+        heap.alloc_any_slice(&[1, 2, 3]);
         let quake = heap.alloc_str("quake");
         // Test array allocation did not overwrite the string.
         assert_eq!(quake.as_str(), "quake");

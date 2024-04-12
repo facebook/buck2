@@ -132,7 +132,7 @@ impl<'f> InlinedFrameAlloc<'f> {
                 return last_alloc;
             }
         }
-        let frame = self.frozen_heap.alloc_any_display_from_debug(frame);
+        let frame = self.frozen_heap.alloc_any(frame);
         self.last_alloc = Some(frame);
         frame
     }
@@ -172,7 +172,7 @@ mod tests {
 
         fn make_span(heap: &FrozenHeap, text: &str) -> FrameSpan {
             let codemap = CodeMap::new(format!("{}.bzl", text), text.to_owned());
-            let codemap = heap.alloc_any_display_from_debug(codemap);
+            let codemap = heap.alloc_any(codemap);
             FrameSpan {
                 span: FrozenFileSpan::new(codemap, codemap.full_span()),
                 inlined_frames: InlinedFrames::default(),

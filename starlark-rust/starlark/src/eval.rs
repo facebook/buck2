@@ -66,15 +66,9 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
 
         let (codemap, statement, dialect, typecheck) = ast.into_parts();
 
-        let codemap = self
-            .module_env
-            .frozen_heap()
-            .alloc_any_display_from_debug(codemap.dupe());
+        let codemap = self.module_env.frozen_heap().alloc_any(codemap.dupe());
 
-        let globals = self
-            .module_env
-            .frozen_heap()
-            .alloc_any_display_from_type_name(globals.dupe());
+        let globals = self.module_env.frozen_heap().alloc_any(globals.dupe());
 
         if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
             self.module_env.set_docstring(docstring)
@@ -98,9 +92,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         )?;
 
         let scope_names = scope_data.get_scope(ScopeId::module());
-        let local_names = self
-            .frozen_heap()
-            .alloc_any_slice_display_from_debug(&scope_names.used);
+        let local_names = self.frozen_heap().alloc_any_slice(&scope_names.used);
 
         self.module_env.slots().ensure_slots(module_slot_count);
         let old_def_info = mem::replace(
@@ -110,7 +102,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
                 local_names,
                 self.module_env
                     .frozen_heap()
-                    .alloc_any_slice_display_from_debug(&scope_names.parent),
+                    .alloc_any_slice(&scope_names.parent),
                 globals,
             )),
         );

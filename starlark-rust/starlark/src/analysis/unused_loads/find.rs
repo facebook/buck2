@@ -77,7 +77,7 @@ pub(crate) fn find_unused_loads(
     let names = MutableNames::new();
     let heap = FrozenHeap::new();
     let (codemap, statement, dialect, ..) = module.into_parts();
-    let codemap = heap.alloc_any_display_from_type_name(codemap);
+    let codemap = heap.alloc_any(codemap);
     let module_scopes = ModuleScopes::check_module_err(
         &names,
         &heap,

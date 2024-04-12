@@ -443,7 +443,7 @@ impl Module {
             docstring: docstring.into_inner(),
             heap_profile: stacks,
         };
-        let frozen_module_ref = freezer.heap.alloc_any_display_from_debug(rest);
+        let frozen_module_ref = freezer.heap.alloc_any(rest);
         for frozen_def in freezer.frozen_defs.borrow().as_slice() {
             frozen_def.post_freeze(frozen_module_ref, &heap, &freezer.heap);
         }

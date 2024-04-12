@@ -48,7 +48,7 @@ use crate::values::FrozenRef;
 fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
     let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
     let frozen_heap = FrozenHeap::new();
-    let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap().dupe());
+    let codemap = frozen_heap.alloc_any(ast.codemap().dupe());
     let ModuleScopes {
         cst, scope_data, ..
     } = ModuleScopes::check_module_err(

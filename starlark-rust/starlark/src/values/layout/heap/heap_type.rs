@@ -426,17 +426,7 @@ impl FrozenHeap {
         self.alloc_any(Wrapper(value)).map(|r| &r.0)
     }
 
-    pub(crate) fn alloc_any_display_from_type_name<T: Debug + Send + Sync>(
-        &self,
-        value: T,
-    ) -> FrozenRef<'static, T> {
-        #[derive(derive_more::Display, Debug)]
-        #[display(fmt = "{}", "std::any::type_name::<T>()")]
-        struct Wrapper<T: Debug + Send + Sync>(T);
-        self.alloc_any(Wrapper(value)).map(|r| &r.0)
-    }
-
-    fn do_alloc_any_slice_display_from_debug<T: Debug + Send + Sync + Clone>(
+    fn do_alloc_any_slice<T: Debug + Send + Sync + Clone>(
         &self,
         values: &[T],
     ) -> FrozenRef<'static, [T]> {
@@ -447,17 +437,17 @@ impl FrozenHeap {
     }
 
     /// Allocate a slice in the frozen heap.
-    pub(crate) fn alloc_any_slice_display_from_debug<T: Debug + Send + Sync + Clone>(
+    pub(crate) fn alloc_any_slice<T: Debug + Send + Sync + Clone>(
         &self,
         values: &[T],
     ) -> FrozenRef<'static, [T]> {
         if values.is_empty() {
             FrozenRef::new(&[])
         } else if values.len() == 1 {
-            self.alloc_any_display_from_debug(values[0].clone())
+            self.alloc_any(values[0].clone())
                 .map(|r| slice::from_ref(r))
         } else {
-            self.do_alloc_any_slice_display_from_debug(values)
+            self.do_alloc_any_slice(values)
         }
     }
 

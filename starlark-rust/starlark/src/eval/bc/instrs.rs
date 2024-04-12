@@ -390,7 +390,7 @@ mod tests {
     fn display() {
         let heap = FrozenHeap::new();
         let local_names = heap
-            .alloc_any_display_from_debug(vec![const_frozen_string!("abc")])
+            .alloc_any(vec![const_frozen_string!("abc")])
             .map(|s| s.as_slice());
         let mut bc = BcInstrsWriter::new();
         bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
