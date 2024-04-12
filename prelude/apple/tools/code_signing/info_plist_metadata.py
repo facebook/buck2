@@ -27,5 +27,5 @@ class InfoPlistMetadata:
         return InfoPlistMetadata(
             root["CFBundleIdentifier"],
             root.get("CFBundlePackageType"),
-            root.get("WKWatchKitApp", False),
+            root.get("WKApplication", False),
         )

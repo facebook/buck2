@@ -44,6 +44,9 @@ def _apple_watchos_bundle_attrs():
     attributes = {}
     attributes.update(_apple_bundle_base_attrs())
     attributes.update(apple_bundle_extra_attrs())
+    attributes.update({
+        "bundle_type": attrs.string(default = "watchapp"),
+    })
     return attributes
 
 def apple_watchos_bundle_impl(ctx: AnalysisContext) -> list[Provider]:

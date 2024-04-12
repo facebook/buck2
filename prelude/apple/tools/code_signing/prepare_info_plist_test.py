@@ -53,7 +53,7 @@ class Test(unittest.TestCase):
             info_plist = {
                 "CFBundleIdentifier": "com.facebook.test",
                 "CFBundlePackageType": "APPL",
-                "WKWatchKitApp": True,
+                "WKApplication": True,
             }
             info_plist_path, info_plist_metadata = _write_info_plist(
                 info_plist, tmp_dir, "Info.plist"

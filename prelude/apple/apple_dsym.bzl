@@ -38,11 +38,10 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
 def get_apple_dsym_info(ctx: AnalysisContext, binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> Artifact:
     dsym_info = {}
 
-    # WatchOS stub does not have a dSYM, so it's possible that we get zero `binary_dsyms`
     if len(binary_dsyms) == 1:
         dsym_info["binary"] = binary_dsyms[0]
-    elif len(binary_dsyms) > 1:
-        fail("There cannot be more than one binary dSYM")
+    else:
+        fail("There can only be one binary dSYM")
 
     if dep_dsyms:
         # `dedupe` needed as it's possible for the same dSYM to bubble up

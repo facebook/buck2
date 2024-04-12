@@ -142,6 +142,9 @@ def _info_plist_override_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
     if sdk_name == MacOSXSdkMetadata.name:
         if ctx.attrs.extension != "xpc":
             result["LSRequiresIPhoneOS"] = False
-    elif sdk_name not in [WatchOSSdkMetadata.name, WatchSimulatorSdkMetadata.name, MacOSXCatalystSdkMetadata.name]:
+    elif sdk_name in [WatchOSSdkMetadata.name, WatchSimulatorSdkMetadata.name]:
+        result["UIDeviceFamily"] = [4]
+        result["WKApplication"] = True
+    elif sdk_name not in [MacOSXCatalystSdkMetadata.name]:
         result["LSRequiresIPhoneOS"] = True
     return result

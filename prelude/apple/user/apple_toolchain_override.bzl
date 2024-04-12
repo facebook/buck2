@@ -41,7 +41,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             sdk_path = base.sdk_path,
             sdk_version = base.sdk_version,
             swift_toolchain_info = base.swift_toolchain_info,
-            watch_kit_stub_binary = base.watch_kit_stub_binary,
             xcode_build_version = base.xcode_build_version,
             xcode_version = base.xcode_version,
             xctest = base.xctest,

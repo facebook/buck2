@@ -400,4 +400,4 @@ def _get_dest_subpath_for_variant_file(variant_file: Artifact) -> str:
     return paths.join(dir_name, file_name)
 
 def get_is_watch_bundle(ctx: AnalysisContext) -> bool:
-    return ctx.attrs._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary != None
+    return ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_name.startswith("watch")

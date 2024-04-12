@@ -42,7 +42,6 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             sdk_path = sdk_path,
             sdk_version = ctx.attrs.version,
             swift_toolchain_info = ctx.attrs.swift_toolchain[SwiftToolchainInfo] if ctx.attrs.swift_toolchain else None,
-            watch_kit_stub_binary = ctx.attrs.watch_kit_stub_binary,
             xcode_build_version = ctx.attrs.xcode_build_version,
             xcode_version = ctx.attrs.xcode_version,
             xctest = ctx.attrs.xctest[RunInfo],

@@ -22,7 +22,7 @@ class TestParse(unittest.TestCase):
     <string>com.company.application</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
-    <key>WKWatchKitApp</key>
+    <key>WKApplication</key>
     <false/>
 </dict>
 </plist>

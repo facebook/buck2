@@ -22,7 +22,6 @@ AppleBundleDestination = enum(
     "headers",
     "modules",
     "quicklook",
-    "watchkitstub",
     "bundleroot",
     "loginitems",
     "appclips",
@@ -39,7 +38,6 @@ AppleBundleDestinationPaths = record(
     headers = field(str, ""),
     modules = field(str, ""),
     quicklook = field(str, ""),
-    watchkitstub = field(str, ""),
     bundleroot = field(str, ""),
     loginitems = field(str, ""),
     appclips = field(str, ""),
@@ -51,7 +49,6 @@ _IOSBundleDestinationPaths = AppleBundleDestinationPaths(
     xpcservices = "XPCServices",
     watchapp = "Watch",
     quicklook = "Library/QuickLook",
-    watchkitstub = "_WatchKitStub",
     appclips = "AppClips",
 )
 
@@ -74,7 +71,6 @@ _MacOSBundleDestinationPaths = AppleBundleDestinationPaths(
     headers = macOS_content_path,
     modules = macOS_content_path,
     quicklook = paths.join(macOS_content_path, "Library/QuickLook"),
-    watchkitstub = macOS_content_path,
     bundleroot = macOS_content_path,
     loginitems = paths.join(macOS_content_path, "Library/LoginItems"),
 )
@@ -126,8 +122,6 @@ def bundle_relative_path_for_destination(destination: AppleBundleDestination, sd
         return bundle_destinations.modules
     elif destination.value == "quicklook":
         return bundle_destinations.quicklook
-    elif destination.value == "watchkitstub":
-        return bundle_destinations.watchkitstub
     elif destination.value == "bundleroot":
         return bundle_destinations.bundleroot
     elif destination.value == "loginitems":

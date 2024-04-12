@@ -34,7 +34,6 @@ load(
     "make_link_command_debug_output_json_info",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:set.bzl",
@@ -46,7 +45,7 @@ load(
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
-load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
+load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load(
     ":apple_bundle_types.bzl",
     "AppleBinaryExtraOutputsInfo",
@@ -57,7 +56,6 @@ load(
     "AppleBundleResourceInfo",
     "AppleBundleType",
     "AppleBundleTypeDefault",
-    "AppleBundleTypeWatchApp",
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration")
@@ -80,8 +78,7 @@ _PLIST = "plist"
 _XCTOOLCHAIN_SUB_TARGET = "xctoolchain"
 
 AppleBundleDebuggableInfo = record(
-    # Can be `None` for WatchKit stub
-    binary_info = field([AppleDebuggableInfo, None]),
+    binary_info = field(AppleDebuggableInfo),
     # Debugable info of all bundle deps
     dep_infos = field(list[AppleDebuggableInfo]),
     # Concat of `binary_info` and `dep_infos`
@@ -101,13 +98,6 @@ AppleBundlePartListOutput = record(
 )
 
 def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
-    # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
-    if ctx.attrs.binary == None:
-        return AppleBundleBinaryOutput(
-            binary = _get_watch_kit_stub_artifact(ctx),
-            is_watchkit_stub_binary = True,
-        )
-
     if len(get_flattened_binary_deps(ctx.attrs.binary)) > 1:
         if ctx.attrs.selective_debugging != None:
             fail("Selective debugging is not supported for universal binaries.")
@@ -185,9 +175,6 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
     """Returns a tuple of all binary bundle parts and the primary bundle binary."""
     result = []
 
-    if binary_output.is_watchkit_stub_binary:
-        # If we're using a stub binary from watchkit, we also need to add extra part for stub.
-        result.append(AppleBundlePart(source = binary_output.binary, destination = AppleBundleDestination("watchkitstub"), new_name = "WK"))
     primary_binary_part = AppleBundlePart(source = binary_output.binary, destination = AppleBundleDestination("executables"), new_name = get_product_name(ctx))
     result.append(primary_binary_part)
 
@@ -198,10 +185,6 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
     return result, primary_binary_part
 
 def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cmd_args) -> cmd_args:
-    # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
-    if ctx.attrs.binary == None:
-        return cmd_args(_get_watch_kit_stub_artifact(ctx))
-
     binary_dep = get_default_binary_dep(ctx.attrs.binary)
     default_binary = binary_dep[DefaultInfo].default_outputs[0]
 
@@ -216,13 +199,6 @@ def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cm
         return cmd_args(renamed_unstripped_binary)
     else:
         return primary_binary_path_arg
-
-def _get_watch_kit_stub_artifact(ctx: AnalysisContext) -> Artifact:
-    expect(ctx.attrs.binary == None, "Stub is useful only when binary is not set which means watchOS bundle is built.")
-    stub_binary = ctx.attrs._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary
-    if stub_binary == None:
-        fail("Expected Watch Kit stub binary to be provided when bundle binary is not set.")
-    return stub_binary
 
 def _apple_bundle_run_validity_checks(ctx: AnalysisContext):
     if ctx.attrs.extension == None:
@@ -239,10 +215,6 @@ def _get_deps_debuggable_infos(ctx: AnalysisContext) -> list[AppleDebuggableInfo
     return deps_debuggable_infos
 
 def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, executable_arg: ArgLike) -> list[Artifact]:
-    # We don't care to process the watchkit stub binary.
-    if binary_output.is_watchkit_stub_binary:
-        return []
-
     if not ctx.attrs.split_arch_dsym:
         # Calling `dsymutil` on the correctly named binary in the _final bundle_ to yield dsym files
         # with naming convention compatible with Meta infra.
@@ -297,12 +269,6 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
     )
 
 def _infer_apple_bundle_type(ctx: AnalysisContext) -> AppleBundleType:
-    is_watchos = get_is_watch_bundle(ctx)
-    if is_watchos and ctx.attrs.bundle_type:
-        fail("Cannot have a watchOS app with an explicit `bundle_type`, target: {}".format(ctx.label))
-
-    if is_watchos:
-        return AppleBundleTypeWatchApp
     if ctx.attrs.bundle_type != None:
         return AppleBundleType(ctx.attrs.bundle_type)
 
