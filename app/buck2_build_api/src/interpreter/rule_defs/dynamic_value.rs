@@ -52,7 +52,8 @@ impl<'v> StarlarkValue<'v> for DynamicValue {
     type Canonical = Self;
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
-        Ok(Hash::hash(self, hasher))
+        Hash::hash(self, hasher);
+        Ok(())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
@@ -129,7 +130,7 @@ where
             .to_value()
             .at(index, heap)
             .map_err(BuckStarlarkError::new)
-            .with_context(|| format!("Error accessing dynamic value"))
+            .with_context(|| "Error accessing dynamic value".to_string())
             .map_err(Into::into)
     }
 
@@ -165,7 +166,7 @@ fn resolved_dynamic_value_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
         this.provider_collection()?
             .get(index)
-            .with_context(|| format!("Error accessing dynamic value"))
+            .with_context(|| "Error accessing dynamic value".to_string())
     }
 }
 
