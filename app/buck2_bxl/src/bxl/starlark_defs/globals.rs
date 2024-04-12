@@ -9,7 +9,7 @@
 
 //! Starlark globals for BXL.
 
-use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
+use buck2_interpreter::link_buck2_downstream_crate_starlark_globals;
 use starlark::environment::GlobalsBuilder;
 
 use crate::bxl::starlark_defs::bxl_function::register_bxl_function;
@@ -33,17 +33,17 @@ fn bxl_namespace(g: &mut GlobalsBuilder) {
     register_bxl_type_names_in_bxl_namespace(g);
 }
 
-pub(crate) fn init_bxl_specific_globals() {
-    BXL_SPECIFIC_GLOBALS.init(|g| {
-        g.struct_("bxl", bxl_namespace);
-        // TODO(nga): move these into `bxl` namespace.
-        g.struct_("cli_args", cli_args::register_cli_args_module);
-        register_bxl_function(g);
-        register_artifact_function(g);
-        register_target_function(g);
-        register_file_set_function(g);
-        register_instant_function(g);
-        register_error_handling_function(g);
-        register_bxl_type_names(g);
-    });
+fn register_bxl_specific_globals(globals: &mut GlobalsBuilder) {
+    globals.struct_("bxl", bxl_namespace);
+    // TODO(nga): move these into `bxl` namespace.
+    globals.struct_("cli_args", cli_args::register_cli_args_module);
+    register_bxl_function(globals);
+    register_artifact_function(globals);
+    register_target_function(globals);
+    register_file_set_function(globals);
+    register_instant_function(globals);
+    register_error_handling_function(globals);
+    register_bxl_type_names(globals);
 }
+
+link_buck2_downstream_crate_starlark_globals!(register_bxl_specific_globals);

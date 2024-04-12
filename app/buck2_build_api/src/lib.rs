@@ -17,8 +17,6 @@
 #[macro_use]
 extern crate starlark;
 
-use std::sync::Once;
-
 pub mod actions;
 pub mod analysis;
 pub mod artifact_groups;
@@ -40,9 +38,4 @@ pub mod query;
 pub mod spawner;
 pub mod transition;
 
-pub fn init_late_bindings() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        interpreter::more::init_register_build_api_globals();
-    });
-}
+pub fn init_late_bindings() {}

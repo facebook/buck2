@@ -17,8 +17,8 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ANON_TARGET;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_interpreter::anon_targets::REGISTER_ANON_TARGETS;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::link_buck2_downstream_crate_starlark_globals;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
@@ -252,9 +252,7 @@ pub(crate) fn register_anon_target_types(globals: &mut GlobalsBuilder) {
     const AnonTargets: StarlarkValueAsType<StarlarkAnonTargets> = StarlarkValueAsType::new();
 }
 
-pub(crate) fn init_register_anon_target_types() {
-    REGISTER_ANON_TARGETS.init(register_anon_target_types);
-}
+link_buck2_downstream_crate_starlark_globals!(register_anon_target_types);
 
 #[starlark_module]
 fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {

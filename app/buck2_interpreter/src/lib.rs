@@ -15,19 +15,17 @@
 #![feature(try_blocks)]
 #![feature(never_type)]
 #![feature(box_patterns)]
+#![feature(used_with_arg)]
 
-pub mod anon_targets;
 pub mod build_context;
-pub mod bxl;
-pub mod cfg_constructor;
 pub mod coerce;
 pub mod dice;
+pub mod downstream_crate_starlark_globals;
 pub mod error;
 pub mod extra;
 pub mod factory;
 pub mod file_loader;
 pub mod file_type;
-pub mod functions;
 pub mod import_paths;
 pub mod load_module;
 pub mod package_imports;

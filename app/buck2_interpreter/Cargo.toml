@@ -13,6 +13,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 fancy-regex = { workspace = true }
+linkme = { workspace = true }
 plist = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }

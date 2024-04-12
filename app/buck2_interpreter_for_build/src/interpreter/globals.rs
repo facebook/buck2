@@ -7,11 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::anon_targets::REGISTER_ANON_TARGETS;
-use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
-use buck2_interpreter::cfg_constructor::REGISTER_SET_CFG_CONSTRUCTOR;
-use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
-use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
+use buck2_interpreter::downstream_crate_starlark_globals::register_downstream_crate_starlark_globals;
 use buck2_interpreter::starlark_promise::register_promise;
 use buck2_interpreter::types::cell_path::register_cell_path;
 use buck2_interpreter::types::cell_root::register_cell_root;
@@ -43,10 +39,7 @@ use crate::super_package::package_value::register_read_package_value;
 /// that we want identical globals for all files, except `BUCK` files,
 /// where we additionally add prelude and package implicits.
 pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
-    (REGISTER_BUCK2_BUILD_API_GLOBALS.get().unwrap())(builder);
-    (REGISTER_TRANSITION.get().unwrap())(builder);
-    (BXL_SPECIFIC_GLOBALS.get().unwrap())(builder);
-    (REGISTER_SET_CFG_CONSTRUCTOR.get().unwrap())(builder);
+    register_downstream_crate_starlark_globals(builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
@@ -70,5 +63,4 @@ pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_sha256(builder);
     register_dedupe(builder);
     register_set_starlark_peak_allocated_byte_limit(builder);
-    (REGISTER_ANON_TARGETS.get().unwrap())(builder);
 }

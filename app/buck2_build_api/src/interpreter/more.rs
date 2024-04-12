@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
+use buck2_interpreter::link_buck2_downstream_crate_starlark_globals;
 use starlark::environment::GlobalsBuilder;
 
 use crate::actions::error_handler::register_action_error_handler_for_testing;
@@ -48,6 +48,4 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_action_error_handler_for_testing(globals);
 }
 
-pub(crate) fn init_register_build_api_globals() {
-    REGISTER_BUCK2_BUILD_API_GLOBALS.init(register_build_api_globals);
-}
+link_buck2_downstream_crate_starlark_globals!(register_build_api_globals);
