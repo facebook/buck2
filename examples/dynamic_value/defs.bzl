@@ -48,10 +48,9 @@ def _dynamic_value_impl(ctx: AnalysisContext) -> list[Provider]:
         tsets = {}
         externals = {}
         for dep in deps:
-            pkg_name = dep.label.name
             pkg_info = dep[PackageInfo]
             dyn_info = resolved[pkg_info.dynamic][DynamicPackageInfo]
-            for name, module in pkg_info.modules.items():
+            for name in pkg_info.modules.keys():
                 graph[name] = []
                 tsets[name] = dyn_info.modules[name].transitive_outputs
                 externals[name] = None
@@ -77,7 +76,7 @@ def _dynamic_value_impl(ctx: AnalysisContext) -> list[Provider]:
                 name: DynamicModuleInfo(
                     transitive_outputs = tsets[name],
                 )
-                for name, module in modules.items()
+                for name in modules.keys()
             },
         )]
 
