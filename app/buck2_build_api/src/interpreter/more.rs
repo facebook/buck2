@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::functions::more::REGISTER_BUCK2_BUILD_API_GLOBALS;
+use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BUILD_API_GLOBALS;
 use starlark::environment::GlobalsBuilder;
 
 use crate::actions::error_handler::register_action_error_handler_for_testing;

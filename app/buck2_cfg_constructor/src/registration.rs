@@ -12,7 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_interpreter::cfg_constructor::REGISTER_SET_CFG_CONSTRUCTOR;
+use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::build_context::PerFileTypeContext;
 use buck2_interpreter_for_build::interpreter::package_file_extra::PackageFileExtra;
@@ -166,5 +166,5 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
 
 pub(crate) fn init_registration() {
     MAKE_CFG_CONSTRUCTOR.init(make_cfg_constructor);
-    REGISTER_SET_CFG_CONSTRUCTOR.init(register_set_cfg_constructor);
+    REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS.init(register_set_cfg_constructor);
 }

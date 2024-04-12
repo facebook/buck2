@@ -9,7 +9,7 @@
 
 //! Starlark globals for BXL.
 
-use buck2_interpreter::bxl::BXL_SPECIFIC_GLOBALS;
+use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BXL_GLOBALS;
 use starlark::environment::GlobalsBuilder;
 
 use crate::bxl::starlark_defs::bxl_function::register_bxl_function;
@@ -34,7 +34,7 @@ fn bxl_namespace(g: &mut GlobalsBuilder) {
 }
 
 pub(crate) fn init_bxl_specific_globals() {
-    BXL_SPECIFIC_GLOBALS.init(|g| {
+    REGISTER_BUCK2_BXL_GLOBALS.init(|g| {
         g.struct_("bxl", bxl_namespace);
         // TODO(nga): move these into `bxl` namespace.
         g.struct_("cli_args", cli_args::register_cli_args_module);
