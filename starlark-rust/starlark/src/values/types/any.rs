@@ -84,6 +84,10 @@ use crate::values::ValueLike;
 /// A type that can be passed around as a Starlark [`Value`], but in most
 /// ways is uninteresting/opaque to Starlark. Constructed with
 /// [`new`](StarlarkAny::new) and decomposed with [`get`](StarlarkAny::get).
+///
+/// This is version for "simple" values (not requiring trace during GC).
+/// For "complex" version check
+/// [`StarlarkAnyComplex`](crate::values::types::any_complex::StarlarkAnyComplex).
 #[derive(ProvidesStaticType, NoSerialize, Allocative, derive_more::Display)]
 #[allocative(bound = "")]
 #[display(fmt = "{:?}", "self")]

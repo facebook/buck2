@@ -76,6 +76,7 @@ pub use crate::values::trace::Trace;
 pub use crate::values::traits::ComplexValue;
 pub use crate::values::traits::StarlarkValue;
 pub use crate::values::types::any;
+pub use crate::values::types::any_complex;
 pub use crate::values::types::array;
 pub use crate::values::types::bool;
 pub use crate::values::types::dict;
