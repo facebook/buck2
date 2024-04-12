@@ -170,14 +170,14 @@ impl DynamicLambda {
             |spec| Ok(spec),
         )?;
 
-        let positionals = if param_spec.can_fill_with_args(4, &[]) {
+        let positionals = if param_spec.can_fill_with_args(3, &[]) {
+            [ctx, artifacts, outputs].to_vec()
+        } else {
             [
                 ctx, artifacts, // TODO consider if we can merge into `artifacts`.
                 promises, outputs,
             ]
             .to_vec()
-        } else {
-            [ctx, artifacts, outputs].to_vec()
         };
 
         let return_value = eval
