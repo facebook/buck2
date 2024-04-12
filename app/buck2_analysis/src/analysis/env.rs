@@ -350,6 +350,7 @@ async fn run_analysis_with_env_underlying(
     let extra_v = FrozenAnalysisExtraValue::get(&frozen_env)?;
     let provider_collection = extra_v.try_map(|extra_v| {
         extra_v
+            .value
             .provider_collection
             .internal_error("provider_collection must be set")
     })?;

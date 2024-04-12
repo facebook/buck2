@@ -15,13 +15,11 @@ use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::starlark_value;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValueTyped;
-use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValueTyped;
-use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
@@ -31,42 +29,18 @@ use crate::analysis::registry::FrozenAnalysisValueStorage;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
-#[derive(
-    Default,
-    Debug,
-    derive_more::Display,
-    ProvidesStaticType,
-    Allocative,
-    Trace,
-    NoSerialize
-)]
-#[display(fmt = "{:?}", "self")]
+#[derive(Default, Debug, ProvidesStaticType, Allocative, Trace)]
 pub struct AnalysisExtraValue<'v> {
     /// Populated after running rule function to get the providers frozen.
     pub provider_collection: OnceCell<ValueTyped<'v, ProviderCollection<'v>>>,
     pub(crate) analysis_value_storage: OnceCell<ValueTyped<'v, AnalysisValueStorage<'v>>>,
 }
 
-#[derive(
-    Debug,
-    derive_more::Display,
-    ProvidesStaticType,
-    Allocative,
-    NoSerialize
-)]
-#[display(fmt = "{:?}", "self")]
+#[derive(Debug, ProvidesStaticType, Allocative)]
 pub struct FrozenAnalysisExtraValue {
     pub provider_collection: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
     pub(crate) analysis_value_storage:
         Option<FrozenValueTyped<'static, FrozenAnalysisValueStorage>>,
-}
-
-#[starlark_value(type = "AnalysisExtraValue")]
-impl<'v> StarlarkValue<'v> for AnalysisExtraValue<'v> {}
-
-#[starlark_value(type = "AnalysisExtraValue")]
-impl<'v> StarlarkValue<'v> for FrozenAnalysisExtraValue {
-    type Canonical = AnalysisExtraValue<'v>;
 }
 
 impl<'v> Freeze for AnalysisExtraValue<'v> {
@@ -100,7 +74,11 @@ impl<'v> AnalysisExtraValue<'v> {
         let Some(extra) = module.extra_value() else {
             return Ok(None);
         };
-        Ok(Some(extra.downcast_ref_err()?))
+        Ok(Some(
+            &extra
+                .downcast_ref_err::<StarlarkAnyComplex<AnalysisExtraValue>>()?
+                .value,
+        ))
     }
 
     pub fn get_or_init(module: &'v Module) -> anyhow::Result<&'v AnalysisExtraValue<'v>> {
@@ -108,7 +86,9 @@ impl<'v> AnalysisExtraValue<'v> {
             return Ok(extra);
         }
         module.set_extra_value_no_overwrite(
-            module.heap().alloc_complex(AnalysisExtraValue::default()),
+            module
+                .heap()
+                .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
         )?;
         Self::get(module)?.internal_error("extra_value must be set")
     }
@@ -117,7 +97,7 @@ impl<'v> AnalysisExtraValue<'v> {
 impl FrozenAnalysisExtraValue {
     pub fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenAnalysisExtraValue>> {
+    ) -> anyhow::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisExtraValue>>> {
         module
             .owned_extra_value()
             .internal_error("extra_value not set")?

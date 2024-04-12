@@ -489,6 +489,7 @@ impl AnalysisValueFetcher {
             None => Ok(None),
             Some(module) => {
                 let analysis_extra_value = FrozenAnalysisExtraValue::get(module)?
+                    .value
                     .analysis_value_storage
                     .internal_error("analysis_value_storage not set")?
                     .as_ref();
