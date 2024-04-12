@@ -35,7 +35,8 @@ At Meta, artifacts get periodically refreshed, but open source RE backends do no
 
 ## Enabling Deferred Materialization
 
-To enable deferred materialization, add this to your Buckconfig:
+To enable deferred materialization, add this to your
+[Buckconfig](../../concepts/buckconfig.md):
 
 ```
 [buck2]
@@ -74,7 +75,42 @@ Buck can omit writes entirely if the same content is already on disk.
 
 ## `buck2 clean --stale`
 
-When enabling the on-disk state, Buck2 can also optionally delete only artifacts
-that were not used recently. This also requires enabling deferred write actions.
+The deferred materializer can be configured to continuously delete stale
+artifacts, that haven't been recently accessed, or untracked artifacts, that
+exist in buck-out but not in the materalizer state.
 
-You can use this mechanism via `buck2 clean --stale`.
+Unlike `buck2 clean` this does not fully wipe buck-out but it should not
+negatively impact build performance if you are building and rebasing regularly.
+
+Enabling this requires enabling [on-disk state](#on-disk-state) and
+[deferred write actions](#deferring-write-actions), and adding this to your
+Buckconfig:
+
+```
+[buck2]
+clean_stale_enabled = true
+```
+
+It can be further configured by changing these default values:
+
+```
+[buck2]
+# one week
+clean_stale_artifact_ttl_hours = 24 * 7
+clean_stale_period_hours = 24
+clean_stale_start_offset_hours = 12
+```
+
+- `clean_stale_start_offset_hours` determines the time following daemon start up
+  before the first clean will be scheduled.
+- `clean_stale_period_hours` determines how frequently to schedule recurring
+  clean events.
+- `clean_stale_artifact_ttl_hours` determines how long artifacts should be kept
+  in buck-out before cleaning them.
+
+If clean stale is running in the background at the same time that a build begins
+to materialize artifacts, the clean will be interrupted and not run again until
+after the next scheduled period, but it should be able to make gradual progress
+and prevent long term accumulation of artifacts.
+
+If needed, a clean can be manually triggered by calling `buck2 clean --stale`.
