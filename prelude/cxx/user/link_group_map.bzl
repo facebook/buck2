@@ -17,7 +17,6 @@ load(
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
     "link_group_inlined_map_attr",
 )
 load(
@@ -39,20 +38,6 @@ load(
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:utils.bzl", "flatten")
-
-LINK_GROUP_MAP_ATTR = attrs.option(
-    attrs.one_of(
-        attrs.dep(providers = [LinkGroupInfo]),
-        link_group_inlined_map_attr(
-            # Inlined `link_group_map` will parse roots as `label`s, to avoid
-            # bloating deps w/ unrelated mappings (e.g. it's common to use
-            # a default mapping for all rules, which would otherwise add
-            # unrelated deps to them).
-            root_attr = attrs.option(attrs.label()),
-        ),
-    ),
-    default = None,
-)
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     # Extract graphs from the roots via the raw attrs, as `parse_groups_definitions`
