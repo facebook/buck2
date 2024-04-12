@@ -71,7 +71,12 @@ load(
     "LinkableProviders",  # @unused Used as a type
     "linkables",
 )
-load("@prelude//linking:shared_libraries.bzl", "merge_shared_libraries", "traverse_shared_library_info")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
@@ -164,6 +169,7 @@ def _get_root_link_group_specs(
                 name = dep.linkable_root_info.name,
                 is_shared_lib = True,
                 root = dep.linkable_root_info,
+                label = dep.linkable_graph.nodes.value.label,
                 group = Group(
                     name = dep.linkable_root_info.name,
                     mappings = [
@@ -204,15 +210,6 @@ def _get_root_link_group_specs(
         )
 
     return specs
-
-def _split_debuginfo(ctx, data: dict[str, (typing.Any, Label | bool)]) -> (dict[str, (LinkedObject, Label | bool)], dict[str, Artifact]):
-    debuginfo_artifacts = {}
-    transformed = {}
-    for name, (artifact, extra) in data.items():
-        stripped_binary, debuginfo = strip_debug_with_gnu_debuglink(ctx, name, artifact.unstripped_output)
-        transformed[name] = LinkedObject(output = stripped_binary, unstripped_output = artifact.unstripped_output, dwp = artifact.dwp), extra
-        debuginfo_artifacts[name + ".debuginfo"] = debuginfo
-    return transformed, debuginfo_artifacts
 
 def _get_shared_only_groups(shared_only_libs: list[LinkableProviders]) -> list[Group]:
     """
@@ -454,11 +451,6 @@ def _convert_python_library_to_executable(
 
     # Convert preloaded deps to a set of their names to be loaded by.
     preload_labels = {d.label: None for d in ctx.attrs.preload_deps}
-    preload_names = {
-        shared_lib.soname: None
-        for shared_lib in library.shared_libraries()
-        if shared_lib.label in preload_labels
-    }
 
     extensions = {}
     extra_artifacts = {}
@@ -497,7 +489,7 @@ def _convert_python_library_to_executable(
             dest: (omnibus_libs.roots[label].shared_library, label)
             for dest, (_, label) in extensions.items()
         }
-        native_libs = {shlib.soname: shlib.lib for shlib in omnibus_libs.libraries}
+        shared_libs = [("", shlib) for shlib in omnibus_libs.libraries]
 
         omnibus_providers = []
 
@@ -649,23 +641,29 @@ def _convert_python_library_to_executable(
 
         # Put native libraries into the runtime location, as we need to unpack
         # potentially all of them before startup.
-        native_libs = {
-            paths.join("runtime", "lib", shlib.soname): shlib.lib
-            for shlib in executable_info.shared_libs
-        }
-        preload_names = [paths.join("runtime", "lib", n) for n in preload_names]
+        shared_libs = [("runtime/lib", s) for s in executable_info.shared_libs]
 
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
         extra_artifacts.update(dict(extension_info.artifacts))
-        native_libs["runtime/bin/{}".format(ctx.attrs.executable_name)] = LinkedObject(
-            output = executable_info.binary,
-            unstripped_output = executable_info.binary,
-            dwp = executable_info.dwp,
-        )
+        shared_libs.append((
+            "runtime/bin",
+            SharedLibrary(
+                soname = ctx.attrs.executable_name,
+                label = ctx.label,
+                lib = LinkedObject(
+                    output = executable_info.binary,
+                    unstripped_output = executable_info.binary,
+                    dwp = executable_info.dwp,
+                ),
+            ),
+        ))
 
         extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
     else:
-        native_libs = {shared_lib.soname: shared_lib.lib for shared_lib in library.shared_libraries()}
+        shared_libs = [
+            ("", shared_lib)
+            for shared_lib in library.shared_libraries()
+        ]
 
     if dbg_source_db:
         extra_artifacts["dbg-db.json"] = dbg_source_db.default_outputs[0]
@@ -675,28 +673,58 @@ def _convert_python_library_to_executable(
 
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
-    shared_libraries = {}
-    debuginfo_artifacts = {}
-
     # Create the map of native libraries to their artifacts and whether they
     # need to be preloaded.  Note that we merge preload deps into regular deps
     # above, before gathering up all native libraries, so we're guaranteed to
     # have all preload libraries (and their transitive deps) here.
-    for name, lib in native_libs.items():
-        shared_libraries[name] = lib, name in preload_names
+    shared_libs = [
+        (libdir, shlib, shlib.label in preload_labels)
+        for libdir, shlib in shared_libs
+    ]
 
     # Strip native libraries and extensions and update the .gnu_debuglink references if we are extracting
     # debug symbols from the par
+    debuginfo_files = []
     if ctx.attrs.strip_libpar == "extract" and package_style == PackageStyle("standalone") and cxx_is_gnu(ctx):
-        shared_libraries, library_debuginfo = _split_debuginfo(ctx, shared_libraries)
-        extensions, extension_debuginfo = _split_debuginfo(ctx, extensions)
-        debuginfo_artifacts = library_debuginfo | extension_debuginfo
+        stripped_shlibs = []
+        for libdir, shlib, preload in shared_libs:
+            stripped, debuginfo = strip_debug_with_gnu_debuglink(
+                ctx = ctx,
+                name = shlib.lib.unstripped_output.basename,
+                obj = shlib.lib.unstripped_output,
+            )
+            shlib = SharedLibrary(
+                soname = shlib.soname,
+                label = shlib.label,
+                lib = LinkedObject(
+                    output = stripped,
+                    unstripped_output = shlib.lib.unstripped_output,
+                    dwp = shlib.lib.dwp,
+                ),
+            )
+            stripped_shlibs.append((libdir, shlib, preload))
+            debuginfo_files.append(((libdir, shlib, ".debuginfo"), debuginfo))
+        shared_libs = stripped_shlibs
+        for name, (extension, label) in extensions.items():
+            stripped, debuginfo = strip_debug_with_gnu_debuglink(
+                ctx = ctx,
+                name = name,
+                obj = extension.unstripped_output,
+            )
+            extensions[name] = (
+                LinkedObject(
+                    output = stripped,
+                    unstripped_output = extension.unstripped_output,
+                    dwp = extension.dwp,
+                ),
+                label,
+            )
+            debuginfo_files.append((name + ".debuginfo", debuginfo))
 
     # Combine sources and extensions into a map of all modules.
     pex_modules = PexModules(
         manifests = library.manifests(),
         extra_manifests = extra_manifests,
-        debuginfo_manifest = create_manifest_for_source_map(ctx, "debuginfo", debuginfo_artifacts) if debuginfo_artifacts else None,
         compile = compile,
         extensions = create_manifest_for_extensions(
             ctx,
@@ -709,16 +737,17 @@ def _convert_python_library_to_executable(
 
     # Build the PEX.
     pex = make_py_package(
-        ctx,
-        python_toolchain,
-        ctx.attrs.make_py_package[RunInfo] if ctx.attrs.make_py_package != None else None,
-        package_style,
-        ctx.attrs.build_args,
-        pex_modules,
-        shared_libraries,
-        main,
-        hidden_resources,
-        allow_cache_upload,
+        ctx = ctx,
+        python_toolchain = python_toolchain,
+        make_py_package_cmd = ctx.attrs.make_py_package[RunInfo] if ctx.attrs.make_py_package != None else None,
+        package_style = package_style,
+        build_args = ctx.attrs.build_args,
+        pex_modules = pex_modules,
+        shared_libraries = shared_libs,
+        main = main,
+        hidden_resources = hidden_resources,
+        allow_cache_upload = allow_cache_upload,
+        debuginfo_files = debuginfo_files,
     )
 
     pex.sub_targets.update(extra)
