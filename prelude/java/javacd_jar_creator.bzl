@@ -76,7 +76,8 @@ def create_jar_artifact_javacd(
         additional_compiled_srcs: Artifact | None,
         bootclasspath_entries: list[Artifact],
         is_building_android_binary: bool,
-        is_creating_subtarget: bool = False) -> JavaCompileOutputs:
+        is_creating_subtarget: bool = False,
+        debug_port: [int, None] = None) -> JavaCompileOutputs:
     if javac_tool != None:
         # TODO(cjhopman): We can probably handle this better. I think we should be able to just use the non-javacd path.
         fail("cannot set explicit javac on library when using javacd")
@@ -213,8 +214,9 @@ def create_jar_artifact_javacd(
             compiler = compiler,
             main_class = java_toolchain.javacd_main_class,
             worker = java_toolchain.javacd_worker[WorkerInfo],
-            debug_port = java_toolchain.javacd_debug_port,
-            debug_target = java_toolchain.javacd_debug_target,
+            target_specified_debug_port = debug_port,
+            toolchain_specified_debug_port = java_toolchain.javacd_debug_port,
+            toolchain_specified_debug_target = java_toolchain.javacd_debug_target,
             extra_jvm_args = java_toolchain.javacd_jvm_args,
             extra_jvm_args_target = java_toolchain.javacd_jvm_args_target,
         )

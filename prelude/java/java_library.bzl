@@ -294,7 +294,8 @@ def compile_to_jar(
         additional_classpath_entries: [list[Artifact], None] = None,
         additional_compiled_srcs: Artifact | None = None,
         bootclasspath_entries: [list[Artifact], None] = None,
-        is_creating_subtarget: bool = False) -> JavaCompileOutputs:
+        is_creating_subtarget: bool = False,
+        debug_port: [int, None] = None) -> JavaCompileOutputs:
     if not additional_classpath_entries:
         additional_classpath_entries = []
     if not bootclasspath_entries:
@@ -348,6 +349,7 @@ def compile_to_jar(
         bootclasspath_entries,
         is_building_android_binary,
         is_creating_subtarget,
+        debug_port,
     )
 
 def _create_jar_artifact(
@@ -375,7 +377,8 @@ def _create_jar_artifact(
         additional_compiled_srcs: Artifact | None,
         bootclasspath_entries: list[Artifact],
         _is_building_android_binary: bool,
-        _is_creating_subtarget: bool = False) -> JavaCompileOutputs:
+        _is_creating_subtarget: bool = False,
+        _debug_port: [int, None] = None) -> JavaCompileOutputs:
     """
     Creates jar artifact.
 
@@ -570,6 +573,7 @@ def build_java_library(
             "additional_compiled_srcs": additional_compiled_srcs,
             "annotation_processor_properties": annotation_processor_properties,
             "bootclasspath_entries": bootclasspath_entries,
+            "debug_port": getattr(ctx.attrs, "debug_port", None),
             "deps": first_order_deps,
             "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
             "manifest_file": manifest_file,

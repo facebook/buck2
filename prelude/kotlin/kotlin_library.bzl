@@ -357,6 +357,7 @@ def build_kotlin_library(
                     annotation_processor_params = annotation_processor_properties.annotation_processor_params + ksp_annotation_processor_properties.annotation_processor_params,
                 ),
                 "bootclasspath_entries": bootclasspath_entries,
+                "debug_port": getattr(ctx.attrs, "debug_port", None),
                 "deps": deps,
                 "extra_kotlinc_arguments": ctx.attrs.extra_kotlinc_arguments,
                 "friend_paths": ctx.attrs.friend_paths,

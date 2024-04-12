@@ -401,8 +401,9 @@ def prepare_cd_exe(
         compiler: Artifact,
         main_class: str,
         worker: WorkerInfo,
-        debug_port: [int, None],
-        debug_target: [Label, None],
+        target_specified_debug_port: [int, None],
+        toolchain_specified_debug_port: [int, None],
+        toolchain_specified_debug_target: [Label, None],
         extra_jvm_args: list[str],
         extra_jvm_args_target: list[Label]) -> tuple:
     local_only = False
@@ -436,7 +437,14 @@ def prepare_cd_exe(
         "--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     ]
 
-    if debug_port and qualified_name == qualified_name_with_subtarget(debug_target):
+    if target_specified_debug_port:
+        debug_port = target_specified_debug_port
+    elif toolchain_specified_debug_port and qualified_name == qualified_name_with_subtarget(toolchain_specified_debug_target):
+        debug_port = toolchain_specified_debug_port
+    else:
+        debug_port = None
+
+    if debug_port:
         # Do not use a worker when debugging is enabled
         local_only = True
         jvm_args.extend(["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)])

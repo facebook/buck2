@@ -78,7 +78,8 @@ def create_jar_artifact_kotlincd(
         k2: bool,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
-        jar_postprocessor: [RunInfo, None] = None) -> JavaCompileOutputs:
+        jar_postprocessor: [RunInfo, None] = None,
+        debug_port: [int, None] = None) -> JavaCompileOutputs:
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -260,8 +261,9 @@ def create_jar_artifact_kotlincd(
             compiler = compiler,
             main_class = kotlin_toolchain.kotlincd_main_class,
             worker = kotlin_toolchain.kotlincd_worker[WorkerInfo],
-            debug_port = kotlin_toolchain.kotlincd_debug_port,
-            debug_target = kotlin_toolchain.kotlincd_debug_target,
+            target_specified_debug_port = debug_port,
+            toolchain_specified_debug_port = kotlin_toolchain.kotlincd_debug_port,
+            toolchain_specified_debug_target = kotlin_toolchain.kotlincd_debug_target,
             extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
             extra_jvm_args_target = kotlin_toolchain.kotlincd_jvm_args_target,
         )
