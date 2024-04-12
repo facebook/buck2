@@ -415,17 +415,6 @@ impl FrozenHeap {
         value.map(|r| &r.0)
     }
 
-    /// Allocate any value, use `Debug` implementation for `Display`.
-    pub fn alloc_any_display_from_debug<T: Debug + Send + Sync>(
-        &self,
-        value: T,
-    ) -> FrozenRef<'static, T> {
-        #[derive(derive_more::Display, Debug)]
-        #[display(fmt = "{:?}", _0)]
-        struct Wrapper<T: Debug + Send + Sync>(T);
-        self.alloc_any(Wrapper(value)).map(|r| &r.0)
-    }
-
     fn do_alloc_any_slice<T: Debug + Send + Sync + Clone>(
         &self,
         values: &[T],
