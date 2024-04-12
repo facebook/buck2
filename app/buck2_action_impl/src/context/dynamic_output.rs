@@ -16,6 +16,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_core::soft_error;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
@@ -120,11 +121,11 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         let outputs = outputs.items.iter().map(|x| x.output_artifact()).collect();
 
         // Registration
-        let attributes_plugins_lambda = heap.alloc_complex(DynamicLambdaParams {
+        let attributes_plugins_lambda = heap.alloc(StarlarkAnyComplex::new(DynamicLambdaParams {
             attributes: this.attributes,
             plugins: this.plugins,
             lambda: f,
-        });
+        }));
         let mut this = this.state();
         this.register_dynamic_output(dynamic, outputs, attributes_plugins_lambda)?;
         Ok(NoneType)

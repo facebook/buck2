@@ -50,6 +50,7 @@ use indexmap::IndexSet;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
 use starlark::values::structs::StructRef;
@@ -92,7 +93,7 @@ pub struct DynamicLambda {
     /// Things I produce
     outputs: Box<[BuildArtifact]>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
-    attributes_lambda: Option<OwnedFrozenValueTyped<FrozenDynamicLambdaParams>>,
+    attributes_lambda: Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>>,
 }
 
 impl DynamicLambda {
@@ -124,7 +125,7 @@ impl DynamicLambda {
 
     pub(crate) fn bind(
         &mut self,
-        attributes_lambda: OwnedFrozenValueTyped<FrozenDynamicLambdaParams>,
+        attributes_lambda: OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>,
     ) -> anyhow::Result<()> {
         if self.attributes_lambda.is_some() {
             return Err(internal_error!("`attributes_lambda` field already set"));
@@ -319,7 +320,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         attributes,
         plugins,
         lambda,
-    } = attributes_lambda;
+    } = &attributes_lambda.value;
 
     let plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins> = *plugins;
     let plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>> =
