@@ -204,8 +204,6 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "apk_genrule": genrule_attributes() | {
-        "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
-        "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None),
         "type": attrs.string(default = "apk"),
         "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),

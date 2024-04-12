@@ -22,10 +22,6 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_manifest = input_android_apk_info.manifest
         input_materialized_artifacts = input_android_apk_info.materialized_artifacts
         input_android_apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
-
-        env_vars = {
-            "APK": cmd_args(input_apk),
-        }
     else:
         input_android_aab_info = ctx.attrs.aab[AndroidAabInfo]
         expect(input_android_aab_info != None, "'aab' attribute must be an Android Bundle!")
@@ -35,19 +31,14 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_manifest = input_android_aab_info.manifest
         input_materialized_artifacts = input_android_aab_info.materialized_artifacts
 
-        env_vars = {
-            "AAB": cmd_args(input_apk),
-        }
+    env_vars = {
+        "APK": cmd_args(input_apk),
+    }
 
     # Like buck1, we ignore the 'out' attribute and construct the output path ourselves.
-    if ctx.attrs.outs:
-        genrule_output_name = None
-    elif ctx.attrs.aab:
-        genrule_output_name = "{}.aab".format(ctx.label.name)
-    else:
-        genrule_output_name = "{}.apk".format(ctx.label.name)
+    output_apk_name = "{}.apk".format(ctx.label.name)
 
-    genrule_providers = process_genrule(ctx, genrule_output_name, ctx.attrs.outs, env_vars, other_outputs = input_materialized_artifacts)
+    genrule_providers = process_genrule(ctx, output_apk_name, None, env_vars, other_outputs = input_materialized_artifacts)
 
     expect(
         len(genrule_providers) == 1 and isinstance(genrule_providers[0], DefaultInfo),
