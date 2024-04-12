@@ -21,6 +21,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::typing::Ty;
 use starlark::values::list::AllocList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
@@ -37,6 +38,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
+use starlark::StarlarkDocs;
 
 use crate::error::BuckStarlarkError;
 

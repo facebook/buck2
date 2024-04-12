@@ -16,9 +16,6 @@
 #![feature(never_type)]
 #![feature(box_patterns)]
 
-#[macro_use]
-extern crate starlark;
-
 pub mod anon_targets;
 pub mod build_context;
 pub mod bxl;

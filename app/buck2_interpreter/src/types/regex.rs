@@ -18,10 +18,13 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
 use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::StarlarkDocs;
 
 /// Wrapper for `regex::Regex`.
 #[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]

@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
+use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;

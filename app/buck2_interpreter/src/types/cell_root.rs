@@ -15,6 +15,8 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::NoSerialize;
