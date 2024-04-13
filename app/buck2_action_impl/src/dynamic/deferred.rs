@@ -34,7 +34,6 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
-use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -51,11 +50,8 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::dict::Dict;
-use starlark::values::structs::StructRef;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
-use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueTypedComplex;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
 use crate::dynamic::dynamic_lambda_params::FrozenDynamicLambdaParams;
@@ -235,22 +231,16 @@ impl Deferred for DynamicLambda {
                 let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
                 let ctx = AnalysisContext::prepare(
                     heap,
-                    ValueOfUnchecked::<StructRef>::new_checked(
-                        dynamic_lambda_ctx_data.lambda.attributes.to_value(),
-                    )
-                    .internal_error("attributes must be struct")?,
+                    dynamic_lambda_ctx_data.lambda.attributes()?,
                     self.owner.configured_label(),
-                    ValueTypedComplex::<AnalysisPlugins>::new(
-                        dynamic_lambda_ctx_data.lambda.plugins.to_value(),
-                    )
-                    .internal_error("plugins must be AnalysisPlugins")?,
+                    dynamic_lambda_ctx_data.lambda.plugins()?,
                     dynamic_lambda_ctx_data.registry,
                     dynamic_lambda_ctx_data.digest_config,
                 );
 
                 DynamicLambda::invoke_dynamic_output_lambda(
                     &mut eval,
-                    dynamic_lambda_ctx_data.lambda.lambda.0.to_value(),
+                    dynamic_lambda_ctx_data.lambda.lambda(),
                     ctx.to_value(),
                     dynamic_lambda_ctx_data.artifacts,
                     dynamic_lambda_ctx_data.outputs,

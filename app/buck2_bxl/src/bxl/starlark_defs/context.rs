@@ -635,7 +635,7 @@ impl BxlEvalContext<'_> {
 
             DynamicLambda::invoke_dynamic_output_lambda(
                 &mut eval,
-                dynamic_lambda_ctx_data.lambda.lambda.0.to_value(),
+                dynamic_lambda_ctx_data.lambda.lambda(),
                 ctx.to_value(),
                 dynamic_lambda_ctx_data.artifacts,
                 dynamic_lambda_ctx_data.outputs,

@@ -13,6 +13,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
+use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::values::none::NoneType;
 use starlark::values::structs::StructRef;
@@ -23,6 +24,7 @@ use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Trace;
+use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
@@ -54,6 +56,24 @@ pub struct FrozenDynamicLambdaParams {
         ),
         NoneType,
     >,
+}
+
+impl FrozenDynamicLambdaParams {
+    pub(crate) fn attributes<'v>(&'v self) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
+        ValueOfUnchecked::new_checked(self.attributes.to_value())
+            .internal_error("attributes must be struct")
+    }
+
+    pub(crate) fn plugins<'v>(
+        &'v self,
+    ) -> anyhow::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
+        ValueTypedComplex::new(self.plugins.to_value())
+            .internal_error("plugins must be AnalysisPlugins")
+    }
+
+    pub fn lambda<'v>(&'v self) -> Value<'v> {
+        self.lambda.0.to_value()
+    }
 }
 
 impl<'v> Freeze for DynamicLambdaParams<'v> {
