@@ -170,6 +170,11 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkCallable<'v,
             .unpack_frozen()
             .map(FrozenStarlarkCallable::unchecked_new)
     }
+
+    /// Erase parameter and return types.
+    pub fn erase(self) -> StarlarkCallable<'v> {
+        StarlarkCallable::unchecked_new(self.0)
+    }
 }
 
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
@@ -247,6 +252,11 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P
     /// Wrap the value.
     pub fn unchecked_new(value: FrozenValue) -> Self {
         FrozenStarlarkCallable(value, PhantomData)
+    }
+
+    /// Erase parameter and return types.
+    pub fn erase(self) -> FrozenStarlarkCallable {
+        FrozenStarlarkCallable::unchecked_new(self.0)
     }
 }
 
