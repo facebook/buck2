@@ -114,6 +114,10 @@ pub enum ConfiguredAttr {
     Metadata(MetadataMap),
 }
 
+// For `ConfiguredAttr` size is not as important as for `CoercedAttr`,
+// yet we should keep it reasonable.
+static_assertions::assert_eq_size!(ConfiguredAttr, [usize; 4]);
+
 impl AttrSerializeWithContext for ConfiguredAttr {
     fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
     where
