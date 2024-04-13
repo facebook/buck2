@@ -114,11 +114,7 @@ impl LintSuppressionsBuilder {
             if let (Ok(start_pos), Ok(end_pos)) = (start.try_into(), end.try_into()) {
                 let token_span = Span::new(Pos::new(start_pos), Pos::new(end_pos));
                 let line = codemap.find_line(Pos::new(start_pos));
-                // codemap.line_span includes the line terminator
-                let effective_span_plus1 = codemap.line_span(line);
-                let effective_span =
-                    Span::new(effective_span_plus1.begin(), effective_span_plus1.end() - 1);
-
+                let effective_span = codemap.line_span_trim_newline(line);
                 self.state.short_names.extend(parsed_short_names);
                 self.state.token_spans.push(token_span);
                 self.state.effective_spans.push(effective_span);

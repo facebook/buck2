@@ -383,6 +383,18 @@ impl CodeMap {
             .unwrap_or_else(|| panic!("Line {} is out of range for {:?}", line, self))
     }
 
+    /// Trim trailing newline if any, including windows, from the line span.
+    pub fn line_span_trim_newline(&self, line: usize) -> Span {
+        let mut span = self.line_span(line);
+        if self.source_span(span).ends_with('\n') {
+            span.end.0 -= 1;
+        }
+        if self.source_span(span).ends_with('\r') {
+            span.end.0 -= 1;
+        }
+        span
+    }
+
     /// Gets the span representing a line by line number.
     ///
     /// The line number is 0-indexed (first line is numbered 0). The returned span includes the

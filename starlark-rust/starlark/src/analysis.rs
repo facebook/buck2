@@ -278,6 +278,17 @@ def good3() -> str:
     }
 
     #[test]
+    fn test_lint_suppressions_line_before_windows_newlines() {
+        let src = module(
+            "\
+            # starlark-lint-disable unused-load\r\n\
+            load('@cell//buck/lib:rust_library.bzl', 'rust_library')",
+        );
+        let res = src.lint(None);
+        assert!(res.is_empty());
+    }
+
+    #[test]
     fn test_lint_suppressions_inside_fn() {
         let m = module(
             r#"
