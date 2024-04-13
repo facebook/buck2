@@ -70,12 +70,10 @@ use crate::commands::forkserver::ForkserverCommand;
 use crate::commands::internal_test_runner::InternalTestRunnerCommand;
 use crate::process_context::ProcessContext;
 
-#[macro_use]
-pub mod panic;
 mod check_user_allowed;
-
 pub mod commands;
 mod no_buckd;
+pub mod panic;
 pub mod process_context;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
