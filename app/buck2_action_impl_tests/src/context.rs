@@ -76,9 +76,9 @@ fn run_ctx_test(
 
     let ctx = eval.heap().alloc(AnalysisContext::prepare(
         eval.heap(),
-        attributes,
+        Some(attributes),
         Some(label),
-        plugins,
+        Some(plugins),
         registry,
         DigestConfig::testing_default(),
     ));

@@ -29,7 +29,6 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
-use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
@@ -90,7 +89,6 @@ use starlark::starlark_module;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
-use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -339,12 +337,8 @@ impl<'v> BxlContext<'v> {
             data: BxlContextNoDice {
                 state: heap.alloc_typed(AnalysisActions {
                     state: RefCell::new(None),
-                    // TODO(nga): attributes struct should not be accessible to BXL.
-                    attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY))
-                        .unwrap(),
-                    plugins: heap
-                        .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-                        .into(),
+                    attributes: None,
+                    plugins: None,
                     digest_config,
                 }),
                 context_type,
@@ -366,12 +360,8 @@ impl<'v> BxlContext<'v> {
             data: BxlContextNoDice {
                 state: heap.alloc_typed(AnalysisActions {
                     state: RefCell::new(Some(analysis_registry)),
-                    // TODO(nga): attributes struct should not be accessible to BXL.
-                    attributes: ValueOfUnchecked::new_checked(heap.alloc(AllocStruct::EMPTY))
-                        .unwrap(),
-                    plugins: heap
-                        .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-                        .into(),
+                    attributes: None,
+                    plugins: None,
                     digest_config,
                 }),
                 context_type: BxlContextType::Dynamic(dynamic_data),

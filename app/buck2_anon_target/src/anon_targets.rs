@@ -367,13 +367,15 @@ impl AnonTargetKey {
 
                         let ctx = AnalysisContext::prepare(
                             eval.heap(),
-                            attributes,
+                            Some(attributes),
                             Some(self.0.configured_label()),
                             // FIXME(JakobDegen): There should probably be a way to pass plugins
                             // into anon targets
-                            eval.heap()
-                                .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-                                .into(),
+                            Some(
+                                eval.heap()
+                                    .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                                    .into(),
+                            ),
                             registry,
                             dice.global_data().get_digest_config(),
                         );

@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -67,8 +68,8 @@ pub struct AnalysisActions<'v> {
     /// we can take the internal state without having to clone it.
     pub state: RefCell<Option<AnalysisRegistry<'v>>>,
     /// Copies from the ctx, so we can capture them for `dynamic`.
-    pub attributes: ValueOfUnchecked<'v, StructRef<'v>>,
-    pub plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
+    pub attributes: Option<ValueOfUnchecked<'v, StructRef<'v>>>,
+    pub plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
     /// Digest configuration to use when interpreting digests passed in analysis.
     pub digest_config: DigestConfig,
 }
@@ -169,11 +170,11 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     StarlarkDocs
 )]
 pub struct AnalysisContext<'v> {
-    attrs: ValueOfUnchecked<'v, StructRef<'v>>,
+    attrs: Option<ValueOfUnchecked<'v, StructRef<'v>>>,
     pub actions: ValueTyped<'v, AnalysisActions<'v>>,
     /// Only `None` when running a `dynamic_output` action from Bxl.
     label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
-    plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
+    plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
 }
 
 impl<'v> Display for AnalysisContext<'v> {
@@ -193,9 +194,9 @@ impl<'v> AnalysisContext<'v> {
     /// The context that is provided to users' UDR implementation functions. Comprised of things like attribute values, actions, etc
     fn new(
         heap: &'v Heap,
-        attrs: ValueOfUnchecked<'v, StructRef<'v>>,
+        attrs: Option<ValueOfUnchecked<'v, StructRef<'v>>>,
         label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
-        plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
+        plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
@@ -214,9 +215,9 @@ impl<'v> AnalysisContext<'v> {
 
     pub fn prepare(
         heap: &'v Heap,
-        attrs: ValueOfUnchecked<'v, StructRef<'v>>,
+        attrs: Option<ValueOfUnchecked<'v, StructRef<'v>>>,
         label: Option<ConfiguredTargetLabel>,
-        plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
+        plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> ValueTyped<'v, AnalysisContext<'v>> {
@@ -289,7 +290,9 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// a `struct` containing a field `foo` of type string.
     #[starlark(attribute)]
     fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
-        Ok(this.0.attrs)
+        this.0
+            .attrs
+            .context("`attrs` is not available for `dynamic_output` or BXL")
     }
 
     /// Returns an `actions` value containing functions to define actual actions that are run.
@@ -317,7 +320,9 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     fn plugins<'v>(
         this: RefAnalysisContext,
     ) -> anyhow::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
-        Ok(this.0.plugins)
+        this.0
+            .plugins
+            .context("`plugins` is not available for `dynamic_output` or BXL")
     }
 }
 

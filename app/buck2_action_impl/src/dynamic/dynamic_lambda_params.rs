@@ -14,6 +14,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use buck2_error::BuckErrorContext;
+use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::values::none::NoneType;
 use starlark::values::structs::StructRef;
@@ -31,8 +32,8 @@ use starlark_map::small_map::SmallMap;
 
 #[derive(Allocative, Trace, Debug, ProvidesStaticType)]
 pub(crate) struct DynamicLambdaParams<'v> {
-    pub(crate) attributes: ValueOfUnchecked<'v, StructRef<'v>>,
-    pub(crate) plugins: ValueTypedComplex<'v, AnalysisPlugins<'v>>,
+    pub(crate) attributes: Option<ValueOfUnchecked<'v, StructRef<'v>>>,
+    pub(crate) plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
     pub(crate) lambda: StarlarkCallable<
         'v,
         (
@@ -46,8 +47,8 @@ pub(crate) struct DynamicLambdaParams<'v> {
 
 #[derive(Allocative, Debug, ProvidesStaticType)]
 pub struct FrozenDynamicLambdaParams {
-    pub(crate) attributes: FrozenValue,
-    pub(crate) plugins: FrozenValueTyped<'static, FrozenAnalysisPlugins>,
+    pub(crate) attributes: Option<FrozenValue>,
+    pub(crate) plugins: Option<FrozenValueTyped<'static, FrozenAnalysisPlugins>>,
     pub lambda: FrozenStarlarkCallable<
         (
             FrozenValue,
@@ -59,16 +60,28 @@ pub struct FrozenDynamicLambdaParams {
 }
 
 impl FrozenDynamicLambdaParams {
-    pub(crate) fn attributes<'v>(&'v self) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
-        ValueOfUnchecked::new_checked(self.attributes.to_value())
-            .internal_error("attributes must be struct")
+    pub(crate) fn attributes<'v>(
+        &'v self,
+    ) -> anyhow::Result<Option<ValueOfUnchecked<'v, StructRef<'v>>>> {
+        let Some(attributes) = self.attributes else {
+            return Ok(None);
+        };
+        Ok(Some(
+            ValueOfUnchecked::new_checked(attributes.to_value())
+                .internal_error("attributes must be struct")?,
+        ))
     }
 
     pub(crate) fn plugins<'v>(
         &'v self,
-    ) -> anyhow::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
-        ValueTypedComplex::new(self.plugins.to_value())
-            .internal_error("plugins must be AnalysisPlugins")
+    ) -> anyhow::Result<Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>> {
+        let Some(plugins) = self.plugins else {
+            return Ok(None);
+        };
+        Ok(Some(
+            ValueTypedComplex::new(plugins.to_value())
+                .internal_error("plugins must be AnalysisPlugins")?,
+        ))
     }
 
     pub fn lambda<'v>(&'v self) -> Value<'v> {
@@ -81,7 +94,7 @@ impl<'v> Freeze for DynamicLambdaParams<'v> {
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(FrozenDynamicLambdaParams {
-            attributes: self.attributes.get().freeze(freezer)?,
+            attributes: self.attributes.try_map(|a| a.get().freeze(freezer))?,
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
         })

@@ -292,9 +292,9 @@ async fn run_analysis_with_env_underlying(
 
             let ctx = AnalysisContext::prepare(
                 eval.heap(),
-                attributes,
+                Some(attributes),
                 Some(analysis_env.label),
-                plugins.into(),
+                Some(plugins.into()),
                 registry,
                 dice.global_data().get_digest_config(),
             );
