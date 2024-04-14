@@ -41,7 +41,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
@@ -68,7 +67,6 @@ enum BxlActionsError {
     RegistryAlreadyCreated,
 }
 
-#[allow(unused)]
 pub(crate) async fn resolve_bxl_execution_platform(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
@@ -76,7 +74,6 @@ pub(crate) async fn resolve_bxl_execution_platform(
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,
     exec_compatible_with: Arc<[TargetLabel]>,
-    module: &Module,
 ) -> anyhow::Result<BxlExecutionResolution> {
     // bxl has on transitions
     let resolved_transitions = OrderedMap::new();
@@ -126,7 +123,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
 
     let resolved_execution = execution_constraints.one_for_cell(ctx, cell).await?;
 
-    let mut exec_deps_configured = exec_deps.try_map(|e| {
+    let exec_deps_configured = exec_deps.try_map(|e| {
         let label =
             e.configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
         anyhow::Ok(label)

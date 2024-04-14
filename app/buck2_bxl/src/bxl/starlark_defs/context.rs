@@ -1088,7 +1088,6 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
                                 toolchains,
                                 target_platform.clone(),
                                 exec_compatible_with.clone(),
-                                eval.module(),
                             )
                             .await?;
 
