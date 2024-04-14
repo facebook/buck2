@@ -15,7 +15,7 @@ use smallvec::SmallVec;
 #[derive(allocative::Allocative)]
 pub enum ContextValue {
     Dyn(Arc<str>),
-    Category(Category),
+    Tier(Tier),
     Tags(SmallVec<[crate::ErrorTag; 1]>),
 }
 
@@ -25,7 +25,7 @@ impl ContextValue {
         match self {
             Self::Dyn(v) => Some(Arc::clone(v)),
             // Displaying the category in the middle of an error message doesn't seem useful
-            Self::Category(_) => None,
+            Self::Tier(_) => None,
             Self::Tags(_) => None,
         }
     }
@@ -34,7 +34,7 @@ impl ContextValue {
     pub(crate) fn as_display_for_debugging(&self) -> Arc<str> {
         match self {
             Self::Dyn(v) => Arc::clone(v),
-            Self::Category(category) => format!("{:?}", category).into(),
+            Self::Tier(category) => format!("{:?}", category).into(),
             Self::Tags(tags) => format!("{:?}", tags).into(),
         }
     }
@@ -45,7 +45,7 @@ impl ContextValue {
             (ContextValue::Dyn(a), ContextValue::Dyn(b)) => {
                 assert_eq!(a, b);
             }
-            (ContextValue::Category(a), ContextValue::Category(b)) => {
+            (ContextValue::Tier(a), ContextValue::Tier(b)) => {
                 assert_eq!(a, b);
             }
             (ContextValue::Tags(a), ContextValue::Tags(b)) => {
@@ -72,27 +72,27 @@ impl<T: fmt::Display> From<T> for ContextValue {
     PartialOrd,
     Ord
 )]
-pub enum Category {
+pub enum Tier {
     User,
     Infra,
 }
 
-impl Category {
-    pub fn combine(self, other: Option<Category>) -> Category {
+impl Tier {
+    pub fn combine(self, other: Option<Tier>) -> Tier {
         let Some(other) = other else { return self };
         std::cmp::max(self, other)
     }
 }
 
-impl From<Category> for ContextValue {
-    fn from(value: Category) -> Self {
-        ContextValue::Category(value)
+impl From<Tier> for ContextValue {
+    fn from(value: Tier) -> Self {
+        ContextValue::Tier(value)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Category;
+    use crate::Tier;
     use crate::{self as buck2_error};
 
     #[derive(buck2_error_derive::Error, Debug)]
@@ -103,7 +103,7 @@ mod tests {
     fn test_category_not_in_formatting() {
         let e: crate::Error = TestError.into();
         let e = e.context("foo");
-        let e2 = e.clone().context(crate::Category::User);
+        let e2 = e.clone().context(crate::Tier::User);
         assert_eq!(format!("{:#}", e), format!("{:#}", e2));
     }
 
@@ -112,22 +112,16 @@ mod tests {
         let e: crate::Error = TestError.into();
         let e = e
             .clone()
-            .context(crate::Category::Infra)
-            .context(crate::Category::User);
-        assert_eq!(e.get_category(), Some(crate::Category::Infra));
+            .context(crate::Tier::Infra)
+            .context(crate::Tier::User);
+        assert_eq!(e.get_category(), Some(crate::Tier::Infra));
     }
 
     #[test]
     fn test_combine() {
-        assert_eq!(Category::User.combine(None), Category::User);
-        assert_eq!(Category::User.combine(Some(Category::User)), Category::User);
-        assert_eq!(
-            Category::User.combine(Some(Category::Infra)),
-            Category::Infra
-        );
-        assert_eq!(
-            Category::Infra.combine(Some(Category::User)),
-            Category::Infra
-        );
+        assert_eq!(Tier::User.combine(None), Tier::User);
+        assert_eq!(Tier::User.combine(Some(Tier::User)), Tier::User);
+        assert_eq!(Tier::User.combine(Some(Tier::Infra)), Tier::Infra);
+        assert_eq!(Tier::Infra.combine(Some(Tier::User)), Tier::Infra);
     }
 }

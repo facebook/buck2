@@ -19,8 +19,8 @@ use crate::classify::error_tag_category;
 use crate::context_value::ContextValue;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
-use crate::Category;
 use crate::ErrorType;
+use crate::Tier;
 use crate::UniqueRootId;
 
 pub type DynLateFormat = dyn Fn(&mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
@@ -166,11 +166,11 @@ impl Error {
         }
     }
 
-    pub fn get_category(&self) -> Option<Category> {
+    pub fn get_category(&self) -> Option<Tier> {
         let mut out = None;
         // TODO(nga): remove categories marking and only rely on tags.
         let context_categories = self.iter_context().flat_map(|kind| match kind {
-            ContextValue::Category(cat) => Either::Left(Some(*cat).into_iter()),
+            ContextValue::Tier(cat) => Either::Left(Some(*cat).into_iter()),
             ContextValue::Tags(tags) => {
                 Either::Right(tags.iter().copied().filter_map(error_tag_category))
             }
@@ -179,8 +179,8 @@ impl Error {
         for cat in context_categories {
             // It's an infra error if it was ever marked as an infra error
             match cat {
-                Category::Infra => return Some(cat),
-                Category::User => out = Some(cat),
+                Tier::Infra => return Some(cat),
+                Tier::User => out = Some(cat),
             }
         }
         out

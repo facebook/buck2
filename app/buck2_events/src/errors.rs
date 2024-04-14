@@ -12,8 +12,8 @@ use gazebo::prelude::SliceExt;
 pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport {
     // Infra error by default if no category tag is set
     let category = err.get_category().map(|c| match c {
-        buck2_error::Category::User => buck2_data::error::ErrorCategory::User,
-        buck2_error::Category::Infra => buck2_data::error::ErrorCategory::Infra,
+        buck2_error::Tier::User => buck2_data::error::ErrorCategory::User,
+        buck2_error::Tier::Infra => buck2_data::error::ErrorCategory::Infra,
     });
     let typ = err.get_error_type().map(|c| c as i32);
 

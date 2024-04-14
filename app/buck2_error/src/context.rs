@@ -30,12 +30,12 @@ pub trait BuckErrorContext<T>: Sealed {
 
     #[track_caller]
     fn user(self) -> anyhow::Result<T> {
-        self.buck_error_context(crate::Category::User)
+        self.buck_error_context(crate::Tier::User)
     }
 
     #[track_caller]
     fn infra(self) -> anyhow::Result<T> {
-        self.buck_error_context(crate::Category::Infra)
+        self.buck_error_context(crate::Tier::Infra)
     }
 
     #[track_caller]

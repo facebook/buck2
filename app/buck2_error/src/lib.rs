@@ -35,7 +35,7 @@ pub use context::BuckErrorContext;
 /// The category is fundamentally closed - the expectation is that it will not grow new variants in
 /// the future.
 #[doc(inline)]
-pub use context_value::Category;
+pub use context_value::Tier;
 pub use error::DynLateFormat;
 pub use error::Error;
 pub use root::UniqueRootId;
@@ -58,8 +58,8 @@ pub use buck2_data::error::ErrorTag;
 /// The error type is not a piece of context - it can only be set when creating the error, not at
 /// some later point.
 ///
-/// Unlike the [`category`](crate::Category) metadata, this type is "open" in the sense that it is
-/// expected to grow in the future. You should not match on it exhaustively.
+/// Unlike the [`tier`](crate::Tier), this type is "open" in the sense that it is expected to grow
+/// in the future. You should not match on it exhaustively.
 pub use buck2_data::error::ErrorType;
 /// Generates an error impl for the type.
 ///
@@ -102,7 +102,7 @@ use crate::any::ProvidableMetadata;
 /// - and possibly variant - name, formatted as either `Type` or `Type::Variant`.
 pub fn provide_metadata<'a, 'b>(
     request: &'b mut Request<'a>,
-    category: Option<crate::Category>,
+    category: Option<crate::Tier>,
     typ: Option<crate::ErrorType>,
     tags: impl IntoIterator<Item = crate::ErrorTag>,
     source_file: &'static str,

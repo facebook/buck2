@@ -9,7 +9,7 @@
 
 use buck2_data::error::ErrorTag;
 
-use crate::Category;
+use crate::Tier;
 
 /// When there's no tag, but we want to put something in Scuba, we use this.
 pub const ERROR_TAG_UNCLASSIFIED: &str = "UNCLASSIFIED";
@@ -61,40 +61,40 @@ fn tag_rank(tag: ErrorTag) -> u32 {
 }
 
 /// Some tags are known to be either infrastructure or user errors.
-pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Category> {
+pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
     match tag {
-        ErrorTag::ServerJemallocAssert => Some(Category::Infra),
-        ErrorTag::ServerStackOverflow => Some(Category::Infra),
-        ErrorTag::ServerPanicked => Some(Category::Infra),
-        ErrorTag::ServerSegv => Some(Category::Infra),
-        ErrorTag::DaemonWontDieFromKill => Some(Category::Infra),
+        ErrorTag::ServerJemallocAssert => Some(Tier::Infra),
+        ErrorTag::ServerStackOverflow => Some(Tier::Infra),
+        ErrorTag::ServerPanicked => Some(Tier::Infra),
+        ErrorTag::ServerSegv => Some(Tier::Infra),
+        ErrorTag::DaemonWontDieFromKill => Some(Tier::Infra),
         ErrorTag::DaemonConnect => None,
-        ErrorTag::DaemonIsBusy => Some(Category::User),
-        ErrorTag::InternalError => Some(Category::Infra),
+        ErrorTag::DaemonIsBusy => Some(Tier::User),
+        ErrorTag::InternalError => Some(Tier::Infra),
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something
         // about that didn't work
-        ErrorTag::InterruptedByDaemonShutdown => Some(Category::User),
-        ErrorTag::GrpcResponseMessageTooLarge => Some(Category::Infra),
-        ErrorTag::ClientGrpc => Some(Category::Infra),
+        ErrorTag::InterruptedByDaemonShutdown => Some(Tier::User),
+        ErrorTag::GrpcResponseMessageTooLarge => Some(Tier::Infra),
+        ErrorTag::ClientGrpc => Some(Tier::Infra),
         ErrorTag::IoBrokenPipe => None,
-        ErrorTag::IoConnectionAborted => Some(Category::Infra),
-        ErrorTag::IoNotConnected => Some(Category::User), // This typically means eden is not mounted
-        ErrorTag::IoExecutableFileBusy => Some(Category::User),
-        ErrorTag::IoStorageFull => Some(Category::User),
-        ErrorTag::IoTimeout => Some(Category::Infra),
-        ErrorTag::IoPermissionDenied => Some(Category::User),
+        ErrorTag::IoConnectionAborted => Some(Tier::Infra),
+        ErrorTag::IoNotConnected => Some(Tier::User), // This typically means eden is not mounted
+        ErrorTag::IoExecutableFileBusy => Some(Tier::User),
+        ErrorTag::IoStorageFull => Some(Tier::User),
+        ErrorTag::IoTimeout => Some(Tier::Infra),
+        ErrorTag::IoPermissionDenied => Some(Tier::User),
         ErrorTag::IoNotFound => None,
         ErrorTag::IoSource => None,
         ErrorTag::IoSystem => None,
-        ErrorTag::ProjectMissingPath => Some(Category::User),
-        ErrorTag::StarlarkFail => Some(Category::User),
-        ErrorTag::StarlarkStackOverflow => Some(Category::User),
-        ErrorTag::Visibility => Some(Category::User),
-        ErrorTag::Analysis => Some(Category::User),
-        ErrorTag::WatchmanTimeout => Some(Category::Infra),
-        ErrorTag::HttpServer => Some(Category::Infra),
-        ErrorTag::HttpClient => Some(Category::User),
+        ErrorTag::ProjectMissingPath => Some(Tier::User),
+        ErrorTag::StarlarkFail => Some(Tier::User),
+        ErrorTag::StarlarkStackOverflow => Some(Tier::User),
+        ErrorTag::Visibility => Some(Tier::User),
+        ErrorTag::Analysis => Some(Tier::User),
+        ErrorTag::WatchmanTimeout => Some(Tier::Infra),
+        ErrorTag::HttpServer => Some(Tier::Infra),
+        ErrorTag::HttpClient => Some(Tier::User),
         ErrorTag::Http => None,
         ErrorTag::AnyActionExecution => None,
         ErrorTag::AnyStarlarkEvaluation => None,

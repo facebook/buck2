@@ -322,7 +322,7 @@ impl TargetFormatter for JsonFormat {
 pub(crate) struct Stats {
     pub(crate) errors: u64,
     error_tags: BTreeSet<buck2_error::ErrorTag>,
-    error_category: Option<buck2_error::Category>,
+    error_category: Option<buck2_error::Tier>,
     pub(crate) success: u64,
     pub(crate) targets: u64,
 }

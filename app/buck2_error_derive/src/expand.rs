@@ -314,7 +314,7 @@ fn gen_provide_contents(
     let source_location_extra = syn::LitStr::new(&type_and_variant, Span::call_site());
     let category: syn::Expr = match &attrs.category {
         Some(OptionStyle::Explicit(cat)) => syn::parse_quote! {
-            core::option::Option::Some(buck2_error::Category::#cat)
+            core::option::Option::Some(buck2_error::Tier::#cat)
         },
         Some(OptionStyle::ByExpr(e)) => e.clone(),
         None => syn::parse_quote! {

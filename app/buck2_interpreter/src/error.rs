@@ -58,10 +58,10 @@ impl std::error::Error for BuckStarlarkError {
             starlark::ErrorKind::Fail(_)
             | starlark::ErrorKind::StackOverflow(_)
             | starlark::ErrorKind::Internal(_)
-            | starlark::ErrorKind::Value(_) => Some(buck2_error::Category::User),
-            starlark::ErrorKind::Function(_) => Some(buck2_error::Category::User),
-            starlark::ErrorKind::Scope(_) => Some(buck2_error::Category::User),
-            starlark::ErrorKind::Lexer(_) => Some(buck2_error::Category::User),
+            | starlark::ErrorKind::Value(_) => Some(buck2_error::Tier::User),
+            starlark::ErrorKind::Function(_) => Some(buck2_error::Tier::User),
+            starlark::ErrorKind::Scope(_) => Some(buck2_error::Tier::User),
+            starlark::ErrorKind::Lexer(_) => Some(buck2_error::Tier::User),
             _ => None,
         };
         let tags = match self.e.kind() {
