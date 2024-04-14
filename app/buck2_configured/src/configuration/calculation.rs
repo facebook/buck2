@@ -31,7 +31,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
-use buck2_node::configuration::resolved::{ConfigurationNode, ConfigurationSettingKeyRef};
+use buck2_node::configuration::resolved::{ConfigurationNode, };
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
@@ -170,7 +170,7 @@ async fn compute_execution_platforms(
 async fn check_execution_platform(
     ctx: &mut DiceComputations<'_>,
     target_node_cell: CellName,
-    exec_compatible_with: &[TargetLabel],
+    exec_compatible_with: &[ConfigurationSettingKey],
     exec_deps: &[TargetLabel],
     exec_platform: &ExecutionPlatform,
     toolchain_allows: &[ToolchainConstraints],
@@ -193,11 +193,11 @@ async fn check_execution_platform(
         .chain(exec_compatible_with)
     {
         if resolved_platform_configuration
-            .setting_matches(ConfigurationSettingKeyRef(constraint))
+            .setting_matches(constraint.as_ref())
             .is_none()
         {
             return Ok(Err(
-                ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(constraint.dupe()),
+                ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(constraint.dupe().0),
             ));
         }
     }
@@ -249,7 +249,7 @@ async fn get_execution_platforms_enabled(
 async fn resolve_execution_platform_from_constraints(
     ctx: &mut DiceComputations<'_>,
     target_node_cell: CellName,
-    exec_compatible_with: &[TargetLabel],
+    exec_compatible_with: &[ConfigurationSettingKey],
     exec_deps: &[TargetLabel],
     toolchain_allows: &[ToolchainConstraints],
 ) -> buck2_error::Result<ExecutionPlatformResolution> {
@@ -337,7 +337,7 @@ pub struct ExecutionPlatformsKey;
 struct ConfigurationNodeKey {
     target_cfg: ConfigurationData,
     target_cell: CellName,
-    cfg_target: TargetLabel,
+    cfg_target: ConfigurationSettingKey,
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -350,7 +350,7 @@ struct ConfigurationNodeKey {
 struct ResolvedConfigurationKey {
     target_cfg: ConfigurationData,
     target_cell: CellName,
-    configuration_deps: Vec<TargetLabel>,
+    configuration_deps: Vec<ConfigurationSettingKey>,
 }
 
 #[async_trait]
@@ -365,7 +365,10 @@ pub trait ConfigurationCalculation {
         target: &TargetLabel,
     ) -> anyhow::Result<ConfigurationData>;
 
-    async fn get_resolved_configuration<'a, T: IntoIterator<Item = &'a TargetLabel> + Send>(
+    async fn get_resolved_configuration<
+        'a,
+        T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send,
+    >(
         &mut self,
         target_cfg: &ConfigurationData,
         target_node_cell: CellName,
@@ -376,7 +379,7 @@ pub trait ConfigurationCalculation {
         &mut self,
         target_cfg: &ConfigurationData,
         target_cell: CellName,
-        cfg_target: &TargetLabel,
+        cfg_target: &ConfigurationSettingKey,
     ) -> buck2_error::Result<ConfigurationNode>;
 
     /// Gets the compatible execution platforms for a give list of compatible_with constraints and execution deps.
@@ -390,7 +393,7 @@ pub trait ConfigurationCalculation {
     async fn resolve_execution_platform_from_constraints(
         &mut self,
         target_node_cell: CellName,
-        exec_compatible_with: Arc<[TargetLabel]>,
+        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         exec_deps: Arc<[TargetLabel]>,
         toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution>;
@@ -497,7 +500,10 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         Ok(ConfigurationData::unspecified())
     }
 
-    async fn get_resolved_configuration<'a, T: IntoIterator<Item = &'a TargetLabel> + Send>(
+    async fn get_resolved_configuration<
+        'a,
+        T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send,
+    >(
         &mut self,
         target_cfg: &ConfigurationData,
         target_cell: CellName,
@@ -525,7 +531,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
                 for node in config_nodes {
                     let node = node?;
-                    resolved_settings.insert(ConfigurationSettingKey(node.label().dupe()), node);
+                    resolved_settings.insert(node.label().dupe(), node);
                 }
                 Ok(ResolvedConfiguration::new(
                     ConfigurationNoExec::new(self.target_cfg.dupe()),
@@ -538,7 +544,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             }
         }
 
-        let configuration_deps: Vec<TargetLabel> =
+        let configuration_deps: Vec<ConfigurationSettingKey> =
             configuration_deps.into_iter().map(|t| t.dupe()).collect();
         self.compute(&ResolvedConfigurationKey {
             target_cfg: target_cfg.dupe(),
@@ -552,7 +558,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         &mut self,
         target_cfg: &ConfigurationData,
         target_cell: CellName,
-        cfg_target: &TargetLabel,
+        cfg_target: &ConfigurationSettingKey,
     ) -> buck2_error::Result<ConfigurationNode> {
         #[async_trait]
         impl Key for ConfigurationNodeKey {
@@ -564,7 +570,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let analysis_result = ctx
-                    .get_configuration_analysis_result(&self.cfg_target)
+                    .get_configuration_analysis_result(&self.cfg_target.0)
                     .await?;
                 let providers = analysis_result.providers();
 
@@ -577,7 +583,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                     None => {
                         return Err::<_, buck2_error::Error>(
                             ConfigurationError::MissingConfigurationInfoProvider(
-                                self.cfg_target.dupe(),
+                                self.cfg_target.dupe().0,
                             )
                             .into(),
                         );
@@ -622,7 +628,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
     async fn resolve_execution_platform_from_constraints(
         &mut self,
         target_node_cell: CellName,
-        exec_compatible_with: Arc<[TargetLabel]>,
+        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         exec_deps: Arc<[TargetLabel]>,
         toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
@@ -630,7 +636,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         #[display(fmt = "{:?}", self)]
         struct ExecutionPlatformResolutionKey {
             target_node_cell: CellName,
-            exec_compatible_with: Arc<[TargetLabel]>,
+            exec_compatible_with: Arc<[ConfigurationSettingKey]>,
             exec_deps: Arc<[TargetLabel]>,
             toolchain_allows: Arc<[ToolchainConstraints]>,
         }

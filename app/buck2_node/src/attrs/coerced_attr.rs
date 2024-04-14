@@ -58,7 +58,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
-use crate::configuration::resolved::ConfigurationSettingKeyRef;
+use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -71,7 +71,7 @@ enum SelectError {
         .1.iter().map(| s | format ! ("  {}", s)).join("\n"),
     )]
     #[buck2(user)]
-    MissingDefault(ConfigurationData, Vec<TargetLabel>),
+    MissingDefault(ConfigurationData, Vec<ConfigurationSettingKey>),
     #[error(
         "Both select keys `{0}` and `{1}` match the configuration, but neither is more specific"
     )]
@@ -89,26 +89,28 @@ enum CoercedAttrError {
 }
 
 enum CoercedSelectorKeyRef<'a> {
-    Target(&'a TargetLabel),
+    Target(&'a ConfigurationSettingKey),
     Default,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedSelector {
-    pub(crate) entries: ArcSlice<(TargetLabel, CoercedAttr)>,
+    pub(crate) entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
     pub(crate) default: Option<CoercedAttr>,
 }
 
 impl CoercedSelector {
     pub fn new(
-        entries: ArcSlice<(TargetLabel, CoercedAttr)>,
+        entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
         default: Option<CoercedAttr>,
     ) -> anyhow::Result<CoercedSelector> {
         Self::check_all_keys_unique(&entries)?;
         Ok(CoercedSelector { entries, default })
     }
 
-    fn check_all_keys_unique(entries: &[(TargetLabel, CoercedAttr)]) -> anyhow::Result<()> {
+    fn check_all_keys_unique(
+        entries: &[(ConfigurationSettingKey, CoercedAttr)],
+    ) -> anyhow::Result<()> {
         // This is possible when select keys are specified like:
         // ```
         // select({
@@ -130,7 +132,7 @@ impl CoercedSelector {
                 }
             }
         } else {
-            let mut visited_keys: HashSet<&TargetLabel, _> =
+            let mut visited_keys: HashSet<&ConfigurationSettingKey, _> =
                 HashSet::with_capacity_and_hasher(entries.len(), StarlarkHasherBuilder);
             for (k, _) in entries {
                 if !visited_keys.insert(k) {
@@ -203,7 +205,7 @@ pub enum CoercedAttr {
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
     SplitTransitionDep(ProvidersLabel),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
-    ConfigurationDep(TargetLabel),
+    ConfigurationDep(ConfigurationSettingKey),
     PluginDep(TargetLabel),
     Dep(ProvidersLabel),
     SourceLabel(ProvidersLabel),
@@ -484,11 +486,12 @@ impl CoercedAttr {
     /// If more than one select key matches, select the most specific.
     pub fn select_the_most_specific<'a>(
         ctx: &dyn AttrConfigurationContext,
-        select_entries: &'a [(TargetLabel, CoercedAttr)],
+        select_entries: &'a [(ConfigurationSettingKey, CoercedAttr)],
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
-        let mut matching: Option<(&TargetLabel, &ConfigSettingData, &CoercedAttr)> = None;
+        let mut matching: Option<(&ConfigurationSettingKey, &ConfigSettingData, &CoercedAttr)> =
+            None;
         for (k, v) in select_entries {
-            matching = match (ctx.matches(ConfigurationSettingKeyRef(k)), matching) {
+            matching = match (ctx.matches(k.as_ref()), matching) {
                 (None, matching) => matching,
                 (Some(conf), None) => Some((k, conf, v)),
                 (Some(conf), Some((prev_k, prev_conf, prev_v))) => {
@@ -680,17 +683,17 @@ impl CoercedAttr {
 #[cfg(test)]
 mod tests {
 
-    use buck2_core::target::label::TargetLabel;
     use dupe::Dupe;
 
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::coerced_attr::CoercedSelector;
+    use crate::configuration::resolved::ConfigurationSettingKey;
 
     #[test]
     fn test_check_all_keys_unique_small() {
-        let a = TargetLabel::testing_parse("foo//:a");
-        let b = TargetLabel::testing_parse("foo//:b");
-        let c = TargetLabel::testing_parse("foo//:c");
+        let a = ConfigurationSettingKey::testing_parse("foo//:a");
+        let b = ConfigurationSettingKey::testing_parse("foo//:b");
+        let c = ConfigurationSettingKey::testing_parse("foo//:c");
         let attr = CoercedAttr::None;
         let a = (a.dupe(), attr.clone());
         let b = (b.dupe(), attr.clone());
@@ -713,7 +716,7 @@ mod tests {
         let mut long = (0..100)
             .map(|i| {
                 (
-                    TargetLabel::testing_parse(&format!("foo//:{}", i)),
+                    ConfigurationSettingKey::testing_parse(&format!("foo//:{}", i)),
                     attr.clone(),
                 )
             })

@@ -18,6 +18,7 @@ use dupe::Dupe;
 use starlark_map::ordered_set::OrderedSet;
 
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::configuration::resolved::ConfigurationSettingKey;
 
 #[derive(Default, Debug, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedDeps {
@@ -36,7 +37,7 @@ pub struct CoercedDeps {
     pub toolchain_deps: Box<[TargetLabel]>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: Box<[TargetLabel]>,
+    pub configuration_deps: Box<[ConfigurationSettingKey]>,
 
     /// Contains platform targets of configured_alias()
     pub platform_deps: Box<[TargetLabel]>,
@@ -85,7 +86,7 @@ pub struct CoercedDepsCollector {
     pub toolchain_deps: OrderedSet<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: OrderedSet<TargetLabel>,
+    pub configuration_deps: OrderedSet<ConfigurationSettingKey>,
 
     /// Contains platform targets of configured_alias()
     pub platform_deps: OrderedSet<TargetLabel>,
@@ -142,7 +143,7 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
         Ok(())
     }
 
-    fn configuration_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> anyhow::Result<()> {
         self.configuration_deps.insert(dep.dupe());
         Ok(())
     }

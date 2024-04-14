@@ -44,6 +44,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
+use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -99,7 +100,7 @@ pub enum ConfiguredAttr {
     WithinView(WithinViewSpecification),
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
-    ConfigurationDep(TargetLabel),
+    ConfigurationDep(ConfigurationSettingKey),
     // Note: Despite being named `PluginDep`, this doesn't really act like a dep but rather like a
     // label
     PluginDep(TargetLabel, PluginKind),
@@ -206,7 +207,7 @@ impl ConfiguredAttr {
                 }
                 Ok(())
             }
-            ConfiguredAttr::ConfigurationDep(dep) => traversal.configuration_dep(dep),
+            ConfiguredAttr::ConfigurationDep(dep) => traversal.configuration_dep(&dep.0),
             ConfiguredAttr::PluginDep(dep, kind) => traversal.plugin_dep(dep, kind),
             ConfiguredAttr::Dep(dep) => dep.traverse(traversal),
             ConfiguredAttr::SourceLabel(dep) => traversal.dep(dep),
@@ -355,7 +356,7 @@ impl ConfiguredAttr {
         }
     }
 
-    pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<TargetLabel> {
+    pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<ConfigurationSettingKey> {
         match self {
             ConfiguredAttr::ConfigurationDep(d) => Ok(d),
             a => Err(ConfiguredAttrError::ExpectingConfigurationDep(

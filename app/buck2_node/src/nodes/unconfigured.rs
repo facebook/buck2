@@ -38,6 +38,7 @@ use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
+use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
 use crate::nodes::attributes::DEPS;
@@ -268,7 +269,7 @@ impl TargetNode {
     }
 
     #[inline]
-    pub fn get_configuration_deps(&self) -> impl Iterator<Item = &TargetLabel> {
+    pub fn get_configuration_deps(&self) -> impl Iterator<Item = &ConfigurationSettingKey> {
         self.as_ref().get_configuration_deps()
     }
     #[inline]
@@ -327,7 +328,10 @@ impl TargetNode {
                 Ok(())
             }
 
-            fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn configuration_dep(
+                &mut self,
+                _dep: &'a ConfigurationSettingKey,
+            ) -> anyhow::Result<()> {
                 Ok(())
             }
 
@@ -490,7 +494,7 @@ impl<'a> TargetNodeRef<'a> {
         self.0.get().deps_cache.toolchain_deps.iter()
     }
 
-    pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
+    pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a ConfigurationSettingKey> {
         self.0.get().deps_cache.configuration_deps.iter()
     }
 
@@ -575,7 +579,10 @@ impl<'a> TargetNodeRef<'a> {
                 Ok(())
             }
 
-            fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn configuration_dep(
+                &mut self,
+                _dep: &'a ConfigurationSettingKey,
+            ) -> anyhow::Result<()> {
                 Ok(())
             }
         }

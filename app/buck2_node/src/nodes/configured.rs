@@ -57,6 +57,7 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::EXECUTION_PLATFORM;
@@ -307,7 +308,9 @@ impl ConfiguredTargetNode {
         &ATTRIBUTE
     }
 
-    pub fn target_compatible_with(&self) -> impl Iterator<Item = anyhow::Result<TargetLabel>> + '_ {
+    pub fn target_compatible_with(
+        &self,
+    ) -> impl Iterator<Item = anyhow::Result<ConfigurationSettingKey>> + '_ {
         self.get(
             TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
             AttrInspectOptions::All,
@@ -322,7 +325,7 @@ impl ConfiguredTargetNode {
 
     pub fn attr_as_target_compatible_with(
         attr: ConfiguredAttr,
-    ) -> impl Iterator<Item = anyhow::Result<TargetLabel>> {
+    ) -> impl Iterator<Item = anyhow::Result<ConfigurationSettingKey>> {
         let list = match attr.try_into_list() {
             Ok(list) => list,
             Err(e) => return Either::Left(iter::once(Err(e))),

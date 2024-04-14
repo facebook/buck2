@@ -8,11 +8,11 @@
  */
 
 use allocative::Allocative;
-use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::configuration::resolved::ConfigurationSettingKey;
 
 /// A configuration dep attribute accepts a target as a value. This is different from
 /// a dep in that the values themselves never undergo configuration and appear as bare
@@ -32,7 +32,7 @@ pub struct ConfigurationDepAttrType;
 impl ConfigurationDepAttrType {
     pub(crate) fn configure(
         _ctx: &dyn AttrConfigurationContext,
-        label: &TargetLabel,
+        label: &ConfigurationSettingKey,
     ) -> anyhow::Result<ConfiguredAttr> {
         Ok(ConfiguredAttr::ConfigurationDep(label.dupe()))
     }

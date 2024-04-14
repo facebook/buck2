@@ -74,6 +74,7 @@ use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
@@ -509,8 +510,8 @@ impl AttrCoercionContext for AnonAttrCtx {
 
     fn intern_select(
         &self,
-        value: Vec<(TargetLabel, CoercedAttr)>,
-    ) -> ArcSlice<(TargetLabel, CoercedAttr)> {
+        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+    ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)> {
         // TODO(scottcao): do intern.
         value.into()
     }

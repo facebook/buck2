@@ -57,7 +57,7 @@ impl QueryTarget for TargetNode {
     }
 
     fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
-        TargetNode::get_configuration_deps(self)
+        TargetNode::get_configuration_deps(self).map(|k| &k.0)
     }
 
     fn toolchain_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {

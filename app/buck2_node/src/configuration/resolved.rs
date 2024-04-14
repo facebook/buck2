@@ -22,7 +22,16 @@ use starlark_map::Equivalent;
 
 /// Key in `select` or an item in `target_compatible_with`.
 /// Should point to `config_setting` target, or `constraint_value`.
-#[derive(Debug, Eq, Allocative)]
+#[derive(
+    Debug,
+    Eq,
+    Allocative,
+    derive_more::Display,
+    Clone,
+    Dupe,
+    Ord,
+    PartialOrd
+)]
 pub struct ConfigurationSettingKey(pub TargetLabel);
 
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -35,8 +44,18 @@ impl Equivalent<ConfigurationSettingKey> for ConfigurationSettingKeyRef<'_> {
 }
 
 impl ConfigurationSettingKey {
-    fn as_ref(&self) -> ConfigurationSettingKeyRef {
+    pub fn as_ref(&self) -> ConfigurationSettingKeyRef {
         ConfigurationSettingKeyRef(&self.0)
+    }
+
+    pub fn testing_parse(label: &str) -> ConfigurationSettingKey {
+        ConfigurationSettingKey(TargetLabel::testing_parse(label))
+    }
+}
+
+impl ConfigurationSettingKeyRef<'_> {
+    pub fn to_owned(&self) -> ConfigurationSettingKey {
+        ConfigurationSettingKey(self.0.dupe())
     }
 }
 
@@ -103,7 +122,7 @@ struct ConfigurationNodeData {
     // configuration within the context of this configuration.
     cfg: ConfigurationData,
 
-    label: TargetLabel,
+    label: ConfigurationSettingKey,
 
     config_setting: ConfigSettingData,
 
@@ -116,7 +135,7 @@ struct ConfigurationNodeData {
 impl ConfigurationNode {
     pub fn new(
         cfg: ConfigurationData,
-        label: TargetLabel,
+        label: ConfigurationSettingKey,
         config_setting: ConfigSettingData,
         matches: bool,
     ) -> Self {
@@ -132,7 +151,7 @@ impl ConfigurationNode {
         self.0.matches
     }
 
-    pub fn label(&self) -> &TargetLabel {
+    pub fn label(&self) -> &ConfigurationSettingKey {
         &self.0.label
     }
 

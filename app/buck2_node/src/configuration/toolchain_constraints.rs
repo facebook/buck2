@@ -14,6 +14,8 @@ use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 
+use crate::configuration::resolved::ConfigurationSettingKey;
+
 /// The constraint introduced on execution platform resolution by
 /// a toolchain rule (reached via a toolchain_dep).
 #[derive(Debug, Dupe, Clone, PartialEq, Eq, Hash, Allocative)]
@@ -22,13 +24,13 @@ pub struct ToolchainConstraints(Arc<ToolchainConstraintsImpl>);
 #[derive(Debug, PartialEq, Eq, Hash, Allocative)]
 struct ToolchainConstraintsImpl {
     exec_deps: Vec<TargetLabel>,
-    exec_compatible_with: Vec<TargetLabel>,
+    exec_compatible_with: Vec<ConfigurationSettingKey>,
 }
 
 impl ToolchainConstraints {
     pub fn new(
         exec_deps: &[TargetLabel],
-        exec_compatible_with: &[TargetLabel],
+        exec_compatible_with: &[ConfigurationSettingKey],
         inherited_toolchains: &[ToolchainConstraints],
     ) -> Self {
         Self(Arc::new(ToolchainConstraintsImpl {
@@ -51,7 +53,7 @@ impl ToolchainConstraints {
         self.0.exec_deps.iter()
     }
 
-    pub fn exec_compatible_with(&self) -> impl Iterator<Item = &TargetLabel> {
+    pub fn exec_compatible_with(&self) -> impl Iterator<Item = &ConfigurationSettingKey> {
         self.0.exec_compatible_with.iter()
     }
 }

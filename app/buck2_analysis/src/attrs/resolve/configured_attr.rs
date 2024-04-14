@@ -250,7 +250,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
 
                 heap.alloc(Dict::new(map))
             }
-            ConfiguredAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
+            ConfiguredAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.0.dupe())),
             ConfiguredAttr::PluginDep(d, _) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
             ConfiguredAttr::Dep(d) => {
                 heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.clone()))

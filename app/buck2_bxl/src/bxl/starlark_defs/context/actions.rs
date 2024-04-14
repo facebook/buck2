@@ -30,6 +30,7 @@ use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
+use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -73,7 +74,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,
-    exec_compatible_with: Arc<[TargetLabel]>,
+    exec_compatible_with: Arc<[ConfigurationSettingKey]>,
 ) -> anyhow::Result<BxlExecutionResolution> {
     // bxl has on transitions
     let resolved_transitions = OrderedMap::new();

@@ -17,6 +17,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
+use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::WithinViewSpecification;
@@ -110,7 +111,7 @@ pub(crate) fn check_within_view(
             self.check_dep_within_view(dep)
         }
 
-        fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+        fn configuration_dep(&mut self, _dep: &'a ConfigurationSettingKey) -> anyhow::Result<()> {
             // Skip configuration deps.
             Ok(())
         }

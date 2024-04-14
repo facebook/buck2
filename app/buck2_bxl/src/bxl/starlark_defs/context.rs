@@ -66,6 +66,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
+use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -1076,7 +1077,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
                                     .get(ctx)
                                     .await?
                                     .iter()
-                                    .map(|n| n.label().dupe())
+                                    .map(|n| ConfigurationSettingKey(n.label().dupe()))
                                     .collect()
                                 }
                             };

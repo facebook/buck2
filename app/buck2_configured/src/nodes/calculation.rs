@@ -48,6 +48,7 @@ use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
@@ -154,14 +155,14 @@ pub async fn find_execution_platform_by_configuration(
 pub struct ExecutionPlatformConstraints {
     exec_deps: Arc<[TargetLabel]>,
     toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-    exec_compatible_with: Arc<[TargetLabel]>,
+    exec_compatible_with: Arc<[ConfigurationSettingKey]>,
 }
 
 impl ExecutionPlatformConstraints {
     pub fn new_constraints(
         exec_deps: Arc<[TargetLabel]>,
         toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-        exec_compatible_with: Arc<[TargetLabel]>,
+        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
     ) -> Self {
         Self {
             exec_deps,
@@ -511,7 +512,7 @@ fn check_compatible(
         let mut right = Vec::new();
         for label in ConfiguredTargetNode::attr_as_target_compatible_with(attr) {
             let label = label?;
-            match resolved_cfg.setting_matches(ConfigurationSettingKeyRef(&label)) {
+            match resolved_cfg.setting_matches(label.as_ref()) {
                 Some(_) => left.push(label),
                 None => right.push(label),
             }
@@ -553,7 +554,7 @@ fn check_compatible(
     Ok(MaybeCompatible::Incompatible(Arc::new(
         IncompatiblePlatformReason {
             target: target_label.dupe(),
-            cause: IncompatiblePlatformReasonCause::UnsatisfiedConfig(incompatible_target),
+            cause: IncompatiblePlatformReasonCause::UnsatisfiedConfig(incompatible_target.0),
         },
     )))
 }

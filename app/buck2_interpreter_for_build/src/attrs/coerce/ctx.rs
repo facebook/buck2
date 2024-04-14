@@ -24,11 +24,11 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
@@ -90,7 +90,7 @@ pub struct BuildAttrCoercionContext {
     // reduce key duplication in selects since select keys are more likely to be deduplicated
     // than select values
     dict_interner: AttrCoercionInterner<ArcSlice<(CoercedAttr, CoercedAttr)>>,
-    select_interner: AttrCoercionInterner<ArcSlice<(TargetLabel, CoercedAttr)>>,
+    select_interner: AttrCoercionInterner<ArcSlice<(ConfigurationSettingKey, CoercedAttr)>>,
 }
 
 impl Debug for BuildAttrCoercionContext {
@@ -212,8 +212,8 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
 
     fn intern_select(
         &self,
-        value: Vec<(TargetLabel, CoercedAttr)>,
-    ) -> ArcSlice<(TargetLabel, CoercedAttr)> {
+        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+    ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)> {
         self.select_interner.intern(value)
     }
 

@@ -16,6 +16,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use starlark::values::dict::DictRef;
 use starlark::values::Value;
 
@@ -94,7 +95,7 @@ impl CoercedAttrExr for CoercedAttr {
                                 default = Some(v);
                             } else {
                                 let target = ctx.coerce_target_label(k)?;
-                                entries.push((target, v));
+                                entries.push((ConfigurationSettingKey(target), v));
                             }
                         }
 
@@ -158,6 +159,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedSelector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
+    use buck2_node::configuration::resolved::ConfigurationSettingKey;
     use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
     use buck2_util::arc_str::ArcSlice;
     use buck2_util::arc_str::ArcStr;
@@ -170,11 +172,11 @@ mod tests {
             CoercedSelector::new(
                 ArcSlice::new([
                     (
-                        TargetLabel::testing_parse("cell1//pkg1:target1"),
+                        ConfigurationSettingKey::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Bool(BoolLiteral(true)),
                     ),
                     (
-                        TargetLabel::testing_parse("cell2//pkg2:target2"),
+                        ConfigurationSettingKey::testing_parse("cell2//pkg2:target2"),
                         CoercedAttr::Bool(BoolLiteral(false)),
                     ),
                 ]),
@@ -186,11 +188,11 @@ mod tests {
             CoercedSelector::new(
                 ArcSlice::new([
                     (
-                        TargetLabel::testing_parse("cell1//pkg1:target1"),
+                        ConfigurationSettingKey::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Bool(BoolLiteral(true)),
                     ),
                     (
-                        TargetLabel::testing_parse("cell2//pkg2:target2"),
+                        ConfigurationSettingKey::testing_parse("cell2//pkg2:target2"),
                         CoercedAttr::Bool(BoolLiteral(false)),
                     ),
                 ]),
@@ -205,11 +207,11 @@ mod tests {
             CoercedSelector::new(
                 ArcSlice::new([
                     (
-                        TargetLabel::testing_parse("cell2//pkg2:target2"),
+                        ConfigurationSettingKey::testing_parse("cell2//pkg2:target2"),
                         CoercedAttr::Bool(BoolLiteral(false)),
                     ),
                     (
-                        TargetLabel::testing_parse("cell1//pkg1:target1"),
+                        ConfigurationSettingKey::testing_parse("cell1//pkg1:target1"),
                         CoercedAttr::Bool(BoolLiteral(true)),
                     ),
                 ]),
@@ -224,7 +226,7 @@ mod tests {
     #[test]
     fn select_the_most_specific() {
         struct SelectTestConfigurationContext {
-            settings: BTreeMap<TargetLabel, ConfigSettingData>,
+            settings: BTreeMap<ConfigurationSettingKey, ConfigSettingData>,
         }
 
         impl AttrConfigurationContext for SelectTestConfigurationContext {
@@ -232,7 +234,7 @@ mod tests {
                 &'a self,
                 label: ConfigurationSettingKeyRef,
             ) -> Option<&'a ConfigSettingData> {
-                self.settings.get(label.0)
+                self.settings.get(&label.to_owned())
             }
 
             fn cfg(&self) -> ConfigurationNoExec {
@@ -272,9 +274,9 @@ mod tests {
         let c_arm64 = constraint_value("config//c:arm64");
         let c_x86_64 = constraint_value("config//c:x86_64");
 
-        let linux = TargetLabel::testing_parse("config//:linux");
-        let linux_arm64 = TargetLabel::testing_parse("config//:linux-arm64");
-        let linux_x86_64 = TargetLabel::testing_parse("config//:linux-x86_64");
+        let linux = ConfigurationSettingKey::testing_parse("config//:linux");
+        let linux_arm64 = ConfigurationSettingKey::testing_parse("config//:linux-arm64");
+        let linux_x86_64 = ConfigurationSettingKey::testing_parse("config//:linux-x86_64");
 
         let ctx = SelectTestConfigurationContext {
             settings: BTreeMap::from_iter([
@@ -373,11 +375,11 @@ mod tests {
                 CoercedSelector::new(
                     ArcSlice::new([
                         (
-                            TargetLabel::testing_parse("config//:a"),
+                            ConfigurationSettingKey::testing_parse("config//:a"),
                             CoercedAttr::Bool(BoolLiteral(true))
                         ),
                         (
-                            TargetLabel::testing_parse("config//:b"),
+                            ConfigurationSettingKey::testing_parse("config//:b"),
                             CoercedAttr::Int(10)
                         ),
                     ]),

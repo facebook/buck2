@@ -21,6 +21,7 @@ use buck2_util::arc_str::ArcStr;
 
 use super::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
+use crate::configuration::resolved::ConfigurationSettingKey;
 
 #[derive(buck2_error::Error, Debug)]
 enum AttrCoercionContextError {
@@ -51,8 +52,8 @@ pub trait AttrCoercionContext {
     // Reuse previously allocated selects if possible.
     fn intern_select(
         &self,
-        value: Vec<(TargetLabel, CoercedAttr)>,
-    ) -> ArcSlice<(TargetLabel, CoercedAttr)>;
+        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+    ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)>;
 
     // Reuse previously allocated dicts if possible.
     fn intern_dict(

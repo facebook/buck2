@@ -15,6 +15,8 @@ use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 
+use crate::configuration::resolved::ConfigurationSettingKey;
+
 pub trait CoercedAttrTraversal<'a> {
     fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
     fn exec_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
@@ -29,7 +31,7 @@ pub trait CoercedAttrTraversal<'a> {
         dep: &'a TargetLabel,
         tr: &Arc<TransitionId>,
     ) -> anyhow::Result<()>;
-    fn configuration_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
+    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> anyhow::Result<()>;
     fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
     fn plugin_dep(&mut self, dep: &'a TargetLabel, kind: &PluginKind) -> anyhow::Result<()>;
     fn input(&mut self, input: BuckPathRef) -> anyhow::Result<()>;

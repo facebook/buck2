@@ -215,7 +215,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::SplitTransitionDep(d) => {
                 heap.alloc(StarlarkProvidersLabel::new(d.clone()))
             }
-            CoercedAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
+            CoercedAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.0.dupe())),
             CoercedAttr::PluginDep(d) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
             CoercedAttr::Dep(d) => heap.alloc(StarlarkProvidersLabel::new(d.clone())),
             CoercedAttr::SourceLabel(s) => heap.alloc(StarlarkProvidersLabel::new(s.clone())),
