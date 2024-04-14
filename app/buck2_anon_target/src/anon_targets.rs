@@ -49,9 +49,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternData;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
@@ -70,13 +68,9 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::coerced_path::CoercedPath;
-use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::internal::internal_attrs;
-use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
-use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -126,8 +120,6 @@ pub enum AnonTargetsError {
     InvalidNameType { typ: String, value: String },
     #[error("`name` attribute must be a valid target label, got `{0}`")]
     NotTargetLabel(String),
-    #[error("can't parse strings during `anon_targets` coercion, got `{0}`")]
-    CantParseDuringCoerce(String),
     #[error("Unknown attribute `{0}`")]
     UnknownAttribute(String),
     #[error("Internal attribute `{0}` not allowed as argument to `anon_targets`")]
@@ -469,10 +461,10 @@ impl AnonTargetKey {
 }
 
 /// Several attribute functions need a context, make one that is mostly useless.
-pub struct AnonAttrCtx {
+pub(crate) struct AnonAttrCtx {
     cfg: ConfigurationData,
     transitions: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-    pub execution_platform_resolution: ExecutionPlatformResolution,
+    pub(crate) execution_platform_resolution: ExecutionPlatformResolution,
 }
 
 impl AnonAttrCtx {
@@ -483,57 +475,10 @@ impl AnonAttrCtx {
             execution_platform_resolution: execution_platform_resolution.clone(),
         }
     }
-}
 
-impl AttrCoercionContext for AnonAttrCtx {
-    fn coerce_providers_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
-        Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
-    }
-
-    fn intern_str(&self, value: &str) -> ArcStr {
+    pub(crate) fn intern_str(&self, value: &str) -> ArcStr {
         // TODO(scottcao): do intern.
         ArcStr::from(value)
-    }
-
-    fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr> {
-        // TODO(scottcao): do intern.
-        value.into()
-    }
-
-    fn intern_dict(
-        &self,
-        value: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> ArcSlice<(CoercedAttr, CoercedAttr)> {
-        // TODO(scottcao): do intern.
-        value.into()
-    }
-
-    fn intern_select(
-        &self,
-        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-    ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)> {
-        // TODO(scottcao): do intern.
-        value.into()
-    }
-
-    fn coerce_path(&self, value: &str, _allow_directory: bool) -> anyhow::Result<CoercedPath> {
-        Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
-    }
-
-    fn coerce_target_pattern(
-        &self,
-        pattern: &str,
-    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
-        Err(AnonTargetsError::CantParseDuringCoerce(pattern.to_owned()).into())
-    }
-
-    fn visit_query_function_literals(
-        &self,
-        _visitor: &mut dyn buck2_query::query::syntax::simple::functions::QueryLiteralVisitor,
-        _expr: &buck2_query_parser::spanned::Spanned<buck2_query_parser::Expr>,
-        query: &str,
-    ) -> anyhow::Result<()> {
-        Err(AnonTargetsError::CantParseDuringCoerce(query.to_owned()).into())
     }
 }
 

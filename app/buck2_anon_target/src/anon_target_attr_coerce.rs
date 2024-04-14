@@ -32,7 +32,6 @@ use buck2_node::attrs::attr_type::tuple::TupleAttrType;
 use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
-use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
