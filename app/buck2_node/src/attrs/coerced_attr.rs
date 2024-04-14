@@ -609,12 +609,12 @@ impl CoercedAttr {
                 ConfigurationDepAttrType::configure(ctx, dep)?
             }
             CoercedAttrWithType::PluginDep(dep, t) => {
-                ConfiguredAttr::PluginDep(Box::new((dep.dupe(), t.kind().dupe())))
+                ConfiguredAttr::PluginDep(dep.dupe(), t.kind().dupe())
             }
             CoercedAttrWithType::Dep(dep, t) => t.configure(dep, ctx)?,
-            CoercedAttrWithType::SourceLabel(source, _) => ConfiguredAttr::SourceLabel(Box::new(
-                source.configure_pair(ctx.cfg().cfg_pair().dupe()),
-            )),
+            CoercedAttrWithType::SourceLabel(source, _) => {
+                ConfiguredAttr::SourceLabel(source.configure_pair(ctx.cfg().cfg_pair().dupe()))
+            }
             CoercedAttrWithType::Label(label, _) => LabelAttrType::configure(ctx, label)?,
             CoercedAttrWithType::Arg(arg, attr_type) => {
                 ConfiguredAttr::Arg(arg.configure(ctx, attr_type.anon_target_compatible)?)

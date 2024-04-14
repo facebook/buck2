@@ -22,6 +22,6 @@ impl LabelAttrType {
         ctx: &dyn AttrConfigurationContext,
         label: &ProvidersLabel,
     ) -> anyhow::Result<ConfiguredAttr> {
-        Ok(ConfiguredAttr::Label(Box::new(ctx.configure_target(label))))
+        Ok(ConfiguredAttr::Label(ctx.configure_target(label)))
     }
 }

@@ -645,10 +645,10 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         let deps_attr = ConfiguredAttr::List(
             self.deps()
                 .map(|t| {
-                    ConfiguredAttr::Label(Box::new(ConfiguredProvidersLabel::new(
+                    ConfiguredAttr::Label(ConfiguredProvidersLabel::new(
                         t.label().dupe(),
                         ProvidersName::Default,
-                    )))
+                    ))
                 })
                 .collect(),
         );
@@ -783,9 +783,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             // `ConfiguredAttr::TargetLabel` type, and it also seems excessive to add one for this
             // reason alone
             let plugins = plugins
-                .map(|(target, _)| {
-                    ConfiguredAttr::PluginDep(Box::new((target.dupe(), kind.dupe())))
-                })
+                .map(|(target, _)| ConfiguredAttr::PluginDep(target.dupe(), kind.dupe()))
                 .collect();
             kinds.push((
                 ConfiguredAttr::String(StringLiteral(ArcStr::from(kind.as_str()))),

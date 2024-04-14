@@ -34,6 +34,6 @@ impl ConfigurationDepAttrType {
         _ctx: &dyn AttrConfigurationContext,
         label: &TargetLabel,
     ) -> anyhow::Result<ConfiguredAttr> {
-        Ok(ConfiguredAttr::ConfigurationDep(Box::new(label.dupe())))
+        Ok(ConfiguredAttr::ConfigurationDep(label.dupe()))
     }
 }
