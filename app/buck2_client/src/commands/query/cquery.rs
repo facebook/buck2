@@ -85,7 +85,7 @@ pub struct CqueryCommand {
     #[clap(
         long,
         short = 'u',
-        use_delimiter = true,
+        use_value_delimiter = true,
         help = "Comma separated list of targets at which to root the queryable universe.
                 This is useful since targets can exist in multiple configurations. While
                 this argument isn't required, it's recommended for most non-trivial queries.

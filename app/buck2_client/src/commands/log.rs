@@ -37,7 +37,7 @@ use dupe::Dupe;
     serde::Deserialize,
     Clone,
     Dupe,
-    clap::ArgEnum
+    clap::ValueEnum
 )]
 #[clap(rename_all = "snake_case")]
 pub enum LogCommandOutputFormat {

@@ -67,7 +67,7 @@ pub struct BuildCommand {
         short = 'M',
         help = "Materialize (or skip) the final artifacts, bypassing buckconfig.",
         ignore_case = true,
-        arg_enum
+        value_enum
     )]
     materializations: Option<FinalArtifactMaterializations>,
 
@@ -156,7 +156,7 @@ impl BuildCommand {
     }
 }
 
-#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[derive(Debug, Clone, Dupe, clap::ValueEnum)]
 #[clap(rename_all = "snake_case")]
 pub enum FinalArtifactMaterializations {
     All,
@@ -375,7 +375,7 @@ mod tests {
     use super::*;
 
     fn parse(args: &[&str]) -> anyhow::Result<BuildCommand> {
-        Ok(BuildCommand::from_iter_safe(
+        Ok(BuildCommand::try_parse_from(
             std::iter::once("program").chain(args.iter().copied()),
         )?)
     }

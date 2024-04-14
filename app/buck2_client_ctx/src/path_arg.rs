@@ -20,7 +20,7 @@ use serde::Serialize;
 /// Path arguments for clap which is either absolute or relative to current directory.
 ///
 /// Hides the path, but exposes the function which resolves the path against the current directory.
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct PathArg {
     path: PathBuf,
 }

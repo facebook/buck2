@@ -31,7 +31,7 @@ pub(crate) struct ForkserverCommand {
     #[clap(long)]
     state_dir: PathBuf,
 
-    #[clap(long, parse(try_from_str = ResourceControlConfig::deserialize))]
+    #[clap(long, value_parser = ResourceControlConfig::deserialize)]
     resource_control: ResourceControlConfig,
 }
 

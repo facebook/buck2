@@ -25,7 +25,7 @@ use crate::AuditSubcommand;
     Eq,
     serde::Serialize,
     serde::Deserialize,
-    clap::ArgEnum
+    clap::ValueEnum
 )]
 #[clap(rename_all = "snake_case")]
 pub enum OutputFormat {
@@ -33,7 +33,15 @@ pub enum OutputFormat {
     Json,
 }
 
-#[derive(Debug, Clone, Copy, Dupe, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Dupe,
+    serde::Serialize,
+    serde::Deserialize,
+    clap::ValueEnum
+)]
 pub enum LocationStyle {
     None,
     Direct,
@@ -52,7 +60,15 @@ impl FromStr for LocationStyle {
     }
 }
 
-#[derive(Debug, Clone, Copy, Dupe, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Dupe,
+    serde::Serialize,
+    serde::Deserialize,
+    clap::ValueEnum
+)]
 pub enum ValueStyle {
     Resolved,
     Raw,
@@ -88,16 +104,26 @@ pub struct AuditConfigCommand {
     #[clap(long, conflicts_with = "cell")]
     pub all_cells: bool,
 
-    #[clap(long, alias = "style", ignore_case = true, arg_enum)]
+    #[clap(long, alias = "style", ignore_case = true, value_enum)]
     pub output_format: Option<OutputFormat>,
 
     #[clap(long)]
     pub json: bool,
 
-    #[clap(long = "location", default_value = "none", possible_values=&["none", "direct", "extended"])]
+    #[clap(
+        long = "location",
+        default_value = "none",
+        ignore_case = true,
+        value_enum
+    )]
     pub location_style: LocationStyle,
 
-    #[clap(long = "value", default_value = "resolved", possible_values=&["resolved", "raw", "both"])]
+    #[clap(
+        long = "value",
+        default_value = "resolved",
+        ignore_case = true,
+        value_enum
+    )]
     pub value_style: ValueStyle,
 
     /// config section/key specs of the form `section` or `section.key`.

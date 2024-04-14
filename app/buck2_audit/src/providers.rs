@@ -25,13 +25,13 @@ pub struct AuditProvidersCommand {
     #[clap(flatten)]
     pub target_cfg: TargetCfgWithUniverseOptions,
 
-    #[clap(long, conflicts_with_all=&["list", "print-debug"])]
+    #[clap(long, conflicts_with_all=&["list", "print_debug"])]
     pub quiet: bool,
 
     #[clap(
         long,
         short = 'l',
-        help = "List the available providers", conflicts_with_all=&["print-debug", "quiet"]
+        help = "List the available providers", conflicts_with_all=&["print_debug", "quiet"]
     )]
     pub list: bool,
 

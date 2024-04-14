@@ -24,7 +24,7 @@ use dupe::Dupe;
 
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 
-#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[derive(Debug, Clone, Dupe, clap::ValueEnum)]
 #[clap(rename_all = "snake_case")]
 enum DocsOutputFormatArg {
     Json,
@@ -53,7 +53,7 @@ pub(crate) struct DocsStarlarkCommand {
         long = "format",
         help = "how to format the returned documentation",
         default_value = "json",
-        arg_enum,
+        value_enum,
         ignore_case = true
     )]
     format: DocsOutputFormatArg,

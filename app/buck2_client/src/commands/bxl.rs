@@ -52,7 +52,7 @@ pub struct BxlCommandOptions {
         short = 'M',
         help = "Materialize (or skip) the final artifacts, bypassing buckconfig.",
         ignore_case = true,
-        arg_enum
+        value_enum
     )]
     materializations: Option<FinalArtifactMaterializations>,
 
@@ -74,7 +74,7 @@ pub struct BxlCommandOptions {
     /// Log format is JSONL, uncompressed if no known extensions are detected, or you can explicitly specify
     /// the compression via the file extension (ex: `.json-lines.gz` would be gzip compressed, `.json-lines.zst`
     /// would be zstd compressed). Resulting log is is compatible with `buck2 log show-user`.
-    #[clap(value_name = "PATH", long = "--user-event-log")]
+    #[clap(value_name = "PATH", long = "user-event-log")]
     pub user_event_log: Option<PathArg>,
 }
 

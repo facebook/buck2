@@ -187,13 +187,13 @@ impl FrozenBxlFunction {
         self.implementation
     }
 
-    pub(crate) fn to_clap<'v>(&'v self, mut clap: clap::Command<'v>) -> clap::Command<'v> {
+    pub(crate) fn to_clap<'v>(&'v self, mut clap: clap::Command) -> clap::Command {
         if let Some(docs) = self.docs.as_ref() {
-            clap = clap.about(docs.as_str())
+            clap = clap.about(docs.clone())
         }
 
         for (arg, def) in self.cli_args.iter() {
-            clap = clap.arg(def.to_clap(clap::Arg::new(arg.as_str()).long(arg.as_str())))
+            clap = clap.arg(def.to_clap(clap::Arg::new(arg.clone()).long(arg.clone())))
         }
 
         clap

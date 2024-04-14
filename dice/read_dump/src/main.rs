@@ -10,7 +10,8 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::CommandFactory;
+use clap::FromArgMatches;
 use dice::introspection::graph::SerializedGraphNodesForKey;
 
 #[derive(Debug, clap::Parser)]
@@ -23,9 +24,9 @@ pub(crate) struct Opt {
 }
 
 fn main() -> anyhow::Result<()> {
-    let clap = Opt::clap();
+    let clap = <Opt as CommandFactory>::command();
     let matches = clap.get_matches_from(std::env::args().collect::<Vec<String>>());
-    let opt = Opt::from_clap(&matches);
+    let opt = Opt::from_arg_matches(&matches)?;
 
     let file = File::open(opt.file)?;
 

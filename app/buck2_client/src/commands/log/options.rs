@@ -36,7 +36,7 @@ enum EventLogOptionsError {
 }
 
 #[derive(Debug, clap::Parser)]
-#[clap(group = clap::ArgGroup::with_name("event_log"))]
+#[clap(group = clap::ArgGroup::new("event_log"))]
 pub(crate) struct EventLogOptions {
     /// Open the event-log file from a recent command.
     #[clap(long, group = "event_log", value_name = "NUMBER")]
@@ -47,11 +47,11 @@ pub(crate) struct EventLogOptions {
     trace_id: Option<TraceId>,
 
     /// This option does nothing.
-    #[clap(long, requires = "trace-id")]
+    #[clap(long, requires = "trace_id")]
     allow_remote: bool,
 
     /// Do not allow downloading the log from manifold if it's not found locally.
-    #[clap(long, requires = "trace-id")]
+    #[clap(long, requires = "trace_id")]
     no_remote: bool,
 
     /// A path to an event-log file to read from.

@@ -42,7 +42,7 @@ enum TargetsError {
 
 // Use non-camel case so the possible values match buck1's
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[derive(Debug, Clone, Dupe, clap::ValueEnum)]
 #[clap(rename_all = "snake_case")]
 enum TargetHashFileMode {
     PathsOnly,
@@ -50,7 +50,7 @@ enum TargetHashFileMode {
     None,
 }
 
-#[derive(Debug, clap::ArgEnum, Clone, Dupe)]
+#[derive(Debug, clap::ValueEnum, Clone, Dupe)]
 enum TargetHashGraphType {
     None,
     Unconfigured,
@@ -61,7 +61,7 @@ enum TargetHashGraphType {
 /// Possible values for the --target-hash-function arg. We don't actually
 /// honor the specific algorithms, we use them as a hint to pick "fast" or "strong".
 #[allow(non_camel_case_types)]
-#[derive(Debug, clap::ArgEnum, Clone, Dupe)]
+#[derive(Debug, clap::ValueEnum, Clone, Dupe)]
 enum TargetHashFunction {
     Sha1,
     Sha256,
@@ -104,7 +104,7 @@ pub struct TargetsCommand {
     show_target_hash: bool,
 
     /// Print a stable unconfigured hash of each target after the target name.
-    #[clap(long, conflicts_with = "show-target-hash")]
+    #[clap(long, conflicts_with = "show_target_hash")]
     show_unconfigured_target_hash: bool,
 
     /// Modifies computation of target hashes. If set to `PATHS_AND_CONTENTS` (the default), the contents
@@ -113,7 +113,7 @@ pub struct TargetsCommand {
     /// See also --target-hash-modified-paths.
     #[clap(
         long,
-        arg_enum,
+        value_enum,
         ignore_case = true,
         default_value = "paths_and_contents",
         conflicts_with = "streaming"
@@ -124,14 +124,14 @@ pub struct TargetsCommand {
     /// `PATHS_ONLY`. If a target or its dependencies reference a file from this set, the target's hash
     /// will be different than if this option was omitted. Otherwise, the target's hash will be the same
     /// as if this option was omitted.
-    #[clap(long, multiple_values = true, conflicts_with = "streaming")]
+    #[clap(long, num_args=1.., conflicts_with = "streaming")]
     target_hash_modified_paths: Vec<PathArg>,
 
     /// Selects either the "fast" or the "strong" target hash function to be used for computing target hashes.
     /// While we don't specify the exact algorithm, the "strong" algorithm should be a reasonable cryptographic
     /// hash (ex. blake3) while the "fast" function will likely be a non-crypto hash. Both functions are
     /// guaranteed to be deterministic and to have the same value across different platforms/architectures.
-    #[clap(long, ignore_case = true, default_value = "fast", arg_enum)]
+    #[clap(long, ignore_case = true, default_value = "fast", value_enum)]
     target_hash_function: TargetHashFunction,
 
     /// When true, emit the hash or target node and all dependencies recursively.
@@ -172,13 +172,13 @@ pub struct TargetsCommand {
 
     /// Show the package values. Produces an additional attribute representing all the package values
     /// for the package containing the target.
-    #[clap(long, conflicts_with = "package-values-regex")]
+    #[clap(long, conflicts_with = "package_values_regex")]
     package_values: bool,
 
     /// Regular expressions to match package values. Produces an additional attribute representing package values
     /// for the package containing the target. Regular expressions are used in "search" mode so,
     /// for example, empty string matches all package values.
-    #[clap(long, value_name = "VALUES", conflicts_with = "package-values")]
+    #[clap(long, value_name = "VALUES", conflicts_with = "package_values")]
     package_values_regex: Vec<String>,
 
     /// File to put the output in, rather than sending to stdout.

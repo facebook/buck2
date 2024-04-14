@@ -110,9 +110,9 @@ def parse_subcommands(output):
     res = []
     seen_subcommands = False
     for x in output.splitlines():
-        if x == "SUBCOMMANDS:":
+        if x == "Commands:":
             seen_subcommands = True
-        if seen_subcommands and x.startswith("    ") and len(x) > 4 and x[4].isalpha():
+        if seen_subcommands and x.startswith("  ") and len(x) > 2 and x[2].isalpha():
             sub = x.strip().split()[0]
             if sub != "help":
                 res.append(sub)

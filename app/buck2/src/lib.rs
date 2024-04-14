@@ -56,8 +56,8 @@ use buck2_event_observer::verbosity::Verbosity;
 pub use buck2_server_ctx::logging::TracingLogFile;
 use buck2_starlark::StarlarkCommand;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
-use clap::AppSettings;
-use clap::Parser;
+use clap::CommandFactory;
+use clap::FromArgMatches;
 use dice::DetectCycles;
 use dice::WhichDice;
 use dupe::Dupe;
@@ -90,7 +90,7 @@ struct BeforeSubcommandOptions {
     /// The isolation directory also influences the output paths provided by Buck2,
     /// and as a result using a non-default isolation dir will cause cache misses (and slower builds).
     #[clap(
-        parse(try_from_str = parse_isolation_dir),
+        value_parser = parse_isolation_dir,
         env("BUCK_ISOLATION_DIR"),
         long,
         default_value="v2"
@@ -117,7 +117,7 @@ struct BeforeSubcommandOptions {
         long = "verbose",
         default_value = "1",
         global = true,
-        parse(try_from_str = Verbosity::try_from_cli)
+        value_parser= Verbosity::try_from_cli
     )]
     verbosity: Verbosity,
 
@@ -138,7 +138,7 @@ struct BeforeSubcommandOptions {
     /// running with the same isolation directory.
     ///
     /// This is an unsupported option used only for development work.
-    #[clap(env("BUCK2_NO_BUCKD"), long, global(true), hidden(true))]
+    #[clap(env("BUCK2_NO_BUCKD"), long, global(true), hide(true))]
     // Env var is BUCK2_NO_BUCKD instead of NO_BUCKD env var from buck1 because no buckd
     // is not supported for production work for buck2 and lots of places already set
     // NO_BUCKD=1 for buck1.
@@ -152,19 +152,19 @@ struct BeforeSubcommandOptions {
 
 #[derive(Clone, Debug, clap::Parser)]
 struct DaemonBeforeSubcommandOptions {
-    #[clap(env("DICE_DETECT_CYCLES_UNSTABLE"), long, hidden(true))]
+    #[clap(env("DICE_DETECT_CYCLES_UNSTABLE"), long, hide(true))]
     detect_cycles: Option<DetectCycles>,
 
-    #[clap(env("WHICH_DICE_UNSTABLE"), long, hidden(true))]
+    #[clap(env("WHICH_DICE_UNSTABLE"), long, hide(true))]
     which_dice: Option<WhichDice>,
 
-    #[clap(env("ENABLE_TRACE_IO"), long, hidden(true))]
+    #[clap(env("ENABLE_TRACE_IO"), long, hide(true))]
     enable_trace_io: bool,
 
     /// If passed a given materializer identity, if the materializer state DB matches that
     /// identity, the daemon will not use it and will instead create a new empty materializer
     /// state.
-    #[clap(long, hidden(true))]
+    #[clap(long, hide(true))]
     reject_materializer_state: Option<String>,
 }
 
@@ -225,9 +225,9 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         expanded_args[0] = arg0.to_owned();
     }
 
-    let clap = Opt::clap();
+    let clap = Opt::command();
     let matches = clap.get_matches_from(&expanded_args);
-    let opt: Opt = Opt::from_clap(&matches);
+    let opt: Opt = Opt::from_arg_matches(&matches)?;
 
     if opt.common_opts.help_wrapper {
         return ExitResult::err(anyhow::anyhow!(
@@ -252,11 +252,11 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
 
 #[derive(Debug, clap::Subcommand)]
 pub(crate) enum CommandKind {
-    #[clap(setting(AppSettings::Hidden))]
+    #[clap(hide = true)]
     Daemon(DaemonCommand),
-    #[clap(setting(AppSettings::Hidden))]
+    #[clap(hide = true)]
     Forkserver(ForkserverCommand),
-    #[clap(setting(AppSettings::Hidden))]
+    #[clap(hide = true)]
     InternalTestRunner(InternalTestRunnerCommand),
     #[clap(subcommand)]
     Audit(AuditCommand),
@@ -269,7 +269,7 @@ pub(crate) enum CommandKind {
     Test(TestCommand),
     Cquery(CqueryCommand),
     Init(InitCommand),
-    #[clap(setting(AppSettings::Hidden))] // TODO iguridi: remove
+    #[clap(hide = true)] // TODO iguridi: remove
     Explain(ExplainCommand),
     Install(InstallCommand),
     Kill(KillCommand),
@@ -287,7 +287,7 @@ pub(crate) enum CommandKind {
     Utargets(TargetsCommand),
     Ctargets(ConfiguredTargetsCommand),
     Uquery(UqueryCommand),
-    #[clap(subcommand, setting(AppSettings::Hidden))]
+    #[clap(subcommand, hide = true)]
     Debug(DebugCommand),
     Docs(DocsCommand),
     #[clap(subcommand)]

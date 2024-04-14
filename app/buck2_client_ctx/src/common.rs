@@ -37,8 +37,8 @@ use gazebo::prelude::*;
 use crate::common::ui::CommonConsoleOptions;
 use crate::path_arg::PathArg;
 
-pub const EVENT_LOG: &str = "--event-log";
-pub const NO_EVENT_LOG: &str = "--no-event-log";
+pub const EVENT_LOG: &str = "event-log";
+pub const NO_EVENT_LOG: &str = "no-event-log";
 
 #[derive(
     Debug,
@@ -47,7 +47,7 @@ pub const NO_EVENT_LOG: &str = "--no-event-log";
     Clone,
     Dupe,
     Copy,
-    clap::ArgEnum
+    clap::ValueEnum
 )]
 #[clap(rename_all = "lower")]
 pub enum HostPlatformOverride {
@@ -64,7 +64,7 @@ pub enum HostPlatformOverride {
     Clone,
     Dupe,
     Copy,
-    clap::ArgEnum
+    clap::ValueEnum
 )]
 #[clap(rename_all = "lower")]
 pub enum HostArchOverride {
@@ -81,7 +81,7 @@ pub struct CommonDaemonCommandOptions {
     pub event_log: Option<PathArg>,
 
     /// Do not write any event logs. Overrides --event-log. Used from `replay` to avoid recursive logging
-    #[clap(long = NO_EVENT_LOG, hidden = true)]
+    #[clap(long = NO_EVENT_LOG, hide = true)]
     pub no_event_log: bool,
 
     /// Write command invocation id into this file.
@@ -116,7 +116,7 @@ pub struct CommonBuildConfigurationOptions {
         help = "List of config options",
         // Needs to be explicitly set, otherwise will treat `-c a b c` -> [a, b, c]
         // rather than [a] and other positional arguments `b c`.
-        number_of_values = 1
+        num_args = 1
     )]
     pub config_values: Vec<String>,
 
@@ -124,14 +124,14 @@ pub struct CommonBuildConfigurationOptions {
         value_name = "PATH",
         long = "config-file",
         help = "List of config file paths",
-        number_of_values = 1
+        num_args = 1
     )]
     pub config_files: Vec<String>,
 
-    #[clap(long, ignore_case = true, value_name = "HOST", arg_enum)]
+    #[clap(long, ignore_case = true, value_name = "HOST", value_enum)]
     fake_host: Option<HostPlatformOverride>,
 
-    #[clap(long, ignore_case = true, value_name = "ARCH", arg_enum)]
+    #[clap(long, ignore_case = true, value_name = "ARCH", value_enum)]
     fake_arch: Option<HostArchOverride>,
 
     /// Value must be formatted as: version-build (e.g., 14.3.0-14C18 or 14.1-14B47b)
@@ -146,7 +146,7 @@ pub struct CommonBuildConfigurationOptions {
     pub disable_starlark_types: bool,
 
     /// Typecheck bzl and bxl files during evaluation.
-    #[clap(long, hidden(true))]
+    #[clap(long, hide = true)]
     pub unstable_typecheck: bool,
 
     /// Record or show target call stacks.
@@ -222,7 +222,7 @@ impl CommonBuildConfigurationOptions {
             Ok(abs_path.to_string_lossy().into_owned())
         }
 
-        let config_values_args = with_indices(&self.config_values, "config-values", matches).map(
+        let config_values_args = with_indices(&self.config_values, "config_values", matches).map(
             |(index, config_value)| {
                 (
                     index,
@@ -234,7 +234,7 @@ impl CommonBuildConfigurationOptions {
             },
         );
 
-        let config_file_args = with_indices(&self.config_files, "config-files", matches)
+        let config_file_args = with_indices(&self.config_files, "config_files", matches)
             .map(|(index, unresolved_file)| {
                 let resolved_file = resolve_config_file_argument(unresolved_file)?;
                 Ok((

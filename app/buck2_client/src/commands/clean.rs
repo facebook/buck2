@@ -64,7 +64,7 @@ the specified duration, without killing the daemon",
     stale: Option<Option<humantime::Duration>>,
 
     // Like stale but since a specific timestamp, for testing
-    #[clap(long = "keep-since-time", conflicts_with = "stale", hidden = true)]
+    #[clap(long = "keep-since-time", conflicts_with = "stale", hide = true)]
     keep_since_time: Option<i64>,
 
     /// Only considers tracked artifacts for cleanup.

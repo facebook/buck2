@@ -10,12 +10,13 @@
 use std::str::FromStr;
 
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
+use clap::builder::FalseyValueParser;
 use clap::ArgGroup;
 use tracing::warn;
 
 use crate::common::PrintOutputsFormat;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct BuildReportOption {
     /// Fill out the failures in build report as it was done by default in buck1.
     fill_out_failures: bool,
@@ -69,14 +70,14 @@ pub struct CommonBuildOptions {
     /// emit the project-relative path of packages for the targets that were built.
     #[clap(
         long = "build-report-options",
-        requires = "build-report",
+        requires = "build_report",
         value_delimiter = ','
     )]
     build_report_options: Vec<BuildReportOption>,
 
     /// Deprecated. Use --build-report=-
     // TODO(cjhopman): this is probably only used by the e2e framework. remove it from there
-    #[clap(long = "print-build-report", hidden = true)]
+    #[clap(long = "print-build-report", hide = true)]
     print_build_report: bool,
 
     /// Number of threads to use during execution (default is # cores)
@@ -85,7 +86,7 @@ pub struct CommonBuildOptions {
     pub num_threads: Option<u32>,
 
     /// Enable only local execution. Will reject actions that cannot execute locally.
-    #[clap(long, group = "build_strategy", env = "BUCK_OFFLINE_BUILD")]
+    #[clap(long, group = "build_strategy", env = "BUCK_OFFLINE_BUILD", value_parser = FalseyValueParser::new())]
     local_only: bool,
 
     /// Enable only remote execution. Will reject actions that cannot execute remotely.
@@ -108,11 +109,11 @@ pub struct CommonBuildOptions {
     /// Do not perform remote cache queries or cache writes. If remote execution is enabled, the RE
     /// service might still deduplicate actions, so for e.g. benchmarking, using a random isolation
     /// dir is preferred.
-    #[clap(long, env = "BUCK_OFFLINE_BUILD")]
+    #[clap(long, env = "BUCK_OFFLINE_BUILD", value_parser = FalseyValueParser::new())]
     no_remote_cache: bool,
 
     /// Could be used to enable the action cache writes on the RE worker when no_remote_cache is specified
-    #[clap(long, requires("no-remote-cache"))]
+    #[clap(long, requires = "no_remote_cache")]
     write_to_cache_anyway: bool,
 
     /// Process dep files when they are generated (i.e. after running a command that produces dep
@@ -230,13 +231,13 @@ impl CommonBuildOptions {
 #[clap(group(
     // Make mutually exclusive. A command may have at most one of the flags in
     // the following group.
-    ArgGroup::default().args(&[
-        "show-output",
-        "show-full-output",
-        "show-simple-output",
-        "show-full-simple-output",
-        "show-json-output",
-        "show-full-json-output",
+    ArgGroup::new("output_args").args(&[
+        "show_output",
+        "show_full_output",
+        "show_simple_output",
+        "show_full_simple_output",
+        "show_json_output",
+        "show_full_json_output",
     ])
 ))]
 pub struct CommonOutputOptions {

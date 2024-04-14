@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use clap::builder::FalseyValueParser;
 use dupe::Dupe;
 use termwiz::istty::IsTty;
 
@@ -20,7 +21,7 @@ use crate::subscribers::superconsole::SuperConsoleConfig;
     Clone,
     Dupe,
     Copy,
-    clap::ArgEnum
+    clap::ValueEnum
 )]
 #[clap(rename_all = "lower")]
 pub enum ConsoleType {
@@ -39,7 +40,7 @@ pub enum ConsoleType {
     Clone,
     Dupe,
     Copy,
-    clap::ArgEnum
+    clap::ValueEnum
 )]
 #[clap(rename_all = "lower")]
 pub enum UiOptions {
@@ -61,7 +62,7 @@ pub struct CommonConsoleOptions {
         ignore_case = true,
         env = "BUCK_CONSOLE",
         value_name = "super|simple|...",
-        arg_enum
+        value_enum
     )]
     pub console_type: ConsoleType,
 
@@ -77,16 +78,16 @@ pub struct CommonConsoleOptions {
     #[clap(
         long = "ui",
         ignore_case = true,
-        multiple = true,
-        number_of_values = 1,
-        arg_enum
+        num_args = 1..,
+        value_enum,
     )]
     pub ui: Vec<UiOptions>,
 
     #[clap(
         long,
         help = "Disable console interactions",
-        env = "BUCK_NO_INTERACTIVE_CONSOLE"
+        env = "BUCK_NO_INTERACTIVE_CONSOLE",
+        value_parser = FalseyValueParser::new(),
     )]
     pub no_interactive_console: bool,
 }

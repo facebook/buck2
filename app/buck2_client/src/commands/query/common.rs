@@ -16,7 +16,7 @@ use dupe::Dupe;
     Debug,
     Clone,
     Dupe,
-    clap::ArgEnum,
+    clap::ValueEnum,
     serde::Serialize,
     serde::Deserialize
 )]
@@ -58,7 +58,7 @@ pub(crate) struct CommonQueryOptions {
            starlark - targets are printed like starlark code that would produce them.
          ",
         value_name = "dot|dot_compact|json|starlark",
-        arg_enum
+        value_enum
     )]
     output_format: Option<QueryOutputFormatArg>,
 

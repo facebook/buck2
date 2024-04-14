@@ -13,7 +13,7 @@ use crate::path_arg::PathArg;
 
 /// Destination argument for clap that allows the user to specify the intention to either forward
 /// data to a file with a provided path, or to an output stream
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum OutputDestinationArg {
     Stream,
     Path(PathArg),

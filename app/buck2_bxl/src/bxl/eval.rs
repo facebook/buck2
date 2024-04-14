@@ -47,7 +47,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use clap::ErrorKind;
+use clap::error::ErrorKind;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::DiceTransaction;

@@ -9,7 +9,7 @@
 
 use dupe::Dupe;
 
-#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[derive(Debug, Clone, Dupe, clap::ValueEnum)]
 #[clap(rename_all = "snake_case")]
 enum DocsOutputFormatArg {
     Markdown,
@@ -22,7 +22,7 @@ pub(crate) struct DocsOutputFormatOptions {
     #[clap(
         long = "format",
         default_value = "rendered",
-        arg_enum,
+        value_enum,
         ignore_case = true
     )]
     format: DocsOutputFormatArg,

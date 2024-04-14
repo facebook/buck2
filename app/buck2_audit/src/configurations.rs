@@ -28,7 +28,7 @@ pub struct AuditConfigurationsCommand {
 
     #[clap(
         name = "configurations",
-        multiple_values = true,
+        num_args = 1..,
         help = "configurations to audit (example: `cell//package:target-105fe3389fc7e436`). If none provided, will print information about all known configurations."
     )]
     pub configs: Vec<String>,

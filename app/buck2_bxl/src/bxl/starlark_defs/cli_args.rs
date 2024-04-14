@@ -27,6 +27,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
+use clap::ArgAction;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -117,8 +118,8 @@ impl CliArgs {
         })
     }
 
-    pub(crate) fn to_clap<'a>(&'a self, arg: clap::Arg<'a>) -> clap::Arg<'a> {
-        let mut arg = self.coercer.to_clap(arg.help(self.doc.as_str()));
+    pub(crate) fn to_clap<'a>(&'a self, arg: clap::Arg) -> clap::Arg {
+        let mut arg = self.coercer.to_clap(arg.help(self.doc.clone()));
         if let Some(short) = self.short {
             arg = arg.short(short);
         }
@@ -473,18 +474,24 @@ impl CliArgType {
     }
 
     #[allow(deprecated)] // TODO(nga): fix.
-    pub(crate) fn to_clap<'a>(&'a self, clap: clap::Arg<'a>) -> clap::Arg<'a> {
+    pub(crate) fn to_clap<'a>(&'a self, clap: clap::Arg) -> clap::Arg {
         match self {
-            CliArgType::Bool => clap.takes_value(true).validator(|x| x.parse::<bool>()),
-            CliArgType::Int => clap.takes_value(true).validator(|x| x.parse::<BigInt>()),
-            CliArgType::Float => clap.takes_value(true).validator(|x| x.parse::<f64>()),
-            CliArgType::String => clap.takes_value(true),
+            CliArgType::Bool => clap
+                .num_args(1)
+                .value_parser(|x: &str| x.parse::<bool>().map(|_| x.to_owned())),
+            CliArgType::Int => clap
+                .num_args(1)
+                .value_parser(|x: &str| x.parse::<BigInt>().map(|_| x.to_owned())),
+            CliArgType::Float => clap
+                .num_args(1)
+                .value_parser(|x: &str| x.parse::<f64>().map(|_| x.to_owned())),
+            CliArgType::String => clap.num_args(1),
             CliArgType::Enumeration(variants) => clap
-                .takes_value(true)
-                .possible_values(variants.iter().map(String::as_str)),
-            CliArgType::List(inner) => inner.to_clap(clap.takes_value(true).multiple(true)),
-            CliArgType::Option(inner) => inner.to_clap(clap.required(false)),
-            CliArgType::TargetLabel => clap.takes_value(true).validator(|x| {
+                .num_args(1)
+                .value_parser(variants.iter().cloned().collect::<Vec<_>>()),
+            CliArgType::List(inner) => inner.to_clap(clap).num_args(1..).action(ArgAction::Append),
+            CliArgType::Option(inner) => inner.to_clap(clap).required(false),
+            CliArgType::TargetLabel => clap.num_args(1).value_parser(|x: &str| {
                 lex_target_pattern::<TargetPatternExtra>(x, false)
                     .and_then(|parsed| parsed.pattern.infer_target())
                     .and_then(|parsed| {
@@ -493,8 +500,9 @@ impl CliArgType {
                             .context(CliArgError::NotALabel(x.to_owned(), "target"))
                             .map(|_| ())
                     })
+                    .map(|_| x.to_owned())
             }),
-            CliArgType::SubTarget => clap.takes_value(true).validator(|x| {
+            CliArgType::SubTarget => clap.num_args(1).value_parser(|x: &str| {
                 lex_target_pattern::<ProvidersPatternExtra>(x, false)
                     .and_then(|parsed| parsed.pattern.infer_target())
                     .and_then(|parsed| {
@@ -503,10 +511,11 @@ impl CliArgType {
                             .context(CliArgError::NotALabel(x.to_owned(), "target"))
                             .map(|_| ())
                     })
+                    .map(|_| x.to_owned())
             }),
-            CliArgType::TargetExpr => clap.takes_value(true),
-            CliArgType::SubTargetExpr => clap.takes_value(true),
-            CliArgType::Json => clap.takes_value(true),
+            CliArgType::TargetExpr => clap.num_args(1),
+            CliArgType::SubTargetExpr => clap.num_args(1),
+            CliArgType::Json => clap.num_args(1),
         }
     }
 
@@ -789,14 +798,16 @@ pub(crate) enum ArgAccessor<'a> {
 impl<'a> ArgAccessor<'a> {
     fn value_of(&self) -> Option<&str> {
         match self {
-            ArgAccessor::Clap { clap, arg } => clap.value_of(arg),
+            ArgAccessor::Clap { clap, arg } => clap.get_one::<String>(arg).map(|x| x.as_str()),
             ArgAccessor::Literal(s) => Some(s),
         }
     }
 
     fn values_of(&self) -> Option<impl Iterator<Item = &str>> {
         match self {
-            ArgAccessor::Clap { clap, arg } => clap.values_of(arg).map(itertools::Either::Left),
+            ArgAccessor::Clap { clap, arg } => clap
+                .get_many::<String>(arg)
+                .map(|x| itertools::Either::Left(x.map(|y| y.as_str()))),
             ArgAccessor::Literal(s) => Some(itertools::Either::Right(std::iter::once(*s))),
         }
     }

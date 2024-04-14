@@ -78,7 +78,7 @@ pub struct WhatRanCommand {
     pub show_std_err: bool,
 
     /// Omit commands if their std_err is empty
-    #[clap(long, conflicts_with = "incomplete", requires = "show-std-err")]
+    #[clap(long, conflicts_with = "incomplete", requires = "show_std_err")]
     pub omit_empty_std_err: bool,
 }
 
@@ -92,7 +92,7 @@ pub struct WhatRanCommandCommon {
         help = "Which output format to use for this command",
         default_value = "tabulated",
         ignore_case = true,
-        arg_enum
+        value_enum
     )]
     pub output: LogCommandOutputFormat,
 

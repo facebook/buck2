@@ -56,13 +56,13 @@ pub enum Command {
     /// Convert buck's build to a format that rust-analyzer can consume.
     Develop {
         /// Buck targets to include in rust-project.json.
-        #[clap(required = true, conflicts_with = "files", multiple_values = true)]
+        #[clap(required = true, conflicts_with = "files", num_args=1..)]
         targets: Vec<String>,
 
         /// Path of the file being developed.
         ///
         /// Used to discover the owning set of targets.
-        #[clap(required = true, last = true, multiple_values = true)]
+        #[clap(required = true, last = true, num_args=1..)]
         files: Vec<PathBuf>,
 
         /// Where to write the generated `rust-project.json`.

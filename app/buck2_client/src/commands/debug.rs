@@ -71,7 +71,7 @@ pub enum DebugCommand {
     AllocatorStats(AllocatorStatsCommand),
     /// Dump the DICE graph to a file and saves it to disk.
     DiceDump(DiceDumpCommand),
-    #[clap(setting(clap::AppSettings::Hidden))]
+    #[clap(hide = true)]
     Replay(DebugReplayCommand),
     /// Prints the hash of the buck2 binary
     InternalVersion(InternalVersionCommand),
@@ -86,7 +86,7 @@ pub enum DebugCommand {
     /// Validates that Buck2 and disk agree on the state of files.
     FileStatus(FileStatusCommand),
     /// Shows the commands that buck ran
-    #[clap(alias = "whatran", setting(clap::AppSettings::Hidden))]
+    #[clap(alias = "whatran", hide = true)]
     WhatRan(DebugWhatRanCommand),
     /// Prints buck2 daemon directory (`~/.buckd/xxx`).
     DaemonDir(DaemonDirCommand),

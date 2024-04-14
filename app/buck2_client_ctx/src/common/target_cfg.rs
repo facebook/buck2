@@ -15,7 +15,7 @@ pub struct TargetCfgOptions {
     #[clap(
         long = "target-platforms",
         help = "Configuration target (one) to use to configure targets",
-        number_of_values = 1,
+        num_args = 1,
         value_name = "PLATFORM"
     )]
     pub target_platforms: Option<String>,
@@ -29,7 +29,7 @@ pub struct TargetCfgOptions {
         help = "A configuration modifier to configure all targets on the command line. This may be a constraint value target.",
         // Needs to be explicitly set, otherwise will treat `-c a b c` -> [a, b, c]
         // rather than [a] and other positional arguments `b c`.
-        number_of_values = 1
+        num_args = 1
     )]
     pub cli_modifiers: Vec<String>,
 }
@@ -37,11 +37,7 @@ pub struct TargetCfgOptions {
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct TargetCfgUnusedOptions {
     /// This option is not used.
-    #[clap(
-        long = "target-platforms",
-        number_of_values = 1,
-        value_name = "PLATFORM"
-    )]
+    #[clap(long = "target-platforms", num_args = 1, value_name = "PLATFORM")]
     pub target_platforms: Option<String>,
 
     /// This option is not used.
@@ -51,7 +47,7 @@ pub struct TargetCfgUnusedOptions {
         use_value_delimiter = true,
         value_delimiter = ',',
         short = 'm',
-        number_of_values = 1
+        num_args = 1
     )]
     pub cli_modifiers: Vec<String>,
 }
@@ -74,7 +70,7 @@ pub struct TargetCfgWithUniverseOptions {
     /// When the option is specified, command targets are be resolved in this universe.
     /// Additionally, `--target-platforms=` and `--modifier=` flags
     /// are be used to configure the universe targets, not the command targets.
-    #[clap(long, short = 'u', use_delimiter = true, verbatim_doc_comment)]
+    #[clap(long, short = 'u', use_value_delimiter = true, verbatim_doc_comment)]
     pub target_universe: Vec<String>,
 }
 
@@ -87,7 +83,7 @@ mod tests {
     use super::*;
 
     fn parse(args: &[&str]) -> anyhow::Result<TargetCfgOptions> {
-        Ok(TargetCfgOptions::from_iter_safe(
+        Ok(TargetCfgOptions::try_parse_from(
             std::iter::once("program").chain(args.iter().copied()),
         )?)
     }
@@ -151,17 +147,17 @@ mod tests {
             name: String,
             long: Option<String>,
             value_delimiter: Option<char>,
-            number_of_values: Option<usize>,
+            number_of_values: Option<clap::builder::ValueRange>,
         }
 
         fn args<C: CommandFactory>() -> Vec<ReducedArg> {
             C::command()
                 .get_arguments()
                 .map(|a| ReducedArg {
-                    name: a.get_name().to_owned(),
+                    name: a.get_id().as_str().to_owned(),
                     long: a.get_long().map(|s| s.to_owned()),
                     value_delimiter: a.get_value_delimiter(),
-                    number_of_values: a.get_num_vals(),
+                    number_of_values: a.get_num_args(),
                 })
                 .collect()
         }

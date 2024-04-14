@@ -81,7 +81,7 @@ pub(crate) struct DaemonCommand {
     skip_macos_qos: bool,
     /// Early configs that the daemon needs at startup. Those are read by the client then passed to
     /// the daemon. The client will restart the daemon if they mismatch.
-    #[clap(parse(try_from_str = DaemonStartupConfig::deserialize))]
+    #[clap(value_parser = DaemonStartupConfig::deserialize)]
     daemon_startup_config: DaemonStartupConfig,
 }
 

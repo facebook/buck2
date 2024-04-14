@@ -33,7 +33,7 @@ pub struct WhatUploadedCommand {
         help = "Which output format to use for this command",
         default_value = "tabulated",
         ignore_case = true,
-        arg_enum
+        value_enum
     )]
     pub output: LogCommandOutputFormat,
 }

@@ -24,9 +24,7 @@ use crate::commands::log::options::EventLogOptions;
 ///
 /// This command allows visualizing an existing event log in a Superconsole.
 #[derive(Debug, clap::Parser)]
-#[clap(
-    setting = clap::AppSettings::TrailingVarArg
-)]
+#[clap(trailing_var_arg = true)]
 pub struct ReplayCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,

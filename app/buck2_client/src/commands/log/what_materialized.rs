@@ -36,12 +36,12 @@ pub struct WhatMaterializedCommand {
         long = "sort-by-size",
         short = 's',
         help = "Sort the output by total bytes in ascending order",
-        conflicts_with = "aggregate-by-ext"
+        conflicts_with = "aggregate_by_ext"
     )]
     sort_by_total_bytes: bool,
 
     /// Aggregates the output by file extension
-    #[clap(long, conflicts_with = "sort-by-total-bytes")]
+    #[clap(long, conflicts_with = "sort_by_total_bytes")]
     aggregate_by_ext: bool,
 
     #[clap(
@@ -49,7 +49,7 @@ pub struct WhatMaterializedCommand {
         help = "Which output format to use for this command",
         default_value = "tabulated",
         ignore_case = true,
-        arg_enum
+        value_enum
     )]
     pub output: LogCommandOutputFormat,
 }

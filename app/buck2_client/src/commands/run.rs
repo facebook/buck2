@@ -45,10 +45,7 @@ use crate::commands::build::print_build_succeeded;
 /// The Build ID for the underlying build execution is made available to the target in
 /// the `BUCK_RUN_BUILD_ID` environment variable.
 #[derive(Debug, clap::Parser)]
-#[clap(
-    name = "run",
-    setting = clap::AppSettings::TrailingVarArg
-)]
+#[clap(name = "run", trailing_var_arg = true)]
 pub struct RunCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
