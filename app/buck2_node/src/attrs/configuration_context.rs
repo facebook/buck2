@@ -124,7 +124,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
     fn matches<'a>(&'a self, label: ConfigurationSettingKeyRef) -> Option<&'a ConfigSettingData> {
-        self.resolved_cfg.setting_matches(label)
+        self.resolved_cfg.settings().setting_matches(label)
     }
 
     fn cfg(&self) -> ConfigurationNoExec {

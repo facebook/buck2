@@ -38,7 +38,6 @@ use dupe::Dupe;
 use either::Either;
 use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
-use starlark_map::unordered_map::UnorderedMap;
 use starlark_map::Hashed;
 
 use crate::attrs::attr::Attribute;
@@ -59,6 +58,7 @@ use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::ResolvedConfiguration;
+use crate::configuration::resolved::ResolvedConfigurationSettings;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::EXECUTION_PLATFORM;
 use crate::nodes::attributes::ONCALL;
@@ -212,7 +212,7 @@ impl ConfiguredTargetNode {
             TargetNode::testing_new(name.unconfigured().dupe(), rule_type, Vec::new()),
             ResolvedConfiguration::new(
                 ConfigurationNoExec::new(name.cfg().dupe()),
-                UnorderedMap::new(),
+                ResolvedConfigurationSettings::empty(),
             ),
             OrderedMap::new(),
             execution_platform_resolution,
@@ -286,7 +286,7 @@ impl ConfiguredTargetNode {
                 // We have no attributes with selects, so resolved configurations is empty.
                 resolved_configuration: ResolvedConfiguration::new(
                     name.cfg_pair().check_no_exec_cfg()?,
-                    UnorderedMap::new(),
+                    ResolvedConfigurationSettings::empty(),
                 ),
                 // We have no attributes to transition, so empty map is fine.
                 resolved_transition_configurations: OrderedMap::new(),

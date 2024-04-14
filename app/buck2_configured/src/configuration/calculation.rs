@@ -31,7 +31,8 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
-use buck2_node::configuration::resolved::{ConfigurationNode, };
+use buck2_node::configuration::resolved::ConfigurationNode;
+use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
@@ -193,6 +194,7 @@ async fn check_execution_platform(
         .chain(exec_compatible_with)
     {
         if resolved_platform_configuration
+            .settings()
             .setting_matches(constraint.as_ref())
             .is_none()
         {
@@ -533,6 +535,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                     let node = node?;
                     resolved_settings.insert(node.label().dupe(), node);
                 }
+                let resolved_settings = ResolvedConfigurationSettings::new(resolved_settings);
                 Ok(ResolvedConfiguration::new(
                     ConfigurationNoExec::new(self.target_cfg.dupe()),
                     resolved_settings,

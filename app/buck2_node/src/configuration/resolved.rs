@@ -81,16 +81,18 @@ impl Hash for ConfigurationSettingKey {
 pub struct ResolvedConfiguration(Arc<ResolvedConfigurationData>);
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
-struct ResolvedConfigurationData {
+pub(crate) struct ResolvedConfigurationData {
     cfg: ConfigurationNoExec,
+    pub(crate) settings: ResolvedConfigurationSettings,
+}
+
+#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+pub struct ResolvedConfigurationSettings {
     settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
 }
 
 impl ResolvedConfiguration {
-    pub fn new(
-        cfg: ConfigurationNoExec,
-        settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
-    ) -> Self {
+    pub fn new(cfg: ConfigurationNoExec, settings: ResolvedConfigurationSettings) -> Self {
         Self(Arc::new(ResolvedConfigurationData { cfg, settings }))
     }
 
@@ -98,8 +100,24 @@ impl ResolvedConfiguration {
         &self.0.cfg
     }
 
+    pub fn settings(&self) -> &ResolvedConfigurationSettings {
+        &self.0.settings
+    }
+}
+
+impl ResolvedConfigurationSettings {
+    pub fn new(
+        settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
+    ) -> ResolvedConfigurationSettings {
+        ResolvedConfigurationSettings { settings }
+    }
+
+    pub fn empty() -> ResolvedConfigurationSettings {
+        ResolvedConfigurationSettings::new(UnorderedMap::new())
+    }
+
     pub fn setting_matches(&self, key: ConfigurationSettingKeyRef) -> Option<&ConfigSettingData> {
-        let configuration_node = self.0.settings.get(&key).expect(
+        let configuration_node = self.settings.get(&key).expect(
             "framework should've ensured all necessary configuration setting keys are present",
         );
         if configuration_node.matches() {
