@@ -58,6 +58,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::configuration::resolved::ConfigurationSettingKeyRef;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -487,7 +488,7 @@ impl CoercedAttr {
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
         let mut matching: Option<(&TargetLabel, &ConfigSettingData, &CoercedAttr)> = None;
         for (k, v) in select_entries {
-            matching = match (ctx.matches(k), matching) {
+            matching = match (ctx.matches(ConfigurationSettingKeyRef(k)), matching) {
                 (None, matching) => matching,
                 (Some(conf), None) => Some((k, conf, v)),
                 (Some(conf), Some((prev_k, prev_conf, prev_v))) => {

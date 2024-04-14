@@ -20,6 +20,8 @@ use dupe::Dupe;
 use starlark_map::unordered_map::UnorderedMap;
 use starlark_map::Equivalent;
 
+/// Key in `select` or an item in `target_compatible_with`.
+/// Should point to `config_setting` target, or `constraint_value`.
 #[derive(Debug, Eq, Allocative)]
 pub struct ConfigurationSettingKey(pub TargetLabel);
 
@@ -86,10 +88,6 @@ impl ResolvedConfiguration {
         } else {
             None
         }
-    }
-
-    pub fn matches(&self, label: &TargetLabel) -> Option<&ConfigSettingData> {
-        self.setting_matches(ConfigurationSettingKeyRef(label))
     }
 }
 

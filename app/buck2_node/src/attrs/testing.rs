@@ -22,6 +22,7 @@ use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
+use crate::configuration::resolved::ConfigurationSettingKeyRef;
 
 pub fn configuration_ctx() -> impl AttrConfigurationContext {
     struct TestAttrConfigurationContext(ConfigurationData, ConfigurationData, ConfigSettingData);
@@ -34,8 +35,11 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationNoExec::new(self.1.dupe())
         }
 
-        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
-            match label.to_string().as_ref() {
+        fn matches<'a>(
+            &'a self,
+            label: ConfigurationSettingKeyRef,
+        ) -> Option<&'a ConfigSettingData> {
+            match label.0.to_string().as_ref() {
                 "root//other:config" => Some(&self.2),
                 _ => None,
             }

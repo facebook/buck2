@@ -74,6 +74,7 @@ use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
@@ -536,7 +537,7 @@ impl AttrCoercionContext for AnonAttrCtx {
 }
 
 impl AttrConfigurationContext for AnonAttrCtx {
-    fn matches<'a>(&'a self, _label: &TargetLabel) -> Option<&'a ConfigSettingData> {
+    fn matches<'a>(&'a self, _label: ConfigurationSettingKeyRef) -> Option<&'a ConfigSettingData> {
         None
     }
 

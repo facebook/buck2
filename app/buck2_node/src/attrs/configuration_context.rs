@@ -36,7 +36,7 @@ pub enum PlatformConfigurationError {
 /// configuration.
 pub trait AttrConfigurationContext {
     /// Return the content of the resolved `config_setting` on match.
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData>;
+    fn matches<'a>(&'a self, label: ConfigurationSettingKeyRef) -> Option<&'a ConfigSettingData>;
 
     fn cfg(&self) -> ConfigurationNoExec;
 
@@ -123,9 +123,8 @@ impl<'b> AttrConfigurationContextImpl<'b> {
 }
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
-        self.resolved_cfg
-            .setting_matches(ConfigurationSettingKeyRef(label))
+    fn matches<'a>(&'a self, label: ConfigurationSettingKeyRef) -> Option<&'a ConfigSettingData> {
+        self.resolved_cfg.setting_matches(label)
     }
 
     fn cfg(&self) -> ConfigurationNoExec {

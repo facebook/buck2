@@ -413,9 +413,11 @@ fn unpack_target_compatible_with_attr(
     }
 
     impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'c> {
-        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
-            self.resolved_cfg
-                .setting_matches(ConfigurationSettingKeyRef(label))
+        fn matches<'a>(
+            &'a self,
+            label: ConfigurationSettingKeyRef,
+        ) -> Option<&'a ConfigSettingData> {
+            self.resolved_cfg.setting_matches(label)
         }
 
         fn cfg(&self) -> ConfigurationNoExec {
@@ -509,7 +511,7 @@ fn check_compatible(
         let mut right = Vec::new();
         for label in ConfiguredTargetNode::attr_as_target_compatible_with(attr) {
             let label = label?;
-            match resolved_cfg.matches(&label) {
+            match resolved_cfg.setting_matches(ConfigurationSettingKeyRef(&label)) {
                 Some(_) => left.push(label),
                 None => right.push(label),
             }

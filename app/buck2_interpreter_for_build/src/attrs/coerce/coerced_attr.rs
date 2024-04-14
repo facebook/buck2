@@ -158,6 +158,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedSelector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
+    use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
     use buck2_util::arc_str::ArcSlice;
     use buck2_util::arc_str::ArcStr;
     use dupe::Dupe;
@@ -227,8 +228,11 @@ mod tests {
         }
 
         impl AttrConfigurationContext for SelectTestConfigurationContext {
-            fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
-                self.settings.get(label)
+            fn matches<'a>(
+                &'a self,
+                label: ConfigurationSettingKeyRef,
+            ) -> Option<&'a ConfigSettingData> {
+                self.settings.get(label.0)
             }
 
             fn cfg(&self) -> ConfigurationNoExec {

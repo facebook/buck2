@@ -31,7 +31,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
-use buck2_node::configuration::resolved::ConfigurationNode;
+use buck2_node::configuration::resolved::{ConfigurationNode, ConfigurationSettingKeyRef};
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
@@ -193,7 +193,7 @@ async fn check_execution_platform(
         .chain(exec_compatible_with)
     {
         if resolved_platform_configuration
-            .matches(constraint)
+            .setting_matches(ConfigurationSettingKeyRef(constraint))
             .is_none()
         {
             return Ok(Err(
