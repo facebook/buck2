@@ -195,7 +195,7 @@ async fn check_execution_platform(
     {
         if resolved_platform_configuration
             .settings()
-            .setting_matches(constraint.as_ref())
+            .setting_matches(constraint)
             .is_none()
         {
             return Ok(Err(

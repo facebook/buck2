@@ -9,7 +9,6 @@
 
 use std::collections::BTreeMap;
 use std::hash::Hash;
-use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -20,13 +19,14 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use starlark_map::unordered_map::UnorderedMap;
-use starlark_map::Equivalent;
 
 /// Key in `select` or an item in `target_compatible_with`.
 /// Should point to `config_setting` target, or `constraint_value`.
 #[derive(
     Debug,
     Eq,
+    PartialEq,
+    Hash,
     Allocative,
     derive_more::Display,
     Clone,
@@ -36,40 +36,9 @@ use starlark_map::Equivalent;
 )]
 pub struct ConfigurationSettingKey(pub TargetLabel);
 
-#[derive(Debug, Hash, Eq, PartialEq, derive_more::Display)]
-pub struct ConfigurationSettingKeyRef<'a>(pub &'a TargetLabel);
-
-impl Equivalent<ConfigurationSettingKey> for ConfigurationSettingKeyRef<'_> {
-    fn equivalent(&self, key: &ConfigurationSettingKey) -> bool {
-        self == &key.as_ref()
-    }
-}
-
 impl ConfigurationSettingKey {
-    pub fn as_ref(&self) -> ConfigurationSettingKeyRef {
-        ConfigurationSettingKeyRef(&self.0)
-    }
-
     pub fn testing_parse(label: &str) -> ConfigurationSettingKey {
         ConfigurationSettingKey(TargetLabel::testing_parse(label))
-    }
-}
-
-impl ConfigurationSettingKeyRef<'_> {
-    pub fn to_owned(&self) -> ConfigurationSettingKey {
-        ConfigurationSettingKey(self.0.dupe())
-    }
-}
-
-impl PartialEq for ConfigurationSettingKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_ref() == other.as_ref()
-    }
-}
-
-impl Hash for ConfigurationSettingKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_ref().hash(state);
     }
 }
 
@@ -118,8 +87,8 @@ impl ResolvedConfigurationSettings {
         ResolvedConfigurationSettings::new(UnorderedMap::new())
     }
 
-    pub fn setting_matches(&self, key: ConfigurationSettingKeyRef) -> Option<&ConfigSettingData> {
-        let Some(configuration_node) = self.settings.get(&key) else {
+    pub fn setting_matches(&self, key: &ConfigurationSettingKey) -> Option<&ConfigSettingData> {
+        let Some(configuration_node) = self.settings.get(key) else {
             panic!("unresolved configuration setting: `{key}`");
         };
         configuration_node.configuration_data()

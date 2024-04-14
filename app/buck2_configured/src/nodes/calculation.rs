@@ -508,7 +508,7 @@ fn check_compatible(
         let mut right = Vec::new();
         for label in ConfiguredTargetNode::attr_as_target_compatible_with(attr) {
             let label = label?;
-            match resolved_cfg.settings().setting_matches(label.as_ref()) {
+            match resolved_cfg.settings().setting_matches(&label) {
                 Some(_) => left.push(label),
                 None => right.push(label),
             }
