@@ -71,21 +71,18 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
         ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
             (
                 ConfigurationSettingKey::testing_parse("root//other:config"),
-                ConfigurationNode::new(
-                    ConfigurationData::testing_new(),
-                    Some(ConfigSettingData {
-                        constraints: BTreeMap::new(),
-                        buckconfigs: BTreeMap::new(),
-                    }),
-                ),
+                ConfigurationNode::new(Some(ConfigSettingData {
+                    constraints: BTreeMap::new(),
+                    buckconfigs: BTreeMap::new(),
+                })),
             ),
             (
                 ConfigurationSettingKey::testing_parse("root//some:config"),
-                ConfigurationNode::new(ConfigurationData::testing_new(), None),
+                ConfigurationNode::new(None),
             ),
             (
                 ConfigurationSettingKey::testing_parse("cell1//other:config"),
-                ConfigurationNode::new(ConfigurationData::testing_new(), None),
+                ConfigurationNode::new(None),
             ),
         ])),
     )

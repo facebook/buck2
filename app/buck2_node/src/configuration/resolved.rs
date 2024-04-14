@@ -16,7 +16,6 @@ use allocative::Allocative;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
-use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
@@ -133,22 +132,13 @@ pub struct ConfigurationNode(Arc<ConfigurationNodeData>);
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 struct ConfigurationNodeData {
-    // This is stored as a split Configuration/TargetLabel (rather than a ConfiguredTargetLabel) because it's not
-    // quite the same as what you would think of a ConfiguredTargetLabel. Importantly, we don't do analysis of the
-    // target with this configuration, instead we interpret the results of the analysis of the target in the "unbound"
-    // configuration within the context of this configuration.
-    cfg: ConfigurationData,
-
     /// `None` when config settings does not match the configuration.
     config_setting: Option<ConfigSettingData>,
 }
 
 impl ConfigurationNode {
-    pub fn new(cfg: ConfigurationData, config_setting: Option<ConfigSettingData>) -> Self {
-        Self(Arc::new(ConfigurationNodeData {
-            cfg,
-            config_setting,
-        }))
+    pub fn new(config_setting: Option<ConfigSettingData>) -> Self {
+        Self(Arc::new(ConfigurationNodeData { config_setting }))
     }
 
     pub fn configuration_data(&self) -> Option<&ConfigSettingData> {
@@ -158,12 +148,9 @@ impl ConfigurationNode {
     pub fn testing_new_constraints(
         constraints: BTreeMap<ConstraintKey, ConstraintValue>,
     ) -> ConfigurationNode {
-        ConfigurationNode::new(
-            ConfigurationData::testing_new(),
-            Some(ConfigSettingData {
-                constraints,
-                buckconfigs: BTreeMap::new(),
-            }),
-        )
+        ConfigurationNode::new(Some(ConfigSettingData {
+            constraints,
+            buckconfigs: BTreeMap::new(),
+        }))
     }
 }

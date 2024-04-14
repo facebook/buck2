@@ -600,10 +600,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 let matches =
                     configuration_matches(ctx, &self.target_cfg, self.target_cell, &result).await?;
 
-                Ok(ConfigurationNode::new(
-                    self.target_cfg.dupe(),
-                    Some(result).filter(|_| matches),
-                ))
+                Ok(ConfigurationNode::new(Some(result).filter(|_| matches)))
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
