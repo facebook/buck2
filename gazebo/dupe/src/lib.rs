@@ -52,12 +52,28 @@ impl<A: Dupe> Dupe for std::ops::Bound<A> {}
 impl<A: Dupe> Dupe for std::pin::Pin<A> {}
 impl<A: Dupe> Dupe for std::ptr::NonNull<A> {}
 impl<A: Dupe> Dupe for std::task::Poll<A> {}
+impl Dupe for () {}
 impl<A: Dupe> Dupe for (A,) {}
-// Not clear if Dupe should be implemented for pairs or not.
-// Concern is deeply nested pairs could be exponentially more expensive than their inner dupes.
+impl<A: Dupe, B: Dupe> Dupe for (A, B) {}
+impl<A: Dupe, B: Dupe, C: Dupe> Dupe for (A, B, C) {}
+impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe> Dupe for (A, B, C, D) {}
+impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe, E: Dupe> Dupe for (A, B, C, D, E) {}
+impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe, E: Dupe, F: Dupe> Dupe for (A, B, C, D, E, F) {}
+impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe, E: Dupe, F: Dupe, G: Dupe> Dupe for (A, B, C, D, E, F, G) {}
+impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe, E: Dupe, F: Dupe, G: Dupe, H: Dupe> Dupe
+    for (A, B, C, D, E, F, G, H)
+{
+}
+impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe, E: Dupe, F: Dupe, G: Dupe, H: Dupe, I: Dupe> Dupe
+    for (A, B, C, D, E, F, G, H, I)
+{
+}
+impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe, E: Dupe, F: Dupe, G: Dupe, H: Dupe, I: Dupe, J: Dupe> Dupe
+    for (A, B, C, D, E, F, G, H, I, J)
+{
+}
 
 // Atomic types
-impl Dupe for () {}
 impl Dupe for bool {}
 impl Dupe for char {}
 impl Dupe for u8 {}
