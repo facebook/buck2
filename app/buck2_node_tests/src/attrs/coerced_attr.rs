@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
@@ -16,13 +17,10 @@ use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
-use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
-use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
-use starlark_map::unordered_map::UnorderedMap;
 
 #[test]
 fn selector_equals_accounts_for_ordering() {
@@ -93,66 +91,49 @@ fn select_the_most_specific() {
     let linux_arm64 = ConfigurationSettingKey::testing_parse("config//:linux-arm64");
     let linux_x86_64 = ConfigurationSettingKey::testing_parse("config//:linux-x86_64");
 
-    let resolved_cfg_settings = ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
-        (
-            linux.dupe(),
-            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([(
-                c_os.dupe(),
-                c_linux.dupe(),
-            )])),
-        ),
-        (
-            linux_arm64.dupe(),
-            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
-                (c_os.dupe(), c_linux.dupe()),
-                (c_cpu.dupe(), c_arm64.dupe()),
-            ])),
-        ),
-        (
-            linux_x86_64.dupe(),
-            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
-                (c_os.dupe(), c_linux.dupe()),
-                (c_cpu.dupe(), c_x86_64.dupe()),
-            ])),
-        ),
+    let linux_data =
+        ConfigSettingData::testing_new(BTreeMap::from_iter([(c_os.dupe(), c_linux.dupe())]));
+    let linux_arm64_data = ConfigSettingData::testing_new(BTreeMap::from_iter([
+        (c_os.dupe(), c_linux.dupe()),
+        (c_cpu.dupe(), c_arm64.dupe()),
+    ]));
+    let linux_x86_64_data = ConfigSettingData::testing_new(BTreeMap::from_iter([
+        (c_os.dupe(), c_linux.dupe()),
+        (c_cpu.dupe(), c_x86_64.dupe()),
     ]));
 
-    fn literal_true() -> CoercedAttr {
-        CoercedAttr::Bool(BoolLiteral(true))
-    }
-    fn literal_str() -> CoercedAttr {
-        CoercedAttr::String(StringLiteral(ArcStr::from("linux")))
-    }
+    let literal_true = CoercedAttr::Bool(BoolLiteral(true));
+    let literal_str = CoercedAttr::String(StringLiteral(ArcStr::from("linux")));
 
     // Test more specific is selected even if it is not first.
-    let select_entries = Box::new([
-        (linux.dupe(), literal_true()),
-        (linux_x86_64.dupe(), literal_str()),
-    ]);
+    let select_entries = [
+        (&linux, &linux_data, &literal_true),
+        (&linux_x86_64, &linux_x86_64_data, &literal_str),
+    ];
     assert_eq!(
-        Some(&literal_str()),
-        CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &*select_entries).unwrap()
+        Some(&literal_str),
+        CoercedAttr::select_the_most_specific(select_entries).unwrap()
     );
 
     // Test more specific is selected even if it is first.
-    let select_entries = Box::new([
-        (linux_x86_64.dupe(), literal_str()),
-        (linux.dupe(), literal_true()),
-    ]);
+    let select_entries = [
+        (&linux_x86_64, &linux_x86_64_data, &literal_str),
+        (&linux, &linux_data, &literal_true),
+    ];
     assert_eq!(
-        Some(&literal_str()),
-        CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &*select_entries).unwrap()
+        Some(&literal_str),
+        CoercedAttr::select_the_most_specific(select_entries).unwrap()
     );
 
     // Conflicting keys.
-    let select_entries = Box::new([
-        (linux_arm64.dupe(), literal_true()),
-        (linux_x86_64.dupe(), literal_str()),
-    ]);
+    let select_entries = [
+        (&linux_arm64, &linux_arm64_data, &literal_true),
+        (&linux_x86_64, &linux_x86_64_data, &literal_str),
+    ];
     assert_eq!(
         "Both select keys `config//:linux-arm64` and `config//:linux-x86_64` \
             match the configuration, but neither is more specific",
-        CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &*select_entries)
+        CoercedAttr::select_the_most_specific(select_entries)
             .unwrap_err()
             .to_string()
     );
@@ -173,40 +154,24 @@ fn test_select_refines_bug() {
     let x86_64 = ConfigurationSettingKey::testing_parse("config//:x86_64");
     let windows_x86_64 = ConfigurationSettingKey::testing_parse("config//:windows-x86_64");
 
-    let select_entries = [
-        (
-            windows.dupe(),
-            CoercedAttr::String(StringLiteral(ArcStr::from("windows"))),
-        ),
-        (
-            x86_64.dupe(),
-            CoercedAttr::String(StringLiteral(ArcStr::from("x86_64"))),
-        ),
-        (
-            windows_x86_64.dupe(),
-            CoercedAttr::String(StringLiteral(ArcStr::from("windows-x86_64"))),
-        ),
-    ];
+    let windows_data = ConfigSettingData::testing_new(BTreeMap::from_iter([c_windows.dupe()]));
+    let x86_64_data = ConfigSettingData::testing_new(BTreeMap::from_iter([c_x86_64.dupe()]));
+    let windows_x86_64_data =
+        ConfigSettingData::testing_new(BTreeMap::from_iter([c_windows, c_x86_64]));
 
-    let resolved_cfg_settings = ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
-        (
-            windows.dupe(),
-            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([c_windows.dupe()])),
-        ),
-        (
-            x86_64.dupe(),
-            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([c_x86_64.dupe()])),
-        ),
-        (
-            windows_x86_64.dupe(),
-            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([c_windows, c_x86_64])),
-        ),
-    ]));
+    let value_windows = CoercedAttr::String(StringLiteral(ArcStr::from("windows")));
+    let value_x86_64 = CoercedAttr::String(StringLiteral(ArcStr::from("x86_64")));
+    let value_windows_x86_64 = CoercedAttr::String(StringLiteral(ArcStr::from("windows-x86_64")));
+    let select_entries = [
+        (&windows, &windows_data, &value_windows),
+        (&x86_64, &x86_64_data, &value_x86_64),
+        (&windows_x86_64, &windows_x86_64_data, &value_windows_x86_64),
+    ];
 
     // TODO(nga): T177093673: this should select `config//:windows-x86_64`.
     assert_eq!(
         "Both select keys `config//:windows` and `config//:x86_64` match the configuration, but neither is more specific",
-        CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &select_entries)
+        CoercedAttr::select_the_most_specific(select_entries)
             .unwrap_err()
             .to_string()
     );

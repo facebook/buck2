@@ -7,14 +7,11 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::config_setting::ConfigSettingData;
-use buck2_core::configuration::constraints::ConstraintKey;
-use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
@@ -112,14 +109,5 @@ impl ConfigurationNode {
 
     pub fn configuration_data(&self) -> Option<&ConfigSettingData> {
         self.0.config_setting.as_ref()
-    }
-
-    pub fn testing_new_constraints(
-        constraints: BTreeMap<ConstraintKey, ConstraintValue>,
-    ) -> ConfigurationNode {
-        ConfigurationNode::new(Some(ConfigSettingData {
-            constraints,
-            buckconfigs: BTreeMap::new(),
-        }))
     }
 }

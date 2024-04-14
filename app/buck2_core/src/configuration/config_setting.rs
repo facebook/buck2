@@ -41,6 +41,15 @@ impl ConfigSettingData {
             && Self::is_subset(&that.constraints, &self.constraints)
             && Self::is_subset(&that.buckconfigs, &self.buckconfigs)
     }
+
+    pub fn testing_new(
+        constraint_values: BTreeMap<ConstraintKey, ConstraintValue>,
+    ) -> ConfigSettingData {
+        ConfigSettingData {
+            constraints: constraint_values,
+            buckconfigs: BTreeMap::new(),
+        }
+    }
 }
 
 #[cfg(test)]

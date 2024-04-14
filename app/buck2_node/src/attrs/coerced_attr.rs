@@ -59,7 +59,6 @@ use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::resolved::ConfigurationSettingKey;
-use crate::configuration::resolved::ResolvedConfigurationSettings;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -485,21 +484,32 @@ impl CoercedAttr {
     }
 
     /// If more than one select key matches, select the most specific.
-    pub fn select_the_most_specific<'a>(
-        resolved_cfg_settings: &ResolvedConfigurationSettings,
-        select_entries: &'a [(ConfigurationSettingKey, CoercedAttr)],
+    pub fn select_the_most_specific<'a, 'x>(
+        select_entries: impl IntoIterator<
+            Item = (
+                &'x ConfigurationSettingKey,
+                &'x ConfigSettingData,
+                &'a CoercedAttr,
+            ),
+        >,
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
-        let mut matching: Option<(&ConfigurationSettingKey, &ConfigSettingData, &CoercedAttr)> =
-            None;
-        for (k, v) in select_entries {
-            matching = match (resolved_cfg_settings.setting_matches(k), matching) {
-                (None, matching) => matching,
-                (Some(conf), None) => Some((k, conf, v)),
-                (Some(conf), Some((prev_k, prev_conf, prev_v))) => {
+        let mut select_entries = select_entries.into_iter();
+        let Some(mut matching): Option<(
+            &ConfigurationSettingKey,
+            &ConfigSettingData,
+            &CoercedAttr,
+        )> = select_entries.next() else {
+            return Ok(None);
+        };
+
+        for (k, conf, v) in select_entries {
+            let (prev_k, prev_conf, prev_v) = matching;
+            matching = {
+                {
                     if conf.refines(prev_conf) {
-                        Some((k, conf, v))
+                        (k, conf, v)
                     } else if prev_conf.refines(conf) {
-                        Some((prev_k, prev_conf, prev_v))
+                        (prev_k, prev_conf, prev_v)
                     } else {
                         return Err(SelectError::TwoKeysDoNotRefineEachOther(
                             prev_k.to_string(),
@@ -510,7 +520,7 @@ impl CoercedAttr {
                 }
             }
         }
-        Ok(matching.map(|(_k, _conf, v)| v))
+        Ok(Some(matching.2))
     }
 
     fn select<'a>(
@@ -518,7 +528,13 @@ impl CoercedAttr {
         select: &'a CoercedSelector,
     ) -> anyhow::Result<&'a CoercedAttr> {
         let CoercedSelector { entries, default } = select;
-        if let Some(v) = Self::select_the_most_specific(ctx.resolved_cfg_settings(), entries)? {
+        let resolved_cfg_settings = ctx.resolved_cfg_settings();
+        let resolved_entries = entries.iter().filter_map(|(k, v)| {
+            resolved_cfg_settings
+                .setting_matches(k)
+                .map(|conf| (k, conf, v))
+        });
+        if let Some(v) = Self::select_the_most_specific(resolved_entries)? {
             Ok(v)
         } else {
             default.as_ref().ok_or_else(|| {
