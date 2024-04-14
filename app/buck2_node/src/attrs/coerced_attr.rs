@@ -59,6 +59,7 @@ use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::resolved::ConfigurationSettingKey;
+use crate::configuration::resolved::ResolvedConfigurationSettings;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -485,16 +486,13 @@ impl CoercedAttr {
 
     /// If more than one select key matches, select the most specific.
     pub fn select_the_most_specific<'a>(
-        ctx: &dyn AttrConfigurationContext,
+        resolved_cfg_settings: &ResolvedConfigurationSettings,
         select_entries: &'a [(ConfigurationSettingKey, CoercedAttr)],
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
         let mut matching: Option<(&ConfigurationSettingKey, &ConfigSettingData, &CoercedAttr)> =
             None;
         for (k, v) in select_entries {
-            matching = match (
-                ctx.resolved_cfg_settings().setting_matches(k.as_ref()),
-                matching,
-            ) {
+            matching = match (resolved_cfg_settings.setting_matches(k.as_ref()), matching) {
                 (None, matching) => matching,
                 (Some(conf), None) => Some((k, conf, v)),
                 (Some(conf), Some((prev_k, prev_conf, prev_v))) => {
@@ -520,7 +518,7 @@ impl CoercedAttr {
         select: &'a CoercedSelector,
     ) -> anyhow::Result<&'a CoercedAttr> {
         let CoercedSelector { entries, default } = select;
-        if let Some(v) = Self::select_the_most_specific(ctx, entries)? {
+        if let Some(v) = Self::select_the_most_specific(ctx.resolved_cfg_settings(), entries)? {
             Ok(v)
         } else {
             default.as_ref().ok_or_else(|| {

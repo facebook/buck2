@@ -142,21 +142,14 @@ impl CoercedAttrExr for CoercedAttr {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::sync::Arc;
 
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
-    use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::configuration::pair::ConfigurationNoExec;
-    use buck2_core::configuration::pair::ConfigurationWithExec;
-    use buck2_core::configuration::transition::applied::TransitionApplied;
-    use buck2_core::configuration::transition::id::TransitionId;
     use buck2_core::target::label::TargetLabel;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_attr::CoercedSelector;
-    use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
     use buck2_node::configuration::resolved::ConfigurationNode;
     use buck2_node::configuration::resolved::ConfigurationSettingKey;
@@ -164,7 +157,6 @@ mod tests {
     use buck2_util::arc_str::ArcSlice;
     use buck2_util::arc_str::ArcStr;
     use dupe::Dupe;
-    use starlark_map::ordered_map::OrderedMap;
     use starlark_map::unordered_map::UnorderedMap;
 
     #[test]
@@ -226,38 +218,6 @@ mod tests {
 
     #[test]
     fn select_the_most_specific() {
-        struct SelectTestConfigurationContext {
-            settings: ResolvedConfigurationSettings,
-        }
-
-        impl AttrConfigurationContext for SelectTestConfigurationContext {
-            fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
-                &self.settings
-            }
-
-            fn cfg(&self) -> ConfigurationNoExec {
-                panic!()
-            }
-
-            fn exec_cfg(&self) -> ConfigurationNoExec {
-                unimplemented!()
-            }
-
-            fn toolchain_cfg(&self) -> ConfigurationWithExec {
-                panic!("not used in test")
-            }
-
-            fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
-                panic!("not used in test")
-            }
-
-            fn resolved_transitions(
-                &self,
-            ) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
-                panic!("not used in test")
-            }
-        }
-
         fn constraint_key(t: &str) -> ConstraintKey {
             ConstraintKey(TargetLabel::testing_parse(t))
         }
@@ -276,31 +236,29 @@ mod tests {
         let linux_arm64 = ConfigurationSettingKey::testing_parse("config//:linux-arm64");
         let linux_x86_64 = ConfigurationSettingKey::testing_parse("config//:linux-x86_64");
 
-        let ctx = SelectTestConfigurationContext {
-            settings: ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
-                (
-                    linux.dupe(),
-                    ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([(
-                        c_os.dupe(),
-                        c_linux.dupe(),
-                    )])),
-                ),
-                (
-                    linux_arm64.dupe(),
-                    ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
-                        (c_os.dupe(), c_linux.dupe()),
-                        (c_cpu.dupe(), c_arm64.dupe()),
-                    ])),
-                ),
-                (
-                    linux_x86_64.dupe(),
-                    ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
-                        (c_os.dupe(), c_linux.dupe()),
-                        (c_cpu.dupe(), c_x86_64.dupe()),
-                    ])),
-                ),
-            ])),
-        };
+        let resolved_cfg_settings = ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
+            (
+                linux.dupe(),
+                ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([(
+                    c_os.dupe(),
+                    c_linux.dupe(),
+                )])),
+            ),
+            (
+                linux_arm64.dupe(),
+                ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
+                    (c_os.dupe(), c_linux.dupe()),
+                    (c_cpu.dupe(), c_arm64.dupe()),
+                ])),
+            ),
+            (
+                linux_x86_64.dupe(),
+                ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
+                    (c_os.dupe(), c_linux.dupe()),
+                    (c_cpu.dupe(), c_x86_64.dupe()),
+                ])),
+            ),
+        ]));
 
         fn literal_true() -> CoercedAttr {
             CoercedAttr::Bool(BoolLiteral(true))
@@ -316,7 +274,8 @@ mod tests {
         ]);
         assert_eq!(
             Some(&literal_str()),
-            CoercedAttr::select_the_most_specific(&ctx, &*select_entries).unwrap()
+            CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &*select_entries)
+                .unwrap()
         );
 
         // Test more specific is selected even if it is first.
@@ -326,7 +285,8 @@ mod tests {
         ]);
         assert_eq!(
             Some(&literal_str()),
-            CoercedAttr::select_the_most_specific(&ctx, &*select_entries).unwrap()
+            CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &*select_entries)
+                .unwrap()
         );
 
         // Conflicting keys.
@@ -337,7 +297,7 @@ mod tests {
         assert_eq!(
             "Both select keys `config//:linux-arm64` and `config//:linux-x86_64` \
             match the configuration, but neither is more specific",
-            CoercedAttr::select_the_most_specific(&ctx, &*select_entries)
+            CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &*select_entries)
                 .unwrap_err()
                 .to_string()
         );
