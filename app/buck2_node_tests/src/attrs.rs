@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+mod coerced_attr;
 mod hacks;
