@@ -159,6 +159,60 @@ fn select_the_most_specific() {
 }
 
 #[test]
+fn test_select_refines_bug() {
+    let c_windows = (
+        ConstraintKey::testing_new("config//c:os"),
+        ConstraintValue::testing_new("config//c:windows"),
+    );
+    let c_x86_64 = (
+        ConstraintKey::testing_new("config//c:cpu"),
+        ConstraintValue::testing_new("config//c:x86_64"),
+    );
+
+    let windows = ConfigurationSettingKey::testing_parse("config//:windows");
+    let x86_64 = ConfigurationSettingKey::testing_parse("config//:x86_64");
+    let windows_x86_64 = ConfigurationSettingKey::testing_parse("config//:windows-x86_64");
+
+    let select_entries = [
+        (
+            windows.dupe(),
+            CoercedAttr::String(StringLiteral(ArcStr::from("windows"))),
+        ),
+        (
+            x86_64.dupe(),
+            CoercedAttr::String(StringLiteral(ArcStr::from("x86_64"))),
+        ),
+        (
+            windows_x86_64.dupe(),
+            CoercedAttr::String(StringLiteral(ArcStr::from("windows-x86_64"))),
+        ),
+    ];
+
+    let resolved_cfg_settings = ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
+        (
+            windows.dupe(),
+            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([c_windows.dupe()])),
+        ),
+        (
+            x86_64.dupe(),
+            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([c_x86_64.dupe()])),
+        ),
+        (
+            windows_x86_64.dupe(),
+            ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([c_windows, c_x86_64])),
+        ),
+    ]));
+
+    // TODO(nga): T177093673: this should select `config//:windows-x86_64`.
+    assert_eq!(
+        "Both select keys `config//:windows` and `config//:x86_64` match the configuration, but neither is more specific",
+        CoercedAttr::select_the_most_specific(&resolved_cfg_settings, &select_entries)
+            .unwrap_err()
+            .to_string()
+    );
+}
+
+#[test]
 fn test_to_json_concat() {
     assert_eq!(
         r#"{"__type":"concat","items":["a","b","c","d"]}"#,
