@@ -46,7 +46,7 @@ def inspect_dbg_exec(ctx: bxl.Context, actions: AnalysisActions, target: bxl.Con
     actions.dynamic_output(
         dynamic = [fdb_helper_out],
         inputs = [],
-        outputs = [result],
+        outputs = [result.as_output()],
         f = build_exec_info,
     )
     return result
