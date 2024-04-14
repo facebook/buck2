@@ -144,7 +144,6 @@ mod tests {
     use std::collections::BTreeMap;
     use std::sync::Arc;
 
-    use buck2_core::configuration::config_setting::ConfigSettingData;
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
     use buck2_core::configuration::data::ConfigurationData;
@@ -159,12 +158,14 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedSelector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::fmt_context::AttrFmtContext;
+    use buck2_node::configuration::resolved::ConfigurationNode;
     use buck2_node::configuration::resolved::ConfigurationSettingKey;
-    use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
+    use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
     use buck2_util::arc_str::ArcSlice;
     use buck2_util::arc_str::ArcStr;
     use dupe::Dupe;
     use starlark_map::ordered_map::OrderedMap;
+    use starlark_map::unordered_map::UnorderedMap;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {
@@ -226,15 +227,12 @@ mod tests {
     #[test]
     fn select_the_most_specific() {
         struct SelectTestConfigurationContext {
-            settings: BTreeMap<ConfigurationSettingKey, ConfigSettingData>,
+            settings: ResolvedConfigurationSettings,
         }
 
         impl AttrConfigurationContext for SelectTestConfigurationContext {
-            fn matches<'a>(
-                &'a self,
-                label: ConfigurationSettingKeyRef,
-            ) -> Option<&'a ConfigSettingData> {
-                self.settings.get(&label.to_owned())
+            fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+                &self.settings
             }
 
             fn cfg(&self) -> ConfigurationNoExec {
@@ -279,35 +277,29 @@ mod tests {
         let linux_x86_64 = ConfigurationSettingKey::testing_parse("config//:linux-x86_64");
 
         let ctx = SelectTestConfigurationContext {
-            settings: BTreeMap::from_iter([
+            settings: ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
                 (
                     linux.dupe(),
-                    ConfigSettingData {
-                        constraints: BTreeMap::from_iter([(c_os.dupe(), c_linux.dupe())]),
-                        buckconfigs: BTreeMap::new(),
-                    },
+                    ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([(
+                        c_os.dupe(),
+                        c_linux.dupe(),
+                    )])),
                 ),
                 (
                     linux_arm64.dupe(),
-                    ConfigSettingData {
-                        constraints: BTreeMap::from_iter([
-                            (c_os.dupe(), c_linux.dupe()),
-                            (c_cpu.dupe(), c_arm64.dupe()),
-                        ]),
-                        buckconfigs: BTreeMap::new(),
-                    },
+                    ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
+                        (c_os.dupe(), c_linux.dupe()),
+                        (c_cpu.dupe(), c_arm64.dupe()),
+                    ])),
                 ),
                 (
                     linux_x86_64.dupe(),
-                    ConfigSettingData {
-                        constraints: BTreeMap::from_iter([
-                            (c_os.dupe(), c_linux.dupe()),
-                            (c_cpu.dupe(), c_x86_64.dupe()),
-                        ]),
-                        buckconfigs: BTreeMap::new(),
-                    },
+                    ConfigurationNode::testing_new_constraints(BTreeMap::from_iter([
+                        (c_os.dupe(), c_linux.dupe()),
+                        (c_cpu.dupe(), c_x86_64.dupe()),
+                    ])),
                 ),
-            ]),
+            ])),
         };
 
         fn literal_true() -> CoercedAttr {

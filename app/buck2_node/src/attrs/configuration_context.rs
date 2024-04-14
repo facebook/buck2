@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
@@ -23,8 +22,8 @@ use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
 
-use crate::configuration::resolved::ConfigurationSettingKeyRef;
 use crate::configuration::resolved::ResolvedConfiguration;
+use crate::configuration::resolved::ResolvedConfigurationSettings;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum PlatformConfigurationError {
@@ -35,8 +34,7 @@ pub enum PlatformConfigurationError {
 /// The context for attribute configuration. Contains information about the
 /// configuration.
 pub trait AttrConfigurationContext {
-    /// Return the content of the resolved `config_setting` on match.
-    fn matches<'a>(&'a self, label: ConfigurationSettingKeyRef) -> Option<&'a ConfigSettingData>;
+    fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings;
 
     fn cfg(&self) -> ConfigurationNoExec;
 
@@ -123,8 +121,8 @@ impl<'b> AttrConfigurationContextImpl<'b> {
 }
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
-    fn matches<'a>(&'a self, label: ConfigurationSettingKeyRef) -> Option<&'a ConfigSettingData> {
-        self.resolved_cfg.settings().setting_matches(label)
+    fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+        self.resolved_cfg.settings()
     }
 
     fn cfg(&self) -> ConfigurationNoExec {

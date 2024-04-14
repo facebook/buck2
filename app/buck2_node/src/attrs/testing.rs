@@ -20,12 +20,19 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
+use starlark_map::unordered_map::UnorderedMap;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
-use crate::configuration::resolved::ConfigurationSettingKeyRef;
+use crate::configuration::resolved::ConfigurationNode;
+use crate::configuration::resolved::ConfigurationSettingKey;
+use crate::configuration::resolved::ResolvedConfigurationSettings;
 
 pub fn configuration_ctx() -> impl AttrConfigurationContext {
-    struct TestAttrConfigurationContext(ConfigurationData, ConfigurationData, ConfigSettingData);
+    struct TestAttrConfigurationContext(
+        ConfigurationData,
+        ConfigurationData,
+        ResolvedConfigurationSettings,
+    );
     impl AttrConfigurationContext for TestAttrConfigurationContext {
         fn cfg(&self) -> ConfigurationNoExec {
             ConfigurationNoExec::new(self.0.dupe())
@@ -35,14 +42,8 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationNoExec::new(self.1.dupe())
         }
 
-        fn matches<'a>(
-            &'a self,
-            label: ConfigurationSettingKeyRef,
-        ) -> Option<&'a ConfigSettingData> {
-            match label.0.to_string().as_ref() {
-                "root//other:config" => Some(&self.2),
-                _ => None,
-            }
+        fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+            &self.2
         }
 
         fn toolchain_cfg(&self) -> ConfigurationWithExec {
@@ -67,9 +68,40 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             },
         )
         .unwrap(),
-        ConfigSettingData {
-            constraints: BTreeMap::new(),
-            buckconfigs: BTreeMap::new(),
-        },
+        ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
+            (
+                ConfigurationSettingKey::testing_parse("root//other:config"),
+                ConfigurationNode::new(
+                    ConfigurationData::testing_new(),
+                    ConfigSettingData {
+                        constraints: BTreeMap::new(),
+                        buckconfigs: BTreeMap::new(),
+                    },
+                    true,
+                ),
+            ),
+            (
+                ConfigurationSettingKey::testing_parse("root//some:config"),
+                ConfigurationNode::new(
+                    ConfigurationData::testing_new(),
+                    ConfigSettingData {
+                        constraints: BTreeMap::new(),
+                        buckconfigs: BTreeMap::new(),
+                    },
+                    false,
+                ),
+            ),
+            (
+                ConfigurationSettingKey::testing_parse("cell1//other:config"),
+                ConfigurationNode::new(
+                    ConfigurationData::testing_new(),
+                    ConfigSettingData {
+                        constraints: BTreeMap::new(),
+                        buckconfigs: BTreeMap::new(),
+                    },
+                    false,
+                ),
+            ),
+        ])),
     )
 }

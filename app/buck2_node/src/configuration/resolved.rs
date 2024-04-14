@@ -7,12 +7,15 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::config_setting::ConfigSettingData;
+use buck2_core::configuration::constraints::ConstraintKey;
+use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::TargetLabel;
@@ -34,7 +37,7 @@ use starlark_map::Equivalent;
 )]
 pub struct ConfigurationSettingKey(pub TargetLabel);
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, derive_more::Display)]
 pub struct ConfigurationSettingKeyRef<'a>(pub &'a TargetLabel);
 
 impl Equivalent<ConfigurationSettingKey> for ConfigurationSettingKeyRef<'_> {
@@ -117,9 +120,9 @@ impl ResolvedConfigurationSettings {
     }
 
     pub fn setting_matches(&self, key: ConfigurationSettingKeyRef) -> Option<&ConfigSettingData> {
-        let configuration_node = self.settings.get(&key).expect(
-            "framework should've ensured all necessary configuration setting keys are present",
-        );
+        let Some(configuration_node) = self.settings.get(&key) else {
+            panic!("unresolved configuration setting: `{key}`");
+        };
         if configuration_node.matches() {
             Some(configuration_node.configuration_data())
         } else {
@@ -163,5 +166,18 @@ impl ConfigurationNode {
 
     pub fn configuration_data(&self) -> &ConfigSettingData {
         &self.0.config_setting
+    }
+
+    pub fn testing_new_constraints(
+        constraints: BTreeMap<ConstraintKey, ConstraintValue>,
+    ) -> ConfigurationNode {
+        ConfigurationNode::new(
+            ConfigurationData::testing_new(),
+            ConfigSettingData {
+                constraints,
+                buckconfigs: BTreeMap::new(),
+            },
+            true,
+        )
     }
 }

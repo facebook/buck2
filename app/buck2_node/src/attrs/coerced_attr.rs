@@ -491,7 +491,10 @@ impl CoercedAttr {
         let mut matching: Option<(&ConfigurationSettingKey, &ConfigSettingData, &CoercedAttr)> =
             None;
         for (k, v) in select_entries {
-            matching = match (ctx.matches(k.as_ref()), matching) {
+            matching = match (
+                ctx.resolved_cfg_settings().setting_matches(k.as_ref()),
+                matching,
+            ) {
                 (None, matching) => matching,
                 (Some(conf), None) => Some((k, conf, v)),
                 (Some(conf), Some((prev_k, prev_conf, prev_v))) => {

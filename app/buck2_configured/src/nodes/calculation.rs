@@ -21,7 +21,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
@@ -49,8 +48,8 @@ use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
-use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
+use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -414,11 +413,8 @@ fn unpack_target_compatible_with_attr(
     }
 
     impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'c> {
-        fn matches<'a>(
-            &'a self,
-            label: ConfigurationSettingKeyRef,
-        ) -> Option<&'a ConfigSettingData> {
-            self.resolved_cfg.settings().setting_matches(label)
+        fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+            self.resolved_cfg.settings()
         }
 
         fn cfg(&self) -> ConfigurationNoExec {
