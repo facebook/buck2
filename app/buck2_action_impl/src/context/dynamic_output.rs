@@ -10,10 +10,9 @@
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputOrDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
-use buck2_core::soft_error;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::values::any_complex::StarlarkAnyComplex;
@@ -30,8 +29,6 @@ use crate::dynamic::dynamic_lambda_params::DynamicLambdaParams;
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
-    #[error("dynamic_output output artifacts must be output artifacts: `{0}`")]
-    NotOutputArtifact(String),
 }
 
 #[starlark_module]
@@ -79,7 +76,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         #[starlark(require = named)] inputs: Option<
             UnpackListOrTuple<UnpackArtifactOrDeclaredArtifact>,
         >,
-        #[starlark(require = named)] outputs: UnpackListOrTuple<StarlarkOutputOrDeclaredArtifact>,
+        #[starlark(require = named)] outputs: UnpackListOrTuple<&'v StarlarkOutputArtifact>,
         #[starlark(require = named)] f: StarlarkCallable<
             'v,
             (
@@ -105,20 +102,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .iter()
             .map(|x| x.artifact())
             .collect::<anyhow::Result<_>>()?;
-
-        for output in &outputs {
-            match output {
-                StarlarkOutputOrDeclaredArtifact::Output(_) => {}
-                StarlarkOutputOrDeclaredArtifact::Declared(d) => {
-                    soft_error!(
-                        "dynamic_output_output_declared",
-                        DynamicOutputError::NotOutputArtifact(d.to_string()).into()
-                    )?;
-                }
-            }
-        }
-
-        let outputs = outputs.items.iter().map(|x| x.output_artifact()).collect();
+        let outputs = outputs.items.iter().map(|x| x.artifact()).collect();
 
         // Registration
         let attributes_plugins_lambda = heap.alloc(StarlarkAnyComplex::new(DynamicLambdaParams {

@@ -26,7 +26,6 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
@@ -79,23 +78,6 @@ impl Display for FrozenStarlarkOutputArtifact {
             "<output artifact for {}>",
             self.inner().get_artifact_path()
         )
-    }
-}
-
-/// A wrapper for `UnpackValue` that accepts either an output artifact,
-/// or an artifact declared in the same rule.
-#[derive(StarlarkTypeRepr, UnpackValue)]
-pub enum StarlarkOutputOrDeclaredArtifact<'v> {
-    Output(&'v StarlarkOutputArtifact<'v>),
-    Declared(&'v StarlarkDeclaredArtifact),
-}
-
-impl<'v> StarlarkOutputOrDeclaredArtifact<'v> {
-    pub fn output_artifact(&self) -> OutputArtifact {
-        match self {
-            StarlarkOutputOrDeclaredArtifact::Output(x) => x.artifact(),
-            StarlarkOutputOrDeclaredArtifact::Declared(x) => x.output_artifact(),
-        }
     }
 }
 
