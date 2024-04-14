@@ -71,6 +71,7 @@ use crate::commands::internal_test_runner::InternalTestRunnerCommand;
 use crate::process_context::ProcessContext;
 
 mod check_user_allowed;
+mod cli_style;
 pub mod commands;
 mod no_buckd;
 pub mod panic;
@@ -182,7 +183,8 @@ fn help() -> &'static str {
 #[clap(
     name = "buck2",
     about(Some(help())),
-    version(BuckVersion::get_version())
+    version(BuckVersion::get_version()),
+    styles = cli_style::get_styles(),
 )]
 pub(crate) struct Opt {
     #[clap(flatten)]
