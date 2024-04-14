@@ -140,8 +140,6 @@ struct ConfigurationNodeData {
     // configuration within the context of this configuration.
     cfg: ConfigurationData,
 
-    label: ConfigurationSettingKey,
-
     config_setting: ConfigSettingData,
 
     /// Indicates whether this node "matches" the configuration.
@@ -151,15 +149,9 @@ struct ConfigurationNodeData {
 }
 
 impl ConfigurationNode {
-    pub fn new(
-        cfg: ConfigurationData,
-        label: ConfigurationSettingKey,
-        config_setting: ConfigSettingData,
-        matches: bool,
-    ) -> Self {
+    pub fn new(cfg: ConfigurationData, config_setting: ConfigSettingData, matches: bool) -> Self {
         Self(Arc::new(ConfigurationNodeData {
             cfg,
-            label,
             config_setting,
             matches,
         }))
@@ -167,10 +159,6 @@ impl ConfigurationNode {
 
     pub fn matches(&self) -> bool {
         self.0.matches
-    }
-
-    pub fn label(&self) -> &ConfigurationSettingKey {
-        &self.0.label
     }
 
     pub fn configuration_data(&self) -> &ConfigSettingData {

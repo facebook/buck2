@@ -523,17 +523,20 @@ impl ConfigurationCalculation for DiceComputations<'_> {
                 let config_nodes = ctx
                     .compute_join(self.configuration_deps.iter(), |ctx, d| {
                         async move {
-                            ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
-                                .await
+                            (
+                                d.dupe(),
+                                ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
+                                    .await,
+                            )
                         }
                         .boxed()
                     })
                     .await;
 
                 let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
-                for node in config_nodes {
+                for (label, node) in config_nodes {
                     let node = node?;
-                    resolved_settings.insert(node.label().dupe(), node);
+                    resolved_settings.insert(label, node);
                 }
                 let resolved_settings = ResolvedConfigurationSettings::new(resolved_settings);
                 Ok(ResolvedConfiguration::new(
@@ -599,7 +602,6 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 
                 Ok(ConfigurationNode::new(
                     self.target_cfg.dupe(),
-                    self.cfg_target.dupe(),
                     result,
                     matches,
                 ))
