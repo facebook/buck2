@@ -2010,7 +2010,7 @@ message DiceEqualityCheck {
 message NoActiveDiceState {}
 
 message ErrorReport {
-  optional buck.data.error.ErrorCategory category = 1;
+  optional buck.data.error.ErrorTier tier = 1;
   optional buck.data.error.ErrorType typ = 2;
   // The error message that is shown to users on the CLI
   string message = 3;
@@ -2031,7 +2031,7 @@ message ErrorReport {
 // of this protobuf definition outside of buck2. Currently used in the
 // invocation record and nowhere else.
 message ProcessedErrorReport {
-  optional buck.data.error.ErrorCategory category = 1;
+  optional buck.data.error.ErrorTier tier = 1;
   optional string typ = 2;
   string message = 3;
   optional string telemetry_message = 4;

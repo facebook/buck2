@@ -1087,7 +1087,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
     .map(|t| t.as_str_name())
     .unwrap_or(ERROR_TAG_UNCLASSIFIED);
     buck2_data::ProcessedErrorReport {
-        category: error.category,
+        tier: error.tier,
         message: error.message,
         telemetry_message: error.telemetry_message,
         typ: error

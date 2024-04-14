@@ -151,13 +151,10 @@ impl ExitResult {
             {
                 return Self::status(ExitCode::DaemonIsBusy);
             }
-            match e
-                .category
-                .and_then(buck2_data::error::ErrorCategory::from_i32)
-            {
-                Some(buck2_data::error::ErrorCategory::Infra) => has_infra = true,
-                Some(buck2_data::error::ErrorCategory::User) => has_user = true,
-                Some(buck2_data::error::ErrorCategory::UnusedDefaultCategory) | None => (),
+            match e.tier.and_then(buck2_data::error::ErrorTier::from_i32) {
+                Some(buck2_data::error::ErrorTier::Infra) => has_infra = true,
+                Some(buck2_data::error::ErrorTier::User) => has_user = true,
+                Some(buck2_data::error::ErrorTier::UnusedDefaultCategory) | None => (),
             }
         }
         if has_infra {

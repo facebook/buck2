@@ -29,7 +29,7 @@ enum ErrorType {
   // Add causes here as needed
 }
 
-enum ErrorCategory {
+enum ErrorTier {
   // Same as above
   UNUSED_DEFAULT_CATEGORY = 0;
   INFRA = 1;
