@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::mem;
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -40,11 +39,6 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_core::configuration::pair::ConfigurationWithExec;
-use buck2_core::configuration::transition::applied::TransitionApplied;
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
@@ -68,9 +62,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::internal::internal_attrs;
-use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -462,16 +454,12 @@ impl AnonTargetKey {
 
 /// Several attribute functions need a context, make one that is mostly useless.
 pub(crate) struct AnonAttrCtx {
-    cfg: ConfigurationData,
-    transitions: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     pub(crate) execution_platform_resolution: ExecutionPlatformResolution,
 }
 
 impl AnonAttrCtx {
     fn new(execution_platform_resolution: &ExecutionPlatformResolution) -> Self {
         Self {
-            cfg: ConfigurationData::unspecified(),
-            transitions: OrderedMap::new(),
             execution_platform_resolution: execution_platform_resolution.clone(),
         }
     }
@@ -479,33 +467,6 @@ impl AnonAttrCtx {
     pub(crate) fn intern_str(&self, value: &str) -> ArcStr {
         // TODO(scottcao): do intern.
         ArcStr::from(value)
-    }
-}
-
-impl AttrConfigurationContext for AnonAttrCtx {
-    fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
-        static EMPTY: OnceLock<ResolvedConfigurationSettings> = OnceLock::new();
-        EMPTY.get_or_init(ResolvedConfigurationSettings::empty)
-    }
-
-    fn cfg(&self) -> ConfigurationNoExec {
-        ConfigurationNoExec::new(self.cfg.dupe())
-    }
-
-    fn exec_cfg(&self) -> ConfigurationNoExec {
-        ConfigurationNoExec::new(self.cfg.dupe())
-    }
-
-    fn toolchain_cfg(&self) -> ConfigurationWithExec {
-        ConfigurationWithExec::new(self.cfg.dupe(), self.cfg.dupe())
-    }
-
-    fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
-        Ok(self.cfg.dupe())
-    }
-
-    fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
-        &self.transitions
     }
 }
 
