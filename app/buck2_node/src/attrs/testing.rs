@@ -73,34 +73,19 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
                 ConfigurationSettingKey::testing_parse("root//other:config"),
                 ConfigurationNode::new(
                     ConfigurationData::testing_new(),
-                    ConfigSettingData {
+                    Some(ConfigSettingData {
                         constraints: BTreeMap::new(),
                         buckconfigs: BTreeMap::new(),
-                    },
-                    true,
+                    }),
                 ),
             ),
             (
                 ConfigurationSettingKey::testing_parse("root//some:config"),
-                ConfigurationNode::new(
-                    ConfigurationData::testing_new(),
-                    ConfigSettingData {
-                        constraints: BTreeMap::new(),
-                        buckconfigs: BTreeMap::new(),
-                    },
-                    false,
-                ),
+                ConfigurationNode::new(ConfigurationData::testing_new(), None),
             ),
             (
                 ConfigurationSettingKey::testing_parse("cell1//other:config"),
-                ConfigurationNode::new(
-                    ConfigurationData::testing_new(),
-                    ConfigSettingData {
-                        constraints: BTreeMap::new(),
-                        buckconfigs: BTreeMap::new(),
-                    },
-                    false,
-                ),
+                ConfigurationNode::new(ConfigurationData::testing_new(), None),
             ),
         ])),
     )

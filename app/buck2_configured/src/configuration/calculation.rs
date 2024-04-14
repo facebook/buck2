@@ -602,8 +602,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 
                 Ok(ConfigurationNode::new(
                     self.target_cfg.dupe(),
-                    result,
-                    matches,
+                    Some(result).filter(|_| matches),
                 ))
             }
 

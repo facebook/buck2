@@ -123,11 +123,7 @@ impl ResolvedConfigurationSettings {
         let Some(configuration_node) = self.settings.get(&key) else {
             panic!("unresolved configuration setting: `{key}`");
         };
-        if configuration_node.matches() {
-            Some(configuration_node.configuration_data())
-        } else {
-            None
-        }
+        configuration_node.configuration_data()
     }
 }
 
@@ -143,29 +139,20 @@ struct ConfigurationNodeData {
     // configuration within the context of this configuration.
     cfg: ConfigurationData,
 
-    config_setting: ConfigSettingData,
-
-    /// Indicates whether this node "matches" the configuration.
-    ///
-    /// For example, a configuration node that requires a list of constraints "matches" a configuration where all of those constraints are satisfied.
-    matches: bool,
+    /// `None` when config settings does not match the configuration.
+    config_setting: Option<ConfigSettingData>,
 }
 
 impl ConfigurationNode {
-    pub fn new(cfg: ConfigurationData, config_setting: ConfigSettingData, matches: bool) -> Self {
+    pub fn new(cfg: ConfigurationData, config_setting: Option<ConfigSettingData>) -> Self {
         Self(Arc::new(ConfigurationNodeData {
             cfg,
             config_setting,
-            matches,
         }))
     }
 
-    pub fn matches(&self) -> bool {
-        self.0.matches
-    }
-
-    pub fn configuration_data(&self) -> &ConfigSettingData {
-        &self.0.config_setting
+    pub fn configuration_data(&self) -> Option<&ConfigSettingData> {
+        self.0.config_setting.as_ref()
     }
 
     pub fn testing_new_constraints(
@@ -173,11 +160,10 @@ impl ConfigurationNode {
     ) -> ConfigurationNode {
         ConfigurationNode::new(
             ConfigurationData::testing_new(),
-            ConfigSettingData {
+            Some(ConfigSettingData {
                 constraints,
                 buckconfigs: BTreeMap::new(),
-            },
-            true,
+            }),
         )
     }
 }
