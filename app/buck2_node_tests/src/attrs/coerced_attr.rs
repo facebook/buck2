@@ -11,7 +11,6 @@ use std::collections::BTreeMap;
 
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
-use buck2_core::target::label::TargetLabel;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -84,19 +83,11 @@ fn selector_equals_accounts_for_ordering() {
 
 #[test]
 fn select_the_most_specific() {
-    fn constraint_key(t: &str) -> ConstraintKey {
-        ConstraintKey(TargetLabel::testing_parse(t))
-    }
-
-    fn constraint_value(t: &str) -> ConstraintValue {
-        ConstraintValue(TargetLabel::testing_parse(t))
-    }
-
-    let c_os = constraint_key("config//c:os");
-    let c_linux = constraint_value("config//c:linux");
-    let c_cpu = constraint_key("config//c:cpu");
-    let c_arm64 = constraint_value("config//c:arm64");
-    let c_x86_64 = constraint_value("config//c:x86_64");
+    let c_os = ConstraintKey::testing_new("config//c:os");
+    let c_linux = ConstraintValue::testing_new("config//c:linux");
+    let c_cpu = ConstraintKey::testing_new("config//c:cpu");
+    let c_arm64 = ConstraintValue::testing_new("config//c:arm64");
+    let c_x86_64 = ConstraintValue::testing_new("config//c:x86_64");
 
     let linux = ConfigurationSettingKey::testing_parse("config//:linux");
     let linux_arm64 = ConfigurationSettingKey::testing_parse("config//:linux-arm64");
