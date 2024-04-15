@@ -19,7 +19,6 @@ use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::collections::StarlarkHasher;
 use starlark::docs::StarlarkDocs;
 use starlark::environment::GlobalsBuilder;
@@ -53,7 +52,6 @@ impl StarlarkConfiguredProvidersLabel {
 #[derive(
     Clone,
     Debug,
-    Coerce,
     Display,
     Trace,
     Freeze,
@@ -198,7 +196,6 @@ impl StarlarkProvidersLabel {
 #[derive(
     Clone,
     Debug,
-    Coerce,
     Display,
     Trace,
     Freeze,

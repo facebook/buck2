@@ -48,8 +48,7 @@ where
     Trace,
     derive_more::Display,
     Serialize,
-    Allocative,
-    Coerce
+    Allocative
 )]
 #[serde(transparent)]
 #[repr(transparent)]
