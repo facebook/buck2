@@ -39,37 +39,6 @@ use starlark_map::small_map::SmallMap;
 /// and it must be safe for the `From` to be treated as `To`, namely same (or less restrictive) alignment,
 /// no additional invariants, value can be dropped as `To`.
 ///
-/// One use of `Coerce` is around newtype wrappers:
-///
-/// ```
-/// use starlark::coerce::coerce;
-/// use starlark::coerce::Coerce;
-/// #[repr(transparent)]
-/// #[derive(Debug, Coerce)]
-/// struct Wrapper(String);
-///
-/// let value = vec![Wrapper("hello".to_owned()), Wrapper("world".to_owned())];
-/// assert_eq!(coerce::<_, &Vec<String>>(&value).join(" "), "hello world");
-/// let mut value = coerce::<_, Vec<String>>(value);
-/// assert_eq!(value.pop(), Some("world".to_owned()));
-/// ```
-///
-/// Another involves containers:
-///
-/// ```
-/// use starlark::coerce::coerce;
-/// use starlark::coerce::Coerce;
-/// # #[derive(Coerce)]
-/// # #[repr(transparent)]
-/// # struct Wrapper(String);
-/// #[derive(Coerce)]
-/// #[repr(C)]
-/// struct Container<T>(i32, T);
-///
-/// let value = Container(20, Wrapper("twenty".to_owned()));
-/// assert_eq!(coerce::<_, &Container<String>>(&value).1, "twenty");
-/// ```
-///
 /// If you only need [`coerce`] on newtype references,
 /// then the [`ref-cast` crate](https://crates.io/crates/ref-cast)
 /// provides that, along with automatic derivations (no `unsafe` required).
@@ -171,21 +140,9 @@ mod tests {
     }
 
     #[test]
-    fn test_coerce_lifetime() {
-        #[derive(Coerce)]
-        #[repr(transparent)]
-        struct NewtypeWithLifetime<'v>(&'v [usize]);
-
-        let newtype = NewtypeWithLifetime(&[1, 2]);
-        assert_eq!(&[1, 2], coerce(newtype))
-    }
-
-    #[test]
     fn test_coerce_type_and_lifetime_params() {
-        #[derive(Coerce)]
         #[repr(C)]
         struct Aaa<'a>(&'a u32);
-        #[derive(Coerce)]
         #[repr(C)]
         struct Bbb<'a>(&'a u32);
 
@@ -212,9 +169,10 @@ mod tests {
     fn test_coerce_is_unsound() {
         // TODO(nga): fix it.
 
-        #[derive(Coerce)]
         #[repr(transparent)]
         struct Newtype(u8);
+
+        unsafe impl Coerce<u8> for Newtype {}
 
         #[derive(Coerce)]
         #[repr(transparent)]

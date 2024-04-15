@@ -38,7 +38,6 @@ use syn::Type;
 
 // This macro does two related derivations depending on whether there are any generic parameters.
 //
-// struct A(B) ==> coerce both ways between A and B
 // struct A<T>(...) => coerce A<T1> to A<T2> if coerce T1 to T2 and all the fields support it
 pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -52,31 +51,13 @@ fn derive_coerce_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
     check_repr(&input)?;
 
     if input.generics.type_params().count() == 0 {
-        derive_coerce_inner(input)
+        Err(syn::Error::new_spanned(
+            &input,
+            "`Coerce` can only be derived for types with type parameters",
+        ))
     } else {
         derive_coerce_params(input)
     }
-}
-
-fn derive_coerce_inner(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
-    let lifetimes = input.generics.lifetimes().collect::<Vec<_>>();
-
-    let field = match &input.data {
-        Data::Struct(x) if x.fields.len() == 1 => x.fields.iter().next().unwrap(),
-        _ => {
-            return Err(syn::Error::new_spanned(
-                input,
-                "Type-parameter free types must be a single field struct",
-            ));
-        }
-    };
-
-    let type1 = input.ident;
-    let type2 = &field.ty;
-    Ok(quote! {
-        unsafe impl < #(#lifetimes),* > starlark::coerce::Coerce<#type1< #(#lifetimes),* >> for #type2 {}
-        unsafe impl < #(#lifetimes),* > starlark::coerce::Coerce<#type2> for #type1< #(#lifetimes),* > {}
-    })
 }
 
 #[derive(Copy, Clone)]
