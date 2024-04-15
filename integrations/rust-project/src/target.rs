@@ -133,12 +133,6 @@ pub struct AliasedTargetInfo {
     pub actual: Target,
 }
 
-#[derive(Debug)]
-pub struct TargetInfoEntry {
-    pub index: usize,
-    pub info: TargetInfo,
-}
-
 impl TargetInfo {
     pub fn crate_name(&self) -> String {
         if let Some(crate_dynamic) = &self.crate_dynamic {
@@ -206,6 +200,15 @@ impl TargetInfo {
         tracing::error!(?self, "no crate root can be found");
 
         panic!("Invariant broken: rust-project is unable to determine a root module")
+    }
+
+    pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {
+        let mut overridden = FxHashMap::default();
+        for (name, target) in &self.named_deps {
+            overridden.insert(target.clone(), name.to_owned());
+        }
+
+        overridden
     }
 }
 

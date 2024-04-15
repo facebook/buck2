@@ -40,7 +40,6 @@ use crate::target::Kind;
 use crate::target::MacroOutput;
 use crate::target::Target;
 use crate::target::TargetInfo;
-use crate::target::TargetInfoEntry;
 use crate::Crate;
 use crate::Dep;
 
@@ -62,10 +61,41 @@ pub fn to_json_project(
 
     let target_index = merge_unit_test_targets(target_map);
 
-    let mut crates: Vec<Crate> = Vec::with_capacity(target_index.len());
-    for (target, TargetInfoEntry { info, .. }) in &target_index {
-        let mut deps = resolve_dependencies_aliases(info, &target_index, &aliases, &proc_macros);
-        resolve_renamed_dependencies(info, &target_index, &mut deps);
+    // A rust-project.json uses file indexes to associate dependencies with the
+    // relevant crate.
+    //
+    // "crates": [
+    //   {
+    //     "display_name": "my-project",
+    //     "deps": [
+    //       {
+    //         "crate": 1,
+    //         "name": "my-lib"
+    //       }
+    //     ]
+    //   },
+    //   {
+    //     "display_name": "my-lib",
+    //     "deps": []
+    //   }
+    // ]
+    //
+    // This means that we must iterate over targets in a consistent order, so
+    // the indexes are correct. Build an ordered Vec and a corresponding HashMap
+    // from target name to index.
+    let targets_vec = target_index.keys().cloned().collect::<Vec<Target>>();
+
+    let mut targets_to_ids: FxHashMap<&Target, usize> = FxHashMap::default();
+    for (index, target) in targets_vec.iter().enumerate() {
+        targets_to_ids.insert(target, index);
+    }
+
+    let mut crates: Vec<Crate> = Vec::with_capacity(targets_vec.len());
+    for target in &targets_vec {
+        let info = target_index.get(&target).unwrap();
+
+        let dep_targets = resolve_aliases(&info.deps, &aliases, &proc_macros);
+        let deps = as_deps(&dep_targets, info, &targets_to_ids, &target_index);
 
         let edition = match &info.edition {
             Some(edition) => edition.clone(),
@@ -206,77 +236,75 @@ pub fn relative_to(path: &Path, base: &Path) -> PathBuf {
     .to_owned()
 }
 
-fn resolve_dependencies_aliases(
-    info: &TargetInfo,
-    target_index: &FxHashMap<Target, TargetInfoEntry>,
+/// If any target in `targets` is an alias, resolve it to the actual target.
+fn resolve_aliases(
+    targets: &[Target],
     aliases: &FxHashMap<Target, AliasedTargetInfo>,
     proc_macros: &FxHashMap<Target, MacroOutput>,
-) -> Vec<Dep> {
-    let mut deps = vec![];
-    for dependency_target in &info.deps {
-        let dependency_target = match aliases.get(dependency_target) {
+) -> Vec<Target> {
+    let mut resolved_targets = vec![];
+
+    for target in targets {
+        let destination_target = match aliases.get(target) {
             Some(actual) => &actual.actual,
             None => {
                 // we fall back to check the proc macros for aliases
                 // (these should exist in the aliases map, but they don't. yolo.)
-                match proc_macros.get(dependency_target) {
+                match proc_macros.get(target) {
                     Some(MacroOutput { actual, .. }) => actual,
-                    None => dependency_target,
+                    None => target,
                 }
             }
         };
 
-        if let Some(entry) = target_index.get(dependency_target) {
-            trace!(?dependency_target, "present in target_index");
-            let dep = Dep {
-                crate_index: entry.index,
-                name: entry.info.crate_name(),
+        resolved_targets.push(destination_target.to_owned());
+    }
+
+    resolved_targets
+}
+
+/// Convert `dep_targets` to `Dep` values.
+fn as_deps(
+    dep_targets: &[Target],
+    info: &TargetInfo,
+    target_to_ids: &FxHashMap<&Target, usize>,
+    target_index: &FxHashMap<Target, TargetInfo>,
+) -> Vec<Dep> {
+    let overridden_names = info.overridden_dep_names();
+
+    let mut seen_targets = FxHashSet::default();
+
+    let mut deps = vec![];
+    for dep_target in dep_targets {
+        seen_targets.insert(dep_target);
+
+        let Some(info) = target_index.get(dep_target) else {
+            trace!(?dep_target, "not present in target_index");
+            continue;
+        };
+
+        let crate_index = *target_to_ids.get(dep_target).unwrap();
+        let name = match overridden_names.get(dep_target) {
+            Some(n) => n.replace('-', "_"),
+            None => info.crate_name(),
+        };
+
+        deps.push(Dep { crate_index, name });
+    }
+
+    for (target, name) in overridden_names.into_iter() {
+        if !seen_targets.contains(&target) {
+            let Some(crate_index) = target_to_ids.get(&target) else {
+                continue;
             };
-            deps.push(dep);
-        } else {
-            trace!(?dependency_target, "not present in target_index");
+            deps.push(Dep {
+                crate_index: *crate_index,
+                name: name.replace('-', "_"),
+            });
         }
     }
 
     deps
-}
-
-fn resolve_renamed_dependencies(
-    info: &TargetInfo,
-    target_index: &FxHashMap<Target, TargetInfoEntry>,
-    deps: &mut Vec<Dep>,
-) {
-    // we handled named_deps when constructing the dependency, as rust-analyzer cares about the
-    // the crate name for correct resolution. `named_deps` are distinct from `deps` in buck2 and
-    // are not currently unified into a `buck.direct_dependencies` or `$deps` in buck2.
-    // TODO: once https://fb.workplace.com/groups/buck2users/posts/3137264549863238/?comment_id=3137265756529784
-    // is resolved, switch to `$deps`.
-    for (renamed_crate, dependency_target) in &info.named_deps {
-        if let Some(entry) = target_index.get(dependency_target) {
-            let new_name = renamed_crate.replace('-', "_");
-            trace!(old_name = ?entry.info.crate_name(), new_name = new_name, "renamed crate");
-            // if the renamed dependency was encountered before, rename the existing `Dep` rather
-            // than create a new one with a new name but the same index. While this duplication doesn't
-            // seem to have any noticeable impact in limited testing, the behavior will be closer to
-            // that of Cargo.
-            //
-            // However, if the renamed dependency wasn't encountered before, we create a new `Dep` with
-            // the new name.
-            //
-            // The primary invariant that is being upheld is that each index should
-            // have one associated name.
-            match deps.iter_mut().find(|dep| dep.crate_index == entry.index) {
-                Some(dep) => dep.name = new_name,
-                None => {
-                    let dep = Dep {
-                        crate_index: entry.index,
-                        name: new_name,
-                    };
-                    deps.push(dep);
-                }
-            };
-        }
-    }
 }
 
 /// For every test target, drop it from `target_map` and include test
@@ -284,7 +312,7 @@ fn resolve_renamed_dependencies(
 /// target.
 fn merge_unit_test_targets(
     target_map: FxHashMap<Target, TargetInfo>,
-) -> FxHashMap<Target, TargetInfoEntry> {
+) -> FxHashMap<Target, TargetInfo> {
     let mut target_index = FxHashMap::default();
 
     let (tests, mut targets): (FxHashMap<Target, TargetInfo>, FxHashMap<Target, TargetInfo>) =
@@ -318,7 +346,7 @@ fn merge_unit_test_targets(
             }
         }
 
-        target_index.insert(target.to_owned(), TargetInfoEntry { index, info });
+        target_index.insert(target.to_owned(), info);
     }
     target_index
 }
@@ -685,7 +713,7 @@ fn merge_tests_no_cycles() {
 
     let res = merge_unit_test_targets(targets.clone());
     let merged_target = res.get(&Target::new("//foo")).unwrap();
-    assert_eq!(*merged_target.info.deps, vec![]);
+    assert_eq!(*merged_target.deps, vec![]);
 }
 
 #[test]
@@ -804,14 +832,14 @@ fn merge_target_multiple_tests_no_cycles() {
     let res = merge_unit_test_targets(targets.clone());
     let merged_foo_target = res.get(&Target::new("//foo")).unwrap();
     assert_eq!(
-        *merged_foo_target.info.deps,
+        *merged_foo_target.deps,
         vec![Target::new("//foo@rust")],
         "Additional dependencies should only come from the foo-unittest crate"
     );
 
     let merged_foo_rust_target = res.get(&Target::new("//foo@rust")).unwrap();
     assert_eq!(
-        *merged_foo_rust_target.info.deps,
+        *merged_foo_rust_target.deps,
         vec![Target::new("//test-framework")],
         "Test dependencies should only come from the foo@rust-unittest crate"
     );
@@ -822,29 +850,26 @@ fn named_deps_underscores() {
     let mut target_index = FxHashMap::default();
     target_index.insert(
         Target::new("//bar"),
-        TargetInfoEntry {
-            index: 0,
-            info: TargetInfo {
-                name: "bar".to_owned(),
-                label: "bar".to_owned(),
-                kind: Kind::Library,
-                edition: None,
-                srcs: vec![],
-                mapped_srcs: FxHashMap::default(),
-                crate_name: None,
-                crate_dynamic: None,
-                crate_root: None,
-                deps: vec![],
-                tests: vec![],
-                named_deps: FxHashMap::default(),
-                proc_macro: None,
-                features: vec![],
-                env: FxHashMap::default(),
-                source_folder: PathBuf::from("/tmp"),
-                project_relative_buildfile: PathBuf::from("bar/BUCK"),
-                in_workspace: false,
-                out_dir: None,
-            },
+        TargetInfo {
+            name: "bar".to_owned(),
+            label: "bar".to_owned(),
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: None,
+            deps: vec![],
+            tests: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("bar/BUCK"),
+            in_workspace: false,
+            out_dir: None,
         },
     );
 
@@ -873,13 +898,12 @@ fn named_deps_underscores() {
         out_dir: None,
     };
 
-    let mut deps = resolve_dependencies_aliases(
-        &info,
-        &target_index,
-        &FxHashMap::default(),
-        &FxHashMap::default(),
-    );
-    resolve_renamed_dependencies(&info, &target_index, &mut deps);
+    let mut targets_to_ids = FxHashMap::default();
+    let bar_target = Target::new("//bar");
+    targets_to_ids.insert(&bar_target, 0);
+
+    let dep_targets = resolve_aliases(&info.deps, &FxHashMap::default(), &FxHashMap::default());
+    let deps = as_deps(&dep_targets, &info, &targets_to_ids, &target_index);
 
     assert_eq!(
         deps,
