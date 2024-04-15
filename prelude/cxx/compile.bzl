@@ -27,6 +27,7 @@ load(
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
 load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
+load(":cxx_types.bzl", "CxxRuleConstructorParams")
 load(":debug.bzl", "SplitDebugMode")
 load(
     ":headers.bzl",
@@ -229,10 +230,7 @@ def get_header_language_mode(source_extension: str) -> str | None:
 
 def create_compile_cmds(
         ctx: AnalysisContext,
-        # TODO(nga): this is `CxxRuleConstructorParams`,
-        #    but there's dependency cycle between `compile.bzl` (this file)
-        #   and `cxx_types.bzl` (where `CxxRuleConstructorParams` is defined).
-        impl_params: typing.Any,
+        impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo]) -> CxxCompileCommandOutput:
     """
