@@ -24,7 +24,8 @@
     list/0, list/1,
     rerun/1,
     run/0, run/1,
-    reset/0
+    reset/0,
+    logs/0
 ]).
 
 %% init
@@ -133,6 +134,8 @@ command_description(run, 1) ->
     };
 command_description(reset, 0) ->
     #{args => [], desc => ["restarts the test node, enabling a clean test state"]};
+command_description(logs, 0) ->
+    #{args => [], desc => ["print log files of the currently running test suites"]};
 command_description(F, A) ->
     error({help_is_missing, {F, A}}).
 
@@ -211,6 +214,18 @@ reset() ->
             ct_daemon:start(#{
                 type => Type, name => NodeName, cookie => erlang:get_cookie(), options => []
             })
+    end.
+
+%% @doc Print all the logs of the currently running test suites
+-spec logs() -> ok.
+logs() ->
+    ensure_initialized(),
+    case logs_impl() of
+        {ok, Logs} ->
+            lists:foreach(fun(LogPath) -> io:format("~s~n", [LogPath]) end, Logs),
+            io:format("~n");
+        {error, not_found} ->
+            io:format("no logs found~n")
     end.
 
 %% internal
@@ -416,4 +431,15 @@ start_shell() ->
         _ ->
             user_drv:start(),
             ok
+    end.
+
+-spec logs_impl() -> {ok, [file:filename_all()]} | {error, not_found}.
+logs_impl() ->
+    case ct_daemon:priv_dir() of
+        undefined ->
+            {error, not_found};
+        PrivDir ->
+            Pattern = filename:join(PrivDir, "*.log"),
+            LogPaths = filelib:wildcard(Pattern),
+            {ok, LogPaths}
     end.

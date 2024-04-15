@@ -113,6 +113,15 @@ handle_call(setup, _From, State) ->
 handle_call(output_dir, _From, State) ->
     DaemonOptions = application:get_env(test_exec, daemon_options, []),
     {reply, proplists:get_value(output_dir, DaemonOptions), State};
+handle_call(priv_dir, _From, State) ->
+    Response =
+        case State of
+            #{setup := #{config := Config}} ->
+                proplists:get_value(priv_dir, Config);
+            _ ->
+                undefined
+        end,
+    {reply, Response, State};
 handle_call(Request, _From, State) ->
     {reply, Request, State}.
 

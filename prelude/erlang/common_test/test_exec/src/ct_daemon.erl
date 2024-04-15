@@ -26,7 +26,8 @@
     discover/1,
     load_changed/0,
     setup_state/0,
-    output_dir/0
+    output_dir/0,
+    priv_dir/0
 ]).
 
 %% @doc start a test-node with random name and shortname
@@ -106,6 +107,10 @@ setup_state() ->
 -spec output_dir() -> file:filename_all() | undefined.
 output_dir() ->
     do_call(output_dir).
+
+-spec priv_dir() -> file:filename_all() | undefined.
+priv_dir() ->
+    do_call(priv_dir).
 
 -spec push_paths(Paths :: [file:filename_all()]) -> ok.
 push_paths(Paths) ->
