@@ -95,6 +95,7 @@ class IncrementalStateJSONEncoder(json.JSONEncoder):
                 "codesign_identity": o.codesign_identity,
                 "swift_stdlib_paths": [str(p) for p in o.swift_stdlib_paths],
                 "version": o.version,
+                "codesign_arguments": o.codesign_arguments,
             }
         elif isinstance(o, IncrementalStateItem):
             result = {
