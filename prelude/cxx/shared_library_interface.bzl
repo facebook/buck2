@@ -8,6 +8,7 @@
 load("@prelude//:artifact_tset.bzl", "ArtifactTSet", "make_artifact_tset", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorInfo")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":headers.bzl", "CHeader")
@@ -142,7 +143,7 @@ def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_p
 
     return tbd_file
 
-def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet) -> Artifact:
+def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet, links: list[ArgLike]) -> Artifact:
     # Run the shlib interface tool with the merge command
     tbd_file = ctx.actions.declare_output(
         paths.join("__tbd__", ctx.attrs.name + ".merged.tbd"),
@@ -156,6 +157,12 @@ def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet) -> Arti
         "-o",
         tbd_file.as_output(),
     ])
+
+    # Pass through the linker args as we need to honour any flags
+    # related to exported or unexported symbols.
+    for link_args in links:
+        args.add(cmd_args(link_args, prepend = "-Xparser"))
+
     ctx.actions.run(
         args,
         category = "merge_tbd",

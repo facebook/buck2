@@ -1484,8 +1484,12 @@ def _shared_library(
             # If the tbd output is missing this is a non apple_library target,
             # so skip producing the interface.
             if shared_interface_info != None:
+                # collect the linker args which are required
+                # to correctly set symbol visibility.
+                link_args = [unpack_link_args(l, True) for l in links]
+
                 # collect tbd output from providers and merge
-                exported_shlib = merge_tbds(ctx, soname, shared_interface_info.interfaces)
+                exported_shlib = merge_tbds(ctx, soname, shared_interface_info.interfaces, link_args)
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link
             # groups, where we don't include the symbols we're meant to export from
