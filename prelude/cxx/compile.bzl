@@ -43,6 +43,15 @@ load(
     "get_flags_for_compiler_type",
 )
 
+# Supported assembly extensions
+AsmExtensions = enum(
+    ".s",
+    ".sx",
+    ".S",
+    ".asm",
+    ".asmpp",
+)
+
 # Supported Cxx file extensions
 CxxExtension = enum(
     ".cpp",
@@ -50,20 +59,16 @@ CxxExtension = enum(
     ".cxx",
     ".c++",
     ".c",
-    ".s",
-    ".sx",
-    ".S",
     ".m",
     ".mm",
     ".cu",
     ".hip",
-    ".asm",
-    ".asmpp",
     ".h",
     ".hpp",
     ".hh",
     ".h++",
     ".hxx",
+    *AsmExtensions.values()
 )
 
 # Header files included in compilation databases
