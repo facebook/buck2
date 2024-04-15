@@ -162,64 +162,74 @@ _ABSOLUTE_ARGSFILE_SUBSTITUTIONS = [
     # @oss-disable: (regex("-fpika-runtime-checks"), "-fcolor-diagnostics"), 
 ]
 
-def get_extension_for_header(header_extension: str) -> str | None:
+def get_source_extension_for_header(header_extension: str, default: CxxExtension) -> CxxExtension:
     """
     Which source file extension to use to get compiler flags for the header.
     """
     if header_extension in (".hpp", ".hh", ".h++", ".hxx"):
-        return ".cpp"
+        return CxxExtension(".cpp")
     elif header_extension == ".cuh":
-        return ".cu"
+        return CxxExtension(".cu")
     elif header_extension not in HeaderExtension.values():
-        return header_extension  # a file in `headers` has a source extension
+        return CxxExtension(header_extension)  # a file in `headers` has a source extension
     else:
-        return None
+        return default
 
-def get_extension_for_plain_headers(srcs: list[CxxSrcWithFlags]) -> str | None:
+def collect_cxx_extensions(srcs: list[CxxSrcWithFlags]) -> list[CxxExtension]:
     """
-    For a given list source files determine which source file extension
-    to use to get compiler flags for plain .h headers.
+    Collect extensions of source files while doing light normalization.
     """
+
     duplicates = {
         ".c++": ".cpp",
         ".cc": ".cpp",
         ".cxx": ".cpp",
     }
 
-    extensions = set([duplicates.get(src.file.extension, src.file.extension) for src in srcs])
+    extensions = set([CxxExtension(duplicates.get(src.file.extension, src.file.extension)) for src in srcs])
+    return extensions.list()
 
-    # Assembly doesn't need any special handling as included files tend to have .asm extension themselves.
-    # And the presence of assembly in the target doesn't tell us anything about the language of .h files.
-    for asm_ext in [".s", ".S", ".asm", ".asmpp"]:
-        extensions.remove(asm_ext)
-
-    if extensions.size() == 0:
-        return None
-    if extensions.size() == 1:
-        return extensions.list()[0]
-    if extensions.contains(".hip"):
-        return ".hip"
-    if extensions.contains(".cu"):
-        return ".cu"
-    if extensions.contains(".mm"):
-        return ".mm"
-    if extensions.contains(".cpp") and extensions.contains(".m"):
-        return ".mm"
-    if extensions.contains(".cpp"):
-        return ".cpp"
-    if extensions.contains(".m"):
-        return ".m"
-    return ".c"
-
-def get_default_extension_for_plain_header(rule_type: str) -> str:
+def get_default_source_extension_for_plain_header(rule_type: str) -> CxxExtension:
     """
     Returns default source file extension to use to get get compiler flags for plain .h headers.
     """
 
     # Default to (Objective-)C++ instead of plain (Objective-)C as it is more likely to be compatible with both.
-    return ".mm" if rule_type.startswith("apple_") else ".cpp"
+    return CxxExtension(".mm") if rule_type.startswith("apple_") else CxxExtension(".cpp")
 
-def get_header_language_mode(source_extension: str) -> str | None:
+def detect_source_extension_for_plain_headers(exts: list[CxxExtension], rule_type: str) -> CxxExtension:
+    """
+    For a given list source files determine which source file extension
+    to use to get compiler flags for plain .h headers.
+    """
+
+    exts = set(exts)
+
+    # Assembly doesn't need any special handling as included files tend to have .asm extension themselves.
+    # And the presence of assembly in the target doesn't tell us anything about the language of .h files.
+    for asm_ext in AsmExtensions:
+        exts.remove(asm_ext)
+
+    if exts.size() == 0:
+        return get_default_source_extension_for_plain_header(rule_type)
+
+    if exts.size() == 1:
+        return exts.list()[0]
+    if exts.contains(CxxExtension(".hip")):
+        return CxxExtension(".hip")
+    if exts.contains(CxxExtension(".cu")):
+        return CxxExtension(".cu")
+    if exts.contains(CxxExtension(".mm")):
+        return CxxExtension(".mm")
+    if exts.contains(CxxExtension(".cpp")) and exts.contains(CxxExtension(".m")):
+        return CxxExtension(".mm")
+    if exts.contains(CxxExtension(".cpp")):
+        return CxxExtension(".cpp")
+    if exts.contains(CxxExtension(".m")):
+        return CxxExtension(".m")
+    return CxxExtension(".c")
+
+def get_header_language_mode(source_extension: CxxExtension) -> str | None:
     """
     Returns the header mode to use for plain .h headers based on the
     source file extension used to obtain the compiler flags for them.
@@ -227,9 +237,9 @@ def get_header_language_mode(source_extension: str) -> str | None:
 
     # Note: CUDA doesn't have its own header language mode, but the headers have distinct .cuh extension.
     modes = {
-        ".cpp": "c++-header",
-        ".m": "objective-c-header",
-        ".mm": "objective-c++-header",
+        CxxExtension(".cpp"): "c++-header",
+        CxxExtension(".m"): "objective-c-header",
+        CxxExtension(".mm"): "objective-c++-header",
     }
     return modes.get(source_extension)
 
@@ -286,12 +296,12 @@ def create_compile_cmds(
     argsfile_by_ext = {}
     abs_argsfile_by_ext = {}
 
-    extension_for_plain_headers = get_extension_for_plain_headers(impl_params.srcs)
-    extension_for_plain_headers = extension_for_plain_headers or get_default_extension_for_plain_header(impl_params.rule_type)
+    src_extensions = collect_cxx_extensions(impl_params.srcs)
+    extension_for_plain_headers = detect_source_extension_for_plain_headers(src_extensions, impl_params.rule_type)
     for src in srcs_with_flags:
         # We want headers to appear as though they are source files.
-        extension_for_header = get_extension_for_header(src.file.extension) or extension_for_plain_headers
-        ext = CxxExtension(extension_for_header if src.is_header else src.file.extension)
+        extension_for_header = get_source_extension_for_header(src.file.extension, extension_for_plain_headers)
+        ext = extension_for_header if src.is_header else CxxExtension(src.file.extension)
 
         # Deduplicate shared arguments to save memory. If we compile multiple files
         # of the same extension they will have some of the same flags. Save on
