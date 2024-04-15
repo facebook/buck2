@@ -24,10 +24,6 @@ load(
     "flatten",
     "from_named_set",
 )
-load(
-    ":compile.bzl",
-    "CxxCompileOutput",  # @unused Used as a type
-)
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "ShlibInterfacesMode")
 load(
@@ -180,17 +176,3 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         ctx.attrs.supported_platforms_regex,
         get_cxx_platform_info(ctx).name,
     )
-
-def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Provider]]:
-    objects_sub_targets = {}
-    for obj in outs:
-        sub_targets = {}
-        if obj.clang_trace:
-            sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
-        if obj.clang_remarks:
-            sub_targets["clang-remarks"] = [DefaultInfo(obj.clang_remarks)]
-        objects_sub_targets[obj.object.short_path] = [DefaultInfo(
-            obj.object,
-            sub_targets = sub_targets,
-        )]
-    return objects_sub_targets

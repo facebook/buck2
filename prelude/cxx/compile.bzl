@@ -488,6 +488,20 @@ def compile_cxx(
 
     return objects
 
+def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Provider]]:
+    objects_sub_targets = {}
+    for obj in outs:
+        sub_targets = {}
+        if obj.clang_trace:
+            sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
+        if obj.clang_remarks:
+            sub_targets["clang-remarks"] = [DefaultInfo(obj.clang_remarks)]
+        objects_sub_targets[obj.object.short_path] = [DefaultInfo(
+            obj.object,
+            sub_targets = sub_targets,
+        )]
+    return objects_sub_targets
+
 def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreprocessor]):
     path_to_artifact = {}
     all_headers = flatten([x.headers for x in preprocessor])

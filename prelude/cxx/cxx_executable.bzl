@@ -96,6 +96,7 @@ load(
     ":compile.bzl",
     "compile_cxx",
     "create_compile_cmds",
+    "cxx_objects_sub_targets",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
@@ -106,7 +107,6 @@ load(
     "cxx_attr_linker_flags",
     "cxx_attr_resources",
     "cxx_is_gnu",
-    "cxx_objects_sub_targets",
 )
 load(
     ":cxx_link_utility.bzl",
