@@ -10,7 +10,6 @@ load(
     "ArtifactGroupInfo",
     "ArtifactOutputs",  # @unused Used as a type
 )
-load("@prelude//cxx:compile.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
@@ -18,6 +17,7 @@ load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
+load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",

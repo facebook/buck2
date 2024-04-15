@@ -19,11 +19,11 @@ load(
     "@prelude//cxx:argsfiles.bzl",
     "CompileArgsfile",  # @unused Used as a type
 )
+load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load(
-    "@prelude//cxx:compile.bzl",
+    "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
 load(
     "@prelude//cxx:linker.bzl",

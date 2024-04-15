@@ -25,6 +25,7 @@ load(
     "get_pic_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_sources.bzl", "CxxSrcWithFlags")
 load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
 load(":debug.bzl", "SplitDebugMode")
 load(
@@ -132,17 +133,6 @@ CxxCompileCommandOutput = record(
     argsfiles = field(CompileArgsfiles, default = CompileArgsfiles()),
     # List of compile commands for use in compilation database generation.
     comp_db_compile_cmds = field(list[CxxSrcCompileCommand], default = []),
-)
-
-# An input to cxx compilation, consisting of a file to compile and optional
-# file specific flags to compile with.
-CxxSrcWithFlags = record(
-    file = field(Artifact),
-    flags = field(list[ResolvedStringWithMacros], []),
-    # If we have multiple source entries with same files but different flags,
-    # specify an index so we can differentiate them. Otherwise, use None.
-    index = field([int, None], None),
-    is_header = field(bool, False),
 )
 
 CxxCompileOutput = record(

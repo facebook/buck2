@@ -23,13 +23,13 @@ load(
     "@prelude//cxx:argsfiles.bzl",
     "CompileArgsfiles",
 )
-load(
-    "@prelude//cxx:compile.bzl",
-    "CxxSrcWithFlags",  # @unused Used as a type
-)
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
-load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
+load(
+    "@prelude//cxx:cxx_sources.bzl",
+    "CxxSrcWithFlags",  # @unused Used as a type
+    "get_srcs_with_flags",
+)
 load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleAdditionalParams",

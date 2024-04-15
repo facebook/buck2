@@ -25,7 +25,7 @@ load(
 )
 load(":argsfiles.bzl", "CompileArgsfiles")
 load(
-    ":compile.bzl",
+    ":cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 load(

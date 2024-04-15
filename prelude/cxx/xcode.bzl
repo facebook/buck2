@@ -10,7 +10,7 @@ load(
     "CompileArgsfile",  # @unused Used as a type
 )
 load(
-    "@prelude//cxx:compile.bzl",
+    "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 

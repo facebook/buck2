@@ -10,8 +10,8 @@ load("@prelude//apple:apple_utility.bzl", "get_module_name")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftCompilationModes")
 load(
-    "@prelude//cxx:compile.bzl",
-    "CxxSrcWithFlags",
+    "@prelude//cxx:cxx_sources.bzl",
+    "CxxSrcWithFlags",  # @unused Used as a type
 )
 
 _WriteOutputFileMapOutput = record(

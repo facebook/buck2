@@ -6,11 +6,11 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load(
-    "@prelude//cxx:compile.bzl",
-    "CxxSrcWithFlags",  # @unused Used as a type
-)
 load("@prelude//cxx:cxx_library.bzl", "cxx_compile_srcs")
+load(
+    "@prelude//cxx:cxx_sources.bzl",
+    "CxxSrcWithFlags",
+)
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",
