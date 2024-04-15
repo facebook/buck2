@@ -29,7 +29,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
 
     # Create file structure that `go list` can recognize
     # Use copied_dir, because embed doesn't work with symlinks
-    srcs_dir = ctx.actions.copied_dir(
+    srcs_dir = ctx.actions.symlinked_dir(
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
     )
