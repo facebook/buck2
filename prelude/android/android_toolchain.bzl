@@ -25,7 +25,6 @@ AndroidToolchainInfo = provider(
         "bundle_apks_builder": provider_field(typing.Any, default = None),
         "bundle_builder": provider_field(typing.Any, default = None),
         "combine_native_library_dirs": provider_field(typing.Any, default = None),
-        "compress_libraries": provider_field(typing.Any, default = None),
         "d8_command": provider_field(typing.Any, default = None),
         "enabled_voltron_non_asset_libs": provider_field(typing.Any, default = None),
         "exo_resources_rewriter": provider_field(typing.Any, default = None),

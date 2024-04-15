@@ -45,11 +45,6 @@ def main() -> None:
         type=Path,
         help="Metadata is written to this file",
     )
-    parser.add_argument(
-        "--native-library-paths-output",
-        type=Path,
-        help="The actual paths of all the native libraries",
-    )
     args = parser.parse_args()
 
     native_libraries = []
@@ -81,11 +76,6 @@ def main() -> None:
                     for native_lib in native_libraries
                 ]
             )
-        )
-
-    with open(args.native_library_paths_output, "w") as f:
-        f.write(
-            "\n".join([str(native_lib.full_path) for native_lib in native_libraries])
         )
 
 
