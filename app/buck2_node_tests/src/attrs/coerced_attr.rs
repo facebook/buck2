@@ -139,7 +139,7 @@ fn select_the_most_specific() {
     );
 }
 
-#[test]
+#[test] // T177093673
 fn test_select_refines_bug() {
     let c_windows = (
         ConstraintKey::testing_new("config//c:os"),
@@ -168,12 +168,9 @@ fn test_select_refines_bug() {
         (&windows_x86_64, &windows_x86_64_data, &value_windows_x86_64),
     ];
 
-    // TODO(nga): T177093673: this should select `config//:windows-x86_64`.
     assert_eq!(
-        "Both select keys `config//:windows` and `config//:x86_64` match the configuration, but neither is more specific",
-        CoercedAttr::select_the_most_specific(select_entries)
-            .unwrap_err()
-            .to_string()
+        Some(&value_windows_x86_64),
+        CoercedAttr::select_the_most_specific(select_entries).unwrap()
     );
 }
 

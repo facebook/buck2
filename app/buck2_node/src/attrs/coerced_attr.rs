@@ -20,6 +20,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
@@ -30,6 +31,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::to_value;
+use smallvec::SmallVec;
 use starlark_map::StarlarkHasherBuilder;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -493,7 +495,9 @@ impl CoercedAttr {
             ),
         >,
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
-        let mut select_entries = select_entries.into_iter();
+        let select_entries_vec = SmallVec::<[_; 17]>::from_iter(select_entries);
+
+        let mut select_entries = select_entries_vec.iter().copied();
         let Some(mut matching): Option<(
             &ConfigurationSettingKey,
             &ConfigSettingData,
@@ -511,16 +515,44 @@ impl CoercedAttr {
                     } else if prev_conf.refines(conf) {
                         (prev_k, prev_conf, prev_v)
                     } else {
-                        return Err(SelectError::TwoKeysDoNotRefineEachOther(
-                            prev_k.to_string(),
-                            k.to_string(),
-                        )
-                        .into());
+                        return Self::select_the_most_specific_slow(select_entries_vec);
                     }
                 }
             }
         }
         Ok(Some(matching.2))
+    }
+
+    fn select_the_most_specific_slow<'a>(
+        select_entries: SmallVec<
+            [(
+                &ConfigurationSettingKey,
+                &ConfigSettingData,
+                &'a CoercedAttr,
+            ); 17],
+        >,
+    ) -> anyhow::Result<Option<&'a CoercedAttr>> {
+        let mut entries =
+            SmallVec::<[(&ConfigurationSettingKey, &ConfigSettingData, &CoercedAttr); 17]>::new();
+
+        for (k, d, v) in select_entries {
+            // If there's entry for `linux-arm32` and current is `arm32`, skip current.
+            if entries.iter().any(|(_, prev_d, _)| prev_d.refines(d)) {
+                continue;
+            }
+            // If current is `linux-arm32`, remove `arm32` from `entries`.
+            entries.retain(|(_, prev_d, _)| !d.refines(prev_d));
+            entries.push((k, d, v));
+        }
+        match entries.as_slice() {
+            [] => Err(internal_error!(
+                "no entries after slow select the most specific"
+            )),
+            [(.., x)] => Ok(Some(x)),
+            [(x, ..), (y, ..), ..] => {
+                Err(SelectError::TwoKeysDoNotRefineEachOther(x.to_string(), y.to_string()).into())
+            }
+        }
     }
 
     fn select<'a>(

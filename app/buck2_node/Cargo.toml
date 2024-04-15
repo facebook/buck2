@@ -17,6 +17,7 @@ once_cell = { workspace = true }
 ref-cast = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+smallvec = { workspace = true }
 static_assertions = { workspace = true }
 strsim = { workspace = true }
 triomphe = { workspace = true }
