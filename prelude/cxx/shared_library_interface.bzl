@@ -152,7 +152,7 @@ def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet) -> Arti
         "merge",
         "-install_name",
         "@rpath/" + soname,
-        project_artifacts(ctx.actions, [tbd_set]),
+        cmd_args(project_artifacts(ctx.actions, [tbd_set]), prepend = "--tbd"),
         "-o",
         tbd_file.as_output(),
     ])
