@@ -73,6 +73,8 @@ impl<A: Dupe, B: Dupe, C: Dupe, D: Dupe, E: Dupe, F: Dupe, G: Dupe, H: Dupe, I: 
 {
 }
 
+impl<A: Dupe, const N: usize> Dupe for [A; N] {}
+
 // Atomic types
 impl Dupe for bool {}
 impl Dupe for char {}
