@@ -343,7 +343,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         strip_executable = get_apple_stripped_attr_value_with_default_fallback(ctx),
         strip_args_factory = apple_strip_args,
         force_link_group_linking = params.force_link_group_linking,
-        cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, populate_xcode_attributes_func = params.populate_xcode_attributes_func, **kwargs),
+        cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, populate_xcode_attributes_func = params.populate_xcode_attributes_func, contains_swift_sources = contains_swift_sources, **kwargs),
         generate_sub_targets = params.generate_sub_targets,
         generate_providers = params.generate_providers,
         # Some apple rules rely on `static` libs *not* following dependents.
@@ -440,7 +440,8 @@ def _xcode_populate_attributes(
         srcs: list[CxxSrcWithFlags],
         argsfiles: dict[str, CompileArgsfile],
         populate_xcode_attributes_func: typing.Callable,
+        contains_swift_sources: bool,
         **_kwargs) -> dict[str, typing.Any]:
     # Overwrite the product name
-    data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
+    data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name, contains_swift_sources = contains_swift_sources)
     return data

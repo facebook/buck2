@@ -23,8 +23,11 @@ def apple_populate_xcode_attributes(
         ctx,
         srcs: list[CxxSrcWithFlags],
         argsfiles: dict[str, CompileArgsfile],
-        product_name: str) -> dict[str, typing.Any]:
+        product_name: str,
+        contains_swift_sources: bool = False) -> dict[str, typing.Any]:
     data = cxx_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = product_name)
+
+    data["contains_swift_sources"] = contains_swift_sources
 
     if has_apple_toolchain(ctx):
         data["arch"] = get_apple_architecture(ctx)

@@ -78,6 +78,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         objc_bridging_header_flags = _get_bridging_header_flags(ctx)
 
         cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
+        contains_swift_sources = len(swift_srcs) > 0
 
         framework_search_path_flags = get_framework_search_path_flags(ctx)
         swift_compile, _ = compile_swift(
@@ -139,7 +140,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,
             strip_executable = stripped,
             strip_args_factory = apple_strip_args,
-            cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
+            cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: apple_populate_xcode_attributes(local_ctx, contains_swift_sources = contains_swift_sources, **kwargs),
             link_group_info = get_link_group_info(ctx),
             prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
             # Some apple rules rely on `static` libs *not* following dependents.
