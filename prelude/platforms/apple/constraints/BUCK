@@ -1,6 +1,0 @@
-load("@prelude//platforms/apple:build_mode.bzl", "constraints")
-
-constraints(
-    constraint_setting_rule = constraint_setting,
-    constraint_value_rule = constraint_value,
-)

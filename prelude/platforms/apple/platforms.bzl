@@ -8,6 +8,7 @@
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read")
 # @oss-disable: load("@fbsource//tools/build_defs/apple:build_mode_defs.bzl", get_build_mode = "build_mode") 
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
+load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//platforms/apple:base.bzl", "BUILD_MODE_TO_CONSTRAINTS_MAP", "apple_build_mode_backed_platform", "is_buck2_mac_platform", "is_mobile_platform")
 load(
     "@prelude//platforms/apple:build_mode.bzl",
@@ -17,7 +18,6 @@ load(
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
-    "APPLE_PLATFORMS_KEY",
     "ios_platforms",
     "mac_catalyst_platforms",
     "mac_platforms",

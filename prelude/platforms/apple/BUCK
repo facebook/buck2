@@ -1,3 +1,0 @@
-load("@prelude//platforms/apple:build_mode.bzl", "config_settings")
-
-config_settings(config_setting_rule = config_setting)
