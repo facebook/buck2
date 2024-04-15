@@ -19,7 +19,9 @@ use std::fmt;
 use std::fmt::Display;
 use std::ops::Deref;
 
-use crate as starlark;
+use ref_cast::ref_cast_custom;
+use ref_cast::RefCastCustom;
+
 use crate::coerce::coerce;
 use crate::typing::Ty;
 use crate::values::list::value::display_list;
@@ -27,7 +29,6 @@ use crate::values::list::value::FrozenListData;
 use crate::values::list::value::ListGen;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::list::value::ListData;
-use crate::values::Coerce;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -35,14 +36,14 @@ use crate::values::ValueLike;
 
 /// Reference to list content (mutable or frozen).
 #[repr(transparent)]
-#[derive(Coerce)]
+#[derive(RefCastCustom)]
 pub struct ListRef<'v> {
     pub(crate) content: [Value<'v>],
 }
 
 /// Reference to frozen list content.
 #[repr(transparent)]
-#[derive(Coerce)]
+#[derive(RefCastCustom)]
 pub struct FrozenListRef {
     pub(crate) content: [FrozenValue],
 }
@@ -51,9 +52,8 @@ impl<'v> ListRef<'v> {
     /// `type([])`, which is `"list"`.
     pub const TYPE: &'static str = ListData::TYPE;
 
-    pub(crate) fn new<'a>(slice: &'a [Value<'v>]) -> &'a ListRef<'v> {
-        coerce(slice)
-    }
+    #[ref_cast_custom]
+    pub(crate) fn new<'a>(slice: &'a [Value<'v>]) -> &'a ListRef<'v>;
 
     /// List elements.
     pub fn content(&self) -> &[Value<'v>] {
@@ -90,9 +90,8 @@ impl FrozenListRef {
     /// `type([])`, which is `"list"`.
     pub const TYPE: &'static str = ListRef::TYPE;
 
-    fn new(slice: &[FrozenValue]) -> &FrozenListRef {
-        coerce(slice)
-    }
+    #[ref_cast_custom]
+    fn new(slice: &[FrozenValue]) -> &FrozenListRef;
 
     /// Downcast to the frozen list.
     ///
