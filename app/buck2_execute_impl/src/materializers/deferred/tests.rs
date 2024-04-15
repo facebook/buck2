@@ -1260,14 +1260,31 @@ mod state_machine {
                 }
                 .unwrap()
             };
+            // The first clean stale request is scheduled at roughly the same time as materialize_write so we may receive an initial clean event
+            // before anything is materialized, if so ignore events until an artifact is found (retained != 0).
+            // It should only be neccesary to wait for a single clean (1 second) but wait for up to 5 just in case.
+            let mut i = 0;
+            while i < 5 {
+                let res = receive_clean_result(&mut daemon_dispatcher_events);
+                let stats = res.stats.unwrap();
+                if let buck2_data::CleanStaleStats {
+                    retained_artifact_count: 0,
+                    ..
+                } = stats
+                {
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
             let res = receive_clean_result(&mut daemon_dispatcher_events);
             let buck2_data::CleanStaleStats {
                 retained_artifact_count,
                 ..
             } = res.stats.unwrap();
+            assert_eq!(retained_artifact_count, 1);
             // check it's scheduled more than once
             let res = receive_clean_result(&mut daemon_dispatcher_events);
-            assert_eq!(retained_artifact_count, 1);
             let buck2_data::CleanStaleStats {
                 retained_artifact_count,
                 ..
