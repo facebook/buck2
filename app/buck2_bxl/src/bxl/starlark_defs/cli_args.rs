@@ -488,7 +488,7 @@ impl CliArgType {
             CliArgType::Enumeration(variants) => clap
                 .num_args(1)
                 .value_parser(variants.iter().cloned().collect::<Vec<_>>()),
-            CliArgType::List(inner) => inner.to_clap(clap).num_args(1..).action(ArgAction::Append),
+            CliArgType::List(inner) => inner.to_clap(clap).num_args(0..).action(ArgAction::Append),
             CliArgType::Option(inner) => inner.to_clap(clap).required(false),
             CliArgType::TargetLabel => clap.num_args(1).value_parser(|x: &str| {
                 lex_target_pattern::<TargetPatternExtra>(x, false)
