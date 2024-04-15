@@ -15,7 +15,7 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, clap::ValueEnum)]
 enum RootKind {
     Package,
     Cell,
@@ -39,7 +39,13 @@ impl FromStr for RootKind {
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Find buck cell, project or package root")]
 pub struct RootCommand {
-    #[clap(short, long, help("which root to print"), default_value("cell"), value_parser =["package", "cell", "project", "daemon"])]
+    #[clap(
+        short,
+        long,
+        help("which root to print"),
+        default_value("cell"),
+        value_enum
+    )]
     kind: RootKind,
     #[clap(
         help(
