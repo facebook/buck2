@@ -174,20 +174,3 @@ fn extract_all_field_tys_variant<'a>(data: &'a Variant) -> Box<dyn Iterator<Item
 fn extract_all_field_tys_enum<'a>(data: &'a DataEnum) -> Box<dyn Iterator<Item = &'a Type> + 'a> {
     Box::new(data.variants.iter().flat_map(extract_all_field_tys_variant))
 }
-
-pub(crate) fn check_each_field_impls<'a>(
-    iter: impl IntoIterator<Item = &'a Type>,
-    trait_required: Type,
-) -> TokenStream {
-    let checks = iter.into_iter().map(|ty| {
-        quote! {
-                assert_impl_all::<#ty>();
-        }
-    });
-
-    quote! {
-        fn assert_impl_all<T: ?Sized + #trait_required>() {}
-
-        #(#checks)*
-    }
-}

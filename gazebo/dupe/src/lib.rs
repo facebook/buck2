@@ -9,6 +9,7 @@
 
 //! A cheap version of [`Clone`].
 
+pub mod __macro_refs;
 pub(crate) mod iter;
 pub(crate) mod option;
 

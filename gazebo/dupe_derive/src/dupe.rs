@@ -7,15 +7,16 @@
  * of this source tree.
  */
 
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse_macro_input;
 use syn::parse_quote;
 use syn::DeriveInput;
 use syn::Ident;
+use syn::Type;
 use syn::TypeParamBound;
 
 use crate::util::add_trait_bounds;
-use crate::util::check_each_field_impls;
 use crate::util::extract_all_field_tys;
 
 pub fn derive_dupe(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -49,7 +50,7 @@ fn derive_dupe_explicit(
             return e.into_compile_error().into();
         }
     };
-    let check_each_field_dupe = check_each_field_impls(all_fields, parse_quote!(dupe::Dupe));
+    let check_each_field_dupe = check_each_field_dupe(all_fields);
 
     let check_func_name = Ident::new(
         &format!("__implicit_dupe_check_for_fields_of_{}", name),
@@ -68,4 +69,13 @@ fn derive_dupe_explicit(
     };
 
     gen.into()
+}
+
+fn check_each_field_dupe<'a>(tys: impl IntoIterator<Item = &'a Type>) -> TokenStream {
+    let tys = tys.into_iter();
+    quote! {
+        #(
+            dupe::__macro_refs::assert_dupe::<#tys>();
+        )*
+    }
 }
