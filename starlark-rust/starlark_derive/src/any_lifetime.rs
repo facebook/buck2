@@ -21,6 +21,9 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::DeriveInput;
 
+use crate::util::DeriveInputUtil;
+use crate::util::GenericsUtil;
+
 fn punctuated_try_map<A, B, P: Clone>(
     punctuated: &Punctuated<A, P>,
     f: impl Fn(&A) -> syn::Result<B>,
@@ -126,21 +129,11 @@ pub(crate) fn derive_provides_static_type(
 }
 
 /// Single lifetime parameter for `ProvidesStaticType`
-fn pst_lifetime<'a>(
-    params: impl Iterator<Item = &'a syn::GenericParam>,
-) -> syn::Result<syn::Lifetime> {
-    let mut lifetime = None;
-    for param in params {
-        if let syn::GenericParam::Lifetime(param) = param {
-            if lifetime.is_some() {
-                return Err(syn::Error::new_spanned(
-                    param,
-                    "only one lifetime parameter is supported",
-                ));
-            }
-            lifetime = Some(param.lifetime.clone());
-        }
-    }
+fn pst_lifetime<'a>(generics: &'a syn::Generics) -> syn::Result<syn::Lifetime> {
+    let generics = GenericsUtil::new(generics);
+    let lifetime = generics
+        .assert_at_most_one_lifetime_param()?
+        .map(|p| p.lifetime.clone());
     Ok(match lifetime {
         Some(lifetime) => lifetime,
         None => syn::parse_quote_spanned! { Span::call_site() => 'pst },
@@ -149,13 +142,14 @@ fn pst_lifetime<'a>(
 
 fn derive_provides_static_type_impl(input: proc_macro::TokenStream) -> syn::Result<syn::ItemImpl> {
     let input: DeriveInput = syn::parse(input)?;
+    let input = DeriveInputUtil::new(&input)?;
 
     let span = input.ident.span();
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let lifetime = pst_lifetime(input.generics.params.iter())?;
+    let lifetime = pst_lifetime(&input.generics)?;
 
     let mut lifetimes: Vec<syn::Lifetime> = Vec::new();
     let mut static_lifetimes: Vec<syn::Lifetime> = Vec::new();

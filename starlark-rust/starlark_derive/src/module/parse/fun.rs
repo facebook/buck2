@@ -24,7 +24,6 @@ use syn::Attribute;
 use syn::Expr;
 use syn::FnArg;
 use syn::GenericArgument;
-use syn::GenericParam;
 use syn::Generics;
 use syn::ItemFn;
 use syn::Lifetime;
@@ -48,6 +47,7 @@ use crate::module::typ::StarAttr;
 use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
 use crate::module::typ::StarStmt;
+use crate::util::GenericsUtil;
 
 #[derive(Default)]
 struct FnAttrs {
@@ -500,40 +500,25 @@ fn parse_fn_output(return_type: &ReturnType, span: Span, has_v: bool) -> syn::Re
 }
 
 fn parse_fn_generics(generics: &Generics) -> syn::Result<bool> {
+    let generics = GenericsUtil::new(generics);
     let mut seen_v = false;
-    for param in &generics.params {
-        match param {
-            GenericParam::Type(..) => {
-                return Err(syn::Error::new(
-                    param.span(),
-                    "Function cannot have type parameters",
-                ));
-            }
-            GenericParam::Const(..) => {
-                return Err(syn::Error::new(
-                    param.span(),
-                    "Function cannot have const parameters",
-                ));
-            }
-            GenericParam::Lifetime(lifetime) => {
-                if lifetime.lifetime.ident != "v" {
-                    return Err(syn::Error::new(
-                        lifetime.lifetime.span(),
-                        "Function cannot have lifetime parameters other than `v",
-                    ));
-                }
-                if !lifetime.bounds.is_empty() {
-                    return Err(syn::Error::new(
-                        lifetime.span(),
-                        "Function lifetime params must not have bounds",
-                    ));
-                }
-                if seen_v {
-                    return Err(syn::Error::new(lifetime.span(), "Duplicate `v parameters"));
-                }
-                seen_v = true;
-            }
+    for lifetime in generics.assert_only_lifetime_params()? {
+        if lifetime.lifetime.ident != "v" {
+            return Err(syn::Error::new(
+                lifetime.lifetime.span(),
+                "Function cannot have lifetime parameters other than `v",
+            ));
         }
+        if !lifetime.bounds.is_empty() {
+            return Err(syn::Error::new(
+                lifetime.span(),
+                "Function lifetime params must not have bounds",
+            ));
+        }
+        if seen_v {
+            return Err(syn::Error::new(lifetime.span(), "Duplicate `v parameters"));
+        }
+        seen_v = true;
     }
     Ok(seen_v)
 }

@@ -98,16 +98,12 @@ fn is_ignore(attrs: &[Attribute]) -> bool {
 }
 
 fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<syn::Expr> {
-    let generic_types = generics
-        .params
-        .iter()
-        .filter_map(|x| match x {
-            GenericParam::Type(x) => Some(x.ident.to_string()),
-            _ => None,
-        })
-        .collect();
-
     let derive_input = DeriveInputUtil::new(derive_input)?;
+
+    let generic_types = generics
+        .type_params()
+        .map(|x| x.ident.to_string())
+        .collect();
 
     derive_input.for_each_field(|name, field| {
         if is_ignore(&field.attrs) {

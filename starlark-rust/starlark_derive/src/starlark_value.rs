@@ -18,6 +18,7 @@
 use quote::quote_spanned;
 use syn::spanned::Spanned;
 
+use crate::util::GenericsUtil;
 use crate::v_lifetime::find_v_lifetime;
 use crate::vtable::vtable_has_field_name;
 
@@ -134,17 +135,7 @@ impl ImplStarlarkValue {
             ));
         }
 
-        for param in &self.input.generics.params {
-            match param {
-                syn::GenericParam::Lifetime(_) => {}
-                _ => {
-                    return Err(syn::Error::new_spanned(
-                        param,
-                        "only lifetime parameters are supported to implement `UnpackValue` or `StarlarkTypeRepr`",
-                    ));
-                }
-            }
-        }
+        GenericsUtil::new(&self.input.generics).assert_only_lifetime_params()?;
 
         let lt = &self.lifetime_param;
         let params = &self.input.generics.params;

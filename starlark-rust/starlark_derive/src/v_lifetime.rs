@@ -15,29 +15,25 @@
  * limitations under the License.
  */
 
+use crate::util::GenericsUtil;
+
 /// Find at most one lifetime parameter, which must be named `'v`.
 pub(crate) fn find_v_lifetime(generics: &syn::Generics) -> syn::Result<Option<&syn::Lifetime>> {
-    let mut found_lifetime = None;
-    for lifetime in generics.lifetimes() {
-        if found_lifetime.is_some() {
-            return Err(syn::Error::new_spanned(
-                lifetime,
-                "Only one lifetime parameter is allowed",
-            ));
-        }
-        if !lifetime.bounds.is_empty() {
-            return Err(syn::Error::new_spanned(
-                lifetime,
-                "Lifetime parameter cannot have bounds",
-            ));
-        }
-        if lifetime.lifetime.ident != "v" {
-            return Err(syn::Error::new_spanned(
-                lifetime,
-                "Lifetime parameter must be named 'v'",
-            ));
-        }
-        found_lifetime = Some(&lifetime.lifetime);
+    let generics = GenericsUtil::new(generics);
+    let Some(lifetime) = generics.assert_at_most_one_lifetime_param()? else {
+        return Ok(None);
+    };
+    if !lifetime.bounds.is_empty() {
+        return Err(syn::Error::new_spanned(
+            lifetime,
+            "Lifetime parameter cannot have bounds",
+        ));
     }
-    Ok(found_lifetime)
+    if lifetime.lifetime.ident != "v" {
+        return Err(syn::Error::new_spanned(
+            lifetime,
+            "Lifetime parameter must be named 'v'",
+        ));
+    }
+    Ok(Some(&lifetime.lifetime))
 }

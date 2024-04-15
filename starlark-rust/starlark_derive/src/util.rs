@@ -374,4 +374,78 @@ impl<'a> DeriveInputUtil<'a> {
             })
         })
     }
+
+    pub(crate) fn generics(self) -> GenericsUtil<'a> {
+        match self {
+            DeriveInputUtil::Struct(data) => GenericsUtil::new(&data.derive_input.generics),
+            DeriveInputUtil::Enum(data) => GenericsUtil::new(&data.derive_input.generics),
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct GenericsUtil<'a> {
+    pub(crate) generics: &'a syn::Generics,
+}
+
+impl<'a> GenericsUtil<'a> {
+    pub(crate) fn new(generics: &'a syn::Generics) -> Self {
+        GenericsUtil { generics }
+    }
+
+    pub(crate) fn assert_only_lifetime_params(self) -> syn::Result<Vec<&'a syn::LifetimeParam>> {
+        let mut lifetimes = Vec::new();
+        for param in &self.generics.params {
+            match param {
+                syn::GenericParam::Lifetime(param) => lifetimes.push(param),
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        param,
+                        "only lifetime parameters are supported (no type or const parameters)",
+                    ));
+                }
+            }
+        }
+        Ok(lifetimes)
+    }
+
+    pub(crate) fn assert_only_type_params(self) -> syn::Result<Vec<&'a syn::TypeParam>> {
+        let mut type_params = Vec::new();
+        for param in &self.generics.params {
+            match param {
+                syn::GenericParam::Type(param) => type_params.push(param),
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        param,
+                        "only type parameters are supported (no lifetime or const parameters)",
+                    ));
+                }
+            }
+        }
+        Ok(type_params)
+    }
+
+    pub(crate) fn assert_at_most_one_lifetime_param(
+        self,
+    ) -> syn::Result<Option<&'a syn::LifetimeParam>> {
+        let mut lifetime_params = self.generics.lifetimes();
+        let Some(lt) = lifetime_params.next() else {
+            return Ok(None);
+        };
+        if lifetime_params.next().is_some() {
+            return Err(syn::Error::new_spanned(
+                lt,
+                "expecting at most one lifetime parameter",
+            ));
+        }
+        Ok(Some(lt))
+    }
+}
+
+impl<'a> Deref for GenericsUtil<'a> {
+    type Target = syn::Generics;
+
+    fn deref(&self) -> &Self::Target {
+        self.generics
+    }
 }
