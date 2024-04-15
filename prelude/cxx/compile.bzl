@@ -109,6 +109,8 @@ _CxxCompileCommand = record(
     base_compile_cmd = field(cmd_args),
     # The argsfile of arguments from the rule and it's dependencies.
     argsfile = field(CompileArgsfile),
+    # Similar to the argsfile above but with absolute paths.
+    abs_argsfile = field(CompileArgsfile),
     headers_dep_files = field([_HeadersDepFiles, None]),
     compiler_type = field(str),
     # The action category
@@ -175,7 +177,17 @@ def get_source_extension_for_header(header_extension: str, default: CxxExtension
     else:
         return default
 
-def collect_cxx_extensions(srcs: list[CxxSrcWithFlags]) -> list[CxxExtension]:
+def get_source_extension(src: CxxSrcWithFlags, default_for_headers: CxxExtension) -> CxxExtension:
+    """
+    Which source files extension to use for a source or a header file. We want
+    headers to appear as though they are source files.
+    """
+    if src.is_header:
+        return get_source_extension_for_header(src.file.extension, default_for_headers)
+    else:
+        return CxxExtension(src.file.extension)
+
+def collect_extensions(srcs: list[CxxSrcWithFlags]) -> list[CxxExtension]:
     """
     Collect extensions of source files while doing light normalization.
     """
@@ -189,7 +201,7 @@ def collect_cxx_extensions(srcs: list[CxxSrcWithFlags]) -> list[CxxExtension]:
     extensions = set([CxxExtension(duplicates.get(src.file.extension, src.file.extension)) for src in srcs])
     return extensions.list()
 
-def get_default_source_extension_for_plain_header(rule_type: str) -> CxxExtension:
+def default_source_extension_for_plain_header(rule_type: str) -> CxxExtension:
     """
     Returns default source file extension to use to get get compiler flags for plain .h headers.
     """
@@ -211,7 +223,7 @@ def detect_source_extension_for_plain_headers(exts: list[CxxExtension], rule_typ
         exts.remove(asm_ext)
 
     if exts.size() == 0:
-        return get_default_source_extension_for_plain_header(rule_type)
+        return default_source_extension_for_plain_header(rule_type)
 
     if exts.size() == 1:
         return exts.list()[0]
@@ -228,6 +240,16 @@ def detect_source_extension_for_plain_headers(exts: list[CxxExtension], rule_typ
     if exts.contains(CxxExtension(".m")):
         return CxxExtension(".m")
     return CxxExtension(".c")
+
+def collect_source_extensions(
+        srcs: list[CxxSrcWithFlags],
+        default_for_headers: CxxExtension) -> list[CxxExtension]:
+    """
+    Return unique source extensions from a list of source and header files where
+    header extensions are mapped to corresponding source extensions.
+    """
+    source_extensions = set([get_source_extension(src, default_for_headers) for src in srcs])
+    return source_extensions.list()
 
 def get_header_language_mode(source_extension: CxxExtension) -> str | None:
     """
@@ -253,6 +275,9 @@ def create_compile_cmds(
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
     of the generated compile commands and argsfile output.
     """
+
+    srcs_extensions = collect_extensions(impl_params.srcs)
+    extension_for_plain_headers = detect_source_extension_for_plain_headers(srcs_extensions, impl_params.rule_type)
 
     srcs_with_flags = []  # type: [CxxSrcWithFlags]
 
@@ -292,59 +317,32 @@ def create_compile_cmds(
 
     src_compile_cmds = []
     hdr_compile_cmds = []
-    cxx_compile_cmd_by_ext = {}
-    argsfile_by_ext = {}
-    abs_argsfile_by_ext = {}
+    cxx_compile_cmd_by_ext = {}  # type: dict[CxxExtension, _CxxCompileCommand]
+    argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
+    abs_argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
 
-    src_extensions = collect_cxx_extensions(impl_params.srcs)
-    extension_for_plain_headers = detect_source_extension_for_plain_headers(src_extensions, impl_params.rule_type)
+    src_extensions = collect_source_extensions(srcs_with_flags, extension_for_plain_headers)
+
+    # Deduplicate shared arguments to save memory. If we compile multiple files
+    # of the same extension they will have some of the same flags. Save on
+    # allocations by caching and reusing these objects.
+    for ext in src_extensions:
+        cmd = _generate_base_compile_command(ctx, pre, headers_tag, abs_headers_tag, ext)
+        cxx_compile_cmd_by_ext[ext] = cmd
+        argsfile_by_ext[ext.value] = cmd.argsfile
+        abs_argsfile_by_ext[ext.value] = cmd.abs_argsfile
+
     for src in srcs_with_flags:
-        # We want headers to appear as though they are source files.
-        extension_for_header = get_source_extension_for_header(src.file.extension, extension_for_plain_headers)
-        ext = extension_for_header if src.is_header else CxxExtension(src.file.extension)
-
-        # Deduplicate shared arguments to save memory. If we compile multiple files
-        # of the same extension they will have some of the same flags. Save on
-        # allocations by caching and reusing these objects.
-        if not ext in cxx_compile_cmd_by_ext:
-            toolchain = get_cxx_toolchain_info(ctx)
-            compiler_info = _get_compiler_info(toolchain, ext)
-            base_compile_cmd = _get_compile_base(compiler_info)
-            category = _get_category(ext)
-
-            headers_dep_files = None
-            dep_file_file_type_hint = _dep_file_type(ext)
-            if dep_file_file_type_hint != None and toolchain.use_dep_files:
-                tracking_mode = _get_dep_tracking_mode(toolchain, dep_file_file_type_hint)
-                mk_dep_files_flags = get_headers_dep_files_flags_factory(tracking_mode)
-                if mk_dep_files_flags:
-                    headers_dep_files = _HeadersDepFiles(
-                        processor = cmd_args(compiler_info.dep_files_processor),
-                        mk_flags = mk_dep_files_flags,
-                        tag = headers_tag,
-                        dep_tracking_mode = tracking_mode,
-                    )
-
-            argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag, False)
-            abs_argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, abs_headers_tag, True)
-
-            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
-            cxx_compile_cmd_by_ext[ext] = _CxxCompileCommand(
-                base_compile_cmd = base_compile_cmd,
-                argsfile = argsfile_by_ext[ext.value],
-                headers_dep_files = headers_dep_files,
-                compiler_type = compiler_info.compiler_type,
-                category = category,
-                allow_cache_upload = allow_cache_upload,
-            )
-
-        cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
-
         src_args = []
         src_args.extend(src.flags)
+
+        ext = get_source_extension(src, extension_for_plain_headers)
+
         if src.is_header:
-            language_mode = get_header_language_mode(extension_for_header)
+            language_mode = get_header_language_mode(ext)
             src_args.extend(["-x", language_mode] if language_mode else [])
+
+        cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
         src_args.extend(["-c", src.file])
 
         src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header)
@@ -696,3 +694,45 @@ def _get_dep_tracking_mode(toolchain: Provider, file_type: DepFileType) -> DepTr
         return toolchain.cuda_dep_tracking_mode
     else:
         return DepTrackingMode("makefile")
+
+def _generate_base_compile_command(
+        ctx: AnalysisContext,
+        pre: CPreprocessorInfo,
+        headers_tag: ArtifactTag,
+        abs_headers_tag: ArtifactTag,
+        ext: CxxExtension) -> _CxxCompileCommand:
+    """
+    Generate a common part of a compile command that is shared by all sources
+    with a given extension.
+    """
+    toolchain = get_cxx_toolchain_info(ctx)
+    compiler_info = _get_compiler_info(toolchain, ext)
+    base_compile_cmd = _get_compile_base(compiler_info)
+    category = _get_category(ext)
+
+    headers_dep_files = None
+    dep_file_file_type_hint = _dep_file_type(ext)
+    if dep_file_file_type_hint != None and toolchain.use_dep_files:
+        tracking_mode = _get_dep_tracking_mode(toolchain, dep_file_file_type_hint)
+        mk_dep_files_flags = get_headers_dep_files_flags_factory(tracking_mode)
+        if mk_dep_files_flags:
+            headers_dep_files = _HeadersDepFiles(
+                processor = cmd_args(compiler_info.dep_files_processor),
+                mk_flags = mk_dep_files_flags,
+                tag = headers_tag,
+                dep_tracking_mode = tracking_mode,
+            )
+
+    argsfile = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag, False)
+    abs_argsfile = _mk_argsfile(ctx, compiler_info, pre, ext, abs_headers_tag, True)
+
+    allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
+    return _CxxCompileCommand(
+        base_compile_cmd = base_compile_cmd,
+        argsfile = argsfile,
+        abs_argsfile = abs_argsfile,
+        headers_dep_files = headers_dep_files,
+        compiler_type = compiler_info.compiler_type,
+        category = category,
+        allow_cache_upload = allow_cache_upload,
+    )
