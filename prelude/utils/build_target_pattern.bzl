@@ -25,6 +25,11 @@ BuildTargetPattern = record(
     name = field([str, None], None),
     matches = field(typing.Callable),
     as_string = field(typing.Callable),
+
+    # Exists purely for optimisation purposes.
+    # Matching pattern inside a loop for many targets creates huge amount of
+    # unnecessary string allocations that we can avoid
+    _path_with_path_symbol = field(str),
 )
 
 def parse_build_target_pattern(pattern: str) -> BuildTargetPattern:
@@ -85,7 +90,7 @@ def parse_build_target_pattern(pattern: str) -> BuildTargetPattern:
                 return True
             elif len(label.package) > path_pattern_length:
                 # pattern cell//package/... matches label cell//package/subpackage:target
-                return label.package.startswith(self.path + _PATH_SYMBOL)
+                return label.package.startswith(self._path_with_path_symbol)
             else:
                 return self.path == label.package
         else:
@@ -99,10 +104,10 @@ def parse_build_target_pattern(pattern: str) -> BuildTargetPattern:
         elif self.kind == _BuildTargetPatternKind("package"):
             return "{}//{}:".format(normalized_cell, self.path)
         elif self.kind == _BuildTargetPatternKind("recursive"):
-            return "{}//{}...".format(normalized_cell, self.path + _PATH_SYMBOL if self.path else "")
+            return "{}//{}...".format(normalized_cell, self._path_with_path_symbol)
         else:
             fail("Unknown build target pattern kind.")
 
-    self = BuildTargetPattern(kind = kind, cell = cell, path = path, name = name, matches = matches, as_string = as_string)
+    self = BuildTargetPattern(kind = kind, cell = cell, path = path, name = name, matches = matches, as_string = as_string, _path_with_path_symbol = path + _PATH_SYMBOL if path else "")
 
     return self
