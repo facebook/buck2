@@ -20,7 +20,7 @@ GoListOut = record(
     embed_files = field(list[Artifact], default = []),
 )
 
-def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool) -> Artifact:
+def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool, with_tests: bool) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain, force_disable_cgo = force_disable_cgo)
     env["GO111MODULE"] = "off"
@@ -34,13 +34,17 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
     )
     tags = go_toolchain.tags + ctx.attrs._tags
+    required_felds = "GoFiles,CgoFiles,HFiles,CFiles,CXXFiles,SFiles,EmbedFiles"
+    if with_tests:
+        required_felds += ",TestGoFiles,XTestGoFiles"
+
     go_list_args = [
         go_toolchain.go_list_wrapper,
         "-e",
         ["--go", go_toolchain.go],
         ["--workdir", srcs_dir],
         ["--output", go_list_out.as_output()],
-        "-json=GoFiles,CgoFiles,HFiles,CFiles,CXXFiles,SFiles,TestGoFiles,XTestGoFiles,EmbedFiles",
+        "-json=" + required_felds,
         ["-tags", ",".join(tags) if tags else []],
         ".",
     ]

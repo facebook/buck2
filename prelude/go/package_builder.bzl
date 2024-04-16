@@ -61,7 +61,7 @@ def build_package(
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
-    go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo)
+    go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo, with_tests = tests)
 
     srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.argsfile")
