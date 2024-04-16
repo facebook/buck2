@@ -12,11 +12,7 @@ load(
 )
 load(
     "@prelude//haskell:library_info.bzl",
-    "HaskellLibraryInfo",
-)
-load(
-    "@prelude//haskell:link_info.bzl",
-    "merge_haskell_link_infos",
+    "HaskellLibraryInfoTSet",
 )
 load(
     "@prelude//haskell:toolchain.bzl",
@@ -54,7 +50,7 @@ CompileArgsInfo = record(
 PackagesInfo = record(
     exposed_package_args = cmd_args,
     packagedb_args = cmd_args,
-    transitive_deps = field(list[HaskellLibraryInfo]),
+    transitive_deps = field(HaskellLibraryInfoTSet),
 )
 
 def _package_flag(toolchain: HaskellToolchainInfo) -> str:
@@ -71,16 +67,15 @@ def get_packages_info(
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
     # Collect library dependencies. Note that these don't need to be in a
-    # particular order and we really want to remove duplicates (there
-    # are a *lot* of duplicates).
-    libs = {}
+    # particular order.
     direct_deps_link_info = attr_deps_haskell_link_infos(ctx)
-    merged_hs_link_info = merge_haskell_link_infos(direct_deps_link_info)
-
-    hs_link_info = merged_hs_link_info.prof_info if enable_profiling else merged_hs_link_info.info
-
-    for lib in hs_link_info[link_style]:
-        libs[lib.db] = lib  # lib.db is a good enough unique key
+    libs = ctx.actions.tset(
+        HaskellLibraryInfoTSet,
+        children = [
+            lib.prof_info[link_style] if enable_profiling else lib.info[link_style]
+            for lib in direct_deps_link_info
+        ],
+    )
 
     # base is special and gets exposed by default
     package_flag = _package_flag(haskell_toolchain)
@@ -88,7 +83,7 @@ def get_packages_info(
 
     packagedb_args = cmd_args()
 
-    for lib in libs.values():
+    for lib in libs.traverse():
         exposed_package_args.hidden(lib.import_dirs.values())
         exposed_package_args.hidden(lib.stub_dirs)
 
@@ -100,10 +95,9 @@ def get_packages_info(
         packagedb_args.hidden(lib.stub_dirs)
         packagedb_args.hidden(lib.libs)
 
-    for lib in libs.values():
-        # These we need to add for all the packages/dependencies, i.e.
-        # direct and transitive (e.g. `fbcode-common-hs-util-hs-array`)
-        packagedb_args.add("-package-db", lib.db)
+    # These we need to add for all the packages/dependencies, i.e.
+    # direct and transitive (e.g. `fbcode-common-hs-util-hs-array`)
+    packagedb_args.add(libs.project_as_args("package_db"))
 
     haskell_direct_deps_lib_infos = attr_deps_haskell_lib_infos(
         ctx,
@@ -122,7 +116,7 @@ def get_packages_info(
     return PackagesInfo(
         exposed_package_args = exposed_package_args,
         packagedb_args = packagedb_args,
-        transitive_deps = libs.values(),
+        transitive_deps = libs,
     )
 
 def compile_args(
