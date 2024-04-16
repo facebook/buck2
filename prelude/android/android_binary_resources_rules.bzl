@@ -499,7 +499,7 @@ def _get_module_manifests(
 
     module_manifests_dir = ctx.actions.declare_output("module_manifests_dir", dir = True)
 
-    def get_manifests_modular(ctx: AnalysisContext, artifacts, outputs):
+    def get_manifests_modular(ctx: AnalysisContext, artifacts, resolved, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
 
         merged_module_manifests = {}
@@ -591,7 +591,7 @@ def _merge_assets(
         else:
             module_assets_apks_dir = None
 
-        def merge_assets_modular(ctx: AnalysisContext, artifacts, outputs):
+        def merge_assets_modular(ctx: AnalysisContext, artifacts, resolved, outputs):
             apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
 
             module_to_assets_dirs = {}

@@ -144,7 +144,7 @@ def get_multi_dex(
     inputs = [apk_module_graph_file] if apk_module_graph_file else [ctx.actions.write("empty_artifact_for_multi_dex_dynamic_action", [])]
     outputs = [primary_dex_file, primary_dex_class_names, root_module_secondary_dex_output_dir, secondary_dex_dir]
 
-    def do_multi_dex(ctx: AnalysisContext, artifacts, outputs):
+    def do_multi_dex(ctx: AnalysisContext, artifacts, resolved, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
         target_to_module_mapping_function = apk_module_graph_info.target_to_module_mapping_function
         module_to_jars = {}
@@ -436,7 +436,7 @@ def merge_to_split_dex(
 
     outputs = [primary_dex_output, primary_dex_artifact_list, primary_dex_class_names_list, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
 
-    def merge_pre_dexed_libs(ctx: AnalysisContext, artifacts, outputs):
+    def merge_pre_dexed_libs(ctx: AnalysisContext, artifacts, resolved, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
         module_to_canary_class_name_function = apk_module_graph_info.module_to_canary_class_name_function
         sorted_pre_dexed_inputs = _sort_pre_dexed_files(
@@ -541,7 +541,7 @@ def merge_to_split_dex(
                 secondary_dexes_for_symlinking[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
 
         if metadata_dot_txt_files_by_module:
-            def write_metadata_dot_txts(ctx: AnalysisContext, artifacts, outputs):
+            def write_metadata_dot_txts(ctx: AnalysisContext, artifacts, resolved, outputs):
                 for voltron_module, metadata_dot_txt in metadata_dot_txt_files_by_module.items():
                     metadata_line_artifacts = metadata_line_artifacts_by_module[voltron_module]
                     expect(metadata_line_artifacts != None, "Should have metadata lines!")

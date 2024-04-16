@@ -284,7 +284,7 @@ def cxx_dist_link(
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
     def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
-        def plan(ctx: AnalysisContext, artifacts, outputs):
+        def plan(ctx: AnalysisContext, artifacts, resolved, outputs):
             # buildifier: disable=uninitialized
             def add_pre_flags(idx: int):
                 if idx in pre_post_flags:
@@ -424,7 +424,7 @@ def cxx_dist_link(
     # produced it re-runs. And so, with a single dynamic_output, we'd need to
     # re-run all actions when any of the plans changed.
     def dynamic_optimize(name: str, initial_object: Artifact, bc_file: Artifact, plan: Artifact, opt_object: Artifact):
-        def optimize_object(ctx: AnalysisContext, artifacts, outputs):
+        def optimize_object(ctx: AnalysisContext, artifacts, resolved, outputs):
             plan_json = artifacts[plan].read_json()
 
             # If the object was not compiled with thinlto flags, then there
@@ -470,7 +470,7 @@ def cxx_dist_link(
         ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object.as_output()], f = optimize_object)
 
     def dynamic_optimize_archive(archive: _ArchiveLinkData):
-        def optimize_archive(ctx: AnalysisContext, artifacts, outputs):
+        def optimize_archive(ctx: AnalysisContext, artifacts, resolved, outputs):
             plan_json = artifacts[archive.plan].read_json()
             if "objects" not in plan_json or not plan_json["objects"] or lazy.is_all(lambda e: not e["is_bc"], plan_json["objects"]):
                 # Nothing in this directory was lto-able; let's just copy the archive.
@@ -552,7 +552,7 @@ def cxx_dist_link(
 
     linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.link.argsfile")
 
-    def thin_lto_final_link(ctx: AnalysisContext, artifacts, outputs):
+    def thin_lto_final_link(ctx: AnalysisContext, artifacts, resolved, outputs):
         plan = artifacts[link_plan_out].read_json()
         link_args = cmd_args()
         plan_index = {int(k): v for k, v in plan["index"].items()}

@@ -462,7 +462,7 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) ->
     # includes the compiler include path.
     global_include_paths = _include_paths_in_context(ctx, build_mode)
 
-    def f(ctx: AnalysisContext, artifacts, outputs):
+    def f(ctx: AnalysisContext, artifacts, resolved, outputs):
         # A pair of mappings that detail which source files depend on which. See
         # [Note: Dynamic dependencies] in 'makefile.bzl'.
         makefile, makefile2 = parse_makefile(artifacts[depends_output].read_string(), srcs, opaque_enabled)

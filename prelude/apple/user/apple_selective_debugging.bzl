@@ -110,7 +110,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         if json_type != _SelectiveDebuggingJsonType("targets"):
             return inner_ctx.actions.write(output_name, sorted(set(package_names).list()))
 
-        def scrub_selected_debug_paths_action(dynamic_ctx: AnalysisContext, artifacts, outputs):
+        def scrub_selected_debug_paths_action(dynamic_ctx: AnalysisContext, artifacts, resolved, outputs):
             packages = [
                 # "cell//path/to/some/thing:target" -> "path/to/some/thing"
                 target.split("//")[1].split(":")[0]

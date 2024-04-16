@@ -476,7 +476,7 @@ def _build_erl(
         identifier = action_identifier(toolchain, src.basename),
     )
 
-    def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
+    def dynamic_lambda(ctx: AnalysisContext, artifacts, resolved, outputs):
         erl_opts = _get_erl_opts(ctx, toolchain, src)
         erlc_cmd = cmd_args(
             [

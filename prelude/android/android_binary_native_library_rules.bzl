@@ -241,7 +241,7 @@ def get_android_binary_native_library_info(
             ),
         )
 
-    def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, outputs):
+    def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, resolved, outputs):
         get_module_from_target = all_targets_in_root_module
         if apk_module_graph_file:
             get_module_from_target = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts).target_to_module_mapping_function
@@ -1713,7 +1713,7 @@ def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, 
     return extract_global_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
 
 def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist: list[regex], output: Artifact, provided_symbols: Artifact, needed_symbols: list[Artifact]):
-    def create_version_script(ctx, artifacts, outputs):
+    def create_version_script(ctx, artifacts, resolved, outputs):
         all_needed_symbols = {}
         for symbols_file in needed_symbols:
             for line in artifacts[symbols_file].read_string().strip().split("\n"):
@@ -1752,7 +1752,7 @@ def extract_undefined_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo,
     return extract_undefined_syms(ctx, toolchain, lib, "relinker_extract_undefined_symbols")
 
 def union_needed_symbols(actions: AnalysisActions, output: Artifact, needed_symbols: list[Artifact]):
-    def compute_union(ctx, artifacts, outputs):
+    def compute_union(ctx, artifacts, resolved, outputs):
         unioned_symbols = {}
         for symbols_file in needed_symbols:
             for line in artifacts[symbols_file].read_string().strip().split("\n"):
