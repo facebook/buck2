@@ -14,7 +14,12 @@ from packaging.version import Version
 
 from .idb_companion import IdbCompanion
 
-from .idb_target import IdbTarget, managed_simulators_from_stdout, SimState
+from .idb_target import (
+    IdbTarget,
+    managed_simulators_from_stdout,
+    SimState,
+    SimulatorInfo,
+)
 
 from .simctl_runtime import list_ios_runtimes, XCSimRuntime
 
@@ -171,7 +176,7 @@ def _select_simulator_with_preference(
     return simulator
 
 
-async def _ios_simulator(simulator_manager: str, booted: bool) -> List[IdbCompanion]:
+async def prepare_simulator(simulator_manager: str, booted: bool) -> SimulatorInfo:
     managed_simulators = await _get_managed_simulators_create_if_needed(
         simulator_manager=simulator_manager
     )
@@ -187,7 +192,16 @@ async def _ios_simulator(simulator_manager: str, booted: bool) -> List[IdbCompan
             cmd=boot_cmd,
             timeout=SIMULATOR_BOOT_TIMEOUT,
         )
+    return SimulatorInfo(
+        udid=simulator.udid,
+        device_set_path=_device_set_path(),
+    )
 
+
+async def _ios_simulator(simulator_manager: str, booted: bool) -> List[IdbCompanion]:
+    simulator = await prepare_simulator(
+        simulator_manager=simulator_manager, booted=booted
+    )
     grpc_domain_sock = f"/tmp/buck2_idb_companion_{simulator.udid}"
     process = await spawn_companion(
         command=_spawn_companion_for_simulator_command(

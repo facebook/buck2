@@ -31,6 +31,12 @@ class IdbTarget:
     port: int = 0
 
 
+@dataclass
+class SimulatorInfo:
+    udid: str
+    device_set_path: str
+
+
 def managed_simulators_from_stdout(stdout: Optional[str]) -> List[IdbTarget]:
     if not stdout:
         return []

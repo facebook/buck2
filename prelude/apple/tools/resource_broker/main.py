@@ -19,7 +19,7 @@ from typing import List, Optional
 
 from .idb_companion import IdbCompanion
 
-from .ios import ios_booted_simulator, ios_unbooted_simulator
+from .ios import ios_booted_simulator, ios_unbooted_simulator, prepare_simulator
 
 from .macos import macos_idb_companions
 
@@ -49,6 +49,14 @@ def _args_parser() -> argparse.ArgumentParser:
             Pass `{_ResourceType.macosIdbCompanion}` to get MacOS companions.
         """,
     )
+    parser.add_argument(
+        "--no-companion",
+        default=False,
+        action="store_true",
+        help="""
+        If passed, will only create simulator. No idb_companion will be spawned.
+        """,
+    )
     return parser
 
 
@@ -71,6 +79,21 @@ def _check_simulator_manager_exists(simulator_manager: Optional[str]) -> None:
 
 def main() -> None:
     args = _args_parser().parse_args()
+    if args.no_companion:
+        booted = args.type == _ResourceType.iosBootedSimulator
+        sim = asyncio.run(
+            prepare_simulator(simulator_manager=args.simulator_manager, booted=booted)
+        )
+        result = {
+            "udid": sim.udid,
+            "device_set_path": sim.device_set_path,
+        }
+        json.dump(result, sys.stdout)
+    else:
+        _create_companion(args)
+
+
+def _create_companion(args):
     if args.type == _ResourceType.iosBootedSimulator:
         _check_simulator_manager_exists(args.simulator_manager)
         idb_companions.extend(asyncio.run(ios_booted_simulator(args.simulator_manager)))
