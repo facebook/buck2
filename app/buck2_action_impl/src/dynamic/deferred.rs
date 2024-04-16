@@ -157,31 +157,13 @@ impl DynamicLambda {
         promises: Value<'v>,
         outputs: Value<'v>,
     ) -> anyhow::Result<bool> {
-        // check how many positional arguments the lambda takes, if
-        // three then we skip the promise arguments, if four then we
-        // pass the promise arguments.
-        let param_spec = lambda.parameters_spec().map_or_else(
-            || {
-                // TODO can this happen? If so, handle appropriately.
-                Err(internal_error!(
-                    "Cannot determine the parameter spec of dynamic lambda"
-                ))
-            },
-            |spec| Ok(spec),
-        )?;
-
-        let positionals = if param_spec.can_fill_with_args(3, &[]) {
-            [ctx, artifacts, outputs].to_vec()
-        } else {
-            [
-                ctx, artifacts, // TODO consider if we can merge into `artifacts`.
-                promises, outputs,
-            ]
-            .to_vec()
-        };
-
         let return_value = eval
-            .eval_function(lambda, &positionals, &[])
+            .eval_function(
+                lambda,
+                // TODO consider if we can merge `promises` into `artifacts`.
+                &[ctx, artifacts, promises, outputs].to_vec(),
+                &[],
+            )
             .map_err(BuckStarlarkError::new)?;
 
         if !return_value.is_none() {
