@@ -88,6 +88,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             (
                 FrozenValue,
                 SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+                SmallMap<DynamicValue, FrozenValue>,
                 SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
             ),
             NoneType,

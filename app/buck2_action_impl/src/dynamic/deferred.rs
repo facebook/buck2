@@ -355,6 +355,7 @@ pub struct DynamicLambdaCtxData<'v> {
         (
             FrozenValue,
             SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+            SmallMap<DynamicValue, FrozenValue>,
             SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
         ),
         NoneType,

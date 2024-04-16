@@ -11,6 +11,7 @@ use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use starlark::any::ProvidesStaticType;
@@ -47,6 +48,7 @@ pub(crate) struct DynamicLambdaParams<'v> {
         (
             FrozenValue,
             SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+            SmallMap<DynamicValue, FrozenValue>,
             SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
         ),
         NoneType,
@@ -68,6 +70,7 @@ pub(crate) struct FrozenDynamicLambdaParams {
         (
             FrozenValue,
             SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
+            SmallMap<DynamicValue, FrozenValue>,
             SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
         ),
         NoneType,
