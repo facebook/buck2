@@ -14,6 +14,7 @@ pub(crate) mod iter;
 pub(crate) mod option;
 
 use std::cell::Cell;
+use std::mem::ManuallyDrop;
 use std::num::*;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -45,6 +46,7 @@ impl<A: ?Sized> Dupe for std::sync::Weak<A> {}
 impl<A: ?Sized> Dupe for Rc<A> {}
 impl<A: ?Sized> Dupe for std::rc::Weak<A> {}
 impl<A: Copy> Dupe for Cell<A> {}
+impl<A: Dupe> Dupe for ManuallyDrop<A> {}
 
 // Small containers
 impl<A: Dupe> Dupe for Option<A> {}
