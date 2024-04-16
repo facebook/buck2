@@ -39,7 +39,8 @@ use buck2_util::arc_str::ArcStr;
 use bumpalo::Bump;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use hashbrown::raw::RawTable;
+use hashbrown::hash_table;
+use hashbrown::HashTable;
 use tracing::info;
 
 use super::interner::AttrCoercionInterner;
@@ -81,7 +82,7 @@ pub struct BuildAttrCoercionContext {
     /// requires either computing hash twice (for get, then for insert) or
     /// allocating a key to perform a query using `entry` API.
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
-    label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
+    label_cache: RefCell<HashTable<(u64, *const str, ProvidersLabel)>>,
     str_interner: ArcStrInterner,
     list_interner: AttrCoercionInterner<ArcSlice<CoercedAttr>>,
     // TODO(scottcao): Dict and selects need separate interners right now because
@@ -115,7 +116,7 @@ impl BuildAttrCoercionContext {
             enclosing_package,
             package_boundary_exception,
             alloc: Bump::new(),
-            label_cache: RefCell::new(RawTable::new()),
+            label_cache: RefCell::new(HashTable::new()),
             str_interner: ArcStrInterner::new(),
             list_interner: AttrCoercionInterner::new(),
             dict_interner: AttrCoercionInterner::new(),
@@ -181,18 +182,18 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
 
-        if let Some((_h, _v, label)) = label_cache.get(hash, |(_h, v, _)| value == unsafe { &**v })
-        {
-            return Ok(label.clone());
-        }
-
-        let label = self.coerce_label_no_cache(value)?;
-        label_cache.insert(
+        match label_cache.entry(
             hash,
-            (hash, self.alloc.alloc_str(value), label.clone()),
-            |(h, _v, _)| *h,
-        );
-        Ok(label)
+            |(h, v, _)| *h == hash && value == unsafe { &**v },
+            |(h, _, _)| *h,
+        ) {
+            hash_table::Entry::Occupied(e) => Ok(e.get().2.clone()),
+            hash_table::Entry::Vacant(e) => {
+                let label = self.coerce_label_no_cache(value)?;
+                e.insert((hash, self.alloc.alloc_str(value), label.clone()));
+                Ok(label)
+            }
+        }
     }
 
     fn intern_str(&self, value: &str) -> ArcStr {
