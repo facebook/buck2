@@ -116,7 +116,8 @@ class DebugWipeFinder(PathFinder):
 
             def get_code(self, fullname):
                 code = super().get_code(fullname)
-                if code:
+                # This can segfault in 3.12
+                if code and sys.version_info < (3, 12):
                     # Ideally we'd do
                     # code.co_lnotab = b''
                     # But code objects are READONLY. Not to worry though; we'll
