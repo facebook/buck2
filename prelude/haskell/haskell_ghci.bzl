@@ -51,8 +51,9 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
+    "create_shlib_symlink_tree",
     "traverse_shared_library_info",
-    "with_unique_sonames",
+    "with_unique_str_sonames",
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load(
@@ -270,7 +271,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
 
     # Handle third-party dependencies of the omnibus SO
     tp_deps_shared_link_infos = {}
-    so_symlinks = {}
+    prebuilt_shlibs = []
 
     for node_label in prebuilt_so_deps.keys():
         node = graph_nodes[node_label]
@@ -284,14 +285,14 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
         shared_li = node.link_infos.get(output_style, None)
         if shared_li != None:
             tp_deps_shared_link_infos[node_label] = shared_li.default
-        for shlib in node.shared_libs.libraries:
-            so_symlinks[shlib.soname] = shlib.lib.output
+        prebuilt_shlibs.extend(node.shared_libs.libraries)
 
     # Create symlinks to the TP dependencies' SOs
     so_symlinks_root_path = ctx.label.name + ".so-symlinks"
-    so_symlinks_root = ctx.actions.symlinked_dir(
-        so_symlinks_root_path,
-        so_symlinks,
+    so_symlinks_root = create_shlib_symlink_tree(
+        actions = ctx.actions,
+        out = so_symlinks_root_path,
+        shared_libs = prebuilt_shlibs,
     )
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
@@ -480,7 +481,7 @@ def _build_preload_deps_root(
 
             shlib = traverse_shared_library_info(slib_info)
 
-            for soname, shared_lib in with_unique_sonames(shlib).items():
+            for soname, shared_lib in with_unique_str_sonames(shlib).items():
                 preload_symlinks[soname] = shared_lib.lib.output
 
         # TODO(T150785851): build or get SO for direct preload_deps

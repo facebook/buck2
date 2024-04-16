@@ -86,7 +86,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
         ]).hidden(targets_to_jars_args)
 
     if ctx.attrs.should_include_libraries:
-        targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), shared_lib.soname], delimiter = " ") for shared_lib in traversed_shared_library_info]
+        targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), shared_lib.soname.ensure_str()], delimiter = " ") for shared_lib in traversed_shared_library_info]
         targets_to_so_names = ctx.actions.write("targets_to_so_names.txt", targets_to_so_names_args)
         cmd.add([
             "--targets-to-so-names",

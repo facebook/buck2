@@ -353,7 +353,7 @@ def _preload_libraries_args(ctx: AnalysisContext, shared_libraries: list[(str, S
     preload_libraries_path = ctx.actions.write(
         "__preload_libraries.txt",
         cmd_args([
-            "--preload={}".format(paths.join(libdir, shlib.soname))
+            "--preload={}".format(paths.join(libdir, shlib.soname.ensure_str()))
             for libdir, shlib in shared_libraries
         ]),
     )
@@ -442,7 +442,7 @@ def _pex_modules_common_args(
     native_library_dests_path = ctx.actions.write(
         "__native_libraries___dests.txt",
         [
-            "--native-library-dest={}".format(paths.join(libdir, shlib.soname))
+            "--native-library-dest={}".format(paths.join(libdir, shlib.soname.ensure_str()))
             for shlib, libdir in shared_libraries
         ],
     )
@@ -467,20 +467,20 @@ def _pex_modules_common_args(
         for name, artifact in debuginfo_files:
             if type(name) != type(""):
                 libdir, shlib, ext = name
-                name = paths.join(libdir, shlib.soname + ext)
+                name = paths.join(libdir, shlib.soname.ensure_str() + ext)
             debug_artifacts.append((name, artifact))
 
     if ctx.attrs.package_split_dwarf_dwp:
         if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) == PackageStyle("standalone") and cxx_is_gnu(ctx):
             # rename to match extracted debuginfo package
             dwp = [
-                (paths.join(libdir, "{}.debuginfo.dwp".format(shlib.soname)), shlib.lib.dwp)
+                (paths.join(libdir, "{}.debuginfo.dwp".format(shlib.soname.ensure_str())), shlib.lib.dwp)
                 for shlib, libdir in shared_libraries
                 if shlib.lib.dwp != None
             ]
         else:
             dwp = [
-                (paths.join(libdir, "{}.dwp".format(shlib.soname)), shlib.lib.dwp)
+                (paths.join(libdir, "{}.dwp".format(shlib.soname.ensure_str())), shlib.lib.dwp)
                 for shlib, libdir in shared_libraries
                 if shlib.lib.dwp != None
             ]

@@ -233,21 +233,36 @@ def _rust_binary_common(
 
         sub_targets_for_link_strategy = {}
 
+        # TODO(agallagher) There appears to be pre-existing soname conflicts
+        # when building this (when using link groups), which prevents using
+        # `with_unique_str_sonames`.
+        str_soname_shlibs = {
+            shlib.soname.ensure_str(): shlib
+            for shlib in shared_libs
+            if shlib.soname.is_str()
+        }
         sub_targets_for_link_strategy["shared-libraries"] = [DefaultInfo(
             default_output = ctx.actions.write_json(
                 name + ".shared-libraries.json",
                 {
-                    "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, shlib.soname) for shlib in shared_libs],
-                    "librariesdwp": ["{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, shlib.soname) for shlib in shared_libs if shlib.lib.dwp],
+                    "libraries": [
+                        "{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, soname)
+                        for soname in str_soname_shlibs
+                    ],
+                    "librariesdwp": [
+                        "{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, soname)
+                        for soname, shlib in str_soname_shlibs.items()
+                        if shlib.lib.dwp
+                    ],
                     "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if executable_args.shared_libs_symlink_tree else [],
                 },
             ),
             sub_targets = {
-                shlib.soname: [DefaultInfo(
+                soname: [DefaultInfo(
                     default_output = shlib.lib.output,
                     sub_targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {},
                 )]
-                for shlib in shared_libs
+                for soname, shlib in str_soname_shlibs.items()
             },
         )]
 
