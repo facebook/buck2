@@ -22,6 +22,12 @@ pub struct ShardedLockFreeRawTable<T: AtomicValue, const SHARDS: usize> {
     shards: [LockFreeRawTable<T>; SHARDS],
 }
 
+impl<T: AtomicValue, const SHARDS: usize> Default for ShardedLockFreeRawTable<T, SHARDS> {
+    fn default() -> Self {
+        ShardedLockFreeRawTable::new()
+    }
+}
+
 impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
     const _ASSERTIONS: () = assert!(SHARDS.is_power_of_two());
 
