@@ -103,7 +103,7 @@ def buck_e2e_test(
 
     labels = []
     if "darwin" not in skip_for_os:
-        labels += [ci.mac(ci.opt())]
+        labels += [ci.mac(ci.aarch64(ci.opt()))]
     if "windows" not in skip_for_os:
         labels += [ci.windows(ci.opt())]
 
