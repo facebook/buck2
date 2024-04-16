@@ -11,7 +11,6 @@
 
 #![deny(missing_docs)]
 
-use std::array;
 use std::cell::UnsafeCell;
 use std::cmp;
 use std::mem;
@@ -134,13 +133,11 @@ impl<T, const BUCKETS: usize> LockFreeVec<T, BUCKETS> {
     };
 
     /// Empty.
-    // This can be `const fn` when something is stabilized as const, for example:
-    // * `MaybeUninit::zeroed`
-    // * `[const {expr}; 10 ]`
     #[inline]
-    pub fn new() -> LockFreeVec<T, BUCKETS> {
+    pub const fn new() -> LockFreeVec<T, BUCKETS> {
         LockFreeVec {
-            buckets: array::from_fn(|_| UnsafeCell::new(ptr::null_mut())),
+            // SAFETY: we want zeros.
+            buckets: unsafe { MaybeUninit::zeroed().assume_init() },
             size: AtomicUsize::new(0),
         }
     }
