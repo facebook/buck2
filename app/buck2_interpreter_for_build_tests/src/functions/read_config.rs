@@ -7,14 +7,12 @@
  * of this source tree.
  */
 
-use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
 #[test]
 fn test_read_config() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_read_config);
     tester.run_starlark_test(indoc!(
         r#"
             def test():

@@ -14,7 +14,6 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKindSet;
-use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
@@ -28,15 +27,9 @@ use dupe::Dupe;
 use indoc::indoc;
 use starlark::values::Heap;
 
-fn tester() -> Tester {
-    let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_attrs);
-    tester
-}
-
 #[test]
 fn string_works() -> buck2_error::Result<()> {
-    let mut tester = tester();
+    let mut tester = Tester::new().unwrap();
     tester.run_starlark_bzl_test(indoc!(
         r#"
         frozen = attrs.string(default="something", doc = "foo")
@@ -49,7 +42,7 @@ fn string_works() -> buck2_error::Result<()> {
 
 #[test]
 fn boolean_works() -> buck2_error::Result<()> {
-    let mut tester = tester();
+    let mut tester = Tester::new().unwrap();
     tester.run_starlark_bzl_test(indoc!(
         r#"
         frozen = attrs.bool(default=False)
@@ -62,7 +55,7 @@ fn boolean_works() -> buck2_error::Result<()> {
 
 #[test]
 fn test_attr_module_registered() -> buck2_error::Result<()> {
-    let mut tester = tester();
+    let mut tester = Tester::new().unwrap();
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def test():
@@ -73,7 +66,7 @@ fn test_attr_module_registered() -> buck2_error::Result<()> {
 
 #[test]
 fn list_works() -> buck2_error::Result<()> {
-    let mut tester = tester();
+    let mut tester = Tester::new().unwrap();
     tester.run_starlark_bzl_test(indoc!(
         r#"
         frozen = attrs.list(
@@ -96,7 +89,7 @@ fn list_works() -> buck2_error::Result<()> {
 
 #[test]
 fn enum_works() -> buck2_error::Result<()> {
-    let mut tester = tester();
+    let mut tester = Tester::new().unwrap();
     tester.run_starlark_bzl_test(indoc!(
         r#"
         frozen = attrs.enum(["red", "green", "blue"])
@@ -217,7 +210,7 @@ fn attr_coercer_coerces() -> anyhow::Result<()> {
 
 #[test]
 fn dep_works() -> buck2_error::Result<()> {
-    let mut t = tester();
+    let mut t = Tester::new().unwrap();
     t.run_starlark_bzl_test(indoc!(
         r#"
         frozen1 = attrs.dep(default="root//foo:bar")
@@ -229,7 +222,7 @@ fn dep_works() -> buck2_error::Result<()> {
         "#
     ))?;
 
-    let mut t = tester();
+    let mut t = Tester::new().unwrap();
     t.run_starlark_bzl_test_expecting_error(
         indoc!(
             r#"
@@ -241,7 +234,7 @@ fn dep_works() -> buck2_error::Result<()> {
     );
 
     // Relative targets are disallowed; there is no build file for them to be relative to
-    let mut t = tester();
+    let mut t = Tester::new().unwrap();
     t.run_starlark_bzl_test_expecting_error(
         indoc!(
             r#"
@@ -256,7 +249,7 @@ fn dep_works() -> buck2_error::Result<()> {
 
 #[test]
 fn source_works() -> buck2_error::Result<()> {
-    let mut t = tester();
+    let mut t = Tester::new().unwrap();
     t.run_starlark_bzl_test(indoc!(
         r#"
         frozen1 = attrs.source(default="root//foo:bar")
@@ -269,7 +262,7 @@ fn source_works() -> buck2_error::Result<()> {
     ))?;
 
     // Relative targets are disallowed; there is no build file for them to be relative to
-    let mut t = tester();
+    let mut t = Tester::new().unwrap();
     t.run_starlark_bzl_test_expecting_error(
         indoc!(
             r#"

@@ -47,7 +47,6 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
-use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::testing::EvalImportKey;
@@ -93,7 +92,6 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
     interpreter.additional_globals(register_rule_function);
     interpreter.additional_globals(register_provider);
     interpreter.additional_globals(register_builtin_providers);
-    interpreter.additional_globals(register_attrs);
     let module = interpreter
         .eval_import(
             &bzlfile,

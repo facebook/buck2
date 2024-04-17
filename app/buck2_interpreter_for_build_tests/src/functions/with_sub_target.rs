@@ -9,7 +9,6 @@
 
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::label::TargetLabel;
-use buck2_interpreter::types::configured_providers_label::register_providers_label;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
@@ -19,7 +18,6 @@ use indoc::indoc;
 #[test]
 fn test_with_sub_target() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_providers_label);
     tester.additional_globals(|globals| {
         let target = TargetLabel::testing_parse("cell//pkg:target");
         globals.set(

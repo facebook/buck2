@@ -7,14 +7,12 @@
  * of this source tree.
  */
 
-use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
 #[test]
 fn test_host_info() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_host_info);
     tester.run_starlark_test(indoc!(
         r#"
             def test():
@@ -34,7 +32,6 @@ fn test_host_info() -> anyhow::Result<()> {
 #[test]
 fn test_buck_v2() -> anyhow::Result<()> {
     let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_host_info);
     tester.run_starlark_test(indoc!(
         r#"
             def test():

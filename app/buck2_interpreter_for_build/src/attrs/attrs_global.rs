@@ -651,13 +651,11 @@ pub fn register_attrs(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::interpreter::testing::Tester;
 
     #[test]
     fn test_attr_display() -> anyhow::Result<()> {
         let mut tester = Tester::new().unwrap();
-        tester.additional_globals(register_attrs);
         tester.run_starlark_bzl_test(r#"
 def assert_eq(a, b):
     if a != b:

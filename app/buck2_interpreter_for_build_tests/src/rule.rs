@@ -10,10 +10,8 @@
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter::file_loader::LoadedModules;
-use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::nodes::attr_spec::AttributeSpecExt;
-use buck2_interpreter_for_build::rule::register_rule_function;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::testing::targets_to_json;
@@ -30,8 +28,6 @@ use starlark::typing::Ty;
 fn rule_tester() -> Tester {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_transitive_set);
-    tester.additional_globals(register_rule_function);
-    tester.additional_globals(register_attrs);
     tester
 }
 
