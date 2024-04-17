@@ -13,7 +13,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_interpreter::coerce::COERCE_TARGET_LABEL;
+use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
@@ -93,7 +93,7 @@ impl AttributeExt for Attribute {
                 coercer
                     .coerce(
                         AttrIsConfigurable::Yes,
-                        &get_attr_coercion_context(eval)?,
+                        &attr_coercion_context_for_bzl(eval)?,
                         x,
                     )
                     .context("Error coercing attribute default")?,
@@ -119,10 +119,8 @@ impl AttributeExt for Attribute {
     }
 }
 
-/// Grab a new coercion context object based on the main build file that is being evaluated.
-/// This is used because we do not have access to a specific shared instance via ctx.extra
-/// when evaluating .bzl files
-pub(crate) fn get_attr_coercion_context<'v>(
+/// Coerction context for evaluating bzl files (attr default, transition rules).
+pub(crate) fn attr_coercion_context_for_bzl<'v>(
     eval: &Evaluator<'v, '_, '_>,
 ) -> anyhow::Result<BuildAttrCoercionContext> {
     let build_context = BuildContext::from_context(eval)?;
@@ -133,9 +131,9 @@ pub(crate) fn get_attr_coercion_context<'v>(
     ))
 }
 
-pub(crate) fn init_coerce_target_label() {
-    COERCE_TARGET_LABEL
-        .init(|eval, value| get_attr_coercion_context(eval)?.coerce_target_label(value))
+pub(crate) fn init_coerce_target_label_for_bzl() {
+    COERCE_TARGET_LABEL_FOR_BZL
+        .init(|eval, value| attr_coercion_context_for_bzl(eval)?.coerce_target_label(value))
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -254,7 +252,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
             Some(default) => {
                 match coercer.coerce(
                     AttrIsConfigurable::Yes,
-                    &get_attr_coercion_context(eval)?,
+                    &attr_coercion_context_for_bzl(eval)?,
                     default,
                 ) {
                     Ok(coerced_default) => Some(coerced_default),
@@ -303,7 +301,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
             Some(default) => {
                 match coercer.coerce(
                     AttrIsConfigurable::Yes,
-                    &get_attr_coercion_context(eval)?,
+                    &attr_coercion_context_for_bzl(eval)?,
                     default,
                 ) {
                     Ok(coerced_default) => Some(coerced_default),

@@ -16,7 +16,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
-use buck2_interpreter::coerce::COERCE_TARGET_LABEL;
+use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;
 use buck2_interpreter::types::transition::TransitionValue;
 use derive_more::Display;
@@ -188,7 +188,12 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
         let refs = refs
             .collect_entries()
             .into_iter()
-            .map(|(n, r)| Ok((n, TargetLabelTrace((COERCE_TARGET_LABEL.get()?)(eval, &r)?))))
+            .map(|(n, r)| {
+                Ok((
+                    n,
+                    TargetLabelTrace((COERCE_TARGET_LABEL_FOR_BZL.get()?)(eval, &r)?),
+                ))
+            })
             .collect::<anyhow::Result<_>>()?;
 
         let path: ImportPath = (*starlark_path_from_build_context(eval)?
