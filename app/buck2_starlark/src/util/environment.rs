@@ -38,10 +38,7 @@ impl Environment {
         dice: &mut DiceTransaction,
     ) -> anyhow::Result<Environment> {
         // Find the information from the globals
-        let globals = INTERPRETER_CALCULATION_IMPL
-            .get()?
-            .global_env_for_file_type(dice, path_type)
-            .await?;
+        let globals = INTERPRETER_CALCULATION_IMPL.get()?.global_env(dice).await?;
 
         // Next grab the prelude, unless we are in the prelude cell and not a build file
         let prelude = match INTERPRETER_CALCULATION_IMPL

@@ -101,7 +101,7 @@ fn get_builtin_global_starlark_docs() -> Doc {
 
 /// Globals that are in the interpreter (including BXL), but none of the starlark global symbols.
 fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
-    let mut b_o = interpreter_state.extension_file_global_env.documentation();
+    let mut b_o = interpreter_state.global_env.documentation();
     let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
     let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
     b_o.members = b_o

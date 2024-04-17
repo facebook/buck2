@@ -84,19 +84,15 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
             None,
             false,
             false,
-            register_read_package_value,
-            |globals| {
-                register_package_natives(globals);
-                register_read_package_value(globals);
-            },
             |globals| {
                 register_rule_defs(globals);
                 register_rule_function(globals);
                 register_attrs(globals);
                 register_read_package_value(globals);
                 register_write_package_value(globals);
+                register_package_natives(globals);
+                register_read_package_value(globals);
             },
-            |_| {},
             None,
         )
         .unwrap(),

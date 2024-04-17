@@ -740,9 +740,6 @@ impl DiceUpdater for DiceCommandUpdater {
             self.record_target_call_stacks,
             self.skip_targets_with_duplicate_names,
             register_universal_natives,
-            register_universal_natives,
-            register_universal_natives,
-            register_universal_natives,
             None,
         )?;
 

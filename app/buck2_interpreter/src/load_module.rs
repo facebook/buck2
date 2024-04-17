@@ -17,7 +17,6 @@ use starlark::environment::Globals;
 
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
-use crate::file_type::StarlarkFileType;
 use crate::paths::module::StarlarkModulePath;
 use crate::paths::package::PackageFilePath;
 use crate::prelude_path::PreludePath;
@@ -44,11 +43,7 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         package: PackageLabel,
     ) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>>;
 
-    async fn global_env_for_file_type(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        file_type: StarlarkFileType,
-    ) -> anyhow::Result<Globals>;
+    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<Globals>;
 
     async fn prelude_import(
         &self,

@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use buck2_audit::prelude::AuditPreludeCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::prelude_path::prelude_path;
@@ -42,7 +41,7 @@ impl ServerAuditSubcommand for AuditPreludeCommand {
                     "{}",
                     INTERPRETER_CALCULATION_IMPL
                         .get()?
-                        .global_env_for_file_type(&mut ctx, StarlarkFileType::Buck)
+                        .global_env(&mut ctx)
                         .await?
                         .describe()
                 )?;

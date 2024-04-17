@@ -84,10 +84,7 @@ pub struct BuildInterpreterConfiguror {
     host_info: HostInfo,
     record_target_call_stack: bool,
     skip_targets_with_duplicate_names: bool,
-    configure_build_file_globals: ConfigureGlobalsFn,
-    configure_package_file_globals: ConfigureGlobalsFn,
-    configure_extension_file_globals: ConfigureGlobalsFn,
-    configure_bxl_file_globals: ConfigureGlobalsFn,
+    configure_globals: ConfigureGlobalsFn,
     /// For test.
     additional_globals: Option<AdditionalGlobalsFn>,
 }
@@ -100,10 +97,7 @@ impl BuildInterpreterConfiguror {
         host_xcode_version: Option<XcodeVersionInfo>,
         record_target_call_stack: bool,
         skip_targets_with_duplicate_names: bool,
-        configure_build_file_globals: fn(&mut GlobalsBuilder),
-        configure_package_file_globals: fn(&mut GlobalsBuilder),
-        configure_extension_file_globals: fn(&mut GlobalsBuilder),
-        configure_bxl_file_globals: fn(&mut GlobalsBuilder),
+        configure_globals: fn(&mut GlobalsBuilder),
         additional_globals: Option<AdditionalGlobalsFn>,
     ) -> anyhow::Result<Arc<Self>> {
         Ok(Arc::new(Self {
@@ -111,52 +105,15 @@ impl BuildInterpreterConfiguror {
             host_info: HostInfo::new(host_platform, host_architecture, host_xcode_version),
             record_target_call_stack,
             skip_targets_with_duplicate_names,
-            configure_build_file_globals: ConfigureGlobalsFn(configure_build_file_globals),
-            configure_package_file_globals: ConfigureGlobalsFn(configure_package_file_globals),
-            configure_extension_file_globals: ConfigureGlobalsFn(configure_extension_file_globals),
-            configure_bxl_file_globals: ConfigureGlobalsFn(configure_bxl_file_globals),
+            configure_globals: ConfigureGlobalsFn(configure_globals),
             additional_globals,
         }))
     }
 
-    pub(crate) fn build_file_globals(&self) -> Globals {
-        // We want the `native` module to contain most things, so match what is in extension files
-        configure_base_globals(self.configure_extension_file_globals.0)
+    pub(crate) fn globals(&self) -> Globals {
+        configure_base_globals(self.configure_globals.0)
             .with(|g| {
-                (self.configure_build_file_globals.0)(g);
-                if let Some(additional_globals) = &self.additional_globals {
-                    (additional_globals.0)(g);
-                }
-            })
-            .build()
-    }
-
-    pub(crate) fn package_file_globals(&self) -> Globals {
-        configure_base_globals(self.configure_extension_file_globals.0)
-            .with(|g| {
-                (self.configure_package_file_globals.0)(g);
-                if let Some(additional_globals) = &self.additional_globals {
-                    (additional_globals.0)(g);
-                }
-            })
-            .build()
-    }
-
-    pub(crate) fn extension_file_globals(&self) -> Globals {
-        configure_base_globals(self.configure_extension_file_globals.0)
-            .with(|g| {
-                (self.configure_extension_file_globals.0)(g);
-                if let Some(additional_globals) = &self.additional_globals {
-                    (additional_globals.0)(g);
-                }
-            })
-            .build()
-    }
-
-    pub(crate) fn bxl_file_globals(&self) -> Globals {
-        configure_base_globals(self.configure_extension_file_globals.0)
-            .with(|g| {
-                (self.configure_bxl_file_globals.0)(g);
+                (self.configure_globals.0)(g);
                 if let Some(additional_globals) = &self.additional_globals {
                     (additional_globals.0)(g);
                 }

@@ -490,9 +490,7 @@ impl InterpreterForCell {
         unstable_typecheck: bool,
     ) -> anyhow::Result<EvalResult> {
         let import = extra_context.starlark_path();
-        let globals = self
-            .global_state
-            .globals_for_file_type(extra_context.file_type());
+        let globals = self.global_state.globals();
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let host_info = self.global_state.configuror.host_info();

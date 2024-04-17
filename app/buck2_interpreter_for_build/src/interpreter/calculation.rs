@@ -25,7 +25,6 @@ use buck2_events::span::SpanId;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
-use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
@@ -231,16 +230,8 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         )))
     }
 
-    async fn global_env_for_file_type(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        file_type: StarlarkFileType,
-    ) -> anyhow::Result<Globals> {
-        Ok(ctx
-            .get_global_interpreter_state()
-            .await?
-            .globals_for_file_type(file_type)
-            .dupe())
+    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<Globals> {
+        Ok(ctx.get_global_interpreter_state().await?.globals().dupe())
     }
 
     async fn prelude_import(
