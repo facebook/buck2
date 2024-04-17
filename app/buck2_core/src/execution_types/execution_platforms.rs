@@ -12,7 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 
 use crate::execution_types::execution::ExecutionPlatform;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 
 pub type ExecutionPlatforms = Arc<ExecutionPlatformsData>;
 

@@ -23,7 +23,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::span;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;

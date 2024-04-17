@@ -21,7 +21,7 @@ use crate::configuration::hash::ConfigurationHash;
 use crate::package::PackageLabel;
 use crate::provider::label::ProvidersLabel;
 use crate::provider::label::ProvidersName;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 use crate::target::name::TargetNameRef;
 
 #[derive(Debug, buck2_error::Error)]

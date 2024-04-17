@@ -13,7 +13,7 @@ use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;

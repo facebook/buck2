@@ -57,7 +57,7 @@ use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersLabel;
 use crate::provider::label::ProvidersName;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
 use crate::target_aliases::TargetAliasResolver;
@@ -1028,7 +1028,7 @@ mod tests {
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
-    use crate::target::label::TargetLabel;
+    use crate::target::label::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
     fn mk_package<P: PatternType>(cell: &str, path: &str) -> ParsedPattern<P> {

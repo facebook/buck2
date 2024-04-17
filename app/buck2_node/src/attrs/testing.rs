@@ -17,7 +17,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::unordered_map::UnorderedMap;

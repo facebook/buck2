@@ -53,7 +53,7 @@ use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;

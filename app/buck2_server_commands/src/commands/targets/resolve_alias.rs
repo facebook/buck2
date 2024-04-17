@@ -25,7 +25,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
 use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;

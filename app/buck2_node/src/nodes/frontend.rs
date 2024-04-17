@@ -12,7 +12,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::package::PackageLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;

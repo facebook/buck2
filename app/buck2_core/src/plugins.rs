@@ -19,7 +19,7 @@ use static_interner::Intern;
 use static_interner::Interner;
 
 use crate::cells::cell_path::CellPath;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 
 #[derive(
     Clone, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative

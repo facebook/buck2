@@ -23,7 +23,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_cancellable;

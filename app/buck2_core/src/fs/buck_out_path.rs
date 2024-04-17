@@ -271,7 +271,7 @@ mod tests {
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
     use crate::package::package_relative_path::PackageRelativePathBuf;
     use crate::package::PackageLabel;
-    use crate::target::label::TargetLabel;
+    use crate::target::label::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
     #[test]

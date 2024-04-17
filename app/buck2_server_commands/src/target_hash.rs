@@ -24,7 +24,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_futures::spawn::spawn_cancellable;
 use buck2_futures::spawn::DropCancelFuture;
 use buck2_node::nodes::configured::ConfiguredTargetNode;

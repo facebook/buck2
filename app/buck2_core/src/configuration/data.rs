@@ -400,7 +400,7 @@ mod tests {
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
-    use crate::target::label::TargetLabel;
+    use crate::target::label::label::TargetLabel;
 
     /// We don't want the output hash to change by accident. This test is here to assert that it
     /// doesn't. If we have a legit reason to update the config hash, we can update the hash here,

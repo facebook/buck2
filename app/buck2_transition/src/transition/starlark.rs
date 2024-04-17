@@ -14,7 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;

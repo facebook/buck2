@@ -684,7 +684,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::label::label::TargetLabel;
     use buck2_core::target::name::TargetNameRef;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;

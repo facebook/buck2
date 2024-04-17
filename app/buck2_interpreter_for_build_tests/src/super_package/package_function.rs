@@ -8,7 +8,7 @@
  */
 
 use buck2_core::fs::project::ProjectRootTemp;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::visibility::VisibilitySpecification;
 

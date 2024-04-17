@@ -12,7 +12,7 @@ pub mod testing {
     use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
     use buck2_core::pattern::pattern_type::TargetPatternExtra;
     use buck2_core::pattern::ParsedPattern;
-    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::label::label::TargetLabel;
     use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
     use starlark::environment::GlobalsBuilder;

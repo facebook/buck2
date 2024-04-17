@@ -22,7 +22,7 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;

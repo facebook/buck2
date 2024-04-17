@@ -24,7 +24,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::P
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;

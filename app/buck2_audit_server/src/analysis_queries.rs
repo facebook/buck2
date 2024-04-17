@@ -14,7 +14,7 @@ use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_audit::analysis_queries::AuditAnalysisQueriesCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;

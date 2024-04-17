@@ -19,7 +19,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
@@ -602,7 +602,7 @@ pub mod testing {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::label::label::TargetLabel;
     use dupe::Dupe;
     use serde_json::map::Map;
     use serde_json::value::Value;

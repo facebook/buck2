@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use starlark::eval::Evaluator;
 

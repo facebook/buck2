@@ -24,7 +24,7 @@ use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 
 #[derive(
     Display, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
@@ -281,7 +281,7 @@ pub mod testing {
 
     use super::*;
     use crate::package::PackageLabel;
-    use crate::target::label::TargetLabel;
+    use crate::target::label::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
     pub trait ProvidersLabelTestExt {

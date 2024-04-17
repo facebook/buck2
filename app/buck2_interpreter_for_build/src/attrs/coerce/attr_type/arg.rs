@@ -237,7 +237,7 @@ impl UnconfiguredMacroExt for UnconfiguredMacro {}
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::label::label::TargetLabel;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configurable::AttrIsConfigurable;

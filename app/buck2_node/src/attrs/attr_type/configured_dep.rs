@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;

@@ -8,7 +8,7 @@
  */
 
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_interpreter_for_build::interpreter::testing::Tester;

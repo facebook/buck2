@@ -14,7 +14,7 @@ use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use dupe::Dupe;
 use indoc::indoc;

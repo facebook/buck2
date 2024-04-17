@@ -11,7 +11,7 @@ use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 

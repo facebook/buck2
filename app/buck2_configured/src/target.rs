@@ -9,7 +9,7 @@
 
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 
 /// A wrapper around a configured target label.

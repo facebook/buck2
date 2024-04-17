@@ -8,7 +8,7 @@
  */
 
 use crate::target::configured_target_label::ConfiguredTargetLabel;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 
 pub trait ConfiguredOrUnconfiguredTargetLabel {
     fn unconfigured_label(&self) -> &TargetLabel;

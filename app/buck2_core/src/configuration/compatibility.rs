@@ -18,7 +18,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::target::configured_target_label::ConfiguredTargetLabel;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
 enum CompatibilityErrors {
@@ -150,7 +150,7 @@ impl Display for IncompatiblePlatformReason {
 mod tests {
     use crate::configuration::compatibility::IncompatiblePlatformReason;
     use crate::configuration::data::ConfigurationData;
-    use crate::target::label::TargetLabel;
+    use crate::target::label::label::TargetLabel;
 
     #[test]
     fn test_skipping_message_for_multiple() {

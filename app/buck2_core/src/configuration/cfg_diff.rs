@@ -154,7 +154,7 @@ mod tests {
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
-    use crate::target::label::TargetLabel;
+    use crate::target::label::label::TargetLabel;
 
     #[test]
     fn test_diff() {

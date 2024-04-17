@@ -44,7 +44,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PatternData;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_error::BuckErrorContext;

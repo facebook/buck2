@@ -22,7 +22,7 @@ use serde::Serializer;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::package::PackageLabel;
-use crate::target::label::TargetLabel;
+use crate::target::label::label::TargetLabel;
 use crate::target::name::TargetNameRef;
 
 /// 'ConfiguredTargetLabel' are 'TargetLabel's with an 'Configuration' attached.

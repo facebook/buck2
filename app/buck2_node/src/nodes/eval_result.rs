@@ -18,7 +18,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::PackageSpec;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_core::target::name::TargetNameRef;
 use dupe::Dupe;
@@ -290,7 +290,7 @@ impl Display for SuggestedSimilarTargets {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::label::label::TargetLabel;
 
     use crate::nodes::eval_result::MissingTargets;
 

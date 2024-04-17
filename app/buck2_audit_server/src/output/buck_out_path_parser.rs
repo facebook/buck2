@@ -19,7 +19,7 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::target::name::EQ_SIGN_SUBST;
 use buck2_interpreter::paths::bxl::BxlFilePath;
@@ -420,7 +420,7 @@ mod tests {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::label::label::TargetLabel;
     use buck2_core::target::name::TargetNameRef;
     use buck2_interpreter::paths::bxl::BxlFilePath;
 

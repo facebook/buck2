@@ -23,7 +23,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
 use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;

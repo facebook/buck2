@@ -17,7 +17,7 @@ use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;

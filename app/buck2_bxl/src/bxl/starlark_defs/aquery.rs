@@ -15,7 +15,7 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;

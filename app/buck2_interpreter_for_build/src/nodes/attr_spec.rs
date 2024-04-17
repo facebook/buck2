@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use anyhow::Context;
-use buck2_core::target::label::TargetLabelRef;
+use buck2_core::target::label::label::TargetLabelRef;
 use buck2_core::target::name::TargetName;
 use buck2_error::internal_error;
 use buck2_node::attrs::attr::CoercedValue;

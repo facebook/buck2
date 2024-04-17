@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 
 #[derive(

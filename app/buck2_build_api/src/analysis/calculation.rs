@@ -17,7 +17,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
