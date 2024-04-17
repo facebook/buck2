@@ -80,13 +80,22 @@ def _check_simulator_manager_exists(simulator_manager: Optional[str]) -> None:
 def main() -> None:
     args = _args_parser().parse_args()
     if args.no_companion:
+        if args.type == _ResourceType.macosIdbCompanion:
+            raise Exception(
+                "No resource brocker is required for MacOS tests without companion"
+            )
+
         booted = args.type == _ResourceType.iosBootedSimulator
         sim = asyncio.run(
             prepare_simulator(simulator_manager=args.simulator_manager, booted=booted)
         )
         result = {
-            "udid": sim.udid,
-            "device_set_path": sim.device_set_path,
+            "resources": [
+                {
+                    "udid": sim.udid,
+                    "device_set_path": sim.device_set_path,
+                }
+            ]
         }
         json.dump(result, sys.stdout)
     else:
@@ -95,7 +104,7 @@ def main() -> None:
 
 # pyre-fixme[3]: Return type must be annotated.
 # pyre-fixme[2]: Parameter must be annotated.
-def _create_companion(args):
+def _create_companion(args: argparse.Namespace) -> None:
     if args.type == _ResourceType.iosBootedSimulator:
         _check_simulator_manager_exists(args.simulator_manager)
         idb_companions.extend(asyncio.run(ios_booted_simulator(args.simulator_manager)))
