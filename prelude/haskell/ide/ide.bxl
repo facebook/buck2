@@ -259,7 +259,7 @@ def _assembleSolution(ctx, linkStyle, result):
     for provider in result["haskell_deps"].values():
         info = provider.info.get(linkStyle)
         if info != None:
-            for item in info.traverse():
+            for item in info:
                 if result["exclude_packages"].get(item.name) == None:
                     hlis[item.name] = item
     for hli in hlis.values():
