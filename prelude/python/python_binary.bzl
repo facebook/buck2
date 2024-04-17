@@ -694,13 +694,7 @@ def _convert_python_library_to_executable(
     if ctx.attrs.strip_libpar == "extract" and package_style == PackageStyle("standalone") and cxx_is_gnu(ctx):
         stripped_shlibs = []
         for libdir, shlib, preload in shared_libs:
-            name = paths.join(
-                libdir,
-                value_or(
-                    shlib.soname.as_str(),
-                    shlib.lib.unstripped_output.short_path,
-                ),
-            )
+            name = paths.join(libdir, shlib.soname.ensure_str())
             existing = debuginfos.get(name)
             if existing == None:
                 stripped, debuginfo = strip_debug_with_gnu_debuglink(
