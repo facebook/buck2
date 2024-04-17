@@ -48,10 +48,6 @@ fn from_late_binding(l: &LateBinding<fn(&mut GlobalsBuilder)>, builder: &mut Glo
     }
 }
 
-/// Natives for all file types.
-/// [It was decided](https://fburl.com/workplace/dlvp5c9q)
-/// that we want identical globals for all files, except `BUCK` files,
-/// where we additionally add prelude and package implicits.
 fn register_universal_natives(builder: &mut GlobalsBuilder) {
     from_late_binding(&REGISTER_BUCK2_BUILD_API_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_TRANSITION_GLOBALS, builder);
@@ -115,9 +111,6 @@ pub fn base_globals() -> GlobalsBuilder {
     global_env.struct_("__internal__", |x| {
         register_buck2_fail(x);
         register_sub_packages(x);
-        // If `native.` symbols need to be added to the global env, they should be done
-        // in `configure_build_file_globals()` or
-        // `configure_extension_file_globals()`
         for ext in starlark_extensions {
             ext.add(x)
         }
