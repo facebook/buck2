@@ -114,6 +114,10 @@ pub fn base_globals() -> GlobalsBuilder {
     let mut global_env = GlobalsBuilder::standard().with(register_all_natives);
     global_env.struct_("__internal__", |x| {
         register_internals(x);
+        // TODO(JakobDegen): Delete this
+        register_all_natives(x);
+    });
+    global_env.struct_("__buck2_builtins__", |x| {
         register_all_natives(x);
     });
     global_env
