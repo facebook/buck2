@@ -475,6 +475,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
+        _required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
 

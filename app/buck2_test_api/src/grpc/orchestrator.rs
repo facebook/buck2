@@ -39,6 +39,7 @@ use buck2_test_proto::Testing;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
+use gazebo::prelude::VecExt;
 use host_sharing::HostSharingRequirements;
 use sorted_vector_map::SortedVectorMap;
 use tokio::io::AsyncRead;
@@ -242,6 +243,7 @@ impl TestOrchestratorClient {
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
+        required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let executable = TestExecutable {
             display: ui_prints,
@@ -257,6 +259,7 @@ impl TestOrchestratorClient {
 
         let request = buck2_test_proto::PrepareForLocalExecutionRequest {
             test_executable: Some(executable),
+            required_local_resources: required_local_resources.resources.into_map(|r| r.into()),
         };
         let PrepareForLocalExecutionResponse { result } = self
             .test_orchestrator_client
@@ -436,8 +439,13 @@ where
         request: tonic::Request<buck2_test_proto::PrepareForLocalExecutionRequest>,
     ) -> Result<tonic::Response<PrepareForLocalExecutionResponse>, tonic::Status> {
         to_tonic(async move {
-            let buck2_test_proto::PrepareForLocalExecutionRequest { test_executable } =
-                request.into_inner();
+            let buck2_test_proto::PrepareForLocalExecutionRequest {
+                test_executable,
+                required_local_resources,
+            } = request.into_inner();
+            let resources = RequiredLocalResources {
+                resources: required_local_resources.into_map(|r| r.into()),
+            };
 
             let TestExecutable {
                 display,
@@ -453,7 +461,7 @@ where
 
             let result = self
                 .inner
-                .prepare_for_local_execution(display, target, cmd, env, pre_create_dirs)
+                .prepare_for_local_execution(display, target, cmd, env, pre_create_dirs, resources)
                 .await
                 .context("Prepare for local execution failed")?;
 

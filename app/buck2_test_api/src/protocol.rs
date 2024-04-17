@@ -93,6 +93,7 @@ pub trait TestOrchestrator: Send + Sync {
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
+        required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<PrepareForLocalExecutionResult>;
 
     /// attach a message containing information that the executor wants to be surfaced
