@@ -63,9 +63,8 @@ impl TargetName {
         Ok(Self(ThinArcStr::from(name)))
     }
 
-    #[inline]
-    pub fn unchecked_new(name: &str) -> Self {
-        Self(ThinArcStr::from(name))
+    pub fn testing_new(name: &str) -> Self {
+        TargetName::new(name).unwrap()
     }
 
     fn bad_name_error(name: &str) -> anyhow::Error {
@@ -182,7 +181,7 @@ impl TargetNameRef {
 
     #[inline]
     pub fn to_owned(&self) -> TargetName {
-        TargetName::unchecked_new(&self.0)
+        TargetName(ThinArcStr::from(&self.0))
     }
 }
 
@@ -245,7 +244,7 @@ mod tests {
 
         assert_eq!(
             hash(TargetNameRef::unchecked_new("foo")),
-            hash(&TargetName::unchecked_new("foo"))
+            hash(&TargetName::testing_new("foo"))
         );
     }
 }

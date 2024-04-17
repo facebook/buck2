@@ -285,11 +285,8 @@ mod tests {
                 (
                     PackageLabel::testing_parse("root//some"),
                     PackageSpec::Targets(vec![
-                        (TargetName::unchecked_new("target"), TargetPatternExtra),
-                        (
-                            TargetName::unchecked_new("other_target"),
-                            TargetPatternExtra,
-                        ),
+                        (TargetName::testing_new("target"), TargetPatternExtra),
+                        (TargetName::testing_new("other_target"), TargetPatternExtra),
                     ]),
                 ),
                 (
@@ -319,13 +316,13 @@ mod tests {
                     PackageLabel::testing_parse("root//some"),
                     PackageSpec::Targets(vec![
                         (
-                            TargetName::unchecked_new("target"),
+                            TargetName::testing_new("target"),
                             ProvidersPatternExtra {
                                 providers: ProvidersName::Default,
                             },
                         ),
                         (
-                            TargetName::unchecked_new("other_target"),
+                            TargetName::testing_new("other_target"),
                             ProvidersPatternExtra {
                                 providers: ProvidersName::NonDefault(Box::new(
                                     NonDefaultProvidersName::Named(Box::new([ProviderName::new(

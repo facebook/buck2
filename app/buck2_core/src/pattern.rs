@@ -1045,7 +1045,7 @@ mod tests {
     fn mk_target(cell: &str, path: &str, target: &str) -> ParsedPattern<TargetPatternExtra> {
         ParsedPattern::Target(
             PackageLabel::testing_new(cell, path),
-            TargetName::unchecked_new(target),
+            TargetName::testing_new(target),
             TargetPatternExtra,
         )
     }
@@ -1058,7 +1058,7 @@ mod tests {
     ) -> ParsedPattern<ProvidersPatternExtra> {
         ParsedPattern::Target(
             PackageLabel::testing_new(cell, path),
-            TargetName::unchecked_new(target),
+            TargetName::testing_new(target),
             ProvidersPatternExtra {
                 providers: providers.map_or(ProvidersName::Default, |n| {
                     ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(

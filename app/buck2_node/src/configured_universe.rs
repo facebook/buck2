@@ -310,7 +310,7 @@ mod tests {
                 specs: IndexMap::from_iter([(
                     PackageLabel::testing_parse("foo//bar"),
                     PackageSpec::Targets(Vec::from_iter([(
-                        TargetName::unchecked_new("baz"),
+                        TargetName::testing_new("baz"),
                         ConfiguredProvidersPatternExtra {
                             providers: providers_name(),
                             cfg,

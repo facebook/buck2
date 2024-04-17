@@ -59,10 +59,10 @@ async fn test_get_node() -> anyhow::Result<()> {
     let cfg = ConfigurationData::testing_new();
     let pkg = PackageLabel::testing_parse("cell//foo/bar");
 
-    let name1 = TargetName::unchecked_new("t1");
+    let name1 = TargetName::testing_new("t1");
     let label1 = TargetLabel::new(pkg.dupe(), name1.as_ref());
 
-    let name2 = TargetName::unchecked_new("t2");
+    let name2 = TargetName::testing_new("t2");
     let label2 = TargetLabel::new(pkg.dupe(), name2.as_ref());
 
     let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
