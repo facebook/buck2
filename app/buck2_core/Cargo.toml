@@ -45,6 +45,7 @@ allocative = { workspace = true }
 cmp_any = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+lock_free_hashtable = { workspace = true }
 sorted_vector_map = { workspace = true }
 static_interner = { path = "../../shed/static_interner" }
 

@@ -63,6 +63,7 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -739,6 +740,8 @@ impl DiceUpdater for DiceCommandUpdater {
             self.record_target_call_stacks,
             self.skip_targets_with_duplicate_names,
             None,
+            // New interner for each transaction.
+            Arc::new(ConcurrentTargetLabelInterner::default()),
         )?;
 
         let (mut ctx, mergebase) = self.file_watcher.sync(ctx).await?;

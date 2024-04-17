@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
@@ -19,6 +20,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
+use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -72,6 +74,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         cell_alias_resolver,
         (package, package_listing),
         false,
+        Arc::new(ConcurrentTargetLabelInterner::default()),
     )
 }
 

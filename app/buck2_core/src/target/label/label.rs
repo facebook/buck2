@@ -12,12 +12,16 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::ptr;
 use std::str;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
 use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
+use lock_free_hashtable::atomic_value::AtomicValue;
+use ref_cast::ref_cast_custom;
+use ref_cast::RefCastCustom;
 use serde::Serialize;
 use serde::Serializer;
 use triomphe::ThinArc;
@@ -34,6 +38,7 @@ use crate::pattern::lex_target_pattern;
 use crate::pattern::pattern_type::TargetPatternExtra;
 use crate::pattern::ParsedPattern;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
+use crate::target::label::triomphe_thin_arc_borrow::ThinArcBorrow;
 use crate::target::name::TargetNameRef;
 
 #[derive(Eq, PartialEq, Allocative)]
@@ -49,8 +54,9 @@ struct TargetLabelHeader {
 /// It contains a 'Package' which is the 'Package' defined by the build fine
 /// that contains this 'target', and a 'name' which is a 'TargetName'
 /// representing the target name given to the particular target.
-#[derive(Clone, derive_more::Display, Eq, PartialEq, Allocative)]
+#[derive(Clone, derive_more::Display, Eq, PartialEq, Allocative, RefCastCustom)]
 #[display(fmt = "{}", "self.as_ref()")]
+#[repr(transparent)]
 pub struct TargetLabel(
     ThinArc<
         TargetLabelHeader,
@@ -107,6 +113,9 @@ impl TargetLabel {
             name.as_str().as_bytes(),
         ))
     }
+
+    #[ref_cast_custom]
+    fn ref_cast(arc: &ThinArc<TargetLabelHeader, u8>) -> &Self;
 
     #[inline]
     pub fn pkg(&self) -> PackageLabel {
@@ -168,6 +177,25 @@ impl TargetLabel {
         )?
         .as_literal(label)?;
         Ok(TargetLabel::new(pkg, name.as_ref()))
+    }
+
+    fn into_raw(self) -> *const () {
+        ThinArc::into_raw(self.0) as *const ()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn as_raw(&self) -> *const () {
+        ThinArc::as_ptr(&self.0) as *const ()
+    }
+
+    unsafe fn from_raw(raw: *const ()) -> Self {
+        TargetLabel(ThinArc::from_raw(raw as *const _))
+    }
+
+    pub(crate) fn arc_borrow(&self) -> TargetLabelBorrow {
+        TargetLabelBorrow {
+            borrow: ThinArcBorrow::borrow(&self.0),
+        }
     }
 
     /// Simple and incorrect target label parser which can be used in tests.
@@ -232,5 +260,67 @@ impl<'a> TargetLabelRef<'a> {
     #[inline]
     pub fn new(pkg: PackageLabel, name: &'a TargetNameRef) -> TargetLabelRef<'a> {
         TargetLabelRef { pkg, name }
+    }
+}
+
+/// `TargetLabel` but without refcounter increment.
+#[derive(Copy, Clone, Dupe)]
+#[doc(hidden)] // `impl AtomicValue` is wants this to be public.
+pub struct TargetLabelBorrow<'a> {
+    borrow: ThinArcBorrow<'a, TargetLabelHeader, u8>,
+}
+
+impl<'a> TargetLabelBorrow<'a> {
+    /// Obtain a temporary reference to the `TargetLabel`.
+    fn with_target_label<R>(self, mut f: impl FnMut(&TargetLabel) -> R) -> R {
+        self.borrow.with_arc(|arc| f(TargetLabel::ref_cast(arc)))
+    }
+
+    /// Upgrade to `TargetLabel`.
+    pub(crate) fn to_owned(self) -> TargetLabel {
+        TargetLabel(self.borrow.to_owned())
+    }
+
+    pub(crate) unsafe fn from_raw(raw: *const ()) -> Self {
+        TargetLabelBorrow {
+            borrow: ThinArcBorrow::from_raw(raw),
+        }
+    }
+}
+
+impl<'a> PartialEq for TargetLabelBorrow<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.with_target_label(|a| other.with_target_label(|b| a == b))
+    }
+}
+
+impl<'a> Hash for TargetLabelBorrow<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.with_target_label(|a| a.hash(state))
+    }
+}
+
+impl AtomicValue for TargetLabel {
+    type Raw = *const ();
+    type Ref<'a> = TargetLabelBorrow<'a> where Self: 'a;
+
+    fn null() -> Self::Raw {
+        ptr::null()
+    }
+
+    fn is_null(this: Self::Raw) -> bool {
+        this.is_null()
+    }
+
+    fn into_raw(this: Self) -> Self::Raw {
+        TargetLabel::into_raw(this)
+    }
+
+    unsafe fn from_raw(raw: Self::Raw) -> Self {
+        TargetLabel::from_raw(raw)
+    }
+
+    unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
+        TargetLabelBorrow::from_raw(raw)
     }
 }

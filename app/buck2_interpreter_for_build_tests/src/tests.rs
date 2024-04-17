@@ -21,6 +21,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
@@ -79,6 +80,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
             false,
             false,
             None,
+            Arc::new(ConcurrentTargetLabelInterner::default()),
         )
         .unwrap(),
     )

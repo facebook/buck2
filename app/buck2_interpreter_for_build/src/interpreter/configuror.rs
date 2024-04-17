@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
+use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -68,6 +69,7 @@ pub struct BuildInterpreterConfiguror {
     host_info: HostInfo,
     record_target_call_stack: bool,
     skip_targets_with_duplicate_names: bool,
+    global_target_interner: Arc<ConcurrentTargetLabelInterner>,
     /// For test.
     additional_globals: Option<AdditionalGlobalsFn>,
 }
@@ -81,6 +83,7 @@ impl BuildInterpreterConfiguror {
         record_target_call_stack: bool,
         skip_targets_with_duplicate_names: bool,
         additional_globals: Option<AdditionalGlobalsFn>,
+        global_target_interner: Arc<ConcurrentTargetLabelInterner>,
     ) -> anyhow::Result<Arc<Self>> {
         Ok(Arc::new(Self {
             prelude_import,
@@ -88,6 +91,7 @@ impl BuildInterpreterConfiguror {
             record_target_call_stack,
             skip_targets_with_duplicate_names,
             additional_globals,
+            global_target_interner,
         }))
     }
 
@@ -138,6 +142,7 @@ impl BuildInterpreterConfiguror {
             cell_info.cell_alias_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing.dupe()),
             package_boundary_exception,
+            self.global_target_interner.dupe(),
         );
 
         let imports = loaded_modules.imports().cloned().collect();

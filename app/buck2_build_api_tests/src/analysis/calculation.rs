@@ -38,6 +38,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::id::testing::ProviderIdExt;
 use buck2_core::provider::id::ProviderId;
+use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
@@ -176,6 +177,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
             false,
             false,
             None,
+            Arc::new(ConcurrentTargetLabelInterner::default()),
         )?,
         configs,
     )?;

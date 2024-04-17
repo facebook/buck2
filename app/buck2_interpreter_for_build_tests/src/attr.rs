@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::name::CellName;
@@ -14,6 +16,7 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKindSet;
+use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
@@ -117,6 +120,7 @@ fn attr_coercer_coerces() -> anyhow::Result<()> {
         cell_alias_resolver,
         enclosing_package,
         false,
+        Arc::new(ConcurrentTargetLabelInterner::default()),
     );
     let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
     let string_coercer = AttrType::string();
@@ -291,11 +295,13 @@ fn coercing_src_to_path_works() -> anyhow::Result<()> {
             PackageListing::testing_files(&["baz/quz.cpp"]),
         ),
         false,
+        Arc::new(ConcurrentTargetLabelInterner::default()),
     );
     let no_package_ctx = BuildAttrCoercionContext::new_no_package(
         cell_resolver,
         CellName::testing_new("root"),
         cell_alias_resolver,
+        Arc::new(ConcurrentTargetLabelInterner::default()),
     );
 
     let err = no_package_ctx
