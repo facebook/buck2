@@ -16,7 +16,7 @@ pub mod attrs;
 pub mod interpreter;
 pub mod label;
 pub mod nodes;
-pub mod plugins;
+pub(crate) mod plugins;
 pub mod rule;
 pub mod super_package;
 

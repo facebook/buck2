@@ -161,7 +161,7 @@ impl OwnedFrozenStarlarkPackageValue {
 }
 
 #[starlark_module]
-pub fn register_write_package_value(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
     /// Set the value to be accessible in the nested `PACKAGE` files.
     ///
     /// If any parent `PACKAGE` value has already set the same `key`,
@@ -203,7 +203,7 @@ pub fn register_write_package_value(globals: &mut GlobalsBuilder) {
 }
 
 #[starlark_module]
-pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_read_package_value(globals: &mut GlobalsBuilder) {
     /// Read value specified in the `PACKAGE` file.
     ///
     /// Returns `None` if value is not set.

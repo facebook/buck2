@@ -16,7 +16,7 @@ use starlark::values::Value;
 use crate::interpreter::module_internals::ModuleInternals;
 
 #[starlark_module]
-pub fn register_module_natives(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
     /// Check if the target with `name` has already been defined,
     /// returns `True` if it has.
     ///

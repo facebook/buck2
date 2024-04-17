@@ -155,13 +155,13 @@ pub struct BuildContext<'a> {
 
     pub(crate) buckconfigs: LegacyBuckConfigsForStarlark<'a>,
 
-    pub host_info: &'a HostInfo,
+    pub(crate) host_info: &'a HostInfo,
 
     /// Context specific to type type.
     pub additional: PerFileTypeContext,
 
     /// When true, rule function is no-op.
-    pub ignore_attrs_for_profiling: bool,
+    pub(crate) ignore_attrs_for_profiling: bool,
 
     /// Peak allocated bytes limit for starlark.
     pub(crate) starlark_peak_allocated_byte_limit: OnceCell<Option<u64>>,

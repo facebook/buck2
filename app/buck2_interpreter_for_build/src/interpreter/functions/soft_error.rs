@@ -30,7 +30,7 @@ enum SoftErrorError {
 }
 
 #[starlark_module]
-pub fn register_soft_error(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
     /// Produce an error that will become a hard error at some point in the future, but
     /// for now is a warning which is logged to the server.
     /// In the open source version of Buck2 this function always results in an error.

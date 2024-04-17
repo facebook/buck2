@@ -18,7 +18,7 @@ use starlark::values::Value;
 use crate::interpreter::build_context::BuildContext;
 
 #[starlark_module]
-pub fn register_read_config(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_read_config(globals: &mut GlobalsBuilder) {
     /// Read a configuration from the nearest enclosing `.buckconfig`
     /// of the `BUCK` file that started evaluation of this code.
     ///

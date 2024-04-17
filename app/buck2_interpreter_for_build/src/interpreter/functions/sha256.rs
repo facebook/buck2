@@ -14,7 +14,7 @@ use starlark::starlark_module;
 
 /// Contains functions that we include in all contexts.
 #[starlark_module]
-pub fn register_sha256(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_sha256(builder: &mut GlobalsBuilder) {
     /// Computes a sha256 digest for a string. Returns the hex representation of the digest.
     ///
     /// ```python

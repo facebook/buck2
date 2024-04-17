@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-pub mod defs;
+pub(crate) mod defs;
 pub(crate) mod eval_ctx;
 pub(crate) mod package;
 pub mod package_value;

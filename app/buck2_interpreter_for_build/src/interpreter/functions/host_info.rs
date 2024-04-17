@@ -106,7 +106,7 @@ fn new_host_info(
 }
 
 #[starlark_module]
-pub fn register_host_info(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_host_info(builder: &mut GlobalsBuilder) {
     /// The `host_info()` function is used to get the current OS and processor architecture on the host. The structure returned is laid out thusly:
     ///
     /// ```python
@@ -150,7 +150,7 @@ pub fn register_host_info(builder: &mut GlobalsBuilder) {
 
 #[derive(Derivative, Clone, Debug, Allocative)]
 #[derivative(PartialEq)]
-pub struct HostInfo {
+pub(crate) struct HostInfo {
     // These first three fields are for equality only, otherwise not used
     platform: InterpreterHostPlatform,
     arch: InterpreterHostArchitecture,

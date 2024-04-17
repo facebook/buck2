@@ -21,7 +21,7 @@ enum StarlarkPeakMemoryError {
 }
 
 #[starlark_module]
-pub fn register_set_starlark_peak_allocated_byte_limit(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_set_starlark_peak_allocated_byte_limit(globals: &mut GlobalsBuilder) {
     /// Set the peak allocated bytes during evaluation of build ctx.
     /// Err if it has already been set
     fn set_starlark_peak_allocated_byte_limit<'v>(

@@ -647,7 +647,7 @@ impl<'v> StarlarkValue<'v> for Attrs {
     }
 }
 
-pub fn register_attrs(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_attrs(globals: &mut GlobalsBuilder) {
     globals.set("attrs", globals.frozen_heap().alloc_simple(Attrs));
     register_attr_type(globals);
 }

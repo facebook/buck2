@@ -8,11 +8,11 @@
  */
 
 pub(crate) mod dedupe;
-pub mod host_info;
-pub mod load_symbols;
-pub mod read_config;
+pub(crate) mod host_info;
+pub(crate) mod load_symbols;
+pub(crate) mod read_config;
 pub(crate) mod regex;
-pub mod sha256;
-pub mod soft_error;
-pub mod starlark;
-pub mod warning;
+pub(crate) mod sha256;
+pub(crate) mod soft_error;
+pub(crate) mod starlark;
+pub(crate) mod warning;

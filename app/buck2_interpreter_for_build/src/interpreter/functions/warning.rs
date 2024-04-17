@@ -12,7 +12,7 @@ use starlark::starlark_module;
 use starlark::values::none::NoneType;
 
 #[starlark_module]
-pub fn register_warning(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_warning(builder: &mut GlobalsBuilder) {
     /// Print a warning. The line will be decorated with the timestamp and other details,
     /// including the word `WARN` (colored, if the console supports it).
     ///
