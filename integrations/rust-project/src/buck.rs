@@ -102,24 +102,6 @@ pub fn to_json_project(
             None => Edition::Edition2021,
         };
 
-        // we need to take the existing features and prefix `feature=`
-        // before passing it to rust-analyzer via `rust-project.json`.
-        let mut cfg = info
-            .clone()
-            .features
-            .into_iter()
-            .map(|f| format!("feature=\"{f}\""))
-            .collect::<Vec<String>>();
-
-        // Include "test" cfg so rust-analyzer picks up #[cfg(test)] code.
-        cfg.push("test".to_owned());
-
-        #[cfg(fbcode_build)]
-        {
-            // FIXME(JakobDegen): This should be set via a configuration mechanism of some kind.
-            cfg.push("fbcode_build".to_owned());
-        }
-
         // the mapping here is inverted, which means we need to search through the keys for the Target.
         // thankfully, most projects don't have to many proc macros, which means the size of this list
         // remains in the two digit space.
@@ -206,7 +188,7 @@ pub fn to_json_project(
                 include_dirs,
                 exclude_dirs: FxHashSet::default(),
             }),
-            cfg,
+            cfg: info.cfg(),
             env,
             target_spec: spec,
             is_proc_macro: info.proc_macro.unwrap_or(false),
@@ -683,6 +665,7 @@ fn merge_tests_no_cycles() {
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
             out_dir: None,
+            rustc_flags: vec![],
         },
     );
 
@@ -708,6 +691,7 @@ fn merge_tests_no_cycles() {
             project_relative_buildfile: PathBuf::from("foo-unittest/BUCK"),
             in_workspace: false,
             out_dir: None,
+            rustc_flags: vec![],
         },
     );
 
@@ -745,6 +729,7 @@ fn merge_target_multiple_tests_no_cycles() {
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
             out_dir: None,
+            rustc_flags: vec![],
         },
     );
 
@@ -773,6 +758,7 @@ fn merge_target_multiple_tests_no_cycles() {
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
             out_dir: None,
+            rustc_flags: vec![],
         },
     );
 
@@ -801,6 +787,7 @@ fn merge_target_multiple_tests_no_cycles() {
             project_relative_buildfile: PathBuf::from("foo_test/BUCK"),
             in_workspace: false,
             out_dir: None,
+            rustc_flags: vec![],
         },
     );
 
@@ -826,6 +813,7 @@ fn merge_target_multiple_tests_no_cycles() {
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
             out_dir: None,
+            rustc_flags: vec![],
         },
     );
 
@@ -870,6 +858,7 @@ fn named_deps_underscores() {
             project_relative_buildfile: PathBuf::from("bar/BUCK"),
             in_workspace: false,
             out_dir: None,
+            rustc_flags: vec![],
         },
     );
 
@@ -896,6 +885,7 @@ fn named_deps_underscores() {
         project_relative_buildfile: PathBuf::from("foo/BUCK"),
         in_workspace: false,
         out_dir: None,
+        rustc_flags: vec![],
     };
 
     let mut targets_to_ids = FxHashMap::default();

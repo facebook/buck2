@@ -126,6 +126,7 @@ pub struct TargetInfo {
     pub project_relative_buildfile: PathBuf,
     pub in_workspace: bool,
     pub out_dir: Option<PathBuf>,
+    pub rustc_flags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -210,6 +211,32 @@ impl TargetInfo {
 
         overridden
     }
+
+    pub fn cfg(&self) -> Vec<String> {
+        // we need to take the existing features and prefix `feature=`
+        let feature_cfgs = self.features.iter().map(|f| format!("feature=\"{f}\""));
+
+        // parse out rustc --cfg= flags
+        let rustc_flags_cfgs = self
+            .rustc_flags
+            .iter()
+            .filter_map(|flag| flag.strip_prefix("--cfg=").map(str::to_string));
+
+        let mut cfg = feature_cfgs
+            .chain(rustc_flags_cfgs)
+            .collect::<Vec<String>>();
+
+        // Include "test" cfg so rust-analyzer picks up #[cfg(test)] code.
+        cfg.push("test".to_owned());
+
+        #[cfg(fbcode_build)]
+        {
+            // FIXME(JakobDegen): This should be set via a configuration mechanism of some kind.
+            cfg.push("fbcode_build".to_owned());
+        }
+
+        cfg
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
@@ -217,4 +244,47 @@ pub struct ExpandedAndResolved {
     pub expanded_targets: Vec<Target>,
     pub queried_proc_macros: FxHashMap<Target, MacroOutput>,
     pub resolved_deps: FxHashMap<Target, TargetInfo>,
+}
+
+#[test]
+fn test_cfg() {
+    let info = TargetInfo {
+        name: "bar".to_owned(),
+        label: "bar".to_owned(),
+        kind: Kind::Library,
+        edition: None,
+        srcs: vec![],
+        mapped_srcs: FxHashMap::default(),
+        crate_name: None,
+        crate_dynamic: None,
+        crate_root: None,
+        deps: vec![],
+        tests: vec![],
+        named_deps: FxHashMap::default(),
+        proc_macro: None,
+        features: vec!["foo_feature".to_owned()],
+        env: FxHashMap::default(),
+        source_folder: PathBuf::from("/tmp"),
+        project_relative_buildfile: PathBuf::from("bar/BUCK"),
+        in_workspace: false,
+        out_dir: None,
+        rustc_flags: vec!["--cfg=foo_cfg".to_owned(), "--other".to_owned()],
+    };
+
+    let expected = if cfg!(fbcode_build) {
+        vec![
+            "feature=\"foo_feature\"".to_owned(),
+            "foo_cfg".to_owned(),
+            "test".to_owned(),
+            "fbcode_build".to_owned(),
+        ]
+    } else {
+        vec![
+            "feature=\"foo_feature\"".to_owned(),
+            "foo_cfg".to_owned(),
+            "test".to_owned(),
+        ]
+    };
+
+    assert_eq!(info.cfg(), expected);
 }
