@@ -155,6 +155,7 @@ pub fn configure_base_globals(
         GlobalsBuilder::extended_by(starlark_extensions).with(register_base_natives);
     global_env.struct_("__internal__", |x| {
         register_buck2_fail(x);
+        register_sub_packages(x);
         register_base_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done
         // in `configure_build_file_globals()` or
@@ -180,5 +181,17 @@ pub(crate) fn register_buck2_fail(builder: &mut GlobalsBuilder) {
         _eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         Err(BuckFail(msg.to_owned()).into())
+    }
+}
+
+#[starlark_module]
+pub(crate) fn register_sub_packages(builder: &mut GlobalsBuilder) {
+    /// Returns a list of direct subpackage relative paths of current package.
+    fn internal_sub_packages<'v>(eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<Vec<String>> {
+        let extra = ModuleInternals::from_context(eval, "sub_packages")?;
+        Ok(extra
+            .sub_packages()
+            .map(|p| p.as_str().to_owned())
+            .collect())
     }
 }

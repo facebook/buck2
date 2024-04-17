@@ -226,6 +226,11 @@ impl ModuleInternals {
     ) -> impl Iterator<Item = &'a PackageRelativePath> {
         spec.resolve_glob(self.package_listing.files())
     }
+
+    pub(crate) fn sub_packages(&self) -> impl Iterator<Item = &PackageRelativePath> {
+        self.package_listing
+            .subpackages_within(PackageRelativePath::empty())
+    }
 }
 
 // Records the targets declared when evaluating a build file.
