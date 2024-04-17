@@ -113,7 +113,7 @@ fn displays_correctly_old_hidden() -> buck2_error::Result<()> {
             cli.hidden("bar")
             # TODO(nga): fix options formatting.
             assert_eq('cmd_args("foo", hidden=["bar"], format="x{}y", quote="shell")', str(cli))
-            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', pprint_str(cli))
+            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', prepr(cli))
         "#
     ))?;
 
@@ -130,7 +130,7 @@ fn displays_correctly() -> buck2_error::Result<()> {
             cli.add("foo")
             # TODO(nga): fix options formatting.
             assert_eq('cmd_args("foo", hidden=["bar"], format="x{}y", quote="shell")', str(cli))
-            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', pprint_str(cli))
+            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', prepr(cli))
         "#
     ))?;
 

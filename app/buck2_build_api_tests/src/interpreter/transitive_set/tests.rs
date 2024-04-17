@@ -181,8 +181,8 @@ fn test_transitive_set_display() -> anyhow::Result<()> {
             assert_eq("FooSet(value=2, 1 children)", repr(f2))
             assert_eq("FooSet(1 children)", repr(f3))
 
-            assert_eq("FooSet(\n  value=1,\n  0 children\n)", pprint_str(f1))
-            assert_eq("FooSet( 1 children )", pprint_str(f3))
+            assert_eq("FooSet(\n  value=1,\n  0 children\n)", prepr(f1))
+            assert_eq("FooSet( 1 children )", prepr(f3))
         "#
     ))?;
 

@@ -38,8 +38,6 @@ use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
 use starlark::environment::GlobalsBuilder;
-use starlark::starlark_module;
-use starlark::values::Value;
 
 use crate::interpreter::buckconfig::LegacyConfigsViewForStarlark;
 use crate::interpreter::cell_info::InterpreterCellInfo;
@@ -59,15 +57,6 @@ pub struct Tester {
     loaded_modules: LoadedModules,
     additional_globals: Vec<AdditionalGlobalsFn>,
     prelude_path: Option<PreludePath>,
-}
-
-/// These functions will be available in the starlark environment for all code running through a Tester.
-#[starlark_module]
-pub fn common_helpers(builder: &mut GlobalsBuilder) {
-    /// Returns the string that pprint() will produce
-    fn pprint_str<'v>(value: Value<'v>) -> anyhow::Result<String> {
-        Ok(format!("{:#}", value))
-    }
 }
 
 /// Helpers required to help drive the interpreter
@@ -207,7 +196,6 @@ impl Tester {
                     false,
                     false,
                     Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
-                        common_helpers(globals_builder);
                         for additional_globals in &additional_globals {
                             (additional_globals.0)(globals_builder)
                         }
