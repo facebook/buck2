@@ -8,7 +8,6 @@
  */
 
 use std::fmt::Debug;
-use std::ptr;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -30,23 +29,9 @@ use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_defs::configure_base_globals;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
+use crate::interpreter::globals::register_universal_natives;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
-
-#[derive(Clone, Allocative)]
-struct ConfigureGlobalsFn(#[allocative(skip)] fn(&mut GlobalsBuilder));
-
-impl Debug for ConfigureGlobalsFn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ConfiguredGlobalsFn")
-    }
-}
-
-impl PartialEq for ConfigureGlobalsFn {
-    fn eq(&self, other: &Self) -> bool {
-        ptr::eq(self.0 as *const (), other.0 as *const ())
-    }
-}
 
 #[derive(Clone, Dupe, Allocative)]
 pub struct AdditionalGlobalsFn(
@@ -84,7 +69,6 @@ pub struct BuildInterpreterConfiguror {
     host_info: HostInfo,
     record_target_call_stack: bool,
     skip_targets_with_duplicate_names: bool,
-    configure_globals: ConfigureGlobalsFn,
     /// For test.
     additional_globals: Option<AdditionalGlobalsFn>,
 }
@@ -97,7 +81,6 @@ impl BuildInterpreterConfiguror {
         host_xcode_version: Option<XcodeVersionInfo>,
         record_target_call_stack: bool,
         skip_targets_with_duplicate_names: bool,
-        configure_globals: fn(&mut GlobalsBuilder),
         additional_globals: Option<AdditionalGlobalsFn>,
     ) -> anyhow::Result<Arc<Self>> {
         Ok(Arc::new(Self {
@@ -105,13 +88,12 @@ impl BuildInterpreterConfiguror {
             host_info: HostInfo::new(host_platform, host_architecture, host_xcode_version),
             record_target_call_stack,
             skip_targets_with_duplicate_names,
-            configure_globals: ConfigureGlobalsFn(configure_globals),
             additional_globals,
         }))
     }
 
     pub(crate) fn globals(&self) -> Globals {
-        configure_base_globals(self.configure_globals.0)
+        configure_base_globals(register_universal_natives)
             .with(|g| {
                 if let Some(additional_globals) = &self.additional_globals {
                     (additional_globals.0)(g);

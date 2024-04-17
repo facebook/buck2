@@ -206,7 +206,6 @@ impl Tester {
                     None,
                     false,
                     false,
-                    |_| {},
                     Some(AdditionalGlobalsFn(Arc::new(move |globals_builder| {
                         common_helpers(globals_builder);
                         for additional_globals in &additional_globals {

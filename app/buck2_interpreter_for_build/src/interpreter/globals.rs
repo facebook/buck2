@@ -18,6 +18,7 @@ use buck2_interpreter::types::cell_root::register_cell_root;
 use buck2_interpreter::types::configured_providers_label::register_providers_label;
 use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter::types::target_label::register_target_label;
+use buck2_util::late_binding::LateBinding;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::attrs_global::register_attrs;
@@ -38,15 +39,21 @@ use crate::rule::register_rule_function;
 use crate::super_package::defs::register_package_natives;
 use crate::super_package::package_value::register_read_package_value;
 
+fn from_late_binding(l: &LateBinding<fn(&mut GlobalsBuilder)>, builder: &mut GlobalsBuilder) {
+    if let Ok(v) = l.get() {
+        v(builder);
+    }
+}
+
 /// Natives for all file types.
 /// [It was decided](https://fburl.com/workplace/dlvp5c9q)
 /// that we want identical globals for all files, except `BUCK` files,
 /// where we additionally add prelude and package implicits.
 pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
-    (REGISTER_BUCK2_BUILD_API_GLOBALS.get().unwrap())(builder);
-    (REGISTER_BUCK2_TRANSITION_GLOBALS.get().unwrap())(builder);
-    (REGISTER_BUCK2_BXL_GLOBALS.get().unwrap())(builder);
-    (REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS.get().unwrap())(builder);
+    from_late_binding(&REGISTER_BUCK2_BUILD_API_GLOBALS, builder);
+    from_late_binding(&REGISTER_BUCK2_TRANSITION_GLOBALS, builder);
+    from_late_binding(&REGISTER_BUCK2_BXL_GLOBALS, builder);
+    from_late_binding(&REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS, builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
@@ -70,5 +77,5 @@ pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_sha256(builder);
     register_dedupe(builder);
     register_set_starlark_peak_allocated_byte_limit(builder);
-    (REGISTER_BUCK2_ANON_TARGETS_GLOBALS.get().unwrap())(builder);
+    from_late_binding(&REGISTER_BUCK2_ANON_TARGETS_GLOBALS, builder);
 }

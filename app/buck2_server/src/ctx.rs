@@ -90,7 +90,6 @@ use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
-use buck2_interpreter_for_build::interpreter::globals::register_universal_natives;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_server_ctx::concurrency::DiceDataProvider;
 use buck2_server_ctx::concurrency::DiceUpdater;
@@ -739,7 +738,6 @@ impl DiceUpdater for DiceCommandUpdater {
             self.interpreter_xcode_version.clone(),
             self.record_target_call_stacks,
             self.skip_targets_with_duplicate_names,
-            register_universal_natives,
             None,
         )?;
 

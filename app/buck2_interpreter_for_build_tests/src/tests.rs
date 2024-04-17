@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
@@ -30,13 +29,8 @@ use buck2_interpreter::dice::starlark_types::SetStarlarkTypes;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::load_module::InterpreterCalculation;
-use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
-use buck2_interpreter_for_build::rule::register_rule_function;
-use buck2_interpreter_for_build::super_package::defs::register_package_natives;
-use buck2_interpreter_for_build::super_package::package_value::register_read_package_value;
-use buck2_interpreter_for_build::super_package::package_value::register_write_package_value;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DetectCycles;
 use dice::Dice;
@@ -84,15 +78,6 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
             None,
             false,
             false,
-            |globals| {
-                register_rule_defs(globals);
-                register_rule_function(globals);
-                register_attrs(globals);
-                register_read_package_value(globals);
-                register_write_package_value(globals);
-                register_package_natives(globals);
-                register_read_package_value(globals);
-            },
             None,
         )
         .unwrap(),

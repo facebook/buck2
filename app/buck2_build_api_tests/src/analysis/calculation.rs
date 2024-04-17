@@ -177,7 +177,6 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
             None,
             false,
             false,
-            |_| {},
             None,
         )?,
         configs,
