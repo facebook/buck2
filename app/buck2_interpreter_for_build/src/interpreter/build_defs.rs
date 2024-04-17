@@ -8,7 +8,6 @@
  */
 
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::LibraryExtension;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
@@ -112,45 +111,6 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
             .name()
             .to_string())
     }
-}
-
-pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
-    &[
-        LibraryExtension::Breakpoint,
-        LibraryExtension::Debug,
-        LibraryExtension::EnumType,
-        LibraryExtension::Filter,
-        LibraryExtension::Json,
-        LibraryExtension::Map,
-        LibraryExtension::Partial,
-        LibraryExtension::Pprint,
-        LibraryExtension::Pstr,
-        LibraryExtension::Prepr,
-        LibraryExtension::Print,
-        LibraryExtension::RecordType,
-        LibraryExtension::StructType,
-        LibraryExtension::Typing,
-        LibraryExtension::Internal,
-        LibraryExtension::CallStack,
-    ]
-}
-
-/// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
-pub fn configure_base_globals(configure_globals: fn(&mut GlobalsBuilder)) -> GlobalsBuilder {
-    let starlark_extensions = starlark_library_extensions_for_buck2();
-    let mut global_env = GlobalsBuilder::extended_by(starlark_extensions).with(configure_globals);
-    global_env.struct_("__internal__", |x| {
-        register_buck2_fail(x);
-        register_sub_packages(x);
-        // If `native.` symbols need to be added to the global env, they should be done
-        // in `configure_build_file_globals()` or
-        // `configure_extension_file_globals()`
-        for ext in starlark_extensions {
-            ext.add(x)
-        }
-        configure_globals(x);
-    });
-    global_env
 }
 
 #[derive(buck2_error::Error, Debug)]

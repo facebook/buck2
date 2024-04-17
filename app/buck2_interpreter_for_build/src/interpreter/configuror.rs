@@ -26,10 +26,9 @@ use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
-use crate::interpreter::build_defs::configure_base_globals;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
-use crate::interpreter::globals::register_universal_natives;
+use crate::interpreter::globals::base_globals;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
 
@@ -93,7 +92,7 @@ impl BuildInterpreterConfiguror {
     }
 
     pub(crate) fn globals(&self) -> Globals {
-        configure_base_globals(register_universal_natives)
+        base_globals()
             .with(|g| {
                 if let Some(additional_globals) = &self.additional_globals {
                     (additional_globals.0)(g);

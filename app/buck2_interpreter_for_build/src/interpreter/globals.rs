@@ -20,9 +20,12 @@ use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter::types::target_label::register_target_label;
 use buck2_util::late_binding::LateBinding;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::LibraryExtension;
 
 use crate::attrs::attrs_global::register_attrs;
+use crate::interpreter::build_defs::register_buck2_fail;
 use crate::interpreter::build_defs::register_path;
+use crate::interpreter::build_defs::register_sub_packages;
 use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::host_info::register_host_info;
 use crate::interpreter::functions::load_symbols::register_load_symbols;
@@ -49,7 +52,7 @@ fn from_late_binding(l: &LateBinding<fn(&mut GlobalsBuilder)>, builder: &mut Glo
 /// [It was decided](https://fburl.com/workplace/dlvp5c9q)
 /// that we want identical globals for all files, except `BUCK` files,
 /// where we additionally add prelude and package implicits.
-pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
+fn register_universal_natives(builder: &mut GlobalsBuilder) {
     from_late_binding(&REGISTER_BUCK2_BUILD_API_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_TRANSITION_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_BXL_GLOBALS, builder);
@@ -78,4 +81,47 @@ pub fn register_universal_natives(builder: &mut GlobalsBuilder) {
     register_dedupe(builder);
     register_set_starlark_peak_allocated_byte_limit(builder);
     from_late_binding(&REGISTER_BUCK2_ANON_TARGETS_GLOBALS, builder);
+}
+
+pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
+    &[
+        LibraryExtension::Breakpoint,
+        LibraryExtension::Debug,
+        LibraryExtension::EnumType,
+        LibraryExtension::Filter,
+        LibraryExtension::Json,
+        LibraryExtension::Map,
+        LibraryExtension::Partial,
+        LibraryExtension::Pprint,
+        LibraryExtension::Pstr,
+        LibraryExtension::Prepr,
+        LibraryExtension::Print,
+        LibraryExtension::RecordType,
+        LibraryExtension::StructType,
+        LibraryExtension::Typing,
+        LibraryExtension::Internal,
+        LibraryExtension::CallStack,
+    ]
+}
+
+/// The standard set of globals that is available in all files.
+///
+/// This does not include the implicit prelude and cell imports which are only available in `BUCK`
+/// files, but does include everything else.
+pub fn base_globals() -> GlobalsBuilder {
+    let starlark_extensions = starlark_library_extensions_for_buck2();
+    let mut global_env =
+        GlobalsBuilder::extended_by(starlark_extensions).with(register_universal_natives);
+    global_env.struct_("__internal__", |x| {
+        register_buck2_fail(x);
+        register_sub_packages(x);
+        // If `native.` symbols need to be added to the global env, they should be done
+        // in `configure_build_file_globals()` or
+        // `configure_extension_file_globals()`
+        for ext in starlark_extensions {
+            ext.add(x)
+        }
+        register_universal_natives(x);
+    });
+    global_env
 }
