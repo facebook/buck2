@@ -24,11 +24,11 @@ use starlark::environment::LibraryExtension;
 
 use crate::attrs::attrs_global::register_attrs;
 use crate::interpreter::build_defs::register_buck2_fail;
-use crate::interpreter::build_defs::register_path;
 use crate::interpreter::build_defs::register_sub_packages;
 use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::host_info::register_host_info;
 use crate::interpreter::functions::load_symbols::register_load_symbols;
+use crate::interpreter::functions::path::register_path;
 use crate::interpreter::functions::read_config::register_read_config;
 use crate::interpreter::functions::regex::register_regex;
 use crate::interpreter::functions::sha256::register_sha256;

@@ -10,6 +10,7 @@
 pub(crate) mod dedupe;
 pub(crate) mod host_info;
 pub(crate) mod load_symbols;
+pub(crate) mod path;
 pub(crate) mod read_config;
 pub(crate) mod regex;
 pub(crate) mod sha256;
