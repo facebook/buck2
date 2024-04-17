@@ -113,7 +113,6 @@ impl BuildInterpreterConfiguror {
     pub(crate) fn globals(&self) -> Globals {
         configure_base_globals(self.configure_globals.0)
             .with(|g| {
-                (self.configure_globals.0)(g);
                 if let Some(additional_globals) = &self.additional_globals {
                     (additional_globals.0)(g);
                 }

@@ -147,12 +147,11 @@ pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
 }
 
 /// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
-pub fn configure_base_globals(
-    configure_native_struct: impl FnOnce(&mut GlobalsBuilder),
-) -> GlobalsBuilder {
+pub fn configure_base_globals(configure_globals: fn(&mut GlobalsBuilder)) -> GlobalsBuilder {
     let starlark_extensions = starlark_library_extensions_for_buck2();
-    let mut global_env =
-        GlobalsBuilder::extended_by(starlark_extensions).with(register_base_natives);
+    let mut global_env = GlobalsBuilder::extended_by(starlark_extensions)
+        .with(register_base_natives)
+        .with(configure_globals);
     global_env.struct_("__internal__", |x| {
         register_buck2_fail(x);
         register_sub_packages(x);
@@ -163,7 +162,7 @@ pub fn configure_base_globals(
         for ext in starlark_extensions {
             ext.add(x)
         }
-        configure_native_struct(x);
+        configure_globals(x);
     });
     global_env
 }
