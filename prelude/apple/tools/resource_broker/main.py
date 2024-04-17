@@ -102,8 +102,6 @@ def main() -> None:
         _create_companion(args)
 
 
-# pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
 def _create_companion(args: argparse.Namespace) -> None:
     if args.type == _ResourceType.iosBootedSimulator:
         _check_simulator_manager_exists(args.simulator_manager)
