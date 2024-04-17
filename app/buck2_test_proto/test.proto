@@ -326,6 +326,12 @@ message PrepareForLocalExecutionResult {
   repeated VerbatimEnvironmentVariable env = 4;
 }
 
+message SetupLocalResourceLocalExecutionCommand {
+  repeated string cmd = 1;
+  string cwd = 2;
+  repeated VerbatimEnvironmentVariable env = 3;
+}
+
 message VerbatimEnvironmentVariable {
   string key = 1;
   string value = 2;
@@ -333,6 +339,8 @@ message VerbatimEnvironmentVariable {
 
 message PrepareForLocalExecutionResponse {
   PrepareForLocalExecutionResult result = 1;
+  repeated SetupLocalResourceLocalExecutionCommand
+      setup_local_resource_commands = 2;
 }
 
 message AttachInfoMessageRequest {

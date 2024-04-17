@@ -364,6 +364,12 @@ pub struct TestExecutable {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrepareForLocalExecutionResult {
+    pub command: LocalExecutionCommand,
+    pub local_resource_setup_commands: Vec<LocalExecutionCommand>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LocalExecutionCommand {
     pub cmd: Vec<String>,
     pub env: SortedVectorMap<String, String>,
     pub cwd: AbsNormPathBuf,

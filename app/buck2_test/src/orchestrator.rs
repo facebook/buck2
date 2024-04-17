@@ -107,6 +107,7 @@ use buck2_test_api::data::ExecutionStatus;
 use buck2_test_api::data::ExecutionStream;
 use buck2_test_api::data::ExecutorConfigOverride;
 use buck2_test_api::data::ExternalRunnerSpecValue;
+use buck2_test_api::data::LocalExecutionCommand;
 use buck2_test_api::data::Output;
 use buck2_test_api::data::PrepareForLocalExecutionResult;
 use buck2_test_api::data::RequiredLocalResources;
@@ -1382,7 +1383,7 @@ struct ExpandedTestExecutable {
 fn create_prepare_for_local_execution_result(
     fs: &ArtifactFs,
     request: CommandExecutionRequest,
-    _local_resource_setup_commands: Vec<PreparedLocalResourceSetupContext>,
+    local_resource_setup_commands: Vec<PreparedLocalResourceSetupContext>,
 ) -> PrepareForLocalExecutionResult {
     let relative_cwd = request
         .working_directory()
@@ -1398,7 +1399,43 @@ fn create_prepare_for_local_execution_result(
         request.local_environment_inheritance(),
     );
 
+    let local_resource_setup_commands = local_resource_setup_commands
+        .into_iter()
+        .map(|r| local_resource_setup_command_prepared_for_local_execution(fs, r))
+        .collect::<Vec<_>>();
+
     PrepareForLocalExecutionResult {
+        command: LocalExecutionCommand {
+            cmd,
+            env: env.into_inner(),
+            cwd,
+        },
+        local_resource_setup_commands,
+    }
+}
+
+fn local_resource_setup_command_prepared_for_local_execution(
+    fs: &ArtifactFs,
+    resource_setup_command: PreparedLocalResourceSetupContext,
+) -> LocalExecutionCommand {
+    let relative_cwd = resource_setup_command
+        .execution_request
+        .working_directory()
+        .unwrap_or_else(|| ProjectRelativePath::empty());
+    let cwd = fs.fs().resolve(relative_cwd);
+    let cmd = resource_setup_command.execution_request.all_args_vec();
+
+    let mut env = LossyEnvironment::new();
+    apply_local_execution_environment(
+        &mut env,
+        &cwd,
+        resource_setup_command.execution_request.env(),
+        resource_setup_command
+            .execution_request
+            .local_environment_inheritance(),
+    );
+
+    LocalExecutionCommand {
         cmd,
         env: env.into_inner(),
         cwd,

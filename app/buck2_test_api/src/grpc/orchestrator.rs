@@ -261,19 +261,13 @@ impl TestOrchestratorClient {
             test_executable: Some(executable),
             required_local_resources: required_local_resources.resources.into_map(|r| r.into()),
         };
-        let PrepareForLocalExecutionResponse { result } = self
-            .test_orchestrator_client
+        self.test_orchestrator_client
             .clone()
             .prepare_for_local_execution(request)
             .await?
-            .into_inner();
-
-        let result = result
-            .context("Missing `result`")?
+            .into_inner()
             .try_into()
-            .context("Invalid `result`")?;
-
-        Ok(result)
+            .context("Invalid `result`")
     }
 
     pub async fn attach_info_message(&self, message: String) -> anyhow::Result<()> {
@@ -465,11 +459,7 @@ where
                 .await
                 .context("Prepare for local execution failed")?;
 
-            let result = result.try_into().context("Failed to serialize result")?;
-
-            Ok(PrepareForLocalExecutionResponse {
-                result: Some(result),
-            })
+            result.try_into().context("Failed to serialize result")
         })
         .await
     }

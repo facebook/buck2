@@ -16,6 +16,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 
+use super::LocalExecutionCommand;
 use super::LocalResourceType;
 use super::PrepareForLocalExecutionResult;
 use super::RemoteStorageConfig;
@@ -886,37 +887,118 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
     }
 }
 
-impl TryInto<buck2_test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
+impl TryInto<buck2_test_proto::PrepareForLocalExecutionResponse>
+    for PrepareForLocalExecutionResult
+{
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<buck2_test_proto::PrepareForLocalExecutionResult, Self::Error> {
-        let cwd = self.cwd.to_str().context("Invalid cwd path")?.to_owned();
+    fn try_into(self) -> Result<buck2_test_proto::PrepareForLocalExecutionResponse, Self::Error> {
+        let cwd = self
+            .command
+            .cwd
+            .to_str()
+            .context("Invalid cwd path")?
+            .to_owned();
 
-        Ok(buck2_test_proto::PrepareForLocalExecutionResult {
+        Ok(buck2_test_proto::PrepareForLocalExecutionResponse {
+            result: Some(buck2_test_proto::PrepareForLocalExecutionResult {
+                cmd: self.command.cmd,
+                cwd,
+                env: self
+                    .command
+                    .env
+                    .into_iter()
+                    .map(
+                        |(key, value)| buck2_test_proto::VerbatimEnvironmentVariable { key, value },
+                    )
+                    .collect(),
+            }),
+            setup_local_resource_commands: self
+                .local_resource_setup_commands
+                .into_iter()
+                .map(|c| {
+                    <LocalExecutionCommand as TryInto<
+                        buck2_test_proto::SetupLocalResourceLocalExecutionCommand,
+                    >>::try_into(c)
+                })
+                .collect::<Result<Vec<_>, anyhow::Error>>()?,
+        })
+    }
+}
+
+impl TryInto<buck2_test_proto::SetupLocalResourceLocalExecutionCommand> for LocalExecutionCommand {
+    type Error = anyhow::Error;
+
+    fn try_into(
+        self,
+    ) -> Result<buck2_test_proto::SetupLocalResourceLocalExecutionCommand, Self::Error> {
+        Ok(buck2_test_proto::SetupLocalResourceLocalExecutionCommand {
             cmd: self.cmd,
-            cwd,
+            cwd: self
+                .cwd
+                .to_str()
+                .context("Invalid cwd path for local resource")?
+                .to_owned(),
             env: self
                 .env
                 .into_iter()
-                .map(|(key, value)| buck2_test_proto::VerbatimEnvironmentVariable { key, value })
+                .map(|(k, v)| buck2_test_proto::VerbatimEnvironmentVariable { key: k, value: v })
                 .collect(),
         })
     }
 }
 
-impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
+impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for LocalExecutionCommand {
     type Error = anyhow::Error;
 
     fn try_from(s: buck2_test_proto::PrepareForLocalExecutionResult) -> Result<Self, Self::Error> {
-        let buck2_test_proto::PrepareForLocalExecutionResult { cmd, cwd, env } = s;
-        let cwd = cwd.try_into().context("Invalid cwd value.")?;
+        Ok(Self {
+            cmd: s.cmd,
+            cwd: s.cwd.try_into().context("Invalid cwd value.")?,
+            env: s
+                .env
+                .into_iter()
+                .map(|env_var| (env_var.key, env_var.value))
+                .collect(),
+        })
+    }
+}
 
-        let env = env
-            .into_iter()
-            .map(|env_var| (env_var.key, env_var.value))
-            .collect();
+impl TryFrom<buck2_test_proto::SetupLocalResourceLocalExecutionCommand> for LocalExecutionCommand {
+    type Error = anyhow::Error;
 
-        Ok(PrepareForLocalExecutionResult { cmd, env, cwd })
+    fn try_from(
+        s: buck2_test_proto::SetupLocalResourceLocalExecutionCommand,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            cmd: s.cmd,
+            cwd: s.cwd.try_into().context("Invalid cwd value.")?,
+            env: s
+                .env
+                .into_iter()
+                .map(|env_var| (env_var.key, env_var.value))
+                .collect(),
+        })
+    }
+}
+
+impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResponse>
+    for PrepareForLocalExecutionResult
+{
+    type Error = anyhow::Error;
+
+    fn try_from(
+        s: buck2_test_proto::PrepareForLocalExecutionResponse,
+    ) -> Result<Self, Self::Error> {
+        let result = s.result.context("Missing `result`")?;
+        Ok(Self {
+            command: LocalExecutionCommand::try_from(result)?,
+            local_resource_setup_commands: s
+                .setup_local_resource_commands
+                .into_iter()
+                .map(LocalExecutionCommand::try_from)
+                .collect::<Result<Vec<_>, anyhow::Error>>()?,
+        })
     }
 }
 
@@ -1051,8 +1133,7 @@ mod tests {
         assert_roundtrips::<buck2_test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }
 
-    #[test]
-    fn prepare_for_local_execution_result_roundtrip() {
+    fn dummy_local_execution_command() -> LocalExecutionCommand {
         let cmd = vec![
             "my_cmd".to_owned(),
             "--some-arg".to_owned(),
@@ -1066,10 +1147,18 @@ mod tests {
         let cwd = String::from(local_path).try_into().expect("valid abs path");
         let env = sorted_vector_map! { "some_env".to_owned() => "some_env_val".to_owned() };
 
-        let result = PrepareForLocalExecutionResult { cmd, env, cwd };
+        LocalExecutionCommand { cmd, env, cwd }
+    }
+
+    #[test]
+    fn prepare_for_local_execution_result_roundtrip() {
+        let result = PrepareForLocalExecutionResult {
+            command: dummy_local_execution_command(),
+            local_resource_setup_commands: vec![dummy_local_execution_command()],
+        };
 
         assert_roundtrips::<
-            buck2_test_proto::PrepareForLocalExecutionResult,
+            buck2_test_proto::PrepareForLocalExecutionResponse,
             PrepareForLocalExecutionResult,
         >(&result);
     }
