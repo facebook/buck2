@@ -47,7 +47,7 @@ fn from_late_binding(l: &LateBinding<fn(&mut GlobalsBuilder)>, builder: &mut Glo
     }
 }
 
-fn register_universal_natives(builder: &mut GlobalsBuilder) {
+fn register_buck2_natives(builder: &mut GlobalsBuilder) {
     from_late_binding(&REGISTER_BUCK2_BUILD_API_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_TRANSITION_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_BXL_GLOBALS, builder);
@@ -99,20 +99,22 @@ pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
     ]
 }
 
+fn register_all_natives(builder: &mut GlobalsBuilder) {
+    register_buck2_natives(builder);
+    for ext in starlark_library_extensions_for_buck2() {
+        ext.add(builder);
+    }
+}
+
 /// The standard set of globals that is available in all files.
 ///
 /// This does not include the implicit prelude and cell imports which are only available in `BUCK`
 /// files, but does include everything else.
 pub fn base_globals() -> GlobalsBuilder {
-    let starlark_extensions = starlark_library_extensions_for_buck2();
-    let mut global_env =
-        GlobalsBuilder::extended_by(starlark_extensions).with(register_universal_natives);
+    let mut global_env = GlobalsBuilder::standard().with(register_all_natives);
     global_env.struct_("__internal__", |x| {
         register_internals(x);
-        for ext in starlark_extensions {
-            ext.add(x)
-        }
-        register_universal_natives(x);
+        register_all_natives(x);
     });
     global_env
 }
