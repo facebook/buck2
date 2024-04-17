@@ -23,10 +23,9 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 
 use crate::attrs::attrs_global::register_attrs;
-use crate::interpreter::build_defs::register_buck2_fail;
-use crate::interpreter::build_defs::register_sub_packages;
 use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::host_info::register_host_info;
+use crate::interpreter::functions::internals::register_internals;
 use crate::interpreter::functions::load_symbols::register_load_symbols;
 use crate::interpreter::functions::path::register_path;
 use crate::interpreter::functions::read_config::register_read_config;
@@ -109,8 +108,7 @@ pub fn base_globals() -> GlobalsBuilder {
     let mut global_env =
         GlobalsBuilder::extended_by(starlark_extensions).with(register_universal_natives);
     global_env.struct_("__internal__", |x| {
-        register_buck2_fail(x);
-        register_sub_packages(x);
+        register_internals(x);
         for ext in starlark_extensions {
             ext.add(x)
         }

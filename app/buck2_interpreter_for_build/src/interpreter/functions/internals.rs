@@ -18,8 +18,12 @@ use crate::interpreter::module_internals::ModuleInternals;
 #[error("Fail: {0}")]
 struct BuckFail(String);
 
+/// Registers functions that are only available in the `__internal__` global and not meant to be
+/// stable.
+///
+/// FIXME(JakobDegen): Make the above actually true
 #[starlark_module]
-pub(crate) fn register_buck2_fail(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_internals(builder: &mut GlobalsBuilder) {
     /// `fail()` but implemented using a buck2 error type instead of starlark's, for testing
     /// purposes.
     fn internal_buck2_fail<'v>(
@@ -28,10 +32,7 @@ pub(crate) fn register_buck2_fail(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<NoneType> {
         Err(BuckFail(msg.to_owned()).into())
     }
-}
 
-#[starlark_module]
-pub(crate) fn register_sub_packages(builder: &mut GlobalsBuilder) {
     /// Returns a list of direct subpackage relative paths of current package.
     fn internal_sub_packages<'v>(eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<Vec<String>> {
         let extra = ModuleInternals::from_context(eval, "sub_packages")?;
