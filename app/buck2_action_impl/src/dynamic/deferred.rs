@@ -37,6 +37,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::dynamic_value::DynamicValue;
+use buck2_build_api::interpreter::rule_defs::dynamic_value::FrozenResolvedDynamicValue;
 use buck2_build_api::interpreter::rule_defs::dynamic_value::ResolvedDynamicValue;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
@@ -337,7 +338,7 @@ pub struct DynamicLambdaCtxData<'v> {
         (
             FrozenValue,
             SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-            SmallMap<DynamicValue, FrozenValue>,
+            SmallMap<DynamicValue, FrozenResolvedDynamicValue>,
             SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
         ),
         NoneType,

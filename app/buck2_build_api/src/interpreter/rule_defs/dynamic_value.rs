@@ -173,4 +173,6 @@ fn resolved_dynamic_value_methods(builder: &mut MethodsBuilder) {
 #[starlark_module]
 pub(crate) fn register_dynamic_value(globals: &mut GlobalsBuilder) {
     const DynamicValue: StarlarkValueAsType<DynamicValue> = StarlarkValueAsType::new();
+    const ResolvedDynamicValue: StarlarkValueAsType<ResolvedDynamicValue> =
+        StarlarkValueAsType::new();
 }

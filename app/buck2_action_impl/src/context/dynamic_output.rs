@@ -14,6 +14,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::dynamic_value::DynamicValue;
+use buck2_build_api::interpreter::rule_defs::dynamic_value::FrozenResolvedDynamicValue;
 use buck2_core::soft_error;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
@@ -88,7 +89,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             (
                 FrozenValue,
                 SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-                SmallMap<DynamicValue, FrozenValue>,
+                SmallMap<DynamicValue, FrozenResolvedDynamicValue>,
                 SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
             ),
             NoneType,
