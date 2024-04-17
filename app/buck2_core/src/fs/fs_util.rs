@@ -462,14 +462,11 @@ pub fn symlink_metadata_if_available<P: AsRef<AbsPath>>(path: P) -> Option<fs::M
 /// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
 /// Do nothing if `path` does not exist.
 pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
-    let guard = IoCounterKey::RmDirAll.guard();
+    // There are no counters because every function called here has its own counter.
     let metadata = match symlink_metadata_if_exists(&path)? {
         Some(s) => s,
         None => return Ok(()),
     };
-
-    drop(guard);
-
     let r = if metadata.is_dir() {
         remove_dir_all(&path)
     } else {
