@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use buck2_core::target::label::label::TargetLabelRef;
-use buck2_core::target::name::TargetName;
+use buck2_core::target::name::TargetNameRef;
 use buck2_error::internal_error;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -44,7 +44,7 @@ pub trait AttributeSpecExt {
         param_parser: ParametersParser<'v, '_>,
         arg_count: usize,
         internals: &ModuleInternals,
-    ) -> anyhow::Result<(TargetName, AttrValues)>;
+    ) -> anyhow::Result<(&'v TargetNameRef, AttrValues)>;
 
     /// Returns a starlark Parameters for the rule callable.
     fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>>;
@@ -63,7 +63,7 @@ impl AttributeSpecExt for AttributeSpec {
         mut param_parser: ParametersParser<'v, '_>,
         arg_count: usize,
         internals: &ModuleInternals,
-    ) -> anyhow::Result<(TargetName, AttrValues)> {
+    ) -> anyhow::Result<(&'v TargetNameRef, AttrValues)> {
         let mut attr_values = AttrValues::with_capacity(arg_count);
 
         let mut indices = self.attr_specs();
@@ -78,12 +78,12 @@ impl AttributeSpecExt for AttributeSpec {
                     CoercedAttr::String(StringLiteral(ArcStr::from(name))),
                 );
 
-                TargetName::new(name)?
+                TargetNameRef::new(name)?
             }
             _ => panic!("First attribute is `name`, it is known"),
         };
 
-        let target_label = TargetLabelRef::new(internals.buildfile_path().package(), name.as_ref());
+        let target_label = TargetLabelRef::new(internals.buildfile_path().package(), name);
 
         for (attr_name, attr_idx, attribute) in indices {
             let configurable = attr_is_configurable(attr_name);

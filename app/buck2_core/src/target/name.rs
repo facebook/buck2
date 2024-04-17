@@ -161,6 +161,7 @@ impl Deref for TargetName {
 pub struct TargetNameRef(str);
 
 impl TargetNameRef {
+    #[inline]
     pub fn new(name: &str) -> anyhow::Result<&TargetNameRef> {
         TargetName::verify(name)?;
         Ok(TargetNameRef::unchecked_new(name))

@@ -100,7 +100,7 @@ impl TargetNodeExt for TargetNode {
                 .parse_params(param_parser, arg_count, internals)?;
         let package_name = internals.buildfile_path().package();
 
-        let label = TargetLabel::new(package_name.dupe(), target_name.as_ref());
+        let label = TargetLabel::new(package_name.dupe(), target_name);
         let mut deps_cache = CoercedDepsCollector::new();
 
         for a in rule.attributes.attrs(&attr_values, AttrInspectOptions::All) {
