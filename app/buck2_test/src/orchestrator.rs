@@ -475,13 +475,37 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
-        _required_local_resources: RequiredLocalResources,
+        required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
 
         let fs = self.dice.clone().get_artifact_fs().await?;
 
         let test_info = self.get_test_info(&test_target).await?;
+
+        // In contrast from actual test execution we do not check if local execution is possible.
+        // We leave that decision to actual local execution runner that requests local execution preparation.
+        let setup_local_resources_executor = self.get_local_executor(&fs).await?;
+        let setup_contexts = {
+            let executor_fs = setup_local_resources_executor.executor_fs();
+            required_local_resources_setup_contexts(
+                &self.dice,
+                &executor_fs,
+                &test_info,
+                &required_local_resources,
+            )
+            .await?
+        };
+        let setup_commands: Vec<PreparedLocalResourceSetupContext> =
+            futures::future::try_join_all(setup_contexts.into_iter().map(|context| {
+                self.prepare_local_resource(
+                    context,
+                    setup_local_resources_executor.fs(),
+                    Duration::default(),
+                )
+            }))
+            .await?;
+
         // Tests are not run, so there is no executor override.
         let executor = self
             .get_test_executor(&test_target, &test_info, None, &fs)
@@ -535,9 +559,29 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         )
         .await?;
 
+        for local_resource_setup_command in setup_commands.iter() {
+            materialize_inputs(
+                &fs,
+                materializer.as_ref(),
+                &local_resource_setup_command.execution_request,
+            )
+            .await?;
+            let blocking_executor = self.dice.get_blocking_executor();
+
+            create_output_dirs(
+                &fs,
+                &local_resource_setup_command.execution_request,
+                materializer.dupe(),
+                blocking_executor,
+                self.cancellations,
+            )
+            .await?;
+        }
+
         Ok(create_prepare_for_local_execution_result(
             &fs,
             execution_request,
+            setup_commands,
         ))
     }
 
@@ -1338,6 +1382,7 @@ struct ExpandedTestExecutable {
 fn create_prepare_for_local_execution_result(
     fs: &ArtifactFs,
     request: CommandExecutionRequest,
+    _local_resource_setup_commands: Vec<PreparedLocalResourceSetupContext>,
 ) -> PrepareForLocalExecutionResult {
     let relative_cwd = request
         .working_directory()
