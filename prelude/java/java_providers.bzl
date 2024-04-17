@@ -183,6 +183,7 @@ JavaLibraryIntellijInfo = provider(
         # All the artifacts that were used in order to compile this library
         "compiling_classpath": provider_field(typing.Any, default = None),  # ["artifact"]
         "generated_sources": provider_field(typing.Any, default = None),  # ["artifact"]
+        "lint_jar": provider_field(typing.Any, default = None),  # ["artifact"]
     },
 )
 
@@ -462,7 +463,8 @@ def create_java_library_providers(
         generated_sources: list[Artifact] = [],
         annotation_jars_dir: Artifact | None = None,
         proguard_config: Artifact | None = None,
-        gwt_module: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
+        gwt_module: Artifact | None = None,
+        lint_jar: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
@@ -492,6 +494,7 @@ def create_java_library_providers(
         compiling_classpath = compiling_classpath,
         generated_sources = generated_sources,
         annotation_jars_dir = annotation_jars_dir,
+        lint_jar = lint_jar,
     )
 
     return (library_info, packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_info, intellij_info)

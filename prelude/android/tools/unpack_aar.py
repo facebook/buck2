@@ -78,6 +78,12 @@ def _parse_args():
         help="a path to the proguard config that is unpacked",
     )
     parser.add_argument(
+        "--lint-jar-path",
+        type=pathlib.Path,
+        required=True,
+        help="a path to the lint jar file that is unpacked",
+    )
+    parser.add_argument(
         "--jar-builder-tool",
         type=str,
         required=True,
@@ -99,6 +105,7 @@ def main():
     r_dot_txt_path = args.r_dot_txt_path
     annotation_jars_dir = args.annotation_jars_dir
     proguard_config_path = args.proguard_config_path
+    lint_jar_path = args.lint_jar_path
     jar_builder_tool = args.jar_builder_tool
 
     with TemporaryDirectory() as temp_dir:
@@ -150,6 +157,12 @@ def main():
             shutil.copyfile(unpacked_proguard_config, proguard_config_path)
         else:
             proguard_config_path.touch()
+
+        unpacked_lint_jar = unpack_dir / "lint.jar"
+        if unpacked_lint_jar.exists():
+            shutil.copyfile(unpacked_lint_jar, lint_jar_path)
+        else:
+            lint_jar_path.touch()
 
         # Java .class files can exist at `classes.jar` or any jar file in /libs,
         # so combine them into a single `.jar` file.
