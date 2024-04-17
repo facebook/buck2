@@ -203,6 +203,8 @@ impl Stage {
     pub const MATERIALIZING_INPUT: Self = Stage(100i32);
     pub const UPLOADING_OUTPUT: Self = Stage(101i32);
     pub const KEEP_ALIVE: Self = Stage(102i32);
+    pub const BEFORE_ACTION: Self = Stage(103i32);
+    pub const AFTER_ACTION: Self = Stage(104i32);
 }
 
 #[derive(Clone, Default)]
