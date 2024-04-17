@@ -18,11 +18,8 @@ use starlark::values::none::NoneType;
 use starlark::values::ValueOfUnchecked;
 
 use crate::interpreter::build_context::BuildContext;
-use crate::interpreter::functions::dedupe::register_dedupe;
-use crate::interpreter::functions::sha256::register_sha256;
 use crate::interpreter::globspec::GlobSpec;
 use crate::interpreter::module_internals::ModuleInternals;
-use crate::interpreter::selector::register_select;
 
 #[starlark_module]
 pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
@@ -117,14 +114,6 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
     }
 }
 
-/// Native functions included in all contexts (`BUCK`, `bzl`, `bxl`).
-pub(crate) fn register_base_natives(registry: &mut GlobalsBuilder) {
-    register_path(registry);
-    register_select(registry);
-    register_sha256(registry);
-    register_dedupe(registry);
-}
-
 pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
     &[
         LibraryExtension::Breakpoint,
@@ -149,13 +138,10 @@ pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
 /// Configure globals for all three possible environments: `BUCK`, `bzl` and `bxl`.
 pub fn configure_base_globals(configure_globals: fn(&mut GlobalsBuilder)) -> GlobalsBuilder {
     let starlark_extensions = starlark_library_extensions_for_buck2();
-    let mut global_env = GlobalsBuilder::extended_by(starlark_extensions)
-        .with(register_base_natives)
-        .with(configure_globals);
+    let mut global_env = GlobalsBuilder::extended_by(starlark_extensions).with(configure_globals);
     global_env.struct_("__internal__", |x| {
         register_buck2_fail(x);
         register_sub_packages(x);
-        register_base_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done
         // in `configure_build_file_globals()` or
         // `configure_extension_file_globals()`
