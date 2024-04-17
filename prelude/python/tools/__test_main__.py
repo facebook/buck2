@@ -258,7 +258,14 @@ class BuckTestResult(unittest.TextTestResult):
         # test cases, and fall back to looking the test up from the suite
         # otherwise.
         if not hasattr(test, "_testMethodName"):
-            test = self._find_next_test(self._suite)
+            potential_test = self._find_next_test(self._suite)
+
+            if potential_test is not None:
+                test = potential_test
+            elif hasattr(test, "id"):
+                # If the next test can't be found, this could be a failure in class teardown. Fallback
+                # to using the id, which will likely be the method name as the test method.
+                test._testMethodName = test.id()
 
         self._results.append(
             {
