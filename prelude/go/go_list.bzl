@@ -39,11 +39,12 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         required_felds += ",TestGoFiles,XTestGoFiles"
 
     go_list_args = [
-        go_toolchain.go_list_wrapper,
-        "-e",
-        ["--go", go_toolchain.go],
+        go_toolchain.go_wrapper,
+        go_toolchain.go,
         ["--workdir", srcs_dir],
         ["--output", go_list_out.as_output()],
+        "list",
+        "-e",
         "-json=" + required_felds,
         ["-tags", ",".join(tags) if tags else []],
         ".",

@@ -56,9 +56,11 @@ def main(argv):
         print("usage: go_wrapper.py <wrapped binary> <args>", file=sys.stderr)
         return 1
 
-    wrapped_binary = Path(argv[1])
+    wrapped_binary = Path(argv[1]).resolve()
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--workdir", type=Path, default=None)
+    parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parsed, unknown = parser.parse_known_args(argv[2:])
 
     env = os.environ.copy()
@@ -78,7 +80,11 @@ def main(argv):
             # HACK: Replace %cwd% with the current working directory to make it work when `go` does `cd` to a tmp-dir.
             env[env_var] = var_value.replace("%cwd%", cwd)
 
-    return subprocess.call([wrapped_binary] + unknown, env=env)
+    retcode = subprocess.call(
+        [wrapped_binary] + unknown, env=env, cwd=parsed.workdir, stdout=parsed.output
+    )
+    parsed.output.close()
+    return retcode
 
 
 sys.exit(main(sys.argv))

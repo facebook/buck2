@@ -16,7 +16,6 @@ GoToolchainInfo = provider(
         "cgo": provider_field(RunInfo),
         "cgo_wrapper": provider_field(RunInfo),
         "gen_stdlib_importcfg": provider_field(RunInfo),
-        "go_list_wrapper": provider_field(RunInfo),
         "go_wrapper": provider_field(RunInfo),
         "compiler": provider_field(RunInfo),
         "compiler_flags": provider_field(typing.Any, default = None),

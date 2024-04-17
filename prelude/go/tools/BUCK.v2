@@ -24,12 +24,6 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
-prelude.python_bootstrap_binary(
-    name = "go_list_wrapper",
-    main = "go_list_wrapper.py",
-    visibility = ["PUBLIC"],
-)
-
 prelude.go_binary(
     name = "testmaingen",
     srcs = [
