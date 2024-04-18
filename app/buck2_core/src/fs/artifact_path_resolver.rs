@@ -53,7 +53,10 @@ impl ArtifactFs {
         &self,
         source_artifact_path: SourcePathRef,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.cell_resolver.resolve_source_path(source_artifact_path)
+        Ok(self
+            .cell_resolver
+            .resolve_path(source_artifact_path.package().as_cell_path())?
+            .join(source_artifact_path.path()))
     }
 
     pub fn resolve_offline_output_cache_path(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {

@@ -14,6 +14,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 use std::thread;
 
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileComputations;
@@ -27,6 +28,8 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_core::package::source_path::SourcePath;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
@@ -551,16 +554,17 @@ impl<'a> BuckLspContext<'a> {
         current_package: CellPathRef<'_>,
         literal: &str,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
-        let (cell_resolver, cell_alias_resolver) = self
+        let (artifact_fs, cell_alias_resolver) = self
             .with_dice_ctx(|mut dice_ctx| async move {
                 Ok((
-                    dice_ctx.get_cell_resolver().await?,
+                    dice_ctx.get_artifact_fs().await?,
                     dice_ctx
                         .get_cell_alias_resolver(current_package.cell())
                         .await?,
                 ))
             })
             .await?;
+        let cell_resolver = artifact_fs.cell_resolver();
         match ParsedPattern::<ProvidersPatternExtra>::parsed_opt_absolute(
             literal,
             Some(current_package),
@@ -575,9 +579,12 @@ impl<'a> BuckLspContext<'a> {
                             .resolve_package_listing(package.dupe())
                             .await
                             .and_then(|listing| {
-                                let relative_path = cell_resolver
-                                    .resolve_package(package.dupe())?
-                                    .join(listing.buildfile());
+                                // In the case of external cells, we need to actually materialize
+                                // this thing on disk, so treat it like a source artifact
+                                let buildfile: &PackageRelativePath = listing.buildfile().as_ref();
+                                let source_path = SourcePath::new(package.dupe(), buildfile.into());
+                                let relative_path =
+                                    artifact_fs.resolve_source(source_path.as_ref())?;
                                 let path = self.fs.resolve(&relative_path);
                                 match Url::from_file_path(path).unwrap().try_into() {
                                     Ok(url) => {

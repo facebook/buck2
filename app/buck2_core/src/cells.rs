@@ -169,8 +169,6 @@ use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
-use crate::package::source_path::SourcePathRef;
-use crate::package::PackageLabel;
 
 /// Errors from cell creation
 #[derive(buck2_error::Error, Debug)]
@@ -477,54 +475,6 @@ impl CellResolver {
     /// ```
     pub fn resolve_path(&self, cell_path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
         Ok(self.get(cell_path.cell())?.path().join(cell_path.path()))
-    }
-
-    /// resolves a given 'Package' to the 'ProjectRelativePath' that points to
-    /// the 'Package'
-    ///
-    /// ```
-    /// use std::convert::TryFrom;
-    ///
-    /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
-    /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::cells::CellResolver;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
-    /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    /// use buck2_core::package::PackageLabel;
-    ///
-    /// let cell_path = ProjectRelativePath::new("my/cell")?;
-    ///
-    /// let cells = CellResolver::testing_with_name_and_path(
-    ///     CellName::testing_new("mycell"),
-    ///     CellRootPathBuf::new(cell_path.to_buf()),
-    /// );
-    ///
-    /// let pkg = PackageLabel::new(
-    ///     CellName::testing_new("mycell"),
-    ///     CellRelativePath::unchecked_new("somepkg"),
-    /// );
-    ///
-    /// assert_eq!(
-    ///     cells.resolve_package(pkg)?,
-    ///     ProjectRelativePathBuf::unchecked_new("my/cell/somepkg".into()),
-    /// );
-    ///
-    /// # anyhow::Ok(())
-    /// ```
-    pub fn resolve_package(&self, pkg: PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.resolve_path(pkg.as_cell_path())
-    }
-
-    /// Resolves a 'BuckPath' into a 'ProjectRelativePath' based on the package
-    /// and cell.
-    pub fn resolve_source_path(
-        &self,
-        path: SourcePathRef,
-    ) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self.resolve_package(path.package())?.join(path.path()))
     }
 
     // These are constructors for tests.

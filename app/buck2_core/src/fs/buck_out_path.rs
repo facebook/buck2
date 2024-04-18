@@ -251,6 +251,7 @@ impl BuckOutPathResolver {
 #[cfg(test)]
 mod tests {
 
+    use std::path::Path;
     use std::sync::Arc;
 
     use dupe::Dupe;
@@ -263,10 +264,13 @@ mod tests {
     use crate::cells::paths::CellRelativePath;
     use crate::cells::CellResolver;
     use crate::configuration::data::ConfigurationData;
+    use crate::fs::artifact_path_resolver::ArtifactFs;
     use crate::fs::buck_out_path::BuckOutPath;
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;
+    use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use crate::fs::project::ProjectRoot;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
     use crate::package::package_relative_path::PackageRelativePathBuf;
     use crate::package::source_path::SourcePath;
@@ -280,8 +284,26 @@ mod tests {
             CellName::testing_new("foo"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar-cell".into())),
         );
+        let buck_out_path_resolver = BuckOutPathResolver::new(
+            ProjectRelativePathBuf::unchecked_new("base/buck-out/v2".into()),
+        );
+        let artifact_fs = ArtifactFs::new(
+            cell_resolver,
+            buck_out_path_resolver,
+            ProjectRoot::new_unchecked(
+                AbsNormPathBuf::new(
+                    Path::new(if cfg!(windows) {
+                        "C:\\project"
+                    } else {
+                        "/project"
+                    })
+                    .to_owned(),
+                )
+                .unwrap(),
+            ),
+        );
 
-        let resolved = cell_resolver.resolve_source_path(
+        let resolved = artifact_fs.resolve_source(
             SourcePath::testing_new(
                 PackageLabel::new(
                     CellName::testing_new("foo"),
@@ -298,8 +320,8 @@ mod tests {
         );
 
         assert_eq!(
-            cell_resolver
-                .resolve_source_path(
+            artifact_fs
+                .resolve_source(
                     SourcePath::testing_new(
                         PackageLabel::new(
                             CellName::testing_new("none_existent"),
