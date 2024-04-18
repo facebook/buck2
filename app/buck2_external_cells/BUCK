@@ -9,5 +9,6 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:async-trait",
         "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_external_cells_bundled:buck2_external_cells_bundled",
     ],
 )

@@ -1,8 +1,8 @@
 [package]
-description = "Buck2 external cells implementation"
+description = "Buck2 external cells bundled data"
 edition = "2021"
 license = { workspace = true }
-name = "buck2_external_cells"
+name = "buck2_external_cells_bundled"
 repository = { workspace = true }
 version = "0.1.0"
 
@@ -10,4 +10,3 @@ version = "0.1.0"
 async-trait = { workspace = true }
 
 buck2_common = { workspace = true }
-buck2_external_cells_bundled = { workspace = true }

@@ -1,0 +1,17 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("build_infra")
+
+rust_library(
+    name = "buck2_external_cells_bundled",
+    srcs = glob(["src/**/*.rs"]),
+    # Do not add non-third party deps. This should store the data only, so that
+    # we avoid recompiling if at all possible.
+    #
+    # FIXME(JakobDegen): Ideally this would be a `rust_linkable_symbol`-like
+    # thing, but that needs to be moved to the prelude after buck1-death. It
+    # also can't be made to work with cargo builds, so we'd need to deprecate
+    # those more too.
+    deps = [],
+)

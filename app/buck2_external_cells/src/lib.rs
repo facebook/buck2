@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+#[allow(unused)] // TODO(JakobDegen): Use in next diff
+use buck2_external_cells_bundled::get_bundled_data as _unused;
 
 struct ConcreteExternalCellsImpl;
 
