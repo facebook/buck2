@@ -325,7 +325,6 @@ impl BuckConfigBasedCells {
         })
     }
 
-    #[allow(dead_code)] // TODO(JakobDegen): Use
     pub(crate) async fn parse_single_cell_with_dice(
         ctx: &mut DiceComputations<'_>,
         cell_path: &CellRootPath,

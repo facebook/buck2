@@ -28,6 +28,7 @@ use dice::ProjectionKey;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
+use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::LegacyBuckConfig;
@@ -218,6 +219,14 @@ impl Key for LegacyBuckConfigForCellKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<LegacyBuckConfig> {
+        let cells = ctx.get_cell_resolver().await?;
+        let this_cell = cells.get(self.cell_name)?;
+        if this_cell.external().is_some() {
+            return BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path())
+                .await
+                .map_err(Into::into);
+        }
+
         let legacy_configs = ctx.get_injected_legacy_configs().await?;
         legacy_configs
             .get(self.cell_name)
