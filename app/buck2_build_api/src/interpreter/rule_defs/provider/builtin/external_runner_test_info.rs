@@ -40,6 +40,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
+use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
@@ -99,6 +100,11 @@ pub struct ExternalRunnerTestInfoGen<V: ValueLifetimeless> {
     /// should be ignored when executing tests even if those are passed as required from test runner.
     #[provider(field_type = DictType<String, Option<StarlarkConfiguredProvidersLabel>>)]
     local_resources: V,
+
+    /// Configuration needed to spawn a new worker. This worker will be used to run every single
+    /// command related to test execution, including listing.
+    #[provider(field_type = WorkerInfo<'v>)]
+    worker: V,
 }
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
@@ -151,6 +157,10 @@ impl FrozenExternalRunnerTestInfo {
 
     pub fn local_resources(&self) -> IndexMap<&str, Option<&ConfiguredProvidersLabel>> {
         unwrap_all(iter_local_resources(self.local_resources.to_value())).collect()
+    }
+
+    pub fn worker(&self) -> Option<&WorkerInfo> {
+        unpack_opt_worker(self.worker.to_value()).unwrap()
     }
 
     pub fn visit_artifacts(
@@ -389,6 +399,17 @@ fn unpack_opt_executor<'v>(
     Ok(Some(executor))
 }
 
+fn unpack_opt_worker<'v>(worker: Value<'v>) -> anyhow::Result<Option<&'v WorkerInfo<'v>>> {
+    if worker.is_none() {
+        return Ok(None);
+    }
+
+    let worker = WorkerInfo::from_value(worker)
+        .with_context(|| format!("Value is not a worker: `{}`", worker))?;
+
+    Ok(Some(worker))
+}
+
 fn check_all<I, T>(it: I) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = anyhow::Result<T>>,
@@ -423,6 +444,7 @@ where
     NoneOr::<bool>::unpack_value(info.run_from_project_root.to_value())
         .context("`run_from_project_root` must be a bool if provided")?;
     unpack_opt_executor(info.default_executor.to_value()).context("Invalid `default_executor`")?;
+    unpack_opt_worker(info.worker.to_value()).context("Invalid `worker`")?;
     info.test_type
         .to_value()
         .unpack_str()
@@ -444,6 +466,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] default_executor: Value<'v>,
         #[starlark(default = NoneType)] executor_overrides: Value<'v>,
         #[starlark(default = NoneType)] local_resources: Value<'v>,
+        #[starlark(default = NoneType)] worker: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: r#type,
@@ -456,6 +479,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             default_executor,
             executor_overrides,
             local_resources,
+            worker,
         };
         validate_external_runner_test_info(&res)?;
         Ok(res)
