@@ -1,0 +1,14 @@
+load(":defs.bzl", "test_rule")
+load("@prelude_alias//:alias.bzl", "alias")
+
+test_rule(
+    name = "test_hidden",
+    data = [read_config("user_section", "key"), str(read_package_value("tree.value"))],
+    srcs = glob(["src*"]),
+)
+
+alias(
+    name = "test",
+    actual = ":test_hidden",
+    visibility = ["PUBLIC"],
+)

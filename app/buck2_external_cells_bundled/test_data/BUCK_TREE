@@ -1,0 +1,5 @@
+# The parent package value is set outside of the bundled cell in the test that
+# uses this data. This is used to verify that tree files work across cell
+# boundaries even for external cells.
+_parent_val = read_parent_package_value("tree.value")
+write_package_value("tree.value", _parent_val + 2, overwrite = True)

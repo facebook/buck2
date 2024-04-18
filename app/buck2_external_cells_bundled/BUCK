@@ -5,7 +5,11 @@ oncall("build_infra")
 
 rust_library(
     name = "buck2_external_cells_bundled",
-    srcs = glob(["src/**/*.rs"]),
+    srcs = glob([
+        "src/**/*.rs",
+        "test_data/**/*",
+        "test_data/**/.*",
+    ]),
     # Do not add non-third party deps. This should store the data only, so that
     # we avoid recompiling if at all possible.
     #
