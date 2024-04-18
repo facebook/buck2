@@ -7,9 +7,19 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
+use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
+use buck2_common::file_ops::RawDirEntry;
+use buck2_common::file_ops::RawPathMetadata;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_external_cells_bundled::get_bundled_data;
 use buck2_external_cells_bundled::BundledCell;
+use cmp_any::PartialEqAny;
+use dice::CancellationContext;
+use dice::DiceComputations;
+use dice::Key;
 
 pub(crate) fn find_bundled_data(cell_name: CellName) -> anyhow::Result<BundledCell> {
     #[derive(buck2_error::Error, Debug)]
@@ -33,4 +43,80 @@ pub(crate) fn find_bundled_data(cell_name: CellName) -> anyhow::Result<BundledCe
             )
             .into()
         })
+}
+
+#[derive(allocative::Allocative, PartialEq, Eq)]
+pub(crate) struct BundledFileOpsDelegate {}
+
+#[async_trait::async_trait]
+#[allow(clippy::todo)]
+impl FileOpsDelegate for BundledFileOpsDelegate {
+    async fn read_file_if_exists(
+        &self,
+        _path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<Option<String>> {
+        todo!()
+    }
+
+    /// Return the list of file outputs, sorted.
+    async fn read_dir(
+        &self,
+        _path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<Vec<RawDirEntry>> {
+        todo!()
+    }
+
+    async fn read_path_metadata_if_exists(
+        &self,
+        _path: &'async_trait CellRelativePath,
+    ) -> anyhow::Result<Option<RawPathMetadata>> {
+        todo!()
+    }
+
+    fn eq_token(&self) -> PartialEqAny {
+        PartialEqAny::new(self)
+    }
+}
+
+fn get_file_ops_delegate_impl(_data: BundledCell) -> anyhow::Result<BundledFileOpsDelegate> {
+    Ok(BundledFileOpsDelegate {})
+}
+
+pub(crate) async fn get_file_ops_delegate(
+    ctx: &mut DiceComputations<'_>,
+    cell_name: CellName,
+) -> anyhow::Result<Arc<BundledFileOpsDelegate>> {
+    #[derive(
+        dupe::Dupe,
+        Clone,
+        Copy,
+        Debug,
+        derive_more::Display,
+        PartialEq,
+        Eq,
+        Hash,
+        allocative::Allocative
+    )]
+    struct BundledFileOpsDelegateKey(CellName);
+
+    #[async_trait::async_trait]
+    impl Key for BundledFileOpsDelegateKey {
+        type Value = buck2_error::Result<Arc<BundledFileOpsDelegate>>;
+
+        async fn compute(
+            &self,
+            _dice: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            let data = find_bundled_data(self.0)?;
+            Ok(Arc::new(get_file_ops_delegate_impl(data)?))
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            // No need for non-trivial equality, because this has no deps and is never recomputed
+            false
+        }
+    }
+
+    Ok(ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await??)
 }

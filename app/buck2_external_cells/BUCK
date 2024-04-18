@@ -9,9 +9,14 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derive_more",
+        "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_external_cells_bundled:buck2_external_cells_bundled",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/cmp_any:cmp_any",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )

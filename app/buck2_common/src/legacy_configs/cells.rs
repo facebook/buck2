@@ -536,11 +536,15 @@ pub(crate) fn create_project_filesystem() -> ProjectRoot {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use dice::DiceComputations;
     use indoc::indoc;
 
+    use crate::dice::file_ops::delegate::FileOpsDelegate;
     use crate::external_cells::ExternalCellsImpl;
     use crate::external_cells::EXTERNAL_CELLS_IMPL;
     use crate::legacy_configs::cells::create_project_filesystem;
@@ -1057,6 +1061,16 @@ mod tests {
 
         #[async_trait::async_trait]
         impl ExternalCellsImpl for TestExternalCellsImpl {
+            async fn get_file_ops_delegate(
+                &self,
+                _ctx: &mut DiceComputations<'_>,
+                _cell_name: CellName,
+                _origin: ExternalCellOrigin,
+            ) -> anyhow::Result<Arc<dyn FileOpsDelegate>> {
+                // Not used in these tests
+                unreachable!()
+            }
+
             fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()> {
                 if cell_name.as_str() == "test_bundled_cell" {
                     Ok(())
