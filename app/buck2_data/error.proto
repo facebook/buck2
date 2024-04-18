@@ -32,8 +32,8 @@ enum ErrorType {
 enum ErrorTier {
   // Same as above
   UNUSED_DEFAULT_CATEGORY = 0;
-  INFRA = 1;
-  USER = 2;
+  TIER0 = 1;
+  INPUT = 2;
 }
 
 // Error types are - by design - restricted to being set exactly once at the
