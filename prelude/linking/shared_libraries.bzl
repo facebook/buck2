@@ -231,6 +231,29 @@ def gen_shared_libs_action(
 
     return output
 
+def zip_shlibs(
+        merged: dict[str, SharedLibrary],
+        vals: list[(SharedLibrary, typing.Any)]) -> list[(str, SharedLibrary, typing.Any)]:
+    """
+    Helper to "zip" together the soname->shlib map to a list with associated
+    shared lib values.
+
+    This is useful for callers of `gen_shared_libs_action` to combine the merged
+    shared libs, in dedup'd dict form, with some additional data.
+    """
+
+    zipped = []
+
+    # Walk through the shlib and val tuples
+    idx = 0
+    for soname, shlib in merged.items():
+        for idx in range(idx, len(vals)):
+            if vals[idx][0] == shlib:
+                break
+        zipped.append((soname, shlib, vals[idx][1]))
+
+    return zipped
+
 def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]):
     """
     Merged shared libs into a symlink tree mapping the library's SONAME to
