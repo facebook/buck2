@@ -445,11 +445,15 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     tbd_outputs = impl_params.extra_shared_library_interfaces if impl_params.extra_shared_library_interfaces else []
     if impl_params.shared_library_interface_target and \
        cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
+        transitive_pp = inherited_exported_preprocessor_infos
+        if _attr_reexport_all_header_dependencies(ctx):
+            transitive_pp += inherited_non_exported_preprocessor_infos
+
         cxx_tbd_output = create_tbd(
             ctx,
             cxx_attr_exported_headers(ctx, impl_params.headers_layout),
             own_exported_preprocessor_info,
-            inherited_exported_preprocessor_infos,
+            transitive_pp,
             impl_params.shared_library_interface_target,
         )
         tbd_outputs.append(cxx_tbd_output)

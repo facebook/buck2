@@ -134,6 +134,7 @@ def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_p
     args.add(cmd_args(exported_preprocessor.relative_args.args, prepend = "-Xparser"))
     for ppinfo in transitive_preprocessor:
         args.add(cmd_args(ppinfo.set.project_as_args("args"), prepend = "-Xparser"))
+        args.add(cmd_args(ppinfo.set.project_as_args("include_dirs"), prepend = "-Xparser"))
 
     ctx.actions.run(
         args,
