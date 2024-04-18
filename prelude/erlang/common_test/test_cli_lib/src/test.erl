@@ -439,7 +439,10 @@ logs_impl() ->
         undefined ->
             {error, not_found};
         PrivDir ->
-            Pattern = filename:join(PrivDir, "*.log"),
-            LogPaths = filelib:wildcard(Pattern),
-            {ok, LogPaths}
+            PatternLog = filename:join(PrivDir, "*.log"),
+            LogPaths = filelib:wildcard(PatternLog),
+            PatternLogJson = filename:join(PrivDir, "*.log.json"),
+            LogJsonPaths = filelib:wildcard(PatternLogJson),
+            AllLogs = lists:sort(LogPaths ++ LogJsonPaths),
+            {ok, AllLogs}
     end.
