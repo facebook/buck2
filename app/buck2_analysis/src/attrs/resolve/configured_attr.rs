@@ -103,14 +103,14 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::List(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg.dupe(), ctx)?);
+                    values.append(&mut v.resolve(pkg, ctx)?);
                 }
                 Ok(ctx.heap().alloc(values))
             }
             ConfiguredAttr::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.push(v.resolve_single(pkg.dupe(), ctx)?);
+                    values.push(v.resolve_single(pkg, ctx)?);
                 }
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
@@ -118,10 +118,10 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in dict.iter() {
                     res.insert_hashed(
-                        k.resolve_single(pkg.dupe(), ctx)?
+                        k.resolve_single(pkg, ctx)?
                             .get_hashed()
                             .map_err(BuckStarlarkError::new)?,
-                        v.resolve_single(pkg.dupe(), ctx)?,
+                        v.resolve_single(pkg, ctx)?,
                     );
                 }
                 Ok(ctx.heap().alloc(Dict::new(res)))
@@ -149,11 +149,11 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 let label = StarlarkConfiguredProvidersLabel::new(label.clone());
                 Ok(ctx.heap().alloc(label))
             }
-            ConfiguredAttr::Arg(arg) => arg.resolve(ctx, &pkg),
+            ConfiguredAttr::Arg(arg) => arg.resolve(ctx, pkg),
             ConfiguredAttr::Query(query) => query.resolve(ctx),
             ConfiguredAttr::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,
-                SourcePath::new(pkg.dupe(), s.path().dupe()),
+                SourcePath::new(pkg, s.path().dupe()),
             )),
             ConfiguredAttr::Metadata(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
         }
@@ -204,21 +204,19 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Bool(v) => heap.alloc(v.0),
             ConfiguredAttr::Int(v) => heap.alloc(*v),
             ConfiguredAttr::String(s) | ConfiguredAttr::EnumVariant(s) => heap.alloc(s.as_str()),
-            ConfiguredAttr::List(list) => {
-                heap.alloc(list.try_map(|v| v.to_value(pkg.dupe(), heap))?)
-            }
+            ConfiguredAttr::List(list) => heap.alloc(list.try_map(|v| v.to_value(pkg, heap))?),
             ConfiguredAttr::Tuple(v) => {
-                heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg.dupe(), heap))?))
+                heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg, heap))?))
             }
             ConfiguredAttr::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());
 
                 for (k, v) in map.iter() {
                     res.insert_hashed(
-                        k.to_value(pkg.dupe(), heap)?
+                        k.to_value(pkg, heap)?
                             .get_hashed()
                             .map_err(BuckStarlarkError::new)?,
-                        v.to_value(pkg.dupe(), heap)?,
+                        v.to_value(pkg, heap)?,
                     );
                 }
 

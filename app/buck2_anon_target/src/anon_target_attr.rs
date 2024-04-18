@@ -154,20 +154,20 @@ impl AnonTargetAttr {
             AnonTargetAttr::EnumVariant(_) => Ok(()),
             AnonTargetAttr::List(list) => {
                 for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
             AnonTargetAttr::Tuple(list) => {
                 for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
             AnonTargetAttr::Dict(dict) => {
                 for (k, v) in dict.iter() {
-                    k.traverse(pkg.dupe(), traversal)?;
-                    v.traverse(pkg.dupe(), traversal)?;
+                    k.traverse(pkg, traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
@@ -175,7 +175,7 @@ impl AnonTargetAttr {
             AnonTargetAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             AnonTargetAttr::Dep(dep) => traversal.dep(&dep.label),
             AnonTargetAttr::Artifact(_) => Ok(()),
-            AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal, &pkg),
+            AnonTargetAttr::Arg(e) => e.string_with_macros.traverse(traversal, pkg),
             AnonTargetAttr::PromiseArtifact(..) => Ok(()),
             AnonTargetAttr::Label(_) => Ok(()),
         }

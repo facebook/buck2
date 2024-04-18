@@ -505,8 +505,7 @@ mod tests {
             CellRelativePath::unchecked_new("path/to/target"),
         );
 
-        let expected_target_label =
-            TargetLabel::new(pkg.clone(), TargetNameRef::new("target_name")?);
+        let expected_target_label = TargetLabel::new(pkg, TargetNameRef::new("target_name")?);
 
         let expected_cell_path = CellPath::new(
             CellName::testing_new("bar"),
@@ -552,7 +551,7 @@ mod tests {
         let res = buck_out_parser.parse(&rule_path_target_label_with_slashes)?;
 
         let expected_target_label_with_slashes = TargetLabel::new(
-            pkg.clone(),
+            pkg,
             TargetNameRef::new("target_name_start/target_name_end")?,
         );
 

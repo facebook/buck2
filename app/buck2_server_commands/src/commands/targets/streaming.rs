@@ -195,7 +195,7 @@ pub(crate) async fn targets_streaming(
                 if package_files_seen.contains(&x) {
                     break;
                 }
-                package_files_seen.insert(x.clone());
+                package_files_seen.insert(x);
                 // These aren't cached, but the cost is relatively low (Starlark parsing),
                 // and there aren't many, so we just do it on the main thread.
                 // We ignore errors as these will bubble up as BUCK file errors already.

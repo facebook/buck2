@@ -75,9 +75,9 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
             // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
             // so DO NOT USE async move here
             self.load_package_futs.push(
-                OwningFuture::new(self.ctx.get(), |ctx| {
-                    ctx.get_interpreter_results(package.dupe())
-                        .map(|res| (package, res))
+                OwningFuture::new(self.ctx.get(), move |ctx| {
+                    ctx.get_interpreter_results(package)
+                        .map(move |res| (package, res))
                         .boxed()
                 })
                 .boxed(),

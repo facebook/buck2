@@ -69,7 +69,7 @@ impl SourcePath {
     }
 }
 
-#[derive(Display, Debug, Eq, Hash, PartialEq, Clone, Dupe)]
+#[derive(Display, Debug, Eq, Hash, PartialEq, Copy, Clone, Dupe)]
 #[display(fmt = "{}/{}", pkg, "path.as_str()")]
 pub struct SourcePathRef<'a> {
     pkg: PackageLabel,

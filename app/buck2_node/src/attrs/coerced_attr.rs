@@ -387,40 +387,40 @@ impl CoercedAttr {
             CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
                 for (condition, value) in entries.iter() {
                     traversal.configuration_dep(condition)?;
-                    value.traverse(t, pkg.dupe(), traversal)?;
+                    value.traverse(t, pkg, traversal)?;
                 }
                 if let Some(v) = default {
-                    v.traverse(t, pkg.dupe(), traversal)?;
+                    v.traverse(t, pkg, traversal)?;
                 }
                 Ok(())
             }
             CoercedAttrWithType::Concat(items, t) => {
                 for item in items {
-                    item.traverse(t, pkg.dupe(), traversal)?;
+                    item.traverse(t, pkg, traversal)?;
                 }
                 Ok(())
             }
 
             CoercedAttrWithType::None => Ok(()),
-            CoercedAttrWithType::Some(attr, t) => attr.traverse(&t.inner, pkg.dupe(), traversal),
+            CoercedAttrWithType::Some(attr, t) => attr.traverse(&t.inner, pkg, traversal),
 
             CoercedAttrWithType::AnyList(list) => {
                 for v in list.iter() {
                     // This is no-op now, but any may contain selects in the future.
-                    v.traverse(t, pkg.dupe(), traversal)?;
+                    v.traverse(t, pkg, traversal)?;
                 }
                 Ok(())
             }
             CoercedAttrWithType::AnyTuple(tuple) => {
                 for v in tuple.iter() {
-                    v.traverse(t, pkg.dupe(), traversal)?;
+                    v.traverse(t, pkg, traversal)?;
                 }
                 Ok(())
             }
             CoercedAttrWithType::AnyDict(dict) => {
                 for (k, v) in dict.iter() {
-                    k.traverse(t, pkg.dupe(), traversal)?;
-                    v.traverse(t, pkg.dupe(), traversal)?;
+                    k.traverse(t, pkg, traversal)?;
+                    v.traverse(t, pkg, traversal)?;
                 }
                 Ok(())
             }
@@ -431,7 +431,7 @@ impl CoercedAttr {
             CoercedAttrWithType::EnumVariant(..) => Ok(()),
             CoercedAttrWithType::List(list, t) => {
                 for v in list.iter() {
-                    v.traverse(&t.inner, pkg.dupe(), traversal)?;
+                    v.traverse(&t.inner, pkg, traversal)?;
                 }
                 Ok(())
             }
@@ -441,14 +441,14 @@ impl CoercedAttr {
                 }
 
                 for (v, vt) in list.iter().zip(&t.xs) {
-                    v.traverse(vt, pkg.dupe(), traversal)?;
+                    v.traverse(vt, pkg, traversal)?;
                 }
                 Ok(())
             }
             CoercedAttrWithType::Dict(dict, t) => {
                 for (k, v) in dict.iter() {
-                    k.traverse(&t.key, pkg.dupe(), traversal)?;
-                    v.traverse(&t.value, pkg.dupe(), traversal)?;
+                    k.traverse(&t.key, pkg, traversal)?;
+                    v.traverse(&t.value, pkg, traversal)?;
                 }
                 Ok(())
             }
@@ -473,11 +473,11 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s.target()),
             CoercedAttrWithType::Label(label, _t) => traversal.label(label),
-            CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal, &pkg),
+            CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal, pkg),
             CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
             CoercedAttrWithType::SourceFile(source, _t) => {
                 for x in source.inputs() {
-                    traversal.input(SourcePathRef::new(pkg.dupe(), x))?;
+                    traversal.input(SourcePathRef::new(pkg, x))?;
                 }
                 Ok(())
             }

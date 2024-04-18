@@ -58,7 +58,7 @@ pub trait ConfiguredStringWithMacrosExt {
     fn resolve<'v>(
         &self,
         ctx: &dyn AttrResolutionContext<'v>,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
     ) -> anyhow::Result<Value<'v>>;
 }
 
@@ -66,7 +66,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
     fn resolve<'v>(
         &self,
         ctx: &dyn AttrResolutionContext<'v>,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
     ) -> anyhow::Result<Value<'v>> {
         let resolved_parts = match &self.string_with_macros {
             StringWithMacros::StringPart(s) => {
@@ -108,7 +108,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
 fn resolve_configured_macro(
     configured_macro: &ConfiguredMacro,
     ctx: &dyn AttrResolutionContext,
-    pkg: &PackageLabel,
+    pkg: PackageLabel,
 ) -> anyhow::Result<ResolvedMacro> {
     match configured_macro {
         ConfiguredMacro::Location(target) => {

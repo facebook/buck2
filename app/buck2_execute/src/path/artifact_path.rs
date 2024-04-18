@@ -19,7 +19,6 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::source_path::SourcePathRef;
-use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
 use gazebo::eq_chain;
@@ -104,9 +103,7 @@ impl<'a> ArtifactPath<'a> {
 
         let base_path = match base_path {
             Either::Left(build) => artifact_fs.buck_out_path_resolver().resolve_gen(build),
-            Either::Right(source) => artifact_fs
-                .cell_resolver()
-                .resolve_source_path(source.dupe())?,
+            Either::Right(source) => artifact_fs.cell_resolver().resolve_source_path(*source)?,
         };
 
         Ok(match projected_path {

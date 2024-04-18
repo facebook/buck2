@@ -98,14 +98,14 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
             AnonTargetAttr::List(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg.dupe(), anon_resolution_ctx)?);
+                    values.append(&mut v.resolve(pkg, anon_resolution_ctx)?);
                 }
                 Ok(ctx.heap().alloc(values))
             }
             AnonTargetAttr::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
-                    values.append(&mut v.resolve(pkg.dupe(), anon_resolution_ctx)?);
+                    values.append(&mut v.resolve(pkg, anon_resolution_ctx)?);
                 }
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
@@ -113,10 +113,10 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in dict.iter() {
                     res.insert_hashed(
-                        k.resolve_single(pkg.dupe(), anon_resolution_ctx)?
+                        k.resolve_single(pkg, anon_resolution_ctx)?
                             .get_hashed()
                             .map_err(BuckStarlarkError::new)?,
-                        v.resolve_single(pkg.dupe(), anon_resolution_ctx)?,
+                        v.resolve_single(pkg, anon_resolution_ctx)?,
                     );
                 }
                 Ok(ctx.heap().alloc(Dict::new(res)))
@@ -125,7 +125,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, anon_resolution_ctx),
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
-            AnonTargetAttr::Arg(a) => a.resolve(ctx, &pkg),
+            AnonTargetAttr::Arg(a) => a.resolve(ctx, pkg),
             AnonTargetAttr::PromiseArtifact(promise_artifact_attr) => {
                 let promise_id = promise_artifact_attr.id.clone();
                 // We validated that the analysis contains the promise artifact id earlier

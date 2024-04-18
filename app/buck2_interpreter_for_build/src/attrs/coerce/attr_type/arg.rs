@@ -265,7 +265,7 @@ mod tests {
         type DepsType = TargetLabel;
         fn get_deps(&self) -> anyhow::Result<Vec<Self::DepsType>> {
             let mut visitor = CoercedDepsCollector::new();
-            self.traverse(&mut visitor, &PackageLabel::testing_new("root", ""))?;
+            self.traverse(&mut visitor, PackageLabel::testing_new("root", ""))?;
             let CoercedDepsCollector {
                 deps, exec_deps, ..
             } = visitor;
@@ -309,7 +309,7 @@ mod tests {
 
         if let MacroBase::Location(target) = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
-            configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
+            configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(smallset![target.clone()], info.deps);
         } else {
             return Err(anyhow::anyhow!("Expected Location"));
@@ -331,7 +331,7 @@ mod tests {
 
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
-            configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
+            configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.exec_cfg().cfg());
             assert_eq!(smallset![label.clone()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
@@ -355,7 +355,7 @@ mod tests {
 
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
-            configured.traverse(&mut info, &PackageLabel::testing_new("root", ""))?;
+            configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.cfg().cfg());
             assert_eq!(smallset![], info.execution_deps);
             assert_eq!(smallset![label.clone()], info.deps);

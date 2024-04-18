@@ -68,7 +68,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 /// (for example, attempt to gather package listing for a package fails
 /// if it is a directory, but does not have a build file).
 #[derive(
-    Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
 pub struct PackageLabel(Intern<PackageLabelData>);
 

@@ -75,7 +75,7 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
     ) -> anyhow::Result<()> {
         match self {
             Self::StringPart(..) => {}
@@ -117,7 +117,7 @@ impl StringWithMacros<ProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
     ) -> anyhow::Result<()> {
         match self {
             Self::StringPart(..) => {}
@@ -179,7 +179,7 @@ impl MacroBase<ConfiguredProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
     ) -> anyhow::Result<()> {
         // macros can't reference repo inputs (they only reference the outputs of other targets)
         match self {
@@ -243,7 +243,7 @@ impl MacroBase<ProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-        pkg: &PackageLabel,
+        pkg: PackageLabel,
     ) -> anyhow::Result<()> {
         match self {
             MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {

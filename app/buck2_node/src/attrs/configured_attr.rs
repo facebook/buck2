@@ -179,20 +179,20 @@ impl ConfiguredAttr {
             ConfiguredAttr::EnumVariant(_) => Ok(()),
             ConfiguredAttr::List(list) => {
                 for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
             ConfiguredAttr::Tuple(list) => {
                 for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
             ConfiguredAttr::Dict(dict) => {
                 for (k, v) in dict.iter() {
-                    k.traverse(pkg.dupe(), traversal)?;
-                    v.traverse(pkg.dupe(), traversal)?;
+                    k.traverse(pkg, traversal)?;
+                    v.traverse(pkg, traversal)?;
                 }
                 Ok(())
             }
@@ -212,11 +212,11 @@ impl ConfiguredAttr {
             ConfiguredAttr::Dep(dep) => dep.traverse(traversal),
             ConfiguredAttr::SourceLabel(dep) => traversal.dep(dep),
             ConfiguredAttr::Label(label) => traversal.label(label),
-            ConfiguredAttr::Arg(arg) => arg.string_with_macros.traverse(traversal, &pkg),
+            ConfiguredAttr::Arg(arg) => arg.string_with_macros.traverse(traversal, pkg),
             ConfiguredAttr::Query(query) => query.traverse(traversal),
             ConfiguredAttr::SourceFile(source) => {
                 for x in source.inputs() {
-                    traversal.input(SourcePathRef::new(pkg.dupe(), x))?;
+                    traversal.input(SourcePathRef::new(pkg, x))?;
                 }
                 Ok(())
             }
