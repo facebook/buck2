@@ -142,7 +142,7 @@ impl Directory {
         let cell_path = root.join(path.as_forward_rel_path());
         let entries = DiceFileComputations::read_dir(ctx, cell_path.as_ref())
             .await
-            .user()?
+            .input()?
             .included;
 
         let buildfile = find_buildfile(buildfile_candidates, &entries);
@@ -153,7 +153,7 @@ impl Directory {
                     cell_path.to_owned(),
                     buildfile_candidates.to_vec(),
                 ))
-                .user();
+                .input();
             }
             (false, Some(_)) => {
                 return Ok(None);

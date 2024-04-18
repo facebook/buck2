@@ -29,13 +29,13 @@ pub trait BuckErrorContext<T>: Sealed {
         F: FnOnce() -> C;
 
     #[track_caller]
-    fn user(self) -> anyhow::Result<T> {
-        self.buck_error_context(crate::Tier::User)
+    fn input(self) -> anyhow::Result<T> {
+        self.buck_error_context(crate::Tier::Input)
     }
 
     #[track_caller]
-    fn infra(self) -> anyhow::Result<T> {
-        self.buck_error_context(crate::Tier::Infra)
+    fn tier0(self) -> anyhow::Result<T> {
+        self.buck_error_context(crate::Tier::Tier0)
     }
 
     #[track_caller]

@@ -73,8 +73,8 @@ impl<T: fmt::Display> From<T> for ContextValue {
     Ord
 )]
 pub enum Tier {
-    User,
-    Infra,
+    Input,
+    Tier0,
 }
 
 impl Tier {
@@ -103,7 +103,7 @@ mod tests {
     fn test_category_not_in_formatting() {
         let e: crate::Error = TestError.into();
         let e = e.context("foo");
-        let e2 = e.clone().context(crate::Tier::User);
+        let e2 = e.clone().context(crate::Tier::Input);
         assert_eq!(format!("{:#}", e), format!("{:#}", e2));
     }
 
@@ -112,16 +112,16 @@ mod tests {
         let e: crate::Error = TestError.into();
         let e = e
             .clone()
-            .context(crate::Tier::Infra)
-            .context(crate::Tier::User);
-        assert_eq!(e.get_category(), Some(crate::Tier::Infra));
+            .context(crate::Tier::Tier0)
+            .context(crate::Tier::Input);
+        assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
     }
 
     #[test]
     fn test_combine() {
-        assert_eq!(Tier::User.combine(None), Tier::User);
-        assert_eq!(Tier::User.combine(Some(Tier::User)), Tier::User);
-        assert_eq!(Tier::User.combine(Some(Tier::Infra)), Tier::Infra);
-        assert_eq!(Tier::Infra.combine(Some(Tier::User)), Tier::Infra);
+        assert_eq!(Tier::Input.combine(None), Tier::Input);
+        assert_eq!(Tier::Input.combine(Some(Tier::Input)), Tier::Input);
+        assert_eq!(Tier::Input.combine(Some(Tier::Tier0)), Tier::Tier0);
+        assert_eq!(Tier::Tier0.combine(Some(Tier::Input)), Tier::Tier0);
     }
 }

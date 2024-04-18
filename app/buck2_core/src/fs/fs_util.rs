@@ -65,7 +65,7 @@ impl IoError {
     pub fn categorize_for_source_file(self) -> anyhow::Error {
         if self.e.kind() == io::ErrorKind::NotFound {
             buck2_error::Error::from(self)
-                .context(buck2_error::Tier::User)
+                .context(buck2_error::Tier::Input)
                 .into()
         } else {
             self.into()

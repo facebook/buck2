@@ -179,8 +179,8 @@ impl Error {
         for cat in context_categories {
             // It's an infra error if it was ever marked as an infra error
             match cat {
-                Tier::Infra => return Some(cat),
-                Tier::User => out = Some(cat),
+                Tier::Tier0 => return Some(cat),
+                Tier::Input => out = Some(cat),
             }
         }
         out

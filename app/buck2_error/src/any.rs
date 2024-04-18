@@ -233,7 +233,7 @@ mod tests {
                     crate::ErrorTag::StarlarkFail,
                     crate::ErrorTag::WatchmanTimeout,
                 ],
-                category: Some(crate::Tier::Infra),
+                category: Some(crate::Tier::Tier0),
             });
         }
     }
@@ -244,7 +244,7 @@ mod tests {
             FullMetadataError.into(),
             crate::Error::new(FullMetadataError),
         ] {
-            assert_eq!(e.get_category(), Some(crate::Tier::Infra));
+            assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
             assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
             assert_eq!(
                 e.source_location(),
@@ -265,7 +265,7 @@ mod tests {
         let e: anyhow::Error = FullMetadataError.into();
         let e = e.context("anyhow");
         let e: crate::Error = e.into();
-        assert_eq!(e.get_category(), Some(crate::Tier::Infra));
+        assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
         assert!(format!("{:?}", e).contains("anyhow"));
     }
 
@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn test_metadata_through_wrapper() {
         let e: crate::Error = WrapperError(FullMetadataError).into();
-        assert_eq!(e.get_category(), Some(crate::Tier::Infra));
+        assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
         assert!(format!("{:?}", e).contains("wrapper"));
     }
 
@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn test_context_in_wrapper() {
         let e: crate::Error = FullMetadataContextWrapperError(FullMetadataError).into();
-        assert_eq!(e.get_category(), Some(crate::Tier::Infra));
+        assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
         assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
         assert_eq!(
             e.source_location(),
@@ -311,6 +311,6 @@ mod tests {
     fn test_no_root_metadata_context() {
         let e = InfraMetadataWrapperError(UserMetadataError);
         let e: crate::Error = e.into();
-        assert_eq!(e.get_category(), Some(crate::Tier::Infra));
+        assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
     }
 }

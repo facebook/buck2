@@ -50,17 +50,17 @@ impl std::error::Error for ActionError {
         let category = match &self.execute_error {
             ExecuteError::CommandExecutionError => {
                 if is_command_failure {
-                    Some(buck2_error::Tier::User)
+                    Some(buck2_error::Tier::Input)
                 } else {
                     None
                 }
             }
             // Returning extra outputs is a bug in the executor
-            ExecuteError::MismatchedOutputs { .. } => Some(buck2_error::Tier::Infra),
+            ExecuteError::MismatchedOutputs { .. } => Some(buck2_error::Tier::Tier0),
             // However outputs may be legitimately missing if the action didn't produce them
-            ExecuteError::MissingOutputs { .. } => Some(buck2_error::Tier::User),
+            ExecuteError::MissingOutputs { .. } => Some(buck2_error::Tier::Input),
             // Or if the action produced the wrong type
-            ExecuteError::WrongOutputType { .. } => Some(buck2_error::Tier::User),
+            ExecuteError::WrongOutputType { .. } => Some(buck2_error::Tier::Input),
             ExecuteError::Error { .. } => None,
         };
 

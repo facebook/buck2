@@ -59,7 +59,7 @@ pub(crate) async fn run_subscription_server_command(
                     message = req.message().fuse() => {
                         use buck2_subscription_proto::subscription_request::Request;
 
-                        match message?.request.context("Empty message").user()?.request.context("Empty request").user()? {
+                        match message?.request.context("Empty message").input()?.request.context("Empty request").input()? {
                             Request::Disconnect(disconnect) => {
                                 break disconnect;
                             }

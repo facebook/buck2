@@ -76,10 +76,10 @@ impl Parse for MacroOption {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let name: syn::Ident = input.parse()?;
         if name == "user" {
-            let ident = syn::Ident::new("User", name.span());
+            let ident = syn::Ident::new("Input", name.span());
             Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
         } else if name == "infra" {
-            let ident = syn::Ident::new("Infra", name.span());
+            let ident = syn::Ident::new("Tier0", name.span());
             Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
         } else if name == "typ" {
             let _eq: Token![=] = input.parse()?;
