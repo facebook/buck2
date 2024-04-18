@@ -520,7 +520,10 @@ impl CellResolver {
 
     /// Resolves a 'BuckPath' into a 'ProjectRelativePath' based on the package
     /// and cell.
-    pub fn resolve_buck_path(&self, path: SourcePathRef) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve_source_path(
+        &self,
+        path: SourcePathRef,
+    ) -> anyhow::Result<ProjectRelativePathBuf> {
         Ok(self.resolve_package(path.package())?.join(path.path()))
     }
 

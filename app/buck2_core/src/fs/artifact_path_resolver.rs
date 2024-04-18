@@ -54,7 +54,7 @@ impl ArtifactFs {
         source_artifact_path: SourcePathRef,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
         self.buck_path_resolver
-            .resolve_buck_path(source_artifact_path)
+            .resolve_source_path(source_artifact_path)
     }
 
     pub fn resolve_offline_output_cache_path(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {

@@ -106,7 +106,7 @@ impl<'a> ArtifactPath<'a> {
             Either::Left(build) => artifact_fs.buck_out_path_resolver().resolve_gen(build),
             Either::Right(source) => artifact_fs
                 .buck_path_resolver()
-                .resolve_buck_path(source.dupe())?,
+                .resolve_source_path(source.dupe())?,
         };
 
         Ok(match projected_path {

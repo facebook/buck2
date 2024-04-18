@@ -281,7 +281,7 @@ mod tests {
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar-cell".into())),
         );
 
-        let resolved = cell_resolver.resolve_buck_path(
+        let resolved = cell_resolver.resolve_source_path(
             SourcePath::testing_new(
                 PackageLabel::new(
                     CellName::testing_new("foo"),
@@ -299,7 +299,7 @@ mod tests {
 
         assert_eq!(
             cell_resolver
-                .resolve_buck_path(
+                .resolve_source_path(
                     SourcePath::testing_new(
                         PackageLabel::new(
                             CellName::testing_new("none_existent"),
