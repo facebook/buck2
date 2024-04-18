@@ -9,13 +9,13 @@
 
 use allocative::Allocative;
 
-use crate::buck_path::path::SourcePathRef;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::CellResolver;
 use crate::fs::buck_out_path::BuckOutPath;
 use crate::fs::buck_out_path::BuckOutPathResolver;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
+use crate::package::source_path::SourcePathRef;
 
 #[derive(Clone, Allocative)]
 pub struct ArtifactFs {

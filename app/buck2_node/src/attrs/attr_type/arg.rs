@@ -12,7 +12,7 @@ pub mod parser;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_core::buck_path::path::SourcePathRef;
+use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;

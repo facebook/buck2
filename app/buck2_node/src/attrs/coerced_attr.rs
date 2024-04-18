@@ -13,9 +13,9 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;

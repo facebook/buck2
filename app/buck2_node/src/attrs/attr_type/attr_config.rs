@@ -9,7 +9,7 @@
 
 use std::fmt::Display;
 
-use buck2_core::buck_path::path::SourcePathRef;
+use buck2_core::package::source_path::SourcePathRef;
 use dupe::Dupe;
 use either::Either;
 use serde_json::to_value;

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck_path::path::SourcePathRef;
+use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;

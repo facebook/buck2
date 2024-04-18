@@ -665,7 +665,6 @@ mod tests {
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::buck_path::path::SourcePath;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
@@ -683,6 +682,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+    use buck2_core::package::source_path::SourcePath;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_core::target::name::TargetNameRef;

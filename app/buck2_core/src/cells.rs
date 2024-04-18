@@ -153,7 +153,6 @@ use instance::CellInstance;
 use itertools::Itertools;
 use sequence_trie::SequenceTrie;
 
-use crate::buck_path::path::SourcePathRef;
 use crate::cells::alias::CellAlias;
 use crate::cells::alias::NonEmptyCellAlias;
 use crate::cells::cell_path::CellPath;
@@ -170,6 +169,7 @@ use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
+use crate::package::source_path::SourcePathRef;
 use crate::package::PackageLabel;
 
 /// Errors from cell creation

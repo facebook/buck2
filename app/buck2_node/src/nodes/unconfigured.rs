@@ -13,10 +13,10 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;

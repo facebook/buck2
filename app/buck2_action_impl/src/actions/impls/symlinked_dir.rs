@@ -271,8 +271,8 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
 mod tests {
     use buck2_artifact::artifact::artifact_type::Artifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
-    use buck2_core::buck_path::path::SourcePath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+    use buck2_core::package::source_path::SourcePath;
     use buck2_core::package::PackageLabel;
 
     use super::*;

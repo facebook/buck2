@@ -572,7 +572,6 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::buck_path::path::SourcePath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
@@ -588,6 +587,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+    use buck2_core::package::source_path::SourcePath;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;

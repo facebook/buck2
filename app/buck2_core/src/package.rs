@@ -39,6 +39,7 @@
 //! ```
 
 pub mod package_relative_path;
+pub mod source_path;
 
 use std::hash::Hash;
 use std::hash::Hasher;

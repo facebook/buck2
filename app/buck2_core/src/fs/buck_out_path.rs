@@ -257,7 +257,6 @@ mod tests {
     use regex::Regex;
 
     use crate::base_deferred_key::BaseDeferredKey;
-    use crate::buck_path::path::SourcePath;
     use crate::category::Category;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
@@ -270,6 +269,7 @@ mod tests {
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
     use crate::package::package_relative_path::PackageRelativePathBuf;
+    use crate::package::source_path::SourcePath;
     use crate::package::PackageLabel;
     use crate::target::label::label::TargetLabel;
     use crate::target::name::TargetNameRef;

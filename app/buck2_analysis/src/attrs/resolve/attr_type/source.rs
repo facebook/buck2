@@ -9,7 +9,7 @@
 
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_core::buck_path::path::SourcePath;
+use buck2_core::package::source_path::SourcePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use starlark::values::list::ListRef;

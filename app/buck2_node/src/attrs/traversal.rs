@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 
-use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;

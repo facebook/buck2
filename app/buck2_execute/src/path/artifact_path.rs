@@ -13,12 +13,12 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use anyhow::Context;
-use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::package::source_path::SourcePathRef;
 use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
