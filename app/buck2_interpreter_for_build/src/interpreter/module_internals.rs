@@ -161,7 +161,7 @@ impl ModuleInternals {
             State::BeforeTargets(Some(_)) => Err(OncallErrors::DuplicateOncall.into()),
             State::BeforeTargets(oncall) => {
                 assert!(oncall.is_none());
-                *oncall = Some(Oncall(Arc::new(name.to_owned())));
+                *oncall = Some(Oncall::new(name));
                 Ok(())
             }
             State::Targets(..) => {

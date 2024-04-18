@@ -118,7 +118,7 @@ impl TargetNodeData {
     }
 
     pub fn oncall(&self) -> Option<&str> {
-        self.package.oncall.as_ref().map(|x| x.0.as_str())
+        self.package.oncall.as_ref().map(|x| x.as_str())
     }
 
     pub fn call_stack(&self) -> Option<String> {

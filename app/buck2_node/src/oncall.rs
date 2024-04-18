@@ -14,4 +14,14 @@ use dupe::Dupe;
 
 /// The `oncall` annotation for a `BUCK` file.
 #[derive(Debug, Hash, Allocative, Eq, PartialEq, Dupe, Clone)]
-pub struct Oncall(pub Arc<String>);
+pub struct Oncall(Arc<String>);
+
+impl Oncall {
+    pub fn new(oncall: &str) -> Self {
+        Self(Arc::new(oncall.to_owned()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
