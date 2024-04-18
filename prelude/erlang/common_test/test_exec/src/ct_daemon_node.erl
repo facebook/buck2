@@ -130,7 +130,7 @@ alive() ->
 
 %% @doc node main entry point
 -spec node_main([node()]) -> no_return().
-node_main([Parent, OutputDirAtom, InstrumentCTLogs]) ->
+node_main([Parent, OutputDirAtom]) ->
     ok = application:load(test_exec),
     OutputDir = erlang:atom_to_list(OutputDirAtom),
 
@@ -138,7 +138,7 @@ node_main([Parent, OutputDirAtom, InstrumentCTLogs]) ->
     erlang:system_flag(backtrace_depth, 20),
 
     %% setup logger and prepare IO
-    ok = ct_daemon_logger:setup(OutputDir, InstrumentCTLogs),
+    ok = ct_daemon_logger:start(OutputDir),
 
     true = net_kernel:connect_node(Parent),
 
@@ -194,7 +194,6 @@ build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
             longnames -> "-name";
             shortnames -> "-sname"
         end,
-    InstrumentCTLogs = erlang:whereis(ct_logs) =:= undefined,
     [
         DistArg,
         convert_atom_arg(Node),
@@ -207,8 +206,7 @@ build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
         convert_atom_arg(?MODULE),
         "node_main",
         convert_atom_arg(erlang:node()),
-        OutputDir,
-        convert_atom_arg(InstrumentCTLogs)
+        OutputDir
     ].
 
 -spec convert_atom_arg(atom()) -> string().

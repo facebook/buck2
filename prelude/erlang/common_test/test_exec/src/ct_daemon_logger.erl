@@ -23,7 +23,7 @@
 -behaviour(gen_server).
 
 %% Public API
--export([setup/2]).
+-export([start/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_info/2, handle_call/3, handle_cast/2]).
@@ -70,8 +70,8 @@ handle_call(_Info, _From, State) -> {noreply, State}.
 handle_cast(_Info, State) -> {noreply, State}.
 
 %% @doc mocks for ct_logs functions
--spec setup(file:filename_all(), boolean()) -> ok.
-setup(OutputDir, _InstrumentCTLogs) ->
+-spec start(file:filename_all()) -> ok.
+start(OutputDir) ->
     LogFile = test_logger:get_log_file(OutputDir, ct_daemon),
     ok = test_logger:configure_logger(LogFile),
 
