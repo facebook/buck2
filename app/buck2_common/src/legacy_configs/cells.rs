@@ -18,6 +18,7 @@ use buck2_core::buck2_env;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -57,6 +58,8 @@ enum CellsError {
         like `root = .` which defines the root cell name"
     )]
     MissingRootCellName,
+    #[error("Unknown cell name `{}` when parsing external cell declarations", _0)]
+    UnknownCellName(NonEmptyCellAlias),
 }
 
 /// Used for creating a CellResolver in a buckv1-compatible way based on values
@@ -206,7 +209,7 @@ impl BuckConfigBasedCells {
             LegacyBuckConfig::process_config_args(config_args, &cell_resolution, &mut file_ops)?;
 
         while let Some(path) = work.pop() {
-            if buckconfigs.contains_key(&path) {
+            if buckconfigs.contains_key(&path) || cells_aggregator.is_external(&path) {
                 continue;
             }
 
@@ -280,6 +283,19 @@ impl BuckConfigBasedCells {
                     )?;
                     if is_root {
                         root_aliases.insert(alias, alias_path.clone());
+                    }
+                }
+            }
+
+            if is_root {
+                if let Some(external_cells) = config.get_section("external_cells") {
+                    for (alias, origin) in external_cells.iter() {
+                        let alias = NonEmptyCellAlias::new(alias.to_owned())?;
+                        let origin = ExternalCellOrigin::parse_from_config_value(origin.as_str())?;
+                        let target = root_aliases
+                            .get(&alias)
+                            .ok_or(CellsError::UnknownCellName(alias))?;
+                        cells_aggregator.mark_external_cell(target.to_owned(), origin)?;
                     }
                 }
             }
@@ -514,6 +530,7 @@ pub(crate) fn create_project_filesystem() -> ProjectRoot {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use indoc::indoc;
@@ -1023,6 +1040,88 @@ mod tests {
                 .as_str(),
             "other"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_external_cell_configs() -> anyhow::Result<()> {
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            "/.buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        other1 = other1/
+                        other2 = other2/
+                    [cell_aliases]
+                        other_alias = other1
+                    [external_cells]
+                        other_alias = bundled
+                "#
+            ),
+        )])?;
+
+        let project_fs = create_project_filesystem();
+        let resolver = BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut file_ops,
+            &[],
+            ProjectRelativePath::empty(),
+        )?
+        .cell_resolver;
+
+        let root = resolver.get(CellName::testing_new("root")).unwrap();
+        let other1 = root
+            .testing_cell_alias_resolver()
+            .resolve("other1")
+            .unwrap();
+        let other2 = root
+            .testing_cell_alias_resolver()
+            .resolve("other2")
+            .unwrap();
+
+        assert_eq!(
+            resolver.get(other1).unwrap().external(),
+            Some(&ExternalCellOrigin::Bundled),
+        );
+        assert_eq!(resolver.get(other2).unwrap().external(), None,);
+        assert_eq!(
+            root.testing_cell_alias_resolver()
+                .resolve("other_alias")
+                .unwrap()
+                .as_str(),
+            "other1",
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_nested_external_cell_configs() -> anyhow::Result<()> {
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            "/.buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        foo = foo/
+                        bar = foo/bar/
+                    [external_cells]
+                        foo = bundled
+                "#
+            ),
+        )])?;
+
+        let project_fs = create_project_filesystem();
+        BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut file_ops,
+            &[],
+            ProjectRelativePath::empty(),
+        )
+        .err()
+        .unwrap();
 
         Ok(())
     }

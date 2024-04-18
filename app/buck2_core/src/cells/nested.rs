@@ -95,6 +95,10 @@ impl NestedCells {
                 )
             })
     }
+
+    pub(crate) fn check_empty(&self) -> Option<CellName> {
+        self.paths.first().map(|(_, cell_name)| *cell_name)
+    }
 }
 
 #[cfg(test)]

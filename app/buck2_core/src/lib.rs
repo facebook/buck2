@@ -18,6 +18,7 @@
 #![feature(try_blocks)]
 #![cfg_attr(windows, feature(absolute_path))]
 #![feature(used_with_arg)]
+#![feature(let_chains)]
 
 #[cfg(test)]
 #[macro_use]

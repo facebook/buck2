@@ -131,6 +131,7 @@ pub mod alias;
 pub mod build_file_cell;
 pub mod cell_path;
 pub mod cell_root_path;
+pub mod external;
 pub mod instance;
 pub mod name;
 pub mod nested;
@@ -159,6 +160,7 @@ use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPath;
 use crate::cells::cell_root_path::CellRootPathBuf;
+use crate::cells::external::ExternalCellOrigin;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
@@ -194,6 +196,8 @@ enum CellError {
     WrongSelfAlias(CellName, CellName),
     #[error("No cell name for the root path, add an entry for `.`")]
     NoRootCell,
+    #[error("Cell `{0}` was marked as external twice")]
+    DuplicateExternalCell(CellName),
 }
 
 /// A 'CellAliasResolver' is unique to a 'CellInstance'.
@@ -613,6 +617,7 @@ struct CellAggregatorInfo {
     name: Option<CellName>,
     /// All the aliases known by this cell.
     alias_mapping: HashMap<NonEmptyCellAlias, CellRootPathBuf>,
+    external: Option<ExternalCellOrigin>,
 }
 
 impl CellAggregatorInfo {
@@ -722,12 +727,35 @@ impl CellsAggregator {
             cell_mappings.push(CellInstance::new(
                 cell_name,
                 cell_path.clone(),
+                cell_info.external.dupe(),
                 CellAliasResolver::new(cell_name, aliases_for_cell)?,
                 nested_cells,
             )?);
         }
 
         CellResolver::new(cell_mappings)
+    }
+
+    pub fn mark_external_cell(
+        &mut self,
+        cell_root: CellRootPathBuf,
+        origin: ExternalCellOrigin,
+    ) -> anyhow::Result<()> {
+        let info = self.cell_info(cell_root.clone());
+        if info.external.is_some() {
+            return Err(CellError::DuplicateExternalCell(
+                self.get_cell_name_from_path(&cell_root)?,
+            )
+            .into());
+        }
+        info.external = Some(origin);
+        Ok(())
+    }
+
+    pub fn is_external(&self, path: &CellRootPathBuf) -> bool {
+        self.cell_infos
+            .get(path)
+            .is_some_and(|i| i.external.is_some())
     }
 }
 
