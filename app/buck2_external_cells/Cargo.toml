@@ -1,0 +1,12 @@
+[package]
+description = "Buck2 external cells implementation"
+edition = "2021"
+license = { workspace = true }
+name = "buck2_external_cells"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+async-trait = { workspace = true }
+
+buck2_common = { workspace = true }

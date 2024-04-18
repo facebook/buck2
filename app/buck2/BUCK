@@ -105,6 +105,7 @@ buck_rust_binary(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_event_log:buck2_event_log",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_external_cells:buck2_external_cells",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
         "//buck2/app/buck2_query_impls:buck2_query_impls",
         "//buck2/app/buck2_server_commands:buck2_server_commands",
