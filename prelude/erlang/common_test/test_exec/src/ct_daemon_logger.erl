@@ -7,7 +7,12 @@
 
 %%%-------------------------------------------------------------------
 %%% @doc
-%%% Setup functions for logger and CT printing facilities
+%%% CT handles logging and printing by sending a message to the ct_logs
+%%%  process. We intercept those messages for test shell by starting a
+%%%  gen_server that intercepts the messages and prints them to the test
+%%%  shell. We do this instead of using the ct_logs process to have more
+%%%  control over the output and to avoid starting ct processes that
+%%%  might interfere with test shell's functionality.
 %%% @end
 %%% % @format
 
@@ -15,67 +20,60 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+-behaviour(gen_server).
+
 %% Public API
 -export([setup/2]).
 
+%% gen_server callbacks
+-export([init/1, handle_info/2, handle_call/3, handle_cast/2]).
+
+-type state() :: #{}.
+
+-spec init(Args) -> Result when
+    Args :: term(),
+    Result :: {ok, state()}.
+init(_) -> {ok, #{}}.
+
+-spec handle_info(Info, State) -> {noreply, State} when
+    Info :: term(),
+    State :: state().
+handle_info({log, _SyncOrAsync, _FromPid, _GL, _Category, _Importance, Content, _EscChars} = _Info, State) when
+    is_list(Content)
+->
+    % Mimics behaviour from the logger_loop function in ct_logs.erl
+    IoList = lists:foldl(
+        fun
+            ({Format, Args}, IoList) when is_list(Format), is_list(Args) ->
+                [io_lib:format(Format, Args), "\n", IoList];
+            (_, IoList) ->
+                IoList
+        end,
+        [],
+        Content
+    ),
+    io:format("~ts~n", [IoList]),
+    {noreply, State};
+handle_info(_Info, State) ->
+    % ignore
+    {noreply, State}.
+
+-spec handle_call(Request, From, State) -> {noreply, State} when
+    Request :: term(),
+    From :: gen_server:from(),
+    State :: state().
+handle_call(_Info, _From, State) -> {noreply, State}.
+
+-spec handle_cast(Request, State) -> {noreply, State} when
+    Request :: term(),
+    State :: state().
+handle_cast(_Info, State) -> {noreply, State}.
+
 %% @doc mocks for ct_logs functions
 -spec setup(file:filename_all(), boolean()) -> ok.
-setup(OutputDir, InstrumentCTLogs) ->
+setup(OutputDir, _InstrumentCTLogs) ->
     LogFile = test_logger:get_log_file(OutputDir, ct_daemon),
     ok = test_logger:configure_logger(LogFile),
 
-    %% check is we need to instrument ct_logs
-    %% this somehow crashes the node startup if CT runs on the
-    %% controlling node
-    case InstrumentCTLogs of
-        true ->
-            meck:new(ct_logs, [passthrough, no_link]),
-            meck:expect(ct_logs, tc_log, fun tc_log/3),
-            meck:expect(ct_logs, tc_log, fun tc_log/4),
-            meck:expect(ct_logs, tc_log, fun tc_log/5),
-            meck:expect(ct_logs, tc_print, fun tc_print/3),
-            meck:expect(ct_logs, tc_print, fun tc_print/4),
-            meck:expect(ct_logs, tc_print, fun tc_print/5),
-            meck:expect(ct_logs, tc_pal, fun tc_pal/3),
-            meck:expect(ct_logs, tc_pal, fun tc_pal/4),
-            meck:expect(ct_logs, tc_pal, fun tc_pal/5);
-        _ ->
-            ok
-    end,
+    {ok, _} = gen_server:start_link({local, ct_logs}, ?MODULE, #{}, []),
     ok.
-
-tc_log(Category, Format, Args) ->
-    tc_print(Category, 1000, Format, Args).
-
-tc_log(Category, Importance, Format, Args) ->
-    tc_print(Category, Importance, Format, Args, []).
-
-tc_log(Category, Importance, Format, Args, _Opts) ->
-    LogMessage = lists:flatten(
-        io_lib:format("[ct_logs][~p][~p] ~s", [Category, Importance, Format])
-    ),
-    ?LOG_INFO(LogMessage, Args).
-
-tc_print(Category, Format, Args) ->
-    tc_print(Category, 1000, Format, Args).
-
-tc_print(Category, Importance, Format, Args) ->
-    tc_print(Category, Importance, Format, Args, []).
-
-tc_print(_Category, _Importance, Format, Args, _Opts) ->
-    FormatWithTimesStamp = io_lib:format("[~s] ~s\n", [timestamp(), Format]),
-    FinalFormat = lists:flatten(FormatWithTimesStamp),
-    io:format(FinalFormat, Args).
-
-tc_pal(Category, Format, Args) ->
-    tc_print(Category, 1000, Format, Args).
-
-tc_pal(Category, Importance, Format, Args) ->
-    tc_print(Category, Importance, Format, Args, []).
-
-tc_pal(Category, Importance, Format, Args, Opts) ->
-    ct_logs:tc_log(Category, Importance, Format, Args, [no_css | Opts]),
-    tc_print(Category, Importance, Format, Args, Opts).
-
-timestamp() ->
-    calendar:system_time_to_rfc3339(erlang:system_time(second)).
