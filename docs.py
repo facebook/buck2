@@ -110,15 +110,9 @@ def parse_subcommands(output):
     res = []
     seen_subcommands = False
     for x in output.splitlines():
-        if x == "Commands:" or x == "SUBCOMMANDS:":
+        if x == "Commands:":
             seen_subcommands = True
-        # TODO(JakobDegen): Remove `x[4]` case after bump
-        if (
-            seen_subcommands
-            and x.startswith("  ")
-            and len(x) > 2
-            and (x[2].isalpha() or x[4].isalpha())
-        ):
+        if seen_subcommands and x.startswith("  ") and len(x) > 2 and x[2].isalpha():
             sub = x.strip().split()[0]
             if sub != "help":
                 res.append(sub)
