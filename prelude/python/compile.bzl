@@ -35,15 +35,26 @@ def compile_manifests_for_mode(
     cmd.add(cmd_args(bytecode_manifest.as_output(), format = "--bytecode-manifest={}"))
     cmd.add("--invalidation-mode={}".format(invalidation_mode.value))
 
+    env = {
+        # On some platforms (e.g. linux), python hash code randomness can cause
+        # the bytecode to be non-deterministic, so pin via the `PYTHONHASHSEED`
+        # env var.
+        "PYTHONHASHSEED": "7",
+    }
+    version = ctx.attrs._python_toolchain[PythonToolchainInfo].version
+    if version and "cinder" in version:
+        # this is a workaround to allow invalidating cached pyc compile actions
+        # until the action is fixed to use the in-repo version of Cinder,
+        # this is the way to invalidate caches when changing the magic number.
+        # (see S411091 for context)
+        env["CINDER_DUMMY_PYC_CACHE_BUSTER"] = "3451"
+
     for manifest in manifests:
         cmd.add(manifest.manifest)
         cmd.hidden([a for a, _ in manifest.artifacts])
     ctx.actions.run(
         cmd,
-        # On some platforms (e.g. linux), python hash code randomness can cause
-        # the bytecode to be non-deterministic, so pin via the `PYTHONHASHSEED`
-        # env var.
-        env = {"PYTHONHASHSEED": "7"},
+        env = env,
         category = "py_compile",
         identifier = invalidation_mode.value,
     )
