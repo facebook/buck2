@@ -127,6 +127,7 @@ const manualSidebar = [
           'users/advanced/deferred_materialization',
           'users/advanced/restarter',
           'users/advanced/in_memory_cache',
+          'users/advanced/external_cells',
           isInternal() ? 'users/advanced/offline_build_archives' : [],
           isInternal() ? 'users/advanced/vpnless' : [],
         ],
