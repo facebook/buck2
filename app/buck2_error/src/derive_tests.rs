@@ -19,11 +19,11 @@ pub struct Error1;
 #[test]
 fn test_derive_error1() {
     let e: crate::Error = Error1.into();
-    assert_eq!(e.get_category(), Some(crate::Tier::Input));
+    assert_eq!(e.get_tier(), Some(crate::Tier::Input));
 
     let e: anyhow::Error = Error1.into();
     let e: crate::Error = e.into();
-    assert_eq!(e.get_category(), Some(crate::Tier::Input));
+    assert_eq!(e.get_tier(), Some(crate::Tier::Input));
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
@@ -35,7 +35,7 @@ struct Error2((), ());
 #[test]
 fn test_derive_error2() {
     let e: crate::Error = Error2((), ()).into();
-    assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
+    assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
     assert_eq!(
         e.get_error_type(),
         Some(crate::ErrorType::ActionCommandFailure)
@@ -58,18 +58,18 @@ pub enum Error3 {
 #[test]
 fn test_derive_error3() {
     let e: crate::Error = Error3::VariantA.into();
-    assert_eq!(e.get_category(), Some(crate::Tier::Input));
+    assert_eq!(e.get_tier(), Some(crate::Tier::Input));
     assert_eq!(
         e.get_error_type(),
         Some(crate::ErrorType::ActionCommandFailure)
     );
 
     let e: crate::Error = Error3::VariantB.into();
-    assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
+    assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
     assert_eq!(e.get_error_type(), None);
 
     let e: crate::Error = Error3::VariantC.into();
-    assert_eq!(e.get_category(), None);
+    assert_eq!(e.get_tier(), None);
     assert_eq!(e.get_error_type(), None);
 }
 
@@ -128,7 +128,7 @@ enum EnumWithTypeOption {
 #[test]
 fn test_enum_with_type_option() {
     let e: crate::Error = EnumWithTypeOption::Variant.into();
-    assert_eq!(e.get_category(), Some(crate::Tier::Input));
+    assert_eq!(e.get_tier(), Some(crate::Tier::Input));
     assert_eq!(
         e.source_location(),
         Some("buck2_error/src/derive_tests.rs::EnumWithTypeOption::Variant"),
@@ -143,7 +143,7 @@ struct ErrorWithSpelledOutCategory;
 #[test]
 fn test_error_with_spelled_out_category() {
     let e: crate::Error = ErrorWithSpelledOutCategory.into();
-    assert_eq!(e.get_category(), Some(crate::Tier::Input));
+    assert_eq!(e.get_tier(), Some(crate::Tier::Input));
 }
 
 #[test]
@@ -218,5 +218,5 @@ fn test_correct_transparent() {
     struct T(E);
 
     let t: crate::Error = T(E).into();
-    assert_eq!(t.get_category(), Some(crate::Tier::Tier0));
+    assert_eq!(t.get_tier(), Some(crate::Tier::Tier0));
 }

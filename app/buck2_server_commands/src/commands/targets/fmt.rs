@@ -336,7 +336,7 @@ impl Stats {
 
     pub(crate) fn add_error(&mut self, e: &buck2_error::Error) {
         self.error_tags.extend(e.tags());
-        if let Some(category) = e.get_category() {
+        if let Some(category) = e.get_tier() {
             self.error_category = Some(category.combine(self.error_category.take()));
         }
         self.errors += 1;

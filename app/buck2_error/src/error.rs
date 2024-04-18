@@ -166,21 +166,21 @@ impl Error {
         }
     }
 
-    pub fn get_category(&self) -> Option<Tier> {
+    pub fn get_tier(&self) -> Option<Tier> {
         let mut out = None;
-        // TODO(nga): remove categories marking and only rely on tags.
-        let context_categories = self.iter_context().flat_map(|kind| match kind {
-            ContextValue::Tier(cat) => Either::Left(Some(*cat).into_iter()),
+        // TODO(nga): remove tiers marking and only rely on tags.
+        let context_tiers = self.iter_context().flat_map(|kind| match kind {
+            ContextValue::Tier(t) => Either::Left(Some(*t).into_iter()),
             ContextValue::Tags(tags) => {
                 Either::Right(tags.iter().copied().filter_map(error_tag_category))
             }
             _ => Either::Left(None.into_iter()),
         });
-        for cat in context_categories {
-            // It's an infra error if it was ever marked as an infra error
-            match cat {
-                Tier::Tier0 => return Some(cat),
-                Tier::Input => out = Some(cat),
+        for t in context_tiers {
+            // It's a tier0 error if it was ever marked as a tier0 error
+            match t {
+                Tier::Tier0 => return Some(t),
+                Tier::Input => out = Some(t),
             }
         }
         out

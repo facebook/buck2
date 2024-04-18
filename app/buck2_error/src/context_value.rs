@@ -114,7 +114,7 @@ mod tests {
             .clone()
             .context(crate::Tier::Tier0)
             .context(crate::Tier::Input);
-        assert_eq!(e.get_category(), Some(crate::Tier::Tier0));
+        assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
     }
 
     #[test]
