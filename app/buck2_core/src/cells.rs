@@ -649,10 +649,10 @@ impl CellsAggregator {
             .or_insert_with(CellAggregatorInfo::default)
     }
 
-    pub fn has_name(&self, cell_path: &CellRootPath) -> bool {
+    pub fn get_name(&self, cell_path: &CellRootPath) -> Option<CellName> {
         match self.cell_infos.get(cell_path) {
-            None => false,
-            Some(info) => info.name.is_some(),
+            None => None,
+            Some(info) => info.name,
         }
     }
 

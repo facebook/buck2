@@ -7,14 +7,21 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 use async_trait::async_trait;
-#[allow(unused)] // TODO(JakobDegen): Use in next diff
-use buck2_external_cells_bundled::get_bundled_data as _unused;
+use buck2_core::cells::name::CellName;
+
+mod bundled;
 
 struct ConcreteExternalCellsImpl;
 
 #[async_trait]
-impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsImpl {}
+impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsImpl {
+    fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()> {
+        bundled::find_bundled_data(cell_name).map(|_| ())
+    }
+}
 
 pub fn init_late_bindings() {
     buck2_common::external_cells::EXTERNAL_CELLS_IMPL.init(&ConcreteExternalCellsImpl);

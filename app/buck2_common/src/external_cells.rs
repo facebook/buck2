@@ -8,10 +8,13 @@
  */
 
 use async_trait::async_trait;
+use buck2_core::cells::name::CellName;
 use buck2_util::late_binding::LateBinding;
 
 #[async_trait]
-pub trait ExternalCellsImpl: Send + Sync + 'static {}
+pub trait ExternalCellsImpl: Send + Sync + 'static {
+    fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()>;
+}
 
 pub static EXTERNAL_CELLS_IMPL: LateBinding<&'static dyn ExternalCellsImpl> =
     LateBinding::new("EXTERNAL_CELLS_IMPL");

@@ -28,11 +28,13 @@ use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::dice::file_ops::DiceFileComputations;
+use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::FileType;
 use crate::file_ops::RawPathMetadata;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
@@ -256,7 +258,7 @@ impl BuckConfigBasedCells {
             }
 
             if is_root {
-                if !cells_aggregator.has_name(&path) {
+                if cells_aggregator.get_name(&path).is_none() {
                     return Err(CellsError::MissingRootCellName.into());
                 }
             } else {
@@ -295,6 +297,10 @@ impl BuckConfigBasedCells {
                         let target = root_aliases
                             .get(&alias)
                             .ok_or(CellsError::UnknownCellName(alias))?;
+                        let name = cells_aggregator
+                            .get_name(target)
+                            .internal_error("We just checked that this cell exists")?;
+                        EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
                         cells_aggregator.mark_external_cell(target.to_owned(), origin)?;
                     }
                 }
@@ -535,6 +541,8 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use indoc::indoc;
 
+    use crate::external_cells::ExternalCellsImpl;
+    use crate::external_cells::EXTERNAL_CELLS_IMPL;
     use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::key::BuckconfigKeyRef;
@@ -1044,18 +1052,42 @@ mod tests {
         Ok(())
     }
 
+    fn initialize_external_cells_impl() {
+        struct TestExternalCellsImpl;
+
+        #[async_trait::async_trait]
+        impl ExternalCellsImpl for TestExternalCellsImpl {
+            fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()> {
+                if cell_name.as_str() == "test_bundled_cell" {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("No bundled cell with name `{}`", cell_name))
+                }
+            }
+        }
+
+        static INIT: std::sync::Once = std::sync::Once::new();
+
+        // Sometimes multiple unittests are run in the same process
+        INIT.call_once(|| {
+            EXTERNAL_CELLS_IMPL.init(&TestExternalCellsImpl);
+        });
+    }
+
     #[test]
     fn test_external_cell_configs() -> anyhow::Result<()> {
+        initialize_external_cells_impl();
+
         let mut file_ops = TestConfigParserFileOps::new(&[(
             "/.buckconfig",
             indoc!(
                 r#"
                     [cells]
                         root = .
-                        other1 = other1/
+                        test_bundled_cell = other1/
                         other2 = other2/
                     [cell_aliases]
-                        other_alias = other1
+                        other_alias = test_bundled_cell
                     [external_cells]
                         other_alias = bundled
                 "#
@@ -1074,7 +1106,7 @@ mod tests {
         let root = resolver.get(CellName::testing_new("root")).unwrap();
         let other1 = root
             .testing_cell_alias_resolver()
-            .resolve("other1")
+            .resolve("other_alias")
             .unwrap();
         let other2 = root
             .testing_cell_alias_resolver()
@@ -1091,7 +1123,7 @@ mod tests {
                 .resolve("other_alias")
                 .unwrap()
                 .as_str(),
-            "other1",
+            "test_bundled_cell",
         );
 
         Ok(())
@@ -1099,6 +1131,39 @@ mod tests {
 
     #[test]
     fn test_nested_external_cell_configs() -> anyhow::Result<()> {
+        initialize_external_cells_impl();
+
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            "/.buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        test_bundled_cell = foo/
+                        bar = foo/bar/
+                    [external_cells]
+                        test_bundled_cell = bundled
+                "#
+            ),
+        )])?;
+
+        let project_fs = create_project_filesystem();
+        BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut file_ops,
+            &[],
+            ProjectRelativePath::empty(),
+        )
+        .err()
+        .unwrap();
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_missing_bundled_cell() -> anyhow::Result<()> {
+        initialize_external_cells_impl();
+
         let mut file_ops = TestConfigParserFileOps::new(&[(
             "/.buckconfig",
             indoc!(
@@ -1114,7 +1179,7 @@ mod tests {
         )])?;
 
         let project_fs = create_project_filesystem();
-        BuckConfigBasedCells::parse_with_file_ops(
+        let e = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -1122,6 +1187,8 @@ mod tests {
         )
         .err()
         .unwrap();
+
+        assert!(format!("{}", e).contains("No bundled cell"));
 
         Ok(())
     }

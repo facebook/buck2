@@ -7,8 +7,11 @@ rust_library(
     name = "buck2_external_cells",
     srcs = glob(["src/**/*.rs"]),
     deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_external_cells_bundled:buck2_external_cells_bundled",
     ],
 )
