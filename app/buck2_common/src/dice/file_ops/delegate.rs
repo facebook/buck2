@@ -33,6 +33,7 @@ use crate::dice::data::HasIoProvider;
 use crate::dice::file_ops::delegate::keys::FileOpsKey;
 use crate::dice::file_ops::delegate::keys::FileOpsValue;
 use crate::dice::file_ops::CheckIgnores;
+use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
@@ -174,19 +175,27 @@ pub(crate) async fn get_delegated_file_ops(
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             let cells = ctx.get_cell_resolver().await?;
-            let io = ctx.global_data().get_io_provider();
             let ignores = if self.check_ignores == CheckIgnores::Yes {
                 Some(ctx.new_cell_ignores(self.cell).await?)
             } else {
                 None
             };
 
-            let delegate = IoFileOpsDelegate {
-                io,
-                cells,
-                cell: self.cell,
+            let out = if let Some(origin) = cells.get(self.cell)?.external() {
+                let delegate = EXTERNAL_CELLS_IMPL
+                    .get()?
+                    .get_file_ops_delegate(ctx, self.cell, origin.dupe())
+                    .await?;
+                FileOpsDelegateWithIgnores::new(ignores, delegate)
+            } else {
+                let io = ctx.global_data().get_io_provider();
+                let delegate = IoFileOpsDelegate {
+                    io,
+                    cells,
+                    cell: self.cell,
+                };
+                FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate))
             };
-            let out = FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate));
 
             Ok(FileOpsValue(out))
         }
