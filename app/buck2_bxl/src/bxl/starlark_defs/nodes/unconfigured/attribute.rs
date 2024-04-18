@@ -15,7 +15,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
-use buck2_core::buck_path::path::BuckPath;
+use buck2_core::buck_path::path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -223,7 +223,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::Arg(arg) => heap.alloc(arg.to_string()),
             CoercedAttr::Query(query) => heap.alloc(&query.query.query),
             CoercedAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
+                SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
             ))),
             CoercedAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
             CoercedAttr::Selector(_) => {

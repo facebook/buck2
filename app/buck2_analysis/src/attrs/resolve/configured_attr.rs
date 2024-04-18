@@ -11,7 +11,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
-use buck2_core::buck_path::path::BuckPath;
+use buck2_core::buck_path::path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -153,7 +153,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Query(query) => query.resolve(ctx),
             ConfiguredAttr::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,
-                BuckPath::new(pkg.dupe(), s.path().dupe()),
+                SourcePath::new(pkg.dupe(), s.path().dupe()),
             )),
             ConfiguredAttr::Metadata(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
         }
@@ -264,7 +264,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
             ConfiguredAttr::Query(query) => heap.alloc(&query.query.query),
             ConfiguredAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
+                SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
             ))),
             ConfiguredAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
         })

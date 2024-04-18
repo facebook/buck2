@@ -9,7 +9,7 @@
 
 use std::fmt::Display;
 
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use dupe::Dupe;
 use either::Either;
 use serde_json::to_value;
@@ -96,7 +96,7 @@ pub(crate) fn source_file_display<'a>(
     source_file: &'a CoercedPath,
 ) -> impl Display + 'a {
     match &ctx.package {
-        Some(pkg) => Either::Left(BuckPathRef::new(pkg.dupe(), source_file.path())),
+        Some(pkg) => Either::Left(SourcePathRef::new(pkg.dupe(), source_file.path())),
         None => {
             // This code is unreachable, but better this than panic.
             Either::Right(format!("<no package>/{}", source_file.path()))

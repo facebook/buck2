@@ -13,7 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use anyhow::Context;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::file_name::FileName;
@@ -26,7 +26,7 @@ use gazebo::eq_chain;
 
 #[derive(Debug)]
 pub struct ArtifactPath<'a> {
-    pub base_path: Either<ARef<'a, BuckOutPath>, BuckPathRef<'a>>,
+    pub base_path: Either<ARef<'a, BuckOutPath>, SourcePathRef<'a>>,
     pub projected_path: Option<&'a ForwardRelativePath>,
     /// The number of components at the prefix of that path that are internal details to the rule,
     /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.

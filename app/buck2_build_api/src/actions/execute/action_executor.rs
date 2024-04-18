@@ -665,7 +665,7 @@ mod tests {
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::buck_path::path::BuckPath;
+    use buck2_core::buck_path::path::SourcePath;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
@@ -888,7 +888,7 @@ mod tests {
         );
 
         let inputs = indexset![ArtifactGroup::Artifact(Artifact::from(
-            SourceArtifact::new(BuckPath::testing_new(
+            SourceArtifact::new(SourcePath::testing_new(
                 pkg.dupe(),
                 PackageRelativePathBuf::unchecked_new("source".into()),
             ))

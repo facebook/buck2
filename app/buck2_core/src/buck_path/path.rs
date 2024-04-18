@@ -16,9 +16,7 @@ use crate::cells::cell_path::CellPath;
 use crate::package::package_relative_path::PackageRelativePath;
 use crate::package::PackageLabel;
 
-/// Represents a resolvable path corresponding to some path that is part of a
-/// 'Package'. The 'BuckPath' refers to only paths in the repo source, not
-/// outputs of a 'Package'.
+/// Represents the path of a source artifact.
 #[derive(
     Clone,
     Debug,
@@ -31,20 +29,20 @@ use crate::package::PackageLabel;
     Allocative
 )]
 #[display(fmt = "{}", "self.as_ref()")]
-pub struct BuckPath {
+pub struct SourcePath {
     pkg: PackageLabel,
     path: ArcS<PackageRelativePath>,
 }
 
-impl BuckPath {
+impl SourcePath {
     #[inline]
     pub fn new(pkg: PackageLabel, path: ArcS<PackageRelativePath>) -> Self {
-        BuckPath { pkg, path }
+        SourcePath { pkg, path }
     }
 
     /// This is slow, but OK to use in tests.
     pub fn testing_new(pkg: PackageLabel, path: impl AsRef<PackageRelativePath>) -> Self {
-        BuckPath::new(pkg, ArcS::from(path.as_ref()))
+        SourcePath::new(pkg, ArcS::from(path.as_ref()))
     }
 
     #[inline]
@@ -63,8 +61,8 @@ impl BuckPath {
     }
 
     #[inline]
-    pub fn as_ref(&self) -> BuckPathRef {
-        BuckPathRef {
+    pub fn as_ref(&self) -> SourcePathRef {
+        SourcePathRef {
             pkg: self.pkg.dupe(),
             path: &self.path,
         }
@@ -73,15 +71,15 @@ impl BuckPath {
 
 #[derive(Display, Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 #[display(fmt = "{}/{}", pkg, "path.as_str()")]
-pub struct BuckPathRef<'a> {
+pub struct SourcePathRef<'a> {
     pkg: PackageLabel,
     path: &'a ArcS<PackageRelativePath>,
 }
 
-impl<'a> BuckPathRef<'a> {
+impl<'a> SourcePathRef<'a> {
     #[inline]
-    pub fn new(pkg: PackageLabel, path: &'a ArcS<PackageRelativePath>) -> BuckPathRef<'a> {
-        BuckPathRef { pkg, path }
+    pub fn new(pkg: PackageLabel, path: &'a ArcS<PackageRelativePath>) -> SourcePathRef<'a> {
+        SourcePathRef { pkg, path }
     }
 
     #[inline]
@@ -102,8 +100,8 @@ impl<'a> BuckPathRef<'a> {
     }
 
     #[inline]
-    pub fn to_buck_path(&self) -> BuckPath {
-        BuckPath {
+    pub fn to_buck_path(&self) -> SourcePath {
+        SourcePath {
             pkg: self.pkg.dupe(),
             path: self.path.dupe(),
         }

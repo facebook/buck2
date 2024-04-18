@@ -12,7 +12,7 @@ pub mod parser;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -196,7 +196,7 @@ impl MacroBase<ConfiguredProvidersLabel> {
             } => traversal.dep(label),
             MacroBase::Source(path) => {
                 for x in path.inputs() {
-                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                    traversal.input(SourcePathRef::new(pkg.dupe(), x))?;
                 }
                 Ok(())
             }
@@ -260,7 +260,7 @@ impl MacroBase<ProvidersLabel> {
             MacroBase::Query(query) => query.traverse(traversal),
             MacroBase::Source(path) => {
                 for x in path.inputs() {
-                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                    traversal.input(SourcePathRef::new(pkg.dupe(), x))?;
                 }
                 Ok(())
             }

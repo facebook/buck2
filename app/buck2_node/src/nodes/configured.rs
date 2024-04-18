@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
@@ -713,7 +713,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                 Ok(())
             }
 
-            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())
             }

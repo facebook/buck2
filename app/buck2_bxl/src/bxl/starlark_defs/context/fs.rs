@@ -15,7 +15,7 @@ use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
-use buck2_core::buck_path::path::BuckPath;
+use buck2_core::buck_path::path::SourcePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::instance::CellInstance;
@@ -328,7 +328,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
                     let package_relative_path =
                         PackageRelativePath::new(forward_relative_path.as_path())?;
-                    Ok(BuckPath::new(package_label, package_relative_path.into()))
+                    Ok(SourcePath::new(package_label, package_relative_path.into()))
                 }
                 .boxed_local()
             })

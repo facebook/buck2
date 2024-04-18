@@ -42,7 +42,7 @@ use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::SetHttpClient;
-use buck2_core::buck_path::path::BuckPath;
+use buck2_core::buck_path::path::SourcePath;
 use buck2_core::category::Category;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -118,7 +118,7 @@ fn create_test_source_artifact(
     package_path: &str,
     target_name: &str,
 ) -> SourceArtifact {
-    SourceArtifact::new(BuckPath::testing_new(
+    SourceArtifact::new(SourcePath::testing_new(
         PackageLabel::testing_new(package_cell, package_path),
         PackageRelativePathBuf::unchecked_new(target_name.into()),
     ))

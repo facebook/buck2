@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -216,7 +216,7 @@ impl ConfiguredAttr {
             ConfiguredAttr::Query(query) => query.traverse(traversal),
             ConfiguredAttr::SourceFile(source) => {
                 for x in source.inputs() {
-                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                    traversal.input(SourcePathRef::new(pkg.dupe(), x))?;
                 }
                 Ok(())
             }

@@ -29,7 +29,7 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::buck_path::path::BuckPath;
+use buck2_core::buck_path::path::SourcePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
@@ -102,7 +102,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
         CellRelativePathBuf::unchecked_new("foo/foo".to_owned()),
     );
 
-    let foo_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
+    let foo_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
         PackageLabel::testing_parse("root//foo"),
         PackageRelativePathBuf::unchecked_new("foo".to_owned()),
     )));
@@ -112,7 +112,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
         is_executable: true,
     };
 
-    let bar_artifact = Artifact::from(SourceArtifact::new(BuckPath::testing_new(
+    let bar_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
         PackageLabel::testing_parse("root//bar"),
         PackageRelativePathBuf::unchecked_new("bar".to_owned()),
     )));

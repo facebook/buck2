@@ -153,7 +153,7 @@ use instance::CellInstance;
 use itertools::Itertools;
 use sequence_trie::SequenceTrie;
 
-use crate::buck_path::path::BuckPathRef;
+use crate::buck_path::path::SourcePathRef;
 use crate::cells::alias::CellAlias;
 use crate::cells::alias::NonEmptyCellAlias;
 use crate::cells::cell_path::CellPath;
@@ -520,7 +520,7 @@ impl CellResolver {
 
     /// Resolves a 'BuckPath' into a 'ProjectRelativePath' based on the package
     /// and cell.
-    pub fn resolve_buck_path(&self, path: BuckPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve_buck_path(&self, path: SourcePathRef) -> anyhow::Result<ProjectRelativePathBuf> {
         Ok(self.resolve_package(path.package())?.join(path.path()))
     }
 

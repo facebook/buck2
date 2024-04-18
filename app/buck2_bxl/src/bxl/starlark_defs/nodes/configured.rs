@@ -27,7 +27,7 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -333,7 +333,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
                 Ok(())
             }
 
-            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
                 self.inputs
                     .push(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
                         path.to_buck_path(),
@@ -395,7 +395,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
                 Ok(())
             }
 
-            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
                 if path.to_cell_path() == self.target {
                     self.found = Some(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
                         path.to_buck_path(),

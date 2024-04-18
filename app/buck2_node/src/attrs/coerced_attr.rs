@@ -13,7 +13,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
@@ -477,7 +477,7 @@ impl CoercedAttr {
             CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
             CoercedAttrWithType::SourceFile(source, _t) => {
                 for x in source.inputs() {
-                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                    traversal.input(SourcePathRef::new(pkg.dupe(), x))?;
                 }
                 Ok(())
             }

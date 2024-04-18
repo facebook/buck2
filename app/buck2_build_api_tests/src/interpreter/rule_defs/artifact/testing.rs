@@ -25,7 +25,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::buck_path::path::BuckPath;
+use buck2_core::buck_path::path::SourcePath;
 use buck2_core::category::Category;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
@@ -86,7 +86,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ctx.build_file_cell().name(),
             CellRelativePath::from_path(package).unwrap(),
         );
-        let path = BuckPath::testing_new(
+        let path = SourcePath::testing_new(
             package,
             PackageRelativePathBuf::try_from(path.to_owned()).unwrap(),
         );

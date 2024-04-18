@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -54,7 +54,7 @@ pub trait ConfiguredAttrTraversal {
         Ok(())
     }
 
-    fn input(&mut self, _path: BuckPathRef) -> anyhow::Result<()> {
+    fn input(&mut self, _path: SourcePathRef) -> anyhow::Result<()> {
         Ok(())
     }
 

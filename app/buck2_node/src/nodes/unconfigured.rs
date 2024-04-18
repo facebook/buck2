@@ -13,7 +13,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
@@ -284,7 +284,7 @@ impl TargetNode {
         }
 
         impl<'a> CoercedAttrTraversal<'a> for TestCollector<'a> {
-            fn input(&mut self, _path: BuckPathRef) -> anyhow::Result<()> {
+            fn input(&mut self, _path: SourcePathRef) -> anyhow::Result<()> {
                 Ok(())
             }
 
@@ -534,7 +534,7 @@ impl<'a> TargetNodeRef<'a> {
         }
 
         impl<'a> CoercedAttrTraversal<'a> for InputsCollector {
-            fn input(&mut self, path: BuckPathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())
             }

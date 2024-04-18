@@ -257,7 +257,7 @@ mod tests {
     use regex::Regex;
 
     use crate::base_deferred_key::BaseDeferredKey;
-    use crate::buck_path::path::BuckPath;
+    use crate::buck_path::path::SourcePath;
     use crate::category::Category;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
@@ -282,7 +282,7 @@ mod tests {
         );
 
         let resolved = cell_resolver.resolve_buck_path(
-            BuckPath::testing_new(
+            SourcePath::testing_new(
                 PackageLabel::new(
                     CellName::testing_new("foo"),
                     CellRelativePath::unchecked_new("baz-package"),
@@ -300,7 +300,7 @@ mod tests {
         assert_eq!(
             cell_resolver
                 .resolve_buck_path(
-                    BuckPath::testing_new(
+                    SourcePath::testing_new(
                         PackageLabel::new(
                             CellName::testing_new("none_existent"),
                             CellRelativePath::unchecked_new("baz")

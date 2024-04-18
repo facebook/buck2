@@ -572,7 +572,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::buck_path::path::BuckPath;
+    use buck2_core::buck_path::path::SourcePath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
@@ -649,7 +649,7 @@ mod tests {
 
     #[test]
     fn resolve_artifact() -> anyhow::Result<()> {
-        let source = SourceArtifact::new(BuckPath::testing_new(
+        let source = SourceArtifact::new(SourcePath::testing_new(
             PackageLabel::testing_parse("cell//pkg"),
             PackageRelativePathBuf::unchecked_new("src.cpp".into()),
         ));

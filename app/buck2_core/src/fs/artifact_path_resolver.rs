@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 
-use crate::buck_path::path::BuckPathRef;
+use crate::buck_path::path::SourcePathRef;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::CellResolver;
 use crate::fs::buck_out_path::BuckOutPath;
@@ -51,7 +51,7 @@ impl ArtifactFs {
 
     pub fn resolve_source(
         &self,
-        source_artifact_path: BuckPathRef,
+        source_artifact_path: SourcePathRef,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
         self.buck_path_resolver
             .resolve_buck_path(source_artifact_path)

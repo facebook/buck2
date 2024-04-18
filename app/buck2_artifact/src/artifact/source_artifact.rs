@@ -11,8 +11,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::buck_path::path::BuckPath;
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePath;
+use buck2_core::buck_path::path::SourcePathRef;
 use derive_more::Display;
 use dupe::Dupe;
 
@@ -23,14 +23,14 @@ use dupe::Dupe;
 pub struct SourceArtifact(Arc<SourceArtifactData>);
 
 #[derive(Debug, Display, Hash, PartialEq, Eq, PartialOrd, Ord, Allocative)]
-struct SourceArtifactData(BuckPath);
+struct SourceArtifactData(SourcePath);
 
 impl SourceArtifact {
-    pub fn new(path: BuckPath) -> Self {
+    pub fn new(path: SourcePath) -> Self {
         Self(Arc::new(SourceArtifactData(path)))
     }
 
-    pub fn get_path(&self) -> BuckPathRef {
+    pub fn get_path(&self) -> SourcePathRef {
         self.0.0.as_ref()
     }
 }

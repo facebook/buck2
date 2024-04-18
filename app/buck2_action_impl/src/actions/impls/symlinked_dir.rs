@@ -271,7 +271,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
 mod tests {
     use buck2_artifact::artifact::artifact_type::Artifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
-    use buck2_core::buck_path::path::BuckPath;
+    use buck2_core::buck_path::path::SourcePath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
 
@@ -280,7 +280,7 @@ mod tests {
     fn mk_artifact() -> Artifact {
         let pkg = PackageLabel::testing_parse("cell//pkg");
         let path = PackageRelativePathBuf::unchecked_new("".to_owned());
-        let buck_path = BuckPath::testing_new(pkg, path);
+        let buck_path = SourcePath::testing_new(pkg, path);
         Artifact::from(SourceArtifact::new(buck_path))
     }
 

@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use buck2_core::buck_path::path::BuckPathRef;
+use buck2_core::buck_path::path::SourcePathRef;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
@@ -120,7 +120,7 @@ pub(crate) fn check_within_view(
             self.check_dep_within_view(dep)
         }
 
-        fn input(&mut self, _input: BuckPathRef) -> anyhow::Result<()> {
+        fn input(&mut self, _input: SourcePathRef) -> anyhow::Result<()> {
             Ok(())
         }
     }
