@@ -47,7 +47,7 @@ impl From<ModuleInternals> for EvaluationResult {
         } = internals;
         let recorder = match state.into_inner() {
             State::BeforeTargets(_) => TargetsRecorder::new(),
-            State::Targets(RecordingTargets { recorder, .. }) => recorder,
+            State::RecordingTargets(RecordingTargets { recorder, .. }) => recorder,
         };
         EvaluationResult::new(buildfile_path, imports, super_package, recorder.take())
     }
@@ -64,7 +64,7 @@ enum State {
     /// No targets recorded yet, `oncall` call is allowed unless it was already called.
     BeforeTargets(Option<Oncall>),
     /// First target seen.
-    Targets(RecordingTargets),
+    RecordingTargets(RecordingTargets),
 }
 
 /// ModuleInternals contains the module/package-specific information for
@@ -164,7 +164,7 @@ impl ModuleInternals {
                 *oncall = Some(Oncall::new(name));
                 Ok(())
             }
-            State::Targets(..) => {
+            State::RecordingTargets(..) => {
                 // We require oncall to be first both so users can find it,
                 // and so we can propagate it to all targets more easily.
                 Err(OncallErrors::OncallAfterTargets.into())
@@ -178,7 +178,7 @@ impl ModuleInternals {
                 match state {
                     State::BeforeTargets(oncall) => {
                         let oncall = mem::take(oncall);
-                        *state = State::Targets(RecordingTargets {
+                        *state = State::RecordingTargets(RecordingTargets {
                             package: Arc::new(Package {
                                 buildfile_path: self.buildfile_path.dupe(),
                                 oncall,
@@ -187,7 +187,7 @@ impl ModuleInternals {
                         });
                         continue;
                     }
-                    State::Targets(r) => return r,
+                    State::RecordingTargets(r) => return r,
                 }
             }
         })
