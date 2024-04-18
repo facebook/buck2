@@ -12,6 +12,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
 
+use crate::oncall::Oncall;
+
 /// Package-specific data for `TargetNode`.
 ///
 /// (Note this has nothing to do with `PACKAGE` files which are not implemented
@@ -21,5 +23,5 @@ pub struct Package {
     /// The build file which defined this target, e.g. `fbcode//foo/bar/TARGETS`
     pub buildfile_path: Arc<BuildFilePath>,
     /// The oncall attribute, if set
-    pub oncall: Option<Arc<String>>,
+    pub oncall: Option<Oncall>,
 }

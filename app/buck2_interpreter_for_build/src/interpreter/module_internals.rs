@@ -177,7 +177,7 @@ impl ModuleInternals {
             loop {
                 match state {
                     State::BeforeTargets(oncall) => {
-                        let oncall = mem::take(oncall).map(|Oncall(name)| name);
+                        let oncall = mem::take(oncall);
                         *state = State::Targets(RecordingTargets {
                             package: Arc::new(Package {
                                 buildfile_path: self.buildfile_path.dupe(),
