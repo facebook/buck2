@@ -34,10 +34,24 @@ pub trait DirectoryHasher<L, H> {
         Self: Sized;
 }
 
-#[allow(unused)]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, Display)]
-pub struct NoDigest(!);
+#[display(fmt = "NoDigest")]
+pub struct NoDigest(());
 
 impl Dupe for NoDigest {}
 
 impl DirectoryDigest for NoDigest {}
+
+pub struct NoDigestDigester;
+
+impl<L> DirectoryHasher<L, NoDigest> for NoDigestDigester {
+    fn hash_entries<'a, D, I>(&self, _entries: I) -> NoDigest
+    where
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a L>)>,
+        D: FingerprintedDirectory<L, NoDigest> + 'a,
+        L: 'a,
+        Self: Sized,
+    {
+        NoDigest(())
+    }
+}
