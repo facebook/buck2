@@ -130,7 +130,7 @@ android_aar = prelude_rule(
             "manifest": attrs.option(attrs.source(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
-            "native_library_merge_code_generator": attrs.option(attrs.dep(), default = None),
+            "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
             "native_library_merge_glue": attrs.option(attrs.dep(), default = None),
             "native_library_merge_localized_symbols": attrs.option(attrs.set(attrs.string(), sorted = True), default = None),
             "native_library_merge_map": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.regex()), sorted = False), default = None),
