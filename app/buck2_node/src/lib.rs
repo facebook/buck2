@@ -20,6 +20,7 @@ pub mod execution;
 pub mod load_patterns;
 pub mod metadata;
 pub mod nodes;
+pub mod oncall;
 pub mod package;
 pub mod package_values_calculation;
 pub mod provider_id_set;

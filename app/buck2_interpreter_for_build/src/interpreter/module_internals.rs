@@ -25,6 +25,7 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::nodes::targets_map::TargetsMapRecordError;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::oncall::Oncall;
 use buck2_node::package::Package;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
@@ -51,9 +52,6 @@ impl From<ModuleInternals> for EvaluationResult {
         EvaluationResult::new(buildfile_path, imports, super_package, recorder.take())
     }
 }
-
-#[derive(Debug)]
-struct Oncall(Arc<String>);
 
 #[derive(Debug)]
 struct RecordingTargets {
