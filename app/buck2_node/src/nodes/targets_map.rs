@@ -23,7 +23,7 @@ use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeRef;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(user)]
+#[buck2(input)]
 pub enum TargetsMapRecordError {
     #[error(
         "Attempted to register target {0} twice, {}",

@@ -69,7 +69,7 @@ fn format_provider_keys_for_error(keys: &[String]) -> String {
 }
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(user)]
+#[buck2(input)]
 enum ProviderCollectionError {
     #[error("expected a list of Provider objects, got {repr}")]
     CollectionNotAList { repr: String },

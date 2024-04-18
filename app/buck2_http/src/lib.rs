@@ -56,7 +56,7 @@ pub enum HttpError {
     #[error("HTTP: Error building request")]
     BuildRequest(#[source] http::Error),
     #[error("HTTP: Error sending request to {uri}")]
-    #[buck2(infra)]
+    #[buck2(tier0)]
     SendRequest {
         uri: String,
         #[source]
@@ -74,7 +74,7 @@ pub enum HttpError {
     #[error("HTTP: Error mutating request")]
     MutateRequest(#[source] anyhow::Error),
     #[error("HTTP: Timed out while making request to URI: {uri} after {duration} seconds.")]
-    #[buck2(infra)]
+    #[buck2(tier0)]
     Timeout { uri: String, duration: u64 },
     #[error("While making request to {uri} via x2p")]
     X2P {

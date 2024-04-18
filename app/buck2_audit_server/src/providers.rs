@@ -46,7 +46,7 @@ impl ServerAuditSubcommand for AuditProvidersCommand {
 }
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(user)]
+#[buck2(input)]
 enum AuditProvidersError {
     #[error("Evaluation of at least one target providers failed")]
     AtLeastOneFailed,

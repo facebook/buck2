@@ -63,7 +63,7 @@ use crate::target::name::TargetNameRef;
 use crate::target_aliases::TargetAliasResolver;
 
 #[derive(buck2_error::Error, Debug)]
-#[buck2(user)]
+#[buck2(input)]
 enum TargetPatternParseError {
     #[error("Expected a `:`, a trailing `/...` or the literal `...`.")]
     UnexpectedFormat,

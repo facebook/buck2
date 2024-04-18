@@ -281,7 +281,7 @@ mod tests {
     }
 
     #[derive(Debug, buck2_error_derive::Error)]
-    #[buck2(infra)]
+    #[buck2(tier0)]
     #[error("wrapper2")]
     struct FullMetadataContextWrapperError(#[source] FullMetadataError);
 
@@ -298,12 +298,12 @@ mod tests {
     }
 
     #[derive(Debug, buck2_error_derive::Error)]
-    #[buck2(user)]
+    #[buck2(input)]
     #[error("unused")]
     struct UserMetadataError;
 
     #[derive(Debug, buck2_error_derive::Error)]
-    #[buck2(infra)]
+    #[buck2(tier0)]
     #[error("unused")]
     struct InfraMetadataWrapperError(#[source] UserMetadataError);
 

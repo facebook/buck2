@@ -13,7 +13,7 @@ use crate as buck2_error;
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("foo")]
-#[buck2(user)]
+#[buck2(input)]
 pub struct Error1;
 
 #[test]
@@ -28,7 +28,7 @@ fn test_derive_error1() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("foo")]
-#[buck2(typ = ActionCommandFailure, infra)]
+#[buck2(typ = ActionCommandFailure, tier0)]
 #[allow(unused)]
 struct Error2((), ());
 
@@ -45,11 +45,11 @@ fn test_derive_error2() {
 #[derive(buck2_error_derive::Error, Debug)]
 pub enum Error3 {
     #[error("foo")]
-    #[buck2(user)]
+    #[buck2(input)]
     #[buck2(typ = ActionCommandFailure)]
     VariantA,
     #[error("bar")]
-    #[buck2(infra)]
+    #[buck2(tier0)]
     VariantB,
     #[error("baz")]
     VariantC,
@@ -120,7 +120,7 @@ fn test_source_location_no_attrs() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
-#[buck2(user)]
+#[buck2(input)]
 enum EnumWithTypeOption {
     Variant,
 }
@@ -137,7 +137,7 @@ fn test_enum_with_type_option() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
-#[buck2(user)]
+#[buck2(input)]
 struct ErrorWithSpelledOutCategory;
 
 #[test]
@@ -210,7 +210,7 @@ fn test_error_tags() {
 fn test_correct_transparent() {
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Unused")]
-    #[buck2(infra)]
+    #[buck2(tier0)]
     struct E;
 
     #[derive(buck2_error_derive::Error, Debug)]

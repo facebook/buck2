@@ -23,7 +23,7 @@ use crate::target::label::label::TargetLabel;
 #[derive(Debug, buck2_error::Error)]
 enum CompatibilityErrors {
     #[error("{0}")]
-    #[buck2(user)]
+    #[buck2(input)]
     TargetIncompatible(IncompatiblePlatformReason),
 }
 

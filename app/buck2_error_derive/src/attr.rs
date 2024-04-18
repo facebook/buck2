@@ -75,10 +75,10 @@ enum MacroOption {
 impl Parse for MacroOption {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let name: syn::Ident = input.parse()?;
-        if name == "user" {
+        if name == "input" {
             let ident = syn::Ident::new("Input", name.span());
             Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
-        } else if name == "infra" {
+        } else if name == "tier0" {
             let ident = syn::Ident::new("Tier0", name.span());
             Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
         } else if name == "typ" {

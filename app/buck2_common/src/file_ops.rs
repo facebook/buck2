@@ -37,7 +37,7 @@ pub(crate) enum FileOpsError {
     #[error("File not found: `{0}`")]
     // File not found errors are not inherently always user errors; however, we only use these
     // methods with source files, and in that case this is correct
-    #[buck2(user)]
+    #[buck2(input)]
     #[buck2(tag = IoNotFound)]
     FileNotFound(String),
 }

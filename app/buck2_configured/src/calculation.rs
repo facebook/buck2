@@ -110,7 +110,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
 }
 
 #[derive(Debug, buck2_error::Error, Clone, Dupe)]
-#[buck2(user)]
+#[buck2(input)]
 #[error("{}", display_configured_graph_cycle_error(&.cycle[..]))]
 pub struct ConfiguredGraphCycleError {
     cycle: Arc<Vec<ConfiguredGraphCycleKeys>>,

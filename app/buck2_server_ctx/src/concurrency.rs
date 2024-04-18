@@ -61,7 +61,7 @@ enum ConcurrencyHandlerError {
     #[error(
         "Recursive invocation of Buck, with a different state. Use `--isolation-dir` on the inner invocation to fix this. Trace Ids: {0}. Recursive invocation command: `{1}`"
     )]
-    #[buck2(user)]
+    #[buck2(input)]
     NestedInvocationWithDifferentStates(String, String),
     #[error("`--exit-when-different-state` was set")]
     #[buck2(tag = DaemonIsBusy)]

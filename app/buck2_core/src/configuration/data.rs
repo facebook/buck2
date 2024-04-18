@@ -31,7 +31,7 @@ use crate::configuration::constraints::ConstraintValue;
 use crate::configuration::hash::ConfigurationHash;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(user)]
+#[buck2(input)]
 enum ConfigurationError {
     #[error(
         "Attempted to access the configuration data for the {0} platform. \

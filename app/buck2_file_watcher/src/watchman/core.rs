@@ -27,15 +27,15 @@ use watchman_client::prelude::*;
 
 #[derive(Debug, buck2_error::Error)]
 enum WatchmanClientError {
-    #[buck2(user)]
+    #[buck2(input)]
     #[error("Configured timeout is zero")]
     ZeroTimeout,
-    #[buck2(infra, typ = Watchman, tag = WatchmanTimeout)]
+    #[buck2(tier0, typ = Watchman, tag = WatchmanTimeout)]
     #[error(
         "Watchman request timed out after {0}s; try restarting watchman, probably via `watchman shutdown-server`"
     )]
     Timeout(u64),
-    #[buck2(infra, typ = Watchman)]
+    #[buck2(tier0, typ = Watchman)]
     #[error(transparent)]
     RequestFailed(watchman_client::Error),
 }

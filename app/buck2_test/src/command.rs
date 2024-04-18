@@ -205,7 +205,7 @@ impl TestStatuses {
 }
 
 #[derive(Debug, buck2_error_derive::Error)]
-#[buck2(user, typ = UserDeadlineExpired)]
+#[buck2(input, typ = UserDeadlineExpired)]
 #[error("This test run exceeded the deadline that was provided")]
 struct DeadlineExpired;
 
