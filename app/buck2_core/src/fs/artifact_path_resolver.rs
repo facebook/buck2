@@ -19,7 +19,7 @@ use crate::package::source_path::SourcePathRef;
 
 #[derive(Clone, Allocative)]
 pub struct ArtifactFs {
-    buck_path_resolver: CellResolver,
+    cell_resolver: CellResolver,
     buck_out_path_resolver: BuckOutPathResolver,
     project_filesystem: ProjectRoot,
 }
@@ -31,7 +31,7 @@ impl ArtifactFs {
         project_filesystem: ProjectRoot,
     ) -> Self {
         Self {
-            buck_path_resolver,
+            cell_resolver: buck_path_resolver,
             buck_out_path_resolver,
             project_filesystem,
         }
@@ -46,15 +46,14 @@ impl ArtifactFs {
     }
 
     pub fn resolve_cell_path(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.buck_path_resolver.resolve_path(path)
+        self.cell_resolver.resolve_path(path)
     }
 
     pub fn resolve_source(
         &self,
         source_artifact_path: SourcePathRef,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.buck_path_resolver
-            .resolve_source_path(source_artifact_path)
+        self.cell_resolver.resolve_source_path(source_artifact_path)
     }
 
     pub fn resolve_offline_output_cache_path(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
@@ -69,7 +68,7 @@ impl ArtifactFs {
         &self.buck_out_path_resolver
     }
 
-    pub fn buck_path_resolver(&self) -> &CellResolver {
-        &self.buck_path_resolver
+    pub fn cell_resolver(&self) -> &CellResolver {
+        &self.cell_resolver
     }
 }
