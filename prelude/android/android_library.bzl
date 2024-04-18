@@ -56,12 +56,18 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
         merge_exported_android_resource_info(ctx.attrs.exported_deps),
     ] + android_providers
 
+def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
+    if ctx.attrs.android_optional_jars == None:
+        return ctx.attrs._android_toolchain[AndroidToolchainInfo].android_optional_jars
+    else:
+        return ctx.attrs.android_optional_jars
+
 def build_android_library(
         ctx: AnalysisContext,
         r_dot_java: Artifact | None = None,
         extra_sub_targets = {},
         validation_deps_outputs: [list[Artifact], None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
-    bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
+    bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
     additional_classpath_entries = []
 
     dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)

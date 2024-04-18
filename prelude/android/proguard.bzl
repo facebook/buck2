@@ -56,7 +56,7 @@ def _get_proguard_command_line_args(
     for jar_input, jar_output in input_jars_to_output_jars.items():
         cmd.add("-injars", jar_input, "-outjars", jar_output if jar_output == jar_input else jar_output.as_output())
 
-    library_jars = android_toolchain.android_bootclasspath + additional_library_jars
+    library_jars = android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars + additional_library_jars
     cmd.add("-libraryjars")
     cmd.add(cmd_args(library_jars, delimiter = get_path_separator_for_exec_os(ctx)))
     hidden.extend(library_jars)

@@ -34,9 +34,10 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
     input_jars_map = ctx.actions.write_json("preprocessed_java_classes/input_jars_map.json", input_jars_to_owners)
     materialized_artifacts_dir = ctx.actions.declare_output("preprocessed_java_classes/materialized_artifacts")
 
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     env = {
         "ANDROID_BOOTCLASSPATH": cmd_args(
-            ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath,
+            android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars,
             delimiter = get_path_separator_for_exec_os(ctx),
         ),
         "IN_JARS_DIR": cmd_args(input_dir),

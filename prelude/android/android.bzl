@@ -168,6 +168,7 @@ extra_attributes = {
     },
     "android_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
+        "android_optional_jars": attrs.option(attrs.list(attrs.source()), default = None),
         "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
@@ -219,6 +220,7 @@ extra_attributes = {
     },
     "robolectric_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
+        "android_optional_jars": attrs.option(attrs.list(attrs.source()), default = None),
         "java_agents": attrs.list(attrs.source(), default = []),
         "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),

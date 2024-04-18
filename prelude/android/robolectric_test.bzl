@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
-load("@prelude//android:android_library.bzl", "build_android_library")
+load("@prelude//android:android_library.bzl", "build_android_library", "optional_jars")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo")
@@ -82,7 +82,7 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         r_dot_java = None
     java_providers, _ = build_android_library(ctx, r_dot_java = r_dot_java, extra_sub_targets = extra_sub_targets)
 
-    extra_classpath_entries = [test_config_properties_jar] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
+    extra_classpath_entries = [test_config_properties_jar] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
     extra_classpath_entries.extend(r_dot_javas)
     external_runner_test_info = build_junit_test(
         ctx,
