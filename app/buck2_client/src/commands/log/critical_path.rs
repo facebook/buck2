@@ -38,7 +38,7 @@ impl CriticalPathCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { event_log } = self;
 
-        ctx.with_runtime(async move |ctx| {
+        ctx.with_runtime(|ctx| async move {
             let log_path = event_log.get(&ctx).await?;
 
             let (invocation, mut events) = log_path.unpack_stream().await?;

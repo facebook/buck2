@@ -8,7 +8,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(async_closure)]
 #![feature(try_blocks)]
 #![allow(clippy::comparison_to_empty)]
 

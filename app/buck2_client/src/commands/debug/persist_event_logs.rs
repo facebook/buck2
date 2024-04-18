@@ -75,7 +75,7 @@ impl PersistEventLogsCommand {
         buck2_core::facebook_only();
         let sink = create_scribe_sink(&ctx)?;
         let trace_id = self.trace_id.clone();
-        ctx.with_runtime(async move |mut ctx| {
+        ctx.with_runtime(|mut ctx| async move {
             let mut stdin = io::BufReader::new(ctx.stdin());
             let allow_vpnless = self.allow_vpnless;
             let (local_result, remote_result) = self.write_and_upload(&mut stdin).await;

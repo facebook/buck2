@@ -32,7 +32,7 @@ impl LogPerfCommand {
             interval,
         } = self;
 
-        ctx.with_runtime(async move |ctx| {
+        ctx.with_runtime(|ctx| async move {
             let log_path = event_log.get(&ctx).await?;
 
             let mut total_alloc = 0;

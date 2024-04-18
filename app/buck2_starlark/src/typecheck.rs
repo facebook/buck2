@@ -158,7 +158,7 @@ impl StarlarkOpaqueSubcommand for StarlarkTypecheckCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut dice| {
+            .with_dice_ctx(|server_ctx, mut dice| async move {
                 let cell_resolver = &dice.get_cell_resolver().await?;
                 let io = &dice.global_data().get_io_provider();
 

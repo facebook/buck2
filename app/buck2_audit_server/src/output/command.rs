@@ -117,7 +117,7 @@ impl ServerAuditSubcommand for AuditOutputCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut dice_ctx| {
+            .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
                 // First, we parse the buck-out path to get a target label. Next, we configure the target
                 // label and run analysis on it to get the `DeferredTable`. Then, we iterate through the
                 // deferred table's entries and look at their build outputs (if they have any) to try to

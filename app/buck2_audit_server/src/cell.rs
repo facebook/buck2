@@ -34,7 +34,7 @@ impl ServerAuditSubcommand for AuditCellCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut ctx| {
+            .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cells = ctx.get_cell_resolver().await?;
                 let fs = server_ctx.project_root();
                 let cwd = server_ctx.working_dir();

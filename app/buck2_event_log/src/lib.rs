@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-#![feature(async_closure)]
 #![feature(used_with_arg)]
 
 use std::io;

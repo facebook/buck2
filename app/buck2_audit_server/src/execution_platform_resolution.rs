@@ -32,7 +32,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut ctx| {
+            .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let configured_patterns = audit_command_configured_target_labels(
                     &mut ctx,
                     &self.patterns,

@@ -8,7 +8,6 @@
  */
 
 #![feature(exclusive_range_pattern)]
-#![feature(async_closure)]
 
 use std::fs;
 use std::fs::File;

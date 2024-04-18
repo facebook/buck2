@@ -199,7 +199,7 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut ctx| {
+            .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cells = ctx.get_cell_resolver().await?;
                 let cwd = server_ctx.working_dir();
                 let current_cell = cells.get(cells.find(cwd)?)?;

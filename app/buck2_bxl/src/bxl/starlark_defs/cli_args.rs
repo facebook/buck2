@@ -550,11 +550,13 @@ impl CliArgType {
                 CliArgType::List(inner) => match clap.values_of() {
                     None => None,
                     Some(values) => Some(CliArgValue::List(
-                        futures::future::join_all(values.map(async move |v| try {
-                            inner
-                                .parse_clap(ArgAccessor::Literal(v), ctx)
-                                .await?
-                                .expect("shouldn't be empty when parsing list items")
+                        futures::future::join_all(values.map(|v| async move {
+                            try {
+                                inner
+                                    .parse_clap(ArgAccessor::Literal(v), ctx)
+                                    .await?
+                                    .expect("shouldn't be empty when parsing list items")
+                            }
                         }))
                         .await
                         .into_iter()

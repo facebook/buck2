@@ -28,7 +28,7 @@ impl ServerAuditSubcommand for AuditParseCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |_server_ctx, mut dice_ctx| {
+            .with_dice_ctx(|_server_ctx, mut dice_ctx| async move {
                 let cell_resolver = dice_ctx.get_cell_resolver().await?;
                 let buck_out_parser = BuckOutPathParser::new(&cell_resolver);
                 let parsed_path = buck_out_parser.parse(&self.output_path)?;

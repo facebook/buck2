@@ -586,7 +586,7 @@ async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<C
             tcp_port: tcp_port.into(),
         },
         async move {
-            let channel = retrying(initial_delay, max_delay, timeout, async || {
+            let channel = retrying(initial_delay, max_delay, timeout, || async {
                 get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
             })
             .await

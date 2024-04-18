@@ -8,7 +8,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(async_closure)]
 
 pub mod calculation;
 pub mod configuration;

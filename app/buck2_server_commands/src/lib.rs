@@ -11,7 +11,6 @@
 
 //! Implementation of several server commands.
 
-#![feature(async_closure)]
 #![feature(box_patterns)]
 #![feature(let_chains)]
 #![feature(try_blocks)]

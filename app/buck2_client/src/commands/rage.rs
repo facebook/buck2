@@ -108,7 +108,7 @@ impl RageCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
 
-        ctx.with_runtime(async move |ctx| {
+        ctx.with_runtime(|ctx| async move {
             self.exec_impl(ctx).await?;
             ExitResult::success()
         })
@@ -616,7 +616,7 @@ async fn user_prompt_select_log<'a>(
     buck2_client_ctx::eprintln!("Which buck invocation would you like to report?\n")?;
     let logs_summary = futures::future::join_all(
         logs.iter()
-            .map(async move |log_path| log_path.get_summary().await.ok()),
+            .map(|log_path| async move { log_path.get_summary().await.ok() }),
     )
     .await;
     for (index, log_summary) in logs_summary.iter().enumerate() {

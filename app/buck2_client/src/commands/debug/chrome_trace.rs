@@ -930,9 +930,11 @@ impl ChromeTraceCommand {
         log_path: EventLogPathBuf,
     ) -> anyhow::Result<(Invocation, BoxStream<'static, anyhow::Result<BuckEvent>>)> {
         let (invocation, stream_values) = log_path.unpack_stream().await?;
-        let stream = stream_values.try_filter_map(async move |stream_value| match stream_value {
-            StreamValue::Event(e) => Ok(Some(BuckEvent::try_from(e)?)),
-            _ => Ok(None),
+        let stream = stream_values.try_filter_map(|stream_value| async move {
+            match stream_value {
+                StreamValue::Event(e) => Ok(Some(BuckEvent::try_from(e)?)),
+                _ => Ok(None),
+            }
         });
 
         Ok((invocation, Box::pin(stream)))

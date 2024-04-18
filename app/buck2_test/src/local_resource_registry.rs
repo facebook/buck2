@@ -44,7 +44,7 @@ impl<'a> LocalResourceRegistry<'a> {
             return Ok(());
         }
 
-        let cleanup = async move || -> anyhow::Result<()> {
+        let cleanup = || async move {
             let futs = futures::future::join_all(resource_futs)
                 .await
                 .into_iter()
@@ -67,7 +67,7 @@ impl<'a> LocalResourceRegistry<'a> {
                 .into_iter()
                 .collect::<Result<_, _>>()?;
 
-            Ok(())
+            Ok::<(), anyhow::Error>(())
         };
 
         let start = ReleaseLocalResourcesStart {};
@@ -75,6 +75,6 @@ impl<'a> LocalResourceRegistry<'a> {
 
         span_async(start, async move { (cleanup().await, end) }).await?;
 
-        Ok(())
+        Ok::<(), anyhow::Error>(())
     }
 }

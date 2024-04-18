@@ -162,7 +162,6 @@
 //! });
 //! ```
 
-#![feature(async_closure)]
 #![feature(entry_insert)]
 #![feature(fn_traits)]
 #![feature(test)]

@@ -89,7 +89,7 @@ impl CleanCommand {
             return cmd.exec(matches, ctx);
         }
 
-        ctx.instant_command("clean", async move |ctx| {
+        ctx.instant_command("clean", |ctx| async move {
             let buck_out_dir = ctx.paths()?.buck_out_path();
             let daemon_dir = ctx.paths()?.daemon_dir()?;
             let console = &self.common_opts.console_opts.final_console();

@@ -19,7 +19,7 @@ pub struct KillallCommand {}
 
 impl KillallCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.instant_command("killall", async move |_ctx| {
+        ctx.instant_command("killall", |_ctx| async move {
             buck2_wrapper_common::killall(WhoIsAsking::Buck2, |s| {
                 let _ignored = buck2_client_ctx::eprintln!("{}", s);
             })

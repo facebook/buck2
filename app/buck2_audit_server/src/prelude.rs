@@ -31,7 +31,7 @@ impl ServerAuditSubcommand for AuditPreludeCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |_server_ctx, mut ctx| {
+            .with_dice_ctx(|_server_ctx, mut ctx| async move {
                 let mut stdout = stdout.as_writer();
                 // Print out all the Prelude-like stuff that is loaded into each module
                 let cell_resolver = ctx.get_cell_resolver().await?;

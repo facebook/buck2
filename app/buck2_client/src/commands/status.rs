@@ -44,7 +44,7 @@ impl StatusCommand {
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
-        ctx.with_runtime(async move |ctx| {
+        ctx.with_runtime(|ctx| async move {
             if self.all {
                 let mut daemon_dirs = Vec::new();
                 let root = ctx.paths()?.roots.common_buckd_dir()?;

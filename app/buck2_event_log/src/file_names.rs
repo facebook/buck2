@@ -48,7 +48,7 @@ pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {
 
     if let Ok(logfiles) = get_files_in_log_dir(logdir) {
         futures::stream::iter(logfiles.into_iter().rev().skip(N_LOGS_RETAINED - 1))
-            .then(async move |file| {
+            .then(|file| async move {
                 // The oldest logs might be open from another concurrent build, so suppress error.
                 tokio::fs::remove_file(file).await.ok()
             })

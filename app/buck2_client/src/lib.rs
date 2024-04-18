@@ -8,7 +8,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(async_closure)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 #![feature(exit_status_error)]

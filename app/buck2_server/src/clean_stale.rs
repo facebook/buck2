@@ -52,7 +52,7 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
     ) -> anyhow::Result<Self::Response> {
         server_ctx
             .cancellation_context()
-            .critical_section(async move || {
+            .critical_section(|| async move {
                 let deferred_materializer = server_ctx.materializer();
 
                 let extension = deferred_materializer

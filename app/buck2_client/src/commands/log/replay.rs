@@ -57,7 +57,7 @@ impl ReplayCommand {
             override_args: _,
         } = self;
 
-        ctx.with_runtime(async move |mut ctx| {
+        ctx.with_runtime(|mut ctx| async move {
             let work = async {
                 let (replayer, invocation) =
                     Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;

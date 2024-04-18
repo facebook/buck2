@@ -107,7 +107,7 @@ impl ServerAuditSubcommand for AuditVisibilityCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut ctx| {
+            .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
                     &self

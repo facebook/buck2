@@ -31,7 +31,7 @@ pub struct KillCommand {}
 
 impl KillCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.instant_command("kill", async move |ctx| {
+        ctx.instant_command("kill", |ctx| async move {
             let daemon_dir = ctx.paths()?.daemon_dir()?;
 
             let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(

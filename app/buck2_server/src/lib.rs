@@ -8,7 +8,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(async_closure)]
 #![feature(try_blocks)]
 #![feature(once_cell_try)]
 #![feature(used_with_arg)]

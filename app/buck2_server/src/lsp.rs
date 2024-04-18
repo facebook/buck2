@@ -384,7 +384,7 @@ impl<'a> BuckLspContext<'a> {
         server_ctx: &'a dyn ServerCommandContextTrait,
     ) -> anyhow::Result<BuckLspContext<'a>> {
         let (fs, docs_cache_manager) = server_ctx
-            .with_dice_ctx(async move |server_ctx, dice_ctx| {
+            .with_dice_ctx(|server_ctx, dice_ctx| async move {
                 let fs = server_ctx.project_root().clone();
 
                 let docs_cache_manager = DocsCacheManager::new(fs.clone(), dice_ctx).await?;
@@ -570,7 +570,7 @@ impl<'a> BuckLspContext<'a> {
         ) {
             Ok(ParsedPattern::Target(package, target, _)) => {
                 let res = self
-                    .with_dice_ctx(async move |mut dice_ctx| {
+                    .with_dice_ctx(|mut dice_ctx| async move {
                         Ok(DicePackageListingResolver(&mut dice_ctx)
                             .resolve_package_listing(package.dupe())
                             .await
@@ -633,7 +633,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                         let current_import_path = self.import_path(current_file).await?;
                         let borrowed_current_import_path = current_import_path.borrow();
                         let url = self
-                            .with_dice_ctx(async move |mut dice_ctx| {
+                            .with_dice_ctx(|mut dice_ctx| async move {
                                 let calculator = dice_ctx
                                     .get_interpreter_calculator(
                                         borrowed_current_import_path.cell(),
@@ -713,7 +713,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                     LspUrl::File(path) => {
                         let path = self.import_path(path).await?;
 
-                        self.with_dice_ctx(async move |mut dice_ctx| {
+                        self.with_dice_ctx(|mut dice_ctx| async move {
                             match DiceFileComputations::read_file(
                                 &mut dice_ctx,
                                 path.borrow().path().as_ref(),
@@ -733,7 +733,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                     }
                     LspUrl::Starlark(_) => {
                         let docs_cache = self
-                            .with_dice_ctx(async move |dice_ctx| {
+                            .with_dice_ctx(|dice_ctx| async move {
                                 self.docs_cache_manager.get_cache(dice_ctx).await
                             })
                             .await?;

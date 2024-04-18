@@ -182,7 +182,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut ctx| {
+            .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cwd = server_ctx.working_dir();
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;

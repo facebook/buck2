@@ -45,7 +45,7 @@ impl UqueryEvaluator<'_, '_> {
             &self.functions,
             query,
             query_args,
-            async move |literals| {
+            |literals| async move {
                 let resolved_literals = PreresolvedQueryLiterals::pre_resolve(
                     &**self.dice_query_delegate.query_data(),
                     &literals,

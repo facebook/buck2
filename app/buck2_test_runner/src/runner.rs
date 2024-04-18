@@ -69,7 +69,7 @@ impl Buck2TestRunner {
             drop(maybe_receiver);
         }
         let run_verdict = receiver
-            .map(async move |spec| {
+            .map(|spec| async move {
                 let name = format!(
                     "{}//{}:{}",
                     spec.target.cell, spec.target.package, spec.target.target
@@ -101,7 +101,7 @@ impl Buck2TestRunner {
             // If any individual test failed, consider the entire run to have failed.
             .fold(
                 RunVerdict::Pass,
-                async move |mut run_verdict, test_status| {
+                |mut run_verdict, test_status| async move {
                     if test_status != TestStatus::PASS {
                         run_verdict = RunVerdict::Fail;
                     }

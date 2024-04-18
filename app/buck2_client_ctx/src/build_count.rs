@@ -110,7 +110,7 @@ impl BuildCountManager {
             Duration::from_millis(5),
             Duration::from_millis(100),
             timeout,
-            async || anyhow::Ok(fileref.try_lock_exclusive()?),
+            || async { anyhow::Ok(fileref.try_lock_exclusive()?) },
         )
         .await?;
         Ok(FileLockGuard { file })

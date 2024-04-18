@@ -35,7 +35,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut ctx| {
+            .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let target_resolution_config =
                     audit_command_target_resolution_config(&mut ctx, &self.target_cfg, server_ctx)
                         .await?;

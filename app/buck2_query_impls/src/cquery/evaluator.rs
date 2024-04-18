@@ -48,7 +48,7 @@ impl CqueryEvaluator<'_, '_> {
         query_args: &[A],
         target_universe: Option<&[U]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
-        eval_query(self.dice_query_delegate.ctx().per_transaction_data().get_dispatcher().dupe(), &self.functions, query, query_args, async move |literals| {
+        eval_query(self.dice_query_delegate.ctx().per_transaction_data().get_dispatcher().dupe(), &self.functions, query, query_args, |literals| async move {
             let (universe, resolved_literals) = match target_universe {
                 None => {
                     if literals.is_empty() {

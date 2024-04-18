@@ -12,8 +12,6 @@
 
 //! Implementation of test running.
 
-#![feature(async_closure)]
-
 pub mod command;
 pub mod downward_api;
 pub mod executor_launcher;

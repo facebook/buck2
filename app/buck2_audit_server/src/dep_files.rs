@@ -32,7 +32,7 @@ impl ServerAuditSubcommand for AuditDepFilesCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         server_ctx
-            .with_dice_ctx(async move |server_ctx, mut ctx| {
+            .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let global_cfg_options = global_cfg_options_from_client_context(
                     &self.target_cfg.target_cfg(),
                     server_ctx,

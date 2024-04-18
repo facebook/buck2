@@ -89,7 +89,7 @@ pub struct SummaryCommand {
 
 impl SummaryCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.with_runtime(async move |ctx| {
+        ctx.with_runtime(|ctx| async move {
             let log_path = self.event_log.get(&ctx).await?;
 
             let (invocation, mut events) = log_path.unpack_stream().await?;

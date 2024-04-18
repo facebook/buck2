@@ -130,7 +130,7 @@ impl WhatRanCommand {
                 include_std_err: show_std_err,
                 omit_empty_std_err,
             };
-            ctx.with_runtime(async move |ctx| {
+            ctx.with_runtime(|ctx| async move {
                 let log_path = event_log.get(&ctx).await?;
 
                 let (invocation, events) = log_path.unpack_stream().await?;

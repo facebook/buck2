@@ -98,7 +98,7 @@ impl BuckdLifecycleLock {
                 "locking buckd lifecycle",
                 Duration::from_millis(5),
                 Duration::from_millis(100),
-                async || Ok(fileref.try_lock_exclusive()?),
+                || async { Ok(fileref.try_lock_exclusive()?) },
             )
             .await?;
 

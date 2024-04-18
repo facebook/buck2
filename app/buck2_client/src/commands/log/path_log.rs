@@ -33,7 +33,7 @@ impl PathLogCommand {
             all,
         } = self;
 
-        ctx.with_runtime(async move |ctx| {
+        ctx.with_runtime(|ctx| async move {
             let paths = if all {
                 retrieve_all_logs(ctx.paths().context("Error identifying log dir")?)?
             } else {
