@@ -242,6 +242,33 @@ impl Key for LegacyBuckConfigForCellKey {
     }
 }
 
+/// The computation `LegacyBuckConfigForCellKey` computation might encounter an error.
+///
+/// We can't return that error immediately, because we only compute the opaque value. We could
+/// return the error when doing the projection to the buckconfig values, but that would result in us
+/// increasing the size of the value returned from that computation. Instead, we'll use a different
+/// projection key to extract just the error from the cell computation, and compute that when
+/// constructing the `OpaqueLegacyBuckConfigOnDice`.
+#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
+struct LegacyBuckConfigErrorKey();
+
+impl ProjectionKey for LegacyBuckConfigErrorKey {
+    type DeriveFromKey = LegacyBuckConfigForCellKey;
+    type Value = Option<buck2_error::Error>;
+
+    fn compute(
+        &self,
+        config: &buck2_error::Result<LegacyBuckConfig>,
+        _ctx: &DiceProjectionComputations,
+    ) -> Option<buck2_error::Error> {
+        config.as_ref().err().cloned()
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x.is_none() && y.is_none()
+    }
+}
+
 #[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
 #[display(fmt = "{}.{}", section, property)]
 struct LegacyBuckConfigPropertyProjectionKey {
@@ -258,8 +285,7 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
         config: &buck2_error::Result<LegacyBuckConfig>,
         _ctx: &DiceProjectionComputations,
     ) -> Option<Arc<str>> {
-        // This is safe, because this code is only called from `DiceLegacyBuckConfig`
-        // which is known to be constructed from a valid cell.
+        // See the comment in `LegacyBuckConfigErrorKey` for why this is safe
         let config = config.as_ref().unwrap();
         config
             .get(BuckconfigKeyRef {
@@ -307,6 +333,9 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         let config = self
             .compute_opaque(&LegacyBuckConfigForCellKey { cell_name })
             .await?;
+        if let Some(error) = self.projection(&config, &LegacyBuckConfigErrorKey())? {
+            return Err(error.into());
+        }
         Ok(OpaqueLegacyBuckConfigOnDice {
             config: Arc::new(config),
         })
