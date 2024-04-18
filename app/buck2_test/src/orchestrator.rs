@@ -82,6 +82,8 @@ use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputCreationBehavior;
+use buck2_execute::execute::request::WorkerId;
+use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
@@ -247,6 +249,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             inputs,
             supports_re,
             declared_outputs,
+            worker,
         } = test_executable_expanded;
 
         let executor_preference = self.executor_preference(supports_re)?;
@@ -288,6 +291,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 Some(host_sharing_requirements),
                 Some(executor_preference),
                 required_resources,
+                worker,
             )
             .await?;
 
@@ -529,6 +533,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             inputs,
             supports_re: _,
             declared_outputs,
+            worker: _,
         } = test_executable_expanded;
 
         let execution_request = self
@@ -543,6 +548,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
                 None,
                 None,
                 vec![],
+                None,
             )
             .await?;
 
@@ -969,7 +975,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }?;
         };
 
-        let (expanded_cmd, expanded_env, inputs) = expanded;
+        let (expanded_cmd, expanded_env, inputs, expanded_worker) = expanded;
 
         for output in pre_create_dirs {
             let test_path = BuckOutTestPath::new(output_root.clone(), output.name.into());
@@ -983,6 +989,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             inputs,
             declared_outputs,
             supports_re,
+            worker: expanded_worker,
         })
     }
 
@@ -998,6 +1005,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         host_sharing_requirements: Option<HostSharingRequirements>,
         executor_preference: Option<ExecutorPreference>,
         required_local_resources: Vec<LocalResourceState>,
+        worker: Option<WorkerSpec>,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -1025,6 +1033,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist())
             .with_disable_miniperf(true)
+            .with_worker(worker)
             .with_required_local_resources(required_local_resources)?;
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
@@ -1238,6 +1247,7 @@ impl<'a> Execute2RequestExpander<'a> {
         Vec<String>,
         SortedVectorMap<String, String>,
         IndexSet<ArtifactGroup>,
+        Option<WorkerSpec>,
     )>
     where
         B: CommandLineContextExt<'a>,
@@ -1332,9 +1342,24 @@ impl<'a> Execute2RequestExpander<'a> {
             })
             .collect::<Result<SortedVectorMap<_, _>, _>>()?;
 
+        let expanded_worker = match self.test_info.worker() {
+            Some(worker) => {
+                let mut worker_rendered = Vec::<String>::new();
+                let worker_exe = worker.exe_command_line();
+                worker_exe.add_to_command_line(&mut worker_rendered, &mut ctx)?;
+                worker_exe.visit_artifacts(&mut artifact_visitor)?;
+                Some(WorkerSpec {
+                    exe: worker_rendered,
+                    id: WorkerId(worker.id),
+                    concurrency: worker.concurrency(),
+                })
+            }
+            _ => None,
+        };
+
         let inputs = artifact_visitor.inputs;
 
-        Ok((expanded_cmd, expanded_env, inputs))
+        Ok((expanded_cmd, expanded_env, inputs, expanded_worker))
     }
 }
 
@@ -1378,6 +1403,7 @@ struct ExpandedTestExecutable {
     inputs: IndexSet<ArtifactGroup>,
     supports_re: bool,
     declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    worker: Option<WorkerSpec>,
 }
 
 fn create_prepare_for_local_execution_result(
