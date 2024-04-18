@@ -11,7 +11,7 @@ load(":mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryReco
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     mockingbird_info = ctx.attrs.module[MockingbirdLibraryInfo]
 
-    json_project_description = _get_mockingbird_json_project_description(info = mockingbird_info, included_paths = ctx.attrs.included_paths, excluded_paths = ctx.attrs.excluded_paths)
+    json_project_description = _get_mockingbird_json_project_description(info = mockingbird_info, included_srcs = ctx.attrs.srcs, excluded_srcs = ctx.attrs.excluded_srcs)
     json_project_description_output = ctx.actions.declare_output("mockingbird_project.json")
     ctx.actions.write_json(json_project_description_output.as_output(), json_project_description)
 
@@ -57,10 +57,14 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _attrs():
     attribs = {
-        "excluded_paths": attrs.list(attrs.string(), default = []),
-        "included_paths": attrs.list(attrs.string(), default = []),
+        ## The list of source files to exclude. Only the name of the file, excluding the path, should be set. If set, the srcs attribute will be ignored.
+        "excluded_srcs": attrs.list(attrs.string(), default = []),
+        ## The module to generate mocks for.
         "module": attrs.dep(),
+        ## Whether to only generate mocks for Swift protocols.
         "only_protocols": attrs.bool(default = False),
+        ## A list of source files to include. Only the name of the file, excluding the path, should be set. By default all source files are included and this doesn't need to be specified.
+        "srcs": attrs.list(attrs.string(), default = []),
         "_mockingbird_bin": attrs.exec_dep(providers = [RunInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:mockingbird-binary"),
         "_mockingbird_support": attrs.dep(providers = [DefaultInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:MockingbirdSupport"),
     }
@@ -112,27 +116,25 @@ registration_spec = RuleRegistrationSpec(
 #     }
 #   ]
 # }
-def _get_mockingbird_json_project_description(info: MockingbirdLibraryInfo, included_paths: list[str], excluded_paths: list[str]) -> dict:
+def _get_mockingbird_json_project_description(info: MockingbirdLibraryInfo, included_srcs: list[str], excluded_srcs: list[str]) -> dict:
     json = {
-        "targets": [_target_dict_for_mockingbird_record(record = record, included_paths = included_paths, excluded_paths = excluded_paths) for record in info.tset.traverse()],
+        "targets": [_target_dict_for_mockingbird_record(record = record, included_srcs = included_srcs, excluded_srcs = excluded_srcs) for record in info.tset.traverse()],
     }
 
     return json
 
-def _target_dict_for_mockingbird_record(record: MockingbirdLibraryRecord, included_paths: list[str], excluded_paths: list[str]) -> dict:
+def _target_dict_for_mockingbird_record(record: MockingbirdLibraryRecord, included_srcs: list[str], excluded_srcs: list[str]) -> dict:
     srcs = []
-    if len(included_paths) > 0:
+    if len(included_srcs) > 0 and len(excluded_srcs) > 0:
+        fail("Included srcs and excluded srcs cannot both be set at the same time")
+
+    if len(included_srcs) > 0:
         for src in record.srcs:
-            if src.short_path in included_paths:
+            if src.basename in included_srcs:
                 srcs.append(src.basename)
-    elif len(excluded_paths) > 0:
+    elif len(excluded_srcs) > 0:
         for src in record.srcs:
-            excluded = False
-            for path in excluded_paths:
-                if src.short_path == path:
-                    excluded = True
-                    break
-            if not excluded:
+            if src.basename not in excluded_srcs:
                 srcs.append(src.basename)
     else:
         srcs = [src.basename for src in record.srcs]
