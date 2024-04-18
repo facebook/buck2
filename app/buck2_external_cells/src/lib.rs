@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(assert_matches)]
+#![feature(is_sorted)]
 #![feature(error_generic_member_access)]
 
 use std::sync::Arc;

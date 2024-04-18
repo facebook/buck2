@@ -10,10 +10,26 @@
 use std::sync::Arc;
 
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::directory::find;
+use buck2_core::directory::Directory;
+use buck2_core::directory::DirectoryBuilder;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::DirectoryFindError;
+use buck2_core::directory::ImmutableDirectory;
+use buck2_core::directory::NoDigest;
+use buck2_core::directory::NoDigestDigester;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_error::BuckErrorContext;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::digest_config::HasDigestConfig;
 use buck2_external_cells_bundled::get_bundled_data;
 use buck2_external_cells_bundled::BundledCell;
 use cmp_any::PartialEqAny;
@@ -45,32 +61,111 @@ pub(crate) fn find_bundled_data(cell_name: CellName) -> anyhow::Result<BundledCe
         })
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug, allocative::Allocative)]
+struct ContentsAndMetadata {
+    contents: &'static [u8],
+    metadata: FileMetadata,
+}
+
 #[derive(allocative::Allocative, PartialEq, Eq)]
-pub(crate) struct BundledFileOpsDelegate {}
+pub(crate) struct BundledFileOpsDelegate {
+    dir: ImmutableDirectory<ContentsAndMetadata, NoDigest>,
+}
+
+#[derive(buck2_error::Error, Debug)]
+enum BundledPathSearchError {
+    #[error("Expected a directory at `{0}` but found a file")]
+    ExpectedDirectory(String),
+    #[error("Path not found: `{0}`")]
+    MissingFile(CellRelativePathBuf),
+    #[error("Expected file at `{0}` but found a directory")]
+    ExpectedFile(CellRelativePathBuf),
+}
+
+impl BundledFileOpsDelegate {
+    fn get_entry_at_path_if_exists(
+        &self,
+        path: &CellRelativePath,
+    ) -> anyhow::Result<
+        Option<DirectoryEntry<&dyn Directory<ContentsAndMetadata, NoDigest>, &ContentsAndMetadata>>,
+    > {
+        if path.is_empty() {
+            return Ok(Some(DirectoryEntry::Dir(&self.dir)));
+        }
+        match find(&self.dir, path.iter()) {
+            Ok(entry) => Ok(entry),
+            Err(DirectoryFindError::EmptyPath) => Ok(None),
+            Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
+                Err(BundledPathSearchError::ExpectedDirectory(path.to_string()).into())
+            }
+        }
+    }
+
+    fn get_entry_at_path(
+        &self,
+        path: &CellRelativePath,
+    ) -> anyhow::Result<
+        DirectoryEntry<&dyn Directory<ContentsAndMetadata, NoDigest>, &ContentsAndMetadata>,
+    > {
+        self.get_entry_at_path_if_exists(path)?
+            .ok_or_else(|| BundledPathSearchError::MissingFile(path.to_owned()).into())
+    }
+}
 
 #[async_trait::async_trait]
-#[allow(clippy::todo)]
 impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
-        _path: &'async_trait CellRelativePath,
+        path: &'async_trait CellRelativePath,
     ) -> anyhow::Result<Option<String>> {
-        todo!()
+        match self.get_entry_at_path_if_exists(path)? {
+            Some(DirectoryEntry::Leaf(leaf)) => {
+                Ok(Some(String::from_utf8(leaf.contents.to_vec())?))
+            }
+            Some(DirectoryEntry::Dir(_)) => {
+                Err(BundledPathSearchError::ExpectedFile(path.to_owned()).into())
+            }
+            None => Ok(None),
+        }
     }
 
     /// Return the list of file outputs, sorted.
     async fn read_dir(
         &self,
-        _path: &'async_trait CellRelativePath,
+        path: &'async_trait CellRelativePath,
     ) -> anyhow::Result<Vec<RawDirEntry>> {
-        todo!()
+        let dir = match self.get_entry_at_path(path)? {
+            DirectoryEntry::Dir(dir) => dir,
+            DirectoryEntry::Leaf(_) => {
+                return Err(BundledPathSearchError::ExpectedDirectory(path.to_string()).into());
+            }
+        };
+
+        let entries = dir
+            .entries()
+            .map(|(name, entry)| RawDirEntry {
+                file_name: name.to_owned().into_inner(),
+                file_type: match entry {
+                    DirectoryEntry::Leaf(_) => FileType::File,
+                    DirectoryEntry::Dir(_) => FileType::Directory,
+                },
+            })
+            .collect();
+
+        Ok(entries)
     }
 
     async fn read_path_metadata_if_exists(
         &self,
-        _path: &'async_trait CellRelativePath,
+        path: &'async_trait CellRelativePath,
     ) -> anyhow::Result<Option<RawPathMetadata>> {
-        todo!()
+        match self.get_entry_at_path_if_exists(path)? {
+            Some(DirectoryEntry::Leaf(leaf)) => {
+                Ok(Some(RawPathMetadata::File(leaf.metadata.clone())))
+            }
+            Some(DirectoryEntry::Dir(_)) => Ok(Some(RawPathMetadata::Directory)),
+            None => Ok(None),
+        }
     }
 
     fn eq_token(&self) -> PartialEqAny {
@@ -78,8 +173,33 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     }
 }
 
-fn get_file_ops_delegate_impl(_data: BundledCell) -> anyhow::Result<BundledFileOpsDelegate> {
-    Ok(BundledFileOpsDelegate {})
+fn get_file_ops_delegate_impl(
+    data: BundledCell,
+    digest_config: DigestConfig,
+) -> anyhow::Result<BundledFileOpsDelegate> {
+    let mut builder: DirectoryBuilder<ContentsAndMetadata, NoDigest> = DirectoryBuilder::empty();
+    let digest_config = digest_config.cas_digest_config().source_files_config();
+    for file in data.files {
+        let path = ForwardRelativePath::new(file.path)
+            .internal_error("non-forward relative bundled path")?;
+        let metadata = FileMetadata {
+            digest: TrackedFileDigest::from_content(file.contents, digest_config),
+            is_executable: file.is_executable,
+        };
+
+        builder
+            .insert(
+                path,
+                DirectoryEntry::Leaf(ContentsAndMetadata {
+                    contents: file.contents,
+                    metadata,
+                }),
+            )
+            .internal_error("conflicting bundled source paths")?;
+    }
+    Ok(BundledFileOpsDelegate {
+        dir: builder.fingerprint(&NoDigestDigester),
+    })
 }
 
 pub(crate) async fn get_file_ops_delegate(
@@ -105,11 +225,14 @@ pub(crate) async fn get_file_ops_delegate(
 
         async fn compute(
             &self,
-            _dice: &mut DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             let data = find_bundled_data(self.0)?;
-            Ok(Arc::new(get_file_ops_delegate_impl(data)?))
+            Ok(Arc::new(get_file_ops_delegate_impl(
+                data,
+                ctx.global_data().get_digest_config(),
+            )?))
         }
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -119,4 +242,102 @@ pub(crate) async fn get_file_ops_delegate(
     }
 
     Ok(ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await??)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::assert_matches::assert_matches;
+
+    use super::*;
+
+    fn testing_ops() -> BundledFileOpsDelegate {
+        let data = find_bundled_data(CellName::testing_new("test_bundled_cell")).unwrap();
+        get_file_ops_delegate_impl(data, DigestConfig::testing_default()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_smoke_read() {
+        let ops = testing_ops();
+        assert_eq!(
+            ops.read_file_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
+                .await
+                .unwrap()
+                .unwrap(),
+            "foobar\n"
+        );
+        assert!(
+            ops.read_file_if_exists(&CellRelativePath::unchecked_new("dir/does_not_exist.txt"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_executable_bit() {
+        let ops = testing_ops();
+        assert_matches!(
+            ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
+                .await
+                .unwrap()
+                .unwrap(),
+            RawPathMetadata::File(FileMetadata {
+                digest: _,
+                is_executable: false,
+            }),
+        );
+        assert_matches!(
+            ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src2.txt"))
+                .await
+                .unwrap()
+                .unwrap(),
+            RawPathMetadata::File(FileMetadata {
+                digest: _,
+                is_executable: true,
+            }),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_dir_listing() {
+        let ops = testing_ops();
+
+        let root = CellRelativePath::unchecked_new("");
+        let root_metadata = ops
+            .read_path_metadata_if_exists(root)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_matches!(root_metadata, RawPathMetadata::Directory);
+        let root_entries = ops.read_dir(root).await.unwrap();
+        assert!(root_entries.is_sorted());
+        assert_eq!(
+            &root_entries,
+            &[
+                RawDirEntry {
+                    file_name: ".buckconfig".into(),
+                    file_type: FileType::File
+                },
+                RawDirEntry {
+                    file_name: "BUCK_TREE".into(),
+                    file_type: FileType::File
+                },
+                RawDirEntry {
+                    file_name: "dir".into(),
+                    file_type: FileType::Directory
+                },
+            ],
+        );
+
+        let dir = CellRelativePath::unchecked_new("dir");
+        let dir_metadata = ops
+            .read_path_metadata_if_exists(dir)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_matches!(dir_metadata, RawPathMetadata::Directory);
+        let dir_entries = ops.read_dir(dir).await.unwrap();
+        assert!(dir_entries.is_sorted());
+        assert_eq!(dir_entries.len(), 5);
+    }
 }
