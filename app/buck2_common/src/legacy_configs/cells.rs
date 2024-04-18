@@ -271,21 +271,11 @@ impl BuckConfigBasedCells {
                 }
             }
 
-            if let Some(aliases) = config
-                .get_section("repository_aliases")
-                .or_else(|| config.get_section("cell_aliases"))
-            {
-                for (alias, destination) in aliases.iter() {
-                    let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                    let destination = NonEmptyCellAlias::new(destination.as_str().to_owned())?;
-                    let alias_path = cells_aggregator.add_cell_alias(
-                        path.clone(),
-                        alias.clone(),
-                        destination,
-                    )?;
-                    if is_root {
-                        root_aliases.insert(alias, alias_path.clone());
-                    }
+            for (alias, destination) in Self::get_cell_aliases_from_config(&config)? {
+                let alias_path =
+                    cells_aggregator.add_cell_alias(path.clone(), alias.clone(), destination)?;
+                if is_root {
+                    root_aliases.insert(alias, alias_path.clone());
                 }
             }
 
@@ -323,6 +313,23 @@ impl BuckConfigBasedCells {
             config_paths: file_ops.trace,
             resolved_args: processed_config_args.into_iter().collect(),
         })
+    }
+
+    pub(crate) fn get_cell_aliases_from_config(
+        config: &LegacyBuckConfig,
+    ) -> anyhow::Result<impl Iterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>> {
+        let mut aliases = Vec::new();
+        if let Some(section) = config
+            .get_section("repository_aliases")
+            .or_else(|| config.get_section("cell_aliases"))
+        {
+            for (alias, destination) in section.iter() {
+                let alias = NonEmptyCellAlias::new(alias.to_owned())?;
+                let destination = NonEmptyCellAlias::new(destination.as_str().to_owned())?;
+                aliases.push((alias, destination));
+            }
+        }
+        Ok(aliases.into_iter())
     }
 
     pub(crate) async fn parse_single_cell_with_dice(
