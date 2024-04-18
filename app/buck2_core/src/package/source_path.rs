@@ -100,7 +100,7 @@ impl<'a> SourcePathRef<'a> {
     }
 
     #[inline]
-    pub fn to_buck_path(&self) -> SourcePath {
+    pub fn to_owned(&self) -> SourcePath {
         SourcePath {
             pkg: self.pkg.dupe(),
             path: self.path.dupe(),

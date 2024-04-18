@@ -336,7 +336,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
                 self.inputs
                     .push(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
-                        path.to_buck_path(),
+                        path.to_owned(),
                     ))));
                 Ok(())
             }
@@ -398,7 +398,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
                 if path.to_cell_path() == self.target {
                     self.found = Some(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
-                        path.to_buck_path(),
+                        path.to_owned(),
                     ))));
                 }
                 Ok(())
