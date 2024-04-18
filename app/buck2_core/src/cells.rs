@@ -229,6 +229,24 @@ impl CellAliasResolver {
         Ok(CellAliasResolver { current, aliases })
     }
 
+    pub fn new_for_dice_parsed_cell(
+        current: CellName,
+        root_aliases: &CellAliasResolver,
+        alias_list: impl IntoIterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>,
+    ) -> anyhow::Result<CellAliasResolver> {
+        let mut aliases: HashMap<_, _> = root_aliases
+            .mappings()
+            .map(|(x, y)| (x.to_owned(), y))
+            .collect();
+        for (alias, destination) in alias_list {
+            let Some(name) = aliases.get(&destination) else {
+                return Err(CellError::AliasOnlyCell(alias, destination).into());
+            };
+            aliases.insert(alias, *name);
+        }
+        CellAliasResolver::new(current, aliases)
+    }
+
     /// resolves a 'CellAlias' into its corresponding 'CellName'
     pub fn resolve(&self, alias: &str) -> anyhow::Result<CellName> {
         if alias.is_empty() {
