@@ -53,6 +53,11 @@ impl From<ModuleInternals> for EvaluationResult {
     }
 }
 
+#[derive(Debug, Default)]
+struct BeforeTargets {
+    oncall: Option<Oncall>,
+}
+
 #[derive(Debug)]
 struct RecordingTargets {
     package: Arc<Package>,
@@ -62,7 +67,7 @@ struct RecordingTargets {
 #[derive(Debug)]
 enum State {
     /// No targets recorded yet, `oncall` call is allowed unless it was already called.
-    BeforeTargets(Option<Oncall>),
+    BeforeTargets(BeforeTargets),
     /// First target seen.
     RecordingTargets(RecordingTargets),
 }
@@ -128,7 +133,7 @@ impl ModuleInternals {
         Self {
             attr_coercion_context,
             buildfile_path,
-            state: RefCell::new(State::BeforeTargets(None)),
+            state: RefCell::new(State::BeforeTargets(BeforeTargets::default())),
             imports,
             package_implicits,
             record_target_call_stacks,
@@ -158,12 +163,13 @@ impl ModuleInternals {
 
     pub(crate) fn set_oncall(&self, name: &str) -> anyhow::Result<()> {
         match &mut *self.state.borrow_mut() {
-            State::BeforeTargets(Some(_)) => Err(OncallErrors::DuplicateOncall.into()),
-            State::BeforeTargets(oncall) => {
-                assert!(oncall.is_none());
-                *oncall = Some(Oncall::new(name));
-                Ok(())
-            }
+            State::BeforeTargets(x) => match x.oncall {
+                Some(_) => Err(OncallErrors::DuplicateOncall.into()),
+                None => {
+                    x.oncall = Some(Oncall::new(name));
+                    Ok(())
+                }
+            },
             State::RecordingTargets(..) => {
                 // We require oncall to be first both so users can find it,
                 // and so we can propagate it to all targets more easily.
@@ -176,7 +182,7 @@ impl ModuleInternals {
         RefMut::map(self.state.borrow_mut(), |state| {
             loop {
                 match state {
-                    State::BeforeTargets(oncall) => {
+                    State::BeforeTargets(BeforeTargets { oncall }) => {
                         let oncall = mem::take(oncall);
                         *state = State::RecordingTargets(RecordingTargets {
                             package: Arc::new(Package {
