@@ -14,10 +14,11 @@ const TRUNCATION_DELIM: &str = ", ";
 /// the debug message with the middle elided if it's too long.
 /// `max_length` is maximum length of truncated message.
 pub fn truncate(msg: &str, max_length: usize) -> String {
-    if max_length <= TRUNCATION_MSG.len() {
-        TRUNCATION_MSG.to_owned()
-    } else if msg.len() > max_length {
-        let max_length_without_truncation_msg = max_length.saturating_sub(TRUNCATION_MSG.len());
+    if msg.len() <= max_length {
+        return msg.to_owned();
+    }
+
+    if let Some(max_length_without_truncation_msg) = max_length.checked_sub(TRUNCATION_MSG.len()) {
         // Note that for Unicode strings we might end up with less than max_length characters,
         // because these functions are all in terms of bytes.
         // Not worth the hassle to do better, given how rare that is.
@@ -29,7 +30,7 @@ pub fn truncate(msg: &str, max_length: usize) -> String {
                 ..msg.len()]
         )
     } else {
-        msg.to_owned()
+        TRUNCATION_MSG.to_owned()
     }
 }
 
