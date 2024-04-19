@@ -1,3 +1,5 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
@@ -15,4 +17,32 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "//buck2/app/buck2_core:buck2_core",
     ],
+)
+
+rust_binary(
+    name = "explain_fbs",
+    srcs = glob(
+        [
+            "src/*",
+        ],
+    ),
+    mapped_srcs = {
+        ":schema[explain_generated.rs]": "src/explain_generated.rs",
+    },
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:flatbuffers",
+    ],
+)
+
+buck_genrule(
+    name = "schema",
+    srcs = [
+        "explain.fbs",
+    ],
+    outs = {
+        "explain_generated.rs": ["explain_generated.rs"],
+    },
+    cmd = "$(exe fbsource//third-party/flatbuffers-23.5.26:flatc) --rust -o ${OUT} ${SRCS}",
+    default_outs = ["."],
 )

@@ -1,0 +1,60 @@
+namespace explain;
+
+table Bool {
+    value: bool;
+}
+
+table String {
+    value: string;
+}
+
+table ListOfStrings {
+    value: [string];
+}
+
+union Value {
+    String,
+    ListOfStrings,
+    Bool,
+    ConfiguredTargetLabel,
+    // ListOfKeyValues,
+}
+
+table ConfiguredTargetLabel {
+    name: string;
+    configuration: string;
+}
+
+table Attribute {
+  key: string;
+  value: Value;
+}
+
+table ConfiguredTargetNode {
+    // internal attrs
+    name: string;
+    default_target_platform: string;
+    target_compatible_with: [string];
+    compatible_with: [string];
+    exec_compatible_with: [string];
+    visibility: [string];
+    within_view: [string];
+    // metadata: [Attribute]; // TODO iguridi
+    tests: [string];
+    // special attrs
+    type: string;
+    deps: string;
+    package: string;
+    oncall: string;
+    target_configuration: string;
+    execution_platform: string;
+    plugins: string;
+    // user attrs
+    string_attrs: [Attribute]; // TODO iguridi
+    // extras
+    configured_target_label: string;
+}
+
+table Build {
+    targets: [ConfiguredTargetNode];
+}
