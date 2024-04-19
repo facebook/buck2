@@ -12,6 +12,14 @@ import sys
 import zipfile
 
 
+def _base_class_name_matches_base_source_path(
+    base_class_name: str, base_source_path: str
+):
+    return base_class_name == base_source_path or base_source_path.endswith(
+        "/" + base_class_name
+    )
+
+
 def main(argv):
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument(
@@ -53,7 +61,7 @@ def main(argv):
 
             found = False
             for src_base, src_path in sources.items():
-                if base == src_base or src_base.endswith("/" + base):
+                if _base_class_name_matches_base_source_path(base, src_base):
                     classes.append(
                         {
                             "className": classname,
