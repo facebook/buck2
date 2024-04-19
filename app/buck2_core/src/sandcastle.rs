@@ -11,7 +11,15 @@ use crate::buck2_env;
 
 /// Are we running on sandcastle?
 pub fn is_sandcastle() -> anyhow::Result<bool> {
-    Ok(buck2_env!("SANDCASTLE")?.is_some())
+    // The CI environment variable is consistently set by CI providers.
+    //
+    // - GitHub Actions: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
+    // - GitLab CI/CD: https://docs.gitlab.com/ee/ci/variables/predefined_variables.html
+    // - CircleCI: https://circleci.com/docs/variables/#built-in-environment-variables
+    // - many others
+    //
+    // Internally, CI should be setting SANDCASTLE env var.
+    Ok(buck2_env!("SANDCASTLE")?.is_some() || buck2_env!("CI", type = bool, default = false)?)
 }
 
 pub fn sandcastle_id() -> anyhow::Result<Option<&'static str>> {
