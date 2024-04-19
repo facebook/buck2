@@ -16,5 +16,5 @@ pub(crate) fn get_styles() -> Styles {
         .header(heading)
         .usage(heading)
         .literal(styling::AnsiColor::Green.on_default())
-        .placeholder(styling::AnsiColor::Green.on_default())
+        .placeholder(styling::AnsiColor::Cyan.on_default())
 }
