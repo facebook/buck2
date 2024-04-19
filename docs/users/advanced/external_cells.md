@@ -18,16 +18,21 @@ origin.
 ## Setting up an external cell
 
 Configuring an external cell looks much like configuring a regular cell. First,
-add an appropriate entry to the `cells` section of your `.buckconfig`:
+add the cell to the `cells` section of your `.buckconfig` like normal:
 
 ```
 [cells]
-  prelude = prelude
+  prelude = some/path
 ```
 
+The external cell's files won't actually be generated in the repo. However, you
+still need to provide a path for it - this path influences the handling of tree
+files, since those cross cell boundaries. It's also used for
+`expand-external-cells`, more on that below.
+
 Next, add an entry to the `external_cells` buckconfig section that specifies the
-"origin" of the external cell. This tells buck2 where you want to get the cell
-from, if not files in the source repo.
+"origin" of the external cell given an alias. This tells buck2 where you want to
+get the cell from, if not files in the source repo.
 
 ```
 [external_cells]
@@ -49,9 +54,9 @@ extensions are welcome.
 
 Because external cells only represent a different way to access source files,
 buck2 provides an `expand-external-cell` command. This command will make a copy
-of the external cell into the path in the repo you specified for your cell. This
-can be helpful for debugging and allows you to make direct edits to the cell's
-files.
+of the external cell into the path in the repo you specified for your cell. By
+commenting out the `external_cells` buckconfig entry, this allows you to make
+direct edits to the cell's files in your repo.
 
 ## Details & Limitations
 
