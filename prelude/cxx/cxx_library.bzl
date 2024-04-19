@@ -694,6 +694,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             soname = None
         linker_type = get_cxx_toolchain_info(ctx).linker_info.type
         linkable_root = create_linkable_root(
+            label = ctx.label,
             name = soname,
             link_infos = LinkInfos(
                 default = LinkInfo(

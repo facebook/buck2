@@ -42,6 +42,7 @@ load(
 LinkableRootInfo = provider(
     # @unsorted-dict-items
     fields = {
+        "label": provider_field(Label),
         "link_infos": provider_field(typing.Any, default = None),  # LinkInfos
         "name": provider_field(typing.Any, default = None),  # [str, None]
         "deps": provider_field(typing.Any, default = None),  # ["label"]

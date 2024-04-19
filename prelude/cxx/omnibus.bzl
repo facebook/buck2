@@ -144,7 +144,8 @@ def get_roots(deps: list[Dependency]) -> dict[Label, LinkableRootInfo]:
     roots = {}
     for dep in deps:
         if LinkableRootInfo in dep:
-            roots[dep.label] = dep[LinkableRootInfo]
+            root = dep[LinkableRootInfo]
+            roots[root.label] = root
     return roots
 
 def get_excluded(deps: list[Dependency] = []) -> dict[Label, None]:
@@ -156,11 +157,13 @@ def get_excluded(deps: list[Dependency] = []) -> dict[Label, None]:
     return excluded_nodes
 
 def create_linkable_root(
+        label: Label,
         link_infos: LinkInfos,
         name: [str, None] = None,
         deps: list[LinkableGraph | Dependency] = []) -> LinkableRootInfo:
     # Only include dependencies that are linkable.
     return LinkableRootInfo(
+        label = label,
         name = name,
         link_infos = link_infos,
         deps = linkable_deps(deps),

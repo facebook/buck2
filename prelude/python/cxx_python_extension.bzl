@@ -214,6 +214,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = [d.shared_library_info for d in link_deps],
         ),
         linkable_root_info = create_linkable_root(
+            label = ctx.label,
             link_infos = wrap_link_infos(
                 link_infos[LibOutputStyle("pic_archive")],
                 pre_flags = ctx.attrs.linker_flags,

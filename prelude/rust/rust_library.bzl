@@ -814,6 +814,7 @@ def _native_providers(
 
     # Omnibus root provider.
     linkable_root = create_linkable_root(
+        label = ctx.label,
         name = shlib_name,
         link_infos = LinkInfos(
             default = LinkInfo(

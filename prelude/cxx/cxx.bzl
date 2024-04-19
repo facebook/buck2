@@ -567,6 +567,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
         linkable_root = create_linkable_root(
+            label = ctx.label,
             name = soname,
             link_infos = LinkInfos(default = LinkInfo(
                 name = soname,
