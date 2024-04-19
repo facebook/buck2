@@ -45,14 +45,8 @@ HaskellLibraryInfo = record(
 def _project_as_package_db(lib: HaskellLibraryInfo):
     return cmd_args("-package-db", lib.db)
 
-def _direct_deps(_children: list[HaskellLibraryInfo | None], lib: HaskellLibraryInfo | None) -> HaskellLibraryInfo | None:
-    return lib
-
 HaskellLibraryInfoTSet = transitive_set(
     args_projections = {
         "package_db": _project_as_package_db,
-    },
-    reductions = {
-        "root": _direct_deps,
     },
 )

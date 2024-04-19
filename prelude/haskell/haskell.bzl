@@ -540,7 +540,7 @@ def _build_haskell_lib(
     linfos = [x.prof_info if enable_profiling else x.info for x in hlis]
 
     # only gather direct dependencies
-    uniq_infos = [x[link_style].reduce("root") for x in linfos]
+    uniq_infos = [x[link_style].value for x in linfos]
 
     objfiles = _srcs_to_objfiles(ctx, compiled.objects, osuf)
 
