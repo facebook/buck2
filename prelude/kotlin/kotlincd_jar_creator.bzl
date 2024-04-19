@@ -138,10 +138,7 @@ def create_jar_artifact_kotlincd(
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,
             extraKotlincArguments = extra_kotlinc_arguments,
-            # Kosabi does not support K2 yet, so we force K1 to be used.
-            # This gets appended to extraKotlincArguments list when in source_only_abi mode, which will guarantee that we run K1,
-            # since compiler only cares about the last defined value for a param, which is what Kosabi needs.
-            extraSourceOnlyAbiKotlincArguments = ["-language-version=1.9"] if k2 else [],
+            extraNonSourceOnlyAbiKotlincArguments = ["-language-version=2.0"] if k2 else [],
             shouldRemoveKotlinCompilerFromClassPath = True,
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         )
