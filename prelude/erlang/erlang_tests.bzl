@@ -43,6 +43,7 @@ def erlang_tests_macro(
         property_tests: list[str] = [],
         srcs: list[str] = [],
         prefix: str | None = None,
+        generated_app_labels: list[str] | None = None,
         **common_attributes) -> None:
     """
     Generate multiple erlang_test targets based on the `suites` field.
@@ -56,6 +57,9 @@ def erlang_tests_macro(
         return
 
     if srcs:
+        if generated_app_labels == None:
+            generated_app_labels = ["generated", "test_application", "test_utils"]
+
         # There is no "good name" for the application
         # We create one using the first suite from the list
         (suite_name, _ext) = paths.split_extension(paths.basename(suites[0]))
@@ -64,7 +68,7 @@ def erlang_tests_macro(
         erlang_app_rule(
             name = srcs_app,
             srcs = srcs,
-            labels = ["generated", "test_application", "test_utils"],
+            labels = generated_app_labels,
             applications = app_deps,
         )
         deps.append(":" + srcs_app)
