@@ -9,8 +9,8 @@
 
 use crate::buck2_env;
 
-/// Are we running on sandcastle?
-pub fn is_sandcastle() -> anyhow::Result<bool> {
+/// Are we running in CI?
+pub fn is_ci() -> anyhow::Result<bool> {
     // The CI environment variable is consistently set by CI providers.
     //
     // - GitHub Actions: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables

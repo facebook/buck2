@@ -8,7 +8,7 @@
  */
 
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
-use buck2_core::sandcastle::sandcastle_id;
+use buck2_core::ci::sandcastle_id;
 
 use crate::version::BuckVersion;
 
