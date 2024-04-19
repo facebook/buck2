@@ -178,6 +178,10 @@ message CommandOptions {
   uint64 concurrency = 1;
 }
 
+message BuckConfigs {
+  bool new_configs_used = 1;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 2, 8, 9, 12, 13, 22, 24;
@@ -260,6 +264,8 @@ message InstantEvent {
     MaterializerCommand materializer_command = 36;
 
     CleanStaleResult clean_stale_result = 37;
+
+    BuckConfigs buck_configs = 38;
   }
 }
 

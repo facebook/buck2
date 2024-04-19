@@ -439,6 +439,7 @@ impl<'a> ServerCommandContext<'a> {
             starlark_profiler_instrumentation_override: self
                 .starlark_profiler_instrumentation_override
                 .dupe(),
+            events: self.events().dupe(),
             disable_starlark_types: self.disable_starlark_types,
             unstable_typecheck: self.unstable_typecheck,
             skip_targets_with_duplicate_names: self.skip_targets_with_duplicate_names,
@@ -464,7 +465,6 @@ struct CellConfigLoader {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
 struct BuckConfigBasedCellsStatus {
     cells_and_configs: BuckConfigBasedCells,
     new_configs: bool,
@@ -735,6 +735,7 @@ struct DiceCommandUpdater {
     interpreter_architecture: InterpreterHostArchitecture,
     interpreter_xcode_version: Option<XcodeVersionInfo>,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+    events: EventDispatcher,
     disable_starlark_types: bool,
     unstable_typecheck: bool,
     record_target_call_stacks: bool,
@@ -750,7 +751,7 @@ impl DiceUpdater for DiceCommandUpdater {
     ) -> anyhow::Result<DiceTransactionUpdater> {
         let BuckConfigBasedCellsStatus {
             cells_and_configs,
-            new_configs: _,
+            new_configs,
         } = self
             .cell_config_loader
             .cells_and_configs(&mut ctx.existing_state().await.clone())
@@ -787,6 +788,10 @@ impl DiceUpdater for DiceCommandUpdater {
             self.disable_starlark_types,
             self.unstable_typecheck,
         )?;
+
+        self.events.instant_event(buck2_data::BuckConfigs {
+            new_configs_used: new_configs,
+        });
 
         Ok(ctx)
     }
