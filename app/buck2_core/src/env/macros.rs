@@ -37,14 +37,14 @@ macro_rules! buck2_env {
         buck2_env!(register $var, ty=$ty, default=None);
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
             $crate::env::helper::EnvHelper::new_from_macro($var);
-        let v: anyhow::Result<Option<$ty>> = ENV_HELPER.get().map(|option| option.copied());
+        let v: anyhow::Result<Option<$ty>> = ENV_HELPER.get_copied();
         v
     }};
     ($var:literal, type=$ty:ty, default=$default:expr) => {{
         buck2_env!(register $var, ty=$ty, default=std::option::Option::Some(stringify!($default)));
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
             $crate::env::helper::EnvHelper::new_from_macro($var);
-        let v: anyhow::Result<$ty> = ENV_HELPER.get().map(|option| option.copied())
+        let v: anyhow::Result<$ty> = ENV_HELPER.get_copied()
             .map(|option| option.unwrap_or_else(|| $default));
         v
     }};
