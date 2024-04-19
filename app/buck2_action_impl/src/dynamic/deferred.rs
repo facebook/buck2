@@ -310,8 +310,6 @@ impl Deferred for DynamicLambda {
                 None
             };
 
-            // TODO(ndmitchell): Check we don't use anything not in `inputs`
-
             let output: anyhow::Result<Vec<_>> = declared_outputs
                 .into_iter()
                 .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
