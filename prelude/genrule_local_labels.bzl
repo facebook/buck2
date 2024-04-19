@@ -94,6 +94,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # (https://fb.workplace.com/groups/1042353022615812/posts/1849505965233843/).
     "uses_php",
 
+    # Unity license client needs to be set up on RE workers for this to work, and maybe further debugging.
+    "uses_unity",
+
     # mksquashfs isn't available in RE, so run these locally
     # (https://fb.workplace.com/groups/buck2users/permalink/3023630007893360/)
     "uses_mksquashfs",
