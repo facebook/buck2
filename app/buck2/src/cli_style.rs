@@ -11,9 +11,10 @@ use clap::builder::styling;
 use clap::builder::Styles;
 
 pub(crate) fn get_styles() -> Styles {
+    let heading = styling::AnsiColor::Yellow.on_default().bold();
     Styles::styled()
-        .header(styling::AnsiColor::Yellow.on_default())
-        .usage(styling::AnsiColor::Yellow.on_default())
+        .header(heading)
+        .usage(heading)
         .literal(styling::AnsiColor::Green.on_default())
         .placeholder(styling::AnsiColor::Green.on_default())
 }
