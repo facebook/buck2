@@ -10,6 +10,7 @@
 use anyhow::Context;
 use tokio::fs::File;
 
+use crate::fs::fs_util;
 use crate::fs::paths::abs_path::AbsPath;
 use crate::io_counters::IoCounterKey;
 
@@ -21,8 +22,7 @@ pub async fn open<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<File> {
 }
 
 pub async fn write<P: AsRef<AbsPath>>(path: P, content: impl AsRef<[u8]>) -> anyhow::Result<()> {
-    let _guard = IoCounterKey::Write.guard();
-    tokio::fs::write(path.as_ref().as_maybe_relativized(), content.as_ref())
-        .await
-        .with_context(|| format!("write({})", path.as_ref().display()))
+    let path = path.as_ref().to_owned();
+    let content = content.as_ref().to_owned();
+    Ok(tokio::task::spawn_blocking(move || fs_util::write(path, content)).await??)
 }
