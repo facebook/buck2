@@ -88,8 +88,11 @@ mod tests {
         };
         let mut child = command.spawn().unwrap();
         let pid = Pid::from_u32(child.id()).unwrap();
-        for _ in 0..5 {
-            assert!(process_exists(pid).unwrap());
+        for i in 0..5 {
+            assert!(
+                process_exists(pid).unwrap(),
+                "process should exist; attempt {i}; pid {pid}"
+            );
         }
 
         let handle = kill(pid).unwrap().unwrap();
