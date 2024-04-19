@@ -70,6 +70,19 @@ def main(argv):
                     )
                     found = True
                     break
+                # Kotlin creates .class files with a "Kt" suffix when code is written outside of a class,
+                # so strip that suffix and redo the comparison.
+                elif base.endswith("Kt") and _base_class_name_matches_base_source_path(
+                    base[:-2], src_base
+                ):
+                    classes.append(
+                        {
+                            "className": classname[:-2],
+                            "srcPath": src_path,
+                        }
+                    )
+                    found = True
+                    break
 
             if not found:
                 # If the class is not present in the sources, we still want to
