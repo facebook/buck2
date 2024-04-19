@@ -35,6 +35,15 @@ def expect(condition: typing.Any, message: str = "condition not expected", *form
         formatted_message = message.format(*format_args)
         fail(formatted_message)
 
+def expect_equal(left: typing.Any, right: typing.Any, message: str | None = None, *format_args):
+    if left != right:
+        if message == None:
+            msg = "Expected values to be equal, but got '{}' and '{}' instead.".format(left, right)
+            fail(msg)
+        else:
+            formatted_message = message.format(*format_args)
+            fail(formatted_message)
+
 def expect_non_none(val, msg: str = "unexpected none", *fmt_args, **fmt_kwargs):
     """
     Require the given value not be `None`.
@@ -126,4 +135,5 @@ expects = struct(
     collection = expect_collection,
     contains = expect_contains,
     contains_all = expect_contains_all,
+    equal = expect_equal,
 )
