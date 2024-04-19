@@ -18,14 +18,15 @@ pub mod __macro_refs {
 ///
 /// Additionally, you can specify the following, comma separated:
 ///
-///  - `ty=<type>` - the Rust type that the environment variable should be converted to, using
+///  - `type=<type>` - the Rust type that the environment variable should be converted to, using
 ///    `FromStr::from_str`. Defaults to `&'static str` if not specified.
 ///  - `default=<value>` - an expression for the default value to use if the environment variable is
 ///    not set.
 ///  - `converter=<expr>` - a function to use as an alternative to the `FromStr::from_str`
 ///    conversion. Must have signature `fn(&str) -> Result<Ty, E>`
 ///
-/// The macro expands to an expression of type `anyhow::Result<Type>`.
+/// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
+/// `anyhow::Result<Option<Type>` otherwise.
 #[macro_export]
 macro_rules! buck2_env {
     (register $var:literal, ty=$ty:ty, default=$default: expr) => {
