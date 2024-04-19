@@ -14,7 +14,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//android:util.bzl", "create_enhancement_context")
-load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
+load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:set.bzl", "set")
 
@@ -36,6 +36,13 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             get_build_config_java_libraries(ctx, build_config_infos, package_type = "release", exopackage_modes = []),
         ))
+
+    enhancement_ctx = create_enhancement_context(ctx)
+    android_binary_native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform)
+    java_packaging_deps.extend([create_java_packaging_dep(
+        ctx,
+        lib.library_output.full_library,
+    ) for lib in android_binary_native_library_info.generated_java_code])
 
     jars = [dep.jar for dep in java_packaging_deps if dep.jar]
     classes_jar = ctx.actions.declare_output("classes.jar")
@@ -88,8 +95,6 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     if cxx_resources:
         entries.append(cxx_resources)
 
-    enhancement_ctx = create_enhancement_context(ctx)
-    android_binary_native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform)
     native_libs_file = ctx.actions.write("native_libs_entries.txt", android_binary_native_library_info.native_libs_for_primary_apk)
     native_libs_assets_file = ctx.actions.write("native_libs_assets_entries.txt", android_binary_native_library_info.root_module_native_lib_assets)
 
