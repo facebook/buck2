@@ -41,3 +41,5 @@ HaskellLibraryInfo = record(
     is_prebuilt = bool,
     profiling_enabled = bool,
 )
+
+HaskellLibraryInfoTSet = transitive_set()
