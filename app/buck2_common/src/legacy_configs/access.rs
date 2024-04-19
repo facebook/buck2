@@ -50,7 +50,7 @@ impl LegacyBuckConfigs {
         self.data.iter().map(|(name, config)| (*name, config))
     }
 
-    pub(crate) fn compare(&self, other: &Self) -> bool {
+    pub fn compare(&self, other: &Self) -> bool {
         let x = &self.data;
         let y = &other.data;
 

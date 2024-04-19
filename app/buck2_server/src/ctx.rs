@@ -460,14 +460,21 @@ struct CellConfigLoader {
     /// Reuses build config from the previous invocation if there is one
     reuse_current_config: bool,
     config_overrides: Vec<LegacyConfigCmdArg>,
-    loaded_cell_configs: AsyncOnceCell<buck2_error::Result<BuckConfigBasedCells>>,
+    loaded_cell_configs: AsyncOnceCell<buck2_error::Result<BuckConfigBasedCellsStatus>>,
+}
+
+#[derive(Clone)]
+#[allow(dead_code)]
+struct BuckConfigBasedCellsStatus {
+    cells_and_configs: BuckConfigBasedCells,
+    new_configs: bool,
 }
 
 impl CellConfigLoader {
     async fn cells_and_configs(
         &self,
         dice_ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<BuckConfigBasedCells> {
+    ) -> Result<BuckConfigBasedCellsStatus, buck2_error::Error> {
         self.loaded_cell_configs
             .get_or_init(async move {
                 if self.reuse_current_config {
@@ -482,11 +489,14 @@ impl CellConfigLoader {
                                 truncate_container(self.config_overrides.iter().map(|o| o.to_string()), 200),
                             );
                         }
-                        return buck2_error::Ok(BuckConfigBasedCells {
-                            cell_resolver: dice_ctx.get_cell_resolver().await?,
-                            configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
-                            config_paths: HashSet::new(),
-                            resolved_args: dice_ctx.get_injected_legacy_config_overrides().await?,
+                        return buck2_error::Ok(BuckConfigBasedCellsStatus {
+                            cells_and_configs: BuckConfigBasedCells {
+                                cell_resolver: dice_ctx.get_cell_resolver().await?,
+                                configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
+                                config_paths: HashSet::new(),
+                                resolved_args: dice_ctx.get_injected_legacy_config_overrides().await?,
+                            },
+                            new_configs: false,
                         });
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
@@ -495,8 +505,19 @@ impl CellConfigLoader {
                         );
                     }
                 }
-                BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir)
-                    .map_err(buck2_error::Error::from)
+                let cells_and_configs = BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir)
+                    .map_err(buck2_error::Error::from)?;
+
+                let new_configs = if dice_ctx.is_injected_legacy_configs_key_set().await? {
+                    let injected_legacy_configs = dice_ctx.get_injected_legacy_configs().await?;
+                    !injected_legacy_configs.compare(&cells_and_configs.configs_by_name)
+                } else {
+                    true
+                };
+                buck2_error::Ok(BuckConfigBasedCellsStatus {
+                    cells_and_configs,
+                    new_configs,
+                })
             })
             .await
             .clone()
@@ -530,7 +551,11 @@ struct DiceCommandDataProvider {
 #[async_trait]
 impl DiceDataProvider for DiceCommandDataProvider {
     async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
-        let cells_and_configs = self.cell_configs_loader.cells_and_configs(ctx).await?;
+        let cells_and_configs = self
+            .cell_configs_loader
+            .cells_and_configs(ctx)
+            .await?
+            .cells_and_configs;
         let cell_resolver = cells_and_configs.cell_resolver;
         let legacy_configs = cells_and_configs.configs_by_name;
 
@@ -723,7 +748,10 @@ impl DiceUpdater for DiceCommandUpdater {
         ctx: DiceTransactionUpdater,
         user_data: &mut UserComputationData,
     ) -> anyhow::Result<DiceTransactionUpdater> {
-        let cells_and_configs = self
+        let BuckConfigBasedCellsStatus {
+            cells_and_configs,
+            new_configs: _,
+        } = self
             .cell_config_loader
             .cells_and_configs(&mut ctx.existing_state().await.clone())
             .await?;
@@ -987,6 +1015,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             .cell_configs_loader
             .cells_and_configs(ctx)
             .await?
+            .cells_and_configs
             .config_paths;
 
         // Add legacy config paths to I/O tracing (if enabled).
