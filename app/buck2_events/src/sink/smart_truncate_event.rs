@@ -91,10 +91,7 @@ fn truncate_invocation_record(invocation_record: &mut buck2_data::InvocationReco
 }
 
 fn truncate_action_execution_end(action_execution_end: &mut buck2_data::ActionExecutionEnd) {
-    // truncate(...) can panic if asked to truncate too short.
-    const MIN_CMD_TRUNCATION: usize = 20;
-    let per_command_size_budget =
-        ((500 * 1024) / action_execution_end.commands.len().max(1)).max(MIN_CMD_TRUNCATION);
+    let per_command_size_budget = (500 * 1024) / action_execution_end.commands.len().max(1);
 
     let truncate_cmd = |cmd: &mut buck2_data::CommandExecution, truncate_all: bool| {
         if let Some(details) = &mut cmd.details {
