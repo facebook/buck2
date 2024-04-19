@@ -49,13 +49,12 @@ impl FromStr for BuildReportOption {
 }
 
 /// Defines common options for build-like commands (build, test, install).
-#[allow(rustdoc::invalid_html_tags)]
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonBuildOptions {
     /// Print a build report
     ///
-    /// --build-report=- will print the build report to stdout
-    /// --build-report=<filepath> will write the build report to the file
+    /// `--build-report=-` will print the build report to stdout
+    /// `--build-report=<filepath>` will write the build report to the file
     #[clap(long = "build-report", value_name = "PATH")]
     build_report: Option<String>,
 
