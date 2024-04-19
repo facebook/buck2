@@ -8,19 +8,17 @@
  */
 
 use std::collections::HashMap;
-use std::io::ErrorKind;
 use std::time::Duration;
 
 use anyhow::Context;
 use buck2_common::client_utils;
+use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_data::ParsedTargetPatterns;
 use fs4::FileExt;
 use serde::Deserialize;
 use serde::Serialize;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
 
 #[derive(Serialize, Deserialize)]
 struct BuildCount(HashMap<String, u64>);
@@ -69,37 +67,25 @@ impl BuildCountManager {
     }
 
     async fn ensure_dir(&self) -> anyhow::Result<()> {
-        tokio::fs::create_dir_all(&self.base_dir)
-            .await
-            .with_context(|| {
-                format!("Error creating build count directory: `{}`", self.base_dir)
-            })?;
-        Ok(())
+        async_fs_util::create_dir_all(&self.base_dir).await
     }
 
     async fn read(&self, file_name: &FileName) -> anyhow::Result<BuildCount> {
-        match tokio::fs::File::open(self.base_dir.join(file_name)).await {
-            Ok(mut file) => {
-                let mut buffer = String::new();
-                file.read_to_string(&mut buffer).await?;
-                Ok(serde_json::from_str(&buffer)?)
+        let path = self.base_dir.join(file_name);
+        match async_fs_util::read_to_string_if_exists(&path).await? {
+            Some(buffer) => Ok(serde_json::from_str(&buffer)
+                .with_context(|| format!("Parsing JSON from {}", path.display()))?),
+            None => {
+                // it is normal after rebase, clean, etc.
+                Ok(BuildCount(HashMap::new()))
             }
-            Err(e) => match e.kind() {
-                ErrorKind::NotFound => {
-                    // it is normal after rebase, clean, etc.
-                    Ok(BuildCount(HashMap::new()))
-                }
-                _ => Err(e.into()),
-            },
         }
     }
 
     async fn write(&self, build_count: &BuildCount, file_name: &FileName) -> anyhow::Result<()> {
         self.ensure_dir().await?;
-        let mut file = tokio::fs::File::create(self.base_dir.join(file_name)).await?;
-        file.write_all(&serde_json::to_vec(build_count)?).await?;
-        file.sync_data().await?;
-        Ok(())
+        let path = self.base_dir.join(file_name);
+        async_fs_util::write(path, &serde_json::to_vec(build_count)?).await
     }
 
     async fn lock_with_timeout(&mut self, timeout: Duration) -> anyhow::Result<FileLockGuard> {
