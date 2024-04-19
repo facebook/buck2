@@ -1854,6 +1854,7 @@ message InvocationRecord {
   repeated string target_rule_type_names = 80;
   // Time elapsed from a build's start until first test discovery begins.
   optional uint64 time_to_first_test_discovery_ms = 81;
+  optional bool new_configs_used = 84;
 }
 
 // Record event sent directly to scribe.

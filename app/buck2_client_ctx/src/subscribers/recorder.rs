@@ -143,6 +143,7 @@ pub(crate) struct InvocationRecorder<'a> {
     /// To append to gRPC errors.
     server_stderr: String,
     target_rule_type_names: Vec<String>,
+    new_configs_used: bool,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -239,6 +240,7 @@ impl<'a> InvocationRecorder<'a> {
             errors: Vec::new(),
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
+            new_configs_used: false,
         }
     }
 
@@ -464,6 +466,7 @@ impl<'a> InvocationRecorder<'a> {
             errors: std::mem::take(&mut self.errors).into_map(|e| e.processed),
             best_error_tag: best_error_tag.map(|t| t.to_owned()),
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
+            new_configs_used: Some(self.new_configs_used),
         };
 
         let event = BuckEvent::new(
@@ -1071,6 +1074,10 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::instant_event::Data::ConcurrentCommands(concurrent_commands) => {
                         self.handle_concurrent_commands(concurrent_commands)
+                    }
+                    buck2_data::instant_event::Data::BuckConfigs(conf) => {
+                        self.new_configs_used = conf.new_configs_used;
+                        Ok(())
                     }
                     _ => Ok(()),
                 }
