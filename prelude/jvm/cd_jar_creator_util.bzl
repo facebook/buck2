@@ -409,14 +409,27 @@ def prepare_cd_exe(
     local_only = False
     jvm_args = ["-XX:-MaxFDLimit"]
 
+    # The variables 'extra_jvm_args' and 'extra_jvm_args_target' are generally used, but they are primarily designed for profiling use-cases.
+    # The following section is configured with the profiling use-case in mind.
     if extra_jvm_args_target:
-        local_only = True
-        for target in extra_jvm_args_target:
-            if qualified_name == qualified_name_with_subtarget(target):
+        if len(extra_jvm_args_target) == 1:
+            # If there's only one target to profile, we want to isolate its compilation.
+            # This target should be built in its own action, allowing the worker (if available) to handle the remaining targets.
+            if qualified_name == qualified_name_with_subtarget(extra_jvm_args_target[0]):
                 jvm_args = jvm_args + extra_jvm_args
-                local_only = False
-                break
+                local_only = True  # This flag ensures the target is not run on the worker.
+        else:
+            # If there are multiple targets to profile, they should be built on the worker to generate a single profiling data set.
+            # The remaining targets should be built individually, either locally or on the Remote Execution (RE).
+            local_only = True  # By default, targets are not run on the worker.
+            for target in extra_jvm_args_target:
+                # If the current target matches the qualified name with subtarget, it is selected for profiling.
+                if qualified_name == qualified_name_with_subtarget(target):
+                    jvm_args = jvm_args + extra_jvm_args
+                    local_only = False  # This flag allows the target to run on the worker.
+                    break
     else:
+        # If no specific target is provided, the extra JVM arguments are added to all targets that run on worker, local machine or RE.
         jvm_args = jvm_args + extra_jvm_args
 
     # Allow JVM compiler daemon to access internal jdk.compiler APIs
