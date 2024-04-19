@@ -68,6 +68,7 @@ jobs:
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_conan
+    - uses: ./.github/actions/build_example_dynamic_value
     - uses: ./.github/actions/build_example_no_prelude
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
