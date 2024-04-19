@@ -7,7 +7,13 @@
  * of this source tree.
  */
 
-use buck2_util::truncate::truncate;
+fn truncate(s: &str, max_bytes: usize) -> String {
+    // Scuba has a tendency to OOM on queries if we ever report very long strings, so truncate them
+    // to a reasonable length unconditionally
+    const MAX_STRING_BYTES: usize = 20 * 1024;
+
+    buck2_util::truncate::truncate(s, max_bytes.max(MAX_STRING_BYTES))
+}
 
 #[cfg_attr(not(fbcode_build), allow(dead_code))]
 pub(crate) fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
