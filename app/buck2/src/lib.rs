@@ -58,8 +58,6 @@ use buck2_starlark::StarlarkCommand;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use clap::CommandFactory;
 use clap::FromArgMatches;
-use dice::DetectCycles;
-use dice::WhichDice;
 use dupe::Dupe;
 use no_buckd::start_in_process_daemon;
 
@@ -153,12 +151,6 @@ struct BeforeSubcommandOptions {
 
 #[derive(Clone, Debug, clap::Parser)]
 struct DaemonBeforeSubcommandOptions {
-    #[clap(env("DICE_DETECT_CYCLES_UNSTABLE"), long, hide(true))]
-    detect_cycles: Option<DetectCycles>,
-
-    #[clap(env("WHICH_DICE_UNSTABLE"), long, hide(true))]
-    which_dice: Option<WhichDice>,
-
     #[clap(env("ENABLE_TRACE_IO"), long, hide(true))]
     enable_trace_io: bool,
 

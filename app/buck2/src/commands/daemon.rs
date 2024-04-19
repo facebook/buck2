@@ -42,6 +42,8 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark::server::server_starlark_command;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
+use dice::DetectCycles;
+use dice::WhichDice;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
@@ -207,8 +209,8 @@ impl DaemonCommand {
         //   Daemonize does not preserve threads.
 
         let server_init_ctx = BuckdServerInitPreferences {
-            detect_cycles: before_subcommand_options.detect_cycles,
-            which_dice: before_subcommand_options.which_dice,
+            detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
+            which_dice: buck2_env!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
             enable_trace_io: before_subcommand_options.enable_trace_io,
             reject_materializer_state: before_subcommand_options
                 .reject_materializer_state
