@@ -1,0 +1,11 @@
+name: build_example_dynamic_value
+runs:
+  using: composite
+  steps:
+  - name: Build examples/dynamic_value
+    run: |-
+      cd examples/dynamic_value
+      $RUNNER_TEMP/artifacts/buck2 init
+      cp -r ../../prelude prelude
+      $RUNNER_TEMP/artifacts/buck2 build //... -v 2
+    shell: bash
