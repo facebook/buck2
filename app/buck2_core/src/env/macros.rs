@@ -11,6 +11,21 @@ pub mod __macro_refs {
     pub use linkme;
 }
 
+/// This macro is used to register environment variables that are used by Buck2.
+///
+/// The first argument to the macro must always be a string literal with the name of the environment
+/// variable.
+///
+/// Additionally, you can specify the following, comma separated:
+///
+///  - `ty=<type>` - the Rust type that the environment variable should be converted to, using
+///    `FromStr::from_str`. Defaults to `&'static str` if not specified.
+///  - `default=<value>` - an expression for the default value to use if the environment variable is
+///    not set.
+///  - `converter=<expr>` - a function to use as an alternative to the `FromStr::from_str`
+///    conversion. Must have signature `fn(&str) -> Result<Ty, E>`
+///
+/// The macro expands to an expression of type `anyhow::Result<Type>`.
 #[macro_export]
 macro_rules! buck2_env {
     (register $var:literal, ty=$ty:ty, default=$default: expr) => {
