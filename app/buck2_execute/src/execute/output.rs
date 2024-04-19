@@ -63,6 +63,17 @@ impl ReStdStream {
         }
     }
 
+    fn download_blob_help(digest: &TDigest, digest_config: DigestConfig) -> String {
+        if buck2_core::is_open_source() {
+            String::new()
+        } else {
+            format!(
+                " - to view type `frecli cas download-blob {}`",
+                FileDigest::from_re(digest, digest_config).as_display()
+            )
+        }
+    }
+
     pub(crate) async fn to_lossy(
         &self,
         client: &ManagedRemoteExecutionClient,
@@ -81,8 +92,8 @@ impl ReStdStream {
                     Err(e) => {
                         tracing::warn!("Failed to download action stderr: {:#}", e);
                         format!(
-                            "Result could not be downloaded - to view type `frecli cas download-blob {}`",
-                            FileDigest::from_re(digest, digest_config).as_display(),
+                            "Result could not be downloaded{}",
+                            Self::download_blob_help(digest, digest_config),
                         )
                     }
                 }
@@ -90,8 +101,8 @@ impl ReStdStream {
             Self::PrefetchedLossy { data, .. } => data.clone(),
             Self::Digest(digest) => {
                 format!(
-                    "Result too large to display - to view type `frecli cas download-blob {}`",
-                    FileDigest::from_re(digest, digest_config).as_display(),
+                    "Result too large to display{}",
+                    Self::download_blob_help(digest, digest_config),
                 )
             }
             Self::None => String::new(),
