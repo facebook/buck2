@@ -294,7 +294,6 @@ impl FrozenDefaultInfo {
         })
     }
 
-    // TODO(marwhal): We can remove this once we migrate all other outputs to be handled with Artifacts directly
     pub fn for_each_other_output(
         &self,
         processor: &mut dyn FnMut(ArtifactGroup),
@@ -321,7 +320,6 @@ impl FrozenDefaultInfo {
     pub fn for_each_output(&self, processor: &mut dyn FnMut(ArtifactGroup)) -> anyhow::Result<()> {
         self.for_each_default_output_artifact_only(&mut |a| processor(ArtifactGroup::Artifact(a)))?;
         self.for_each_default_output_other_artifacts_only(processor)?;
-        // TODO(marwhal): We can remove this once we migrate all other outputs to be handled with Artifacts directly
         self.for_each_other_output(processor)
     }
 

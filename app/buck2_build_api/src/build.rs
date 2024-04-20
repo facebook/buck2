@@ -331,7 +331,6 @@ async fn build_configured_label_inner<'a>(
                 .for_each_default_output_other_artifacts_only(&mut |o| {
                     outputs.push((o, BuildProviderType::DefaultOther))
                 })?;
-            // TODO(marwhal): We can remove this once we migrate all other outputs to be handled with Artifacts directly
             collection.default_info().for_each_other_output(&mut |o| {
                 outputs.push((o, BuildProviderType::DefaultOther))
             })?;
