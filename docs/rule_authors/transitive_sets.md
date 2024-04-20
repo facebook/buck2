@@ -255,8 +255,8 @@ assert_eq(list(set3.traverse(ordering = "bfs")), ["qux", "foo", "bar"])
 
 ## Implementation details
 
-### Projection evaluation
+### Evaluation
 
-Projections are evaluated eagerly for each node of your transitive set. This
-means that if your projection throws an error, you'll find out when creating a
-set via `ctx.actions.tset`.
+Projections and reductions are evaluated eagerly for each node of your
+transitive set. This means that if your projection throws an error, you'll find
+out when creating a set via `ctx.actions.tset`.
