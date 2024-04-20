@@ -40,7 +40,6 @@ use starlark::values::ValueLike;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -363,26 +362,12 @@ impl ArtifactTraversable for &dyn CommandLineArgLike {
     }
 }
 
-impl ArtifactTraversable for &dyn StarlarkArtifactLike {
-    fn traverse(
-        &self,
-        processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        processor(ArtifactGroup::Artifact(self.get_bound_artifact()?))?;
-        Ok(())
-    }
-}
-
 trait ValueAsArtifactTraversable<'v> {
     fn as_artifact_traversable(&self) -> Option<Box<dyn ArtifactTraversable + 'v>>;
 }
 
 impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
     fn as_artifact_traversable(&self) -> Option<Box<dyn ArtifactTraversable + 'v>> {
-        if let Some(artifact) = ValueAsArtifactLike::unpack_value(self.to_value()) {
-            return Some(Box::new(artifact.0));
-        }
-
         if let Some(cli) = ValueAsCommandLineLike::unpack_value(self.to_value()) {
             return Some(Box::new(cli.0));
         }
