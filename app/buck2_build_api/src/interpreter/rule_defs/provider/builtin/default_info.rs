@@ -345,9 +345,6 @@ trait ArtifactTraversable {
     ) -> anyhow::Result<()>;
 }
 
-// TODO: This is a hack. We need a way to express "the inputs of that other thing", but at the
-// moment we don't have one, so we allow adding a command line (which is often the input container
-// we care about) as an "other" output on DefaultInfo. We could use a better abstraction for this.
 impl ArtifactTraversable for &dyn CommandLineArgLike {
     fn traverse(
         &self,
