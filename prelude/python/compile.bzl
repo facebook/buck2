@@ -41,13 +41,24 @@ def compile_manifests_for_mode(
         # env var.
         "PYTHONHASHSEED": "7",
     }
+
+    # support invalidating cached pyc compile actions by bumping the env var.
+    # the value itself is meaningless, just the fact it changes is meaningful.
+    # using the PYC magic number for *convenience* only
     version = ctx.attrs._python_toolchain[PythonToolchainInfo].version
     if version and "cinder" in version:
-        # this is a workaround to allow invalidating cached pyc compile actions
-        # until the action is fixed to use the in-repo version of Cinder,
-        # this is the way to invalidate caches when changing the magic number.
-        # (see S411091 for context)
+        # for Cinder, this is a workaround...
+        # this action *should* use the bundled (in-repo) runtime for compilation
+        # (and then the change in the Cinder codebase would be sufficient to invalidate caches)
+        # currently though, the action uses the platform Cinder for PYC compilation,
+        # and these are deployed in-place (no change to toolchain paths),
+        # so we need to force cache invalidation when needed (e.g. for S411091)
         env["CINDER_DUMMY_PYC_CACHE_BUSTER"] = "3451"
+    elif version and "3.12" in version:
+        # for CPython, the magic number *shouldn't* change during the lifetime of a feature release
+        # but internally we do make more signifcant changes (rarely),
+        # so for those cases we support forced invalidation using this env var
+        env["PYTHON312_DUMMY_PYC_CACHE_BUSTER"] = "3532"
 
     for manifest in manifests:
         cmd.add(manifest.manifest)
