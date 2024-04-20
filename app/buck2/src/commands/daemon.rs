@@ -55,7 +55,6 @@ use tokio::runtime::Builder;
 
 use crate::commands::daemon_lower_priority::daemon_lower_priority;
 use crate::commands::schedule_termination::maybe_schedule_termination;
-use crate::DaemonBeforeSubcommandOptions;
 
 #[derive(Debug, buck2_error::Error)]
 enum DaemonError {
@@ -86,8 +85,14 @@ pub(crate) struct DaemonCommand {
     #[clap(value_parser = DaemonStartupConfig::deserialize)]
     daemon_startup_config: DaemonStartupConfig,
 
-    #[clap(flatten)]
-    before_subcommand_options: DaemonBeforeSubcommandOptions,
+    #[clap(env("ENABLE_TRACE_IO"), long)]
+    enable_trace_io: bool,
+
+    /// If passed a given materializer identity, if the materializer state DB matches that
+    /// identity, the daemon will not use it and will instead create a new empty materializer
+    /// state.
+    #[clap(long)]
+    reject_materializer_state: Option<String>,
 }
 
 impl DaemonCommand {
@@ -98,10 +103,8 @@ impl DaemonCommand {
             dont_daemonize: true,
             skip_macos_qos: true,
             daemon_startup_config,
-            before_subcommand_options: DaemonBeforeSubcommandOptions {
-                enable_trace_io: false,
-                reject_materializer_state: None,
-            },
+            enable_trace_io: false,
+            reject_materializer_state: None,
         }
     }
 }
@@ -217,11 +220,8 @@ impl DaemonCommand {
         let server_init_ctx = BuckdServerInitPreferences {
             detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
             which_dice: buck2_env!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
-            enable_trace_io: self.before_subcommand_options.enable_trace_io,
-            reject_materializer_state: self
-                .before_subcommand_options
-                .reject_materializer_state
-                .map(|s| s.into()),
+            enable_trace_io: self.enable_trace_io,
+            reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
         };
 

@@ -145,18 +145,6 @@ struct BeforeSubcommandOptions {
     help_wrapper: bool,
 }
 
-#[derive(Clone, Debug, clap::Parser)]
-struct DaemonBeforeSubcommandOptions {
-    #[clap(env("ENABLE_TRACE_IO"), long, hide(true))]
-    enable_trace_io: bool,
-
-    /// If passed a given materializer identity, if the materializer state DB matches that
-    /// identity, the daemon will not use it and will instead create a new empty materializer
-    /// state.
-    #[clap(long, hide(true))]
-    reject_materializer_state: Option<String>,
-}
-
 #[rustfmt::skip] // Formatting in internal and in OSS versions disagree after oss markers applied.
 fn help() -> &'static str {
     concat!(
