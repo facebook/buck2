@@ -152,7 +152,7 @@ create a set and you don't pass a `value`), and you need to merge them together
 to produce this node's value:
 
 ```starlark
-def link_info_has_default_filelist(children: ["bool"], infos: ["LinkInfos", None]):
+def link_info_has_default_filelist(children: list[bool], infos: LinkInfos | None):
     if infos:
         info = infos.default
         if info.filelist:
