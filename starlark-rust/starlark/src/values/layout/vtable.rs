@@ -190,8 +190,8 @@ impl AValueVTable {
             },
             is_str: T::IS_STR,
             memory_size: |p| unsafe {
-                let p = &*p.value_ptr::<T>();
-                T::alloc_size_for_extra_len(p.extra_len())
+                let p = &*p.value_ptr::<T::StarlarkValue>();
+                T::alloc_size_for_extra_len(T::extra_len(p))
             },
             heap_freeze: |p, freezer| unsafe {
                 let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T>());

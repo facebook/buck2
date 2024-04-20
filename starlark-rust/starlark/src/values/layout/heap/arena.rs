@@ -40,6 +40,7 @@ use bumpalo::Bump;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
+use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::starlark_str;
@@ -240,7 +241,9 @@ impl<A: ArenaAllocator> Arena<A> {
         &'v self,
         x: T,
     ) -> &'v AValueRepr<T> {
-        debug_assert!(x.extra_len() == 0);
+        // SAFET: `AValue` is implemented only for `AValueImpl`
+        //   which is transparent over `T::StarlarkValue`.
+        debug_assert!(T::extra_len(unsafe { transmute!(&T, &T::StarlarkValue, &x) }) == 0);
         let bump = self.bump_for_type::<T>();
         let (p, extra) = Self::alloc_uninit::<T>(bump, 0);
         debug_assert!(extra.is_empty());
@@ -258,7 +261,10 @@ impl<A: ArenaAllocator> Arena<A> {
         x: T,
     ) -> (*mut AValueRepr<T>, &'v mut [MaybeUninit<T::ExtraElem>]) {
         let bump = self.bump_for_type::<T>();
-        let (p, extra) = Self::alloc_uninit::<T>(bump, x.extra_len());
+        // SAFETY: `AValue` is implemented only for `AValueImpl`
+        //   which is transparent over `T::StarlarkValue`.
+        let extra_len = T::extra_len(unsafe { transmute!(&T, &T::StarlarkValue, &x) });
+        let (p, extra) = Self::alloc_uninit::<T>(bump, extra_len);
         let p = p.write(AValueRepr {
             header: AValueHeader::new::<T>(),
             payload: x,

@@ -78,7 +78,6 @@ enum AValueError {
     CannotBeFrozen(&'static str),
 }
 
-/// Sized counterpart of [`AValueDyn`].
 pub(crate) trait AValue<'v>: Sized + 'v {
     /// Unwrapped type.
     type StarlarkValue: StarlarkValue<'v>;
@@ -88,7 +87,7 @@ pub(crate) trait AValue<'v>: Sized + 'v {
     type ExtraElem: 'v;
 
     /// Payload array length.
-    fn extra_len(&self) -> usize;
+    fn extra_len(value: &Self::StarlarkValue) -> usize;
 
     /// Offset of field holding content, in bytes.
     ///
@@ -236,7 +235,7 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueImpl<Basic, T> {
 
     type ExtraElem = ();
 
-    fn extra_len(&self) -> usize {
+    fn extra_len(_value: &T) -> usize {
         0
     }
 
@@ -262,8 +261,8 @@ impl<'v> AValue<'v> for AValueImpl<Direct, StarlarkStr> {
 
     type ExtraElem = usize;
 
-    fn extra_len(&self) -> usize {
-        StarlarkStr::payload_len_for_len(self.1.len())
+    fn extra_len(value: &StarlarkStr) -> usize {
+        StarlarkStr::payload_len_for_len(value.len())
     }
 
     fn offset_of_extra() -> usize {
@@ -310,8 +309,8 @@ impl<'v> AValue<'v> for AValueImpl<Direct, Tuple<'v>> {
 
     type ExtraElem = Value<'v>;
 
-    fn extra_len(&self) -> usize {
-        self.1.len()
+    fn extra_len(value: &Tuple<'v>) -> usize {
+        value.len()
     }
 
     fn offset_of_extra() -> usize {
@@ -376,8 +375,8 @@ impl<'v> AValue<'v> for AValueImpl<Direct, FrozenTuple> {
 
     type ExtraElem = FrozenValue;
 
-    fn extra_len(&self) -> usize {
-        self.1.len()
+    fn extra_len(value: &FrozenTuple) -> usize {
+        value.len()
     }
 
     fn offset_of_extra() -> usize {
@@ -401,7 +400,7 @@ impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<ListData<'v>>> {
 
     type ExtraElem = ();
 
-    fn extra_len(&self) -> usize {
+    fn extra_len(_value: &ListGen<ListData<'v>>) -> usize {
         0
     }
 
@@ -447,8 +446,8 @@ impl<'v> AValue<'v> for AValueImpl<Direct, ListGen<FrozenListData>> {
 
     type ExtraElem = FrozenValue;
 
-    fn extra_len(&self) -> usize {
-        self.1.0.len()
+    fn extra_len(value: &ListGen<FrozenListData>) -> usize {
+        value.0.len()
     }
 
     fn offset_of_extra() -> usize {
@@ -472,9 +471,9 @@ impl<'v> AValue<'v> for AValueImpl<Direct, Array<'v>> {
 
     type ExtraElem = Value<'v>;
 
-    fn extra_len(&self) -> usize {
+    fn extra_len(value: &Array<'v>) -> usize {
         // Note we return capacity, not length here.
-        self.1.capacity()
+        value.capacity()
     }
 
     fn offset_of_extra() -> usize {
@@ -525,8 +524,8 @@ impl<'v, T: Debug + 'static> AValue<'v> for AValueImpl<Direct, AnyArray<T>> {
     type StarlarkValue = AnyArray<T>;
     type ExtraElem = T;
 
-    fn extra_len(&self) -> usize {
-        self.1.len
+    fn extra_len(value: &AnyArray<T>) -> usize {
+        value.len
     }
 
     fn offset_of_extra() -> usize {
@@ -570,7 +569,7 @@ impl<T: StarlarkValue<'static>> AValue<'static> for AValueImpl<Simple, T> {
 
     type ExtraElem = ();
 
-    fn extra_len(&self) -> usize {
+    fn extra_len(_value: &T) -> usize {
         0
     }
 
@@ -621,7 +620,7 @@ where
 
     type ExtraElem = ();
 
-    fn extra_len(&self) -> usize {
+    fn extra_len(_value: &T) -> usize {
         0
     }
 
@@ -660,7 +659,7 @@ where
 
     type ExtraElem = ();
 
-    fn extra_len(&self) -> usize {
+    fn extra_len(_value: &T) -> usize {
         0
     }
 
