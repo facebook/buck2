@@ -262,7 +262,7 @@ impl FrozenDefaultInfo {
 
     pub fn for_each_default_output_artifact_only(
         &self,
-        processor: &mut dyn FnMut(Artifact) -> anyhow::Result<()>,
+        processor: &mut dyn FnMut(Artifact),
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.default_outputs, |value| {
             processor(
@@ -270,13 +270,14 @@ impl FrozenDefaultInfo {
                     .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
                     .0
                     .get_bound_artifact()?,
-            )
+            );
+            Ok(())
         })
     }
 
     pub fn for_each_default_output_other_artifacts_only(
         &self,
-        processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
+        processor: &mut dyn FnMut(ArtifactGroup),
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.default_outputs, |value| {
             let others = ValueAsArtifactLike::unpack_value(value)
@@ -286,7 +287,7 @@ impl FrozenDefaultInfo {
             others
                 .iter()
                 .flat_map(|v| v.iter())
-                .for_each(|other| processor(other.dupe()).unwrap());
+                .for_each(|other| processor(other.dupe()));
             Ok(())
         })
     }
@@ -294,7 +295,7 @@ impl FrozenDefaultInfo {
     // TODO(marwhal): We can remove this once we migrate all other outputs to be handled with Artifacts directly
     pub fn for_each_other_output(
         &self,
-        processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
+        processor: &mut dyn FnMut(ArtifactGroup),
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.other_outputs, |value| {
             let arg_like = ValueAsCommandLineLike::unpack_value(value)
@@ -303,16 +304,13 @@ impl FrozenDefaultInfo {
             let mut acc = SimpleCommandLineArtifactVisitor::new();
             arg_like.visit_artifacts(&mut acc)?;
             for input in acc.inputs {
-                processor(input)?;
+                processor(input);
             }
             Ok(())
         })
     }
 
-    pub fn for_each_output(
-        &self,
-        processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
+    pub fn for_each_output(&self, processor: &mut dyn FnMut(ArtifactGroup)) -> anyhow::Result<()> {
         self.for_each_default_output_artifact_only(&mut |a| processor(ArtifactGroup::Artifact(a)))?;
         self.for_each_default_output_other_artifacts_only(processor)?;
         // TODO(marwhal): We can remove this once we migrate all other outputs to be handled with Artifacts directly

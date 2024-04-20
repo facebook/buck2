@@ -135,10 +135,7 @@ impl ResolvedMacro {
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
         match self {
             Self::Location(info) => {
-                info.for_each_output(&mut |i| {
-                    visitor.visit_input(i, None);
-                    Ok(())
-                })?;
+                info.for_each_output(&mut |i| visitor.visit_input(i, None))?;
             }
             Self::ArgLike(command_line_like) => {
                 command_line_like
