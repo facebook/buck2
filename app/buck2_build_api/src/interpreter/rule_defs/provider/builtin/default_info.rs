@@ -298,9 +298,9 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.other_outputs, |value| {
-            value
-                .as_artifact_traversable()
-                .with_context(|| format!("Expected artifact traversable, got: {:?}", value))?
+            ValueAsCommandLineLike::unpack_value(value)
+                .with_context(|| format!("Expected command line like, got: {:?}", value))?
+                .0
                 .traverse(processor)
         })
     }
@@ -359,20 +359,6 @@ impl ArtifactTraversable for &dyn CommandLineArgLike {
             processor(input)?;
         }
         Ok(())
-    }
-}
-
-trait ValueAsArtifactTraversable<'v> {
-    fn as_artifact_traversable(&self) -> Option<Box<dyn ArtifactTraversable + 'v>>;
-}
-
-impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
-    fn as_artifact_traversable(&self) -> Option<Box<dyn ArtifactTraversable + 'v>> {
-        if let Some(cli) = ValueAsCommandLineLike::unpack_value(self.to_value()) {
-            return Some(Box::new(cli.0));
-        }
-
-        None
     }
 }
 
@@ -435,7 +421,10 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
 
         let valid_other_outputs = match ListRef::from_value(other_outputs) {
             Some(list) => {
-                if list.iter().all(|v| v.as_artifact_traversable().is_some()) {
+                if list
+                    .iter()
+                    .all(|v| ValueAsCommandLineLike::unpack_value(v).is_some())
+                {
                     Ok(other_outputs)
                 } else {
                     Err(())
