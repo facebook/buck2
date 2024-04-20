@@ -7,8 +7,12 @@
  * of this source tree.
  */
 
-mod explain_generated;
 use flatbuffers::FlatBufferBuilder;
+
+#[allow(unused_imports)]
+#[allow(unused_extern_crates)]
+#[allow(clippy::extra_unused_lifetimes)]
+mod explain_generated;
 
 pub fn main() -> anyhow::Result<()> {
     use crate::explain_generated::explain::Bool;
