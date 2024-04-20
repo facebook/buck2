@@ -40,7 +40,6 @@ use bumpalo::Bump;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
-use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::starlark_str;
@@ -216,19 +215,16 @@ impl<A: ArenaAllocator> Arena<A> {
         // so very important to put in a current vtable
         // We always alloc at least one pointer worth of space, so can write in a one-ST blackhole
 
+        let p = p.as_mut_ptr();
+
         let x = BlackHole(T::alloc_size_for_extra_len(extra_len));
-        let p = unsafe {
-            transmute!(
-                &mut MaybeUninit<AValueRepr<T>>,
-                &mut MaybeUninit<AValueRepr<BlackHole>>,
-                p
-            )
-        };
-        let p = p.write(AValueRepr {
-            header: AValueHeader(AValueVTable::new_black_hole()),
-            payload: x,
-        });
-        let p = unsafe { transmute!(&mut AValueRepr<BlackHole>, &mut AValueRepr<T>, p) };
+        unsafe {
+            let p = p as *mut AValueRepr<BlackHole>;
+            p.write(AValueRepr {
+                header: AValueHeader(AValueVTable::new_black_hole()),
+                payload: x,
+            });
+        }
 
         (
             Reservation {
