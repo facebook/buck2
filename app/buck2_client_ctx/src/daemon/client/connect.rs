@@ -285,7 +285,7 @@ impl<'a> BuckdLifecycle<'a> {
     }
 
     async fn start_server(&self) -> anyhow::Result<()> {
-        let mut args = vec!["--isolation-dir", self.paths.isolation.as_str()];
+        let mut args = vec!["--isolation-dir", self.paths.isolation.as_str(), "daemon"];
 
         if self.constraints.is_trace_io_requested() {
             args.push("--enable-trace-io");
@@ -346,7 +346,7 @@ impl<'a> BuckdLifecycle<'a> {
         daemon_startup_config: &DaemonStartupConfig,
     ) -> anyhow::Result<()> {
         let daemon_startup_config = daemon_startup_config.serialize()?;
-        args.extend(["daemon", "--dont-daemonize"]);
+        args.extend(["--dont-daemonize"]);
         spawn_background_process_on_windows(
             self.paths.project_root().root(),
             &env::current_exe()?,
@@ -393,7 +393,6 @@ impl<'a> BuckdLifecycle<'a> {
             .stderr(std::process::Stdio::piped())
             .args(args);
 
-        cmd.arg("daemon");
         cmd.arg(daemon_startup_config.serialize()?);
 
         if buck2_env!("BUCK_DAEMON_LOG_TO_FILE", type=u8)? == Some(1) {

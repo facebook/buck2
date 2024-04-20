@@ -96,10 +96,6 @@ struct BeforeSubcommandOptions {
     )]
     isolation_dir: FileNameBuf,
 
-    // TODO: Those should be on the daemon subcommand.
-    #[clap(flatten)]
-    daemon: DaemonBeforeSubcommandOptions,
-
     /// How verbose buck should be while logging.
     ///
     /// Values:
@@ -320,7 +316,6 @@ impl CommandKind {
                     process.init,
                     process.log_reload_handle.dupe(),
                     paths?,
-                    common_opts.daemon,
                     false,
                     || {},
                 )
@@ -335,7 +330,6 @@ impl CommandKind {
                 process.init,
                 immediate_config.daemon_startup_config()?,
                 paths.clone()?,
-                common_opts.daemon,
                 &runtime,
             )?
         } else {

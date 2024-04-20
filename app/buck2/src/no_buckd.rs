@@ -19,13 +19,11 @@ use buck2_util::threads::thread_spawn;
 use fbinit::FacebookInit;
 
 use crate::commands::daemon::DaemonCommand;
-use crate::DaemonBeforeSubcommandOptions;
 
 pub(crate) fn start_in_process_daemon(
     init: FacebookInit,
     daemon_startup_config: &DaemonStartupConfig,
     paths: InvocationPaths,
-    daemon_opts: DaemonBeforeSubcommandOptions,
     runtime: &tokio::runtime::Runtime,
 ) -> anyhow::Result<Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>> {
     let daemon_dir = paths.daemon_dir()?;
@@ -54,7 +52,6 @@ pub(crate) fn start_in_process_daemon(
                 init,
                 <dyn LogConfigurationReloadHandle>::noop(),
                 paths,
-                daemon_opts,
                 true,
                 move || drop(tx_clone.send(Ok(()))),
             );

@@ -85,6 +85,9 @@ pub(crate) struct DaemonCommand {
     /// the daemon. The client will restart the daemon if they mismatch.
     #[clap(value_parser = DaemonStartupConfig::deserialize)]
     daemon_startup_config: DaemonStartupConfig,
+
+    #[clap(flatten)]
+    before_subcommand_options: DaemonBeforeSubcommandOptions,
 }
 
 impl DaemonCommand {
@@ -95,6 +98,10 @@ impl DaemonCommand {
             dont_daemonize: true,
             skip_macos_qos: true,
             daemon_startup_config,
+            before_subcommand_options: DaemonBeforeSubcommandOptions {
+                enable_trace_io: false,
+                reject_materializer_state: None,
+            },
         }
     }
 }
@@ -201,7 +208,6 @@ impl DaemonCommand {
         fb: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
-        before_subcommand_options: DaemonBeforeSubcommandOptions,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
@@ -211,8 +217,9 @@ impl DaemonCommand {
         let server_init_ctx = BuckdServerInitPreferences {
             detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
             which_dice: buck2_env!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
-            enable_trace_io: before_subcommand_options.enable_trace_io,
-            reject_materializer_state: before_subcommand_options
+            enable_trace_io: self.before_subcommand_options.enable_trace_io,
+            reject_materializer_state: self
+                .before_subcommand_options
                 .reject_materializer_state
                 .map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
@@ -451,7 +458,6 @@ impl DaemonCommand {
         init: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
-        before_subcommand_options: DaemonBeforeSubcommandOptions,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
@@ -470,14 +476,7 @@ impl DaemonCommand {
         //   and resolve all paths relative to original cwd.
         fs_util::set_current_dir(project_root.root())?;
 
-        self.run(
-            init,
-            log_reload_handle,
-            paths,
-            before_subcommand_options,
-            in_process,
-            listener_created,
-        )?;
+        self.run(init, log_reload_handle, paths, in_process, listener_created)?;
         Ok(())
     }
 
