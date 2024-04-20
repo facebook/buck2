@@ -437,9 +437,11 @@ def inherited_rust_cxx_link_group_info(
         link_groups = link_groups,
         link_group_mappings = link_group_mappings,
         link_group_preferred_linkage = link_group_preferred_linkage,
+        executable_deps = executable_deps,
         linker_flags = [],
         link_group_specs = auto_link_group_specs,
         linkable_graph_node_map = linkable_graph_node_map,
+        other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
         anonymous = ctx.attrs.anonymous_link_groups,
         public_nodes = public_link_group_nodes,
