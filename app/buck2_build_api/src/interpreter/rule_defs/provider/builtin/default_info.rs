@@ -13,6 +13,7 @@ use std::ptr;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api_derive::internal_provider;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -41,8 +42,9 @@ use starlark::values::ValueLike;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
 
@@ -297,15 +299,21 @@ impl FrozenDefaultInfo {
         &self,
         processor: &mut dyn FnMut(ArtifactGroup),
     ) -> anyhow::Result<()> {
+        struct Visitor<'x>(&'x mut dyn FnMut(ArtifactGroup));
+
+        impl CommandLineArtifactVisitor for Visitor<'_> {
+            fn visit_input(&mut self, input: ArtifactGroup, _: Option<&ArtifactTag>) {
+                (self.0)(input);
+            }
+
+            fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+        }
+
         self.for_each_in_list(self.other_outputs, |value| {
             let arg_like = ValueAsCommandLineLike::unpack_value(value)
                 .with_context(|| format!("Expected command line like, got: {:?}", value))?
                 .0;
-            let mut acc = SimpleCommandLineArtifactVisitor::new();
-            arg_like.visit_artifacts(&mut acc)?;
-            for input in acc.inputs {
-                processor(input);
-            }
+            arg_like.visit_artifacts(&mut Visitor(processor))?;
             Ok(())
         })
     }
