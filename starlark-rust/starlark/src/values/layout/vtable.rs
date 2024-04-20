@@ -174,10 +174,7 @@ impl AValueVTable {
                 let this = unsafe { &*this.value_ptr::<BlackHole>() };
                 this as *const dyn Debug
             },
-            erased_serde_serialize: |this| {
-                let this = unsafe { &*this.value_ptr::<BlackHole>() };
-                this as *const dyn erased_serde::Serialize
-            },
+            erased_serde_serialize: |_this| unreachable!(),
             allocative: |this| {
                 let this = unsafe { &*this.value_ptr::<BlackHole>() };
                 this as *const dyn Allocative

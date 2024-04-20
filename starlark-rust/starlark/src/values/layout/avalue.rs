@@ -24,8 +24,6 @@ use std::mem;
 
 use allocative::Allocative;
 use derive_more::Display;
-use serde::Serialize;
-use serde::Serializer;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
@@ -685,24 +683,6 @@ where
 #[derive(Debug, Display, ProvidesStaticType, Allocative)]
 #[display(fmt = "BlackHole")]
 pub(crate) struct BlackHole(pub(crate) ValueAllocSize);
-
-impl Serialize for BlackHole {
-    fn serialize<S>(&self, _s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        panic!()
-    }
-}
-
-impl<'v, Mode: AValueMode, T: StarlarkValue<'v>> Serialize for AValueImpl<Mode, T> {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        erased_serde::serialize(&self.1, s)
-    }
-}
 
 #[cfg(test)]
 mod tests {
