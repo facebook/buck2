@@ -186,7 +186,7 @@ impl AValueVTable {
     pub(crate) const fn new<'v, T: AValue<'v>>() -> &'static AValueVTable {
         &AValueVTable {
             drop_in_place: |p| unsafe {
-                ptr::drop_in_place(p.value_ptr::<T>());
+                ptr::drop_in_place(p.value_ptr::<T::StarlarkValue>());
             },
             is_str: T::IS_STR,
             memory_size: |p| unsafe {
@@ -194,11 +194,11 @@ impl AValueVTable {
                 T::alloc_size_for_extra_len(T::extra_len(p))
             },
             heap_freeze: |p, freezer| unsafe {
-                let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T>());
+                let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
                 T::heap_freeze(p, transmute!(&Freezer, &Freezer, freezer))
             },
             heap_copy: |p, tracer| unsafe {
-                let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T>());
+                let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
                 let value = T::heap_copy(p, transmute!(&Tracer, &Tracer, tracer));
                 transmute!(Value, Value, value)
             },

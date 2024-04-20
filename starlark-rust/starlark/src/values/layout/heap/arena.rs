@@ -27,7 +27,6 @@
 //! item it replaced.
 
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
@@ -40,11 +39,11 @@ use bumpalo::Bump;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
-use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::BlackHole;
 use crate::values::layout::heap::allocator::api::ArenaAllocator;
 use crate::values::layout::heap::allocator::api::ChunkAllocationDirection;
@@ -89,13 +88,12 @@ pub(crate) struct Arena<A: ArenaAllocator> {
 /// Reservation is morally a Reservation<T>, but we treat is as an
 /// existential.
 /// Tied to the lifetime of the heap.
-pub(crate) struct Reservation<'v, 'v2, T: AValue<'v2>> {
-    pointer: *mut AValueRepr<T>, // Secretly AValueObject<T>
-    phantom: PhantomData<(&'v (), &'v2 T)>,
+pub(crate) struct Reservation<'v, T: AValue<'v>> {
+    pointer: *mut AValueRepr<T::StarlarkValue>,
 }
 
-impl<'v, 'v2, T: AValue<'v2>> Reservation<'v, 'v2, T> {
-    pub(crate) fn fill(self, x: T) {
+impl<'v, T: AValue<'v>> Reservation<'v, T> {
+    pub(crate) fn fill(self, x: T::StarlarkValue) {
         unsafe {
             ptr::write(
                 self.pointer,
@@ -141,6 +139,59 @@ impl<'c> Iterator for ChunkIter<'c> {
     }
 }
 
+/// Result of allocation. Both fields are uninitialized.
+pub(crate) struct ArenaUninit<'v, T: AValue<'v>> {
+    // We use `MaybeUninit` here to emphasize that the memory is uninitialized.
+    repr: *mut MaybeUninit<AValueRepr<T::StarlarkValue>>,
+    extra: *mut [MaybeUninit<T::ExtraElem>],
+}
+
+impl<'v, T: AValue<'v>> ArenaUninit<'v, T> {
+    pub(crate) unsafe fn write_black_hole(
+        self,
+        extra_len: usize,
+    ) -> (Reservation<'v, T>, *mut [MaybeUninit<T::ExtraElem>]) {
+        let p = self.repr as *mut AValueRepr<BlackHole>;
+        p.write(AValueRepr {
+            header: AValueHeader(AValueVTable::new_black_hole()),
+            payload: BlackHole(T::alloc_size_for_extra_len(extra_len)),
+        });
+        (
+            Reservation {
+                pointer: p as *mut _,
+            },
+            self.extra,
+        )
+    }
+
+    pub(crate) fn debug_assert_extra_is_empty(&self) {
+        let extra = unsafe { &*self.extra };
+        debug_assert!(extra.is_empty());
+    }
+
+    pub(crate) fn write(
+        self,
+        x: T::StarlarkValue,
+    ) -> (
+        *mut AValueRepr<AValueImpl<'v, T>>,
+        *mut [MaybeUninit<T::ExtraElem>],
+    ) {
+        unsafe {
+            let repr = self.repr as *mut AValueRepr<AValueImpl<'v, T>>;
+            repr.write(AValueRepr {
+                header: AValueHeader::new::<T>(),
+                payload: AValueImpl::new(x),
+            });
+            (repr, self.extra)
+        }
+    }
+
+    pub(crate) fn write_no_extra(self, x: T::StarlarkValue) -> *mut AValueRepr<AValueImpl<'v, T>> {
+        self.debug_assert_extra_is_empty();
+        self.write(x).0
+    }
+}
+
 impl<A: ArenaAllocator> Arena<A> {
     pub(crate) fn is_empty(&self) -> bool {
         self.allocated_bytes() == 0
@@ -164,13 +215,7 @@ impl<A: ArenaAllocator> Arena<A> {
         self.non_drop.finish();
     }
 
-    fn alloc_uninit<'v, 'v2: 'v, T: AValue<'v2>>(
-        bump: &'v A,
-        extra_len: usize,
-    ) -> (
-        &'v mut MaybeUninit<AValueRepr<T>>,
-        &'v mut [MaybeUninit<T::ExtraElem>],
-    ) {
+    fn alloc_uninit<'v, 'v2, T: AValue<'v2>>(bump: &'v A, extra_len: usize) -> ArenaUninit<'v2, T> {
         assert!(
             mem::align_of::<T>() <= AValueHeader::ALIGN,
             "Unexpected alignment in Starlark arena. Type {} has alignment {}, expected <= {}",
@@ -182,17 +227,17 @@ impl<A: ArenaAllocator> Arena<A> {
         let size = T::alloc_size_for_extra_len(extra_len);
         let p = bump.alloc(size).as_ptr();
         unsafe {
-            let repr = &mut *(p as *mut MaybeUninit<AValueRepr<T>>);
+            let repr = p as *mut MaybeUninit<AValueRepr<_>>;
             let extra = slice::from_raw_parts_mut(
                 p.add(AValueRepr::<T>::offset_of_extra()) as *mut _,
                 extra_len,
             );
-            (repr, extra)
+            ArenaUninit { repr, extra }
         }
     }
 
     fn bump_for_type<'v, T: AValue<'v>>(&self) -> &A {
-        if mem::needs_drop::<T>() {
+        if mem::needs_drop::<T::StarlarkValue>() {
             &self.drop
         } else {
             &self.non_drop
@@ -200,10 +245,10 @@ impl<A: ArenaAllocator> Arena<A> {
     }
 
     // Reservation should really be an incremental type
-    pub(crate) fn reserve_with_extra<'v, 'v2: 'v, T: AValue<'v2>>(
-        &'v self,
+    pub(crate) fn reserve_with_extra<'v2, T: AValue<'v2>>(
+        &self,
         extra_len: usize,
-    ) -> (Reservation<'v, 'v2, T>, &'v mut [MaybeUninit<T::ExtraElem>]) {
+    ) -> (Reservation<'v2, T>, *mut [MaybeUninit<T::ExtraElem>]) {
         // We don't create reservations for strings because we don't need to,
         // but also because we need to be able to reconstruct a `Pointer`
         // from `AValueHeader` (with `TAG_STR` when appropriate).
@@ -211,64 +256,40 @@ impl<A: ArenaAllocator> Arena<A> {
         // it returns `false` from `is_str`.
         assert!(!T::IS_STR);
 
-        let (p, extra) = Self::alloc_uninit::<T>(self.bump_for_type::<T>(), extra_len);
+        let arena_uninit = Self::alloc_uninit::<T>(self.bump_for_type::<T>(), extra_len);
         // If we don't have a vtable we can't skip over missing elements to drop,
         // so very important to put in a current vtable
         // We always alloc at least one pointer worth of space, so can write in a one-ST blackhole
 
-        let p = p.as_mut_ptr();
-
-        let x = BlackHole(T::alloc_size_for_extra_len(extra_len));
-        unsafe {
-            let p = p as *mut AValueRepr<BlackHole>;
-            p.write(AValueRepr {
-                header: AValueHeader(AValueVTable::new_black_hole()),
-                payload: x,
-            });
-        }
-
-        (
-            Reservation {
-                pointer: p,
-                phantom: PhantomData,
-            },
-            extra,
-        )
+        unsafe { arena_uninit.write_black_hole(extra_len) }
     }
 
     /// Allocate a type `T`.
-    pub(crate) fn alloc<'v, 'v2: 'v, T: AValue<'v2, ExtraElem = ()>>(
+    pub(crate) fn alloc<'v, 'v2, T: AValue<'v2, ExtraElem = ()>>(
         &'v self,
-        x: T,
-    ) -> &'v AValueRepr<T> {
-        // SAFET: `AValue` is implemented only for `AValueImpl`
-        //   which is transparent over `T::StarlarkValue`.
-        debug_assert!(T::extra_len(unsafe { transmute!(&T, &T::StarlarkValue, &x) }) == 0);
+        x: AValueImpl<'v2, T>,
+    ) -> &'v AValueRepr<AValueImpl<'v2, T>> {
+        debug_assert!(T::extra_len(&x.1) == 0);
         let bump = self.bump_for_type::<T>();
-        let (p, extra) = Self::alloc_uninit::<T>(bump, 0);
-        debug_assert!(extra.is_empty());
-        p.write(AValueRepr {
-            header: AValueHeader::new::<T>(),
-            payload: x,
-        })
+        let arena_uninit = Self::alloc_uninit::<T>(bump, 0);
+        arena_uninit.debug_assert_extra_is_empty();
+        unsafe { &mut *arena_uninit.write_no_extra(x.1) }
     }
 
     /// Allocate a type `T` plus `extra` bytes.
     ///
     /// The type `T` will never be dropped, so had better not do any memory allocation.
-    pub(crate) fn alloc_extra<'v, 'v2: 'v, T: AValue<'v2>>(
-        &'v self,
-        x: T,
-    ) -> (*mut AValueRepr<T>, &'v mut [MaybeUninit<T::ExtraElem>]) {
+    pub(crate) fn alloc_extra<'v, T: AValue<'v>>(
+        &self,
+        x: AValueImpl<'v, T>,
+    ) -> (
+        *mut AValueRepr<AValueImpl<'v, T>>,
+        *mut [MaybeUninit<T::ExtraElem>],
+    ) {
         let bump = self.bump_for_type::<T>();
-        // SAFETY: `AValue` is implemented only for `AValueImpl`
-        //   which is transparent over `T::StarlarkValue`.
-        let extra_len = T::extra_len(unsafe { transmute!(&T, &T::StarlarkValue, &x) });
-        let (p, extra) = Self::alloc_uninit::<T>(bump, extra_len);
-        let p = p.write(AValueRepr {
-            header: AValueHeader::new::<T>(),
-            payload: x,
-        });
+        let extra_len = T::extra_len(&x.1);
+        let arena_uninit = Self::alloc_uninit::<T>(bump, extra_len);
+        let (p, extra) = arena_uninit.write(x.1);
         (p, extra)
     }
 
@@ -281,6 +302,7 @@ impl<A: ArenaAllocator> Arena<A> {
     ) -> *mut AValueHeader {
         assert!(len > 1);
         let (v, extra) = self.alloc_extra::<_>(starlark_str(len, hash));
+        let extra = unsafe { &mut *extra };
         debug_assert_eq!(StarlarkStr::payload_len_for_len(len), extra.len());
         unsafe {
             extra.last_mut().unwrap_unchecked().write(0usize);
@@ -502,6 +524,7 @@ mod tests {
     use super::*;
     use crate::values::any::StarlarkAny;
     use crate::values::layout::avalue::simple;
+    use crate::values::layout::avalue::AValueImpl;
 
     fn to_repr(x: &AValueHeader) -> String {
         let mut s = String::new();
@@ -509,14 +532,14 @@ mod tests {
         s
     }
 
-    fn mk_str(x: &str) -> impl AValue<'static, ExtraElem = ()> {
+    fn mk_str(x: &str) -> AValueImpl<'static, impl AValue<'static, ExtraElem = ()>> {
         simple(StarlarkAny::new(x.to_owned()))
     }
 
     fn reserve_str<'v, T: AValue<'static>>(
         arena: &'v Arena<Bump>,
-        _: &T,
-    ) -> Reservation<'v, 'static, T> {
+        _: &AValueImpl<'static, T>,
+    ) -> Reservation<'static, T> {
         arena.reserve_with_extra::<T>(0).0
     }
 
@@ -537,7 +560,7 @@ mod tests {
         }
         assert!(!reserved.is_empty());
         for (r, i) in reserved {
-            r.fill(mk_str(&i.to_string()));
+            r.fill(mk_str(&i.to_string()).1);
         }
 
         // Not a functional part of the test, just makes sure we go through

@@ -43,6 +43,7 @@ use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::int::PointerI32;
 use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::string::StarlarkStr;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -180,7 +181,7 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
 
     #[inline]
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
-        repr: &'v AValueRepr<A>,
+        repr: &'v AValueRepr<AValueImpl<'v, A>>,
     ) -> ValueTyped<'v, T> {
         ValueTyped(Value::new_repr(repr), marker::PhantomData)
     }
@@ -233,7 +234,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
 
     #[inline]
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
-        repr: &'v AValueRepr<A>,
+        repr: &'v AValueRepr<AValueImpl<'v, A>>,
     ) -> FrozenValueTyped<'v, T> {
         // drop lifetime: `FrozenValue` is not (yet) parameterized with lifetime.
         let header = unsafe { cast::ptr_lifetime(&repr.header) };

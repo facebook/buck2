@@ -31,8 +31,8 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::typing::ty::AbstractType;
@@ -116,10 +116,8 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
         Self(PhantomData)
     }
 
-    const INSTANCE: AValueRepr<AValueImpl<Basic, StarlarkValueAsTypeStarlarkValue>> = alloc_static(
-        Basic,
-        StarlarkValueAsTypeStarlarkValue(T::starlark_type_repr),
-    );
+    const INSTANCE: AValueRepr<AValueImpl<'static, AValueBasic<StarlarkValueAsTypeStarlarkValue>>> =
+        alloc_static(StarlarkValueAsTypeStarlarkValue(T::starlark_type_repr));
 }
 
 impl<T: StarlarkTypeRepr> Default for StarlarkValueAsType<T> {

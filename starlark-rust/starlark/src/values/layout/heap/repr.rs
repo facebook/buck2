@@ -257,7 +257,7 @@ impl AValueHeader {
 
     /// After performing the overwrite any existing pointers to this value
     /// are corrupted.
-    pub unsafe fn overwrite_with_forward<'v, T: AValue<'v>>(
+    pub unsafe fn overwrite_with_forward<'v, T: StarlarkValue<'v>>(
         me: *mut AValueRepr<T>,
         forward_ptr: ForwardPtr,
     ) -> T {
@@ -272,12 +272,7 @@ impl AValueHeader {
 
     /// Cast header pointer to repr pointer.
     #[inline]
-    pub(crate) unsafe fn as_repr<'v, A: AValue<'v>>(&self) -> &AValueRepr<A> {
-        &*(self.as_repr_v::<A::StarlarkValue>() as *const _ as *const _)
-    }
-
-    #[inline]
-    pub(crate) unsafe fn as_repr_v<'v, T: StarlarkValue<'v>>(&self) -> &AValueRepr<T> {
+    pub(crate) unsafe fn as_repr<'v, T: StarlarkValue<'v>>(&self) -> &AValueRepr<T> {
         debug_assert_eq!(T::static_type_id(), self.0.static_type_of_value.get());
         &*(self as *const AValueHeader as *const AValueRepr<T>)
     }

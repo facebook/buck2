@@ -17,8 +17,8 @@
 
 use crate::typing::custom::TyCustom;
 use crate::typing::Ty;
+use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
@@ -65,8 +65,9 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn none(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::none() {
-            static IS_NONE: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsNone>>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsNone, Ty::none());
+            static IS_NONE: AValueRepr<
+                AValueImpl<'static, AValueBasic<TypeCompiledImplAsStarlarkValue<IsNone>>>,
+            > = TypeCompiledImplAsStarlarkValue::alloc_static(IsNone, Ty::none());
 
             TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_NONE).to_value())
         } else {
@@ -76,8 +77,9 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn bool(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::bool() {
-            static IS_BOOL: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsBool>>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsBool, Ty::bool());
+            static IS_BOOL: AValueRepr<
+                AValueImpl<'static, AValueBasic<TypeCompiledImplAsStarlarkValue<IsBool>>>,
+            > = TypeCompiledImplAsStarlarkValue::alloc_static(IsBool, Ty::bool());
 
             TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_BOOL).to_value())
         } else {
@@ -87,8 +89,9 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn int(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::int() {
-            static IS_INT: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsInt>>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsInt, Ty::int());
+            static IS_INT: AValueRepr<
+                AValueImpl<AValueBasic<TypeCompiledImplAsStarlarkValue<IsInt>>>,
+            > = TypeCompiledImplAsStarlarkValue::alloc_static(IsInt, Ty::int());
 
             TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_INT).to_value())
         } else {
@@ -99,7 +102,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
     fn str(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::string() {
             static IS_STRING: AValueRepr<
-                AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsStr>>,
+                AValueImpl<'static, AValueBasic<TypeCompiledImplAsStarlarkValue<IsStr>>>,
             > = TypeCompiledImplAsStarlarkValue::alloc_static(IsStr, Ty::string());
 
             TypeCompiled::unchecked_new(FrozenValue::new_repr(&IS_STRING).to_value())

@@ -37,8 +37,8 @@ use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::UnpackList;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -97,8 +97,8 @@ impl<'v> StarlarkValue<'v> for TypingCallable {
 
 impl AllocFrozenValue for TypingCallable {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        static CALLABLE: AValueRepr<AValueImpl<Basic, TypingCallable>> =
-            alloc_static(Basic, TypingCallable);
+        static CALLABLE: AValueRepr<AValueImpl<'static, AValueBasic<TypingCallable>>> =
+            alloc_static(TypingCallable);
 
         FrozenValue::new_repr(&CALLABLE)
     }

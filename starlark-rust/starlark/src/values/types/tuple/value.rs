@@ -41,8 +41,8 @@ use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
 use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueFrozenTuple;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Direct;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -99,8 +99,8 @@ impl<V: ValueLifetimeless> TupleGen<V> {
     }
 }
 
-pub(crate) static VALUE_EMPTY_TUPLE: AValueRepr<AValueImpl<Direct, FrozenTuple>> =
-    alloc_static(Direct, unsafe { FrozenTuple::new(0) });
+pub(crate) static VALUE_EMPTY_TUPLE: AValueRepr<AValueImpl<'static, AValueFrozenTuple>> =
+    alloc_static(unsafe { FrozenTuple::new(0) });
 
 /// Runtime type of unfrozen tuple.
 pub(crate) type Tuple<'v> = TupleGen<Value<'v>>;

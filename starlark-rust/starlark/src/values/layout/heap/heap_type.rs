@@ -60,6 +60,7 @@ use crate::values::layout::avalue::list_avalue;
 use crate::values::layout::avalue::simple;
 use crate::values::layout::avalue::tuple_avalue;
 use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::Reservation;
@@ -256,8 +257,11 @@ impl FrozenHeap {
         }
     }
 
-    fn alloc_raw(&self, x: impl AValue<'static, ExtraElem = ()> + Send + Sync) -> FrozenValue {
-        let v: &AValueRepr<_> = self.arena.alloc(x);
+    fn alloc_raw<T>(&self, x: AValueImpl<'static, T>) -> FrozenValue
+    where
+        T: AValue<'static, ExtraElem = ()> + Send + Sync,
+    {
+        let v: &AValueRepr<AValueImpl<T>> = self.arena.alloc(x);
         unsafe { FrozenValue::new_repr(cast::ptr_lifetime(v)) }
     }
 
@@ -319,6 +323,7 @@ impl FrozenHeap {
             let (avalue, extra) = self
                 .arena
                 .alloc_extra::<_>(frozen_tuple_avalue(elems.len()));
+            let extra = &mut *extra;
             maybe_uninit_write_slice(extra, elems);
             FrozenValue::new_repr(&*avalue)
         }
@@ -338,6 +343,7 @@ impl FrozenHeap {
 
             unsafe {
                 let (avalue, extra) = self.arena.alloc_extra::<_>(frozen_tuple_avalue(lower));
+                let extra = &mut *extra;
                 maybe_uninit_write_from_exact_size_iter(extra, elems, FrozenValue::new_none());
                 FrozenValue::new_repr(&*avalue)
             }
@@ -354,6 +360,7 @@ impl FrozenHeap {
 
         unsafe {
             let (avalue, elem_places) = self.arena.alloc_extra(frozen_list_avalue(elems.len()));
+            let elem_places = &mut *elem_places;
             maybe_uninit_write_slice(elem_places, elems);
             FrozenValue::new_repr(&*avalue)
         }
@@ -372,6 +379,7 @@ impl FrozenHeap {
 
             unsafe {
                 let (avalue, elem_places) = self.arena.alloc_extra(frozen_list_avalue(lower));
+                let elem_places = &mut *elem_places;
                 maybe_uninit_write_from_exact_size_iter(
                     elem_places,
                     elems,
@@ -420,8 +428,7 @@ impl FrozenHeap {
         values: &[T],
     ) -> FrozenRef<'static, [T]> {
         let (_any_array, content) = self.arena.alloc_extra(any_array_avalue(values.len()));
-        // Drop lifetime.
-        let content = unsafe { transmute!(&mut [MaybeUninit<T>], &mut [MaybeUninit<T>], content) };
+        let content = unsafe { &mut *content };
         FrozenRef::new(&*maybe_uninit_write_slice_cloned(content, values))
     }
 
@@ -495,21 +502,22 @@ impl Freezer {
         val.alloc_frozen_value(&self.heap)
     }
 
-    pub(crate) fn reserve<'v, 'v2: 'v, T: AValue<'v2, ExtraElem = ()>>(
+    pub(crate) fn reserve<'v, 'v2, T: AValue<'v2, ExtraElem = ()>>(
         &'v self,
-    ) -> (FrozenValue, Reservation<'v, 'v2, T>) {
+    ) -> (FrozenValue, Reservation<'v2, T>) {
         let (fv, r, extra) = self.reserve_with_extra::<T>(0);
+        let extra = unsafe { &mut *extra };
         debug_assert!(extra.is_empty());
         (fv, r)
     }
 
-    pub(crate) fn reserve_with_extra<'v, 'v2: 'v, T: AValue<'v2>>(
+    pub(crate) fn reserve_with_extra<'v, 'v2, T: AValue<'v2>>(
         &'v self,
         extra_len: usize,
     ) -> (
         FrozenValue,
-        Reservation<'v, 'v2, T>,
-        &'v mut [MaybeUninit<T::ExtraElem>],
+        Reservation<'v2, T>,
+        *mut [MaybeUninit<T::ExtraElem>],
     ) {
         let (r, extra) = self.heap.arena.reserve_with_extra::<T>(extra_len);
         let fv = FrozenValue::new_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
@@ -562,7 +570,10 @@ impl Heap {
         self.arena.borrow().available_bytes()
     }
 
-    fn alloc_raw<'v, 'v2: 'v2>(&'v self, x: impl AValue<'v2, ExtraElem = ()>) -> Value<'v> {
+    fn alloc_raw<'v, 'v2: 'v2>(
+        &'v self,
+        x: AValueImpl<'v2, impl AValue<'v2, ExtraElem = ()>>,
+    ) -> Value<'v> {
         let arena = self.arena.borrow();
         let v: &AValueRepr<_> = arena.alloc(x);
 
@@ -577,7 +588,7 @@ impl Heap {
 
     fn alloc_raw_typed<'v, A: AValue<'v, ExtraElem = ()>>(
         &'v self,
-        x: A,
+        x: AValueImpl<'v, A>,
     ) -> ValueTyped<'v, A::StarlarkValue> {
         unsafe { ValueTyped::new_unchecked(self.alloc_raw(x)) }
     }
@@ -652,6 +663,7 @@ impl Heap {
         unsafe {
             let arena = self.arena.borrow();
             let (avalue, extra) = arena.alloc_extra(tuple_avalue(elems.len()));
+            let extra = &mut *extra;
             maybe_uninit_write_slice(extra, elems);
             Value::new_repr(&*avalue)
         }
@@ -671,6 +683,7 @@ impl Heap {
             unsafe {
                 let arena = self.arena.borrow();
                 let (avalue, extra) = arena.alloc_extra(tuple_avalue(lower));
+                let extra = &mut *extra;
                 maybe_uninit_write_from_exact_size_iter(extra, elems, Value::new_none());
                 Value::new_repr(&*avalue)
             }
@@ -873,21 +886,20 @@ impl<'v> Tracer<'v> {
         let _ = value;
     }
 
-    pub(crate) fn reserve<'a, 'v2: 'v + 'a, T: AValue<'v2, ExtraElem = ()>>(
-        &'a self,
-    ) -> (Value<'v>, Reservation<'a, 'v2, T>) {
+    pub(crate) fn reserve<T: AValue<'v, ExtraElem = ()>>(&self) -> (Value<'v>, Reservation<'v, T>) {
         let (v, r, extra) = self.reserve_with_extra::<T>(0);
+        let extra = unsafe { &mut *extra };
         debug_assert!(extra.is_empty());
         (v, r)
     }
 
-    pub(crate) fn reserve_with_extra<'a, 'v2: 'v + 'a, T: AValue<'v2>>(
-        &'a self,
+    pub(crate) fn reserve_with_extra<T: AValue<'v>>(
+        &self,
         extra_len: usize,
     ) -> (
         Value<'v>,
-        Reservation<'a, 'v2, T>,
-        &'a mut [MaybeUninit<T::ExtraElem>],
+        Reservation<'v, T>,
+        *mut [MaybeUninit<T::ExtraElem>],
     ) {
         assert!(!T::IS_STR, "strings cannot be reserved");
         let (r, extra) = self.arena.reserve_with_extra::<T>(extra_len);

@@ -22,8 +22,8 @@ use starlark_derive::ProvidesStaticType;
 use crate as starlark;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::starlark_value;
 use crate::values::AllocFrozenValue;
@@ -50,7 +50,8 @@ impl<'v> StarlarkValue<'v> for TypingAny {
 
 impl AllocFrozenValue for TypingAny {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        static ANY: AValueRepr<AValueImpl<Basic, TypingAny>> = alloc_static(Basic, TypingAny);
+        static ANY: AValueRepr<AValueImpl<'static, AValueBasic<TypingAny>>> =
+            alloc_static(TypingAny);
 
         FrozenValue::new_repr(&ANY)
     }

@@ -22,8 +22,8 @@ use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
 use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
@@ -40,8 +40,8 @@ use crate::values::StarlarkValue;
 #[display(fmt = "Ellipsis")]
 pub(crate) struct Ellipsis;
 
-pub(crate) static VALUE_ELLIPSIS: AValueRepr<AValueImpl<Basic, Ellipsis>> =
-    alloc_static(Basic, Ellipsis);
+pub(crate) static VALUE_ELLIPSIS: AValueRepr<AValueImpl<'static, AValueBasic<Ellipsis>>> =
+    alloc_static(Ellipsis);
 
 #[starlark_value(type = "ellipsis")]
 impl<'v> StarlarkValue<'v> for Ellipsis {}

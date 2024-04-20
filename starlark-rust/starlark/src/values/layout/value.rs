@@ -76,7 +76,7 @@ use crate::values::function::FUNCTION_TYPE;
 use crate::values::int::PointerI32;
 use crate::values::iter::StarlarkIterator;
 use crate::values::layout::avalue::AValue;
-use crate::values::layout::avalue::StarlarkStrAValue;
+use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::pointer::FrozenPointer;
@@ -250,7 +250,7 @@ impl<'v> Value<'v> {
     }
 
     #[inline]
-    pub(crate) fn new_repr<T: AValue<'v>>(x: &'v AValueRepr<T>) -> Self {
+    pub(crate) fn new_repr<T: AValue<'v>>(x: &'v AValueRepr<AValueImpl<'v, T>>) -> Self {
         Self::new_ptr(&x.header, T::IS_STR)
     }
 
@@ -406,9 +406,8 @@ impl<'v> Value<'v> {
                         .0
                         .unpack_ptr_no_int_unchecked()
                         .unpack_header_unchecked()
-                        .as_repr::<StarlarkStrAValue>()
-                        .payload
-                        .1,
+                        .as_repr::<StarlarkStr>()
+                        .payload,
                 )
             }
         } else {
@@ -953,7 +952,7 @@ impl FrozenValue {
     }
 
     #[inline]
-    pub(crate) fn new_repr<'a, T: AValue<'a>>(x: &'static AValueRepr<T>) -> Self {
+    pub(crate) fn new_repr<'a, T: AValue<'a>>(x: &'static AValueRepr<AValueImpl<'a, T>>) -> Self {
         Self::new_ptr(&x.header, T::IS_STR)
     }
 

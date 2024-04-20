@@ -47,8 +47,7 @@ use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::values::error::ValueError;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Basic;
+use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
@@ -154,7 +153,7 @@ impl PointerI32 {
 
     #[inline]
     pub(crate) fn vtable() -> &'static AValueVTable {
-        AValueVTable::new::<AValueImpl<Basic, PointerI32>>()
+        AValueVTable::new::<AValueBasic<PointerI32>>()
     }
 
     /// This operation is expensive, use only if you have to.

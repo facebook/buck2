@@ -43,8 +43,8 @@ use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::dict::DictRef;
 use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::Basic;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
@@ -135,14 +135,14 @@ impl<T> TypeCompiledImplAsStarlarkValue<T>
 where
     TypeCompiledImplAsStarlarkValue<T>: StarlarkValue<'static>,
 {
-    pub(crate) const fn alloc_static(imp: T, ty: Ty) -> AValueRepr<AValueImpl<Basic, Self>> {
-        alloc_static(
-            Basic,
-            TypeCompiledImplAsStarlarkValue {
-                type_compiled_impl: imp,
-                ty,
-            },
-        )
+    pub(crate) const fn alloc_static(
+        imp: T,
+        ty: Ty,
+    ) -> AValueRepr<AValueImpl<'static, AValueBasic<TypeCompiledImplAsStarlarkValue<T>>>> {
+        alloc_static(TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl: imp,
+            ty,
+        })
     }
 }
 
@@ -529,8 +529,9 @@ impl TypeCompiled<FrozenValue> {
 
     /// `typing.Any`.
     pub fn any() -> TypeCompiled<FrozenValue> {
-        static ANYTHING: AValueRepr<AValueImpl<Basic, TypeCompiledImplAsStarlarkValue<IsAny>>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
+        static ANYTHING: AValueRepr<
+            AValueImpl<'static, AValueBasic<TypeCompiledImplAsStarlarkValue<IsAny>>>,
+        > = TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
 
         TypeCompiled::unchecked_new(FrozenValue::new_repr(&ANYTHING))
     }
