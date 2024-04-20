@@ -42,7 +42,6 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
@@ -298,10 +297,15 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.other_outputs, |value| {
-            ValueAsCommandLineLike::unpack_value(value)
+            let arg_like = ValueAsCommandLineLike::unpack_value(value)
                 .with_context(|| format!("Expected command line like, got: {:?}", value))?
-                .0
-                .traverse(processor)
+                .0;
+            let mut acc = SimpleCommandLineArtifactVisitor::new();
+            arg_like.visit_artifacts(&mut acc)?;
+            for input in acc.inputs {
+                processor(input)?;
+            }
+            Ok(())
         })
     }
 
@@ -335,27 +339,6 @@ impl PartialEq for FrozenDefaultInfo {
     // frozen default infos can be compared by ptr for a simple equality
     fn eq(&self, other: &Self) -> bool {
         ptr::eq(self, other)
-    }
-}
-
-trait ArtifactTraversable {
-    fn traverse(
-        &self,
-        processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()>;
-}
-
-impl ArtifactTraversable for &dyn CommandLineArgLike {
-    fn traverse(
-        &self,
-        processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        let mut acc = SimpleCommandLineArtifactVisitor::new();
-        CommandLineArgLike::visit_artifacts(*self, &mut acc)?;
-        for input in acc.inputs {
-            processor(input)?;
-        }
-        Ok(())
     }
 }
 
