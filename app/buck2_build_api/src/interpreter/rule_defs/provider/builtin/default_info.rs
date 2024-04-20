@@ -133,7 +133,7 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// be built by default if this rule is requested, but _not_ when it's depended
     /// on as as a "source". `ArtifactTraversable` can be an `Artifact` (which yields
     /// itself), or `cmd_args`, which expand to all their inputs.
-    #[provider(field_type = Vec<StarlarkArtifact>)]
+    #[provider(field_type = Vec<ValueAsCommandLineLike<'v>>)]
     other_outputs: V,
 }
 
