@@ -442,11 +442,11 @@ fn eval() -> anyhow::Result<()> {
             export_file = rule(impl=_impl, attrs = {})
 
             def test():
-                assert_eq("some/package", __internal__.package_name())
-                assert_eq("@root", __internal__.repository_name())
+                assert_eq("some/package", __buck2_builtins__.package_name())
+                assert_eq("@root", __buck2_builtins__.repository_name())
 
-                assert_eq(package_name(), __internal__.package_name())
-                assert_eq(repository_name(), __internal__.repository_name())
+                assert_eq(package_name(), __buck2_builtins__.package_name())
+                assert_eq(repository_name(), __buck2_builtins__.repository_name())
 
                 assert_eq(package_name(), get_base_path())
 
@@ -463,14 +463,12 @@ fn eval() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_internal() -> anyhow::Result<()> {
-    // Test that most things end up on __internal__
-    let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_rule_defs);
+fn test_builtins() -> anyhow::Result<()> {
+    // Test that most things end up on __buck2_builtins__
     run_simple_starlark_test(indoc!(
         r#"
             def test():
-                assert_eq(__internal__.json.encode({}), "{}")
+                assert_eq(__buck2_builtins__.json.encode({}), "{}")
             "#
     ))
 }
