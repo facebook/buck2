@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-pub mod __macro_refs {
-    pub use linkme;
-}
+#![doc(hidden)]
+
+pub use linkme;
 
 /// This macro is used to register environment variables that are used by Buck2.
 ///
@@ -30,9 +30,9 @@ pub mod __macro_refs {
 pub macro buck2_env {
     (register $var:literal, ty=$ty:ty, default=$default: expr) => {
         {
-            use $crate::env::macros::__macro_refs::linkme;
+            use $crate::env::macros::linkme;
             #[linkme::distributed_slice($crate::env::registry::ENV_INFO)]
-            #[linkme(crate = $crate::env::macros::__macro_refs::linkme)]
+            #[linkme(crate = $crate::env::macros::linkme)]
             static ENV_INFO: $crate::env::registry::EnvInfoEntry = $crate::env::registry::EnvInfoEntry {
                 name: $var,
                 ty: stringify!($ty),
