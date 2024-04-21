@@ -28,20 +28,8 @@ pub use linkme;
 /// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env {
-    (register $var:literal, ty=$ty:ty, default=$default: expr) => {
-        {
-            use $crate::env::macros::linkme;
-            #[linkme::distributed_slice($crate::env::registry::ENV_INFO)]
-            #[linkme(crate = $crate::env::macros::linkme)]
-            static ENV_INFO: $crate::env::registry::EnvInfoEntry = $crate::env::registry::EnvInfoEntry {
-                name: $var,
-                ty: stringify!($ty),
-                default: $default,
-            };
-        }
-    },
     ($var:literal) => {{
-        buck2_env!(register $var, ty=std::string::String, default=std::option::Option::None);
+        $crate::env::macros::register!($var, ty=std::string::String, default=std::option::Option::None);
         static ENV_HELPER: $crate::env::helper::EnvHelper<std::string::String> =
             $crate::env::helper::EnvHelper::new_from_macro($var);
         let v: anyhow::Result<Option<&'static str>> = ENV_HELPER.get()
@@ -49,14 +37,14 @@ pub macro buck2_env {
         v
     }},
     ($var:literal, type=$ty:ty) => {{
-        buck2_env!(register $var, ty=$ty, default=None);
+        $crate::env::macros::register!($var, ty=$ty, default=None);
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
             $crate::env::helper::EnvHelper::new_from_macro($var);
         let v: anyhow::Result<Option<$ty>> = ENV_HELPER.get_copied();
         v
     }},
     ($var:literal, type=$ty:ty, default=$default:expr) => {{
-        buck2_env!(register $var, ty=$ty, default=std::option::Option::Some(stringify!($default)));
+        $crate::env::macros::register!($var, ty=$ty, default=std::option::Option::Some(stringify!($default)));
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
             $crate::env::helper::EnvHelper::new_from_macro($var);
         let v: anyhow::Result<$ty> = ENV_HELPER.get_copied()
@@ -68,10 +56,21 @@ pub macro buck2_env {
         v
     }},
     ($var:literal, type=$ty:ty, converter=$converter:expr) => {{
-        buck2_env!(register $var, ty=$ty, default=std::option::Option::None);
+        $crate::env::macros::register!($var, ty=$ty, default=std::option::Option::None);
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
             $crate::env::helper::EnvHelper::with_converter_from_macro($var, $converter);
         let v: anyhow::Result<Option<&$ty>> = ENV_HELPER.get();
         v
     }},
 }
+
+pub macro register($var:literal, ty=$ty:ty, default=$default:expr) {{
+    use $crate::env::macros::linkme;
+    #[linkme::distributed_slice($crate::env::registry::ENV_INFO)]
+    #[linkme(crate = $crate::env::macros::linkme)]
+    static ENV_INFO: $crate::env::registry::EnvInfoEntry = $crate::env::registry::EnvInfoEntry {
+        name: $var,
+        ty: stringify!($ty),
+        default: $default,
+    };
+}}
