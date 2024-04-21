@@ -478,10 +478,10 @@ fn test_builtins() -> anyhow::Result<()> {
         indoc!(
             r#"
             def test():
-                __buck2_builtins__.internal_buck2_fail("message")
+                __buck2_builtins__.buck2_fail("message")
             "#
         ),
-        "The attribute `internal_buck2_fail` is not available",
+        "The attribute `buck2_fail` is not available",
     );
     Ok(())
 }
