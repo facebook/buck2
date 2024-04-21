@@ -9,7 +9,6 @@
 
 use std::env;
 use std::env::VarError;
-use std::str::FromStr;
 use std::sync::OnceLock;
 
 use anyhow::Context;
@@ -32,22 +31,6 @@ impl<T> EnvHelper<T> {
         }
     }
 
-    pub const fn new_from_macro(var: &'static str) -> Self
-    where
-        T: FromStr,
-        anyhow::Error: From<<T as FromStr>::Err>,
-    {
-        fn convert_from_str<T>(v: &str) -> anyhow::Result<T>
-        where
-            T: FromStr,
-            anyhow::Error: From<<T as FromStr>::Err>,
-        {
-            Ok(T::from_str(v)?)
-        }
-
-        Self::with_converter_from_macro(var, convert_from_str::<T>)
-    }
-
     // This code does not really require `'static` lifetime.
     // `EnvHelper` caches computed value. When it is used like
     // `EnvHelper::new(...).get(...)`, it performs unnecessary work.
@@ -67,12 +50,5 @@ impl<T> EnvHelper<T> {
             })
             .map(Option::as_ref)
             .with_context(|| format!("Invalid value for ${}", var))
-    }
-
-    pub fn get_copied(&'static self) -> anyhow::Result<Option<T>>
-    where
-        T: Copy,
-    {
-        Ok(self.get()?.copied())
     }
 }

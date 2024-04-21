@@ -9,7 +9,17 @@
 
 #![doc(hidden)]
 
+use std::str::FromStr;
+
 pub use linkme;
+
+pub fn convert_from_str<T>(v: &str) -> anyhow::Result<T>
+where
+    T: FromStr,
+    anyhow::Error: From<<T as FromStr>::Err>,
+{
+    Ok(T::from_str(v)?)
+}
 
 /// This macro is used to register environment variables that are used by Buck2.
 ///
@@ -29,40 +39,66 @@ pub use linkme;
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env {
     ($var:literal) => {{
-        $crate::env::macros::register!($var, ty=std::string::String, default=std::option::Option::None);
-        static ENV_HELPER: $crate::env::helper::EnvHelper<std::string::String> =
-            $crate::env::helper::EnvHelper::new_from_macro($var);
-        let v: anyhow::Result<Option<&'static str>> = ENV_HELPER.get()
-            .map(|option| option.map(|v| v.as_str()));
-        v
-    }},
-    ($var:literal, type=$ty:ty) => {{
-        $crate::env::macros::register!($var, ty=$ty, default=None);
-        static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
-            $crate::env::helper::EnvHelper::new_from_macro($var);
-        let v: anyhow::Result<Option<$ty>> = ENV_HELPER.get_copied();
-        v
-    }},
-    ($var:literal, type=$ty:ty, default=$default:expr) => {{
-        $crate::env::macros::register!($var, ty=$ty, default=std::option::Option::Some(stringify!($default)));
-        static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
-            $crate::env::helper::EnvHelper::new_from_macro($var);
-        let v: anyhow::Result<$ty> = ENV_HELPER.get_copied()
-            .map(|option| option.unwrap_or_else(|| $default));
-        v
+        $crate::env::macros::expand!(
+            var=$var,
+            parser=$crate::env::macros::convert_from_str,
+            stored_type=std::string::String,
+            processor=|x| x.map(|x| x.as_str()),
+            output_type=std::option::Option<&'static str>,
+            default_repr=std::option::Option::None,
+        )
     }},
     ($var:literal, bool) => {{
         let v: anyhow::Result<bool> = buck2_env!($var, type=bool, default=false);
         v
     }},
+    ($var:literal, type=$ty:ty) => {{
+        $crate::env::macros::expand!(
+            var=$var,
+            parser=$crate::env::macros::convert_from_str,
+            stored_type=$ty,
+            processor=|x| x.copied(),
+            output_type=std::option::Option<$ty>,
+            default_repr=std::option::Option::None,
+        )
+    }},
+    ($var:literal, type=$ty:ty, default=$default:expr) => {{
+        $crate::env::macros::expand!(
+            var=$var,
+            parser=$crate::env::macros::convert_from_str,
+            stored_type=$ty,
+            processor=|x| x.copied().unwrap_or_else(|| $default),
+            output_type=$ty,
+            default_repr=std::option::Option::Some(stringify!($default)),
+        )
+    }},
     ($var:literal, type=$ty:ty, converter=$converter:expr) => {{
-        $crate::env::macros::register!($var, ty=$ty, default=std::option::Option::None);
-        static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
-            $crate::env::helper::EnvHelper::with_converter_from_macro($var, $converter);
-        let v: anyhow::Result<Option<&$ty>> = ENV_HELPER.get();
-        v
+        $crate::env::macros::expand!(
+            var=$var,
+            parser=$converter,
+            stored_type=$ty,
+            processor=|x| x,
+            output_type=std::option::Option<&$ty>,
+            default_repr=std::option::Option::None,
+        )
     }},
 }
+
+/// `parser` is `&str -> anyhow::Result<$stored_type>`, `processor` is `Option<& $stored_type> -> $output_type`
+pub macro expand(
+    var=$var:literal,
+    parser=$parser:expr,
+    stored_type=$stored_ty:ty,
+    processor=$processor:expr,
+    output_type=$output_ty:ty,
+    default_repr=$default_repr:expr,
+) {{
+    $crate::env::macros::register!($var, ty = $stored_ty, default = $default_repr);
+    static ENV_HELPER: $crate::env::helper::EnvHelper<$stored_ty> =
+        $crate::env::helper::EnvHelper::with_converter_from_macro($var, $parser);
+    let v: anyhow::Result<$output_ty> = ENV_HELPER.get().map($processor);
+    v
+}}
 
 pub macro register($var:literal, ty=$ty:ty, default=$default:expr) {{
     use $crate::env::macros::linkme;
