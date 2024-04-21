@@ -38,29 +38,9 @@ where
 /// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env {
-    ($var:literal) => {{
-        $crate::env::macros::expand!(
-            var=$var,
-            parser=$crate::env::macros::convert_from_str,
-            stored_type=std::string::String,
-            processor=|x| x.map(|x| x.as_str()),
-            output_type=std::option::Option<&'static str>,
-            default_repr=std::option::Option::None,
-        )
-    }},
     ($var:literal, bool) => {{
-        let v: anyhow::Result<bool> = buck2_env!($var, type=bool, default=false);
+        let v: anyhow::Result<bool> = $crate::env::macros::buck2_env!($var, type=bool, default=false);
         v
-    }},
-    ($var:literal, type=$ty:ty) => {{
-        $crate::env::macros::expand!(
-            var=$var,
-            parser=$crate::env::macros::convert_from_str,
-            stored_type=$ty,
-            processor=|x| x.copied(),
-            output_type=std::option::Option<$ty>,
-            default_repr=std::option::Option::None,
-        )
     }},
     ($var:literal, type=$ty:ty, default=$default:expr) => {{
         $crate::env::macros::expand!(
@@ -79,6 +59,26 @@ pub macro buck2_env {
             stored_type=$ty,
             processor=|x| x,
             output_type=std::option::Option<&$ty>,
+            default_repr=std::option::Option::None,
+        )
+    }},
+    ($var:literal, type=$ty:ty) => {{
+        $crate::env::macros::expand!(
+            var=$var,
+            parser=$crate::env::macros::convert_from_str,
+            stored_type=$ty,
+            processor=|x| x.copied(),
+            output_type=std::option::Option<$ty>,
+            default_repr=std::option::Option::None,
+        )
+    }},
+    ($var:literal) => {{
+        $crate::env::macros::expand!(
+            var=$var,
+            parser=$crate::env::macros::convert_from_str,
+            stored_type=std::string::String,
+            processor=|x| x.map(|x| x.as_str()),
+            output_type=std::option::Option<&'static str>,
             default_repr=std::option::Option::None,
         )
     }},
