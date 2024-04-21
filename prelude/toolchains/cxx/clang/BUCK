@@ -1,0 +1,6 @@
+load(":tools.bzl", "path_clang_tools")
+
+path_clang_tools(
+    name = "path_clang_tools",
+    visibility = ["PUBLIC"],
+)
