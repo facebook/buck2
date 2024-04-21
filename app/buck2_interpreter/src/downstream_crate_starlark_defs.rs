@@ -14,6 +14,10 @@ use starlark::environment::GlobalsBuilder;
 pub static REGISTER_BUCK2_BUILD_API_GLOBALS: LateBinding<fn(&mut GlobalsBuilder)> =
     LateBinding::new("REGISTER_BUCK2_BUILD_API_GLOBALS");
 
+/// `__internal__`s defined in `buck2_build_api`.
+pub static REGISTER_BUCK2_BUILD_API_INTERNALS: LateBinding<fn(&mut GlobalsBuilder)> =
+    LateBinding::new("REGISTER_BUCK2_BUILD_API_INTERNALS");
+
 /// Globals defined in `buck2_transitions` crate.
 pub static REGISTER_BUCK2_TRANSITION_GLOBALS: LateBinding<fn(&mut GlobalsBuilder)> =
     LateBinding::new("REGISTER_BUCK2_TRANSITION_GLOBALS");

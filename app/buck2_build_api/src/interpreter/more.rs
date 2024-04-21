@@ -8,6 +8,7 @@
  */
 
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BUILD_API_GLOBALS;
+use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BUILD_API_INTERNALS;
 use starlark::environment::GlobalsBuilder;
 
 use crate::actions::error_handler::register_action_error_handler_for_testing;
@@ -45,9 +46,15 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_artifact_value(globals);
     register_output_artifact(globals);
     register_action_error_types(globals);
+    // TODO(JakobDegen): Remove after bump
+    register_action_error_handler_for_testing(globals);
+}
+
+fn register_build_api_internals(globals: &mut GlobalsBuilder) {
     register_action_error_handler_for_testing(globals);
 }
 
 pub(crate) fn init_register_build_api_globals() {
     REGISTER_BUCK2_BUILD_API_GLOBALS.init(register_build_api_globals);
+    REGISTER_BUCK2_BUILD_API_INTERNALS.init(register_build_api_internals);
 }

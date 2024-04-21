@@ -9,6 +9,7 @@
 
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ANON_TARGETS_GLOBALS;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BUILD_API_GLOBALS;
+use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BUILD_API_INTERNALS;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BXL_GLOBALS;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;
@@ -106,6 +107,11 @@ fn register_all_natives(builder: &mut GlobalsBuilder) {
     }
 }
 
+fn register_all_internals(builder: &mut GlobalsBuilder) {
+    register_internals(builder);
+    from_late_binding(&REGISTER_BUCK2_BUILD_API_INTERNALS, builder);
+}
+
 /// The standard set of globals that is available in all files.
 ///
 /// This does not include the implicit prelude and cell imports which are only available in `BUCK`
@@ -113,7 +119,7 @@ fn register_all_natives(builder: &mut GlobalsBuilder) {
 pub fn base_globals() -> GlobalsBuilder {
     let mut global_env = GlobalsBuilder::standard().with(register_all_natives);
     global_env.struct_("__internal__", |x| {
-        register_internals(x);
+        register_all_internals(x);
     });
     global_env.struct_("__buck2_builtins__", |x| {
         register_all_natives(x);
