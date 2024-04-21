@@ -459,7 +459,7 @@ __extra_rules__ = {
     "versioned_alias": _versioned_alias_macro_stub,
 }
 
-__shimmed_native__ = __struct_to_dict(__internal__)
+__shimmed_native__ = __struct_to_dict(__buck2_builtins__)
 __shimmed_native__.update(__rules__)
 __shimmed_native__.update(_user_rules)
 
