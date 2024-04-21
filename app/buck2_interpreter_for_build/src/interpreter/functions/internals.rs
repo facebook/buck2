@@ -20,8 +20,6 @@ struct BuckFail(String);
 
 /// Registers functions that are only available in the `__internal__` global and not meant to be
 /// stable.
-///
-/// FIXME(JakobDegen): Make the above actually true
 #[starlark_module]
 pub(crate) fn register_internals(builder: &mut GlobalsBuilder) {
     /// `fail()` but implemented using a buck2 error type instead of starlark's, for testing

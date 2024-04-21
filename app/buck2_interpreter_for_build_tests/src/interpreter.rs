@@ -470,7 +470,20 @@ fn test_builtins() -> anyhow::Result<()> {
             def test():
                 assert_eq(__buck2_builtins__.json.encode({}), "{}")
             "#
-    ))
+    ))?;
+
+    // But not internals
+    let mut tester = Tester::new().unwrap();
+    tester.run_starlark_test_expecting_error(
+        indoc!(
+            r#"
+            def test():
+                __buck2_builtins__.internal_buck2_fail("message")
+            "#
+        ),
+        "The attribute `internal_buck2_fail` is not available",
+    );
+    Ok(())
 }
 
 #[test]
