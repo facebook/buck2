@@ -27,8 +27,7 @@ pub mod __macro_refs {
 ///
 /// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
 /// `anyhow::Result<Option<Type>` otherwise.
-#[macro_export]
-macro_rules! buck2_env {
+pub macro buck2_env {
     (register $var:literal, ty=$ty:ty, default=$default: expr) => {
         {
             use $crate::env::macros::__macro_refs::linkme;
@@ -40,7 +39,7 @@ macro_rules! buck2_env {
                 default: $default,
             };
         }
-    };
+    },
     ($var:literal) => {{
         buck2_env!(register $var, ty=std::string::String, default=std::option::Option::None);
         static ENV_HELPER: $crate::env::helper::EnvHelper<std::string::String> =
@@ -48,14 +47,14 @@ macro_rules! buck2_env {
         let v: anyhow::Result<Option<&'static str>> = ENV_HELPER.get()
             .map(|option| option.map(|v| v.as_str()));
         v
-    }};
+    }},
     ($var:literal, type=$ty:ty) => {{
         buck2_env!(register $var, ty=$ty, default=None);
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
             $crate::env::helper::EnvHelper::new_from_macro($var);
         let v: anyhow::Result<Option<$ty>> = ENV_HELPER.get_copied();
         v
-    }};
+    }},
     ($var:literal, type=$ty:ty, default=$default:expr) => {{
         buck2_env!(register $var, ty=$ty, default=std::option::Option::Some(stringify!($default)));
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
@@ -63,18 +62,16 @@ macro_rules! buck2_env {
         let v: anyhow::Result<$ty> = ENV_HELPER.get_copied()
             .map(|option| option.unwrap_or_else(|| $default));
         v
-    }};
+    }},
     ($var:literal, bool) => {{
         let v: anyhow::Result<bool> = buck2_env!($var, type=bool, default=false);
         v
-    }};
+    }},
     ($var:literal, type=$ty:ty, converter=$converter:expr) => {{
         buck2_env!(register $var, ty=$ty, default=std::option::Option::None);
         static ENV_HELPER: $crate::env::helper::EnvHelper<$ty> =
             $crate::env::helper::EnvHelper::with_converter_from_macro($var, $converter);
         let v: anyhow::Result<Option<&$ty>> = ENV_HELPER.get();
         v
-    }};
+    }},
 }
-
-pub use buck2_env;

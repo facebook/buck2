@@ -8,6 +8,7 @@
  */
 
 #![feature(error_generic_member_access)]
+#![feature(decl_macro)]
 #![feature(fs_try_exists)]
 #![feature(never_type)]
 #![feature(pattern)]
@@ -50,6 +51,8 @@ pub mod rollout_percentage;
 pub mod target;
 pub mod target_aliases;
 pub mod unsafe_send_future;
+
+pub use env::macros::buck2_env;
 
 /// Marker for things that are only sensible to use inside Facebook,
 /// not intended to be complete, but intended to be useful to audit
