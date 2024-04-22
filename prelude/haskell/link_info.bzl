@@ -10,6 +10,10 @@ load(
     "CxxToolchainInfo",
 )
 load(
+    "@prelude//haskell:library_info.bzl",
+    "HaskellLibraryInfoTSet",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
@@ -18,8 +22,8 @@ load(
 HaskellLinkInfo = provider(
     # Contains a list of HaskellLibraryInfo records.
     fields = {
-        "info": provider_field(typing.Any, default = None),  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
-        "prof_info": provider_field(typing.Any, default = None),  # dict[LinkStyle, list[HaskellLibraryInfo]] # TODO use a tset
+        "info": provider_field(dict[LinkStyle, HaskellLibraryInfoTSet]),
+        "prof_info": provider_field(dict[LinkStyle, HaskellLibraryInfoTSet]),
     },
 )
 
@@ -31,24 +35,6 @@ HaskellProfLinkInfo = provider(
         "prof_infos": provider_field(typing.Any, default = None),  # MergedLinkInfo
     },
 )
-
-def merge_haskell_link_infos(deps: list[HaskellLinkInfo]) -> HaskellLinkInfo:
-    merged = {}
-    prof_merged = {}
-    for link_style in LinkStyle:
-        children = []
-        prof_children = []
-        for dep in deps:
-            if link_style in dep.info:
-                children.extend(dep.info[link_style])
-
-            if link_style in dep.prof_info:
-                prof_children.extend(dep.prof_info[link_style])
-
-        merged[link_style] = dedupe(children)
-        prof_merged[link_style] = dedupe(prof_children)
-
-    return HaskellLinkInfo(info = merged, prof_info = prof_merged)
 
 def cxx_toolchain_link_style(ctx: AnalysisContext) -> LinkStyle:
     return ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.link_style
