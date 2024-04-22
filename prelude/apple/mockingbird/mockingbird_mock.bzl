@@ -117,13 +117,19 @@ registration_spec = RuleRegistrationSpec(
 #   ]
 # }
 def _get_mockingbird_json_project_description(info: MockingbirdLibraryInfo, included_srcs: list[str], excluded_srcs: list[str]) -> dict:
+    targets = []
+    for record in info.tset.traverse():
+        if record.name == info.name:
+            targets.append(_target_dict_for_mockingbird_record(record = record, included_srcs = included_srcs, excluded_srcs = excluded_srcs, include_non_exported_deps = True))
+        else:
+            targets.append(_target_dict_for_mockingbird_record(record = record, included_srcs = [], excluded_srcs = [], include_non_exported_deps = False))
     json = {
-        "targets": [_target_dict_for_mockingbird_record(record = record, included_srcs = included_srcs, excluded_srcs = excluded_srcs) for record in info.tset.traverse()],
+        "targets": targets,
     }
 
     return json
 
-def _target_dict_for_mockingbird_record(record: MockingbirdLibraryRecord, included_srcs: list[str], excluded_srcs: list[str]) -> dict:
+def _target_dict_for_mockingbird_record(record: MockingbirdLibraryRecord, included_srcs: list[str], excluded_srcs: list[str], include_non_exported_deps: bool) -> dict:
     srcs = []
     if len(included_srcs) > 0 and len(excluded_srcs) > 0:
         fail("Included srcs and excluded srcs cannot both be set at the same time")
@@ -139,8 +145,13 @@ def _target_dict_for_mockingbird_record(record: MockingbirdLibraryRecord, includ
     else:
         srcs = [src.basename for src in record.srcs]
 
+    deps = record.exported_dep_names
+
+    if include_non_exported_deps:
+        deps = deps + record.dep_names
+
     return {
-        "dependencies": record.dep_names,
+        "dependencies": deps,
         "name": record.name,
         "path": record.src_dir,
         "sources": srcs,

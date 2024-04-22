@@ -22,6 +22,8 @@ MockingbirdLibraryInfo = provider(
 MockingbirdLibraryRecord = record(
     # The names of this target's dependencies.
     dep_names = field(list[str]),
+    # The names of this target's exported dependencies.
+    exported_dep_names = field(list[str]),
     # The name of the target.
     name = str,
     # Swift sources in this target.

@@ -157,13 +157,18 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
     if len(swift_sources) == 0:
         return []
 
-    all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
-    deps_mockingbird_infos = filter(None, [dep.get(MockingbirdLibraryInfo) for dep in all_deps])
+    deps_mockingbird_infos = filter(None, [dep.get(MockingbirdLibraryInfo) for dep in cxx_attr_deps(ctx)])
+    exported_deps_mockingbird_infos = filter(None, [dep.get(MockingbirdLibraryInfo) for dep in cxx_attr_exported_deps(ctx)])
 
     children = []
     dep_names = []
+    exported_dep_names = []
     for info in deps_mockingbird_infos:
         dep_names.append(info.name)
+        children.append(info.tset)
+
+    for info in exported_deps_mockingbird_infos:
+        exported_dep_names.append(info.name)
         children.append(info.tset)
 
     mockingbird_srcs_folder = ctx.actions.declare_output("mockingbird_srcs_" + ctx.attrs.name, dir = True)
@@ -177,6 +182,7 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
         name = ctx.attrs.name,
         srcs = [src.file for src in swift_sources],
         dep_names = dep_names,
+        exported_dep_names = exported_dep_names,
         type = MockingbirdTargetType("library"),
         src_dir = mockingbird_srcs_folder,
     )
