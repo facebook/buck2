@@ -640,9 +640,9 @@ def _mk_argsfile(
 
     # Workaround as that's not precompiled, but working just as prefix header.
     # Another thing is that it's clang specific, should be generalized.
-    if ctx.attrs.precompiled_header != None:
+    if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None:
         args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
-    if ctx.attrs.prefix_header != None:
+    if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
         args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
     # Create a copy of the args so that we can continue to modify it later.
