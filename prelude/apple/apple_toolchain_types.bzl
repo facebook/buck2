@@ -56,5 +56,6 @@ AppleToolsInfo = provider(
         "make_modulemap": provider_field(typing.Any, default = None),  # "RunInfo"
         "make_vfsoverlay": provider_field(typing.Any, default = None),  # "RunInfo"
         "swift_objc_header_postprocess": provider_field(typing.Any, default = None),  # "RunInfo"
+        "xcframework_maker": provider_field(RunInfo),
     },
 )

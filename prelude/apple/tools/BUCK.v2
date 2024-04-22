@@ -12,6 +12,13 @@ apple_tools(
     split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
     swift_objc_header_postprocess = ":swift_objc_header_postprocess",
     visibility = ["PUBLIC"],
+    xcframework_maker = ":xcframework_maker",
+)
+
+python_binary(
+    name = "xcframework_maker",
+    main = "xcframework_maker.py",
+    visibility = ["PUBLIC"],
 )
 
 python_binary(

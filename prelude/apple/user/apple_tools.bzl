@@ -22,6 +22,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
             selective_debugging_scrubber = ctx.attrs.selective_debugging_scrubber[RunInfo],
             swift_objc_header_postprocess = ctx.attrs.swift_objc_header_postprocess[RunInfo],
+            xcframework_maker = ctx.attrs.xcframework_maker[RunInfo],
         ),
     ]
 
@@ -42,5 +43,6 @@ registration_spec = RuleRegistrationSpec(
         "selective_debugging_scrubber": attrs.dep(providers = [RunInfo]),
         "split_arch_combine_dsym_bundles_tool": attrs.dep(providers = [RunInfo]),
         "swift_objc_header_postprocess": attrs.dep(providers = [RunInfo]),
+        "xcframework_maker": attrs.dep(providers = [RunInfo]),
     },
 )
