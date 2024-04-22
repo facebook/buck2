@@ -32,13 +32,6 @@ pub struct BuckInfo {
 }
 
 #[derive(Clone, Default)]
-pub struct TDependency {
-    pub smc_tier: String,
-    pub id: String,
-    pub _dot_dot: (),
-}
-
-#[derive(Clone, Default)]
 pub struct RemoteExecutionMetadata {
     pub action_history_info: Option<ActionHistoryInfo>,
     pub buck_info: Option<BuckInfo>,
@@ -46,6 +39,5 @@ pub struct RemoteExecutionMetadata {
     pub platform: Option<TPlatform>,
     pub use_case_id: String,
     pub do_not_cache: bool,
-    pub dependencies: Vec<TDependency>,
     pub _dot_dot: (),
 }

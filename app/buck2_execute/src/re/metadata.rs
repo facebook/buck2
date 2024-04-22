@@ -11,7 +11,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_events::dispatch::get_dispatcher_opt;
 use remote_execution::ActionHistoryInfo;
 use remote_execution::BuckInfo;
-use remote_execution::HostResourceRequirements;
 use remote_execution::RemoteExecutionMetadata;
 
 use crate::re::action_identity::ReActionIdentity;
@@ -36,11 +35,6 @@ impl RemoteExecutionMetadataExt for RemoteExecutorUseCase {
             action_history_info: identity.map(|identity| ActionHistoryInfo {
                 action_key: identity.action_key.clone(),
                 disable_retry_on_oom: false,
-                ..Default::default()
-            }),
-            host_resource_requirements: identity.map(|identity| HostResourceRequirements {
-                affinity_keys: vec![identity.affinity_key.clone()],
-                input_files_bytes: identity.paths.input_files_bytes() as i64,
                 ..Default::default()
             }),
             ..Default::default()

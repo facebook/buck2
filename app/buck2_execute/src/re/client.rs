@@ -55,6 +55,8 @@ use remote_execution::TCode;
 use remote_execution::TDependency;
 use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
+use remote_execution::THostResourceRequirements;
+use remote_execution::THostRuntimeRequirements;
 use remote_execution::UploadRequest;
 use remote_execution::WriteActionResultRequest;
 use remote_execution::WriteActionResultResponse;
@@ -990,20 +992,31 @@ impl RemoteExecutionClientImpl {
                 build_id: identity.trace_id.to_string(),
                 ..Default::default()
             }),
-            dependencies: dependencies
-                .into_iter()
-                .map(|dep| TDependency {
-                    smc_tier: dep.smc_tier.clone(),
-                    id: dep.id.clone(),
-                    ..Default::default()
-                })
-                .collect(),
             ..use_case.metadata(Some(identity))
         };
         let request = ExecuteRequest {
             skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
-            execution_policy: Some(TExecutionPolicy::default()),
+            execution_policy: Some(TExecutionPolicy {
+                affinity_keys: vec![identity.affinity_key.clone()],
+                ..Default::default()
+            }),
             action_digest: action_digest.to_re(),
+            host_runtime_requirements: THostRuntimeRequirements {
+                platform: re_platform(platform),
+                host_resource_requirements: THostResourceRequirements {
+                    input_files_bytes: identity.paths.input_files_bytes() as i64,
+                    ..Default::default()
+                },
+                dependencies: dependencies
+                    .into_iter()
+                    .map(|dep| TDependency {
+                        smc_tier: dep.smc_tier.clone(),
+                        id: dep.id.clone(),
+                        ..Default::default()
+                    })
+                    .collect(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         self.execute_impl(

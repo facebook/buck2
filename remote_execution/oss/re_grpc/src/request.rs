@@ -8,6 +8,7 @@
  */
 
 pub use crate::digest::*;
+use crate::grpc::Platform as TPlatform;
 use crate::response::TActionResult2;
 
 #[derive(Default)]
@@ -85,12 +86,38 @@ pub struct ExecuteRequest {
     pub action_digest: TDigest,
     pub skip_cache_lookup: bool,
     pub execution_policy: Option<TExecutionPolicy>,
+    pub host_runtime_requirements: THostRuntimeRequirements,
+    pub _dot_dot: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TDependency {
+    pub smc_tier: String,
+    pub id: String,
     pub _dot_dot: (),
 }
 
 #[derive(Clone, Default)]
 pub struct TExecutionPolicy {
     pub priority: i32,
+    pub affinity_keys: Vec<String>,
+    pub _dot_dot: (),
+}
+
+#[derive(Clone, Default)]
+pub struct THostResourceRequirements {
+    pub mem_bytes: i64,
+    pub cpu_units: i64,
+    pub input_files_bytes: i64,
+    pub resource_units: i64,
+    pub _dot_dot: (),
+}
+
+#[derive(Clone, Default)]
+pub struct THostRuntimeRequirements {
+    pub platform: TPlatform,
+    pub host_resource_requirements: THostResourceRequirements,
+    pub dependencies: Vec<TDependency>,
     pub _dot_dot: (),
 }
 
