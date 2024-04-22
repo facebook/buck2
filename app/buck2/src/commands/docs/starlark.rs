@@ -15,6 +15,7 @@ use buck2_cli_proto::UnstableDocsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -39,16 +40,7 @@ enum DocsOutputFormatArg {
 )]
 pub(crate) struct DocsStarlarkCommand {
     #[clap(flatten)]
-    pub config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    pub starlark_opts: CommonStarlarkOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
     markdown_file_opts: MarkdownFileOptions,
@@ -124,7 +116,8 @@ impl StreamingCommand for DocsStarlarkCommand {
                     markdown_starlark_subdir: self.markdown_file_opts.starlark_subdir.clone(),
                     markdown_native_subdir: self.markdown_file_opts.native_subdir.clone(),
                 },
-                ctx.stdin().console_interaction_stream(&self.console_opts),
+                ctx.stdin()
+                    .console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;
@@ -137,18 +130,18 @@ impl StreamingCommand for DocsStarlarkCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
+        &self.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+        &self.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
+        &self.common_opts.config_opts
     }
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions {
-        &self.starlark_opts
+        &self.common_opts.starlark_opts
     }
 }
