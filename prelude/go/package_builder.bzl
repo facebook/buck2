@@ -73,7 +73,7 @@ def build_package(
     ])
     importcfg = make_importcfg(ctx, pkg_name, all_pkgs, with_importmap = True)
 
-    def f(ctx: AnalysisContext, artifacts, outputs, go_list_out = go_list_out):
+    def f(ctx: AnalysisContext, artifacts, _, outputs, go_list_out = go_list_out):
         go_list = parse_go_list_out(srcs, package_root, artifacts[go_list_out])
 
         symabis = _symabis(ctx, pkg_name, go_list.s_files, assembler_flags, shared)
