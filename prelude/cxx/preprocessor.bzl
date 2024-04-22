@@ -149,15 +149,6 @@ CPreprocessorForTestsInfo = provider(
     },
 )
 
-# Preprocessor flags
-def cxx_attr_preprocessor_flags(ctx: AnalysisContext, ext: str) -> list[typing.Any]:
-    return (
-        ctx.attrs.preprocessor_flags +
-        cxx_by_language_ext(ctx.attrs.lang_preprocessor_flags, ext) +
-        flatten(cxx_by_platform(ctx, ctx.attrs.platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext)))
-    )
-
 def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return (
         ctx.attrs.exported_preprocessor_flags +

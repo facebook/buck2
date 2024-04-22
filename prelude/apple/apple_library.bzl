@@ -355,6 +355,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
         lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
+        preprocessor_flags = ctx.attrs.preprocessor_flags,
+        lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
+        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
+        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
     )
 
 def _get_extra_linker_flags_and_outputs(

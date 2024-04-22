@@ -156,6 +156,10 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
             lang_compiler_flags = ctx.attrs.lang_compiler_flags,
             platform_compiler_flags = ctx.attrs.platform_compiler_flags,
             lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
+            preprocessor_flags = ctx.attrs.preprocessor_flags,
+            lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
+            platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
+            lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         ),
         # Create private header tree and propagate via args.
         [own_pre, cgo_headers_pre],

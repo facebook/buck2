@@ -195,6 +195,10 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
         lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
+        preprocessor_flags = ctx.attrs.preprocessor_flags,
+        lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
+        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
+        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -250,6 +254,10 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
         lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
+        preprocessor_flags = ctx.attrs.preprocessor_flags,
+        lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
+        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
+        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
     )
     output = cxx_executable(ctx, params)
 
@@ -669,6 +677,10 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
         lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
+        preprocessor_flags = ctx.attrs.preprocessor_flags,
+        lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
+        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
+        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

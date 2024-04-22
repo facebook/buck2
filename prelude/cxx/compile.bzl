@@ -38,7 +38,6 @@ load(
     ":preprocessor.bzl",
     "CPreprocessor",  # @unused Used as a type
     "CPreprocessorInfo",  # @unused Used as a type
-    "cxx_attr_preprocessor_flags",
     "cxx_merge_cpreprocessors",
     "get_flags_for_compiler_type",
 )
@@ -634,7 +633,7 @@ def _mk_argsfile(
     if preprocessor.set.reduce("uses_modules"):
         args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
 
-    args.add(cxx_attr_preprocessor_flags(ctx, ext.value))
+    args.add(_preprocessor_flags(ctx, impl_params, ext.value))
     args.add(get_flags_for_compiler_type(compiler_info.compiler_type))
     args.add(_compiler_flags(ctx, impl_params, ext.value))
     args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
@@ -686,6 +685,14 @@ def _compiler_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams,
         # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
         # flags ordering-dependent build errors
         impl_params.compiler_flags
+    )
+
+def _preprocessor_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> list[typing.Any]:
+    return (
+        impl_params.preprocessor_flags +
+        cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext) +
+        flatten(cxx_by_platform(ctx, impl_params.platform_preprocessor_flags)) +
+        flatten(cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext)))
     )
 
 def _get_dep_tracking_mode(toolchain: Provider, file_type: DepFileType) -> DepTrackingMode:

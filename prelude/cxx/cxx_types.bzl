@@ -196,11 +196,16 @@ CxxRuleConstructorParams = record(
     shared_library_interface_target = field([str, None], None),
     # Extra shared library interfaces to propagate, eg from mixed Swift libraries.
     extra_shared_library_interfaces = field([list[Artifact], None], None),
-    preprocessor_flags = field(list[typing.Any], []),
     # Compiler flags
     compiler_flags = field(list[typing.Any], []),
     lang_compiler_flags = field(dict[typing.Any, typing.Any], {}),
     # Platform compiler flags
     platform_compiler_flags = field(list[(str, typing.Any)], []),
     lang_platform_compiler_flags = field(dict[typing.Any, typing.Any], {}),
+    # Preprocessor flags
+    preprocessor_flags = field(list[typing.Any], []),
+    lang_preprocessor_flags = field(dict[typing.Any, typing.Any], {}),
+    # Platform preprocessor flags
+    platform_preprocessor_flags = field(list[(str, typing.Any)], []),
+    lang_platform_preprocessor_flags = field(dict[typing.Any, typing.Any], {}),
 )

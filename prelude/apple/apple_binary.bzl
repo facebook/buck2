@@ -150,6 +150,10 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             lang_compiler_flags = ctx.attrs.lang_compiler_flags,
             platform_compiler_flags = ctx.attrs.platform_compiler_flags,
             lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
+            preprocessor_flags = ctx.attrs.preprocessor_flags,
+            lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
+            platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
+            lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
