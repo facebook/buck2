@@ -16,6 +16,7 @@ use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::ui::ConsoleType;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
@@ -40,6 +41,9 @@ use once_cell::sync::Lazy;
 pub struct StarlarkDebugAttachCommand {
     #[clap(flatten)]
     config_opts: CommonBuildConfigurationOptions,
+
+    #[clap(flatten)]
+    starlark_opts: CommonStarlarkOptions,
 
     #[clap(flatten)]
     event_log_opts: CommonDaemonCommandOptions,
@@ -124,6 +128,10 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
+    }
+
+    fn starlark_opts(&self) -> &CommonStarlarkOptions {
+        &self.starlark_opts
     }
 
     fn should_expect_spans(&self) -> bool {

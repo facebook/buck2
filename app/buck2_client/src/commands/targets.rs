@@ -18,6 +18,7 @@ use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::common::PrintOutputsFormat;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
@@ -362,6 +363,10 @@ impl StreamingCommand for TargetsCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.common_opts.config_opts
+    }
+
+    fn starlark_opts(&self) -> &CommonStarlarkOptions {
+        &self.common_opts.starlark_opts
     }
 }
 

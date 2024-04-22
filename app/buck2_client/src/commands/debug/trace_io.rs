@@ -17,6 +17,7 @@ use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::connect::DesiredTraceIoState;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
@@ -176,5 +177,9 @@ impl StreamingCommand for TraceIoCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         CommonBuildConfigurationOptions::default_ref()
+    }
+
+    fn starlark_opts(&self) -> &CommonStarlarkOptions {
+        CommonStarlarkOptions::default_ref()
     }
 }

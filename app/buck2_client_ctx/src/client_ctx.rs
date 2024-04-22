@@ -116,6 +116,7 @@ impl<'a> ClientCommandContext<'a> {
     ) -> anyhow::Result<ClientContext> {
         // TODO(cjhopman): Support non unicode paths?
         let config_opts = cmd.common_opts();
+        let starlark_opts = cmd.starlark_opts();
         Ok(ClientContext {
             config_overrides: config_opts.config_overrides(arg_matches)?,
             host_platform: match config_opts.host_platform_override() {
@@ -132,9 +133,9 @@ impl<'a> ClientCommandContext<'a> {
             }
             .into(),
             host_xcode_version: config_opts.host_xcode_version_override(),
-            disable_starlark_types: config_opts.disable_starlark_types,
-            unstable_typecheck: config_opts.unstable_typecheck,
-            skip_targets_with_duplicate_names: config_opts.skip_targets_with_duplicate_names,
+            disable_starlark_types: starlark_opts.disable_starlark_types,
+            unstable_typecheck: starlark_opts.unstable_typecheck,
+            skip_targets_with_duplicate_names: starlark_opts.skip_targets_with_duplicate_names,
             reuse_current_config: config_opts.reuse_current_config,
             sanitized_argv: cmd.sanitize_argv(self.argv.clone()).argv,
             exit_when_different_state: config_opts.exit_when_different_state,
@@ -144,7 +145,7 @@ impl<'a> ClientCommandContext<'a> {
                 .iter()
                 .map(|path| path.to_string())
                 .collect(),
-            target_call_stacks: config_opts.target_call_stacks,
+            target_call_stacks: starlark_opts.target_call_stacks,
             ..self.empty_client_context(cmd.logging_name())?
         })
     }

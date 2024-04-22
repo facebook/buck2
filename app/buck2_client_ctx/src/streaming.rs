@@ -19,6 +19,7 @@ use crate::client_ctx::ClientCommandContext;
 use crate::common::ui::CommonConsoleOptions;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonDaemonCommandOptions;
+use crate::common::CommonStarlarkOptions;
 use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::connect::DaemonConstraintsRequest;
@@ -118,6 +119,8 @@ pub trait StreamingCommand: Sized + Send + Sync {
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions;
+
+    fn starlark_opts(&self) -> &CommonStarlarkOptions;
 
     fn extra_subscribers(&self) -> Vec<Box<dyn EventSubscriber>> {
         vec![]

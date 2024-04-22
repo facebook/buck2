@@ -16,6 +16,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -39,6 +40,9 @@ enum DocsOutputFormatArg {
 pub(crate) struct DocsStarlarkCommand {
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
+
+    #[clap(flatten)]
+    pub starlark_opts: CommonStarlarkOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -142,5 +146,9 @@ impl StreamingCommand for DocsStarlarkCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
+    }
+
+    fn starlark_opts(&self) -> &CommonStarlarkOptions {
+        &self.starlark_opts
     }
 }

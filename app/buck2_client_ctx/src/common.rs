@@ -139,32 +139,6 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long, value_name = "VERSION-BUILD")]
     fake_xcode_version: Option<String>,
 
-    /// Disable runtime type checking in Starlark interpreter.
-    ///
-    /// This option is not stable, and can be used only locally
-    /// to diagnose evaluation performance problems.
-    #[clap(long)]
-    pub disable_starlark_types: bool,
-
-    /// Typecheck bzl and bxl files during evaluation.
-    #[clap(long, hide = true)]
-    pub unstable_typecheck: bool,
-
-    /// Record or show target call stacks.
-    ///
-    /// Starlark call stacks will be included in duplicate targets error.
-    ///
-    /// If a command outputs targets (like `targets` command),
-    /// starlark call stacks will be printed after the targets.
-    #[clap(long = "stack")]
-    pub target_call_stacks: bool,
-
-    /// If there are targets with duplicate names in `BUCK` file,
-    /// skip all the duplicates but the first one.
-    /// This is a hack for TD. Do not use this option.
-    #[clap(long)]
-    pub(crate) skip_targets_with_duplicate_names: bool,
-
     /// Re-uses any `--config` values (inline or via modefiles) if there's
     /// a previous command, otherwise the flag is ignored.
     ///
@@ -278,12 +252,50 @@ impl CommonBuildConfigurationOptions {
             fake_host: None,
             fake_arch: None,
             fake_xcode_version: None,
+
+            reuse_current_config: false,
+            exit_when_different_state: false,
+        };
+        &DEFAULT
+    }
+}
+
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+pub struct CommonStarlarkOptions {
+    /// Disable runtime type checking in Starlark interpreter.
+    ///
+    /// This option is not stable, and can be used only locally
+    /// to diagnose evaluation performance problems.
+    #[clap(long)]
+    pub disable_starlark_types: bool,
+
+    /// Typecheck bzl and bxl files during evaluation.
+    #[clap(long, hide = true)]
+    pub unstable_typecheck: bool,
+
+    /// Record or show target call stacks.
+    ///
+    /// Starlark call stacks will be included in duplicate targets error.
+    ///
+    /// If a command outputs targets (like `targets` command),
+    /// starlark call stacks will be printed after the targets.
+    #[clap(long = "stack")]
+    pub target_call_stacks: bool,
+
+    /// If there are targets with duplicate names in `BUCK` file,
+    /// skip all the duplicates but the first one.
+    /// This is a hack for TD. Do not use this option.
+    #[clap(long)]
+    pub(crate) skip_targets_with_duplicate_names: bool,
+}
+
+impl CommonStarlarkOptions {
+    pub fn default_ref() -> &'static Self {
+        static DEFAULT: CommonStarlarkOptions = CommonStarlarkOptions {
             disable_starlark_types: false,
             unstable_typecheck: false,
             target_call_stacks: false,
             skip_targets_with_duplicate_names: false,
-            reuse_current_config: false,
-            exit_when_different_state: false,
         };
         &DEFAULT
     }
@@ -296,6 +308,10 @@ pub struct CommonCommandOptions {
     /// Buckconfig and similar options.
     #[clap(flatten)]
     pub config_opts: CommonBuildConfigurationOptions,
+
+    /// Starlark options.
+    #[clap(flatten)]
+    pub starlark_opts: CommonStarlarkOptions,
 
     /// UI options.
     #[clap(flatten)]

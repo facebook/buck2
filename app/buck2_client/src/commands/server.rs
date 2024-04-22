@@ -12,6 +12,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -45,5 +46,9 @@ impl StreamingCommand for ServerCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         CommonBuildConfigurationOptions::default_ref()
+    }
+
+    fn starlark_opts(&self) -> &CommonStarlarkOptions {
+        CommonStarlarkOptions::default_ref()
     }
 }
