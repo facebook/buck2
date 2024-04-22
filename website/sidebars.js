@@ -205,7 +205,6 @@ const manualSidebar = [
       },
       isInternal() ? 'developers/developers' : [],
       isInternal() ? 'developers/heap_profiling' : [],
-      'developers/parity_script',
       'developers/what-ran',
       {
         type: 'category',
