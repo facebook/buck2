@@ -34,73 +34,118 @@ where
 ///    not set.
 ///  - `converter=<expr>` - a function to use as an alternative to the `FromStr::from_str`
 ///    conversion. Must have signature `fn(&str) -> Result<Ty, E>`
+///  - `applicability=<internal|testing>` - to indicate that the variable is not used in OSS or only
+///    for self-testing of buck2
 ///
 /// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env {
-    ($var:literal, bool) => {{
+    ($var:literal, bool $(, $($rest:tt)*)?) => {{
         let v: anyhow::Result<bool> = $crate::env::macros::buck2_env!($var, type=bool, default=false);
         v
     }},
-    ($var:literal, type=$ty:ty, default=$default:expr) => {{
-        $crate::env::macros::expand!(
+    ($var:literal, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{
+        $crate::env::macros::parse2!(
+            (
             var=$var,
             parser=$crate::env::macros::convert_from_str,
             stored_type=$ty,
             processor=|x| x.copied().unwrap_or_else(|| $default),
             output_type=$ty,
             default_repr=std::option::Option::Some(stringify!($default)),
+            ),
+            $($($rest)*)?
         )
     }},
-    ($var:literal, type=$ty:ty, converter=$converter:expr) => {{
-        $crate::env::macros::expand!(
+    ($var:literal, type=$ty:ty, converter=$converter:expr $(, $($rest:tt)*)?) => {{
+        $crate::env::macros::parse2!(
+            (
             var=$var,
             parser=$converter,
             stored_type=$ty,
             processor=|x| x,
             output_type=std::option::Option<&$ty>,
             default_repr=std::option::Option::None,
+            ),
+            $($($rest)*)?
         )
     }},
-    ($var:literal, type=$ty:ty) => {{
-        $crate::env::macros::expand!(
+    ($var:literal, type=$ty:ty $(, $($rest:tt)*)?) => {{
+        $crate::env::macros::parse2!(
+            (
             var=$var,
             parser=$crate::env::macros::convert_from_str,
             stored_type=$ty,
             processor=|x| x.copied(),
             output_type=std::option::Option<$ty>,
             default_repr=std::option::Option::None,
+            ),
+            $($($rest)*)?
         )
     }},
-    ($var:literal) => {{
-        $crate::env::macros::expand!(
+    ($var:literal $(, $($rest:tt)*)?) => {{
+        $crate::env::macros::parse2!(
+            (
             var=$var,
             parser=$crate::env::macros::convert_from_str,
             stored_type=std::string::String,
             processor=|x| x.map(|x| x.as_str()),
             output_type=std::option::Option<&'static str>,
             default_repr=std::option::Option::None,
+            ),
+            $($($rest)*)?
         )
     }},
 }
 
+pub macro parse2 {
+    (
+        $already_parsed:tt,
+        applicability=internal$(,)?
+    ) => {
+        $crate::env::macros::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Internal,)
+    },
+    (
+        $already_parsed:tt,
+        applicability=testing$(,)?
+    ) => {
+        $crate::env::macros::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Testing,)
+    },
+    (
+        $already_parsed:tt,
+        $(,)?
+    ) => {
+        $crate::env::macros::expand!($already_parsed, applicability=$crate::env::registry::Applicability::All,)
+    },
+}
+
 /// `parser` is `&str -> anyhow::Result<$stored_type>`, `processor` is `Option<& $stored_type> -> $output_type`
+///
+/// The extra set of parentheses is a trick to let us pass things through `parse2` transparently
 pub macro expand(
+    (
     var=$var:literal,
     parser=$parser:expr,
     stored_type=$stored_ty:ty,
     processor=$processor:expr,
     output_type=$output_ty:ty,
     default_repr=$default_repr:expr,
+    ),
+    applicability=$applicability:expr,
 ) {{
-    $crate::env::macros::register!($var, ty = $stored_ty, default = $default_repr);
+    $crate::env::macros::register!(
+        $var,
+        ty = $stored_ty,
+        default = $default_repr,
+        applicability = $applicability
+    );
     static ENV_HELPER: $crate::env::helper::EnvHelper<$stored_ty> =
         $crate::env::helper::EnvHelper::with_converter_from_macro($var, $parser);
     let v: anyhow::Result<$output_ty> = ENV_HELPER.get().map($processor);
     v
 }}
 
-pub macro register($var:literal, ty=$ty:ty, default=$default:expr) {{
+pub macro register($var:literal, ty=$ty:ty, default=$default:expr, applicability=$applicability:expr) {{
     use $crate::env::macros::linkme;
     #[linkme::distributed_slice($crate::env::registry::ENV_INFO)]
     #[linkme(crate = $crate::env::macros::linkme)]
@@ -108,5 +153,6 @@ pub macro register($var:literal, ty=$ty:ty, default=$default:expr) {{
         name: $var,
         ty: stringify!($ty),
         default: $default,
+        applicability: $applicability,
     };
 }}
