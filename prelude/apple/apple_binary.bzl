@@ -146,6 +146,10 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             # Some apple rules rely on `static` libs *not* following dependents.
             link_groups_force_static_follows_dependents = False,
             swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
+            compiler_flags = ctx.attrs.compiler_flags,
+            lang_compiler_flags = ctx.attrs.lang_compiler_flags,
+            platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+            lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 

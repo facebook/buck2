@@ -119,6 +119,10 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         use_soname = False,
         generate_providers = cxx_providers,
         generate_sub_targets = sub_targets,
+        compiler_flags = ctx.attrs.compiler_flags,
+        lang_compiler_flags = ctx.attrs.lang_compiler_flags,
+        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)

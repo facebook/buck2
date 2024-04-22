@@ -191,6 +191,10 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         output_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         generate_sub_targets = sub_target_params,
         generate_providers = provider_params,
+        compiler_flags = ctx.attrs.compiler_flags,
+        lang_compiler_flags = ctx.attrs.lang_compiler_flags,
+        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -242,6 +246,10 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
         exe_allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
         extra_link_roots = linkables(ctx.attrs.link_group_deps),
+        compiler_flags = ctx.attrs.compiler_flags,
+        lang_compiler_flags = ctx.attrs.lang_compiler_flags,
+        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
     )
     output = cxx_executable(ctx, params)
 
@@ -657,6 +665,10 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
         extra_link_roots = linkables(ctx.attrs.link_group_deps),
+        compiler_flags = ctx.attrs.compiler_flags,
+        lang_compiler_flags = ctx.attrs.lang_compiler_flags,
+        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

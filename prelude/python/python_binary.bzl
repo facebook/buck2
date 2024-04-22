@@ -619,6 +619,10 @@ def _convert_python_library_to_executable(
                 linkables(ctx.attrs.link_group_deps)
             ),
             exe_allow_cache_upload = allow_cache_upload,
+            compiler_flags = ctx.attrs.compiler_flags,
+            lang_compiler_flags = ctx.attrs.lang_compiler_flags,
+            platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+            lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         )
 
         executable_info = cxx_executable(ctx, impl_params)

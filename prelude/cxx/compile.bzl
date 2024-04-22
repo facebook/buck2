@@ -327,7 +327,7 @@ def create_compile_cmds(
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(ctx, pre, headers_tag, abs_headers_tag, ext)
+        cmd = _generate_base_compile_command(ctx, impl_params, pre, headers_tag, abs_headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         abs_argsfile_by_ext[ext.value] = cmd.abs_argsfile
@@ -611,6 +611,7 @@ def _add_compiler_info_flags(ctx: AnalysisContext, compiler_info: typing.Any, ex
 
 def _mk_argsfile(
         ctx: AnalysisContext,
+        impl_params: CxxRuleConstructorParams,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
@@ -635,7 +636,7 @@ def _mk_argsfile(
 
     args.add(cxx_attr_preprocessor_flags(ctx, ext.value))
     args.add(get_flags_for_compiler_type(compiler_info.compiler_type))
-    args.add(_attr_compiler_flags(ctx, ext.value))
+    args.add(_compiler_flags(ctx, impl_params, ext.value))
     args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
 
     # Workaround as that's not precompiled, but working just as prefix header.
@@ -677,14 +678,14 @@ def _mk_argsfile(
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
-def _attr_compiler_flags(ctx: AnalysisContext, ext: str) -> list[typing.Any]:
+def _compiler_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> list[typing.Any]:
     return (
-        cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext) +
-        flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_compiler_flags, ext))) +
+        cxx_by_language_ext(impl_params.lang_compiler_flags, ext) +
+        flatten(cxx_by_platform(ctx, impl_params.platform_compiler_flags)) +
+        flatten(cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext))) +
         # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
         # flags ordering-dependent build errors
-        ctx.attrs.compiler_flags
+        impl_params.compiler_flags
     )
 
 def _get_dep_tracking_mode(toolchain: Provider, file_type: DepFileType) -> DepTrackingMode:
@@ -697,6 +698,7 @@ def _get_dep_tracking_mode(toolchain: Provider, file_type: DepFileType) -> DepTr
 
 def _generate_base_compile_command(
         ctx: AnalysisContext,
+        impl_params: CxxRuleConstructorParams,
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
         abs_headers_tag: ArtifactTag,
@@ -723,8 +725,8 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
-    argsfile = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag, False)
-    abs_argsfile = _mk_argsfile(ctx, compiler_info, pre, ext, abs_headers_tag, True)
+    argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, headers_tag, False)
+    abs_argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, abs_headers_tag, True)
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
     return _CxxCompileCommand(
