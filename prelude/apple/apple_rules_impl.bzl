@@ -13,6 +13,7 @@ load(
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
+load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_extra_attrs")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
@@ -226,6 +227,7 @@ extra_attributes = {
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
     "apple_universal_executable": _apple_universal_executable_extra_attrs(),
+    "apple_xcframework": apple_xcframework_extra_attrs(),
     "apple_xcuitest": apple_xcuitest_extra_attrs(),
     "core_data_model": {
         "module": attrs.option(attrs.string(), default = None),

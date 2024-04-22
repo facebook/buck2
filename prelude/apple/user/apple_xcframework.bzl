@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _impl(_: AnalysisContext) -> list[Provider]:
@@ -18,3 +19,9 @@ registration_spec = RuleRegistrationSpec(
     attrs = {
     },
 )
+
+def apple_xcframework_extra_attrs():
+    attribs = {
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+    }
+    return attribs
