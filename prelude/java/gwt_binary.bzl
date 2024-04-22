@@ -57,6 +57,8 @@ def gwt_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(gwt_args, category = "gwt_binary")
 
+    sub_targets = {"deploy": [DefaultInfo(default_output = deploy_output)]}
+
     return [
-        DefaultInfo(default_output = output),
+        DefaultInfo(default_output = output, sub_targets = sub_targets),
     ]
