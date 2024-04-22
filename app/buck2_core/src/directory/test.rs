@@ -32,6 +32,8 @@ struct TestDigest(u64);
 
 impl DirectoryDigest for TestDigest {}
 
+impl InternableDirectoryDigest for TestDigest {}
+
 impl DirectoryHasher<NopEntry, TestDigest> for TestHasher {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest
     where

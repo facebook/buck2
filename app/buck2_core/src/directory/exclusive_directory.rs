@@ -23,6 +23,7 @@ use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
 use super::ImmutableDirectory;
 use super::SharedDirectory;
+use crate::directory::InternableDirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 
@@ -39,7 +40,7 @@ where
 
 impl<L, H> ExclusiveDirectory<L, H>
 where
-    H: DirectoryDigest,
+    H: InternableDirectoryDigest,
 {
     pub fn shared(self, interner: &DashMapDirectoryInterner<L, H>) -> SharedDirectory<L, H> {
         if let Some(shared) = interner.get(self.fingerprint()) {
@@ -65,7 +66,12 @@ where
 
         interner.intern(new_data)
     }
+}
 
+impl<L, H> ExclusiveDirectory<L, H>
+where
+    H: DirectoryDigest,
+{
     pub fn into_entries<C>(self) -> C
     where
         C: FromIterator<(FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>)>,

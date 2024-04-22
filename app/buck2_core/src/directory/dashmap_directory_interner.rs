@@ -22,6 +22,7 @@ use super::DirectoryDigest;
 use super::SharedDirectory;
 use super::SharedDirectoryData;
 use super::SharedDirectoryInner;
+use crate::directory::InternableDirectoryDigest;
 
 #[derive(Dupe_, Clone_, Allocative)]
 pub struct DashMapDirectoryInterner<L, H>
@@ -33,7 +34,7 @@ where
 
 impl<L, H> DashMapDirectoryInterner<L, H>
 where
-    H: DirectoryDigest,
+    H: InternableDirectoryDigest,
 {
     pub fn new() -> Self {
         Self {
@@ -92,7 +93,16 @@ where
 
         SharedDirectory { inner: new_inner }
     }
+}
 
+impl<L, H> DashMapDirectoryInterner<L, H>
+where
+    // Note: We "should" require `H: InternableDirectoryDigest` here; however, we can't do that
+    // because `Drop` impls having to be always-applicable would force us to require `H:
+    // InternableDirectoryDigest` on `ImmutableDirectory`. This should still be ok though, because
+    // you can't create a `SharedDirectory` for which that trait bound is not met.
+    H: DirectoryDigest,
+{
     /// Notify the interner that an entry has been removed.
     pub fn dropped(&self, data: &SharedDirectoryData<L, H>) {
         // Note: we still check the count here, since you could hypothetically have a race where

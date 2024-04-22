@@ -21,6 +21,7 @@ use super::ExclusiveDirectory;
 use super::FingerprintedDirectory;
 use super::FingerprintedDirectoryEntries;
 use super::SharedDirectory;
+use crate::directory::InternableDirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 
@@ -37,7 +38,7 @@ where
 
 impl<L, H> ImmutableDirectory<L, H>
 where
-    H: DirectoryDigest,
+    H: InternableDirectoryDigest,
 {
     pub fn shared(self, interner: &DashMapDirectoryInterner<L, H>) -> SharedDirectory<L, H> {
         match self {
@@ -45,7 +46,12 @@ where
             Self::Shared(dir) => dir,
         }
     }
+}
 
+impl<L, H> ImmutableDirectory<L, H>
+where
+    H: DirectoryDigest,
+{
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {
         match self {
             Self::Exclusive(d) => d.into_builder(),

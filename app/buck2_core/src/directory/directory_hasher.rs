@@ -24,6 +24,12 @@ pub trait DirectoryDigest:
 {
 }
 
+/// Indicates that this type of digest is suitable for use for interning.
+///
+/// Specifically, this is not implemented for `NoDigest`, as that returns the same `()` digest for
+/// all directories.
+pub trait InternableDirectoryDigest: DirectoryDigest {}
+
 // TODO: Rename to DirectoryDigester
 pub trait DirectoryHasher<L, H> {
     fn hash_entries<'a, D, I>(&self, entries: I) -> H

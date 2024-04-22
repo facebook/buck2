@@ -40,6 +40,7 @@ pub use directory::DirectoryEntries;
 pub use directory_data::DirectoryData;
 pub use directory_hasher::DirectoryDigest;
 pub use directory_hasher::DirectoryHasher;
+pub use directory_hasher::InternableDirectoryDigest;
 pub use directory_hasher::NoDigest;
 pub use directory_hasher::NoDigestDigester;
 pub use directory_iterator::DirectoryIterator;
