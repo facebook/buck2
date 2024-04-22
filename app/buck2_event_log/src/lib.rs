@@ -30,12 +30,16 @@ pub fn should_upload_log() -> anyhow::Result<bool> {
     if buck2_core::is_open_source() {
         return Ok(false);
     }
-    Ok(!buck2_env!("BUCK2_TEST_DISABLE_LOG_UPLOAD", bool)?)
+    Ok(!buck2_env!(
+        "BUCK2_TEST_DISABLE_LOG_UPLOAD",
+        bool,
+        applicability = testing
+    )?)
 }
 
 pub fn should_block_on_log_upload() -> anyhow::Result<bool> {
     // `BUCK2_TEST_BLOCK_ON_UPLOAD` is used by our tests.
-    Ok(is_ci()? || buck2_env!("BUCK2_TEST_BLOCK_ON_UPLOAD", bool)?)
+    Ok(is_ci()? || buck2_env!("BUCK2_TEST_BLOCK_ON_UPLOAD", bool, applicability = internal)?)
 }
 
 /// Wait for the child to finish. Assume its stderr was piped.

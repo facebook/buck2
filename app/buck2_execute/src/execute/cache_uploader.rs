@@ -34,7 +34,11 @@ pub struct CacheUploadResult {
 
 // This is for quick testing of cache upload without configuring executors.
 pub fn force_cache_upload() -> anyhow::Result<bool> {
-    buck2_env!("BUCK2_TEST_FORCE_CACHE_UPLOAD", bool)
+    buck2_env!(
+        "BUCK2_TEST_FORCE_CACHE_UPLOAD",
+        bool,
+        applicability = testing
+    )
 }
 
 /// A single purpose trait to handle cache uploads

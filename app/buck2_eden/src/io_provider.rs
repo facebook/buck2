@@ -77,7 +77,8 @@ impl EdenIoProvider {
             return Ok(None);
         };
 
-        let eden_semaphore = buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048)?;
+        let eden_semaphore =
+            buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)?;
 
         let manager =
             match EdenConnectionManager::new(fb, fs.root(), Semaphore::new(eden_semaphore))? {

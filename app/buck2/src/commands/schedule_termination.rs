@@ -29,7 +29,7 @@ fn elapsed_cpu_time_as_percents(
 /// Our tests sometimes don't exit Buck 2 cleanly, and they might not get an oppportunity to do so
 /// if they are terminated. This allows the daemon to self-destruct.
 pub(crate) fn maybe_schedule_termination() -> anyhow::Result<()> {
-    if let Some(duration) = buck2_env!("BUCK2_TERMINATE_AFTER", type=u64)? {
+    if let Some(duration) = buck2_env!("BUCK2_TERMINATE_AFTER", type=u64, applicability=testing)? {
         thread_spawn("buck2-terminate-after", move || {
             const MEASURE_CPU_TIME_FOR: u64 = 10;
             let (sleep_before, sleep_after) = match duration.checked_sub(MEASURE_CPU_TIME_FOR) {

@@ -60,7 +60,11 @@ use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 fn error_on_cache_unload() -> anyhow::Result<bool> {
-    buck2_env!("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD", bool)
+    buck2_env!(
+        "BUCK2_TEST_ERROR_ON_CACHE_UPLOAD",
+        bool,
+        applicability = testing
+    )
 }
 
 #[derive(Copy, Clone, Debug, Dupe, Eq, PartialEq)]

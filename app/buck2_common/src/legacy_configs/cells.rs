@@ -439,7 +439,11 @@ async fn get_buckconfig_paths_for_cell(
     project_fs: &ProjectRoot,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<Vec<MainConfigFile>> {
-    let skip_default_external_config = buck2_env!("BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG", bool)?;
+    let skip_default_external_config = buck2_env!(
+        "BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG",
+        bool,
+        applicability = testing
+    )?;
 
     let mut buckconfig_paths: Vec<MainConfigFile> = Vec::new();
 
@@ -514,7 +518,8 @@ async fn get_buckconfig_paths_for_cell(
         }
     }
 
-    let extra_external_config = buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG")?;
+    let extra_external_config =
+        buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG", applicability = testing)?;
 
     if let Some(f) = extra_external_config {
         buckconfig_paths.push(MainConfigFile {

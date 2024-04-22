@@ -213,7 +213,7 @@ impl Interceptor for BuckCheckAuthTokenInterceptor {
             return Err(Status::unauthenticated("invalid auth token"));
         }
 
-        if buck2_env!("BUCK2_TEST_FAIL_BUCKD_AUTH", bool).unwrap() {
+        if buck2_env!("BUCK2_TEST_FAIL_BUCKD_AUTH", bool, applicability = testing).unwrap() {
             return Err(Status::unauthenticated("injected auth error"));
         }
 
@@ -1412,7 +1412,11 @@ fn server_shutdown_signal(
     mut shutdown_receiver: UnboundedReceiver<()>,
 ) -> anyhow::Result<impl Future<Output = ()>> {
     let mut duration = DEFAULT_INACTIVITY_TIMEOUT;
-    if buck2_env!("BUCK2_TESTING_INACTIVITY_TIMEOUT", bool)? {
+    if buck2_env!(
+        "BUCK2_TESTING_INACTIVITY_TIMEOUT",
+        bool,
+        applicability = testing
+    )? {
         duration = Duration::from_secs(1);
     }
 

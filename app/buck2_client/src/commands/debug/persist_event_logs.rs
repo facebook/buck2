@@ -38,7 +38,7 @@ use tokio::time::Duration;
 use tokio::time::Instant;
 
 fn manifold_ttl_s() -> anyhow::Result<Option<u64>> {
-    buck2_env!("BUCK2_TEST_MANIFOLD_TTL_S", type=u64)
+    buck2_env!("BUCK2_TEST_MANIFOLD_TTL_S", type=u64, applicability=testing)
 }
 
 const MAX_WAIT: Duration = Duration::from_secs(5 * 60);

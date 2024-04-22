@@ -175,7 +175,10 @@ impl FromStr for ResourceControlStatus {
 
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        if let Some(env_conf) = buck2_env!("BUCK2_TEST_RESOURCE_CONTROL_CONFIG")? {
+        if let Some(env_conf) = buck2_env!(
+            "BUCK2_TEST_RESOURCE_CONTROL_CONFIG",
+            applicability = testing,
+        )? {
             Ok(Self::deserialize(env_conf)?)
         } else {
             let status = config

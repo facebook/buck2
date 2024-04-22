@@ -450,7 +450,12 @@ fn add_injected_missing_digests<'a>(
             .collect()
     }
 
-    let ingested_digests = buck2_env!("BUCK2_TEST_INJECTED_MISSING_DIGESTS", type=Vec<FileDigest>, converter=convert_digests)?;
+    let ingested_digests = buck2_env!(
+        "BUCK2_TEST_INJECTED_MISSING_DIGESTS",
+        type=Vec<FileDigest>,
+        converter=convert_digests,
+        applicability=testing
+    )?;
     if let Some(digests) = ingested_digests {
         for d in digests {
             if let Some(i) = input_digests.get(d) {

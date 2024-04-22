@@ -41,7 +41,7 @@ where
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env {
     ($var:literal, bool $(, $($rest:tt)*)?) => {{
-        let v: anyhow::Result<bool> = $crate::env::macros::buck2_env!($var, type=bool, default=false);
+        let v: anyhow::Result<bool> = $crate::env::macros::buck2_env!($var, type=bool, default=false, $($($rest)*)?);
         v
     }},
     ($var:literal, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{

@@ -1106,7 +1106,11 @@ impl RemoteExecutionClientImpl {
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        if buck2_env!("BUCK2_TEST_FAIL_RE_DOWNLOADS", bool)? {
+        if buck2_env!(
+            "BUCK2_TEST_FAIL_RE_DOWNLOADS",
+            bool,
+            applicability = testing
+        )? {
             return Err(anyhow::anyhow!("Injected error"));
         }
 

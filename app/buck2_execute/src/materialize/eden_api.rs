@@ -224,8 +224,12 @@ impl EdenBuckOut {
 
         // Default to the number of CPUs. This value is very conservative
         // TODO (yipu): Benchmark and figure out optimal default concurrency
-        let concurrency =
-            buck2_env!("BUCK2_EDEN_CONCURRENCY", type=usize, default=num_cpus::get())?;
+        let concurrency = buck2_env!(
+            "BUCK2_EDEN_CONCURRENCY",
+            type=usize,
+            default=num_cpus::get(),
+            applicability=internal,
+        )?;
         let connection_manager =
             EdenConnectionManager::new(fb, &mount_point, Semaphore::new(concurrency))?
                 .expect("EdenFS mount does not setup correctly");
@@ -337,8 +341,12 @@ impl EdenBuckOut {
             .filter_map(|path| path.strip_prefix(&self.buck_out_path).ok())
             .map(|relpath| relpath.as_str().as_bytes().to_vec())
             .collect::<Vec<_>>();
-        let background =
-            buck2_env!("BUCK2_EDEN_ENSURE_MATERIALIZED_IN_BACKGROUND", type=bool, default=true)?;
+        let background = buck2_env!(
+            "BUCK2_EDEN_ENSURE_MATERIALIZED_IN_BACKGROUND",
+            type=bool,
+            default=true,
+            applicability=internal,
+        )?;
         let params = EnsureMaterializedParams {
             mountPoint: self.connection_manager.get_mount_point(),
             paths: file_paths,

@@ -231,16 +231,20 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 // NOTE: While we now have a legit flag for this, we keep the env var. This has been used
                 // in remediating prod incidents in the past, and this is the kind of thing that can easily
                 // become tribal knowledge. Keeping this does not hurt us.
-                let disable_caching = buck2_env!("BUCK2_TEST_DISABLE_CACHING", type=bool)?
-                    .unwrap_or(self.skip_cache_read);
+                let disable_caching =
+                    buck2_env!("BUCK2_TEST_DISABLE_CACHING", type=bool, applicability=testing)?
+                        .unwrap_or(self.skip_cache_read);
 
                 let disable_caching =
                     disable_caching || (!remote_cache_enabled && !remote_dep_file_cache_enabled);
 
                 // This is for test only as in real life, it would be silly to only use the remote dep file cache and not the regular cache
                 // This will only do anything if cache is not disabled and remote dep file cache is enabled
-                let only_remote_dep_file_cache =
-                    buck2_env!("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE", bool)?;
+                let only_remote_dep_file_cache = buck2_env!(
+                    "BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE",
+                    bool,
+                    applicability = testing
+                )?;
 
                 let cache_checker_new = || -> Arc<dyn PreparedCommandOptionalExecutor> {
                     if disable_caching {

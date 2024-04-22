@@ -52,7 +52,12 @@ impl AsyncRead for Stdin {
 
 impl Stdin {
     pub fn new() -> anyhow::Result<Self> {
-        let buffer_size = buck2_env!("BUCK2_TEST_STDIN_BUFFER_SIZE", type=usize)?.unwrap_or(8192);
+        let buffer_size = buck2_env!(
+            "BUCK2_TEST_STDIN_BUFFER_SIZE",
+            type=usize,
+            applicability=testing,
+        )?
+        .unwrap_or(8192);
 
         // Small buffer, this isn't bytes we're buffering, just buffers of bytes. That said, since
         // we're on separate threads, give ourselves a bit of buffering.

@@ -475,7 +475,12 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
             .collect()
     }
 
-    let tombstoned_digests = buck2_env!("BUCK2_TEST_TOMBSTONED_DIGESTS", type=HashSet<FileDigest>, converter=convert_digests)?;
+    let tombstoned_digests = buck2_env!(
+        "BUCK2_TEST_TOMBSTONED_DIGESTS",
+        type=HashSet<FileDigest>,
+        converter=convert_digests,
+        applicability=testing,
+    )?;
     if let Some(digests) = tombstoned_digests {
         if digests.contains(digest) {
             return Ok(&*TOMBSTONE_DIGEST);

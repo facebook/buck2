@@ -19,8 +19,12 @@ pub struct ChunkReader {
 
 impl ChunkReader {
     pub fn new() -> anyhow::Result<Self> {
-        let chunk_size =
-            buck2_env!("BUCK2_TEST_MANIFOLD_CHUNK_BYTES", type=u64)?.unwrap_or(8 * 1024 * 1024);
+        let chunk_size = buck2_env!(
+            "BUCK2_TEST_MANIFOLD_CHUNK_BYTES",
+            type=u64,
+            applicability=testing,
+        )?
+        .unwrap_or(8 * 1024 * 1024);
         Ok(ChunkReader { chunk_size })
     }
 
