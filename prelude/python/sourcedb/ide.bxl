@@ -1,0 +1,45 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load(":build.bxl", "do_build_ensured")
+load(":query.bxl", "do_query")
+
+def _build_entry_point(ctx: bxl.Context) -> None:
+    bxl_actions = ctx.bxl_actions(
+        target_platform = "prelude//platforms:default",
+    )
+    actions = bxl_actions.actions
+
+    query = ctx.uquery()
+    root = ctx.root()
+
+    sources = ["{}/{}".format(root, source) for source in ctx.cli_args.source]
+    output = {}
+    for source in sources:
+        owning_targets = query.owner(source)
+        targets_configured = do_query(ctx, query, actions, owning_targets)
+        sourcedbs = do_build_ensured(ctx, targets_configured)
+
+        output[source] = {"db": sourcedbs, "owning_targets": [target.label for target in owning_targets]}
+
+    ctx.output.print_json(output)
+
+build = bxl_main(
+    doc = """Build Python sourcedb for Python IDE support.
+
+    It takes a list of file paths, and will find the owner targets for all
+    those files and build source-db for those owning targets, returning them all.
+    """,
+    impl = _build_entry_point,
+    cli_args = {
+        "source": cli_args.list(
+            cli_args.string(
+                doc = "File to build a source db for (relative to source root)",
+            ),
+        ),
+    },
+)
