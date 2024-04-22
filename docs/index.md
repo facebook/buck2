@@ -74,6 +74,9 @@ your team.
   for using them.
 - [ocaml-scripts](https://github.com/facebook/ocaml-scripts) - scripts to
   generate a BUCK file enabling the use of OCaml packages from an OPAM switch.
+- [Buckle](https://github.com/benbrittain/buckle) - a launcher for Buck2 on a
+  per-project basis. Enables a project or team to do seamless upgrades of their
+  build system tooling.
 
 ### External articles about Buck2
 
