@@ -106,7 +106,8 @@ impl CommonDaemonCommandOptions {
     }
 }
 
-/// Defines options for config and configuration related things. Any command that involves the build graph should include these options.
+/// Defines options for config and configuration related things. Any command that involves the build
+/// graph should include these options.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct CommonBuildConfigurationOptions {
     #[clap(
