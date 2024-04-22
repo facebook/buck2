@@ -13,18 +13,33 @@ use std::iter;
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_core::env::registry::Applicability;
 use buck2_core::env::registry::EnvInfoEntry;
 use buck2_core::env::registry::ENV_INFO;
 
 /// Print help for environment variables used by buck2.
 #[derive(Debug, clap::Parser)]
-pub struct HelpEnvCommand;
+pub struct HelpEnvCommand {
+    /// Also print those environment variables that are only used for buck2 integration tests.
+    ///
+    /// These are all unstable and not meant to be used by most users.
+    #[clap(long)]
+    self_testing: bool,
+}
 
 impl HelpEnvCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext<'_>) -> ExitResult {
         // TODO(nga): print special buckconfigs too.
 
-        let mut env_info: Vec<EnvInfoEntry> = ENV_INFO.iter().copied().collect();
+        let mut env_info: Vec<EnvInfoEntry> = ENV_INFO
+            .iter()
+            .copied()
+            .filter(|x| match x.applicability {
+                Applicability::All => true,
+                Applicability::Testing => self.self_testing,
+                Applicability::Internal => !buck2_core::is_open_source(),
+            })
+            .collect();
         env_info.sort();
 
         let longest_name = env_info
