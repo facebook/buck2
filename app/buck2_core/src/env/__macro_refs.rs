@@ -41,14 +41,14 @@ where
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env {
     ($var:literal, bool $(, $($rest:tt)*)?) => {{
-        let v: anyhow::Result<bool> = $crate::env::macros::buck2_env!($var, type=bool, default=false, $($($rest)*)?);
+        let v: anyhow::Result<bool> = $crate::env::__macro_refs::buck2_env!($var, type=bool, default=false, $($($rest)*)?);
         v
     }},
     ($var:literal, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{
-        $crate::env::macros::parse2!(
+        $crate::env::__macro_refs::parse2!(
             (
             var=$var,
-            parser=$crate::env::macros::convert_from_str,
+            parser=$crate::env::__macro_refs::convert_from_str,
             stored_type=$ty,
             processor=|x| x.copied().unwrap_or_else(|| $default),
             output_type=$ty,
@@ -58,7 +58,7 @@ pub macro buck2_env {
         )
     }},
     ($var:literal, type=$ty:ty, converter=$converter:expr $(, $($rest:tt)*)?) => {{
-        $crate::env::macros::parse2!(
+        $crate::env::__macro_refs::parse2!(
             (
             var=$var,
             parser=$converter,
@@ -71,10 +71,10 @@ pub macro buck2_env {
         )
     }},
     ($var:literal, type=$ty:ty $(, $($rest:tt)*)?) => {{
-        $crate::env::macros::parse2!(
+        $crate::env::__macro_refs::parse2!(
             (
             var=$var,
-            parser=$crate::env::macros::convert_from_str,
+            parser=$crate::env::__macro_refs::convert_from_str,
             stored_type=$ty,
             processor=|x| x.copied(),
             output_type=std::option::Option<$ty>,
@@ -84,10 +84,10 @@ pub macro buck2_env {
         )
     }},
     ($var:literal $(, $($rest:tt)*)?) => {{
-        $crate::env::macros::parse2!(
+        $crate::env::__macro_refs::parse2!(
             (
             var=$var,
-            parser=$crate::env::macros::convert_from_str,
+            parser=$crate::env::__macro_refs::convert_from_str,
             stored_type=std::string::String,
             processor=|x| x.map(|x| x.as_str()),
             output_type=std::option::Option<&'static str>,
@@ -103,19 +103,19 @@ pub macro parse2 {
         $already_parsed:tt,
         applicability=internal$(,)?
     ) => {
-        $crate::env::macros::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Internal,)
+        $crate::env::__macro_refs::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Internal,)
     },
     (
         $already_parsed:tt,
         applicability=testing$(,)?
     ) => {
-        $crate::env::macros::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Testing,)
+        $crate::env::__macro_refs::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Testing,)
     },
     (
         $already_parsed:tt,
         $(,)?
     ) => {
-        $crate::env::macros::expand!($already_parsed, applicability=$crate::env::registry::Applicability::All,)
+        $crate::env::__macro_refs::expand!($already_parsed, applicability=$crate::env::registry::Applicability::All,)
     },
 }
 
@@ -133,7 +133,7 @@ pub macro expand(
     ),
     applicability=$applicability:expr,
 ) {{
-    $crate::env::macros::register!(
+    $crate::env::__macro_refs::register!(
         $var,
         ty = $stored_ty,
         default = $default_repr,
@@ -146,9 +146,9 @@ pub macro expand(
 }}
 
 pub macro register($var:literal, ty=$ty:ty, default=$default:expr, applicability=$applicability:expr) {{
-    use $crate::env::macros::linkme;
+    use $crate::env::__macro_refs::linkme;
     #[linkme::distributed_slice($crate::env::registry::ENV_INFO)]
-    #[linkme(crate = $crate::env::macros::linkme)]
+    #[linkme(crate = $crate::env::__macro_refs::linkme)]
     static ENV_INFO: $crate::env::registry::EnvInfoEntry = $crate::env::registry::EnvInfoEntry {
         name: $var,
         ty: stringify!($ty),

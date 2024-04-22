@@ -7,6 +7,6 @@
  * of this source tree.
  */
 
+pub mod __macro_refs;
 pub mod helper;
-pub mod macros;
 pub mod registry;

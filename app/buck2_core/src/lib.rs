@@ -52,7 +52,7 @@ pub mod target;
 pub mod target_aliases;
 pub mod unsafe_send_future;
 
-pub use env::macros::buck2_env;
+pub use env::__macro_refs::buck2_env;
 
 /// Marker for things that are only sensible to use inside Facebook,
 /// not intended to be complete, but intended to be useful to audit
