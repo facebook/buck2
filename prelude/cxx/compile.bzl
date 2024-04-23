@@ -120,16 +120,11 @@ _CxxCompileCommand = record(
 # Information about how to compile a source file.
 CxxSrcCompileCommand = record(
     # Source file to compile.
-    src = field(Artifact),
-    # If we have multiple source entries with same files but different flags,
-    # specify an index so we can differentiate them. Otherwise, use None.
-    index = field([int, None], None),
+    src = field(CxxSrcWithFlags),
     # The CxxCompileCommand to use to compile this file.
     cxx_compile_cmd = field(_CxxCompileCommand),
     # Arguments specific to the source file.
     args = field(list[typing.Any]),
-    # Is this a header file?
-    is_header = field(bool, False),
 )
 
 # Output of creating compile commands for Cxx source files.
@@ -344,7 +339,7 @@ def create_compile_cmds(
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
         src_args.extend(["-c", src.file])
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header)
+        src_compile_command = CxxSrcCompileCommand(src = src, cxx_compile_cmd = cxx_compile_cmd, args = src_args)
         if src.is_header:
             hdr_compile_cmds.append(src_compile_command)
         else:
@@ -374,10 +369,10 @@ def _compile_single_cxx(
     `src_compile_command` and other compilation options.
     """
 
-    identifier = src_compile_cmd.src.short_path
-    if src_compile_cmd.index != None:
+    identifier = src_compile_cmd.src.file.short_path
+    if src_compile_cmd.src.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
-        identifier = identifier + "_" + str(src_compile_cmd.index)
+        identifier = identifier + "_" + str(src_compile_cmd.src.index)
 
     filename_base = identifier + (".pic" if pic else "")
     object = ctx.actions.declare_output(
@@ -409,7 +404,7 @@ def _compile_single_cxx(
             paths.join("__dep_files__", filename_base),
         ).as_output()
 
-        processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
+        processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src.file)
         cmd.add(compiler_flags)
 
         # API: First argument is the dep file source path, second is the
@@ -466,7 +461,7 @@ def _compile_single_cxx(
     # and clang will happily compile them to .o files, but the object are always
     # native even if we ask for bitcode.  If we don't mark the output format,
     # other tools would try and parse the .o file as LLVM-IR and fail.
-    if src_compile_cmd.src.extension in [".S", ".s"]:
+    if src_compile_cmd.src.file.extension in [".S", ".s"]:
         object_format = CxxObjectFormat("native")
     else:
         object_format = default_object_format
