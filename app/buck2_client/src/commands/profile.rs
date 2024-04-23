@@ -282,7 +282,7 @@ impl StreamingCommand for ProfileSubcommand {
         &self.profile_common_opts.common_opts.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.profile_common_opts.common_opts.config_opts
     }
 

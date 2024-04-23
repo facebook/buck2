@@ -115,7 +115,7 @@ impl<'a> ClientCommandContext<'a> {
         cmd: &T,
     ) -> anyhow::Result<ClientContext> {
         // TODO(cjhopman): Support non unicode paths?
-        let config_opts = cmd.common_opts();
+        let config_opts = cmd.build_config_opts();
         let starlark_opts = cmd.starlark_opts();
         Ok(ClientContext {
             config_overrides: config_opts.config_overrides(arg_matches)?,

@@ -138,7 +138,7 @@ impl StreamingCommand for StarlarkOpaqueCommand {
         &self.as_subcommand().common_opts().event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.as_subcommand().common_opts().config_opts
     }
 

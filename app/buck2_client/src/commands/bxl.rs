@@ -147,7 +147,7 @@ impl StreamingCommand for BxlCommand {
         &self.common_ops.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.common_ops.config_opts
     }
 

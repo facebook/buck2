@@ -54,7 +54,7 @@ impl StreamingCommand for CrashCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
         CommonBuildConfigurationOptions::default_ref()
     }
 

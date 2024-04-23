@@ -118,7 +118,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
 
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions;
+    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions;
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions;
 
