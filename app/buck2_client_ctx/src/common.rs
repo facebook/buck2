@@ -75,7 +75,7 @@ pub enum HostArchOverride {
 
 /// Defines options related to commands that involves a streaming daemon command.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
-pub struct CommonDaemonCommandOptions {
+pub struct CommonEventLogOptions {
     /// Write events to this log file
     #[clap(value_name = "PATH", long = EVENT_LOG)]
     pub event_log: Option<PathArg>,
@@ -94,9 +94,9 @@ pub struct CommonDaemonCommandOptions {
     pub(crate) unstable_write_invocation_record: Option<PathArg>,
 }
 
-impl CommonDaemonCommandOptions {
+impl CommonEventLogOptions {
     pub fn default_ref() -> &'static Self {
-        static DEFAULT: CommonDaemonCommandOptions = CommonDaemonCommandOptions {
+        static DEFAULT: CommonEventLogOptions = CommonEventLogOptions {
             event_log: None,
             no_event_log: false,
             write_build_id: None,
@@ -319,7 +319,7 @@ pub struct CommonCommandOptions {
 
     /// Event-log options.
     #[clap(flatten)]
-    pub event_log_opts: CommonDaemonCommandOptions,
+    pub event_log_opts: CommonEventLogOptions,
 }
 
 #[derive(Debug, PartialEq)]

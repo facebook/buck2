@@ -50,7 +50,7 @@ use termwiz::istty::IsTty;
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
-use crate::common::CommonDaemonCommandOptions;
+use crate::common::CommonEventLogOptions;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -1259,7 +1259,7 @@ fn merge_file_watcher_stats(
 
 pub(crate) fn try_get_invocation_recorder<'a>(
     ctx: &ClientCommandContext<'a>,
-    opts: &CommonDaemonCommandOptions,
+    opts: &CommonEventLogOptions,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,

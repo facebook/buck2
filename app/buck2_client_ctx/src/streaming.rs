@@ -18,7 +18,7 @@ use dupe::Dupe;
 use crate::client_ctx::ClientCommandContext;
 use crate::common::ui::CommonConsoleOptions;
 use crate::common::CommonBuildConfigurationOptions;
-use crate::common::CommonDaemonCommandOptions;
+use crate::common::CommonEventLogOptions;
 use crate::common::CommonStarlarkOptions;
 use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::BuckdConnectOptions;
@@ -116,7 +116,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
 
     fn console_opts(&self) -> &CommonConsoleOptions;
 
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
+    fn event_log_opts(&self) -> &CommonEventLogOptions;
 
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions;
 

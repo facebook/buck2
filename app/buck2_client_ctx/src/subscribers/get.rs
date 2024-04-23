@@ -17,7 +17,7 @@ use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::common::ui::ConsoleType;
-use crate::common::CommonDaemonCommandOptions;
+use crate::common::CommonEventLogOptions;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::build_graph_stats::BuildGraphStats;
 use crate::subscribers::build_id_writer::BuildIdWriter;
@@ -131,7 +131,7 @@ pub(crate) fn try_get_re_log_subscriber<'a>(
 }
 
 pub(crate) fn try_get_build_id_writer<'a>(
-    opts: &CommonDaemonCommandOptions,
+    opts: &CommonEventLogOptions,
     ctx: &ClientCommandContext<'a>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     if let Some(file_loc) = opts.write_build_id.as_ref() {
