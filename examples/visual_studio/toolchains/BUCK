@@ -1,8 +1,30 @@
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains/cxx/clang:tools.bzl", "path_clang_tools")
+load("@prelude//toolchains/msvc:tools.bzl", "find_msvc_tools")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
+load("@root//buck2_utils/platforms:defs.bzl", "is_remote_enabled")
+
+find_msvc_tools(
+    name = "msvc_tools",
+    use_path_compilers = is_remote_enabled(),
+    use_path_linkers = is_remote_enabled() and not host_info().os.is_windows,
+    target_compatible_with = ["config//os:windows"],
+    visibility = ["PUBLIC"],
+)
+
+path_clang_tools(
+    name = "clang_tools",
+    os = "linux",
+    target_compatible_with = ["config//os:linux"],
+    visibility = ["PUBLIC"],
+)
 
 system_cxx_toolchain(
     name = "cxx",
+    compiler = select({
+        "config//os:windows": ":msvc_tools",
+        "config//os:linux": ":clang_tools",
+    }),
     #The flags in the below attributes' Windows config are copied from Visual Studio's project "Console App", with some changes listed in each attribute
     c_flags = select({
         "config//os:linux": [],
@@ -110,12 +132,4 @@ system_cxx_toolchain(
 system_python_bootstrap_toolchain(
     name = "python_bootstrap",
     visibility = ["PUBLIC"],
-)
-
-configuration = read_config("cxx", "configuration", "debug")
-
-platform(
-    name = "default",
-    constraint_values = ["root//buck2_utils/configuration:release"] if configuration == "release" else ["root//buck2_utils/configuration:debug"],
-    deps = ["prelude//platforms:default"],
 )
