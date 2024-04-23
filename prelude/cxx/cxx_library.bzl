@@ -199,6 +199,7 @@ load(
     ":shared_library_interface.bzl",
     "SharedInterfaceInfo",  # @unused Used as a type
     "create_shared_interface_info",
+    "create_shared_interface_info_with_children",
     "create_tbd",
     "merge_tbds",
     "shared_library_interface",
@@ -753,6 +754,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     shared_libs = shared_libs,
                     linker_flags = linker_flags,
                     can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
+                    # We don't want to propagate shared interaces across shared library boundaries.
+                    shared_interface_info = None if preferred_linkage == Linkage("shared") else create_shared_interface_info(ctx, tbd_outputs, []),
                 ),
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
             ),
@@ -1220,9 +1223,11 @@ def _get_shared_library_links(
     if link_strategy == LinkStrategy("static"):
         link_strategy = LinkStrategy("static_pic")
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, pic_behavior)
+    linkable_graph_label_to_node_map = linkable_graph_node_map_func()
+
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
         None,
-        linkable_graph_node_map_func(),
+        linkable_graph_label_to_node_map,
         link_group,
         {},
         link_group_mappings,
@@ -1249,10 +1254,16 @@ def _get_shared_library_links(
         filtered_links.append(additional_links)
 
     # Collect the TBD providers from the targets in this link group, these will
-    # be merged when linking shared library output.
-    link_group_deps = [d for d in dedupe(non_exported_deps + exported_deps) if d.label in filtered_labels_to_links_map]
-    shared_interface_info = create_shared_interface_info(ctx, tbd_outputs, link_group_deps)
+    # be merged when linking shared library output. If this library has no
+    # TBD output then TBD generation is disabled and we can skip collection.
+    shared_interface_infos = []
+    if len(tbd_outputs) > 0:
+        for label in filtered_labels_to_links_map.keys():
+            linkable_node = linkable_graph_label_to_node_map[label]
+            if linkable_node.shared_interface_info != None:
+                shared_interface_infos.append(linkable_node.shared_interface_info)
 
+    shared_interface_info = create_shared_interface_info_with_children(ctx, tbd_outputs, shared_interface_infos)
     return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference, shared_interface_info
 
 def _use_pic(output_style: LibOutputStyle) -> bool:

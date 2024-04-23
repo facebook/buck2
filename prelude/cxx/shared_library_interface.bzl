@@ -184,3 +184,17 @@ def create_shared_interface_info(ctx: AnalysisContext, tbd_outputs: list[Artifac
             children = children,
         ),
     )
+
+def create_shared_interface_info_with_children(ctx: AnalysisContext, tbd_outputs: list[Artifact], children: list[SharedInterfaceInfo]) -> [SharedInterfaceInfo, None]:
+    children = [d.interfaces for d in children]
+    if len(tbd_outputs) == 0 and len(children) == 0:
+        return None
+
+    return SharedInterfaceInfo(
+        interfaces = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = tbd_outputs,
+            children = children,
+        ),
+    )
