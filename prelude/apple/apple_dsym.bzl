@@ -35,7 +35,7 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
 
     return output
 
-def get_apple_dsym_info(ctx: AnalysisContext, binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> Artifact:
+def get_apple_dsym_info_json(binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> dict[str, typing.Any]:
     dsym_info = {}
 
     if len(binary_dsyms) == 1:
@@ -48,5 +48,8 @@ def get_apple_dsym_info(ctx: AnalysisContext, binary_dsyms: list[Artifact], dep_
         # through multiple paths in a graph (e.g., including both a binary
         # + bundle in the `deps` field of a parent bundle).
         dsym_info["deps"] = dedupe(dep_dsyms)
+    return dsym_info
 
-    return ctx.actions.write_json("dsym-info.json", dsym_info)
+def get_apple_dsym_info(ctx: AnalysisContext, binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> Artifact:
+    dsym_info_json = get_apple_dsym_info_json(binary_dsyms, dep_dsyms)
+    return ctx.actions.write_json("dsym-info.json", dsym_info_json)
