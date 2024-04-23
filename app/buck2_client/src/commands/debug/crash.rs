@@ -12,7 +12,7 @@ use buck2_cli_proto::UnstableCrashRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -22,7 +22,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 pub struct CrashCommand {
     /// Event-log options.
     #[clap(flatten)]
-    pub event_log_opts: CommonDaemonCommandOptions,
+    pub event_log_opts: CommonEventLogOptions,
 }
 
 #[async_trait]
@@ -50,11 +50,11 @@ impl StreamingCommand for CrashCommand {
         CommonConsoleOptions::simple_ref()
     }
 
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+    fn event_log_opts(&self) -> &CommonEventLogOptions {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
         CommonBuildConfigurationOptions::default_ref()
     }
 

@@ -136,6 +136,10 @@ def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_p
         args.add(cmd_args(ppinfo.set.project_as_args("args"), prepend = "-Xparser"))
         args.add(cmd_args(ppinfo.set.project_as_args("include_dirs"), prepend = "-Xparser"))
 
+    # We need the targets compiler flags to pick up base flags that are applied
+    # in the macros instead of the toolchain for historical reasons.
+    args.add(cmd_args(ctx.attrs.compiler_flags, prepend = "-Xparser"))
+
     ctx.actions.run(
         args,
         category = "generate_tbd",
@@ -173,6 +177,20 @@ def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet, links: 
 
 def create_shared_interface_info(ctx: AnalysisContext, tbd_outputs: list[Artifact], deps: list[Dependency]) -> [SharedInterfaceInfo, None]:
     children = [d[SharedInterfaceInfo].interfaces for d in deps if SharedInterfaceInfo in d]
+    if len(tbd_outputs) == 0 and len(children) == 0:
+        return None
+
+    return SharedInterfaceInfo(
+        interfaces = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = tbd_outputs,
+            children = children,
+        ),
+    )
+
+def create_shared_interface_info_with_children(ctx: AnalysisContext, tbd_outputs: list[Artifact], children: list[SharedInterfaceInfo]) -> [SharedInterfaceInfo, None]:
+    children = [d.interfaces for d in children]
     if len(tbd_outputs) == 0 and len(children) == 0:
         return None
 

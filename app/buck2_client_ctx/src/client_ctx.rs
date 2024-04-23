@@ -24,7 +24,7 @@ use dupe::Dupe;
 use tokio::runtime::Runtime;
 
 use crate::client_metadata::ClientMetadata;
-use crate::common::CommonDaemonCommandOptions;
+use crate::common::CommonEventLogOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::connect::BuckdConnectOptions;
@@ -84,7 +84,7 @@ impl<'a> ClientCommandContext<'a> {
     {
         let mut recorder = try_get_invocation_recorder(
             &self,
-            CommonDaemonCommandOptions::default_ref(),
+            CommonEventLogOptions::default_ref(),
             command_name,
             std::env::args().collect(),
             None,
@@ -115,7 +115,7 @@ impl<'a> ClientCommandContext<'a> {
         cmd: &T,
     ) -> anyhow::Result<ClientContext> {
         // TODO(cjhopman): Support non unicode paths?
-        let config_opts = cmd.common_opts();
+        let config_opts = cmd.build_config_opts();
         let starlark_opts = cmd.starlark_opts();
         Ok(ClientContext {
             config_overrides: config_opts.config_overrides(arg_matches)?,

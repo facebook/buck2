@@ -12,7 +12,7 @@ use buck2_cli_proto::SegfaultRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -39,11 +39,11 @@ impl StreamingCommand for SegfaultCommand {
         CommonConsoleOptions::default_ref()
     }
 
-    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        CommonDaemonCommandOptions::default_ref()
+    fn event_log_opts(&self) -> &CommonEventLogOptions {
+        CommonEventLogOptions::default_ref()
     }
 
-    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
         CommonBuildConfigurationOptions::default_ref()
     }
 
