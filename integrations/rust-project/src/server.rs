@@ -483,11 +483,16 @@ where
 {
     let res = match result {
         Ok(resp) => lsp_server::Response::new_ok(id, &resp),
-        Err(e) => lsp_server::Response::new_err(
-            id,
-            lsp_server::ErrorCode::InternalError as i32,
-            e.to_string(),
-        ),
+        Err(e) => {
+            let error = format!("{e:#}");
+            tracing::error!(%id, %error, "error while handling request");
+
+            lsp_server::Response::new_err(
+                id,
+                lsp_server::ErrorCode::InternalError as i32,
+                e.to_string(),
+            )
+        }
     };
 
     Ok(res)
