@@ -23,7 +23,7 @@ CxxCompilationDbInfo = provider(fields = {
 def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo, platformInfo: CxxPlatformInfo) -> CxxCompilationDbInfo:
     info = {}
     for src_compile_cmd in src_compile_cmds:
-        info.update({src_compile_cmd.src.file: src_compile_cmd})
+        info.update({src_compile_cmd.src: src_compile_cmd})
 
     return CxxCompilationDbInfo(info = info, toolchain = toolchainInfo, platform = platformInfo)
 
@@ -41,21 +41,21 @@ def create_compilation_database(
     other_outputs = []
 
     for src_compile_cmd in src_compile_cmds:
-        cdb_path = paths.join(identifier, "__comp_db__", src_compile_cmd.src.file.short_path + ".comp_db.json")
+        cdb_path = paths.join(identifier, "__comp_db__", src_compile_cmd.src.short_path + ".comp_db.json")
         if cdb_path not in entries:
             entry = ctx.actions.declare_output(cdb_path)
             cmd = cmd_args(
                 mk_comp_db,
                 "gen",
                 cmd_args(entry.as_output(), format = "--output={}"),
-                src_compile_cmd.src.file.basename,
-                cmd_args(src_compile_cmd.src.file).parent(),
+                src_compile_cmd.src.basename,
+                cmd_args(src_compile_cmd.src).parent(),
                 "--",
                 src_compile_cmd.cxx_compile_cmd.base_compile_cmd,
                 src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form,
                 src_compile_cmd.args,
             )
-            entry_identifier = paths.join(identifier, src_compile_cmd.src.file.short_path)
+            entry_identifier = paths.join(identifier, src_compile_cmd.src.short_path)
             ctx.actions.run(cmd, category = "cxx_compilation_database", identifier = entry_identifier)
 
             # Add all inputs the command uses to runtime files.
