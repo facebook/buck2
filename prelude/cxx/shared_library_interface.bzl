@@ -136,6 +136,10 @@ def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_p
         args.add(cmd_args(ppinfo.set.project_as_args("args"), prepend = "-Xparser"))
         args.add(cmd_args(ppinfo.set.project_as_args("include_dirs"), prepend = "-Xparser"))
 
+    # We need the targets compiler flags to pick up base flags that are applied
+    # in the macros instead of the toolchain for historical reasons.
+    args.add(cmd_args(ctx.attrs.compiler_flags, prepend = "-Xparser"))
+
     ctx.actions.run(
         args,
         category = "generate_tbd",
