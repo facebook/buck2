@@ -40,6 +40,12 @@ if native_libs_dir is not None:
     old_native_libs_dir = os.environ.get(native_libs_env_var)
     os.environ[native_libs_env_var] = os.path.join(dirpath, native_libs_dir)
     env_vals_to_restore[native_libs_env_var] = old_native_libs_dir
+if os.environ.get("PAR_APPEND_LD_LIBRARY_PATH") is not None:
+   os.environ[native_libs_env_var] = (
+      (os.environ[native_libs_env_var] + ":" + os.environ["PAR_APPEND_LD_LIBRARY_PATH"])
+      if os.environ.get(native_libs_env_var) is not None
+      else os.environ["PAR_APPEND_LD_LIBRARY_PATH"]
+   )
 
 # Update the environment variable for the dynamic loader to find libraries
 # to preload.
