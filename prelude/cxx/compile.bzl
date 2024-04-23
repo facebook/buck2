@@ -362,6 +362,123 @@ def create_compile_cmds(
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
 
+def _compile_single_cxx(
+        ctx: AnalysisContext,
+        toolchain: CxxToolchainInfo,
+        default_object_format: CxxObjectFormat,
+        bitcode_args: cmd_args,
+        src_compile_cmd: CxxSrcCompileCommand,
+        pic: bool) -> CxxCompileOutput:
+    """
+    Construct a final compile command for a single CXX source based on
+    `src_compile_command` and other compilation options.
+    """
+
+    identifier = src_compile_cmd.src.short_path
+    if src_compile_cmd.index != None:
+        # Add a unique postfix if we have duplicate source files with different flags
+        identifier = identifier + "_" + str(src_compile_cmd.index)
+
+    filename_base = identifier + (".pic" if pic else "")
+    object = ctx.actions.declare_output(
+        "__objects__",
+        "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
+    )
+
+    cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
+
+    compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
+    cmd.add(get_output_flags(compiler_type, object))
+
+    args = cmd_args()
+
+    if pic:
+        args.add(get_pic_flags(compiler_type))
+
+    args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
+    args.add(src_compile_cmd.args)
+
+    cmd.add(args)
+    cmd.add(bitcode_args)
+
+    action_dep_files = {}
+
+    headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+    if headers_dep_files:
+        dep_file = ctx.actions.declare_output(
+            paths.join("__dep_files__", filename_base),
+        ).as_output()
+
+        processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
+        cmd.add(compiler_flags)
+
+        # API: First argument is the dep file source path, second is the
+        # dep file destination path, other arguments are the actual compile
+        # command.
+        cmd = cmd_args([
+            headers_dep_files.processor,
+            headers_dep_files.dep_tracking_mode.value,
+            processor_flags,
+            headers_dep_files.tag.tag_artifacts(dep_file),
+            cmd,
+        ])
+
+        action_dep_files["headers"] = headers_dep_files.tag
+
+    if pic:
+        identifier += " (pic)"
+
+    clang_remarks = None
+    if toolchain.clang_remarks and compiler_type == "clang":
+        args.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
+        clang_remarks = ctx.actions.declare_output(
+            paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
+        )
+        cmd.hidden(clang_remarks.as_output())
+
+    clang_trace = None
+    if toolchain.clang_trace and compiler_type == "clang":
+        args.add(["-ftime-trace"])
+        clang_trace = ctx.actions.declare_output(
+            paths.join("__objects__", "{}.json".format(filename_base)),
+        )
+        cmd.hidden(clang_trace.as_output())
+
+    ctx.actions.run(
+        cmd,
+        category = src_compile_cmd.cxx_compile_cmd.category,
+        identifier = identifier,
+        dep_files = action_dep_files,
+        allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+    )
+
+    # If we're building with split debugging, where the debug info is in the
+    # original object, then add the object as external debug info
+    # FIXME: ThinLTO generates debug info in a separate dwo dir, but we still
+    # need to track object files if the object file is not compiled to bitcode.
+    # We should track whether ThinLTO is used on a per-object basis rather than
+    # globally on a toolchain level.
+    object_has_external_debug_info = (
+        toolchain.split_debug_mode == SplitDebugMode("single")
+    )
+
+    # .S extension is native assembly code (machine level, processor specific)
+    # and clang will happily compile them to .o files, but the object are always
+    # native even if we ask for bitcode.  If we don't mark the output format,
+    # other tools would try and parse the .o file as LLVM-IR and fail.
+    if src_compile_cmd.src.extension in [".S", ".s"]:
+        object_format = CxxObjectFormat("native")
+    else:
+        object_format = default_object_format
+
+    return CxxCompileOutput(
+        object = object,
+        object_format = object_format,
+        object_has_external_debug_info = object_has_external_debug_info,
+        clang_remarks = clang_remarks,
+        clang_trace = clang_trace,
+    )
+
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
@@ -391,110 +508,15 @@ def compile_cxx(
 
     objects = []
     for src_compile_cmd in src_compile_cmds:
-        identifier = src_compile_cmd.src.short_path
-        if src_compile_cmd.index != None:
-            # Add a unique postfix if we have duplicate source files with different flags
-            identifier = identifier + "_" + str(src_compile_cmd.index)
-
-        filename_base = identifier + (".pic" if pic else "")
-        object = ctx.actions.declare_output(
-            "__objects__",
-            "{}.{}".format(filename_base, linker_info.object_file_extension),
+        cxx_compile_output = _compile_single_cxx(
+            ctx,
+            toolchain,
+            default_object_format,
+            bitcode_args,
+            src_compile_cmd,
+            pic,
         )
-
-        cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
-
-        compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-        cmd.add(get_output_flags(compiler_type, object))
-
-        args = cmd_args()
-
-        if pic:
-            args.add(get_pic_flags(compiler_type))
-
-        args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
-        args.add(src_compile_cmd.args)
-
-        cmd.add(args)
-        cmd.add(bitcode_args)
-
-        action_dep_files = {}
-
-        headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
-        if headers_dep_files:
-            dep_file = ctx.actions.declare_output(
-                paths.join("__dep_files__", filename_base),
-            ).as_output()
-
-            processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
-            cmd.add(compiler_flags)
-
-            # API: First argument is the dep file source path, second is the
-            # dep file destination path, other arguments are the actual compile
-            # command.
-            cmd = cmd_args([
-                headers_dep_files.processor,
-                headers_dep_files.dep_tracking_mode.value,
-                processor_flags,
-                headers_dep_files.tag.tag_artifacts(dep_file),
-                cmd,
-            ])
-
-            action_dep_files["headers"] = headers_dep_files.tag
-
-        if pic:
-            identifier += " (pic)"
-
-        clang_remarks = None
-        if toolchain.clang_remarks and compiler_type == "clang":
-            args.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
-            clang_remarks = ctx.actions.declare_output(
-                paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
-            )
-            cmd.hidden(clang_remarks.as_output())
-
-        clang_trace = None
-        if toolchain.clang_trace and compiler_type == "clang":
-            args.add(["-ftime-trace"])
-            clang_trace = ctx.actions.declare_output(
-                paths.join("__objects__", "{}.json".format(filename_base)),
-            )
-            cmd.hidden(clang_trace.as_output())
-
-        ctx.actions.run(
-            cmd,
-            category = src_compile_cmd.cxx_compile_cmd.category,
-            identifier = identifier,
-            dep_files = action_dep_files,
-            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
-        )
-
-        # If we're building with split debugging, where the debug info is in the
-        # original object, then add the object as external debug info
-        # FIXME: ThinLTO generates debug info in a separate dwo dir, but we still
-        # need to track object files if the object file is not compiled to bitcode.
-        # We should track whether ThinLTO is used on a per-object basis rather than
-        # globally on a toolchain level.
-        object_has_external_debug_info = (
-            toolchain.split_debug_mode == SplitDebugMode("single")
-        )
-
-        # .S extension is native assembly code (machine level, processor specific)
-        # and clang will happily compile them to .o files, but the object are always
-        # native even if we ask for bitcode.  If we don't mark the output format,
-        # other tools would try and parse the .o file as LLVM-IR and fail.
-        if src_compile_cmd.src.extension in [".S", ".s"]:
-            object_format = CxxObjectFormat("native")
-        else:
-            object_format = default_object_format
-
-        objects.append(CxxCompileOutput(
-            object = object,
-            object_format = object_format,
-            object_has_external_debug_info = object_has_external_debug_info,
-            clang_remarks = clang_remarks,
-            clang_trace = clang_trace,
-        ))
+        objects.append(cxx_compile_output)
 
     return objects
 
