@@ -7,12 +7,9 @@
 
 def cxx_toolchain_macro_impl(cxx_toolchain_rule = None, **kwargs):
     # `cxx.linker_map_enabled` overrides toolchain behavior
-    linker_map_enabled = read_root_config("cxx", "linker_map_enabled")
-    if linker_map_enabled != None:
-        if linker_map_enabled.lower() == "true":
-            kwargs["generate_linker_maps"] = True
-        else:
-            kwargs["generate_linker_maps"] = False
+    if "generate_linker_maps" not in kwargs:
+        linker_map_enabled = read_root_config("cxx", "linker_map_enabled", "")
+        kwargs["generate_linker_maps"] = linker_map_enabled.lower() == "true"
 
     bitcode = read_root_config("cxx", "bitcode")
     if bitcode != None:
