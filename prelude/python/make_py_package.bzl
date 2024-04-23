@@ -234,6 +234,7 @@ def _make_py_package_impl(
     standalone = package_style == PackageStyle("standalone")
 
     runtime_files = []
+    sub_targets = {}
     if standalone and hidden_resources != None:
         # constructing this error message is expensive, only do it when we abort analysis
         error_msg = "standalone builds don't support hidden resources" if output_suffix else _hidden_resources_error_message(ctx.label, hidden_resources)
@@ -338,12 +339,19 @@ def _make_py_package_impl(
     if hidden_resources == None:
         hidden_resources = []
 
+    if symlink_tree_path != None:
+        sub_targets["link-tree"] = [DefaultInfo(
+            default_output = symlink_tree_path,
+            other_outputs = runtime_files,
+            sub_targets = {},
+        )]
+
     return PexProviders(
         default_output = output,
         other_outputs = runtime_files,
         other_outputs_prefix = symlink_tree_path.short_path if symlink_tree_path != None else None,
         hidden_resources = hidden_resources,
-        sub_targets = {},
+        sub_targets = sub_targets,
         run_cmd = cmd_args(run_args).hidden(runtime_files + hidden_resources),
     )
 
