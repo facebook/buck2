@@ -13,6 +13,7 @@ load("@prelude//java/class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 
 def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
+
     input_android_apk_under_test_info = None
     if ctx.attrs.apk != None:
         # TODO(T104150125) The underlying APK should not have exopackage enabled
@@ -22,6 +23,10 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_manifest = input_android_apk_info.manifest
         input_materialized_artifacts = input_android_apk_info.materialized_artifacts
         input_android_apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
+
+        env_vars = {
+            "APK": cmd_args(input_apk),
+        }
     else:
         input_android_aab_info = ctx.attrs.aab[AndroidAabInfo]
         expect(input_android_aab_info != None, "'aab' attribute must be an Android Bundle!")
@@ -31,14 +36,11 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_manifest = input_android_aab_info.manifest
         input_materialized_artifacts = input_android_aab_info.materialized_artifacts
 
-    env_vars = {
-        "APK": cmd_args(input_apk),
-    }
+        env_vars = {
+            "AAB": cmd_args(input_apk),
+        }
 
-    # Like buck1, we ignore the 'out' attribute and construct the output path ourselves.
-    output_apk_name = "{}.apk".format(ctx.label.name)
-
-    genrule_providers = process_genrule(ctx, output_apk_name, None, env_vars, other_outputs = input_materialized_artifacts)
+    genrule_providers = process_genrule(ctx, ctx.attrs.out, ctx.attrs.outs, env_vars, other_outputs = input_materialized_artifacts)
 
     expect(
         len(genrule_providers) == 1 and isinstance(genrule_providers[0], DefaultInfo),
