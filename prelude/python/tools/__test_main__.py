@@ -666,6 +666,15 @@ class MainProgram:
             for test in self.get_tests(test_suite):
                 if self.options.list_format == "python":
                     name = str(test)
+                    """
+                        Converts test name to match Python 3.10 format due to change in behavior introduced in Python 3.12.
+                        Example: "test_basic (tests.test_object.TestAbsent.test_basic)" -> "test_basic (tests.test_object.TestAbsent)".
+                    """
+                    method_name = getattr(test, "_testMethodName", None)
+                    if method_name:
+                        cls = test.__class__
+                        name = f"{method_name} ({cls.__module__}.{cls.__qualname__})"
+
                 elif self.options.list_format == "buck":
                     method_name = getattr(test, "_testMethodName", "")
                     name = _format_test_name(test.__class__, method_name)
