@@ -16,7 +16,7 @@ from pathlib import Path
 def main() -> None:
     parser = argparse.ArgumentParser(description="Tool to make an xcframework bundle.")
     parser.add_argument("--output-path")
-    parser.add_argument("--framework-path")
+    parser.add_argument("--framework-path", action="append", nargs="+")
     args = parser.parse_args()
 
     out_path = Path(args.output_path)
@@ -25,14 +25,21 @@ def main() -> None:
     plist_path = out_path / "Info.plist"
     plist_path.touch(exist_ok=False)
 
-    framework_basename = Path(args.framework_path).name
+    for framework_path in args.framework_path:
 
-    shutil.copytree(
-        args.framework_path,
-        out_path / framework_basename,
-        symlinks=True,
-        dirs_exist_ok=False,
-    )
+        # args are structured like this
+        # --framework_path ios-arm64 /path/to/MyPkg.xcframework
+
+        framework_arch = framework_path[0]
+        framework_fullpath = framework_path[1]
+        framework_basename = Path(framework_fullpath).name
+
+        shutil.copytree(
+            framework_fullpath,
+            out_path / framework_arch / framework_basename,
+            symlinks=True,
+            dirs_exist_ok=False,
+        )
 
 
 if __name__ == "__main__":
