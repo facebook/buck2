@@ -11,11 +11,13 @@ load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
 
-    xcframework_dir = ctx.actions.declare_output(ctx.attrs.name + ".xcframework", dir = True)
+    xcframework_dir = ctx.actions.declare_output(ctx.attrs.framework_name + ".xcframework", dir = True)
     xcframework_command = cmd_args([
         apple_tools.xcframework_maker,
         "--output-path",
         xcframework_dir.as_output(),
+        "--name",
+        ctx.attrs.framework_name,
     ])
 
     for arch in ctx.attrs.framework:
@@ -156,6 +158,7 @@ registration_spec = RuleRegistrationSpec(
     impl = _impl,
     attrs = {
         "framework": attrs.split_transition_dep(cfg = framework_split_transition),
+        "framework_name": attrs.string(),
         "platforms": attrs.list(attrs.string(), default = []),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     },
