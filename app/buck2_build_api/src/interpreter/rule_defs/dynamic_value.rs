@@ -130,7 +130,7 @@ where
             .to_value()
             .at(index, heap)
             .map_err(BuckStarlarkError::new)
-            .with_context(|| "Error accessing dynamic value".to_string())
+            .with_context(|| "Error accessing dynamic value".to_owned())
             .map_err(Into::into)
     }
 
@@ -166,7 +166,7 @@ fn resolved_dynamic_value_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
         this.provider_collection()?
             .get(index)
-            .with_context(|| "Error accessing dynamic value".to_string())
+            .with_context(|| "Error accessing dynamic value".to_owned())
     }
 }
 
