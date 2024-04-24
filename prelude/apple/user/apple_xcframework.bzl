@@ -55,6 +55,7 @@ def _normalize_platforms(platforms: list[str]) -> dict[str, list[str]]:
         plat_archs = plat_list[1:]
         previous_archs = result.get(plat_type, [])
         result[plat_type] = sorted(plat_archs + previous_archs)
+
     return result
 
 def _apple_xcframework_framework_attrib_split_transition_impl(
@@ -63,8 +64,8 @@ def _apple_xcframework_framework_attrib_split_transition_impl(
         attrs: struct) -> dict[str, PlatformInfo]:
     result = {}
 
-    new_platforms = _normalize_platforms(attrs.platforms)
-    for os_value, cpu_values in new_platforms.items():
+    new_platforms = _normalize_platforms(attrs.platforms).items()
+    for os_value, cpu_values in new_platforms:
         updated_constraints = _strip_os_sdk_and_cpu_constraints(platform, refs)
 
         canonical_platform_suffix = ""
@@ -90,6 +91,11 @@ def _apple_xcframework_framework_attrib_split_transition_impl(
             canonical_platform_suffix = "simulator"
             updated_constraints[refs.os[ConstraintSettingInfo].label] = refs.watchos[ConstraintValueInfo]
             updated_constraints[refs.sdk[ConstraintSettingInfo].label] = refs.watchos_simulator_sdk[ConstraintValueInfo]
+        elif os_value == "maccatalyst":
+            canonical_platform_prefix = "ios"
+            canonical_platform_suffix = "maccatalyst"
+            updated_constraints[refs.os[ConstraintSettingInfo].label] = refs.ios[ConstraintValueInfo]
+            updated_constraints[refs.sdk[ConstraintSettingInfo].label] = refs.maccatalyst_sdk[ConstraintValueInfo]
         else:
             fail("Unsupported OS value {} in apple_xcframework() platforms.".format(os_value))
 
@@ -128,6 +134,7 @@ framework_split_transition = transition(
         "ios": "config//os/constraints:iphoneos",
         "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
         "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
+        "maccatalyst_sdk": "config//os/sdk/apple/constraints:maccatalyst",
         "macos": "config//os/constraints:macos",
         "os": "config//os/constraints:os",
         "sdk": "config//os/sdk/apple/constraints:_",

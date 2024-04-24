@@ -52,7 +52,7 @@ def _cpu_split_transition_impl(
 
     cpu_name_to_cpu_constraint = {}
     if os_label == refs.ios[ConstraintValueInfo].label:
-        if sdk == None or sdk_label == refs.ios_simulator_sdk[ConstraintValueInfo].label:
+        if sdk == None or sdk_label == refs.ios_simulator_sdk[ConstraintValueInfo].label or sdk_label == refs.maccatalyst_sdk[ConstraintValueInfo].label:
             # default to simulator if SDK is not specified
             cpu_name_to_cpu_constraint["arm64"] = refs.arm64[ConstraintValueInfo]
             cpu_name_to_cpu_constraint["x86_64"] = refs.x86_64[ConstraintValueInfo]
@@ -107,6 +107,7 @@ cpu_split_transition = transition(
         "ios": "config//os/constraints:iphoneos",
         "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
         "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
+        "maccatalyst_sdk": "config//os/sdk/apple/constraints:maccatalyst",
         "macos": "config//os/constraints:macos",
         "os": "config//os/constraints:os",
         "sdk": "config//os/sdk/apple/constraints:_",
