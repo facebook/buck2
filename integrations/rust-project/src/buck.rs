@@ -387,7 +387,7 @@ fn merge_unit_test_targets(
     ) = tests.into_iter().partition(|(target, _)| {
         targets
             .iter()
-            .any(|(_, value)| value.tests.contains(target))
+            .any(|(_, value)| value.test_deps.contains(target))
     });
 
     targets.extend(standalone_tests);
@@ -397,7 +397,7 @@ fn merge_unit_test_targets(
 
         // Merge the `-unittest` target with the parent target.
         let unittest_target = Target::new(format!("{target}-unittest"));
-        if info.tests.contains(&unittest_target) {
+        if info.test_deps.contains(&unittest_target) {
             if let Some(test_info) = generated_unit_tests.get(&unittest_target) {
                 for test_dep in &test_info.deps {
                     if !info.deps.contains(test_dep) && *test_dep != target {
@@ -735,7 +735,7 @@ fn merge_tests_no_cycles() {
             crate_dynamic: None,
             crate_root: None,
             deps: vec![],
-            tests: vec![Target::new("//foo-unittest")],
+            test_deps: vec![Target::new("//foo-unittest")],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -761,7 +761,7 @@ fn merge_tests_no_cycles() {
             crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//foo")],
-            tests: vec![],
+            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -796,7 +796,7 @@ fn merge_target_multiple_tests_no_cycles() {
             crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//foo@rust")],
-            tests: vec![
+            test_deps: vec![
                 Target::new("//foo_test"),
                 Target::new("//foo@rust-unittest"),
             ],
@@ -825,7 +825,7 @@ fn merge_target_multiple_tests_no_cycles() {
             crate_dynamic: None,
             crate_root: None,
             deps: vec![],
-            tests: vec![
+            test_deps: vec![
                 Target::new("//foo_test"),
                 Target::new("//foo@rust-unittest"),
             ],
@@ -857,7 +857,7 @@ fn merge_target_multiple_tests_no_cycles() {
             // we need to be careful when merging test
             // dependencies of foo@rust to avoid creating cycles.
             deps: vec![Target::new("//foo"), Target::new("//bar")],
-            tests: vec![],
+            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -883,7 +883,7 @@ fn merge_target_multiple_tests_no_cycles() {
             crate_dynamic: None,
             crate_root: None,
             deps: vec![Target::new("//test-framework")],
-            tests: vec![],
+            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -928,7 +928,7 @@ fn named_deps_underscores() {
             crate_dynamic: None,
             crate_root: None,
             deps: vec![],
-            tests: vec![],
+            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -955,7 +955,7 @@ fn named_deps_underscores() {
         crate_dynamic: None,
         crate_root: None,
         deps: vec![],
-        tests: vec![],
+        test_deps: vec![],
         named_deps,
         proc_macro: None,
         features: vec![],

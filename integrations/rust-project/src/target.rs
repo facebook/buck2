@@ -113,7 +113,8 @@ pub struct TargetInfo {
     pub crate_root: Option<PathBuf>,
     #[serde(rename = "buck.deps", alias = "buck.direct_dependencies", default)]
     pub deps: Vec<Target>,
-    pub tests: Vec<Target>,
+    #[serde(rename = "tests")]
+    pub test_deps: Vec<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with
     // `buck.direct_dependencies` and are instead a separate entry.
     pub named_deps: FxHashMap<String, Target>,
@@ -259,7 +260,7 @@ fn test_cfg() {
         crate_dynamic: None,
         crate_root: None,
         deps: vec![],
-        tests: vec![],
+        test_deps: vec![],
         named_deps: FxHashMap::default(),
         proc_macro: None,
         features: vec!["foo_feature".to_owned()],
