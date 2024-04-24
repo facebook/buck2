@@ -8,15 +8,24 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _impl(_: AnalysisContext) -> list[Provider]:
+def _impl(ctx: AnalysisContext) -> list[Provider]:
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
+    xcframework_dir = ctx.actions.declare_output("out.xcframework", dir = True)
+    xcframework_command = cmd_args([
+        apple_tools.xcframework_maker,
+        "--output-path",
+        xcframework_dir.as_output(),
+    ])
+    ctx.actions.run(xcframework_command, category = "apple_xcframework")
     return [
-        DefaultInfo(),
+        DefaultInfo(default_output = xcframework_dir),
     ]
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_xcframework",
     impl = _impl,
     attrs = {
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     },
 )
 

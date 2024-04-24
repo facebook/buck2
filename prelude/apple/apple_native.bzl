@@ -50,6 +50,10 @@ def _apple_xcuitest(**kwargs):
     kwargs = _update_platforms(**kwargs)
     native.apple_xcuitest(**kwargs)
 
+def _apple_xcframework(**kwargs):
+    kwargs = _update_platforms(**kwargs)
+    native.apple_xcframework(**kwargs)
+
 def _update_platforms(**kwargs):
     platform = _get_default_platform()
 
@@ -88,4 +92,5 @@ apple_native = struct(
     apple_resource = _apple_resource,
     apple_test = _apple_test,
     apple_xcuitest = _apple_xcuitest,
+    apple_xcframework = _apple_xcframework,
 )

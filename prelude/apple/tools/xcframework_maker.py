@@ -14,7 +14,12 @@ from pathlib import Path
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Tool to make an xcframework bundle.")
+    parser.add_argument("--output-path")
     args = parser.parse_args()
+    out_path = Path(args.output_path)
+    out_path.mkdir(parents=True, exist_ok=False)
+    plist_path = out_path / "Info.plist"
+    plist_path.touch(exist_ok=False)
 
 
 if __name__ == "__main__":
