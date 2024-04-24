@@ -32,6 +32,7 @@ pub struct Develop {
     pub sysroot: SysrootConfig,
     pub relative_paths: bool,
     pub buck: buck::Buck,
+    pub check_cycles: bool,
 }
 
 pub struct OutputCfg {
@@ -60,6 +61,7 @@ impl Develop {
             sysroot: SysrootConfig::BuckConfig,
             buck,
             relative_paths: false,
+            check_cycles: false,
         }
     }
 
@@ -74,6 +76,7 @@ impl Develop {
             pretty,
             relative_paths,
             mode,
+            check_cycles,
         } = command
         {
             let out = if stdout {
@@ -97,6 +100,7 @@ impl Develop {
                 sysroot,
                 relative_paths,
                 buck,
+                check_cycles,
             };
             let out = OutputCfg { out, pretty };
 
@@ -127,6 +131,7 @@ impl Develop {
             sysroot,
             relative_paths,
             buck,
+            check_cycles,
         } = self;
 
         let project_root = buck.resolve_project_root()?;
@@ -160,6 +165,7 @@ impl Develop {
             expanded_and_resolved,
             aliased_libraries,
             *relative_paths,
+            *check_cycles,
         )?;
         Ok(rust_project)
     }

@@ -48,6 +48,7 @@ pub fn to_json_project(
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
     relative_paths: bool,
+    check_cycles: bool,
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(mode);
@@ -198,6 +199,10 @@ pub fn to_json_project(
         crates.push(crate_info);
     }
 
+    if check_cycles {
+        check_cycles_in_crate_graph(&crates);
+    }
+
     let jp = JsonProject {
         sysroot,
         crates,
@@ -207,6 +212,80 @@ pub fn to_json_project(
     };
 
     Ok(jp)
+}
+
+/// Check that there are no cycles in the crate dependency graph: a
+/// crate should never transitively depend on itself.
+///
+/// If a cycle is found, print the offending crate and terminate.
+fn check_cycles_in_crate_graph(crates: &[Crate]) {
+    // From a start crate ID, each ID we can reach, along with an example route.
+    let mut reachable: FxHashMap<usize, FxHashMap<usize, Vec<usize>>> = FxHashMap::default();
+
+    // Initialize the reachable crates from immediate dependencies.
+    for (idx, krate) in crates.iter().enumerate() {
+        let mut routes: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
+        for dep in &krate.deps {
+            routes.insert(dep.crate_index, vec![idx, dep.crate_index]);
+        }
+
+        reachable.insert(idx, routes);
+    }
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+
+        let mut new_reachable = reachable.clone();
+
+        // Iterate all the dependencies, and add any transitive
+        // dependencies that weren't already in `reachable`.
+        for (crate_idx, deps_idxs) in reachable.iter() {
+            for (dep_idx, route) in deps_idxs.iter() {
+                for transitive_dep_idx in reachable[dep_idx].keys() {
+                    if transitive_dep_idx == crate_idx {
+                        let mut cycle_route = route.clone();
+                        cycle_route.push(*transitive_dep_idx);
+
+                        tracing::error!(
+                            crate = crates[*crate_idx].display_name,
+                            route = format_route(&cycle_route, crates),
+                            "Found a cycle",
+                        );
+                        std::process::exit(2);
+                    }
+
+                    if !deps_idxs.contains_key(transitive_dep_idx) {
+                        let mut new_route = route.clone();
+                        new_route.push(*transitive_dep_idx);
+
+                        new_reachable
+                            .get_mut(crate_idx)
+                            .expect("We should always have initialized the dependencies for each crate.")
+                            .insert(*transitive_dep_idx, new_route);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        reachable = new_reachable;
+    }
+}
+
+fn format_route(route: &[usize], crates: &[Crate]) -> String {
+    let mut formatted_crates = vec![];
+    for idx in route {
+        formatted_crates.push(format!(
+            "{} ({idx})",
+            crates[*idx]
+                .display_name
+                .clone()
+                .unwrap_or("<unnamed>".to_owned()),
+        ));
+    }
+
+    formatted_crates.join(" -> ")
 }
 
 /// If `path` starts with `base`, drop the prefix.

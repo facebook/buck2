@@ -91,6 +91,10 @@ pub enum Command {
         #[clap(short, long)]
         pretty: bool,
 
+        /// Check that there are no cycles in the generated crate graph.
+        #[clap(long)]
+        check_cycles: bool,
+
         /// Use paths relative to the project root in `rust-project.json`.
         #[clap(long, hide = true)]
         relative_paths: bool,
