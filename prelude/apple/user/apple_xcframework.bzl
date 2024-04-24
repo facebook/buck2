@@ -10,11 +10,19 @@ load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
-    xcframework_dir = ctx.actions.declare_output("out.xcframework", dir = True)
+
+    framework_outputs = ctx.attrs.framework.get(DefaultInfo).default_outputs
+    if len(framework_outputs) > 1:
+        fail("xcframework's framework target must only produce one output")
+    framework = framework_outputs[0]
+
+    xcframework_dir = ctx.actions.declare_output(ctx.attrs.name + ".xcframework", dir = True)
     xcframework_command = cmd_args([
         apple_tools.xcframework_maker,
         "--output-path",
         xcframework_dir.as_output(),
+        "--framework-path",
+        framework,
     ])
     ctx.actions.run(xcframework_command, category = "apple_xcframework")
     return [
@@ -25,6 +33,7 @@ registration_spec = RuleRegistrationSpec(
     name = "apple_xcframework",
     impl = _impl,
     attrs = {
+        "framework": attrs.dep(),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     },
 )
