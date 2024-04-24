@@ -196,6 +196,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     re_use_case: *re_use_case,
                     re_action_key: re_action_key.clone(),
                     re_max_queue_time_ms: options.re_max_queue_time_ms,
+                    re_resource_units: options.re_resource_units,
                     knobs: self.executor_global_knobs.dupe(),
                     skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
                     skip_cache_write: self.skip_cache_write || !remote_cache_enabled,

@@ -264,6 +264,7 @@ impl RemoteExecutionClient {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.data
@@ -281,6 +282,7 @@ impl RemoteExecutionClient {
                     skip_cache_read,
                     skip_cache_write,
                     re_max_queue_time,
+                    re_resource_units,
                     knobs,
                 )
                 .map_err(|e| self.decorate_error("execute", e)))
@@ -980,6 +982,7 @@ impl RemoteExecutionClientImpl {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         let metadata = RemoteExecutionMetadata {
@@ -1005,6 +1008,7 @@ impl RemoteExecutionClientImpl {
                 platform: re_platform(platform),
                 host_resource_requirements: THostResourceRequirements {
                     input_files_bytes: identity.paths.input_files_bytes() as i64,
+                    resource_units: re_resource_units.unwrap_or_default(),
                     ..Default::default()
                 },
                 dependencies: dependencies

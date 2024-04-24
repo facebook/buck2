@@ -110,6 +110,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         >,
         #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
         #[starlark(default = NoneOr::None, require = named)] remote_output_paths: NoneOr<&str>,
+        #[starlark(default = NoneOr::None, require = named)]
+        remote_execution_resource_units: NoneOr<i64>,
         #[starlark(default=UnpackList::default(), require = named)]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
     ) -> anyhow::Result<StarlarkCommandExecutorConfig> {
@@ -119,6 +121,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 
             let remote_execution_queue_time_threshold_s =
                 remote_execution_queue_time_threshold_s.into_option();
+
+            let re_resource_units = remote_execution_resource_units.into_option();
 
             let max_cache_upload_mebibytes = max_cache_upload_mebibytes.into_option();
 
@@ -189,6 +193,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 Some(RemoteExecutorOptions {
                     re_max_input_files_bytes,
                     re_max_queue_time_ms,
+                    re_resource_units,
                 })
             } else {
                 None

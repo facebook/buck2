@@ -393,6 +393,7 @@ impl ManagedRemoteExecutionClient {
         skip_cache_read: bool,
         skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
+        re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.lock()?
@@ -408,6 +409,7 @@ impl ManagedRemoteExecutionClient {
                 skip_cache_read,
                 skip_cache_write,
                 re_max_queue_time,
+                re_resource_units,
                 knobs,
             )
             .await

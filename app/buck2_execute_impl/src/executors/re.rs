@@ -70,6 +70,7 @@ pub struct ReExecutor {
     pub skip_cache_read: bool,
     pub skip_cache_write: bool,
     pub re_max_queue_time_ms: Option<u64>,
+    pub re_resource_units: Option<i64>,
     pub paranoid: Option<ParanoidDownloader>,
     pub materialize_failed_inputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
@@ -148,6 +149,7 @@ impl ReExecutor {
                 self.skip_cache_read,
                 self.skip_cache_write,
                 self.re_max_queue_time_ms.map(Duration::from_millis),
+                self.re_resource_units,
                 &self.knobs,
             )
             .await;
