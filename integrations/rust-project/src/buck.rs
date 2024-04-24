@@ -36,7 +36,6 @@ use crate::json_project::Sysroot;
 use crate::json_project::TargetSpec;
 use crate::target::AliasedTargetInfo;
 use crate::target::ExpandedAndResolved;
-use crate::target::Kind;
 use crate::target::MacroOutput;
 use crate::target::Target;
 use crate::target::TargetInfo;
@@ -57,10 +56,8 @@ pub fn to_json_project(
     let ExpandedAndResolved {
         expanded_targets: _,
         queried_proc_macros: proc_macros,
-        resolved_deps: target_map,
+        resolved_deps: target_index,
     } = expanded_and_resolved;
-
-    let target_index = merge_unit_test_targets(target_map);
 
     // A rust-project.json uses file indexes to associate dependencies with the
     // relevant crate.
@@ -368,50 +365,6 @@ fn as_deps(
     deps
 }
 
-/// For every test target, drop it from `target_map` and include test
-/// target's dependencies in the target that references the test
-/// target.
-fn merge_unit_test_targets(
-    target_map: FxHashMap<Target, TargetInfo>,
-) -> FxHashMap<Target, TargetInfo> {
-    let mut target_index = FxHashMap::default();
-
-    let (tests, mut targets): (FxHashMap<Target, TargetInfo>, FxHashMap<Target, TargetInfo>) =
-        target_map
-            .into_iter()
-            .partition(|(_, info)| info.kind == Kind::Test);
-
-    let (generated_unit_tests, standalone_tests): (
-        FxHashMap<Target, TargetInfo>,
-        FxHashMap<Target, TargetInfo>,
-    ) = tests.into_iter().partition(|(target, _)| {
-        targets
-            .iter()
-            .any(|(_, value)| value.test_deps.contains(target))
-    });
-
-    targets.extend(standalone_tests);
-
-    for (index, (target, mut info)) in targets.into_iter().enumerate() {
-        trace!(?target, ?info, index, "adding dependency");
-
-        // Merge the `-unittest` target with the parent target.
-        let unittest_target = Target::new(format!("{target}-unittest"));
-        if info.test_deps.contains(&unittest_target) {
-            if let Some(test_info) = generated_unit_tests.get(&unittest_target) {
-                for test_dep in &test_info.deps {
-                    if !info.deps.contains(test_dep) && *test_dep != target {
-                        info.deps.push(test_dep.clone())
-                    }
-                }
-            }
-        }
-
-        target_index.insert(target.to_owned(), info);
-    }
-    target_index
-}
-
 #[derive(Debug, Default)]
 pub struct Buck {
     mode: Option<String>,
@@ -716,204 +669,10 @@ pub fn select_mode(mode: Option<&str>) -> Option<String> {
     }
 }
 
-/// When we merge targets with their tests, we shouldn't end up
-/// with a target that depends on itself.
-#[test]
-fn merge_tests_no_cycles() {
-    let mut targets = FxHashMap::default();
-
-    targets.insert(
-        Target::new("//foo"),
-        TargetInfo {
-            name: "foo".to_owned(),
-            label: "foo".to_owned(),
-            kind: Kind::Library,
-            edition: None,
-            srcs: vec![],
-            mapped_srcs: FxHashMap::default(),
-            crate_name: None,
-            crate_dynamic: None,
-            crate_root: None,
-            deps: vec![],
-            test_deps: vec![Target::new("//foo-unittest")],
-            named_deps: FxHashMap::default(),
-            proc_macro: None,
-            features: vec![],
-            env: FxHashMap::default(),
-            source_folder: PathBuf::from("/tmp"),
-            project_relative_buildfile: PathBuf::from("foo/BUCK"),
-            in_workspace: false,
-            out_dir: None,
-            rustc_flags: vec![],
-        },
-    );
-
-    targets.insert(
-        Target::new("//foo-unittest"),
-        TargetInfo {
-            name: "foo-unittest".to_owned(),
-            label: "foo-unittest".to_owned(),
-            kind: Kind::Test,
-            edition: None,
-            srcs: vec![],
-            mapped_srcs: FxHashMap::default(),
-            crate_name: None,
-            crate_dynamic: None,
-            crate_root: None,
-            deps: vec![Target::new("//foo")],
-            test_deps: vec![],
-            named_deps: FxHashMap::default(),
-            proc_macro: None,
-            features: vec![],
-            env: FxHashMap::default(),
-            source_folder: PathBuf::from("/tmp"),
-            project_relative_buildfile: PathBuf::from("foo-unittest/BUCK"),
-            in_workspace: false,
-            out_dir: None,
-            rustc_flags: vec![],
-        },
-    );
-
-    let res = merge_unit_test_targets(targets.clone());
-    let merged_target = res.get(&Target::new("//foo")).unwrap();
-    assert_eq!(*merged_target.deps, vec![]);
-}
-
-#[test]
-fn merge_target_multiple_tests_no_cycles() {
-    let mut targets = FxHashMap::default();
-
-    targets.insert(
-        Target::new("//foo"),
-        TargetInfo {
-            name: "foo".to_owned(),
-            label: "foo".to_owned(),
-            kind: Kind::Library,
-            edition: None,
-            srcs: vec![],
-            mapped_srcs: FxHashMap::default(),
-            crate_name: None,
-            crate_dynamic: None,
-            crate_root: None,
-            deps: vec![Target::new("//foo@rust")],
-            test_deps: vec![
-                Target::new("//foo_test"),
-                Target::new("//foo@rust-unittest"),
-            ],
-            named_deps: FxHashMap::default(),
-            proc_macro: None,
-            features: vec![],
-            env: FxHashMap::default(),
-            source_folder: PathBuf::from("/tmp"),
-            project_relative_buildfile: PathBuf::from("foo/BUCK"),
-            in_workspace: false,
-            out_dir: None,
-            rustc_flags: vec![],
-        },
-    );
-
-    targets.insert(
-        Target::new("//foo@rust"),
-        TargetInfo {
-            name: "foo@rust".to_owned(),
-            label: "foo@rust".to_owned(),
-            kind: Kind::Library,
-            edition: None,
-            srcs: vec![],
-            mapped_srcs: FxHashMap::default(),
-            crate_name: None,
-            crate_dynamic: None,
-            crate_root: None,
-            deps: vec![],
-            test_deps: vec![
-                Target::new("//foo_test"),
-                Target::new("//foo@rust-unittest"),
-            ],
-            named_deps: FxHashMap::default(),
-            proc_macro: None,
-            features: vec![],
-            env: FxHashMap::default(),
-            source_folder: PathBuf::from("/tmp"),
-            project_relative_buildfile: PathBuf::from("foo/BUCK"),
-            in_workspace: false,
-            out_dir: None,
-            rustc_flags: vec![],
-        },
-    );
-
-    targets.insert(
-        Target::new("//foo_test"),
-        TargetInfo {
-            name: "foo_test".to_owned(),
-            label: "foo_test".to_owned(),
-            kind: Kind::Test,
-            edition: None,
-            srcs: vec![],
-            mapped_srcs: FxHashMap::default(),
-            crate_name: None,
-            crate_dynamic: None,
-            crate_root: None,
-            // foo_test depends on foo, which is reasonable, but
-            // we need to be careful when merging test
-            // dependencies of foo@rust to avoid creating cycles.
-            deps: vec![Target::new("//foo"), Target::new("//bar")],
-            test_deps: vec![],
-            named_deps: FxHashMap::default(),
-            proc_macro: None,
-            features: vec![],
-            env: FxHashMap::default(),
-            source_folder: PathBuf::from("/tmp"),
-            project_relative_buildfile: PathBuf::from("foo_test/BUCK"),
-            in_workspace: false,
-            out_dir: None,
-            rustc_flags: vec![],
-        },
-    );
-
-    targets.insert(
-        Target::new("//foo@rust-unittest"),
-        TargetInfo {
-            name: "foo@rust-unittest".to_owned(),
-            label: "foo@rust-unittest".to_owned(),
-            kind: Kind::Test,
-            edition: None,
-            srcs: vec![],
-            mapped_srcs: FxHashMap::default(),
-            crate_name: None,
-            crate_dynamic: None,
-            crate_root: None,
-            deps: vec![Target::new("//test-framework")],
-            test_deps: vec![],
-            named_deps: FxHashMap::default(),
-            proc_macro: None,
-            features: vec![],
-            env: FxHashMap::default(),
-            source_folder: PathBuf::from("/tmp"),
-            project_relative_buildfile: PathBuf::from("foo/BUCK"),
-            in_workspace: false,
-            out_dir: None,
-            rustc_flags: vec![],
-        },
-    );
-
-    let res = merge_unit_test_targets(targets.clone());
-    let merged_foo_target = res.get(&Target::new("//foo")).unwrap();
-    assert_eq!(
-        *merged_foo_target.deps,
-        vec![Target::new("//foo@rust")],
-        "Additional dependencies should only come from the foo-unittest crate"
-    );
-
-    let merged_foo_rust_target = res.get(&Target::new("//foo@rust")).unwrap();
-    assert_eq!(
-        *merged_foo_rust_target.deps,
-        vec![Target::new("//test-framework")],
-        "Test dependencies should only come from the foo@rust-unittest crate"
-    );
-}
-
 #[test]
 fn named_deps_underscores() {
+    use crate::target::Kind;
+
     let mut target_index = FxHashMap::default();
     target_index.insert(
         Target::new("//bar"),
