@@ -13,6 +13,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
+use rustc_hash::FxHashSet;
 use tracing::info;
 
 use crate::buck;
@@ -123,7 +124,26 @@ impl Develop {
         &self,
         files: Vec<PathBuf>,
     ) -> Result<FxHashMap<String, Vec<Target>>, anyhow::Error> {
-        self.buck.query_owner(&files)
+        let all_file_owners = self.buck.query_owner(&files)?;
+
+        // Don't bother with target `foo` if `foo-unittest` is present.
+        let mut file_owners = FxHashMap::default();
+        for (file, owners) in all_file_owners.iter() {
+            let unique_owners = owners.iter().collect::<FxHashSet<_>>();
+
+            let mut filtered_owners = vec![];
+            for owner in owners {
+                if unique_owners.contains(&Target::new(format!("{}-unittest", owner))) {
+                    continue;
+                }
+
+                filtered_owners.push(owner.clone());
+            }
+
+            file_owners.insert(file.clone(), filtered_owners);
+        }
+
+        Ok(file_owners)
     }
 
     pub fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
