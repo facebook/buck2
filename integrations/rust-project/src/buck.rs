@@ -173,7 +173,7 @@ pub fn to_json_project(
         };
 
         let crate_info = Crate {
-            display_name: Some(info.name.clone()),
+            display_name: Some(info.display_name()),
             root_module,
             buck_extensions: BuckExtensions {
                 label: target.to_owned(),

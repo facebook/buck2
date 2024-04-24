@@ -148,6 +148,11 @@ impl TargetInfo {
         )
     }
 
+    pub fn display_name(&self) -> String {
+        let name = self.name.strip_suffix("-unittest").unwrap_or(&self.name);
+        name.to_owned()
+    }
+
     pub fn root_module(&self) -> PathBuf {
         if let Some(crate_root) = &self.crate_root {
             // If provided with a crate_root directly, and it's valid, use it.
