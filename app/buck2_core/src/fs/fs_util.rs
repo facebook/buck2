@@ -1011,6 +1011,18 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn remove_all_path_contains_regular_file() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let regular_file = root.join("foo");
+        fs_util::write(&regular_file, b"data")?;
+        let path = root.join("foo/bar");
+        assert!(remove_all(&path).is_err());
+        Ok(())
+    }
+
     #[test]
     fn remove_dir_all_does_not_remove_file() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
