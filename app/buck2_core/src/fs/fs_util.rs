@@ -463,10 +463,16 @@ pub fn symlink_metadata_if_available<P: AsRef<AbsPath>>(path: P) -> Option<fs::M
 /// Do nothing if `path` does not exist.
 pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     // There are no counters because every function called here has its own counter.
-    let metadata = match symlink_metadata_if_exists(&path)? {
-        Some(s) => s,
-        None => return Ok(()),
-    };
+    let metadata = match symlink_metadata_if_exists(&path) {
+        Ok(None) => return Ok(()),
+        Ok(Some(s)) => Ok(s),
+        // `NotADirectory` means we are trying to delete a path (e.g. "/foo/bar") that has a subpath
+        // pointing to a regular file (e.g. "/foo"). In this case do not fail and behave similarly to as
+        // when path we are trying to delete does not exist.
+        Err(e) if e.e.kind() == io::ErrorKind::NotADirectory => return Ok(()),
+        Err(e) => Err(e),
+    }?;
+
     let r = if metadata.is_dir() {
         remove_dir_all(&path)
     } else {
@@ -1019,7 +1025,7 @@ mod tests {
         let regular_file = root.join("foo");
         fs_util::write(&regular_file, b"data")?;
         let path = root.join("foo/bar");
-        assert!(remove_all(&path).is_err());
+        assert!(remove_all(&path).is_ok());
         Ok(())
     }
 
