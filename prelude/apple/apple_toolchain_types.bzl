@@ -46,16 +46,16 @@ AppleToolchainInfo = provider(
 AppleToolsInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "assemble_bundle": provider_field(typing.Any, default = None),  # RunInfo
-        "split_arch_combine_dsym_bundles_tool": provider_field(typing.Any, default = None),  # RunInfo
-        "dry_codesign_tool": provider_field(typing.Any, default = None),  # "RunInfo"
-        "adhoc_codesign_tool": provider_field(typing.Any, default = None),  # "RunInfo"
-        "selective_debugging_scrubber": provider_field(typing.Any, default = None),  # "RunInfo"
-        "info_plist_processor": provider_field(typing.Any, default = None),  # RunInfo
-        "ipa_package_maker": provider_field(typing.Any, default = None),  # RunInfo
-        "make_modulemap": provider_field(typing.Any, default = None),  # "RunInfo"
-        "make_vfsoverlay": provider_field(typing.Any, default = None),  # "RunInfo"
-        "swift_objc_header_postprocess": provider_field(typing.Any, default = None),  # "RunInfo"
+        "assemble_bundle": provider_field(RunInfo),
+        "split_arch_combine_dsym_bundles_tool": provider_field(RunInfo),
+        "dry_codesign_tool": provider_field(RunInfo),
+        "adhoc_codesign_tool": provider_field(RunInfo),
+        "selective_debugging_scrubber": provider_field(RunInfo),
+        "info_plist_processor": provider_field(RunInfo),
+        "ipa_package_maker": provider_field(RunInfo),
+        "make_modulemap": provider_field(RunInfo),
+        "make_vfsoverlay": provider_field(RunInfo),
+        "swift_objc_header_postprocess": provider_field(RunInfo),
         "xcframework_maker": provider_field(RunInfo),
     },
 )
