@@ -159,6 +159,8 @@ for env in ("PYTHONPATH", "LD_LIBRARY_PATH", "LD_PRELOAD",
 
 path = os.path.join(dirpath, modules_dir)
 os.environ["PYTHONPATH"] = path
+if "PAR_APPEND_PYTHONPATH" in os.environ:
+   os.environ["PYTHONPATH"] += ":" + os.environ["PAR_APPEND_PYTHONPATH"]
 
 # This environment variable is immediately unset on startup but will also appear
 # in e.g. `multiprocessing` workers, and so serves as an audit trail back to

@@ -19,7 +19,10 @@ export {lib_path_env}={ld_library_path}
 if [ -n "${{PYTHONPATH+SET}}" ]; then
     export FB_SAVED_PYTHONPATH=$PYTHONPATH
 fi
-export PYTHONPATH=$BASE_DIR
+
+# The following expands to ":PAR_APPEND_PYTHONPATH" when $PAR_APPEND_PYTHONPATH is set
+# This is important: we don't want a trailing colon in $PYTHONPATH.
+export PYTHONPATH=$BASE_DIR${{PAR_APPEND_PYTHONPATH:+:$PAR_APPEND_PYTHONPATH}}
 if [ -n "${{PYTHONHOME+SET}}" ]; then
     export FB_SAVED_PYTHONHOME=$PYTHONHOME
 fi
