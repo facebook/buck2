@@ -1128,4 +1128,20 @@ mod tests {
             assert_eq!(0o111, mode & 0o111);
         }
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_remove_all_removes_readonly_path() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let path = root.join("foo/bar/link");
+        fs_util::create_dir_all(path.parent().unwrap())?;
+        fs_util::write(&path, b"data")?;
+        let mut perm = fs_util::metadata(&path)?.permissions();
+        perm.set_readonly(true);
+        fs_util::set_permissions(&path, perm)?;
+        fs_util::remove_all(&path)?;
+        assert!(!path.exists());
+        Ok(())
+    }
 }

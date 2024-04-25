@@ -436,16 +436,6 @@ impl ProjectRoot {
         }
     }
 
-    /// Remove a path recursively, regardless of it being a file or a directory (all contents
-    /// deleted).
-    /// This does not follow symlinks, and only removes the link itself.
-    // TODO(nga): refactor this to global function.
-    pub fn remove_path_recursive(&self, path: impl PathLike) -> anyhow::Result<()> {
-        let path = self.resolve(path);
-        fs_util::remove_all(path)?;
-        Ok(())
-    }
-
     /// Find the relative path between two paths within the project
     pub fn relative_path(&self, target: impl PathLike, dest: impl PathLike) -> PathBuf {
         Self::find_relative_path(&self.resolve(target), &self.resolve(dest))
@@ -823,23 +813,6 @@ mod tests {
 
         assert_eq!("file content", content);
         assert_eq!("new file content", new_content);
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn test_remove_readonly_path_recursive() -> anyhow::Result<()> {
-        let fs = ProjectRootTemp::new()?;
-
-        // We can delete a read-only file
-        let file = ProjectRelativePath::new("foo/bar/link")?;
-        fs.path.write_file(file, "Hello", false)?;
-        let real_file = fs.path.resolve(file);
-        let mut perm = fs_util::metadata(&real_file)?.permissions();
-        perm.set_readonly(true);
-        fs_util::set_permissions(&real_file, perm)?;
-        fs.path.remove_path_recursive(file)?;
-        assert!(!fs.path.resolve(file).exists());
         Ok(())
     }
 
