@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { ByteBuffer } from 'flatbuffers';
@@ -17,8 +17,21 @@ import { Build } from './fbs/explain'
 
 function App() {
     const target = 'fbcode//buck2:buck2'
-    // TODO iguridi: hardcoded information from just 1 target
-    const blobBase64 = "XXDATAXX"
+
+    const [blobBase64, setBlobBase64] = useState("XXDATAXX");
+    useEffect(() => {
+      const fetchData = async () => {
+        try {
+          // keep this line as is, it will be replaced later
+          const data = (await import('./data')).DATA;
+          setBlobBase64(data);
+        } catch (error) {
+          console.error('Error:', error);
+        }
+      };
+      fetchData();
+    }, []);
+
     const decodedString = atob(blobBase64);
     let bytes = new Uint8Array(decodedString);
 
@@ -31,7 +44,7 @@ function App() {
 
     console.log(target2?.name());
 
-    name = target2?.name();
+    const name = target2?.name();
 
     return (
       <>
