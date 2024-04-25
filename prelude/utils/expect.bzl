@@ -20,6 +20,7 @@ load(
     "is_list",
     "is_number",
     "is_string",
+    "is_struct",
 )
 
 def expect(condition: typing.Any, message: str = "condition not expected", *format_args):
@@ -120,6 +121,9 @@ def expect_contains_all(name, val, options):
     for index, val in enumerate(val):
         expect_contains("{name}[{index}]".format(name = name, index = index), val, options)
 
+def expect_struct(name: str, val: struct):
+    expect_type(name, is_struct, "struct", val)
+
 # You'll likely want to import this struct for convenience, instead of each method separately
 expects = struct(
     type = expect_type,
@@ -136,4 +140,5 @@ expects = struct(
     contains = expect_contains,
     contains_all = expect_contains_all,
     equal = expect_equal,
+    struct = expect_struct,
 )
