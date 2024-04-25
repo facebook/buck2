@@ -124,6 +124,8 @@ def main():
         run(yarn + ["--cwd", src_join(), "install", "--prefer-offline"])
 
     rm_rf(src_join("dist"))
+
+    # build
     run(yarn + ["--cwd", src_join(), "run", "build"], env={"CI": "false"})
 
     # inline js into html file
