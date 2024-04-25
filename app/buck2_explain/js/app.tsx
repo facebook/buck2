@@ -33,9 +33,14 @@ function App() {
   }, []);
 
   const decodedString = atob(blobBase64);
-  let bytes = new Uint8Array(decodedString);
+  // TODO iguridi: decode blob better
+  var byteArray = new Uint8Array(decodedString.length);
+  for (var i = 0; i < decodedString.length; i++) {
+    byteArray[i] += decodedString.charCodeAt(i);
+  }
 
-  let buf = new ByteBuffer(bytes);
+  let buf = new ByteBuffer(byteArray);
+
 
   // Get an accessor to the root object inside the buffer.
   var build = Build.getRootAsBuild(buf);
