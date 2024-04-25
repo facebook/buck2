@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use tracing::info;
+use tracing::warn;
 
 use crate::buck;
 use crate::buck::relative_to;
@@ -124,7 +125,25 @@ impl Develop {
         &self,
         files: Vec<PathBuf>,
     ) -> Result<FxHashMap<String, Vec<Target>>, anyhow::Error> {
-        let all_file_owners = self.buck.query_owner(&files)?;
+        let all_file_owners = match self.buck.query_owner(&files) {
+            Ok(owners) => owners,
+            Err(_) => {
+                let mut owners = FxHashMap::default();
+
+                for file in files {
+                    match self.buck.query_owner(&vec![file.to_path_buf()]) {
+                        Ok(file_owners) => {
+                            owners.extend(file_owners.into_iter());
+                        }
+                        Err(e) => {
+                            warn!(file = ?file, "Could not find a target that owns this file: {}", e);
+                        }
+                    }
+                }
+
+                owners
+            }
+        };
 
         // Don't bother with target `foo` if `foo-unittest` is present.
         let mut file_owners = FxHashMap::default();
