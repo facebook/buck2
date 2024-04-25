@@ -103,7 +103,7 @@ def main():
         )
         src = tmp_src_path
 
-    src_join = functools.partial(os.path.join, src)
+    src_join = functools.partial(os.path.join, src, "js")
 
     if args.yarn_offline_mirror:
         env = {"YARN_YARN_OFFLINE_MIRROR": os.path.realpath(args.yarn_offline_mirror)}
