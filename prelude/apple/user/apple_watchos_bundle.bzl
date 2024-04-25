@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_bundle.bzl", "apple_bundle_impl")
+load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
@@ -45,6 +46,7 @@ def _apple_watchos_bundle_attrs():
     attributes.update(_apple_bundle_base_attrs())
     attributes.update(apple_bundle_extra_attrs())
     attributes.update({
+        APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
         "bundle_type": attrs.string(default = "watchapp"),
     })
     return attributes
