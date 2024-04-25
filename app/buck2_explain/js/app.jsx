@@ -10,32 +10,33 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { ByteBuffer } from 'flatbuffers';
+import { Build } from './fbs/explain'
+
+
 
 function App() {
     const target = 'fbcode//buck2:buck2'
-    // hardcoded information from just 1 target
+    // TODO iguridi: hardcoded information from just 1 target
     const blobBase64 = "XXDATAXX"
     const decodedString = atob(blobBase64);
-    const info = JSON.parse(decodedString);
+    let bytes = new Uint8Array(decodedString);
 
-    const attrs = info["fbcode//buck2:buck2 (cfg:macos-x86_64-macosx-no-san#8be81d993dfb76a0)"]
+    let buf = new ByteBuffer(bytes);
 
-    const keys = Object.keys(attrs);
+    // Get an accessor to the root object inside the buffer.
+    var build = Build.getRootAsBuild(buf);
+
+    var target2 = build.targets(1);
+
+    console.log(target2?.name());
+
+    name = target2?.name();
 
     return (
       <>
         <p><i><span>{target}</span></i></p>
-        <h1>{target}</h1>
-        <table>
-          <tbody>
-            {keys.map(key => (
-              <tr key={key}>
-                <td>{key}</td>
-                <td>{JSON.stringify(attrs[key])}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            <h2>{name}</h2>
       </>
     )
   }

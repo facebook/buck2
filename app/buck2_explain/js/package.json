@@ -2,6 +2,7 @@
   "name": "buck2_explain",
   "version": "0.0.1",
   "dependencies": {
+    "flatbuffers": "23.5.26",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
