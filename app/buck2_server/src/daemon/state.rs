@@ -434,7 +434,6 @@ impl DaemonState {
                     blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
                     root_config,
                     &deferred_materializer_configs,
-                    fs.clone(),
                     digest_config,
                     &init_ctx,
                 ),

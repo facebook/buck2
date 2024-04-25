@@ -64,7 +64,6 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     io_executor: Arc<dyn BlockingExecutor>,
     root_config: &LegacyBuckConfig,
     deferred_materializer_configs: &DeferredMaterializerConfigs,
-    fs: ProjectRoot,
     digest_config: DigestConfig,
     init_ctx: &BuckdServerInitPreferences,
 ) -> anyhow::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
@@ -72,7 +71,9 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         // When sqlite materializer state is disabled, we should always delete the materializer state db.
         // Otherwise, artifacts in buck-out will diverge from the state stored in db.
         io_executor
-            .execute_io_inline(|| fs.remove_path_recursive(&paths.materializer_state_path()))
+            .execute_io_inline(|| {
+                fs_util::remove_all(&paths.materializer_state_path()).map_err(anyhow::Error::from)
+            })
             .await?;
         return Ok((None, None));
     }
