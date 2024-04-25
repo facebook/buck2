@@ -442,31 +442,7 @@ impl ProjectRoot {
     // TODO(nga): refactor this to global function.
     pub fn remove_path_recursive(&self, path: impl PathLike) -> anyhow::Result<()> {
         let path = self.resolve(path);
-
-        // TODO: This should probably not use symlink_metadata_if_available... But it used to use
-        // Path::exists()...
-        let meta = match fs_util::symlink_metadata_if_available(&path) {
-            Some(m) => m,
-            None => return Ok(()),
-        };
-
-        let path_type = meta.file_type();
-
-        if path_type.is_dir() {
-            fs_util::remove_dir_all(&path)
-                .with_context(|| format!("remove_path_recursive({}) on directory", &path))?;
-        } else if path_type.is_file() || path_type.is_symlink() {
-            fs_util::remove_file(&path)
-                .with_context(|| format!("remove_path_recursive({}) on file", &path))?;
-        } else {
-            // If we want to handle special files, we'll need to use special traits
-            // https://doc.rust-lang.org/std/os/unix/fs/trait.FileTypeExt.html
-            return Err(anyhow::anyhow!(
-                "remove_path_recursive, attempted to delete a path ({}) of an unknown type",
-                path
-            ));
-        }
-
+        fs_util::remove_all(path)?;
         Ok(())
     }
 
