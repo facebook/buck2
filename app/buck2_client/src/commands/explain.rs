@@ -37,6 +37,9 @@ pub struct ExplainCommand {
     /// Target to get information from
     #[clap(long, short = 't')]
     target: String,
+    /// Dev only: dump the flatbuffer info to file path
+    #[clap(long, hide = true)]
+    fbs_dump: Option<PathArg>,
 }
 
 // TODO: not sure I need StreamingCommand
@@ -61,6 +64,7 @@ impl StreamingCommand for ExplainCommand {
                     NewGenericRequest::Explain(ExplainRequest {
                         output,
                         target: self.target,
+                        fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
                     }),
                     None,
                 )

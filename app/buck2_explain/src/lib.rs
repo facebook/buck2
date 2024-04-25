@@ -28,7 +28,11 @@ mod fbs {
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
 }
 
-pub fn main(data: Vec<ConfiguredTargetNode>, output: &AbsPathBuf) -> anyhow::Result<()> {
+pub fn main(
+    data: Vec<ConfiguredTargetNode>,
+    output: &AbsPathBuf,
+    fbs_dump: Option<&AbsPathBuf>,
+) -> anyhow::Result<()> {
     let mut builder = FlatBufferBuilder::new();
 
     // TODO iguridi: just 1 node for now
@@ -72,6 +76,11 @@ pub fn main(data: Vec<ConfiguredTargetNode>, output: &AbsPathBuf) -> anyhow::Res
     };
 
     let base64 = base64::encode(&fbs);
+
+    // For dev purposes, dump the base64 encoded flatbuffer to a file
+    if let Some(fbs_dump) = fbs_dump {
+        fs::write(fbs_dump, &base64)?;
+    }
 
     let html_out = {
         let html_in = include_str!("explain.html");

@@ -35,6 +35,7 @@ pub(crate) async fn explain_command(
         ExplainServerCommand {
             output: req.output,
             target: req.target,
+            fbs_dump: req.fbs_dump,
         },
         ctx,
         partial_result_dispatcher,
@@ -43,6 +44,7 @@ pub(crate) async fn explain_command(
 }
 struct ExplainServerCommand {
     output: AbsPathBuf,
+    fbs_dump: Option<AbsPathBuf>,
     target: String,
 }
 
@@ -59,7 +61,14 @@ impl ServerCommandTemplate for ExplainServerCommand {
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        explain(server_ctx, ctx, &self.output, &self.target).await
+        explain(
+            server_ctx,
+            ctx,
+            &self.output,
+            &self.target,
+            self.fbs_dump.as_ref(),
+        )
+        .await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
@@ -77,6 +86,7 @@ pub(crate) async fn explain(
     mut ctx: DiceTransaction,
     destination_path: &AbsPathBuf,
     target: &str,
+    fbs_dump: Option<&AbsPathBuf>,
 ) -> anyhow::Result<ExplainResponse> {
     let configured_target = {
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -110,13 +120,14 @@ pub(crate) async fn explain(
     // TODO iguridi: make it work for OSS
     #[cfg(fbcode_build)]
     {
-        buck2_explain::main(all_deps, destination_path)?;
+        buck2_explain::main(all_deps, destination_path, fbs_dump)?;
     }
     #[cfg(not(fbcode_build))]
     {
         // just "using" unused variables
         let _destination_path = destination_path;
         let _all_deps = all_deps;
+        let _fbs_dump = fbs_dump;
     }
 
     Ok(ExplainResponse {})

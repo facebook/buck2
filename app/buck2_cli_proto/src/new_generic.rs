@@ -46,6 +46,7 @@ pub struct DebugEvalResponse {}
 pub struct ExplainRequest {
     pub output: AbsPathBuf,
     pub target: String,
+    pub fbs_dump: Option<AbsPathBuf>,
 }
 
 #[derive(Serialize, Deserialize)]
