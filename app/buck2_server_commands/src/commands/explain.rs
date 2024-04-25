@@ -9,13 +9,21 @@
 
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::target::label::label::TargetLabel;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use dupe::Dupe;
+use dupe::IterDupedExt;
 use tonic::async_trait;
 
 pub(crate) async fn explain_command(
@@ -66,14 +74,43 @@ impl ServerCommandTemplate for ExplainServerCommand {
 
 pub(crate) async fn explain(
     _server_ctx: &dyn ServerCommandContextTrait,
-    mut _ctx: DiceTransaction,
+    mut ctx: DiceTransaction,
     destination_path: &AbsPathBuf,
-    _target: &str,
+    target: &str,
 ) -> anyhow::Result<ExplainResponse> {
+    let configured_target = {
+        let cell_resolver = ctx.get_cell_resolver().await?;
+        let cell_alias_resolver = ctx
+            .get_cell_alias_resolver(cell_resolver.root_cell())
+            .await?;
+        let target_label = TargetLabel::parse(
+            target,
+            cell_resolver.root_cell(),
+            &cell_resolver,
+            &cell_alias_resolver,
+        )?;
+
+        let configured_target = ctx.get_default_configured_target(&target_label).await?;
+        ctx.get_configured_target_node(&configured_target)
+            .await?
+            .require_compatible()? // TODO iguridi: not sure about this, make things simpler for now
+    };
+
+    let _all_deps = {
+        let mut stack = vec![configured_target];
+        let mut visited = LabelIndexedSet::new();
+        while let Some(node) = stack.pop() {
+            if visited.insert(node.dupe()) {
+                stack.extend(node.deps().duped());
+            }
+        }
+        visited.into_iter().collect::<Vec<ConfiguredTargetNode>>()
+    };
+
     // TODO iguridi: make it work for OSS
     #[cfg(fbcode_build)]
     {
-        // TODO iguridi: get the target graph from target without using cquery
+        // TODO iguridi: pass `all_deps` here
         let base64 = base64::encode("temporary placeholder");
         // write the output to html
         buck2_explain::main(base64, destination_path)?;
