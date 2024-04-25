@@ -40,6 +40,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "android_langpack_strings",  # produces JSON containing file paths that are read from the root dir.
     "windows_long_path_issue",  # Windows: relative path length exceeds PATH_MAX, program cannot access file
     "flowtype_ota_safety_target",  # produces JSON containing file paths that are project-relative
+    "ctrlr_setting_paths",
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
