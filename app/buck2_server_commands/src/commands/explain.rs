@@ -96,7 +96,7 @@ pub(crate) async fn explain(
             .require_compatible()? // TODO iguridi: not sure about this, make things simpler for now
     };
 
-    let _all_deps = {
+    let all_deps = {
         let mut stack = vec![configured_target];
         let mut visited = LabelIndexedSet::new();
         while let Some(node) = stack.pop() {
@@ -110,15 +110,13 @@ pub(crate) async fn explain(
     // TODO iguridi: make it work for OSS
     #[cfg(fbcode_build)]
     {
-        // TODO iguridi: pass `all_deps` here
-        let base64 = base64::encode("temporary placeholder");
-        // write the output to html
-        buck2_explain::main(base64, destination_path)?;
+        buck2_explain::main(all_deps, destination_path)?;
     }
     #[cfg(not(fbcode_build))]
     {
-        // just "using" unused variable
+        // just "using" unused variables
         let _destination_path = destination_path;
+        let _all_deps = all_deps;
     }
 
     Ok(ExplainResponse {})

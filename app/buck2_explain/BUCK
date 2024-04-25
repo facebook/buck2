@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
-load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
@@ -12,26 +11,15 @@ rust_library(
     ),
     mapped_srcs = {
         "//buck2/app/buck2_explain/js:explain_html": "src/explain.html",
-    },
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "//buck2/app/buck2_core:buck2_core",
-    ],
-)
-
-rust_binary(
-    name = "explain_fbs",
-    srcs = glob(
-        [
-            "src/*",
-        ],
-    ),
-    mapped_srcs = {
         ":schema[explain_generated.rs]": "src/explain_generated.rs",
     },
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:base64",
         "fbsource//third-party/rust:flatbuffers",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_node:buck2_node",
+        "//buck2/app/buck2_query:buck2_query",
     ],
 )
 

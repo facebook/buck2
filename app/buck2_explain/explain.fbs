@@ -50,7 +50,7 @@ table ConfiguredTargetNode {
     execution_platform: string;
     plugins: string;
     // user attrs
-    string_attrs: [Attribute]; // TODO iguridi
+    attrs: [Attribute]; // TODO iguridi
     // extras
     configured_target_label: string;
 }
