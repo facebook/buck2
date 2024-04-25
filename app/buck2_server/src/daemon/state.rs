@@ -346,7 +346,6 @@ impl DaemonState {
             let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
             let cache_dir_path = paths.cache_dir_path();
             let valid_cache_dirs = paths.valid_cache_dirs();
-            let fs_duped = fs.dupe();
 
             let deferred_materializer_configs = {
                 let defer_write_actions = root_config
@@ -426,7 +425,7 @@ impl DaemonState {
                     // Using `execute_io_inline` is just out of convenience.
                     // It doesn't really matter what's used here since there's no IO-heavy
                     // operations on daemon startup
-                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs, fs_duped)
+                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs)
                 }),
                 maybe_initialize_materializer_sqlite_db(
                     &disk_state_options,

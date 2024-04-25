@@ -18,7 +18,6 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::project::ProjectRoot;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -142,7 +141,6 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
 pub(crate) fn delete_unknown_disk_state(
     cache_dir_path: &AbsNormPath,
     known_dir_names: &[&FileName],
-    fs: ProjectRoot,
 ) -> anyhow::Result<()> {
     let res: anyhow::Result<()> = try {
         if cache_dir_path.exists() {
@@ -156,7 +154,7 @@ pub(crate) fn delete_unknown_disk_state(
 
                 // known_dir_names is always small, so this contains isn't expensive
                 if !known_dir_names.contains(&filename) || !entry.path().is_dir() {
-                    fs.remove_path_recursive(&cache_dir_path.join(filename))?;
+                    fs_util::remove_all(&cache_dir_path.join(filename))?;
                 }
             }
         }
@@ -175,7 +173,6 @@ mod tests {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
-    use dupe::Dupe;
 
     use super::*;
 
@@ -195,7 +192,7 @@ mod tests {
         assert!(materializer_state_db.exists());
         assert!(command_hashes_db.exists());
 
-        delete_unknown_disk_state(&cache_dir_path, &[], fs.dupe()).unwrap();
+        delete_unknown_disk_state(&cache_dir_path, &[]).unwrap();
 
         assert!(!materializer_state_db.exists());
         assert!(!command_hashes_db.exists());
@@ -220,7 +217,6 @@ mod tests {
         delete_unknown_disk_state(
             &cache_dir_path,
             &[FileName::unchecked_new("materializer_state")],
-            fs.dupe(),
         )
         .unwrap();
 
