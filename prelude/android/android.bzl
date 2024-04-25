@@ -208,8 +208,10 @@ extra_attributes = {
         "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
         "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None),
         "type": attrs.string(default = "apk"),
+        "use_derived_apk": attrs.bool(default = False),
         "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_java_toolchain": toolchains_common.java_for_android(),
     },
     "gen_aidl": {
         "import_paths": attrs.list(attrs.arg(), default = []),

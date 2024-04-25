@@ -1065,6 +1065,7 @@ apk_genrule = prelude_rule(
                 The input `android_binary()` rule. The path to the APK can be
                  accessed with the `$APK` shell variable.
             """),
+            "keystore": attrs.option(attrs.dep(), default = None),
         } |
         genrule_common.srcs_arg() |
         genrule_common.cmd_arg() |
