@@ -34,7 +34,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             mapc = base.mapc,
             momc = base.momc,
             objdump = base.objdump,
-            odrcov = base.odrcov,
             platform_path = base.platform_path,
             sdk_build_version = base.sdk_build_version,
             sdk_name = base.sdk_name,

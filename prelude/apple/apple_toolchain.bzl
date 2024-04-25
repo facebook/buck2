@@ -35,7 +35,6 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             min_version = ctx.attrs.min_version,
             momc = ctx.attrs.momc[RunInfo],
             objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
-            odrcov = ctx.attrs.odrcov[RunInfo] if ctx.attrs.odrcov else None,
             platform_path = platform_path,
             sdk_build_version = ctx.attrs.build_version,
             sdk_name = ctx.attrs.sdk_name,
