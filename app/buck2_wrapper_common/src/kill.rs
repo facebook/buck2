@@ -58,7 +58,9 @@ pub fn get_sysinfo_status(pid: Pid) -> Option<sysinfo::ProcessStatus> {
     let pid = sysinfo::Pid::from_u32(pid.to_u32());
 
     let mut system = System::new();
-    system.refresh_process_specifics(pid, ProcessRefreshKind::new());
+    // There is some bug in `sysinfo` so we have to use `refresh_processes_specifics`
+    // instead of `refresh_process_specifics`, otherwise we not always get process info.
+    system.refresh_processes_specifics(ProcessRefreshKind::new());
 
     let proc = system.process(pid)?;
     Some(proc.status())
@@ -88,7 +90,8 @@ mod tests {
         };
         let mut child = command.spawn().unwrap();
         let pid = Pid::from_u32(child.id()).unwrap();
-        for i in 0..5 {
+        // sysinfo bug is reliably reproducible within 100 iteration
+        for i in 0..100 {
             assert!(
                 process_exists(pid).unwrap(),
                 "process should exist; attempt {i}; pid {pid}"
