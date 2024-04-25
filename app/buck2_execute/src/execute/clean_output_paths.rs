@@ -36,10 +36,11 @@ impl CleanOutputPaths {
 
 #[tracing::instrument(level = "debug", skip(fs), fields(path = %path))]
 pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Result<()> {
-    // This will remove the path if it exists.
-    fs.remove_path_recursive(path)?;
-
     let path = fs.resolve(path);
+
+    // This will remove the path if it exists.
+    fs_util::remove_all(&path)?;
+
     let mut path: &AbsNormPath = &path;
 
     // Be aware of T85589819 - the parent directory might already exist, but as a _file_.  It might
