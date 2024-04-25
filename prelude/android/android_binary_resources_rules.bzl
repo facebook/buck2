@@ -580,6 +580,8 @@ def _merge_assets(
             merge_assets_cmd.add(["--base-apk", base_apk])
             merged_assets_output_hash = None
 
+        merge_assets_cmd.add("--binary-type", "aab" if is_bundle_build else "apk")
+
         return merge_assets_cmd, merged_assets_output_hash
 
     if apk_module_graph_file:
