@@ -664,20 +664,20 @@ class MainProgram:
 
         if self.options.list:
             for test in self.get_tests(test_suite):
+                # Python 3.12 changed the implementation of `TestCase.__str__`.
+                # We construct the name manually here to ensure consistency between
+                # Python versions.
+                # Example: "test_basic (tests.test_object.TestAbsent)".
+                method_name = getattr(test, "_testMethodName", "")
+                cls = test.__class__
                 if self.options.list_format == "python":
-                    name = str(test)
-                    """
-                        Converts test name to match Python 3.10 format due to change in behavior introduced in Python 3.12.
-                        Example: "test_basic (tests.test_object.TestAbsent.test_basic)" -> "test_basic (tests.test_object.TestAbsent)".
-                    """
-                    method_name = getattr(test, "_testMethodName", None)
                     if method_name:
-                        cls = test.__class__
                         name = f"{method_name} ({cls.__module__}.{cls.__qualname__})"
+                    else:
+                        name = str(test)
 
                 elif self.options.list_format == "buck":
-                    method_name = getattr(test, "_testMethodName", "")
-                    name = _format_test_name(test.__class__, method_name)
+                    name = _format_test_name(cls, method_name)
                 else:
                     raise Exception(
                         "Bad test list format: %s" % (self.options.list_format,)
