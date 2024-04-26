@@ -328,11 +328,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
                         default_output = swift_compile.output_map_artifact if swift_compile else None,
                     ),
                 ],
-                "swift-tbd": [
-                    DefaultInfo(
-                        default_output = swift_compile.tbd if swift_compile else None,
-                    ),
-                ],
                 "swiftmodule": [
                     DefaultInfo(
                         default_output = swift_compile.swiftmodule if swift_compile else None,
@@ -356,7 +351,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         link_groups_force_static_follows_dependents = False,
         extra_linker_outputs_factory = _get_extra_linker_flags_and_outputs,
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
-        extra_shared_library_interfaces = [swift_compile.tbd] if (swift_compile and swift_compile.tbd) else None,
+        extra_shared_library_interfaces = [swift_compile.exported_symbols] if (swift_compile and swift_compile.exported_symbols) else None,
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,

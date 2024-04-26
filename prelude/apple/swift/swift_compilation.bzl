@@ -17,6 +17,7 @@ load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "g
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
 load(
     "@prelude//cxx:cxx_sources.bzl",
@@ -115,8 +116,8 @@ SwiftCompilationOutput = record(
     compilation_database = field(SwiftCompilationDatabase),
     # An artifact that represent the Swift module map for this target.
     output_map_artifact = field(Artifact | None),
-    # An optional artifact of the partial tbd file emitted for this module.
-    tbd = field(Artifact | None),
+    # An optional artifact of the exported symbols emitted for this module.
+    exported_symbols = field(Artifact | None),
 )
 
 SwiftDebugInfo = record(
@@ -259,16 +260,16 @@ def compile_swift(
 
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
-    output_tbd = None
+    output_symbols = None
 
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
-        output_tbd = ctx.actions.declare_output("__tbd__/" + module_name + "-swift.tbd")
+        output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
 
     if toolchain.can_toolchain_emit_obj_c_header_textually:
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_tbd)
+        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_symbols)
     else:
         unprocessed_header = ctx.actions.declare_output(module_name + "-SwiftUnprocessed.h")
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header, output_tbd)
+        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header, output_symbols)
         _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
     object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
@@ -311,7 +312,7 @@ def compile_swift(
         swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
         clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.absolute[SWIFT_EXTENSION]),
-        tbd = output_tbd,
+        exported_symbols = output_symbols,
     ), swift_interface_info)
 
 # Swift headers are postprocessed to make them compatible with Objective-C
@@ -349,7 +350,7 @@ def _compile_swiftmodule(
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
         output_header: Artifact,
-        output_tbd: Artifact | None) -> CompileArgsfiles:
+        output_symbols: Artifact | None) -> CompileArgsfiles:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-emit-module",
@@ -376,14 +377,31 @@ def _compile_swiftmodule(
             "-wmo",
         ])
 
-    if output_tbd != None:
+    output_tbd = None
+    if output_symbols != None:
+        # Two step process, first we need to emit the TBD
+        output_tbd = ctx.actions.declare_output("__tbd__/" + ctx.attrs.name + "-Swift.tbd")
         cmd.add([
             "-emit-tbd",
             "-emit-tbd-path",
             output_tbd.as_output(),
         ])
 
-    return _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain)
+    ret = _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain)
+
+    if output_tbd != None:
+        # Now we have run the TBD action we need to extract the symbols
+        extract_cmd = cmd_args([
+            get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf[RunInfo],
+            "extract",
+            "-o",
+            output_symbols.as_output(),
+            "--tbd",
+            output_tbd,
+        ])
+        ctx.actions.run(extract_cmd, category = "extract_tbd_symbols")
+
+    return ret
 
 def _compile_object(
         ctx: AnalysisContext,

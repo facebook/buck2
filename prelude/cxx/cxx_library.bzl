@@ -200,8 +200,8 @@ load(
     "SharedInterfaceInfo",  # @unused Used as a type
     "create_shared_interface_info",
     "create_shared_interface_info_with_children",
-    "create_tbd",
-    "merge_tbds",
+    "generate_exported_symbols",
+    "generate_tbd_with_symbols",
     "shared_library_interface",
 )
 
@@ -442,23 +442,23 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
         providers.append(comp_db_info)
 
-    # TBD generation is done per-target for stub_from_headers mode and collected at link time.
-    tbd_outputs = impl_params.extra_shared_library_interfaces if impl_params.extra_shared_library_interfaces else []
+    # Shared library interfaces are partial lists of exported symbols that are merged at link time.
+    exported_symbol_outputs = impl_params.extra_shared_library_interfaces if impl_params.extra_shared_library_interfaces else []
     if impl_params.shared_library_interface_target and \
        cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         transitive_pp = inherited_exported_preprocessor_infos
         if _attr_reexport_all_header_dependencies(ctx):
             transitive_pp += inherited_non_exported_preprocessor_infos
 
-        cxx_tbd_output = create_tbd(
+        cxx_exported_symbols = generate_exported_symbols(
             ctx,
             cxx_attr_exported_headers(ctx, impl_params.headers_layout),
             own_exported_preprocessor_info,
             transitive_pp,
             impl_params.shared_library_interface_target,
         )
-        tbd_outputs.append(cxx_tbd_output)
-        sub_targets["tbd"] = [DefaultInfo(default_output = cxx_tbd_output)]
+        exported_symbol_outputs.append(cxx_exported_symbols)
+        sub_targets["exported-symbols"] = [DefaultInfo(default_outputs = exported_symbol_outputs)]
 
     # Link Groups
     link_group = get_link_group(ctx)
@@ -503,7 +503,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         swiftmodule_linkable,
         force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
         swift_runtime_linkable = swift_runtime_linkable,
-        tbd_outputs = tbd_outputs,
+        exported_symbol_outputs = exported_symbol_outputs,
     )
     if impl_params.generate_sub_targets.link_group_map and link_group_map:
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [link_group_map]
@@ -755,7 +755,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     linker_flags = linker_flags,
                     can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                     # We don't want to propagate shared interaces across shared library boundaries.
-                    shared_interface_info = None if preferred_linkage == Linkage("shared") else create_shared_interface_info(ctx, tbd_outputs, []),
+                    shared_interface_info = None if preferred_linkage == Linkage("shared") else create_shared_interface_info(ctx, exported_symbol_outputs, []),
                 ),
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
             ),
@@ -1170,7 +1170,7 @@ def _get_shared_library_links(
         force_link_group_linking,
         frameworks_linkable: [FrameworksLinkable, None],
         swiftmodule_linkable: [SwiftmoduleLinkable, None],
-        tbd_outputs: list[Artifact],
+        exported_symbol_outputs: list[Artifact],
         force_static_follows_dependents: bool = True,
         swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> (LinkArgs, [DefaultInfo, None], LinkExecutionPreference, [SharedInterfaceInfo, None]):
     """
@@ -1198,9 +1198,9 @@ def _get_shared_library_links(
         # Not all rules calling `cxx_library_parameterized` have `link_execution_preference`. Notably `cxx_python_extension`.
         link_execution_preference = get_link_execution_preference(ctx, []) if hasattr(ctx.attrs, "link_execution_preference") else LinkExecutionPreference("any")
 
-        # Collect the TBD interface providers for this link unit and strategy.
+        # Collect the shared interface providers for this link unit and strategy.
         # These are merged when linking shared library output.
-        shared_interface_info = create_shared_interface_info(ctx, tbd_outputs, deps)
+        shared_interface_info = create_shared_interface_info(ctx, exported_symbol_outputs, deps)
 
         return apple_build_link_args_with_deduped_flags(
             ctx,
@@ -1253,17 +1253,17 @@ def _get_shared_library_links(
     if additional_links:
         filtered_links.append(additional_links)
 
-    # Collect the TBD providers from the targets in this link group, these will
+    # Collect the interface providers from the targets in this link group, these will
     # be merged when linking shared library output. If this library has no
-    # TBD output then TBD generation is disabled and we can skip collection.
+    # interface output then interface generation is disabled and we can skip collection.
     shared_interface_infos = []
-    if len(tbd_outputs) > 0:
+    if len(exported_symbol_outputs) > 0:
         for label in filtered_labels_to_links_map.keys():
             linkable_node = linkable_graph_label_to_node_map[label]
             if linkable_node.shared_interface_info != None:
                 shared_interface_infos.append(linkable_node.shared_interface_info)
 
-    shared_interface_info = create_shared_interface_info_with_children(ctx, tbd_outputs, shared_interface_infos)
+    shared_interface_info = create_shared_interface_info_with_children(ctx, exported_symbol_outputs, shared_interface_infos)
     return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference, shared_interface_info
 
 def _use_pic(output_style: LibOutputStyle) -> bool:
@@ -1497,15 +1497,13 @@ def _shared_library(
             # Generate a library interface from its deps exported_headers.
             # This will allow for linker parallelisation as we do not have
             # to wait for dependent libraries to link.
-            # If the tbd output is missing this is a non apple_library target,
+            # If the provider is missing this is a non apple_library target,
             # so skip producing the interface.
-            if shared_interface_info != None:
+            if shared_interface_info != None and impl_params.shared_library_interface_target != None:
                 # collect the linker args which are required
                 # to correctly set symbol visibility.
                 link_args = [unpack_link_args(l, True) for l in links]
-
-                # collect tbd output from providers and merge
-                exported_shlib = merge_tbds(ctx, soname, shared_interface_info.interfaces, link_args)
+                exported_shlib = generate_tbd_with_symbols(ctx, soname, shared_interface_info.interfaces, link_args, impl_params.shared_library_interface_target)
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link
             # groups, where we don't include the symbols we're meant to export from
