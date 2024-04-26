@@ -149,6 +149,10 @@ def create_tbd(ctx: AnalysisContext, exported_headers: list[CHeader], exported_p
     return tbd_file
 
 def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet, links: list[ArgLike]) -> Artifact:
+    # Use arglists for the clang args and inputs, otherwise we will overflow
+    tbd_inputs = project_artifacts(ctx.actions, [tbd_set])
+    tbd_argfile, _ = ctx.actions.write("__tbd__/" + ctx.attrs.name + ".tbd.filelist", tbd_inputs, allow_args = True)
+
     # Run the shlib interface tool with the merge command
     tbd_file = ctx.actions.declare_output(
         paths.join("__tbd__", ctx.attrs.name + ".merged.tbd"),
@@ -158,10 +162,11 @@ def merge_tbds(ctx: AnalysisContext, soname: str, tbd_set: ArtifactTSet, links: 
         "merge",
         "-install_name",
         "@rpath/" + soname,
-        cmd_args(project_artifacts(ctx.actions, [tbd_set]), prepend = "--tbd"),
+        "--tbd-filelist",
+        tbd_argfile,
         "-o",
         tbd_file.as_output(),
-    ])
+    ]).hidden(tbd_inputs)
 
     # Pass through the linker args as we need to honour any flags
     # related to exported or unexported symbols.
