@@ -29,7 +29,8 @@ def compile_manifests_for_mode(
         invalidation_mode: PycInvalidationMode = PycInvalidationMode("UNCHECKED_HASH")) -> ManifestInfo:
     output = ctx.actions.declare_output("bytecode_{}".format(invalidation_mode.value), dir = True)
     bytecode_manifest = ctx.actions.declare_output("bytecode_{}.manifest".format(invalidation_mode.value))
-    cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter)
+    interpreter = ctx.attrs._python_toolchain[PythonToolchainInfo].bundled_interpreter or ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter
+    cmd = cmd_args(interpreter)
     cmd.add(ctx.attrs._python_toolchain[PythonToolchainInfo].compile)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(bytecode_manifest.as_output(), format = "--bytecode-manifest={}"))
