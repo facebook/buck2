@@ -291,7 +291,9 @@ class FinalLibGraph:
             final_lib_graph[key] = list(dep_data.deps)
 
         # this topo_sort also verifies that we produced an acyclic final lib graph
-        sorted_final_lib_keys = topo_sort(final_lib_graph)
+        sorted_final_lib_keys = topo_sort(
+            final_lib_graph, lambda x: self.graph[x].module if self.graph[x] else str(x)
+        )
 
         name_counters = {}
         final_lib_names: dict[FinalLibKey, str] = {}
@@ -576,7 +578,9 @@ T = typing.TypeVar("T")
 
 
 def post_order_traversal_by(
-    roots: list[T], get_nodes_to_traverse_func: typing.Callable[[T], list[T]]
+    roots: list[T],
+    get_nodes_to_traverse_func: typing.Callable[[T], list[T]],
+    get_node_str: typing.Callable[[T], str] = None,
 ) -> list[T]:
     """
     Returns the post-order sorted list of the nodes in the traversal.
@@ -605,9 +609,17 @@ def post_order_traversal_by(
                 work.append((OUTPUT, node))
                 for dep in get_nodes_to_traverse_func(node):
                     if dep in current_parents:
+                        current_parents_strs = []
+                        for k in current_parents:
+                            current_parents_strs.append(
+                                get_node_str(k) if get_node_str else str(k)
+                            )
                         raise AssertionError(
                             "detected cycle: {}".format(
-                                " -> ".join(current_parents + [dep])
+                                " -> ".join(
+                                    current_parents_strs
+                                    + [get_node_str(dep) if get_node_str else str(dep)]
+                                )
                             )
                         )
 
@@ -626,7 +638,9 @@ def is_root_module(module: str) -> bool:
     return module == ROOT_MODULE
 
 
-def topo_sort(graph: dict[T, list[T]]) -> list[T]:
+def topo_sort(
+    graph: dict[T, list[T]], get_node_str: typing.Callable[[T], str] = None
+) -> list[T]:
     """
     Topo-sort the given graph.
     """
@@ -642,7 +656,7 @@ def topo_sort(graph: dict[T, list[T]]) -> list[T]:
         if in_degree == 0:
             roots.append(node)
 
-    postordered = post_order_traversal_by(roots, lambda x: graph[x])
+    postordered = post_order_traversal_by(roots, lambda x: graph[x], get_node_str)
     postordered.reverse()
 
     return postordered
