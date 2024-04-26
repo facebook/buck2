@@ -14,8 +14,6 @@ $ find out-dir -type f
 out-dir/foo.pyc
 """
 
-# pyre-unsafe
-
 import argparse
 import errno
 import json
@@ -28,16 +26,16 @@ if sys.version_info[0] == 3:
     import importlib
     import importlib.util
 
-    DEFAULT_FORMAT = importlib.util.cache_from_source("{pkg}/{name}.py")
+    DEFAULT_FORMAT: str = importlib.util.cache_from_source("{pkg}/{name}.py")
 else:
-    DEFAULT_FORMAT = "{pkg}/{name}.pyc"
+    DEFAULT_FORMAT: str = "{pkg}/{name}.pyc"
 
 
-def get_py_path(module):
+def get_py_path(module: str) -> str:
     return module.replace(".", os.sep) + ".py"
 
 
-def get_pyc_path(module, fmt):
+def get_pyc_path(module: str, fmt: str) -> str:
     try:
         package, name = module.rsplit(".", 1)
     except ValueError:
@@ -51,7 +49,7 @@ def get_pyc_path(module, fmt):
     return os.path.join(*parts)
 
 
-def _mkdirs(dirpath):
+def _mkdirs(dirpath: str) -> None:
     try:
         os.makedirs(dirpath)
     except OSError as e:
@@ -59,7 +57,7 @@ def _mkdirs(dirpath):
             raise
 
 
-def main(argv):
+def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("-o", "--output", required=True)
     parser.add_argument(
