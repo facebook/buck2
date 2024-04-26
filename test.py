@@ -22,7 +22,7 @@ import time
 from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Generator, Iterable, List, Optional
 
 # To prevent the next line from creating a pycache dir
 sys.dont_write_bytecode = True
@@ -65,7 +65,7 @@ def print_error(msg: str) -> None:
 
 
 @contextmanager
-def timing() -> None:
+def timing() -> Generator:
     start = time.time()
     yield
     duration = time.time() - start
