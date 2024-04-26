@@ -53,3 +53,26 @@ impl KilledProcessHandleImpl {
         Ok(!process_exists(self.pid)?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    use buck2_util::process::background_command;
+
+    use crate::pid::Pid;
+    use crate::unix::kill::process_exists;
+
+    #[test]
+    fn test_zombie_process_exist() {
+        let mut command = background_command("sh");
+        command.args(["-c", "exit 0"]);
+        let child = command.spawn().unwrap();
+        // sleep a bit to let the child exit
+        sleep(Duration::from_secs(1));
+        let pid = Pid::from_u32(child.id()).unwrap();
+        // we consider zombie as non existent
+        assert!(!process_exists(pid).unwrap(), "process shouldn't exist");
+    }
+}
