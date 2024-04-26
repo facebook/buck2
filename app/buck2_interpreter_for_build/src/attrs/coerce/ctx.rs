@@ -277,7 +277,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             if self.package_boundary_exception {
                 info!("{} (could be due to a package boundary violation)", e);
             } else {
-                soft_error!("source_file_missing", e.into())?;
+                soft_error!("source_file_missing", e.into(), quiet: true)?;
             }
 
             Ok(CoercedPath::File(path.to_arc()))
