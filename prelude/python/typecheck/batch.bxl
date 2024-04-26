@@ -5,13 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
 def _run_entry_point(ctx: bxl.Context) -> None:
-    uquery = ctx.uquery()
-    checked_targets = ctx.configured_targets(
-        do_filter(uquery, [uquery.eval(target) for target in ctx.cli_args.target]),
-    )
+    targets = flatten(ctx.cli_args.target)
+    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets))
 
     build_result = ctx.build([
         target.label.with_sub_target("typecheck")
@@ -32,7 +31,7 @@ run = bxl_main(
     impl = _run_entry_point,
     cli_args = {
         "target": cli_args.list(
-            cli_args.string(
+            cli_args.target_expr(
                 doc = "Target pattern to run type checking on",
             ),
         ),
