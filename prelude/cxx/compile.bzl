@@ -682,10 +682,12 @@ def _mk_argsfile(
     else:
         args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
 
-    shell_quoted_args = cmd_args(args, quote = "shell")
+    file_args = args
+    if not use_absolute_paths:
+        file_args = cmd_args(args, quote = "shell")
 
     file_name = ext.value + ("-abs.argsfile" if use_absolute_paths else ".argsfile")
-    argsfile, _ = ctx.actions.write(file_name, shell_quoted_args, allow_args = True, absolute = use_absolute_paths)
+    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = use_absolute_paths)
 
     input_args = [args]
 
@@ -695,7 +697,7 @@ def _mk_argsfile(
         file = argsfile,
         cmd_form = cmd_form,
         input_args = input_args,
-        args = shell_quoted_args,
+        args = file_args,
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
