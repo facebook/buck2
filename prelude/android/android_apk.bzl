@@ -167,11 +167,12 @@ def get_install_info(
         output_apk: Artifact,
         manifest: Artifact,
         exopackage_info: [ExopackageInfo, None],
-        definitely_has_native_libs: bool = True) -> InstallInfo:
+        definitely_has_native_libs: bool = True,
+        staged_install_mode_default: bool = False) -> InstallInfo:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,
-        "options": generate_install_config(ctx),
+        "options": generate_install_config(ctx, staged_install_mode_default),
     }
 
     if exopackage_info:
@@ -210,12 +211,13 @@ def get_install_info(
         files = files,
     )
 
-def generate_install_config(ctx: AnalysisContext) -> Artifact:
-    data = get_install_config()
+def generate_install_config(ctx: AnalysisContext, staged_install_mode_default: bool) -> Artifact:
+    data = get_install_config(staged_install_mode_default)
     return ctx.actions.write_json("install_android_options.json", data)
 
-def get_install_config() -> dict[str, typing.Any]:
+def get_install_config(staged_install_mode_default: bool) -> dict[str, typing.Any]:
     # TODO: read from toolchains
+    staged_install_mode = read_root_config("adb", "staged_install_mode", None)
     install_config = {
         "adb_restart_on_failure": read_root_config("adb", "adb_restart_on_failure", "true"),
         "agent_port_base": read_root_config("adb", "agent_port_base", "2828"),
@@ -225,7 +227,7 @@ def get_install_config() -> dict[str, typing.Any]:
         "multi_install_mode": read_root_config("adb", "multi_install_mode", "false"),
         "retry_delay_millis": read_root_config("adb", "retry_delay_millis", "500"),
         "skip_install_metadata": read_root_config("adb", "skip_install_metadata", "false"),
-        "staged_install_mode": read_root_config("adb", "staged_install_mode", "false"),
+        "staged_install_mode": staged_install_mode_default if staged_install_mode == None else staged_install_mode,
     }
 
     adb_executable = read_root_config("android", "adb", None)
