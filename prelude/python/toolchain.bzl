@@ -50,7 +50,6 @@ PythonToolchainInfo = provider(
         "default_sitecustomize": provider_field(typing.Any, default = None),
         # The interpreter to use to compile bytecode.
         "host_interpreter": provider_field(typing.Any, default = None),
-        "bundled_interpreter": provider_field(typing.Any, default = None),
         "interpreter": provider_field(typing.Any, default = None),
         "version": provider_field(typing.Any, default = None),
         "native_link_strategy": provider_field(typing.Any, default = None),
