@@ -9,8 +9,11 @@
 
 use buck2_cli_proto::TargetCfg;
 
+const HELP_HEADING: &str = "Target Configuration Options";
+
 /// Defines options related to commands that involves a streaming daemon command.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+#[clap(next_help_heading = HELP_HEADING)]
 pub struct TargetCfgOptions {
     #[clap(
         long = "target-platforms",
@@ -63,16 +66,17 @@ impl TargetCfgOptions {
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+#[clap(next_help_heading = HELP_HEADING)]
 pub struct TargetCfgWithUniverseOptions {
-    #[clap(flatten)]
-    pub target_cfg: TargetCfgOptions,
-
     /// Comma separated list of targets to construct a configured target universe.
     /// When the option is specified, command targets are be resolved in this universe.
     /// Additionally, `--target-platforms=` and `--modifier=` flags
     /// are be used to configure the universe targets, not the command targets.
     #[clap(long, short = 'u', use_value_delimiter = true, verbatim_doc_comment)]
     pub target_universe: Vec<String>,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgOptions,
 }
 
 #[cfg(test)]
