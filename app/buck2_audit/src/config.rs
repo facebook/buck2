@@ -90,13 +90,6 @@ impl FromStr for ValueStyle {
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit-config", about = "buck audit config")]
 pub struct AuditConfigCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
-    #[clap(flatten)]
-    _target_cfg: TargetCfgUnusedOptions,
-
     #[clap(long = "cell")]
     pub cell: Option<String>,
 
@@ -131,6 +124,13 @@ pub struct AuditConfigCommand {
     /// (section headers will be printed only for sections with a key matching the spec).
     #[clap(name = "SPECS")]
     pub specs: Vec<String>,
+
+    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgUnusedOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 impl AuditConfigCommand {

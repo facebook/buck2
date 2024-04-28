@@ -28,12 +28,12 @@ use gazebo::prelude::SliceExt;
 /// Just evaluate and check evaluation does not fail.
 #[derive(Debug, clap::Parser)]
 pub struct EvalCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
     /// Module names to evaluate, e.g. `fbsource//foo/bar:baz`.
     #[clap(value_name = "PATH", required = true)]
     paths: Vec<PathArg>,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

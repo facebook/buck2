@@ -27,15 +27,6 @@ use gazebo::prelude::*;
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Build and install an application")]
 pub struct InstallCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
-
-    #[clap(flatten)]
-    build_opts: CommonBuildOptions,
-
     #[clap(
         long,
         name = "installer-debug",
@@ -55,6 +46,15 @@ pub struct InstallCommand {
         raw = true
     )]
     extra_run_args: Vec<String>,
+
+    #[clap(flatten)]
+    build_opts: CommonBuildOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 /// Defines install options for Android that exist only for compatibility

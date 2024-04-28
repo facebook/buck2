@@ -24,15 +24,15 @@ use gazebo::prelude::*;
 
 #[derive(Debug, clap::Parser)]
 pub struct FileStatusCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
     /// Paths to validate
     #[clap(value_name = "PATH", required = true)]
     paths: Vec<PathArg>,
 
     #[clap(long, short, help = "Print all matches")]
     show_matches: bool,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

@@ -17,12 +17,6 @@ use crate::AuditSubcommand;
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit-subtargets")]
 pub struct AuditSubtargetsCommand {
-    #[clap(flatten)]
-    pub common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    pub target_cfg: TargetCfgWithUniverseOptions,
-
     /// Do not recursively print all nested subtargets; print only
     /// the first level. This is set to false by default.
     #[clap(long)]
@@ -35,6 +29,12 @@ pub struct AuditSubtargetsCommand {
     /// Patterns to analyze.
     #[clap(name = "TARGET_PATTERNS", required = true)]
     pub patterns: Vec<String>,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgWithUniverseOptions,
+
+    #[clap(flatten)]
+    pub common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

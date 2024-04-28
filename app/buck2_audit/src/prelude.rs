@@ -19,12 +19,12 @@ use crate::AuditSubcommand;
     about = "print the interpreter prelude to stdout"
 )]
 pub struct AuditPreludeCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
     /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
     _target_cfg: TargetCfgUnusedOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

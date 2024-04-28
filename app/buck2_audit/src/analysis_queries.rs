@@ -19,12 +19,6 @@ use crate::AuditSubcommand;
     about = "buck audit analysis resolving query attrs"
 )]
 pub struct AuditAnalysisQueriesCommand {
-    #[clap(flatten)]
-    pub common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    pub target_cfg: TargetCfgWithUniverseOptions,
-
     #[clap(
         long,
         help = "Enable to print the outputs for the targets in the resolved queries"
@@ -36,6 +30,12 @@ pub struct AuditAnalysisQueriesCommand {
         help = "Patterns to evaluate. The query attributes for targets matching these patterns will be evaluated"
     )]
     pub patterns: Vec<String>,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgWithUniverseOptions,
+
+    #[clap(flatten)]
+    pub common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

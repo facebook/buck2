@@ -78,14 +78,14 @@ When printed, values with `select()`s use a special json encoding.
 )]
 pub struct UqueryCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    query_common: CommonQueryOptions,
 
     /// Uquery doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
     _target_cfg: TargetCfgUnusedOptions,
 
     #[clap(flatten)]
-    query_common: CommonQueryOptions,
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

@@ -31,9 +31,6 @@ use buck2_util::process::background_command;
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Initialize a buck2 project")]
 pub struct InitCommand {
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
     /// The path to initialize the project in. The folder does not need to exist.
     #[clap(default_value = ".")]
     path: PathArg,
@@ -54,6 +51,9 @@ pub struct InitCommand {
     // Use git to initialize the project and pull in buck2-prelude as a submodule
     #[clap(long)]
     git: bool,
+
+    #[clap(flatten)]
+    console_opts: CommonConsoleOptions,
 }
 
 impl InitCommand {

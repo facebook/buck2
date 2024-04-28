@@ -27,12 +27,6 @@ use gazebo::prelude::SliceExt;
 #[derive(Debug, clap::Parser)]
 #[clap(name = "ctargets")]
 pub struct ConfiguredTargetsCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
-
     /// Skip missing targets from `BUCK` files when non-glob pattern is specified.
     /// This option does not skip missing packages
     /// and does not ignore errors of `BUCK` file evaluation.
@@ -42,6 +36,12 @@ pub struct ConfiguredTargetsCommand {
     /// Patterns to interpret.
     #[clap(name = "TARGET_PATTERNS")]
     patterns: Vec<String>,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

@@ -19,10 +19,10 @@ pub struct StarlarkPackageDepsCommand {
     #[clap(name = "PACKAGE", help = "Package")]
     pub package: String,
 
-    #[clap(flatten)]
-    pub(crate) common_opts: CommonCommandOptions,
-
     /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
     _target_cfg: TargetCfgUnusedOptions,
+
+    #[clap(flatten)]
+    pub(crate) common_opts: CommonCommandOptions,
 }

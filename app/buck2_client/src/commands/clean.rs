@@ -42,13 +42,6 @@ use crate::commands::kill::kill_command_impl;
 /// The command also kills the buck2 daemon.
 #[derive(Debug, clap::Parser)]
 pub struct CleanCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
-    #[clap(flatten)]
-    _target_cfg: TargetCfgUnusedOptions,
-
     #[clap(
         long = "dry-run",
         help = "Performs a dry-run and prints the paths that would be removed."
@@ -75,6 +68,13 @@ the specified duration, without killing the daemon",
     ///  - Writing to `buck-out` without being expected by Buck
     #[clap(long = "tracked-only", requires = "stale")]
     tracked_only: bool,
+
+    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgUnusedOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 impl CleanCommand {

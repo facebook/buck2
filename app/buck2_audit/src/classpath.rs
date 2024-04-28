@@ -21,18 +21,18 @@ use crate::AuditSubcommand;
     We will replace this command with something that can audit the entire `TemplatePlaceholderInfo` in the future."
 )]
 pub struct AuditClasspathCommand {
-    #[clap(flatten)]
-    pub common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    pub target_cfg: TargetCfgOptions,
-
     /// Output in JSON format
     #[clap(long)]
     pub json: bool,
     // TODO(scottcao): Add --show-targets, --dot, and other relevant flags
     #[clap(name = "TARGET_PATTERNS", help = "Target patterns to audit")]
     pub patterns: Vec<String>,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
+    pub common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

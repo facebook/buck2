@@ -17,12 +17,12 @@ use crate::commands::log::options::EventLogOptions;
 /// This command outputs the most recent log in JSON format
 #[derive(Debug, clap::Parser)]
 pub struct LogPerfCommand {
-    #[clap(flatten)]
-    event_log: EventLogOptions,
-
     /// Stats will be emitted every `interval` events.
     #[clap(long, default_value = "10000")]
     interval: u64,
+
+    #[clap(flatten)]
+    event_log: EventLogOptions,
 }
 
 impl LogPerfCommand {

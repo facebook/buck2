@@ -19,13 +19,6 @@ use crate::AuditSubcommand;
     about = "Query information about the [cells] list in .buckconfig."
 )]
 pub struct AuditCellCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
-    #[clap(flatten)]
-    _target_cfg: TargetCfgUnusedOptions,
-
     #[clap(long = "json", help = "Output in JSON format")]
     pub json: bool,
 
@@ -46,6 +39,13 @@ pub struct AuditCellCommand {
         help = "Cell aliases to query. These aliases will be resolved in the working directory cell."
     )]
     pub aliases_to_resolve: Vec<String>,
+
+    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgUnusedOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

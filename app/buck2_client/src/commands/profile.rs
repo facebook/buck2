@@ -138,12 +138,6 @@ pub struct AnalysisLoadProfileOptions {
 
 #[derive(Debug, clap::Parser)]
 pub struct ProfileCommonOptions {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
-
     /// Output file path for profile data.
     ///
     /// File will be created if it does not exist, and overwritten if it does.
@@ -162,6 +156,12 @@ pub struct ProfileCommonOptions {
     /// `-allocated` means allocated memory, including memory which is later garbage collected.
     #[clap(long, value_enum)]
     mode: BuckProfileMode,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 pub struct ProfileSubcommand {

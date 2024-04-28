@@ -22,12 +22,12 @@ use buck2_client_ctx::streaming::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 pub struct MaterializeCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
     /// Paths to materialize, relative to project root
     #[clap(value_name = "PATH")]
     paths: Vec<String>,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

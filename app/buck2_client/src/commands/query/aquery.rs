@@ -70,13 +70,13 @@ return incorrect results or otherwise behave unexpectedly.
 )]
 pub struct AqueryCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    query_common: CommonQueryOptions,
 
     #[clap(flatten)]
     target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
-    query_common: CommonQueryOptions,
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

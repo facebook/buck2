@@ -37,17 +37,14 @@ pub struct BxlCommand {
     bxl_opts: BxlCommandOptions,
 
     #[clap(flatten)]
-    common_ops: CommonCommandOptions,
+    target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
+    common_ops: CommonCommandOptions,
 }
 
 #[derive(Debug, clap::Parser)]
 pub struct BxlCommandOptions {
-    #[clap(flatten)]
-    build_opts: CommonBuildOptions,
-
     #[clap(
         long = "materializations",
         short = 'M',
@@ -77,6 +74,9 @@ pub struct BxlCommandOptions {
     /// would be zstd compressed). Resulting log is is compatible with `buck2 log show-user`.
     #[clap(value_name = "PATH", long = "user-event-log")]
     pub user_event_log: Option<PathArg>,
+
+    #[clap(flatten)]
+    build_opts: CommonBuildOptions,
 }
 
 #[async_trait]

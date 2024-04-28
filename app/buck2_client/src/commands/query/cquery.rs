@@ -75,12 +75,6 @@ require quotes):
 )]
 pub struct CqueryCommand {
     #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
-
-    #[clap(flatten)]
     query_common: CommonQueryOptions,
 
     #[clap(
@@ -114,6 +108,12 @@ pub struct CqueryCommand {
     /// See this post https://fburl.com/1mf2d2xj for details.
     #[clap(long)]
     correct_owner: bool,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

@@ -48,15 +48,6 @@ use crate::commands::build::print_build_succeeded;
 #[derive(Debug, clap::Parser)]
 #[clap(name = "run", trailing_var_arg = true)]
 pub struct RunCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
-
-    #[clap(flatten)]
-    build_opts: CommonBuildOptions,
-
     #[clap(
         long = "command-args-file",
         help = "Write the command to a file instead of executing it.",
@@ -84,6 +75,15 @@ pub struct RunCommand {
         help = "Additional arguments passed to the target when running it"
     )]
     extra_run_args: Vec<String>,
+
+    #[clap(flatten)]
+    build_opts: CommonBuildOptions,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

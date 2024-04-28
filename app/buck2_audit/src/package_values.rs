@@ -19,15 +19,15 @@ use crate::AuditSubcommand;
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(name = "package-values")]
 pub struct PackageValuesCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    /// Package names to inspect (like `//foo/bar`, no trailing colon).
+    pub packages: Vec<String>,
 
     /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
     _target_cfg: TargetCfgUnusedOptions,
 
-    /// Package names to inspect (like `//foo/bar`, no trailing colon).
-    pub packages: Vec<String>,
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 impl AuditSubcommand for PackageValuesCommand {

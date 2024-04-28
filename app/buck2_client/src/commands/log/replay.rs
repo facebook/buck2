@@ -40,11 +40,11 @@ pub struct ReplayCommand {
     #[clap(long)]
     preload: bool,
 
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
     #[clap(help = "Override the arguments")]
     pub override_args: Vec<String>,
+
+    #[clap(flatten)]
+    console_opts: CommonConsoleOptions,
 }
 
 impl ReplayCommand {

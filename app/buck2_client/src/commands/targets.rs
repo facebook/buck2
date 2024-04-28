@@ -78,12 +78,6 @@ enum TargetHashFunction {
 #[derive(Debug, clap::Parser)]
 #[clap(name = "utargets")]
 pub struct TargetsCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
-
     /// Print targets as JSON
     #[clap(long)]
     json: bool,
@@ -195,6 +189,12 @@ pub struct TargetsCommand {
     /// Number of threads to use during execution (default is # cores)
     #[clap(short = 'j', long = "num-threads", value_name = "THREADS")]
     pub num_threads: Option<u32>,
+
+    #[clap(flatten)]
+    target_cfg: TargetCfgOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 impl TargetsCommand {

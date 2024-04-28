@@ -46,15 +46,6 @@ use tokio_util::codec::FramedRead;
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Subscribe to updates from the Buck2 daemon")]
 pub struct SubscribeCommand {
-    #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    starlark_opts: CommonStarlarkOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
-
     /// Whether to request command snapshots.
     #[clap(long)]
     active_commands: bool,
@@ -63,6 +54,15 @@ pub struct SubscribeCommand {
     /// used for debugging.
     #[clap(long)]
     unstable_json: bool,
+
+    #[clap(flatten)]
+    config_opts: CommonBuildConfigurationOptions,
+
+    #[clap(flatten)]
+    starlark_opts: CommonStarlarkOptions,
+
+    #[clap(flatten)]
+    event_log_opts: CommonEventLogOptions,
 }
 
 #[async_trait]

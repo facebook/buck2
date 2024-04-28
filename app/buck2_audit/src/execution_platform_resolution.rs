@@ -19,14 +19,14 @@ use crate::AuditSubcommand;
     about = "prints out information about execution platform resolution"
 )]
 pub struct AuditExecutionPlatformResolutionCommand {
-    #[clap(flatten)]
-    pub common_opts: CommonCommandOptions,
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
+    pub patterns: Vec<String>,
 
     #[clap(flatten)]
     pub target_cfg: TargetCfgWithUniverseOptions,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
-    pub patterns: Vec<String>,
+    #[clap(flatten)]
+    pub common_opts: CommonCommandOptions,
 }
 
 #[async_trait]

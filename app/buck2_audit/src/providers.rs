@@ -19,12 +19,6 @@ use crate::AuditSubcommand;
     about = "prints out the providers for a target pattern"
 )]
 pub struct AuditProvidersCommand {
-    #[clap(flatten)]
-    pub common_opts: CommonCommandOptions,
-
-    #[clap(flatten)]
-    pub target_cfg: TargetCfgWithUniverseOptions,
-
     #[clap(long, conflicts_with_all=&["list", "print_debug"])]
     pub quiet: bool,
 
@@ -48,6 +42,12 @@ pub struct AuditProvidersCommand {
         required = true
     )]
     pub patterns: Vec<String>,
+
+    #[clap(flatten)]
+    pub target_cfg: TargetCfgWithUniverseOptions,
+
+    #[clap(flatten)]
+    pub common_opts: CommonCommandOptions,
 }
 
 #[async_trait]
