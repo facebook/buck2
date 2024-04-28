@@ -99,16 +99,6 @@ If include patterns are present, regardless of whether exclude patterns are pres
     )]
     build_filtered_targets: bool, // TODO(bobyf) this flag should always override the buckconfig option when we use it
 
-    /// This option does nothing. It is here to keep compatibility with Buck1 and ci
-    #[allow(unused)] // for v1 compat
-    #[clap(long = "deep")]
-    deep: bool,
-
-    // ignored. only for e2e tests. compatibility with v1.
-    #[clap(long = "xml")]
-    #[allow(unused)] // for v1 compat
-    xml: Option<String>,
-
     /// Will allow tests that are compatible with RE (setup to run from the repo root and
     /// use relative paths) to run from RE.
     #[clap(long, group = "re_options", alias = "unstable-allow-tests-on-re")]
@@ -176,6 +166,14 @@ If include patterns are present, regardless of whether exclude patterns are pres
     /// buck2 test //foo:bar -- --env PRIVATE_KEY=123
     #[clap(name = "TEST_EXECUTOR_ARGS", raw = true)]
     test_executor_args: Vec<String>,
+
+    /// This option does nothing. It is here to keep compatibility with Buck1 and ci
+    #[clap(long = "deep", hide = true)]
+    _deep: bool,
+
+    // ignored. only for e2e tests. compatibility with v1.
+    #[clap(long = "xml", hide = true)]
+    _xml: Option<String>,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,

@@ -46,11 +46,6 @@ mod out;
 #[derive(Debug, clap::Parser)]
 #[clap(name = "build", about = "Build the specified targets")]
 pub struct BuildCommand {
-    /// This option does nothing. It is here to keep compatibility with Buck1 and ci
-    #[clap(long = "deep")]
-    #[allow(unused)] // for v1 compat
-    deep: bool,
-
     #[clap(flatten)]
     show_output: CommonOutputOptions,
 
@@ -123,6 +118,10 @@ pub struct BuildCommand {
         help = "Experimental: Path to a file where the Buck2 daemon should write a list of produced artifacts in json format"
     )]
     output_hashes_file: Option<PathArg>,
+
+    /// This option does nothing. It is here to keep compatibility with Buck1 and ci
+    #[clap(long = "deep", hide = true)]
+    _deep: bool,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
