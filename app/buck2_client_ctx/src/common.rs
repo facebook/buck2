@@ -75,6 +75,7 @@ pub enum HostArchOverride {
 
 /// Defines options related to commands that involves a streaming daemon command.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+#[clap(next_help_heading = "Event Log Options")]
 pub struct CommonEventLogOptions {
     /// Write events to this log file
     #[clap(value_name = "PATH", long = EVENT_LOG)]
@@ -109,6 +110,7 @@ impl CommonEventLogOptions {
 /// Defines options for config and configuration related things. Any command that involves the build
 /// graph should include these options.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+#[clap(next_help_heading = "Buckconfig Options")]
 pub struct CommonBuildConfigurationOptions {
     #[clap(
         value_name = "SECTION.OPTION=VALUE",
@@ -252,7 +254,6 @@ impl CommonBuildConfigurationOptions {
             fake_host: None,
             fake_arch: None,
             fake_xcode_version: None,
-
             reuse_current_config: false,
             exit_when_different_state: false,
         };
@@ -261,6 +262,7 @@ impl CommonBuildConfigurationOptions {
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
+#[clap(next_help_heading = "Starlark Options")]
 pub struct CommonStarlarkOptions {
     /// Disable runtime type checking in Starlark interpreter.
     ///

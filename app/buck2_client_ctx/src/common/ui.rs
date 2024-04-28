@@ -54,6 +54,7 @@ pub enum UiOptions {
 
 /// Defines common console options for commands.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(next_help_heading = "Console Options")]
 pub struct CommonConsoleOptions {
     #[clap(
         long = "console",
