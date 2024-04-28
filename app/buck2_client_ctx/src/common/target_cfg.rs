@@ -32,7 +32,12 @@ pub struct TargetCfgOptions {
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct TargetCfgUnusedOptions {
     /// This option is not used.
-    #[clap(long = "target-platforms", num_args = 1, value_name = "PLATFORM")]
+    #[clap(
+        long = "target-platforms",
+        num_args = 1,
+        hide = true,
+        value_name = "PLATFORM"
+    )]
     pub target_platforms: Option<String>,
 
     /// This option is not used.

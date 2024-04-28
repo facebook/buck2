@@ -287,7 +287,7 @@ pub struct CommonStarlarkOptions {
     /// If there are targets with duplicate names in `BUCK` file,
     /// skip all the duplicates but the first one.
     /// This is a hack for TD. Do not use this option.
-    #[clap(long)]
+    #[clap(long, hide = true)]
     pub(crate) skip_targets_with_duplicate_names: bool,
 }
 
