@@ -23,7 +23,7 @@ load(
     "merge_swiftmodule_linkables",
 )
 load("@prelude//utils:expect.bzl", "expect")
-load(":apple_framework_versions.bzl", "get_framework_linker_args")
+load(":apple_framework_versions.bzl", "get_framework_linker_args", "validate_sdk_frameworks")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [
@@ -55,6 +55,7 @@ def _get_apple_frameworks_linker_flags(ctx: AnalysisContext, linkable: [Framewor
     return flags
 
 def get_framework_search_path_flags(ctx: AnalysisContext) -> cmd_args:
+    validate_sdk_frameworks(ctx.attrs.frameworks)
     unresolved_framework_dirs = _get_non_sdk_unresolved_framework_directories(ctx.attrs.frameworks)
     expanded_framework_dirs = _expand_sdk_framework_paths(ctx, unresolved_framework_dirs)
     return _get_framework_search_path_flags(expanded_framework_dirs)
