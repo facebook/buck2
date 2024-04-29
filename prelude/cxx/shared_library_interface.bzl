@@ -9,6 +9,7 @@ load("@prelude//:artifact_tset.bzl", "ArtifactTSet", "make_artifact_tset", "proj
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load("@prelude//utils:lazy.bzl", "lazy")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":headers.bzl", "CHeader")
@@ -104,6 +105,20 @@ def generate_exported_symbols(ctx: AnalysisContext, exported_headers: list[CHead
             "path": h.artifact,
             "type": "public",
         })
+
+    # We need to collect all raw_headers that belong in a public include dir
+    include_dirs = ctx.attrs.public_include_directories + ctx.attrs.public_system_include_directories
+    include_dirs = [d if d.endswith("/") else d + "/" for d in include_dirs]
+    if len(include_dirs) > 0:
+        filelist_headers.extend([
+            {
+                "path": h,
+                "type": "public",
+            }
+            for h in exported_preprocessor.raw_headers
+            if lazy.is_any(lambda d: h.short_path.startswith(d), include_dirs)
+        ])
+
     filelist_contents = {
         "headers": filelist_headers,
         "version": "2",
