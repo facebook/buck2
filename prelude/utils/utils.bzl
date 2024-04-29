@@ -50,9 +50,6 @@ def from_named_set(srcs: [dict[str, Artifact | Dependency], list[Artifact | Depe
 def map_idx(key: typing.Any, vals: list[typing.Any]) -> list[typing.Any]:
     return [x[key] for x in vals]
 
-def filter_idx(key: typing.Any, vals: list[typing.Any]) -> list[typing.Any]:
-    return [x for x in vals if key in x]
-
 def filter_and_map_idx(key: typing.Any, vals: list[typing.Any]) -> list[typing.Any]:
     return [x[key] for x in vals if key in x]
 

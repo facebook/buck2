@@ -943,12 +943,6 @@ def run_mergemap_codegen(ctx: AnalysisContext, merged_library_map: Artifact) -> 
     ctx.actions.run(args, category = "mergemap_codegen")
     return mapping_java
 
-def expect_dedupe(v):
-    # asserts that the input list is unique
-    o = dedupe_by_value(v)
-    expect(len(o) == len(v), "expected `{}` to be a list of unique items, but it wasn't. deduped list was `{}`.", v, o)
-    return v
-
 # We can't merge a prebuilt shared (that has no archive) and must use it's original info.
 # Ideally this would probably be structured info on the linkablenode.
 def _is_prebuilt_shared(node_data: LinkableNode) -> bool:

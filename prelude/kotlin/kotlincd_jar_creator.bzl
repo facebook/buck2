@@ -43,11 +43,6 @@ load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_idx")
 
-buckPaths = struct(
-    configuredBuckOut = "buck-out/v2",
-    includeTargetConfigHash = True,
-)
-
 def create_jar_artifact_kotlincd(
         actions: AnalysisActions,
         actions_identifier: [str, None],

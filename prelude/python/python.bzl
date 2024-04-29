@@ -5,14 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load("@prelude//linking:shared_libraries.bzl", "traverse_shared_library_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:utils.bzl", "flatten")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryInterface", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")
-load(":toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 
 PythonLibraryManifests = record(
     label = field(Label),
@@ -151,12 +148,4 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibra
         resource_manifests = lambda: [manifests.project_as_args("resource_manifests")],
         resource_artifacts = lambda: [manifests.project_as_args("resource_artifacts")],
         resource_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.resources != None for a, p in m.resources[0].artifacts],
-    )
-
-def get_python_deps(ctx: AnalysisContext):
-    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
-    return flatten(
-        [ctx.attrs.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
     )

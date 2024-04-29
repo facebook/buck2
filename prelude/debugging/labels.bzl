@@ -34,13 +34,6 @@ def get_info_ref(labels: list[str]) -> [str, None]:
             return result
     return None
 
-def get_info_exec(labels: list[str]) -> [str, None]:
-    for label in labels:
-        result = _get_value_by_mark(DBG_INFO_EXEC, label)
-        if result:
-            return result
-    return None
-
 def get_label_or_mark(label: str) -> str:
     for mark in [DBG_INFO_EXEC, DBG_INFO_REF]:
         if label.startswith(mark):

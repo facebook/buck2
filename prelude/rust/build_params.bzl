@@ -29,10 +29,6 @@ CrateType = enum(
     "staticlib",
 )
 
-# Crate type is intended for consumption by Rust code
-def crate_type_rust_linkage(crate_type: CrateType) -> bool:
-    return crate_type.value in ("rlib", "dylib", "proc-macro")
-
 # Crate type is intended for native linkage (eg C++)
 def crate_type_native_linkage(crate_type: CrateType) -> bool:
     return crate_type.value in ("cdylib", "staticlib")

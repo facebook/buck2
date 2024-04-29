@@ -129,9 +129,6 @@ multi_version_toolchain_rule = rule(
     is_toolchain_rule = True,
 )
 
-def as_target(name: str) -> str:
-    return ":" + name
-
 def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     """ rule for erlang toolchain
     """

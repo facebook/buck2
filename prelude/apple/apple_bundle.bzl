@@ -70,7 +70,6 @@ load(
 )
 load(":xcode.bzl", "apple_xcode_data_add_xctoolchain")
 
-INSTALL_DATA_SUB_TARGET = "install-data"
 _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
 
 _PLIST = "plist"
