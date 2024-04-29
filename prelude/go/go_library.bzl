@@ -38,6 +38,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         shared = ctx.attrs._compile_shared
         race = ctx.attrs._race
+        asan = ctx.attrs._asan
         coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
         pkg = build_package(
@@ -50,6 +51,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             assembler_flags = ctx.attrs.assembler_flags,
             shared = shared,
             race = race,
+            asan = asan,
             coverage_mode = coverage_mode,
             embedcfg = ctx.attrs.embedcfg,
             # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.

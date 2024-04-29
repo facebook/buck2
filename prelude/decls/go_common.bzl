@@ -149,6 +149,13 @@ def _race_arg():
 """),
     }
 
+def _asan_arg():
+    return {
+        "asan": attrs.bool(default = False, doc = """
+    If true, enable ASAN.
+"""),
+    }
+
 def _tags_arg():
     return {
         "tags": attrs.list(attrs.string(), default = [], doc = """
@@ -171,5 +178,6 @@ go_common = struct(
     embedcfg_arg = _embedcfg_arg,
     cgo_enabled_arg = _cgo_enabled_arg,
     race_arg = _race_arg,
+    asan_arg = _asan_arg,
     tags_arg = _tags_arg,
 )

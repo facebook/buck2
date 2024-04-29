@@ -27,6 +27,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         shared = True,
         race = ctx.attrs._race,
+        asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
         # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
         force_disable_cgo = True,
@@ -41,6 +42,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         external_linker_flags = ctx.attrs.external_linker_flags,
         shared = True,
         race = ctx.attrs._race,
+        asan = ctx.attrs._asan,
     )
     return [
         DefaultInfo(

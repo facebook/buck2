@@ -28,6 +28,7 @@ def build_package(
         assembler_flags: list[str] = [],
         shared: bool = False,
         race: bool = False,
+        asan: bool = False,
         coverage_mode: GoCoverageMode | None = None,
         embedcfg: Artifact | None = None,
         tests: bool = False,
@@ -61,7 +62,7 @@ def build_package(
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
-    go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo, with_tests = tests)
+    go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo, with_tests = tests, asan = asan)
 
     srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.argsfile")
@@ -91,7 +92,7 @@ def build_package(
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
         go_files_to_compile = covered_go_files + ((go_list.test_go_files + go_list.x_test_go_files) if tests else [])
-        go_a_file, asmhdr = _compile(ctx, pkg_name, go_files_to_compile, importcfg, compiler_flags, shared, race, embedcfg, go_list.embed_files, symabis, len(go_list.s_files) > 0)
+        go_a_file, asmhdr = _compile(ctx, pkg_name, go_files_to_compile, importcfg, compiler_flags, shared, race, asan, embedcfg, go_list.embed_files, symabis, len(go_list.s_files) > 0)
 
         asm_o_files = _asssembly(ctx, pkg_name, go_list.s_files, asmhdr, assembler_flags, shared)
 
@@ -116,6 +117,7 @@ def _compile(
         compiler_flags: list[str],
         shared: bool,
         race: bool,
+        asan: bool,
         embedcfg: Artifact | None = None,
         embed_files: list[Artifact] = [],
         symabis: Artifact | None = None,
@@ -141,6 +143,7 @@ def _compile(
         ["-importcfg", importcfg],
         ["-o", out.as_output()],
         ["-race"] if race else [],
+        ["-asan"] if asan else [],
         ["-shared"] if shared else [],
         ["-embedcfg", embedcfg] if embedcfg else [],
         ["-symabis", symabis] if symabis else [],

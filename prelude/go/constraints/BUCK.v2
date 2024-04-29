@@ -58,6 +58,23 @@ constraint_value(
 )
 
 constraint_setting(
+    name = "asan",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "asan_false",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "asan_true",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
     name = "coverage_mode",
     visibility = ["PUBLIC"],
 )

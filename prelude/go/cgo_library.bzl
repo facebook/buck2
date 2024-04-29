@@ -30,6 +30,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     shared = ctx.attrs._compile_shared
     race = ctx.attrs._race
+    asan = ctx.attrs._asan
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
     # Build Go library.
@@ -41,6 +42,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         shared = shared,
         race = race,
+        asan = asan,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
     )

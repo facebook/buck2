@@ -12,7 +12,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     stdlib_pkgdir = ctx.actions.declare_output("stdlib_pkgdir", dir = True)
     cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled)
-    tags = go_toolchain.tags
+    tags = [] + go_toolchain.tags
     linker_flags = [] + go_toolchain.linker_flags
     assembler_flags = [] + go_toolchain.assembler_flags
     compiler_flags = [] + go_toolchain.compiler_flags
@@ -20,6 +20,10 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._compile_shared:
         assembler_flags += ["-shared"]
         compiler_flags += ["-shared"]
+
+    if ctx.attrs._asan:
+        compiler_flags += ["-asan"]
+        tags += ["asan"]
 
     env = get_toolchain_env_vars(go_toolchain)
     env["GODEBUG"] = "installgoroot=all"

@@ -85,6 +85,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         coverage_mode = coverage_mode,
         race = ctx.attrs._race,
+        asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
         tests = True,
         # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
@@ -105,7 +106,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Generate a main function which runs the tests and build that into another
     # package.
     gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.srcs_list)
-    main = build_package(ctx, "main", [gen_main], package_root = "", pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race, cgo_gen_dir_name = "cgo_gen_test_main")
+    main = build_package(ctx, "main", [gen_main], package_root = "", pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race, asan = ctx.attrs._asan, cgo_gen_dir_name = "cgo_gen_test_main")
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(
@@ -117,6 +118,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         linker_flags = ctx.attrs.linker_flags,
         shared = False,
         race = ctx.attrs._race,
+        asan = ctx.attrs._asan,
     )
 
     run_cmd = cmd_args(bin).hidden(runtime_files, external_debug_info)

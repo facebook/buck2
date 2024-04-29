@@ -189,6 +189,7 @@ go_binary = prelude_rule(
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
+        go_common.asan_arg() |
         go_common.tags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
@@ -277,6 +278,7 @@ go_exported_library = prelude_rule(
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
+        go_common.asan_arg() |
         go_common.tags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
@@ -431,6 +433,7 @@ go_test = prelude_rule(
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
+        go_common.asan_arg() |
         go_common.tags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """

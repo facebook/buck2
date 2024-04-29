@@ -99,7 +99,8 @@ def link(
         linker_flags: list[typing.Any] = [],
         external_linker_flags: list[typing.Any] = [],
         shared: bool = False,
-        race: bool = False):
+        race: bool = False,
+        asan: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"
@@ -121,6 +122,9 @@ def link(
 
     if race:
         cmd.add("-race")
+
+    if asan:
+        cmd.add("-asan")
 
     # Add inherited Go pkgs to library search path.
     all_pkgs = merge_pkgs([
