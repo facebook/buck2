@@ -123,6 +123,12 @@ rust_toolchain_attrs = {
     #
     # FIXME(JakobDegen): Fix `enum` so that we can set `unwind` as the default
     "panic_runtime": provider_field(PanicRuntime),
+    # Override dylib crates to static_pic, so that Rust code is always
+    # statically linked.
+    # In v1 we always linked Rust deps statically, even for "shared" link style
+    # That shouldn't be necessary, but fully shared needs some more debugging,
+    # so default to v1 behaviour. (Should be controlled with the `rust.force_rlib` option)
+    "force_rlib": provider_field(bool, default = True),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

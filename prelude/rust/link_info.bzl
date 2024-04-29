@@ -74,7 +74,7 @@ load(
     "CrateName",  # @unused Used as a type
     "DepCollectionContext",  # @unused Used as a type
 )
-load(":rust_toolchain.bzl", "PanicRuntime")
+load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
 # Link strategy for targets which do not set an explicit `link_style` attribute.
 #
@@ -86,13 +86,6 @@ load(":rust_toolchain.bzl", "PanicRuntime")
 # strategy, and so consume their dependencies as `static_pic`.
 DEFAULT_STATIC_LINK_STRATEGY = LinkStrategy("static_pic")
 DEFAULT_STATIC_LIB_OUTPUT_STYLE = LibOutputStyle("pic_archive")
-
-# Override dylib crates to static_pic, so that Rust code is always
-# statically linked.
-# In v1 we always linked Rust deps statically, even for "shared" link style
-# That shouldn't be necessary, but fully shared needs some more debugging,
-# so default to v1 behaviour. (Should be controlled with the `rust.force_rlib` option)
-FORCE_RLIB = True
 
 RustProcMacroPlugin = plugins.kind()
 
@@ -152,7 +145,7 @@ RustLinkInfo = provider(
         #  * With `advanced_unstable_linking`, the Rust `MergedLinkInfo` provided by a `:A` does
         #    include a linkable from `:A`, however that linkable is always the rlib (a static
         #    library), regardless of `:A`'s preferred linkage or the link strategy. This matches the
-        #    `FORCE_RLIB` behavior, in which Rust -> Rust dependency edges are always statically
+        #    `force_rlib` behavior, in which Rust -> Rust dependency edges are always statically
         #    linked. The native link provider then depends on that, and only adds a linkable for the
         #    `shared_lib` case.
         "merged_link_info": MergedLinkInfo,
@@ -177,14 +170,14 @@ RustLinkInfo = provider(
     },
 )
 
-def _adjust_link_strategy_for_rust_dependencies(dep_link_strategy: LinkStrategy) -> LinkStrategy:
-    if FORCE_RLIB and dep_link_strategy == LinkStrategy("shared"):
+def _adjust_link_strategy_for_rust_dependencies(toolchain_info: RustToolchainInfo, dep_link_strategy: LinkStrategy) -> LinkStrategy:
+    if toolchain_info.force_rlib and dep_link_strategy == LinkStrategy("shared"):
         return DEFAULT_STATIC_LINK_STRATEGY
     else:
         return dep_link_strategy
 
-def strategy_info(info: RustLinkInfo, dep_link_strategy: LinkStrategy) -> RustLinkStrategyInfo:
-    rust_dep_link_strategy = _adjust_link_strategy_for_rust_dependencies(dep_link_strategy)
+def strategy_info(toolchain_info: RustToolchainInfo, info: RustLinkInfo, dep_link_strategy: LinkStrategy) -> RustLinkStrategyInfo:
+    rust_dep_link_strategy = _adjust_link_strategy_for_rust_dependencies(toolchain_info, dep_link_strategy)
 
     return info.strategies[rust_dep_link_strategy]
 
@@ -526,7 +519,8 @@ def inherited_rust_external_debug_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         link_strategy: LinkStrategy) -> list[ArtifactTSet]:
-    return [strategy_info(d.info, link_strategy).external_debug_info for d in resolve_rust_deps(ctx, dep_ctx)]
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    return [strategy_info(toolchain_info, d.info, link_strategy).external_debug_info for d in resolve_rust_deps(ctx, dep_ctx)]
 
 def inherited_external_debug_info(
         ctx: AnalysisContext,
@@ -535,10 +529,11 @@ def inherited_external_debug_info(
         dep_link_strategy: LinkStrategy) -> ArtifactTSet:
     inherited_debug_infos = []
     inherited_link_infos = []
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     for d in resolve_deps(ctx, dep_ctx):
         if RustLinkInfo in d.dep:
-            inherited_debug_infos.append(strategy_info(d.dep[RustLinkInfo], dep_link_strategy).external_debug_info)
+            inherited_debug_infos.append(strategy_info(toolchain_info, d.dep[RustLinkInfo], dep_link_strategy).external_debug_info)
             inherited_link_infos.append(d.dep[RustLinkInfo].merged_link_info)
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])

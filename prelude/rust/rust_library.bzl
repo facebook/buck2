@@ -570,10 +570,10 @@ def _rust_link_providers(
     if dep_ctx.advanced_unstable_linking:
         # We have to produce a version of the providers that are defined in such
         # a way that native rules looking at these providers will also pick up
-        # the `FORCE_RLIB` behavior. The general approach to that will be to
+        # the `force_rlib` behavior. The general approach to that will be to
         # claim that we have `preferred_linkage = "static"`.
         #
-        # Note that all of this code is FORCE_RLIB specific. Disabling that
+        # Note that all of this code is force_rlib specific. Disabling that
         # setting requires replacing this with the "real" native providers
         #
         # As an optimization, we never bother reporting exported deps here.
@@ -872,6 +872,7 @@ def _compute_transitive_deps(
     list[ArtifactTSet],
     dict[RustProcMacroMarker, ()],
 ):
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
     transitive_deps = {m: {} for m in MetadataKind}
     external_debug_info = []
     transitive_proc_macro_deps = {}
@@ -882,7 +883,7 @@ def _compute_transitive_deps(
 
             # We don't want to propagate proc macros directly, and they have no transitive deps
             continue
-        strategy = strategy_info(dep.info, dep_link_strategy)
+        strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
         for m in MetadataKind:
             transitive_deps[m][strategy.outputs[m]] = dep.info.crate
             transitive_deps[m].update(strategy.transitive_deps[m])

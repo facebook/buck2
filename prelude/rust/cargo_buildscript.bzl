@@ -55,6 +55,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         dep_args, _ = dependency_args(
             ctx = ctx,
             compile_ctx = None,
+            toolchain_info = toolchain_info,
             deps = deps,
             subdir = "any",
             dep_link_strategy = DEFAULT_STATIC_LINK_STRATEGY,

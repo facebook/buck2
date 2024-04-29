@@ -69,7 +69,6 @@ load(
 )
 load(
     ":link_info.bzl",
-    "FORCE_RLIB",
     "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustDependency",
     "RustLinkInfo",
@@ -685,6 +684,7 @@ def rust_compile(
 def dependency_args(
         ctx: AnalysisContext,
         compile_ctx: CompileContext | None,
+        toolchain_info: RustToolchainInfo,
         deps: list[RustDependency],
         subdir: str,
         dep_link_strategy: LinkStrategy,
@@ -703,14 +703,14 @@ def dependency_args(
         else:
             crate = dep.info.crate
 
-        strategy = strategy_info(dep.info, dep_link_strategy)
+        strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
 
         artifact = strategy.outputs[dep_metadata_kind]
         transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
         for marker in strategy.transitive_proc_macro_deps.keys():
             info = available_proc_macros[marker.label][RustLinkInfo]
-            strategy = strategy_info(info, dep_link_strategy)
+            strategy = strategy_info(toolchain_info, info, dep_link_strategy)
             transitive_deps[strategy.outputs[MetadataKind("link")]] = info.crate
 
         args.add(extern_arg(dep.flags, crate, artifact))
@@ -884,6 +884,7 @@ def _compute_common_args(
     dep_args, crate_map = dependency_args(
         ctx = ctx,
         compile_ctx = compile_ctx,
+        toolchain_info = compile_ctx.toolchain_info,
         deps = resolve_rust_deps(ctx, dep_ctx),
         subdir = subdir,
         dep_link_strategy = params.dep_link_strategy,
@@ -945,7 +946,7 @@ def _compute_common_args(
         # dependencies never collide on crate hash, so `-Cprefer-dynamic` cannot
         # make a difference.
         prefer_dynamic_flags = []
-    elif crate_type == CrateType("dylib") and not FORCE_RLIB:
+    elif crate_type == CrateType("dylib") and not toolchain_info.force_rlib:
         # Use standard library dylibs from the implicit sysroot.
         prefer_dynamic_flags = ["-Cprefer-dynamic=yes"]
     else:
