@@ -102,7 +102,7 @@ pub fn system_info() -> SystemInfo {
         hostname,
         username,
         os: os_type(),
-        os_version: sys_info::os_release().ok(),
+        os_version: os_version(),
     }
 }
 
@@ -119,6 +119,16 @@ fn os_type() -> String {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn os_version() -> Option<String> {
+    winver::WindowsVersion::detect().map(|v| v.to_string())
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn os_version() -> Option<String> {
+    sys_info::os_release().ok()
+}
+
 pub fn hostname() -> Option<String> {
     static CELL: OnceLock<Option<String>> = OnceLock::new();
 
@@ -128,4 +138,21 @@ pub fn hostname() -> Option<String> {
             .map(|res| res.to_string_lossy().into_owned())
     })
     .clone()
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn os_version_produces_reasonable_windows_version() {
+        let data = collect();
+        // This logic used to use the `GetVersionExW` win32 API, which
+        // always returns the value below on recent versions of windows. See
+        // https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getversionexw
+        // for more details.
+        assert_ne!(data["os_version"], "6.2.9200");
+        // This is true for both Windows 10 and Windows 11: https://learn.microsoft.com/en-us/windows/win32/sysinfo/operating-system-version
+        assert!(data["os_version"].starts_with("10.0."));
+    }
 }

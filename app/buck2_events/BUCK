@@ -8,6 +8,20 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    os_deps = [
+        (
+            "windows",
+            ["fbsource//third-party/rust:winver"],
+        ),
+        (
+            "linux",
+            ["fbsource//third-party/rust:sys-info"],
+        ),
+        (
+            "macos",
+            ["fbsource//third-party/rust:sys-info"],
+        ),
+    ],
     test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -22,7 +36,6 @@ rust_library(
         "fbsource//third-party/rust:serde",
         # @oss-disable: "fbsource//third-party/rust:serde_json", 
         "fbsource//third-party/rust:smallvec",
-        "fbsource//third-party/rust:sys-info",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",
