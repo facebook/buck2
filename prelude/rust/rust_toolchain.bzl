@@ -53,10 +53,6 @@ rust_toolchain_attrs = {
     "rustc_coverage_flags": provider_field(typing.Any, default = ("-Cinstrument-coverage",)),
     # Extra flags for rustdoc invocations
     "rustdoc_flags": provider_field(list[typing.Any], default = []),
-    # Use rmeta for lib->lib dependencies, and only block
-    # linking on rlib crates. The hope is that rmeta builds
-    # are quick and this increases effective parallelism.
-    "pipelined": provider_field(bool, default = False),
     # When you `buck test` a library, also compile and run example code in its
     # documentation comments.
     "doctests": provider_field(bool, default = False),

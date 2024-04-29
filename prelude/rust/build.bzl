@@ -465,7 +465,6 @@ def rust_compile(
     if toolchain_info.failure_filter:
         emit_op = _rustc_emit(
             ctx = ctx,
-            compile_ctx = compile_ctx,
             emit = emit,
             subdir = common_args.subdir,
             params = params,
@@ -473,7 +472,6 @@ def rust_compile(
     else:
         emit_op = _rustc_emit(
             ctx = ctx,
-            compile_ctx = compile_ctx,
             emit = emit,
             subdir = common_args.subdir,
             params = params,
@@ -543,7 +541,6 @@ def rust_compile(
         # We don't really need the outputs from this build, just to keep the artifact accounting straight
         clippy_emit_op = _rustc_emit(
             ctx = ctx,
-            compile_ctx = compile_ctx,
             emit = emit,
             subdir = common_args.subdir + "-clippy",
             params = params,
@@ -877,7 +874,7 @@ def _compute_common_args(
     # could be provided by other means, say, a link group
     dep_metadata_kind = dep_metadata_of_emit(emit)
     is_check = dep_metadata_kind != MetadataKind("link")
-    if compile_ctx.dep_ctx.advanced_unstable_linking or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type)):
+    if compile_ctx.dep_ctx.advanced_unstable_linking or not crate_type_codegen(crate_type):
         if dep_metadata_kind == MetadataKind("link"):
             dep_metadata_kind = MetadataKind("full")
 
@@ -1175,12 +1172,10 @@ EmitOperation = record(
 # Take a desired output and work out how to convince rustc to generate it
 def _rustc_emit(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext,
         emit: Emit,
         subdir: str,
         params: BuildParams,
         predeclared_output: Artifact | None = None) -> EmitOperation:
-    toolchain_info = compile_ctx.toolchain_info
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
 
@@ -1204,18 +1199,16 @@ def _rustc_emit(
             cmd_args(emit_output.as_output(), format = "-o{}"),
         )
     else:
-        if toolchain_info.pipelined:
-            # Even though the unstable flag only appears on one of the branches, we need
-            # an identical environment between the `-Zno-codegen` and non-`-Zno-codegen`
-            # command or else there are "found possibly newer version of crate" errors.
-            emit_env["RUSTC_BOOTSTRAP"] = "1"
+        # Even though the unstable flag only appears on one of the branches, we need
+        # an identical environment between the `-Zno-codegen` and non-`-Zno-codegen`
+        # command or else there are "found possibly newer version of crate" errors.
+        emit_env["RUSTC_BOOTSTRAP"] = "1"
 
         # We don't ever have metadata-only deps on codegen crates, so no need to do
         # the slower thing
         if emit == Emit("metadata-full") and \
-           not crate_type_codegen(crate_type) and \
-           toolchain_info.pipelined:
-            # If we're doing a pipelined build, instead of emitting an actual rmeta
+           not crate_type_codegen(crate_type):
+            # As we're doing a pipelined build, instead of emitting an actual rmeta
             # we emit a "hollow" .rlib - ie, it only contains lib.rmeta and no object
             # code. It should contain full information needed by any dependent
             # crate which is generating code (MIR, etc).
