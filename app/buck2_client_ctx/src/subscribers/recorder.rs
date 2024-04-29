@@ -522,6 +522,20 @@ impl<'a> InvocationRecorder<'a> {
         }
     }
 
+    // Store the "client" field in the metadata for telemetry
+    pub fn update_metadata_from_client_metadata(&mut self, client_metadata: &[ClientMetadata]) {
+        if let Some(client_id_from_client_metadata) = client_metadata
+            .iter()
+            .find(|m| m.key == "id")
+            .map(|m| m.value.clone())
+        {
+            self.metadata.insert(
+                "client".to_owned(),
+                client_id_from_client_metadata.to_owned(),
+            );
+        }
+    }
+
     fn handle_command_start(
         &mut self,
         command: &buck2_data::CommandStart,

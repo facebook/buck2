@@ -89,28 +89,32 @@ impl CleanCommand {
             return cmd.exec(matches, ctx);
         }
 
-        ctx.instant_command("clean", |ctx| async move {
-            let buck_out_dir = ctx.paths()?.buck_out_path();
-            let daemon_dir = ctx.paths()?.daemon_dir()?;
-            let console = &self.common_opts.console_opts.final_console();
+        ctx.instant_command(
+            "clean",
+            &self.common_opts.event_log_opts,
+            |ctx| async move {
+                let buck_out_dir = ctx.paths()?.buck_out_path();
+                let daemon_dir = ctx.paths()?.daemon_dir()?;
+                let console = &self.common_opts.console_opts.final_console();
 
-            if self.dry_run {
-                return clean(buck_out_dir, daemon_dir, console, None).await;
-            }
+                if self.dry_run {
+                    return clean(buck_out_dir, daemon_dir, console, None).await;
+                }
 
-            // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
-            // This will ensure we have exclusive access to the directories in question
-            let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
-                daemon_dir.clone(),
-                StartupDeadline::duration_from_now(Duration::from_secs(10))?,
-            )
-            .await
-            .with_context(|| "Error locking buckd lifecycle.lock")?;
+                // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
+                // This will ensure we have exclusive access to the directories in question
+                let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
+                    daemon_dir.clone(),
+                    StartupDeadline::duration_from_now(Duration::from_secs(10))?,
+                )
+                .await
+                .with_context(|| "Error locking buckd lifecycle.lock")?;
 
-            kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
+                kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
 
-            clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
-        })
+                clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
+            },
+        )
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

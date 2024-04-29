@@ -77,18 +77,25 @@ impl<'a> ClientCommandContext<'a> {
         self.runtime.block_on(func(self))
     }
 
-    pub fn instant_command<Fut, F>(self, command_name: &'static str, func: F) -> ExitResult
+    pub fn instant_command<Fut, F>(
+        self,
+        command_name: &'static str,
+        event_log_opts: &CommonEventLogOptions,
+        func: F,
+    ) -> ExitResult
     where
         Fut: Future<Output = anyhow::Result<()>> + 'a,
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
     {
         let mut recorder = try_get_invocation_recorder(
             &self,
-            CommonEventLogOptions::default_ref(),
+            &event_log_opts,
             command_name,
             std::env::args().collect(),
             None,
         )?;
+
+        recorder.update_metadata_from_client_metadata(&self.client_metadata);
 
         let result = self.runtime.block_on(func(self));
 

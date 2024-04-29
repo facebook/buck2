@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
@@ -27,11 +28,14 @@ use buck2_common::argv::SanitizedArgv;
 ///
 /// `buck2 clean` kills the buck2 daemon and also deletes the buck2 state files.
 #[derive(Debug, clap::Parser)]
-pub struct KillCommand {}
+pub struct KillCommand {
+    #[clap(flatten)]
+    pub(crate) event_log_opts: CommonEventLogOptions,
+}
 
 impl KillCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.instant_command("kill", |ctx| async move {
+        ctx.instant_command("kill", &self.event_log_opts, |ctx| async move {
             let daemon_dir = ctx.paths()?.daemon_dir()?;
 
             let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
