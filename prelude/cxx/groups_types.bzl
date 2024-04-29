@@ -25,9 +25,9 @@ Traversal = enum(
     "node",
     # Uses pattern and separates all targets by full folder path.
     "subfolders",
-    # Includes targets found in the transitive deps of *all* roots.
+    # Includes targets found in the transitive deps of *any* roots.
     # Filters for these mappings will be applied to the intersected deps.
-    "intersect",
+    "intersect_any_roots",
 )
 
 # Optional type of filtering

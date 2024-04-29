@@ -63,7 +63,7 @@ _TRAVERSALS_TO_ASSIGN_NODE = [
     # If iterating the tree of 'root2' we find a node which
     # was also present in 'root1', we can skip traversing the subtree
     # because it's evitable that everything is going to match there too.
-    Traversal("intersect"),
+    Traversal("intersect_any_roots"),
 ]
 
 # Creates a group from an existing group, overwriting any properties provided
@@ -118,9 +118,9 @@ def parse_groups_definitions(
                 preferred_linkage = Linkage(entry[3]) if len(entry) > 3 and entry[3] else None,
             )
             num_roots = len(mapping.roots) if mapping.roots else 0
-            if num_roots > 1 and mapping.traversal != Traversal("intersect"):
+            if num_roots > 1 and mapping.traversal != Traversal("intersect_any_roots"):
                 fail("Invariant. A link_group mapping with traversal type: {} can only have 1 root node. {} found.".format(mapping.traversal, mapping.roots))
-            elif mapping.traversal == Traversal("intersect") and num_roots < 2:
+            elif mapping.traversal == Traversal("intersect_any_roots") and num_roots < 2:
                 fail("Invariant. A link_group mapping with traversal type 'intersect' must have at least 2 root nodes. {} found.".format(mapping.roots))
 
             parsed_mappings.append(mapping)
@@ -142,8 +142,8 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal:
         return Traversal("node")
     elif entry == "subfolders":
         return Traversal("subfolders")
-    elif entry == "intersect":
-        return Traversal("intersect")
+    elif entry == "intersect_any_roots":
+        return Traversal("intersect_any_roots")
     else:
         fail("Unrecognized group traversal type: " + entry)
 
@@ -218,7 +218,7 @@ def _find_targets_in_mapping(
     if not mapping.filters:
         if not mapping.roots:
             fail("no filter or explicit root given: {}", mapping)
-        elif mapping.traversal != Traversal("intersect"):
+        elif mapping.traversal != Traversal("intersect_any_roots"):
             return mapping.roots
 
     # Else find all dependencies that match the filter.
@@ -266,22 +266,22 @@ def _find_targets_in_mapping(
     if not mapping.roots:
         for node in graph_map:
             populate_matching_targets(node)
-    elif mapping.traversal == Traversal("intersect"):
-        intersected_targets = None
+    elif mapping.traversal == Traversal("intersect_any_roots"):
+        targets_to_counter = {}
         for root in mapping.roots:
             # This is a captured variable inside `populate_matching_targets`.
             # We reset it for each root we visit so that we don't have results
             # from other roots.
             matching_targets = {}
             breadth_first_traversal_with_callback(graph_map, [root], populate_matching_targets_bfs_wrapper)
-            if intersected_targets == None:
-                intersected_targets = {target: True for target in matching_targets}
-            else:
-                # filter the list of intersected targets to only include targets also seen
-                # in the last passthrough.
-                intersected_targets = {target: True for target in matching_targets if target in intersected_targets}
+            for t in matching_targets:
+                targets_to_counter[t] = targets_to_counter.get(t, 0) + 1
 
-        return intersected_targets.keys()
+        return [
+            t
+            for t, count in targets_to_counter.items()
+            if count > 1
+        ]
     else:
         breadth_first_traversal_with_callback(graph_map, mapping.roots, populate_matching_targets_bfs_wrapper)
 
