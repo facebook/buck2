@@ -66,10 +66,13 @@ def make_importcfg(
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
 
+        # Note: matters for packages which do not specify package_name
         # Future work: support importmap in buck rules instead of hacking here.
-        if with_importmap and name_.startswith("third-party-source/go/"):
-            real_name_ = name_.removeprefix("third-party-source/go/")
-            content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
+        # BUG: Should use go.vendor_path instead of hard-coding values.
+        for vendor_prefix in ["third-party-source/go/", "third-party-go/vendor/"]:
+            if with_importmap and name_.startswith(vendor_prefix):
+                real_name_ = name_.removeprefix(vendor_prefix)
+                content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
 
     own_importcfg = ctx.actions.declare_output("{}.importcfg".format(pkg_name))
     ctx.actions.write(own_importcfg, content)
