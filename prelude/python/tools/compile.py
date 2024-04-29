@@ -16,6 +16,8 @@ $ find out-dir -type f
 out-dir/foo.pyc
 """
 
+# pyre-fixme[51]: Mode `pyre-unsafe` is unused. This conflicts with `pyre-strict`
+#  mode set on line 8.
 # pyre-unsafe
 
 import argparse
@@ -30,15 +32,20 @@ if sys.version_info[0] == 3:
     import importlib
     import importlib.util
 
+    # pyre-fixme[5]: Global expression must be annotated.
     DEFAULT_FORMAT = importlib.util.cache_from_source("{pkg}/{name}.py")
 else:
     DEFAULT_FORMAT = "{pkg}/{name}.pyc"
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def get_py_path(module):
     return module.replace(".", os.sep) + ".py"
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def get_pyc_path(module, fmt):
     try:
         package, name = module.rsplit(".", 1)
@@ -53,6 +60,8 @@ def get_pyc_path(module, fmt):
     return os.path.join(*parts)
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def _mkdirs(dirpath):
     try:
         os.makedirs(dirpath)
@@ -61,6 +70,8 @@ def _mkdirs(dirpath):
             raise
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def main(argv):
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("-o", "--output", required=True)
