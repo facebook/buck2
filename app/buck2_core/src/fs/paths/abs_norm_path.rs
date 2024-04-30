@@ -823,7 +823,7 @@ fn verify_abs_path_windows_part(path: &str) -> bool {
     true
 }
 
-/// Verifier for AbsPath to ensure the path is absolute
+/// Verifier for AbsPath to ensure the path is normalized
 fn verify_abs_path(path: &AbsPath) -> anyhow::Result<()> {
     // `Path::components` normalizes '.'s away so we cannot iterate with it.
     // TODO maybe we actually want to allow "."s and just
