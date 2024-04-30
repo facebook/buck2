@@ -297,10 +297,6 @@ constraint_value = prelude_rule(
 export_file = prelude_rule(
     name = "export_file",
     docs = """
-        **Warning:** this build rule is deprecated for folders.
-         Use `filegroup()`instead. It is still supported for individual files.
-
-
         An `export_file()` takes a single file or folder and exposes it so other rules can
          use it.
     """,
