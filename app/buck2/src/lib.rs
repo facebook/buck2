@@ -81,6 +81,7 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
 
 /// Options of `buck2` command, before subcommand.
 #[derive(Clone, Debug, clap::Parser)]
+#[clap(next_help_heading = "Universal Options")]
 struct BeforeSubcommandOptions {
     /// The name of the directory that Buck2 creates within buck-out for writing outputs and daemon
     /// information. If one is not provided, Buck2 creates a directory with the default name.
@@ -163,10 +164,10 @@ fn help() -> &'static str {
     styles = cli_style::get_styles(),
 )]
 pub(crate) struct Opt {
-    #[clap(flatten)]
-    common_opts: BeforeSubcommandOptions,
     #[clap(subcommand)]
     cmd: CommandKind,
+    #[clap(flatten)]
+    common_opts: BeforeSubcommandOptions,
 }
 
 impl Opt {
