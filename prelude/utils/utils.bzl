@@ -12,6 +12,12 @@ load("@prelude//utils:expect.bzl", "expect")
 def value_or(x: [None, typing.Any], default: typing.Any) -> typing.Any:
     return default if x == None else x
 
+def values_or(*xs: typing.Any | None) -> typing.Any | None:
+    for x in xs:
+        if x != None:
+            return x
+    return None
+
 # Flatten a list of lists into a list
 def flatten(xss: list[list[typing.Any]]) -> list[typing.Any]:
     return [x for xs in xss for x in xs]
