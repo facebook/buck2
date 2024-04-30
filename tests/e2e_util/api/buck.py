@@ -465,7 +465,7 @@ class Buck(Executable):
         input: Optional[bytes] = None,
         rel_cwd: Optional[Path] = None,
         env: Optional[Dict[str, str]] = None,
-    ) -> Process[AuditConfigResult, BuckException]:
+    ) -> Process[BuckResult, BuckException]:
         args = list(argv)
         return self._run_buck_command(
             "audit",
