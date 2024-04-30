@@ -23,6 +23,7 @@ use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use dupe::Dupe;
 use edenfs::BinaryHash;
 use edenfs::EdenErrorType;
@@ -100,22 +101,24 @@ impl EdenConnectionManager {
             let config_path = eden_root.join("config");
             let config_contents = fs_util::read_to_string(config_path)?;
             let config: EdenConfig = toml::from_str(&config_contents)?;
-            let root = Arc::new(config.config.root);
+            let root = Arc::new(AbsPathBuf::new(config.config.root)?);
             let socket = PathBuf::from(config.config.socket);
             Ok(EdenConnector { fb, root, socket })
         } else {
-            let root = fs_util::read_link(eden_root.join("root"))?
-                .to_str()
-                .context("Eden root is not UTF-8")?
-                .to_owned();
-            let root = Arc::new(root);
+            let root = fs_util::read_link(eden_root.join("root"))?;
+            let root = Arc::new(AbsPathBuf::new(root)?);
             let socket = fs_util::read_link(eden_root.join("socket"))?;
             Ok(EdenConnector { fb, root, socket })
         }
     }
 
     pub fn get_mount_point(&self) -> Vec<u8> {
-        self.connector.root.as_bytes().to_vec()
+        self.connector
+            .root
+            .as_path()
+            .as_os_str()
+            .as_encoded_bytes()
+            .to_vec()
     }
 
     /// Returns a string like "20220102-030405", assuming this is a release version. This is
@@ -221,7 +224,7 @@ struct EdenConnection {
 struct EdenConnector {
     #[allocative(skip)]
     fb: FacebookInit,
-    root: Arc<String>,
+    root: Arc<AbsPathBuf>,
     socket: PathBuf,
 }
 
@@ -271,13 +274,13 @@ impl EdenConnector {
 #[derive(buck2_error::Error, Debug)]
 #[error("Mount never became ready: `{}`", self.mount)]
 struct MountNeverBecameReady {
-    mount: Arc<String>,
+    mount: Arc<AbsPathBuf>,
 }
 
 /// Delay until a mount becomes ready (up to 10 seconds).
 async fn wait_until_mount_is_ready(
     eden: &(dyn EdenService + Send + Sync),
-    root: &Arc<String>,
+    root: &Arc<AbsPathBuf>,
 ) -> anyhow::Result<()> {
     let mut interval = tokio::time::interval(Duration::from_secs(1));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -302,7 +305,7 @@ async fn wait_until_mount_is_ready(
 #[derive(buck2_error::Error, Debug)]
 pub enum IsMountReadyError {
     #[error("Mount does not exist in Eden: `{}`", .mount)]
-    MountDoesNotExist { mount: Arc<String> },
+    MountDoesNotExist { mount: Arc<AbsPathBuf> },
     #[error(transparent)]
     RequestError(ListMountsError),
 }
@@ -310,7 +313,7 @@ pub enum IsMountReadyError {
 /// Check if a given mount is ready.
 async fn is_mount_ready(
     eden: &(dyn EdenService + Send + Sync),
-    root: &Arc<String>,
+    root: &Arc<AbsPathBuf>,
 ) -> Result<bool, IsMountReadyError> {
     let mounts = eden
         .listMounts()
@@ -318,7 +321,7 @@ async fn is_mount_ready(
         .map_err(IsMountReadyError::RequestError)?;
 
     for mount in mounts {
-        if mount.mountPoint == root.as_bytes() {
+        if mount.mountPoint == root.as_path().as_os_str().as_encoded_bytes() {
             return Ok(mount.state == MountState::RUNNING);
         }
     }
