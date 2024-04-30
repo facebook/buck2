@@ -114,10 +114,6 @@ impl EdenConnectionManager {
         }
     }
 
-    pub fn get_root(&self) -> &str {
-        &self.connector.root
-    }
-
     pub fn get_mount_point(&self) -> Vec<u8> {
         self.connector.root.as_bytes().to_vec()
     }
