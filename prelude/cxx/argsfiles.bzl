@@ -6,7 +6,6 @@
 # of this source tree.
 
 ARGSFILES_SUBTARGET = "argsfiles"
-ABS_ARGSFILES_SUBTARGET = "abs-argsfiles"
 
 # Information on argsfiles created for compilation.
 CompileArgsfile = record(

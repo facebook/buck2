@@ -38,6 +38,7 @@ load(
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
     "@prelude//ide_integrations:xcode.bzl",
+    "XCODE_ARGSFILES_SUB_TARGET",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfo",
     "generate_xcode_data",
@@ -112,7 +113,6 @@ load(
 load(":archive.bzl", "make_archive")
 load(
     ":argsfiles.bzl",
-    "ABS_ARGSFILES_SUBTARGET",
     "ARGSFILES_SUBTARGET",
     "get_argsfiles_output",
 )
@@ -396,8 +396,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         )
 
     if impl_params.generate_sub_targets.argsfiles:
-        sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.relative, "argsfiles")]
-        sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.absolute, "abs-argsfiles")]
+        sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.relative, ARGSFILES_SUBTARGET)]
+        sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.absolute, XCODE_ARGSFILES_SUB_TARGET)]
 
     if impl_params.generate_sub_targets.clang_remarks:
         if compiled_srcs.non_pic and compiled_srcs.non_pic.clang_remarks:

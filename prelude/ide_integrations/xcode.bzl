@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+XCODE_ARGSFILES_SUB_TARGET = "xcode-argsfiles"
+
 XCODE_DATA_SUB_TARGET = "xcode-data"
 _XCODE_DATA_FILE_NAME = "xcode_data.json"
 

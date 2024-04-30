@@ -637,7 +637,7 @@ def _mk_argsfile(
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
         headers_tag: ArtifactTag,
-        use_absolute_paths: bool) -> CompileArgsfile:
+        is_xcode_argsfile: bool) -> CompileArgsfile:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -645,7 +645,7 @@ def _mk_argsfile(
 
     _add_compiler_info_flags(ctx, compiler_info, ext, args)
 
-    if use_absolute_paths:
+    if is_xcode_argsfile:
         args.add(preprocessor.set.project_as_args("abs_args"))
     else:
         args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
@@ -672,7 +672,7 @@ def _mk_argsfile(
 
     # Put file_prefix_args in argsfile directly, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
-    if use_absolute_paths:
+    if is_xcode_argsfile:
         args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
 
         # HACK: Replace Xcode clang incompatible flags with compatible ones.
@@ -683,11 +683,11 @@ def _mk_argsfile(
         args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
 
     file_args = args
-    if not use_absolute_paths:
+    if not is_xcode_argsfile:
         file_args = cmd_args(args, quote = "shell")
 
-    file_name = ext.value + ("-abs.argsfile" if use_absolute_paths else ".argsfile")
-    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = use_absolute_paths)
+    file_name = ext.value + ("-xcode.argsfile" if is_xcode_argsfile else ".argsfile")
+    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = is_xcode_argsfile)
 
     input_args = [args]
 

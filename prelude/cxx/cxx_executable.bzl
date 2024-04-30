@@ -37,6 +37,7 @@ load(
 )
 load(
     "@prelude//ide_integrations:xcode.bzl",
+    "XCODE_ARGSFILES_SUB_TARGET",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfo",
     "generate_xcode_data",
@@ -82,7 +83,6 @@ load(
 )
 load(
     ":argsfiles.bzl",
-    "ABS_ARGSFILES_SUBTARGET",
     "ARGSFILES_SUBTARGET",
     "get_argsfiles_output",
 )
@@ -220,8 +220,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_strategy != LinkStrategy("static"))
 
-    sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, "argsfiles")]
-    sub_targets[ABS_ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, "abs-argsfiles")]
+    sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
+    sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.absolute, XCODE_ARGSFILES_SUB_TARGET)]
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
 
     # Compilation DB.
