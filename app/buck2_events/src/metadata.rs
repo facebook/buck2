@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::OnceLock;
 
+use buck2_core::ci::ci_identifiers;
 use buck2_core::facebook_only;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 
@@ -60,22 +61,19 @@ pub fn collect() -> HashMap<String, String> {
         map.insert("os_version".to_owned(), version);
     }
 
-    add_env_var(&mut map, "sandcastle_job_info", "SANDCASTLE_JOB_INFO");
-    add_env_var(&mut map, "sandcastle_alias", "SANDCASTLE_ALIAS");
     add_env_var(&mut map, "launched_via_wrapper", BUCK2_WRAPPER_ENV_VAR);
     add_env_var(&mut map, "fbpackage_name", "FBPACKAGE_PACKAGE_NAME");
     add_env_var(&mut map, "fbpackage_version", "FBPACKAGE_PACKAGE_VERSION");
     add_env_var(&mut map, "fbpackage_release", "FBPACKAGE_PACKAGE_RELEASE");
-    add_env_var(
-        &mut map,
-        "skycastle_workflow_run_id",
-        "SKYCASTLE_WORKFLOW_RUN_ID",
-    );
-    add_env_var(
-        &mut map,
-        "skycastle_workflow_alias",
-        "SKYCASTLE_WORKFLOW_ALIAS",
-    );
+
+    if let Ok(ci_identifiers) = ci_identifiers() {
+        for (ci_name, ci_value) in ci_identifiers {
+            if let Some(ci_value) = ci_value {
+                map.insert(ci_name.to_owned(), ci_value.to_owned());
+            }
+        }
+    }
+
     map
 }
 

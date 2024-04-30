@@ -25,6 +25,32 @@ pub fn is_ci() -> anyhow::Result<bool> {
     )
 }
 
+/// Returns a list of possible identifiers for the currently running CI job, in `(name, value)` form
+///
+/// Earlier items in the list are better identifiers
+pub fn ci_identifiers() -> anyhow::Result<impl Iterator<Item = (&'static str, Option<&'static str>)>>
+{
+    Ok([
+        (
+            "sandcastle_job_info",
+            buck2_env!("SANDCASTLE_JOB_INFO", applicability = internal)?,
+        ),
+        (
+            "skycastle_workflow_run_id",
+            buck2_env!("SKYCASTLE_WORKFLOW_RUN_ID", applicability = internal)?,
+        ),
+        (
+            "sandcastle_alias",
+            buck2_env!("SANDCASTLE_ALIAS", applicability = internal)?,
+        ),
+        (
+            "skycastle_workflow_alias",
+            buck2_env!("SKYCASTLE_WORKFLOW_ALIAS", applicability = internal)?,
+        ),
+    ]
+    .into_iter())
+}
+
 pub fn sandcastle_id() -> anyhow::Result<Option<&'static str>> {
     buck2_env!("SANDCASTLE_ID")
 }
