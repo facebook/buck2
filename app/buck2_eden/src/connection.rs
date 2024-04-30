@@ -83,6 +83,12 @@ impl EdenConnectionManager {
         }
         let connector = Self::get_eden_connector(fb, &eden_root)?;
 
+        // The rest of the EdenIO code assumes that the root is the same as the mount point, so
+        // verify that
+        if root.canonicalize()? != connector.root.canonicalize()? {
+            return Ok(None);
+        }
+
         let connection = Mutex::new(EdenConnection {
             epoch: 0,
             client: connector.connect(),
