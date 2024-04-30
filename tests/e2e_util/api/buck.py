@@ -787,15 +787,10 @@ class Buck(Executable):
         input: Optional[bytes],
         rel_cwd: Optional[Path],
         env: Optional[Dict[str, str]],
-        result_type: BuckResultType,
-        exception_type: BuckExceptionType,
+        result_type: BuckResultType[R],
+        exception_type: BuckExceptionType[E],
         stdin: Optional[int] = None,
         intercept_stderr: bool = True,
-        # pyre-fixme[34]: `Variable[E (bound to Exception)]` isn't present in the
-        #  function's parameters.
-        # pyre-fixme[34]: `Variable[R (bound to
-        #  buck2.tests.e2e_util.api.result.Result)]` isn't present in the function's
-        #  parameters.
     ) -> Process[R, E]:
         """
         Returns a process created from the execuable path,
