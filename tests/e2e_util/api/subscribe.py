@@ -39,6 +39,7 @@ class SubscribeClient(contextlib.AbstractAsyncContextManager):
         )
 
     async def read_message(self) -> Any:
-        # pyre-fixme[16]: Optional type has no attribute `readline`.
-        message = await wait_for(self._process.stdout.readline(), timeout=30)
+        stdout = self._process.stdout
+        assert stdout is not None
+        message = await wait_for(stdout.readline(), timeout=30)
         return json.loads(message)
