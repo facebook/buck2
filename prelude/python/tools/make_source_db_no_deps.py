@@ -6,8 +6,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# pyre-strict
-
 """
 Creates a Python Source DB JSON file from Python manifest JSON file (e.g. for use with Pyre).
 
@@ -30,18 +28,15 @@ The output format of the source DB is:
 import argparse
 import json
 import sys
+from typing import List, Tuple
 
 
-# pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def _load(path):
+def _load(path: str) -> List[Tuple[str, str, str]]:
     with open(path) as f:
         return json.load(f)
 
 
-# pyre-fixme[3]: Return type must be annotated.
-# pyre-fixme[2]: Parameter must be annotated.
-def main(argv):
+def main(argv: List[str]) -> None:
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("sources")

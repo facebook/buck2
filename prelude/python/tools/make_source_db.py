@@ -34,19 +34,18 @@ The output format of the source DB is:
 }
 """
 
-# pyre-unsafe
-
 import argparse
 import json
 import sys
+from typing import List, Tuple
 
 
-def _load(path):
+def _load(path: str) -> List[Tuple[str, str, str]]:
     with open(path) as f:
         return json.load(f)
 
 
-def main(argv):
+def main(argv: List[str]) -> None:
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("--sources")
