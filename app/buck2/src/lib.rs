@@ -20,6 +20,7 @@ use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::debug::DebugCommand;
+use buck2_client::commands::expand_external_cell::ExpandExternalCellCommand;
 use buck2_client::commands::explain::ExplainCommand;
 use buck2_client::commands::help_env::HelpEnvCommand;
 use buck2_client::commands::init::InitCommand;
@@ -250,6 +251,7 @@ pub(crate) enum CommandKind {
     Init(InitCommand),
     #[clap(hide = true)] // TODO iguridi: remove
     Explain(ExplainCommand),
+    ExpandExternalCell(ExpandExternalCellCommand),
     Install(InstallCommand),
     Kill(KillCommand),
     Killall(KillallCommand),
@@ -384,6 +386,7 @@ impl CommandKind {
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Lsp(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Subscribe(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::ExpandExternalCell(cmd) => cmd.exec(matches, command_ctx),
         }
     }
 }

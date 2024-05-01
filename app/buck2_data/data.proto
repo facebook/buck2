@@ -685,6 +685,7 @@ message CommandStart {
     ConfiguredTargetsCommandStart ctargets = 38;
     StarlarkDebugAttachCommandStart starlark_debug_attach = 39;
     ExplainCommandStart explain = 40;
+    ExpandExternalCellCommandStart expand_external_cell = 41;
   }
 }
 
@@ -750,6 +751,8 @@ message FileStatusCommandStart {}
 
 message ProfileCommandStart {}
 
+message ExpandExternalCellCommandStart {}
+
 message CommandEnd {
   reserved 3;
   oneof data {
@@ -774,6 +777,7 @@ message CommandEnd {
     ConfiguredTargetsCommandEnd ctargets = 38;
     StarlarkDebugAttachCommandEnd starlark_debug_attach = 39;
     ExplainCommandEnd explain = 40;
+    ExpandExternalCellCommandEnd expand_external_cell = 41;
   }
 
   bool is_success = 2;
@@ -880,6 +884,8 @@ message MaterializeCommandEnd {}
 message FileStatusCommandEnd {}
 
 message ProfileCommandEnd {}
+
+message ExpandExternalCellCommandEnd {}
 
 message LoadPackageStart {
   string path = 1;

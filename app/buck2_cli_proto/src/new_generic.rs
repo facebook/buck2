@@ -16,6 +16,7 @@ pub enum NewGenericRequest {
     Materialize(MaterializeRequest),
     DebugEval(DebugEvalRequest),
     Explain(ExplainRequest),
+    ExpandExternalCell(ExpandExternalCellRequest),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -23,6 +24,7 @@ pub enum NewGenericResponse {
     Materialize(MaterializeResponse),
     DebugEval(DebugEvalResponse),
     Explain(ExplainResponse),
+    ExpandExternalCell(ExpandExternalCellResponse),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,3 +53,13 @@ pub struct ExplainRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct ExplainResponse {}
+
+#[derive(Serialize, Deserialize)]
+pub struct ExpandExternalCellRequest {
+    pub cell_name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ExpandExternalCellResponse {
+    pub path: String,
+}

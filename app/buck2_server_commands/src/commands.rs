@@ -10,6 +10,7 @@
 pub mod build;
 pub mod ctargets;
 pub mod debug_eval;
+pub mod expand_external_cell;
 pub mod explain;
 pub(crate) mod init_commands;
 pub mod install;

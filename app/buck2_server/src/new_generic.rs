@@ -38,6 +38,12 @@ pub(crate) async fn new_generic_command(
                 .explain(context, partial_result_dispatcher, m)
                 .await?,
         ),
+        NewGenericRequest::ExpandExternalCell(e) => NewGenericResponse::ExpandExternalCell(
+            OTHER_SERVER_COMMANDS
+                .get()?
+                .expand_external_cell(context, partial_result_dispatcher, e)
+                .await?,
+        ),
     };
     let resp = serde_json::to_string(&resp).context("Could not serialize `NewGenericResponse`")?;
     Ok(buck2_cli_proto::NewGenericResponseMessage {
