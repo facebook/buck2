@@ -1,7 +1,18 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+load(":bundled_cell.bzl", "bundled_cell")
 
 oncall("build_infra")
+
+# @oss-disable: _PKG_PREFIX = "//buck2/" 
+_PKG_PREFIX = "//" # @oss-enable
+
+bundled_cell(
+    name = "nano_prelude",
+    include_from_file = "src/lib.rs",
+    source_listing = _PKG_PREFIX + "tests/e2e_util/nano_prelude:source_listing",
+)
 
 rust_library(
     name = "buck2_external_cells_bundled",
@@ -10,6 +21,9 @@ rust_library(
         "test_data/**/*",
         "test_data/**/.*",
     ]),
+    mapped_srcs = {
+        ":nano_prelude": "src/nano_prelude",
+    },
     # Do not add non-third party deps. This should store the data only, so that
     # we avoid recompiling if at all possible.
     #
@@ -18,4 +32,9 @@ rust_library(
     # also can't be made to work with cargo builds, so we'd need to deprecate
     # those more too.
     deps = [],
+)
+
+rust_binary(
+    name = "processor",
+    srcs = ["processor.rs"],
 )

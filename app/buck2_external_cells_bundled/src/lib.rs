@@ -22,6 +22,18 @@ pub struct BundledCell {
     pub is_testing: bool,
 }
 
+#[cfg(buck_build)]
+mod nano_prelude {
+    include!("nano_prelude/contents.rs");
+}
+
+#[cfg(buck_build)]
+const NANO_PRELUDE: BundledCell = BundledCell {
+    name: "nano_prelude",
+    files: nano_prelude::DATA,
+    is_testing: true,
+};
+
 const TEST_CELL: BundledCell = BundledCell {
     name: "test_bundled_cell",
     files: &[
@@ -65,7 +77,14 @@ const TEST_CELL: BundledCell = BundledCell {
 };
 
 pub const fn get_bundled_data() -> &'static [BundledCell] {
-    &[TEST_CELL]
+    #[cfg(buck_build)]
+    {
+        &[TEST_CELL, NANO_PRELUDE]
+    }
+    #[cfg(not(buck_build))]
+    {
+        &[TEST_CELL]
+    }
 }
 
 #[cfg(test)]
