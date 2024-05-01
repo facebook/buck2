@@ -1,6 +1,9 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("build_infra")
+
+source_listing()
 
 buck_filegroup(
     name = "nano_prelude",
