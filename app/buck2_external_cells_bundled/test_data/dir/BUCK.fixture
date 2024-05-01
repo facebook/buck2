@@ -1,4 +1,4 @@
-load(":defs.bzl", "test_rule")
+load(":defs.bzl", "test_rule", "export_file")
 load("@prelude_alias//:alias.bzl", "alias")
 
 test_rule(
@@ -11,4 +11,9 @@ alias(
     name = "test",
     actual = ":test_hidden",
     visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "exported",
+    src = "src.txt",
 )

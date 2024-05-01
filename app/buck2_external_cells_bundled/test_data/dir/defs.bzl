@@ -26,3 +26,13 @@ test_rule = rule(
         "srcs": attrs.list(attrs.source()),
     },
 )
+
+def _export_impl(ctx):
+    return [DefaultInfo(default_output = ctx.attrs.src)]
+
+export_file = rule(
+    impl = _export_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)
