@@ -18,6 +18,8 @@ use dupe::Dupe;
 
 use crate::base_deferred_key::BaseDeferredKey;
 use crate::category::Category;
+use crate::cells::cell_path::CellPathRef;
+use crate::cells::external::ExternalCellOrigin;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
@@ -202,6 +204,26 @@ impl BuckOutPathResolver {
             path.action_key(),
             path.path(),
         )
+    }
+
+    pub fn resolve_external_cell_source(
+        &self,
+        path: CellPathRef,
+        origin: ExternalCellOrigin,
+    ) -> ProjectRelativePathBuf {
+        ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
+            self.0.as_forward_relative_path(),
+            ForwardRelativePath::new("external_cells").unwrap(),
+            match origin {
+                ExternalCellOrigin::Bundled => ForwardRelativePath::new("bundled").unwrap(),
+            },
+            match origin {
+                ExternalCellOrigin::Bundled => {
+                    ForwardRelativePath::new(path.cell().as_str()).unwrap()
+                }
+            },
+            path.path().as_ref(),
+        ]))
     }
 
     pub fn resolve_scratch(&self, path: &BuckOutScratchPath) -> ProjectRelativePathBuf {

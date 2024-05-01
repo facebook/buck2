@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use dupe::Dupe;
 
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::CellResolver;
@@ -53,10 +54,20 @@ impl ArtifactFs {
         &self,
         source_artifact_path: SourcePathRef,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self
-            .cell_resolver
-            .resolve_path(source_artifact_path.package().as_cell_path())?
-            .join(source_artifact_path.path()))
+        let cell_resolver = self.cell_resolver();
+        if let Some(origin) = cell_resolver
+            .get(source_artifact_path.package().cell_name())?
+            .external()
+        {
+            Ok(self.buck_out_path_resolver.resolve_external_cell_source(
+                source_artifact_path.to_cell_path().as_ref(),
+                origin.dupe(),
+            ))
+        } else {
+            Ok(cell_resolver
+                .resolve_path(source_artifact_path.package().as_cell_path())?
+                .join(source_artifact_path.path()))
+        }
     }
 
     pub fn resolve_offline_output_cache_path(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
