@@ -111,15 +111,16 @@ CPrecompiledHeaderInfo = provider(fields = {
 def cxx_attr_header_namespace(ctx: AnalysisContext) -> str:
     return value_or(ctx.attrs.header_namespace, ctx.label.package)
 
-def cxx_attr_exported_headers(ctx: AnalysisContext, headers_layout: CxxHeadersLayout) -> list[CHeader]:
-    headers = _get_attr_headers(ctx.attrs.exported_headers, headers_layout.namespace, headers_layout.naming)
-    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attrs.exported_platform_headers), headers_layout.namespace, headers_layout.naming)
+def cxx_attr_headers_list(ctx: AnalysisContext, headers: typing.Any, platform_headers: typing.Any, headers_layout: CxxHeadersLayout) -> list[CHeader]:
+    headers = _get_attr_headers(headers, headers_layout.namespace, headers_layout.naming)
+    platform_headers = _get_attr_headers(_headers_by_platform(ctx, platform_headers), headers_layout.namespace, headers_layout.naming)
     return headers + platform_headers
 
+def cxx_attr_exported_headers(ctx: AnalysisContext, headers_layout: CxxHeadersLayout) -> list[CHeader]:
+    return cxx_attr_headers_list(ctx, ctx.attrs.exported_headers, ctx.attrs.exported_platform_headers, headers_layout)
+
 def cxx_attr_headers(ctx: AnalysisContext, headers_layout: CxxHeadersLayout) -> list[CHeader]:
-    headers = _get_attr_headers(ctx.attrs.headers, headers_layout.namespace, headers_layout.naming)
-    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attrs.platform_headers), headers_layout.namespace, headers_layout.naming)
-    return headers + platform_headers
+    return cxx_attr_headers_list(ctx, ctx.attrs.headers, ctx.attrs.platform_headers, headers_layout)
 
 def cxx_get_regular_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout:
     namespace = cxx_attr_header_namespace(ctx)
