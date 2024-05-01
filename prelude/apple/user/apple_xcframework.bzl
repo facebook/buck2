@@ -35,11 +35,11 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = xcframework_dir),
     ]
 
-def _strip_os_sdk_and_cpu_constraints(platform: PlatformInfo, refs: struct) -> dict[TargetLabel, ConstraintValueInfo]:
+def _strip_os_sdk_and_runtime_constraints(platform: PlatformInfo, refs: struct) -> dict[TargetLabel, ConstraintValueInfo]:
     return {
         constraint_setting_label: constraint_setting_value
         for (constraint_setting_label, constraint_setting_value) in platform.configuration.constraints.items()
-        if constraint_setting_label not in [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label, refs.universal[ConstraintSettingInfo].label]
+        if constraint_setting_label not in [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label, refs.universal[ConstraintSettingInfo].label, refs.runtime[ConstraintSettingInfo].label]
     }
 
 # provides a map of os-platform to cpu architectures
@@ -68,7 +68,7 @@ def _apple_xcframework_framework_attrib_split_transition_impl(
 
     new_platforms = _normalize_platforms(attrs.platforms).items()
     for os_value, cpu_values in new_platforms:
-        updated_constraints = _strip_os_sdk_and_cpu_constraints(platform, refs)
+        updated_constraints = _strip_os_sdk_and_runtime_constraints(platform, refs)
 
         canonical_platform_suffix = ""
 
@@ -121,6 +121,7 @@ def _apple_xcframework_framework_attrib_split_transition_impl(
         canonical_platform_name = canonical_platform_prefix + "-" + "_".join(cpu_values)
         if len(canonical_platform_suffix) > 0:
             canonical_platform_name += "-" + canonical_platform_suffix
+
         result.update({canonical_platform_name: PlatformInfo(
             label = canonical_platform_name + "_transition",
             configuration = new_cfg,
