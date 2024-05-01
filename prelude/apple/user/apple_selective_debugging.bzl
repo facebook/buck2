@@ -159,8 +159,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         for infos in debug_info:
             for info in infos:
                 if _is_label_included(info.label, selection_criteria):
-                    map[info.label] = info.artifacts
-
+                    # There might be a few ArtifactInfo corresponding to the same Label,
+                    # so to avoid overwriting, we need to preserve all artifacts.
+                    if info.label in map:
+                        map[info.label] += info.artifacts
+                    else:
+                        map[info.label] = list(info.artifacts)
         return AppleSelectiveDebuggingFilteredDebugInfo(map = map)
 
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
