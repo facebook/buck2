@@ -42,6 +42,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         link_mode = ctx.attrs.link_mode,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
+        external_linker_flags = ctx.attrs.external_linker_flags,
     )
 
     # runtime_files are all the artifacts that must be present in order for this
