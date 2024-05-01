@@ -17,11 +17,21 @@ use buck2_cli_proto::BuildTarget;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_core::fs::async_fs_util;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
 use futures::TryStreamExt;
+
+#[derive(Clone)]
+struct CopyContext {
+    // Any symlink pointing outside of this path would be copied/recreated as an absolute symlink to original target.
+    // Should be canonicalized.
+    relative_symlink_boundary: AbsNormPathBuf,
+}
 
 /// Given a list of targets built by this command, extracts a reasonable default output from the list and writes it
 /// to the path given by `out`.
@@ -33,6 +43,11 @@ use futures::TryStreamExt;
 ///
 /// Otherwise, we'll extract the single default output from the single top-level target and copy it to the output
 /// path. If the given path is a directory then all output files will be copied inside of it.
+///
+/// Symbolic links are preserved. However, if a relative symlink within one of the outputs points outside that output,
+/// it will be converted into an absolute link pointing to the same target as the original link.
+/// On Windows platform relative symlinks are always converted to an absolute one, though the same rule applies to whether a copied
+/// link would point to the same original target or a copied one.
 ///
 /// As a special case, `--out -` is interpreted as `--out /dev/stdout` and allows multiple output files to be
 /// written to it.
@@ -123,7 +138,10 @@ pub(super) async fn copy_to_out(
             OutputDestinationArg::Path(path) => {
                 let path = path.resolve(working_dir);
                 if to_be_copied.is_dir {
-                    copy_directory(&to_be_copied.from_path, &path).await?;
+                    let context = CopyContext {
+                        relative_symlink_boundary: fs_util::canonicalize(&to_be_copied.from_path)?,
+                    };
+                    copy_directory(&to_be_copied.from_path, &path, &context).await?;
                 } else {
                     copy_file(&to_be_copied.from_path, &path).await?;
                 }
@@ -134,26 +152,81 @@ pub(super) async fn copy_to_out(
     Ok(())
 }
 
+fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
+    src_path: P,
+    dst_path: Q,
+    context: &CopyContext,
+) -> anyhow::Result<()> {
+    // Make symlinks overwrite items which were already present at destination path
+    fs_util::remove_all(&dst_path).context(format!(
+        "Removing pre-existing item at path {:?}",
+        src_path.as_ref()
+    ))?;
+    let symlink_target_abs_path = fs_util::canonicalize(src_path.as_ref()).context(format!(
+        "Resolving symlink to be copied {:?}",
+        src_path.as_ref()
+    ))?;
+    // Now recreate the symlink
+    let symlink_target = {
+        if symlink_target_abs_path.starts_with(&context.relative_symlink_boundary) {
+            // Symlink is not pointing outside the original output we are copying.
+            // Just keep it as it is.
+            fs_util::read_link(&src_path).context(format!(
+                "Reading value of a symlink to be copied {:?}",
+                src_path.as_ref()
+            ))?
+        } else {
+            // Force "copied" symlink to be absolute as it points outside of original output we are copying.
+            symlink_target_abs_path.into_path_buf()
+        }
+    };
+    fs_util::symlink(&symlink_target, &dst_path).context(format!(
+        "Creating symlink at {:?} pointing to {:?}",
+        dst_path.as_ref(),
+        &symlink_target
+    ))?;
+
+    Ok(())
+}
+
 /// Recursively copies a directory to the output path, rooted at `dst`.
 #[async_recursion::async_recursion]
-async fn copy_directory(src: &Path, dst: &Path) -> anyhow::Result<()> {
-    tokio::fs::create_dir_all(dst).await?;
+async fn copy_directory<
+    P: AsRef<AbsPath> + std::marker::Send,
+    Q: AsRef<AbsPath> + std::marker::Send + std::marker::Copy + std::marker::Sync,
+>(
+    src: P,
+    dst: Q,
+    context: &CopyContext,
+) -> anyhow::Result<()> {
+    tokio::fs::create_dir_all(dst.as_ref()).await?;
     let stream = tokio_stream::wrappers::ReadDirStream::new(
-        tokio::fs::read_dir(src)
+        tokio::fs::read_dir(src.as_ref())
             .await
-            .context(format!("reading directory {:?}", src))?,
+            .context(format!("reading directory {:?}", src.as_ref()))?,
     )
     .err_into::<anyhow::Error>();
+
     stream
         .try_for_each(|entry| async move {
-            if entry.file_type().await?.is_dir() {
-                copy_directory(&entry.path(), &dst.join(entry.file_name()))
+            let entry_source_path = AbsPathBuf::new(entry.path())?;
+            let entry_destination_path = dst.as_ref().join(entry.file_name());
+            let file_type = entry.file_type().await?;
+            if file_type.is_dir() {
+                copy_directory(&entry_source_path, &entry_destination_path, context)
                     .await
-                    .context(format!("copying subdirectory {:?}", entry.path()))
+                    .context(format!("Copying subdirectory {:?}", entry.path()))
+            } else if file_type.is_symlink() {
+                let copy_context = context.clone();
+                tokio::task::spawn_blocking(move || {
+                    copy_symlink(&entry_source_path, &entry_destination_path, &copy_context)
+                })
+                .await
+                .context(format!("Copying symlink {:?}", &entry.path()))?
             } else {
-                tokio::fs::copy(&entry.path(), &dst.join(entry.file_name()))
+                tokio::fs::copy(&entry.path(), &entry_destination_path)
                     .await
-                    .context(format!("copying file {:?}", entry.path()))
+                    .context(format!("Copying file {:?}", entry.path()))
                     .map(|_| ())
             }
         })
@@ -199,6 +272,221 @@ fn convert_broken_pipe_error(e: io::Error) -> anyhow::Error {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    use std::path::PathBuf;
+
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_copy_directory() -> anyhow::Result<()> {
+        let src_dir = tempfile::tempdir()?;
+        // <tmp>
+        // ├── bar
+        // │   ├── qux
+        // │   │   └── buzz
+        // │   ├── foo_in_bar -> ../foo
+        // │   └── some_file
+        // ├── bax -> bar/qux
+        // ├── foo
+        // ├── foo_abs -> <tmp>/foo
+        // └── fool -> foo
+        std::fs::create_dir_all(src_dir.path().join("bar/qux"))?;
+        std::fs::write(src_dir.path().join("foo"), "some content")?;
+        std::fs::write(src_dir.path().join("bar/some_file"), "more content")?;
+        std::fs::write(src_dir.path().join("bar/qux/buzz"), "even more")?;
+        let fool_path = src_dir.path().join("fool");
+        let foo_abs_path = src_dir.path().join("foo_abs");
+        let foo_in_bar_path = src_dir.path().join("bar/foo_in_bar");
+        let bax_path = src_dir.path().join("bax");
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("foo", &fool_path)?;
+            std::os::unix::fs::symlink(src_dir.path().join("foo"), &foo_abs_path)?;
+            std::os::unix::fs::symlink("bar/qux", &bax_path)?;
+            std::os::unix::fs::symlink("../foo", &foo_in_bar_path)?;
+        }
+        #[cfg(windows)]
+        {
+            std::os::windows::fs::symlink_file("foo", &fool_path)?;
+            std::os::windows::fs::symlink_file(src_dir.path().join("foo"), &foo_abs_path)?;
+            std::os::windows::fs::symlink_dir("bar\\qux", &bax_path)?;
+            std::os::windows::fs::symlink_file("..\\foo", &foo_in_bar_path)?;
+        }
+
+        let dst_dir = tempfile::tempdir()?;
+        let src_path = AbsPath::new(src_dir.path())?;
+        let dst_path = AbsPath::new(dst_dir.path())?;
+        let copy_context = CopyContext {
+            relative_symlink_boundary: fs_util::canonicalize(src_path.as_path())?,
+        };
+        copy_directory(src_path, dst_path, &copy_context).await?;
+
+        assert!(dst_dir.path().join("foo").is_file());
+        assert!(dst_dir.path().join("bar/some_file").is_file());
+        assert!(dst_dir.path().join("bar/qux/buzz").is_file());
+
+        let copied_fool_path = std::fs::read_link(&dst_dir.path().join("fool"))?;
+        #[cfg(unix)]
+        {
+            assert_eq!(PathBuf::from("foo"), copied_fool_path);
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(dst_dir.path().join("foo"), copied_fool_path);
+        }
+
+        let copied_foo_abs_path = std::fs::read_link(&dst_dir.path().join("foo_abs"))?;
+        assert_eq!(src_dir.path().join("foo"), copied_foo_abs_path);
+
+        let copied_bax_path = std::fs::read_link(&dst_dir.path().join("bax"))?;
+        #[cfg(unix)]
+        {
+            assert_eq!(PathBuf::from("bar/qux"), copied_bax_path);
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(dst_dir.path().join("bar\\qux"), copied_bax_path);
+        }
+
+        let copied_foo_in_bar_path = std::fs::read_link(&dst_dir.path().join("bar/foo_in_bar"))?;
+        #[cfg(unix)]
+        {
+            assert_eq!(PathBuf::from("../foo"), copied_foo_in_bar_path);
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(dst_dir.path().join("foo"), copied_foo_in_bar_path);
+        }
+
+        // Second time to check everything overwrites fine
+        copy_directory(src_path, dst_path, &copy_context)
+            .await
+            .context("copy second time")?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_copy_directory_with_symlink_pointing_externally() -> anyhow::Result<()> {
+        let src_dir = tempfile::tempdir()?;
+        let src_path = fs_util::canonicalize(src_dir.path())?;
+        // <tmp>
+        // ├── qux
+        // │   ├── foo -> ../foo
+        // │   └── bar -> ../bar
+        // ├── bar
+        // │   └── baz
+        // └── foo
+        std::fs::write(src_path.as_path().join("foo"), "some content")?;
+        std::fs::create_dir_all(src_path.as_path().join("bar"))?;
+        std::fs::write(src_path.as_path().join("bar/baz"), "some content")?;
+        std::fs::create_dir_all(src_path.as_path().join("qux"))?;
+        let foo_link_path = src_path.as_path().join("qux/foo");
+        let bar_link_path = src_path.as_path().join("qux/bar");
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("../foo", &foo_link_path)?;
+            std::os::unix::fs::symlink("../bar", &bar_link_path)?;
+        }
+        #[cfg(windows)]
+        {
+            std::os::windows::fs::symlink_file("..\\foo", &foo_link_path)?;
+            std::os::windows::fs::symlink_dir("..\\bar", &bar_link_path)?;
+        }
+        let dst_dir = tempfile::tempdir()?;
+        let dst_path = AbsPath::new(dst_dir.path())?;
+        let copy_context = CopyContext {
+            relative_symlink_boundary: src_path.join(ForwardRelativePath::unchecked_new("qux")),
+        };
+        copy_directory(&src_path, dst_path, &copy_context).await?;
+
+        // Check both symlinks are valid and are absolute.
+
+        let copied_foo_target = std::fs::read_link(&dst_dir.path().join("qux/foo"))?;
+        assert_eq!(src_path.as_path().join("foo"), copied_foo_target);
+
+        let copied_bar_target = std::fs::read_link(&dst_dir.path().join("qux/bar"))?;
+        assert_eq!(src_path.as_path().join("bar"), copied_bar_target);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_copy_symlink() -> anyhow::Result<()> {
+        test_copy_symlink_parametrized(&|_| Ok(()), false)?;
+        test_copy_symlink_parametrized(&|_| Ok(()), true)?;
+        // Check that symlink overwrites regular file in output directory
+        let setup_file_to_overwrite = |dst_dir: &TempDir| {
+            std::fs::write(dst_dir.path().join("foo_copy"), "some content")?;
+            Ok(())
+        };
+        test_copy_symlink_parametrized(&setup_file_to_overwrite, false)?;
+        test_copy_symlink_parametrized(&setup_file_to_overwrite, true)?;
+        // Check that symlink overwrites directory in output directory
+        let setup_directory_with_content_to_overwrite = |dst_dir: &TempDir| {
+            std::fs::create_dir(dst_dir.path().join("foo_copy"))?;
+            std::fs::write(dst_dir.path().join("foo_copy/some_file"), "some content")?;
+            Ok(())
+        };
+        test_copy_symlink_parametrized(&setup_directory_with_content_to_overwrite, false)?;
+        test_copy_symlink_parametrized(&setup_directory_with_content_to_overwrite, true)?;
+        Ok(())
+    }
+
+    fn test_copy_symlink_parametrized(
+        prepare_dst_dir: &dyn Fn(&TempDir) -> anyhow::Result<()>,
+        is_directory_symlink: bool,
+    ) -> anyhow::Result<()> {
+        let src_dir = tempfile::tempdir()?;
+        let src_symlink_target_path = src_dir.path().join("bar");
+        let src_symlink_path = src_dir.path().join("foo");
+
+        if is_directory_symlink {
+            std::fs::create_dir(&src_symlink_target_path)?;
+            #[cfg(windows)]
+            {
+                std::os::windows::fs::symlink_dir("bar", &src_symlink_path)?;
+            }
+        } else {
+            std::fs::write(&src_symlink_target_path, "some content")?;
+            #[cfg(windows)]
+            {
+                std::os::windows::fs::symlink_file("bar", &src_symlink_path)?;
+            }
+        }
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("bar", &src_symlink_path)?;
+        }
+
+        let dst_dir = tempfile::tempdir()?;
+        prepare_dst_dir(&dst_dir)?;
+
+        let dst_symlink_path = dst_dir.path().join("foo_copy");
+
+        copy_symlink(
+            AbsPath::new(&src_symlink_path)?,
+            AbsPath::new(&dst_symlink_path)?,
+            &CopyContext {
+                relative_symlink_boundary: fs_util::canonicalize(src_dir.path())?,
+            },
+        )?;
+
+        let target = std::fs::read_link(&dst_symlink_path)?;
+        #[cfg(unix)]
+        {
+            assert_eq!(PathBuf::from("bar"), target);
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(dst_dir.path().join("bar"), target);
+        }
+
+        Ok(())
+    }
+
     #[cfg(unix)]
     mod unix {
         use std::path::Path;
