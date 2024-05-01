@@ -122,7 +122,7 @@ def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundl
                     cmd_args(
                         [
                             bundle_output,
-                            bundle_relative_path_for_destination(AppleBundleDestination("executables"), sdk_name, extension),
+                            bundle_relative_path_for_destination(AppleBundleDestination("executables"), sdk_name, extension, False),
                             bundle_info.binary_name,
                         ],
                         delimiter = "/",
@@ -153,7 +153,7 @@ def _get_scan_folder_args(dest: AppleBundleDestination, bundle_output: Artifact,
             cmd_args(
                 [
                     bundle_output,
-                    bundle_relative_path_for_destination(dest, sdk_name, extension),
+                    bundle_relative_path_for_destination(dest, sdk_name, extension, False),
                 ],
                 delimiter = "/",
             ),

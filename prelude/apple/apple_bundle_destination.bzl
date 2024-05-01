@@ -84,21 +84,35 @@ _MacOSFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
     modules = "Modules",
 )
 
+macOS_versioned_path = "Versions/A"
+_MacOSVersionedFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
+    resources = paths.join(macOS_versioned_path, "Resources"),
+    frameworks = paths.join(macOS_versioned_path, "Frameworks"),
+    xpcservices = paths.join(macOS_versioned_path, "XPCServices"),
+    metadata = paths.join(macOS_versioned_path, "Resources"),
+    headers = paths.join(macOS_versioned_path, "Headers"),
+    modules = paths.join(macOS_versioned_path, "Modules"),
+    executables = macOS_versioned_path,
+)
+
 def _get_apple_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths:
     if name == "macosx" or name == "maccatalyst":
         return _MacOSBundleDestinationPaths
     else:
         return _IOSBundleDestinationPaths
 
-def _get_apple_framework_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestinationPaths:
+def _get_apple_framework_bundle_destinations_for_sdk_name(name: str, versioned_macos_bundle: bool) -> AppleBundleDestinationPaths:
     if name == "macosx" or name == "maccatalyst":
-        return _MacOSFrameworkBundleDestinationPaths
+        if versioned_macos_bundle:
+            return _MacOSVersionedFrameworkBundleDestinationPaths
+        else:
+            return _MacOSFrameworkBundleDestinationPaths
     else:
         return _IOSFrameworkBundleDestinationPaths
 
-def bundle_relative_path_for_destination(destination: AppleBundleDestination, sdk_name: str, extension: str) -> str:
+def bundle_relative_path_for_destination(destination: AppleBundleDestination, sdk_name: str, extension: str, versioned_macos_bundle: bool) -> str:
     if extension == "framework":
-        bundle_destinations = _get_apple_framework_bundle_destinations_for_sdk_name(sdk_name)
+        bundle_destinations = _get_apple_framework_bundle_destinations_for_sdk_name(sdk_name, versioned_macos_bundle)
     else:
         bundle_destinations = _get_apple_bundle_destinations_for_sdk_name(sdk_name)
 

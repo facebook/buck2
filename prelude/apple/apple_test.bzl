@@ -263,7 +263,7 @@ def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: Artifa
         return None
 
     parts = [test_host_app_bundle]
-    rel_path = bundle_relative_path_for_destination(AppleBundleDestination("executables"), get_apple_sdk_name(ctx), ctx.attrs.extension)
+    rel_path = bundle_relative_path_for_destination(AppleBundleDestination("executables"), get_apple_sdk_name(ctx), ctx.attrs.extension, False)
     if len(rel_path) > 0:
         parts.append(rel_path)
     parts.append(ctx.attrs.test_host_app[AppleBundleInfo].binary_name)
