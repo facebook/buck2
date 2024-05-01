@@ -31,6 +31,7 @@ load(
     "AppleCoreDataSpec",  # @unused Used as a type
 )
 load(":apple_info_plist.bzl", "process_info_plist", "process_plist")
+load(":apple_library.bzl", "AppleLibraryInfo")
 load(
     ":apple_resource_types.bzl",
     "AppleResourceDestination",
@@ -129,6 +130,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
 
     parts.extend(_copy_resources(ctx, resource_specs))
     parts.extend(_copy_first_level_bundles(ctx))
+    parts.extend(_copy_public_headers(ctx))
 
     return AppleBundleResourcePartListOutput(
         resource_parts = parts,
@@ -174,6 +176,18 @@ def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[A
     )
     resource_graph_node_map_func = get_resource_graph_node_map_func(resource_graph)
     return get_filtered_resources(ctx.label, resource_graph_node_map_func, ctx.attrs.resource_group, resource_group_mappings)
+
+def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
+    if not ctx.attrs.copy_public_framework_headers:
+        return []
+    binary = getattr(ctx.attrs, "binary")
+    if binary == None:
+        return []
+    apple_library_info = binary.get(AppleLibraryInfo)
+    if apple_library_info == None:
+        return []
+
+    return [AppleBundlePart(source = header, destination = AppleBundleDestination("headers")) for header in apple_library_info.public_framework_headers]
 
 def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> list[AppleBundlePart]:
     result = []

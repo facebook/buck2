@@ -30,6 +30,7 @@ def _apple_resource_bundle_attrs():
     attribs = {
         "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
         "binary": attrs.option(attrs.dep(), default = None),
+        "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
         "deps": attrs.list(attrs.dep(), default = []),
         "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
         "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),

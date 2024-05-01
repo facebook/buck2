@@ -43,6 +43,7 @@ load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_syste
 _RESOURCE_BUNDLE_FIELDS = [
     "asset_catalogs_compilation_options",
     "binary",
+    "copy_public_framework_headers",
     "default_target_platform",
     "deps",
     "extension",
