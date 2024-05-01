@@ -9,12 +9,15 @@
 
 use std::sync::Arc;
 
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
@@ -23,6 +26,7 @@ use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryBuilder;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryFindError;
+use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::ImmutableDirectory;
 use buck2_core::directory::NoDigest;
 use buck2_core::directory::NoDigestDigester;
@@ -30,6 +34,8 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_external_cells_bundled::get_bundled_data;
 use buck2_external_cells_bundled::BundledCell;
 use cmp_any::PartialEqAny;
@@ -202,6 +208,37 @@ fn get_file_ops_delegate_impl(
     })
 }
 
+async fn declare_all_source_artifacts(
+    ctx: &mut DiceComputations<'_>,
+    cell_name: CellName,
+    ops: &BundledFileOpsDelegate,
+) -> anyhow::Result<()> {
+    let mut requests = Vec::new();
+    let artifact_fs = ctx.get_artifact_fs().await?;
+    let buck_out_resolver = artifact_fs.buck_out_path_resolver();
+
+    for (path, entry) in ops.dir.unordered_walk().with_paths() {
+        let DirectoryEntry::Leaf(entry) = entry else {
+            continue;
+        };
+        let path = buck_out_resolver.resolve_external_cell_source(
+            CellPathRef::new(cell_name, CellRelativePath::new(path.as_ref())),
+            ExternalCellOrigin::Bundled,
+        );
+        requests.push(WriteRequest {
+            path,
+            content: entry.contents.to_vec(),
+            is_executable: entry.metadata.is_executable,
+        });
+    }
+
+    let materializer = ctx.per_transaction_data().get_materializer();
+    materializer
+        .declare_write(Box::new(move || Ok(requests)))
+        .await
+        .map(|_| ())
+}
+
 pub(crate) async fn get_file_ops_delegate(
     ctx: &mut DiceComputations<'_>,
     cell_name: CellName,
@@ -229,10 +266,9 @@ pub(crate) async fn get_file_ops_delegate(
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             let data = find_bundled_data(self.0)?;
-            Ok(Arc::new(get_file_ops_delegate_impl(
-                data,
-                ctx.global_data().get_digest_config(),
-            )?))
+            let ops = get_file_ops_delegate_impl(data, ctx.global_data().get_digest_config())?;
+            declare_all_source_artifacts(ctx, self.0, &ops).await?;
+            Ok(Arc::new(ops))
         }
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
