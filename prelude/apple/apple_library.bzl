@@ -114,6 +114,12 @@ AppleLibraryAdditionalParams = record(
     force_link_group_linking = field(bool, False),
 )
 
+AppleLibraryInfo = provider(
+    fields = {
+        "public_framework_headers": provider_field(list[Artifact], default = []),
+    },
+)
+
 def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def get_apple_library_providers(deps_providers) -> list[Provider]:
         shared_type = AppleSharedLibraryMachOFileType(ctx.attrs.shared_library_macho_file_type)
@@ -144,12 +150,16 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         )
         output = cxx_library_parameterized(ctx, constructor_params)
 
-        return output.providers + _make_mockingbird_library_info_provider(ctx)
+        return output.providers + _make_mockingbird_library_info_provider(ctx) + _make_apple_library_info_provider()
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])
+
+def _make_apple_library_info_provider() -> list[AppleLibraryInfo]:
+    public_framework_headers = []
+    return [AppleLibraryInfo(public_framework_headers = [header.artifact for header in public_framework_headers])]
 
 def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[MockingbirdLibraryInfo]:
     _, swift_sources = _filter_swift_srcs(ctx)
