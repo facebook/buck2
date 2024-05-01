@@ -9,12 +9,16 @@
 
 use buck2_cli_proto::new_generic::ExpandExternalCellRequest;
 use buck2_cli_proto::new_generic::ExpandExternalCellResponse;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::external_cells::EXTERNAL_CELLS_IMPL;
+use buck2_core::cells::name::CellName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use dupe::Dupe;
 
 pub(crate) async fn expand_external_cell_command(
     ctx: &dyn ServerCommandContextTrait,
@@ -33,6 +37,12 @@ struct ExpandExternalCellServerCommand {
     req: ExpandExternalCellRequest,
 }
 
+#[derive(buck2_error::Error, Debug)]
+enum ExpandExternalCellError {
+    #[error("Cell `{0}` is not an external cell")]
+    CellNotExternal(CellName),
+}
+
 #[async_trait::async_trait]
 impl ServerCommandTemplate for ExpandExternalCellServerCommand {
     type StartEvent = buck2_data::ExpandExternalCellCommandStart;
@@ -42,12 +52,27 @@ impl ServerCommandTemplate for ExpandExternalCellServerCommand {
 
     async fn command(
         &self,
-        _server_ctx: &dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
-        _ctx: DiceTransaction,
+        mut ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        let _unused = &self.req;
-        todo!() // TODO(JakobDegen): Implement in next diff
+        let res = ctx.get_cell_resolver().await?;
+        let cell = res
+            .get_cwd_cell_alias_resolver(server_ctx.working_dir())?
+            .resolve(&self.req.cell_name)?;
+
+        let instance = res.get(cell)?;
+        let Some(origin) = instance.external() else {
+            return Err(ExpandExternalCellError::CellNotExternal(cell).into());
+        };
+        EXTERNAL_CELLS_IMPL
+            .get()?
+            .expand(&mut ctx, cell, origin.dupe(), instance.path())
+            .await?;
+
+        Ok(ExpandExternalCellResponse {
+            path: instance.path().to_string(),
+        })
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {

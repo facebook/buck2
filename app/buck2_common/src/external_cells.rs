@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;
 use buck2_util::late_binding::LateBinding;
@@ -27,6 +28,14 @@ pub trait ExternalCellsImpl: Send + Sync + 'static {
     ) -> anyhow::Result<Arc<dyn FileOpsDelegate>>;
 
     fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()>;
+
+    async fn expand(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        cell_name: CellName,
+        origin: ExternalCellOrigin,
+        path: &CellRootPath,
+    ) -> anyhow::Result<()>;
 }
 
 pub static EXTERNAL_CELLS_IMPL: LateBinding<&'static dyn ExternalCellsImpl> =

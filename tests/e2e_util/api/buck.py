@@ -739,6 +739,23 @@ class Buck(Executable):
             exception_type=BuckException,
         )
 
+    def expand_external_cell(
+        self,
+        *args: str,
+        input: Optional[bytes] = None,
+        rel_cwd: Optional[Path] = None,
+        env: Optional[Dict[str, str]] = None,
+    ) -> Process[BuckResult, BuckException]:
+        return self._run_buck_command(
+            "expand-external-cell",
+            *args,
+            input=input,
+            rel_cwd=rel_cwd,
+            env=env,
+            result_type=BuckResult,
+            exception_type=BuckException,
+        )
+
     async def lsp(
         self,
         *args: str,

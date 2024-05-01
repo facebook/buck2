@@ -31,6 +31,7 @@ use buck2_core::directory::ImmutableDirectory;
 use buck2_core::directory::NoDigest;
 use buck2_core::directory::NoDigestDigester;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -278,6 +279,34 @@ pub(crate) async fn get_file_ops_delegate(
     }
 
     Ok(ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await??)
+}
+
+pub(crate) async fn materialize_all(
+    ctx: &mut DiceComputations<'_>,
+    cell: CellName,
+) -> anyhow::Result<ProjectRelativePathBuf> {
+    let artifact_fs = ctx.get_artifact_fs().await?;
+    let buck_out_resolver = artifact_fs.buck_out_path_resolver();
+
+    let ops = get_file_ops_delegate(ctx, cell).await?;
+    let materializer = ctx.per_transaction_data().get_materializer();
+    let mut paths = Vec::new();
+    for (path, entry) in ops.dir.unordered_walk().with_paths() {
+        let DirectoryEntry::Leaf(_) = entry else {
+            continue;
+        };
+        let path = buck_out_resolver.resolve_external_cell_source(
+            CellPathRef::new(cell, CellRelativePath::new(path.as_ref())),
+            ExternalCellOrigin::Bundled,
+        );
+        paths.push(path);
+    }
+
+    materializer.ensure_materialized(paths).await?;
+    Ok(buck_out_resolver.resolve_external_cell_source(
+        CellPathRef::new(cell, CellRelativePath::unchecked_new("")),
+        ExternalCellOrigin::Bundled,
+    ))
 }
 
 #[cfg(test)]

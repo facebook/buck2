@@ -549,6 +549,7 @@ pub(crate) fn create_project_filesystem() -> ProjectRoot {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -1088,6 +1089,17 @@ mod tests {
                 } else {
                     Err(anyhow::anyhow!("No bundled cell with name `{}`", cell_name))
                 }
+            }
+
+            async fn expand(
+                &self,
+                _ctx: &mut DiceComputations<'_>,
+                _cell_name: CellName,
+                _origin: ExternalCellOrigin,
+                _path: &CellRootPath,
+            ) -> anyhow::Result<()> {
+                // Not used in these tests
+                unreachable!()
             }
         }
 
