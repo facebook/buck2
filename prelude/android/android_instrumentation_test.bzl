@@ -29,7 +29,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     classpath_args.add("-classpath")
     extra_classpath = []
     if ctx.attrs.instrumentation_test_listener != None:
-        extra_classpath.append(ctx.attrs.instrumentation_test_listener)
+        extra_classpath.append(ctx.attrs.instrumentation_test_listener[DefaultInfo].default_outputs[0])
     classpath_args.add(cmd_args(classpath + extra_classpath, delimiter = get_path_separator_for_exec_os(ctx)))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
     cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
