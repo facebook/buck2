@@ -1,6 +1,11 @@
 # Used by open source projects to provide a simple platform setting
 
+load("@prelude//utils:source_listing.bzl", "source_listing")
 load(":defs.bzl", "execution_platform", "host_configuration")
+
+oncall("build_infra")
+
+source_listing()
 
 prelude = native
 

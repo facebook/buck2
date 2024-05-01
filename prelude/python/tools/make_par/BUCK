@@ -3,7 +3,11 @@
 # as it is the only `TARGETS` (not `TARGETS.v2`) in the prelude.
 # Configuring the tools to do it right seemed more dangerous than just having a caveat on this one file.
 
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
 oncall("build_infra")
+
+source_listing()
 
 export_file(
     name = "__run_lpar_main__.py",

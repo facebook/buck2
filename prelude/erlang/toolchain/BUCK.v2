@@ -1,4 +1,9 @@
 load("@prelude//erlang:erlang_toolchain.bzl", "erlang_parse_transform", "toolchain_resources_internal", "toolchain_utilities")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
 
 erlang_parse_transform(
     name = "transform_project_root",

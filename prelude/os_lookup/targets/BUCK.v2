@@ -1,4 +1,9 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
 load("//os_lookup:defs.bzl", "os_lookup")
+
+oncall("build_infra")
+
+source_listing()
 
 os_lookup(
     name = "os_lookup",
