@@ -309,7 +309,7 @@ def main():
         cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe = (
             find_in_path(exe) for exe in VC_EXE_NAMES
         )
-        rc_exe = find_in_path("rc.exe", optional=True)
+        rc_exe = find_in_path("rc.exe", is_optional=True)
     elif "EWDKDIR" in os.environ:
         cl_exe, cvtres_exe, lib_exe, ml64_exe, link_exe, rc_exe = find_with_ewdk(
             Path(os.environ["EWDKDIR"])
