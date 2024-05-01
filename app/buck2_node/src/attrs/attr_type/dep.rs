@@ -27,10 +27,6 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
-// Just a placeholder for what a label should resolve to.
-#[derive(Debug)]
-pub struct DefaultProvider {}
-
 /// How configuration is changed when configuring a dep.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub enum DepAttrTransition {
