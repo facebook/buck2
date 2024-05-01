@@ -247,6 +247,12 @@ def _args_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Uses experimental faster provisioning profile parsing.",
     )
+    parser.add_argument(
+        "--versioned-if-macos",
+        action="store_true",
+        help="Create symlinks for versioned macOS bundle",
+    )
+
     return parser
 
 
@@ -354,6 +360,7 @@ def _main() -> None:
         codesign_configuration=args.codesign_configuration,
         codesign_identity=selected_identity_argument,
         codesign_arguments=args.codesign_args,
+        versioned_if_macos=args.versioned_if_macos,
     )
 
     incremental_state = assemble_bundle(
@@ -361,6 +368,7 @@ def _main() -> None:
         bundle_path=args.output,
         incremental_context=incremental_context,
         check_conflicts=args.check_conflicts,
+        versioned_if_macos=args.versioned_if_macos,
     )
 
     swift_support_args = _swift_support_arguments(
@@ -435,6 +443,7 @@ def _main() -> None:
             selected_codesign_identity=selected_identity_argument,
             codesign_arguments=args.codesign_args,
             swift_stdlib_paths=swift_stdlib_paths,
+            versioned_if_macos=args.versioned_if_macos,
             incremental_context=incremental_context,
         )
 
@@ -452,6 +461,7 @@ def _incremental_context(
     codesign_configuration: CodesignConfiguration,
     codesign_identity: Optional[str],
     codesign_arguments: List[str],
+    versioned_if_macos: bool,
 ) -> Optional[IncrementalContext]:
     action_metadata = action_metadata_if_present(_METADATA_PATH_KEY)
     if action_metadata is None:
@@ -471,6 +481,7 @@ def _incremental_context(
         codesign_configuration=codesign_configuration,
         codesign_identity=codesign_identity,
         codesign_arguments=codesign_arguments,
+        versioned_if_macos=versioned_if_macos,
     )
 
 
@@ -544,6 +555,7 @@ def _write_incremental_state(
     selected_codesign_identity: Optional[str],
     codesign_arguments: List[str],
     swift_stdlib_paths: List[Path],
+    versioned_if_macos: bool,
     incremental_context: IncrementalContext,
 ) -> None:
     state = IncrementalState(
@@ -565,6 +577,7 @@ def _write_incremental_state(
         codesign_identity=selected_codesign_identity,
         codesign_arguments=codesign_arguments,
         swift_stdlib_paths=swift_stdlib_paths,
+        versioned_if_macos=versioned_if_macos,
     )
     path.touch()
     try:

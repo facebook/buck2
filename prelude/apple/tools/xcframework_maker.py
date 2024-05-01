@@ -78,7 +78,7 @@ def _make_plist(items: list[str], binary_paths: list[str], library_path: str) ->
 
 def _find_binary_path(framework_fullpath: str, binary_name: str) -> str:
     fullpath = Path(framework_fullpath)
-    versioned_binary_paths = sorted(fullpath.glob("Versions/*/" + binary_name))
+    versioned_binary_paths = sorted(fullpath.glob("Versions/Current/" + binary_name))
     if len(versioned_binary_paths) > 0:
         return versioned_binary_paths[-1].relative_to(fullpath.parents[0]).as_posix()
     return fullpath.name + "/" + binary_name

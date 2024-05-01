@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
-_VERSION = 6
+_VERSION = 7
 
 
 @dataclass
@@ -79,6 +79,7 @@ class IncrementalState:
     codesign_identity: Optional[str]
     codesign_arguments: List[str]
     swift_stdlib_paths: List[Path]
+    versioned_if_macos: bool
     version: int = _VERSION
 
 
@@ -96,6 +97,7 @@ class IncrementalStateJSONEncoder(json.JSONEncoder):
                 "swift_stdlib_paths": [str(p) for p in o.swift_stdlib_paths],
                 "version": o.version,
                 "codesign_arguments": o.codesign_arguments,
+                "versioned_if_macos": o.versioned_if_macos,
             }
         elif isinstance(o, IncrementalStateItem):
             result = {

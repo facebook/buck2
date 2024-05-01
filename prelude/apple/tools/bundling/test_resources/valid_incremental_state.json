@@ -36,8 +36,9 @@
     "--force",
     "--deep"
   ],
+  "versioned_if_macos": true,
   "swift_stdlib_paths": [
     "Frameworks/libswiftCore.dylib"
   ],
-  "version": 6
+  "version": 7
 }

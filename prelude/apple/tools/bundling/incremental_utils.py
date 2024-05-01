@@ -30,6 +30,12 @@ def should_assemble_incrementally(
             "Decided not to assemble incrementally — no incremental state for previous build."
         )
         return False
+    if previous_run_state.versioned_if_macos != incremental_context.versioned_if_macos:
+        logging.getLogger(__name__).info(
+            "Decided not to assemble incrementally — current build and previous build have different versioned_if_macos settings."
+        )
+        return False
+
     previously_codesigned = previous_run_state.codesigned
     # If previously bundle was not code signed there should be no problems with code signing
     # currently in incremental mode. Existing binaries could be code signed "on

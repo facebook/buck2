@@ -5,8 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+import io
+import json
 import unittest
-from json import JSONDecodeError
 from pathlib import Path
 
 import pkg_resources
@@ -15,11 +16,61 @@ from .incremental_state import (
     CodesignedOnCopy,
     IncrementalState,
     IncrementalStateItem,
+    IncrementalStateJSONEncoder,
     parse_incremental_state,
 )
 
 
 class TestIncrementalState(unittest.TestCase):
+    def test_state_serialization_and_deserialization(self):
+        expected = IncrementalState(
+            items=[
+                IncrementalStateItem(
+                    source=Path("repo/foo.txt"),
+                    destination_relative_to_bundle=Path("foo.txt"),
+                    digest="foo_digest",
+                    resolved_symlink=None,
+                ),
+                IncrementalStateItem(
+                    source=Path("buck-out/bar.txt"),
+                    destination_relative_to_bundle=Path("Resources/bar.txt"),
+                    digest="bar_digest",
+                    resolved_symlink=None,
+                ),
+            ],
+            codesigned=True,
+            codesign_configuration=None,
+            codesigned_on_copy=[
+                CodesignedOnCopy(
+                    path=Path("Resources/bar.txt"),
+                    entitlements_digest=None,
+                    codesign_flags_override=None,
+                ),
+                CodesignedOnCopy(
+                    path=Path("Resources/baz.txt"),
+                    entitlements_digest="abc",
+                    codesign_flags_override=None,
+                ),
+                CodesignedOnCopy(
+                    path=Path("Resources/qux.txt"),
+                    entitlements_digest=None,
+                    codesign_flags_override=["--deep", "--force"],
+                ),
+            ],
+            codesign_identity="Johnny Appleseed",
+            codesign_arguments=[
+                "--force",
+            ],
+            swift_stdlib_paths=[Path("Frameworks/libswiftCore.dylib")],
+            versioned_if_macos=False,
+        )
+        json_result = json.dumps(expected, cls=IncrementalStateJSONEncoder)
+        result = parse_incremental_state(io.StringIO(json_result))
+        self.assertEqual(
+            result,
+            expected,
+        )
+
     def test_valid_state_is_parsed_successfully(self):
         file_content = pkg_resources.resource_stream(
             __name__, "test_resources/valid_incremental_state.json"
@@ -71,6 +122,7 @@ class TestIncrementalState(unittest.TestCase):
                 "--deep",
             ],
             swift_stdlib_paths=[Path("Frameworks/libswiftCore.dylib")],
+            versioned_if_macos=True,
         )
         self.assertEqual(
             result,
@@ -81,7 +133,7 @@ class TestIncrementalState(unittest.TestCase):
         file_content = pkg_resources.resource_stream(
             __name__, "test_resources/the.broken_json"
         )
-        with self.assertRaises(JSONDecodeError):
+        with self.assertRaises(json.JSONDecodeError):
             _ = parse_incremental_state(file_content)
 
     def test_user_friendly_error_when_metadata_with_newer_version(self):

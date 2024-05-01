@@ -54,6 +54,7 @@ class TestIncrementalUtils(unittest.TestCase):
             codesign_configuration=None,
             codesign_identity=None,
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
 
@@ -81,12 +82,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesigned_on_copy=[],
                 codesign_identity=None,
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=True,
             codesign_configuration=None,
             codesign_identity=None,
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertTrue(should_assemble_incrementally(spec, incremental_context))
 
@@ -116,12 +119,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesigned_on_copy=[],
                 codesign_identity=None,
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=False,
             codesign_configuration=None,
             codesign_identity=None,
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
         # Check that behavior changes when both builds are codesigned
@@ -154,12 +159,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesigned_on_copy=[],
                 codesign_identity="old_identity",
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=True,
             codesign_configuration=None,
             codesign_identity="new_identity",
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
         # Check that behavior changes when identities are same
@@ -223,12 +230,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=True,
             codesign_configuration=None,
             codesign_identity="same_identity",
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertTrue(should_assemble_incrementally(spec, incremental_context))
 
@@ -264,12 +273,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=True,
             codesign_configuration=None,
             codesign_identity="same_identity",
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
         spec[0].codesign_on_copy = True
@@ -309,12 +320,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=True,
             codesign_configuration=None,
             codesign_identity="same_identity",
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
         incremental_context.metadata[Path("baz/entitlements.plist")] = "old_digest"
@@ -353,12 +366,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=True,
             codesign_configuration=None,
             codesign_identity="same_identity",
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
         incremental_context.state.codesigned_on_copy[0].codesign_flags_override = [
@@ -392,11 +407,13 @@ class TestIncrementalUtils(unittest.TestCase):
                 codesign_identity="same_identity",
                 codesign_arguments=["--force"],
                 swift_stdlib_paths=[],
+                versioned_if_macos=True,
             ),
             codesigned=True,
             codesign_configuration=None,
             codesign_identity="same_identity",
             codesign_arguments=["--force", "--deep"],
+            versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
         incremental_context.codesign_arguments = ["--force"]
@@ -433,12 +450,14 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
                 codesign_identity="same_identity",
                 codesign_arguments=[],
+                versioned_if_macos=True,
                 swift_stdlib_paths=[],
             ),
             codesigned=True,
             codesign_configuration=CodesignConfiguration.dryRun,
             codesign_identity="same_identity",
             codesign_arguments=[],
+            versioned_if_macos=True,
         )
         # Canary
         self.assertTrue(should_assemble_incrementally(spec, incremental_context))

@@ -193,6 +193,8 @@ def assemble_bundle(
         subtargets["bundling-log"] = [DefaultInfo(default_output = bundling_log_output)]
 
     command.add("--check-conflicts")
+    if ctx.attrs.versioned_macos_bundle:
+        command.add("--versioned-if-macos")
     command.add(codesign_configuration_args)
 
     # Ensures any genrule deps get built, such targets are used for validation

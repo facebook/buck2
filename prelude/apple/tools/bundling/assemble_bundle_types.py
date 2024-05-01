@@ -101,3 +101,4 @@ class IncrementalContext:
     codesign_configuration: Optional[CodesignConfiguration]
     codesign_identity: Optional[str]
     codesign_arguments: List[str]
+    versioned_if_macos: bool
