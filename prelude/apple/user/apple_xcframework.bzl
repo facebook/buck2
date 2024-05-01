@@ -98,6 +98,7 @@ def _apple_xcframework_framework_attrib_split_transition_impl(
             canonical_platform_suffix = "maccatalyst"
             updated_constraints[refs.os[ConstraintSettingInfo].label] = refs.ios[ConstraintValueInfo]
             updated_constraints[refs.sdk[ConstraintSettingInfo].label] = refs.maccatalyst_sdk[ConstraintValueInfo]
+            updated_constraints[refs.runtime[ConstraintSettingInfo].label] = refs.maccatalyst_runtime[ConstraintValueInfo]
         else:
             fail("Unsupported OS value {} in apple_xcframework() platforms.".format(os_value))
 
@@ -136,9 +137,11 @@ framework_split_transition = transition(
         "ios": "config//os/constraints:iphoneos",
         "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
         "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
+        "maccatalyst_runtime": "config//runtime/constraints:maccatalyst",
         "maccatalyst_sdk": "config//os/sdk/apple/constraints:maccatalyst",
         "macos": "config//os/constraints:macos",
         "os": "config//os/constraints:os",
+        "runtime": "config//runtime/constraints:runtime",
         "sdk": "config//os/sdk/apple/constraints:_",
         "universal": "config//cpu/constraints:universal",
         "universal_enabled": "config//cpu/constraints:universal-enabled",
