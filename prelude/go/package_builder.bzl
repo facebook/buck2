@@ -80,7 +80,7 @@ def build_package(
         symabis = _symabis(ctx, pkg_name, go_list.s_files, assembler_flags, shared)
 
         # Generate CGO and C sources.
-        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files)
+        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files, go_list.cgo_cflags, go_list.cgo_cppflags)
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
 
         go_files = go_list.go_files + cgo_go_files

@@ -46,7 +46,9 @@ def _cgo(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         own_pre: list[CPreprocessor],
-        inherited_pre: list[CPreprocessorInfo]) -> (list[Artifact], list[Artifact], list[Artifact], Artifact):
+        inherited_pre: list[CPreprocessorInfo],
+        c_flags: list[str],
+        cpp_flags: list[str]) -> (list[Artifact], list[Artifact], list[Artifact], Artifact):
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
@@ -69,6 +71,9 @@ def _cgo(
         go_toolchain.cgo_wrapper,
         cmd_args(go_toolchain.cgo, format = "--cgo={}"),
         cmd_args(gen_dir.as_output(), format = "--output={}"),
+        "--",
+        c_flags + cpp_flags,
+        ctx.attrs.compiler_flags,
         srcs,
     )
 
@@ -118,7 +123,7 @@ def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
         relative_args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
     )
 
-def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Artifact], c_files: list[Artifact]) -> (list[Artifact], list[Artifact], Artifact):
+def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Artifact], c_files: list[Artifact], c_flags: list[str], cpp_flags: list[str]) -> (list[Artifact], list[Artifact], Artifact):
     if len(cgo_files) == 0:
         return [], [], ctx.actions.copied_dir("cgo_gen_tmp", {})
 
@@ -127,7 +132,7 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
 
     # Separate sources into C++ and GO sources.
-    go_gen_srcs, c_gen_headers, c_gen_srcs, gen_dir = _cgo(ctx, cgo_files, [own_pre], inherited_pre)
+    go_gen_srcs, c_gen_headers, c_gen_srcs, gen_dir = _cgo(ctx, cgo_files, [own_pre], inherited_pre, c_flags, cpp_flags)
 
     # Wrap the generated CGO C headers in a CPreprocessor object for compiling.
     cgo_headers_pre = CPreprocessor(relative_args = CPreprocessorArgs(args = [
@@ -152,11 +157,11 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
             rule_type = "cgo_library",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = [CxxSrcWithFlags(file = src) for src in c_files + c_gen_srcs],
-            compiler_flags = ctx.attrs.compiler_flags,
+            compiler_flags = c_flags + ctx.attrs.compiler_flags,
             lang_compiler_flags = ctx.attrs.lang_compiler_flags,
             platform_compiler_flags = ctx.attrs.platform_compiler_flags,
             lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
-            preprocessor_flags = ctx.attrs.preprocessor_flags,
+            preprocessor_flags = cpp_flags + ctx.attrs.preprocessor_flags,
             lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
             platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
             lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,

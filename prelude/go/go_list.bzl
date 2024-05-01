@@ -18,6 +18,8 @@ GoListOut = record(
     test_go_files = field(list[Artifact], default = []),
     x_test_go_files = field(list[Artifact], default = []),
     embed_files = field(list[Artifact], default = []),
+    cgo_cflags = field(list[str], default = []),
+    cgo_cppflags = field(list[str], default = []),
 )
 
 def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool, with_tests: bool, asan: bool) -> Artifact:
@@ -37,7 +39,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
     if asan:
         tags.append("asan")
 
-    required_felds = "GoFiles,CgoFiles,HFiles,CFiles,CXXFiles,SFiles,EmbedFiles"
+    required_felds = "GoFiles,CgoFiles,HFiles,CFiles,CXXFiles,SFiles,EmbedFiles,CgoCFLAGS,CgoCPPFLAGS"
     if with_tests:
         required_felds += ",TestGoFiles,XTestGoFiles"
 
@@ -84,6 +86,9 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         if _any_starts_with(go_list.get("EmbedFiles", []), src_path):
             embed_files.append(src)
 
+    cgo_cflags = go_list.get("CgoCFLAGS", [])
+    cgo_cppflags = go_list.get("CgoCPPFLAGS", [])
+
     return GoListOut(
         go_files = go_files,
         h_files = h_files,
@@ -94,6 +99,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         test_go_files = test_go_files,
         x_test_go_files = x_test_go_files,
         embed_files = embed_files,
+        cgo_cflags = cgo_cflags,
+        cgo_cppflags = cgo_cppflags,
     )
 
 def _any_starts_with(files: list[str], path: str):
