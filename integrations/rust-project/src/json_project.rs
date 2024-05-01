@@ -25,27 +25,27 @@ use serde::Serialize;
 use crate::target::Target;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct JsonProject {
+pub(crate) struct JsonProject {
     #[serde(flatten)]
-    pub sysroot: Sysroot,
+    pub(crate) sysroot: Sysroot,
 
     /// The set of crates comprising the project.
     ///
     /// Must include all transitive dependencies as well as sysroot crate (libstd,
     /// libcore, etc.).
-    pub crates: Vec<Crate>,
-    pub generated: String,
+    pub(crate) crates: Vec<Crate>,
+    pub(crate) generated: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
-pub struct Crate {
+pub(crate) struct Crate {
     /// Optional crate name used for display purposes; has no semantic significance.
-    pub display_name: Option<String>,
+    pub(crate) display_name: Option<String>,
     /// The path to the root module of the crate.
-    pub root_module: PathBuf,
-    pub buck_extensions: BuckExtensions,
-    pub edition: Edition,
-    pub deps: Vec<Dep>,
+    pub(crate) root_module: PathBuf,
+    pub(crate) buck_extensions: BuckExtensions,
+    pub(crate) edition: Edition,
+    pub(crate) deps: Vec<Dep>,
     /// Should this crate be treated as a member of
     /// current "workspace".
     ///
@@ -57,7 +57,7 @@ pub struct Crate {
     /// library and 3rd party crates to enable
     /// performance optimizations (rust-analyzer
     /// assumes that non-member crates don't change).
-    pub is_workspace_member: bool,
+    pub(crate) is_workspace_member: bool,
     /// Optionally specify the (super)set of `.rs`
     /// files comprising this crate.
     ///
@@ -74,25 +74,25 @@ pub struct Crate {
     /// rust-analyzer assumes that files from one
     /// source can't refer to files in another source.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source: Option<Source>,
+    pub(crate) source: Option<Source>,
     /// The set of cfgs activated for a given crate.
     ///
     /// With how fb imports crates into fbsource/third-party,
     /// the answer is "all of them".
-    pub cfg: Vec<String>,
+    pub(crate) cfg: Vec<String>,
     /// The target triple for a given crate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub target: Option<String>,
+    pub(crate) target: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_spec: Option<TargetSpec>,
+    pub(crate) target_spec: Option<TargetSpec>,
     /// Environment for the crate, often used by `env!`.
-    pub env: FxHashMap<String, String>,
+    pub(crate) env: FxHashMap<String, String>,
     /// Whether the crate is a proc-macro crate/
-    pub is_proc_macro: bool,
+    pub(crate) is_proc_macro: bool,
     /// For proc-macro crates, path to compiled
     /// proc-macro (.so, .dylib, or .dll. depends on the platform.)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub proc_macro_dylib_path: Option<PathBuf>,
+    pub(crate) proc_macro_dylib_path: Option<PathBuf>,
 }
 
 /// Buck-specific extensions to the `rust-project.json` format.
@@ -100,11 +100,11 @@ pub struct Crate {
 /// This is needed to add support for reloading `rust-analyzer` when
 /// a `TARGETS` file is changed.
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub struct BuckExtensions {
+pub(crate) struct BuckExtensions {
     /// Path corresponding to the BUCK defining the crate.
-    pub build_file: PathBuf,
+    pub(crate) build_file: PathBuf,
     /// A name corresponding to the Buck target of the crate.
-    pub label: Target,
+    pub(crate) label: Target,
 }
 
 /// Build system-specific additions the `rust-project.json`.
@@ -145,18 +145,18 @@ pub struct BuckExtensions {
 /// }
 /// ```
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub struct TargetSpec {
+pub(crate) struct TargetSpec {
     /// `manifest_file` corresponds to the `BUCK`/`TARGETS` file.
-    pub manifest_file: PathBuf,
-    pub target_label: String,
-    pub target_kind: TargetKind,
-    pub runnables: Runnables,
-    pub flycheck_command: Vec<String>,
+    pub(crate) manifest_file: PathBuf,
+    pub(crate) target_label: String,
+    pub(crate) target_kind: TargetKind,
+    pub(crate) runnables: Runnables,
+    pub(crate) flycheck_command: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub enum TargetKind {
+pub(crate) enum TargetKind {
     #[default]
     Bin,
     /// Any kind of Cargo lib crate-type (dylib, rlib, proc-macro, ...).
@@ -180,15 +180,15 @@ impl From<crate::target::Kind> for TargetKind {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub struct Runnables {
-    pub check: Vec<String>,
-    pub run: Vec<String>,
-    pub test: Vec<String>,
+pub(crate) struct Runnables {
+    pub(crate) check: Vec<String>,
+    pub(crate) run: Vec<String>,
+    pub(crate) test: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename = "edition")]
-pub enum Edition {
+pub(crate) enum Edition {
     #[serde(rename = "2015")]
     Edition2015,
     #[serde(rename = "2018")]
@@ -205,16 +205,16 @@ pub enum Edition {
 /// are included recursively, unless a subdirectory is
 /// specified in `include_dirs`.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
-pub struct Source {
-    pub include_dirs: FxHashSet<PathBuf>,
-    pub exclude_dirs: FxHashSet<PathBuf>,
+pub(crate) struct Source {
+    pub(crate) include_dirs: FxHashSet<PathBuf>,
+    pub(crate) exclude_dirs: FxHashSet<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Dep {
+pub(crate) struct Dep {
     #[serde(rename = "crate")]
-    pub crate_index: usize,
-    pub name: String,
+    pub(crate) crate_index: usize,
+    pub(crate) name: String,
 }
 
 /// Sysroot paths. These are documented in the rust-analyzer manual:
@@ -223,7 +223,7 @@ pub struct Dep {
 ///
 /// rust-analyzer treats both paths as optional, but we always provide sysroot.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Sysroot {
+pub(crate) struct Sysroot {
     /// Path to the directory of the sysroot; this is a superset of `sysroot_src`.
     ///
     /// This path provides rust-analyzer both the *source code* of libraries
@@ -236,12 +236,12 @@ pub struct Sysroot {
     /// macros and the source code location can be predictably inferred.
     /// Assuming the example sysroot above, the source code would be located in
     /// `/lib/rustlib/src/rust/`.
-    pub sysroot: PathBuf,
+    pub(crate) sysroot: PathBuf,
     /// Legacy sysroot config containing only the source code of libraries such
     /// as `std` and core`.
     ///
     /// Inside Meta, this is necessary on non-Linux platforms since the sources
     /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sysroot_src: Option<PathBuf>,
+    pub(crate) sysroot_src: Option<PathBuf>,
 }

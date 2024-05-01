@@ -40,7 +40,7 @@ struct Opt {
 }
 
 #[derive(Subcommand, Debug, PartialEq)]
-pub enum Command {
+enum Command {
     /// Create a new Rust project
     New {
         /// Name of the project being created.

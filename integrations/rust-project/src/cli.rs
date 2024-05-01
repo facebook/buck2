@@ -11,7 +11,7 @@ mod check;
 mod develop;
 mod new;
 
-pub use check::Check;
-pub use develop::Develop;
-pub use new::New;
-pub use new::ProjectKind;
+pub(crate) use check::Check;
+pub(crate) use develop::Develop;
+pub(crate) use new::New;
+pub(crate) use new::ProjectKind;

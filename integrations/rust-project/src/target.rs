@@ -22,10 +22,10 @@ use serde::Serialize;
 use crate::json_project::Edition;
 
 #[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct Target(String);
+pub(crate) struct Target(String);
 
 impl Target {
-    pub fn new<T>(target: T) -> Target
+    pub(crate) fn new<T>(target: T) -> Target
     where
         T: Into<String>,
     {
@@ -79,12 +79,12 @@ impl AsRef<[u8]> for Target {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct MacroOutput {
-    pub actual: Target,
-    pub dylib: PathBuf,
+pub(crate) struct MacroOutput {
+    pub(crate) actual: Target,
+    pub(crate) dylib: PathBuf,
 }
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub enum Kind {
+pub(crate) enum Kind {
     #[serde(rename = "prelude//rules.bzl:rust_binary")]
     Binary,
     #[serde(rename = "prelude//rules.bzl:rust_library")]
@@ -94,49 +94,49 @@ pub enum Kind {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct TargetInfo {
-    pub name: String,
-    pub label: String,
-    pub kind: Kind,
-    pub edition: Option<Edition>,
-    pub srcs: Vec<PathBuf>,
+pub(crate) struct TargetInfo {
+    pub(crate) name: String,
+    pub(crate) label: String,
+    pub(crate) kind: Kind,
+    pub(crate) edition: Option<Edition>,
+    pub(crate) srcs: Vec<PathBuf>,
     /// Mapped srcs are effectively aliases. The key is a buck target
     /// of some kind, and the value is a path/filename that can be
     /// referred to in the rest of the rule.
     ///
     /// Asking buck to build the targets and tell us the output path
     /// is how we are able to support generated sources.
-    pub mapped_srcs: FxHashMap<PathBuf, PathBuf>,
+    pub(crate) mapped_srcs: FxHashMap<PathBuf, PathBuf>,
     #[serde(rename = "crate")]
-    pub crate_name: Option<String>,
-    pub crate_dynamic: Option<PathBuf>,
-    pub crate_root: Option<PathBuf>,
+    pub(crate) crate_name: Option<String>,
+    pub(crate) crate_dynamic: Option<PathBuf>,
+    pub(crate) crate_root: Option<PathBuf>,
     #[serde(rename = "buck.deps", alias = "buck.direct_dependencies", default)]
-    pub deps: Vec<Target>,
+    pub(crate) deps: Vec<Target>,
     #[serde(rename = "tests")]
-    pub test_deps: Vec<Target>,
+    pub(crate) test_deps: Vec<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with
     // `buck.direct_dependencies` and are instead a separate entry.
-    pub named_deps: FxHashMap<String, Target>,
-    pub proc_macro: Option<bool>,
+    pub(crate) named_deps: FxHashMap<String, Target>,
+    pub(crate) proc_macro: Option<bool>,
     // Set of features enabled for this crate.
-    pub features: Vec<String>,
-    pub env: FxHashMap<String, String>,
+    pub(crate) features: Vec<String>,
+    pub(crate) env: FxHashMap<String, String>,
     // The ensured folder containing symlinks to all sources
-    pub source_folder: PathBuf,
-    pub project_relative_buildfile: PathBuf,
-    pub in_workspace: bool,
-    pub out_dir: Option<PathBuf>,
-    pub rustc_flags: Vec<String>,
+    pub(crate) source_folder: PathBuf,
+    pub(crate) project_relative_buildfile: PathBuf,
+    pub(crate) in_workspace: bool,
+    pub(crate) out_dir: Option<PathBuf>,
+    pub(crate) rustc_flags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct AliasedTargetInfo {
-    pub actual: Target,
+pub(crate) struct AliasedTargetInfo {
+    pub(crate) actual: Target,
 }
 
 impl TargetInfo {
-    pub fn crate_name(&self) -> String {
+    pub(crate) fn crate_name(&self) -> String {
         if let Some(crate_dynamic) = &self.crate_dynamic {
             if let Ok(contents) = fs::read_to_string(crate_dynamic) {
                 return contents.trim().to_owned();
@@ -148,12 +148,12 @@ impl TargetInfo {
         )
     }
 
-    pub fn display_name(&self) -> String {
+    pub(crate) fn display_name(&self) -> String {
         let name = self.name.strip_suffix("-unittest").unwrap_or(&self.name);
         name.to_owned()
     }
 
-    pub fn root_module(&self) -> PathBuf {
+    pub(crate) fn root_module(&self) -> PathBuf {
         if let Some(crate_root) = &self.crate_root {
             // If provided with a crate_root directly, and it's valid, use it.
             if let Ok(path) = self.source_folder.join(crate_root).canonicalize() {
@@ -218,7 +218,7 @@ impl TargetInfo {
         overridden
     }
 
-    pub fn cfg(&self) -> Vec<String> {
+    pub(crate) fn cfg(&self) -> Vec<String> {
         // we need to take the existing features and prefix `feature=`
         let feature_cfgs = self.features.iter().map(|f| format!("feature=\"{f}\""));
 
@@ -246,10 +246,10 @@ impl TargetInfo {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
-pub struct ExpandedAndResolved {
-    pub expanded_targets: Vec<Target>,
-    pub queried_proc_macros: FxHashMap<Target, MacroOutput>,
-    pub resolved_deps: FxHashMap<Target, TargetInfo>,
+pub(crate) struct ExpandedAndResolved {
+    pub(crate) expanded_targets: Vec<Target>,
+    pub(crate) queried_proc_macros: FxHashMap<Target, MacroOutput>,
+    pub(crate) resolved_deps: FxHashMap<Target, TargetInfo>,
 }
 
 #[test]

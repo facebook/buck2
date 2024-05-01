@@ -35,14 +35,14 @@ use crate::json_project::JsonProject;
 use crate::progress::ProgressLayer;
 use crate::target::Target;
 
-pub struct State {
+pub(crate) struct State {
     server: Server,
     projects: Vec<JsonProject>,
     io_threads: IoThreads,
 }
 
 impl State {
-    pub fn new(
+    pub(crate) fn new(
         handle: Handle<Vec<Box<dyn Layer<Registry> + Send + Sync + 'static>>, Registry>,
     ) -> Result<Self, anyhow::Error> {
         let (connection, io_threads) = Connection::stdio();
@@ -77,7 +77,7 @@ impl State {
         Ok(state)
     }
 
-    pub fn run(mut self) -> Result<(), anyhow::Error> {
+    pub(crate) fn run(mut self) -> Result<(), anyhow::Error> {
         register_did_save_capability(&mut self.server);
 
         info!("waiting for incoming messages");
@@ -126,16 +126,13 @@ impl State {
     }
 }
 
-pub struct RequestDispatch<'a> {
-    pub(crate) req: Option<lsp_server::Request>,
-    pub(crate) state: &'a mut State,
+struct RequestDispatch<'a> {
+    req: Option<lsp_server::Request>,
+    state: &'a mut State,
 }
 
 impl<'a> RequestDispatch<'a> {
-    pub(crate) fn on<R>(
-        &mut self,
-        f: fn(&mut State, R::Params) -> anyhow::Result<R::Result>,
-    ) -> &mut Self
+    fn on<R>(&mut self, f: fn(&mut State, R::Params) -> anyhow::Result<R::Result>) -> &mut Self
     where
         R: lsp_types::request::Request + 'static,
         R::Params: for<'de> Deserialize<'de> + fmt::Debug,
@@ -159,7 +156,7 @@ impl<'a> RequestDispatch<'a> {
         self
     }
 
-    pub(crate) fn finish(&mut self) {
+    fn finish(&mut self) {
         if let Some(req) = self.req.take() {
             tracing::error!("unknown request: {:?}", req);
             let response = lsp_server::Response::new_err(
@@ -198,13 +195,13 @@ impl<'a> RequestDispatch<'a> {
     }
 }
 
-pub(crate) struct NotificationDispatch<'a> {
-    pub(crate) not: Option<lsp_server::Notification>,
-    pub(crate) state: &'a mut State,
+struct NotificationDispatch<'a> {
+    not: Option<lsp_server::Notification>,
+    state: &'a mut State,
 }
 
 impl NotificationDispatch<'_> {
-    pub(crate) fn on<N>(
+    fn on<N>(
         &mut self,
         f: fn(&mut State, N::Params) -> anyhow::Result<()>,
     ) -> anyhow::Result<&mut Self>
@@ -233,7 +230,7 @@ impl NotificationDispatch<'_> {
         Ok(self)
     }
 
-    pub(crate) fn finish(&mut self) {
+    fn finish(&mut self) {
         if let Some(not) = &self.not {
             if !not.method.starts_with("$/") {
                 tracing::error!("unhandled notification: {:?}", not);
@@ -242,25 +239,21 @@ impl NotificationDispatch<'_> {
     }
 }
 
-pub(crate) struct Server {
+struct Server {
     sender: Sender<lsp_server::Message>,
     receiver: Receiver<lsp_server::Message>,
     req_queue: ReqQueue<(String, Instant), ReqHandler>,
 }
 
 impl Server {
-    pub(crate) fn register_request(
-        &mut self,
-        request: &lsp_server::Request,
-        request_received: Instant,
-    ) {
+    fn register_request(&mut self, request: &lsp_server::Request, request_received: Instant) {
         self.req_queue.incoming.register(
             request.id.clone(),
             (request.method.clone(), request_received),
         );
     }
 
-    pub(crate) fn send_request<R>(&mut self, params: R::Params, handler: ReqHandler)
+    fn send_request<R>(&mut self, params: R::Params, handler: ReqHandler)
     where
         R: lsp_types::request::Request,
     {
@@ -271,7 +264,7 @@ impl Server {
         self.send(request.into());
     }
 
-    pub(crate) fn respond(&mut self, response: lsp_server::Response) {
+    fn respond(&mut self, response: lsp_server::Response) {
         if let Some((method, start)) = self.req_queue.incoming.complete(response.id.clone()) {
             let duration = start.elapsed();
             tracing::info!(?method, ?response.id, ?duration);
@@ -281,7 +274,7 @@ impl Server {
         }
     }
 
-    pub(crate) fn send(&self, message: lsp_server::Message) {
+    fn send(&self, message: lsp_server::Message) {
         self.sender.send(message).expect("unable to send message");
     }
 }
@@ -502,12 +495,12 @@ type ReqHandler = fn(&mut State, lsp_server::Response);
 
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DiscoverBuckTargetsResult {
+enum DiscoverBuckTargetsResult {
     Single(JsonProject),
     Many(Vec<JsonProject>),
 }
 
-pub enum DiscoverBuckTargets {}
+enum DiscoverBuckTargets {}
 
 impl lsp_types::request::Request for DiscoverBuckTargets {
     type Params = DiscoverBuckTargetParams;
@@ -517,11 +510,11 @@ impl lsp_types::request::Request for DiscoverBuckTargets {
 
 #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DiscoverBuckTargetParams {
+struct DiscoverBuckTargetParams {
     text_documents: Vec<PathBuf>,
 }
 
-pub enum UpdatedBuckTargets {}
+enum UpdatedBuckTargets {}
 
 impl lsp_types::notification::Notification for UpdatedBuckTargets {
     type Params = UpdatedBuckTargetsParams;
@@ -530,6 +523,6 @@ impl lsp_types::notification::Notification for UpdatedBuckTargets {
 
 #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdatedBuckTargetsParams {
+struct UpdatedBuckTargetsParams {
     projects: Vec<JsonProject>,
 }

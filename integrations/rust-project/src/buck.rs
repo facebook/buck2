@@ -42,7 +42,7 @@ use crate::target::TargetInfo;
 use crate::Crate;
 use crate::Dep;
 
-pub fn to_json_project(
+pub(crate) fn to_json_project(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
@@ -286,7 +286,7 @@ fn format_route(route: &[usize], crates: &[Crate]) -> String {
 }
 
 /// If `path` starts with `base`, drop the prefix.
-pub fn relative_to(path: &Path, base: &Path) -> PathBuf {
+pub(crate) fn relative_to(path: &Path, base: &Path) -> PathBuf {
     match path.strip_prefix(base) {
         Ok(rel_path) => rel_path,
         Err(_) => path,
@@ -366,12 +366,12 @@ fn as_deps(
 }
 
 #[derive(Debug, Default)]
-pub struct Buck {
+pub(crate) struct Buck {
     mode: Option<String>,
 }
 
 impl Buck {
-    pub fn new(mode: Option<String>) -> Self {
+    pub(crate) fn new(mode: Option<String>) -> Self {
         Buck { mode }
     }
 
@@ -415,7 +415,7 @@ impl Buck {
     }
 
     /// Return the absolute path of the current Buck project root.
-    pub fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
+    pub(crate) fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command_without_config(["root"]);
         command.arg("--kind=project");
 
@@ -429,7 +429,7 @@ impl Buck {
         Ok(stdout.into())
     }
 
-    pub fn resolve_root_of_file(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
+    pub(crate) fn resolve_root_of_file(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command_without_config(["root"]);
         command.arg("--kind=project");
 
@@ -448,7 +448,7 @@ impl Buck {
         Ok(stdout.into())
     }
 
-    pub fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
+    pub(crate) fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command(["audit", "config"]);
         command.args(["--json", "--", "rust.sysroot_src_path"]);
         command
@@ -474,7 +474,7 @@ impl Buck {
 
     /// Determines the owning target(s) of the saved file and builds them.
     #[instrument]
-    pub fn check_saved_file(
+    pub(crate) fn check_saved_file(
         &self,
         use_clippy: bool,
         saved_file: &Path,
@@ -519,7 +519,10 @@ impl Buck {
     }
 
     #[instrument(skip_all)]
-    pub fn expand_and_resolve(&self, targets: &[Target]) -> anyhow::Result<ExpandedAndResolved> {
+    pub(crate) fn expand_and_resolve(
+        &self,
+        targets: &[Target],
+    ) -> anyhow::Result<ExpandedAndResolved> {
         if targets.is_empty() {
             return Ok(ExpandedAndResolved::default());
         }
@@ -538,7 +541,7 @@ impl Buck {
     }
 
     #[instrument(skip_all)]
-    pub fn query_aliased_libraries(
+    pub(crate) fn query_aliased_libraries(
         &self,
         targets: &[Target],
     ) -> Result<FxHashMap<Target, AliasedTargetInfo>, anyhow::Error> {
@@ -570,7 +573,7 @@ impl Buck {
     }
 
     #[instrument(skip_all)]
-    pub fn query_owner(
+    pub(crate) fn query_owner(
         &self,
         files: &Vec<PathBuf>,
     ) -> Result<FxHashMap<String, Vec<Target>>, anyhow::Error> {
@@ -590,7 +593,10 @@ impl Buck {
     }
 }
 
-pub fn utf8_output(output: io::Result<Output>, command: &Command) -> Result<String, anyhow::Error> {
+pub(crate) fn utf8_output(
+    output: io::Result<Output>,
+    command: &Command,
+) -> Result<String, anyhow::Error> {
     match output {
         Ok(Output {
             stdout,
@@ -614,10 +620,7 @@ pub fn utf8_output(output: io::Result<Output>, command: &Command) -> Result<Stri
     }
 }
 
-pub fn deserialize_output<T>(
-    output: io::Result<Output>,
-    command: &Command,
-) -> Result<T, anyhow::Error>
+fn deserialize_output<T>(output: io::Result<Output>, command: &Command) -> Result<T, anyhow::Error>
 where
     T: for<'a> Deserialize<'a>,
 {
@@ -649,13 +652,13 @@ fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Erro
 
 /// Trim a trailing new line from `String`.
 /// Useful when trimming command output.
-pub fn truncate_line_ending(s: &mut String) {
+pub(crate) fn truncate_line_ending(s: &mut String) {
     if let Some(x) = s.strip_suffix("\r\n").or_else(|| s.strip_suffix('\n')) {
         s.truncate(x.len());
     }
 }
 
-pub fn select_mode(mode: Option<&str>) -> Option<String> {
+pub(crate) fn select_mode(mode: Option<&str>) -> Option<String> {
     if let Some(mode) = mode {
         Some(mode.to_owned())
     } else if cfg!(target_os = "macos") {

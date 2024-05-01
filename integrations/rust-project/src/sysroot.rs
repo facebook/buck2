@@ -22,7 +22,7 @@ use crate::buck::Buck;
 use crate::json_project::Sysroot;
 
 #[derive(Debug)]
-pub enum SysrootConfig {
+pub(crate) enum SysrootConfig {
     Sysroot(PathBuf),
     BuckConfig,
     Rustup,
@@ -37,7 +37,7 @@ pub enum SysrootConfig {
 /// `sysroot_src` is the directory that contains the source to std crates:
 /// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
 #[instrument(ret)]
-pub fn resolve_buckconfig_sysroot(
+pub(crate) fn resolve_buckconfig_sysroot(
     project_root: &Path,
     relative_paths: bool,
 ) -> Result<Sysroot, anyhow::Error> {
@@ -110,7 +110,7 @@ pub fn resolve_buckconfig_sysroot(
 }
 
 #[instrument(ret)]
-pub fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
+pub(crate) fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
     let mut cmd = Command::new("rustc");
     cmd.arg("--print=sysroot")
         .stdin(Stdio::null())

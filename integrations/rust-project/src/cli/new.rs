@@ -17,19 +17,19 @@ use clap::ValueEnum;
 use tracing::info;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum ProjectKind {
+pub(crate) enum ProjectKind {
     Binary,
     Library,
 }
 
-pub struct New {
-    pub name: String,
-    pub kind: ProjectKind,
-    pub path: Option<PathBuf>,
+pub(crate) struct New {
+    pub(crate) name: String,
+    pub(crate) kind: ProjectKind,
+    pub(crate) path: Option<PathBuf>,
 }
 
 impl New {
-    pub fn run(self) -> Result<(), anyhow::Error> {
+    pub(crate) fn run(self) -> Result<(), anyhow::Error> {
         let name = self.name;
 
         let (target, kind) = match self.kind {
@@ -96,15 +96,15 @@ impl New {
     }
 }
 
-pub enum EntryFile {
+enum EntryFile {
     Main(MainFile),
     Lib(LibFile),
 }
 
-pub struct MainFile;
+struct MainFile;
 
 impl MainFile {
-    pub fn render(&self) -> String {
+    fn render(&self) -> String {
         "fn main() {
     println!(\"Hello from Rust at Meta!\");
 }
@@ -113,10 +113,10 @@ impl MainFile {
     }
 }
 
-pub struct LibFile;
+struct LibFile;
 
 impl LibFile {
-    pub fn render(&self) -> String {
+    fn render(&self) -> String {
         "pub fn add_numbers(left: usize, right: usize) -> usize {
     left + right
 }
@@ -137,13 +137,13 @@ mod tests {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Target {
+enum Target {
     Library { name: String },
     Binary { name: String },
 }
 
 impl Target {
-    pub fn render(&self) -> String {
+    fn render(&self) -> String {
         match self {
             Target::Library { name } => {
                 let template = include_str!("../../templates/TARGETS_LIB");

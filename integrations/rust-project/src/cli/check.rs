@@ -14,14 +14,14 @@ use crate::buck;
 use crate::buck::select_mode;
 use crate::diagnostics;
 
-pub struct Check {
-    pub buck: buck::Buck,
-    pub use_clippy: bool,
-    pub saved_file: PathBuf,
+pub(crate) struct Check {
+    pub(crate) buck: buck::Buck,
+    pub(crate) use_clippy: bool,
+    pub(crate) saved_file: PathBuf,
 }
 
 impl Check {
-    pub fn new(mode: Option<String>, use_clippy: bool, saved_file: PathBuf) -> Self {
+    pub(crate) fn new(mode: Option<String>, use_clippy: bool, saved_file: PathBuf) -> Self {
         let mode = select_mode(mode.as_deref());
         let buck = buck::Buck::new(mode);
         Self {
@@ -31,7 +31,7 @@ impl Check {
         }
     }
 
-    pub fn run(&self) -> Result<(), anyhow::Error> {
+    pub(crate) fn run(&self) -> Result<(), anyhow::Error> {
         let buck = &self.buck;
 
         let cell_root = buck.resolve_root_of_file(&self.saved_file)?;

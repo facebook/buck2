@@ -30,32 +30,32 @@ use crate::target::Target;
 use crate::Command;
 
 #[derive(Debug)]
-pub struct Develop {
-    pub sysroot: SysrootConfig,
-    pub relative_paths: bool,
-    pub buck: buck::Buck,
-    pub check_cycles: bool,
+pub(crate) struct Develop {
+    pub(crate) sysroot: SysrootConfig,
+    pub(crate) relative_paths: bool,
+    pub(crate) buck: buck::Buck,
+    pub(crate) check_cycles: bool,
 }
 
-pub struct OutputCfg {
+pub(crate) struct OutputCfg {
     out: Output,
     pretty: bool,
 }
 
 #[derive(Debug)]
-pub enum Input {
+pub(crate) enum Input {
     Targets(Vec<Target>),
     Files(Vec<PathBuf>),
 }
 
 #[derive(Debug)]
-pub enum Output {
+pub(crate) enum Output {
     Path(PathBuf),
     Stdout,
 }
 
 impl Develop {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let mode = select_mode(None);
         let buck = buck::Buck::new(mode);
 
@@ -67,7 +67,7 @@ impl Develop {
         }
     }
 
-    pub fn from_command(command: Command) -> (Develop, Input, OutputCfg) {
+    pub(crate) fn from_command(command: Command) -> (Develop, Input, OutputCfg) {
         if let crate::Command::Develop {
             files,
             targets,
@@ -121,7 +121,7 @@ impl Develop {
 }
 
 impl Develop {
-    pub fn resolve_file_owners(
+    pub(crate) fn resolve_file_owners(
         &self,
         files: Vec<PathBuf>,
     ) -> Result<FxHashMap<String, Vec<Target>>, anyhow::Error> {
@@ -165,7 +165,7 @@ impl Develop {
         Ok(file_owners)
     }
 
-    pub fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
+    pub(crate) fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
         let Develop {
             sysroot,
             relative_paths,
@@ -209,7 +209,7 @@ impl Develop {
         Ok(rust_project)
     }
 
-    pub fn run_as_cli(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
+    pub(crate) fn run_as_cli(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
         let targets = match input {
             Input::Targets(targets) => targets,
             Input::Files(files) => {

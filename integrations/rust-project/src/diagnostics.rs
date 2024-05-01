@@ -14,41 +14,41 @@ use serde::Serialize;
 
 /// This is the same as rustfix::Diagnostic, but with a more complete schema.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Message {
-    pub message: String,
-    pub code: Option<Code>,
-    pub level: String,
-    pub spans: Vec<Span>,
-    pub children: Vec<Message>,
-    pub rendered: Option<String>,
+pub(crate) struct Message {
+    pub(crate) message: String,
+    pub(crate) code: Option<Code>,
+    pub(crate) level: String,
+    pub(crate) spans: Vec<Span>,
+    pub(crate) children: Vec<Message>,
+    pub(crate) rendered: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Span {
-    pub file_name: PathBuf,
-    pub byte_start: usize,
-    pub byte_end: usize,
-    pub line_start: usize,
-    pub line_end: usize,
-    pub column_start: usize,
-    pub column_end: usize,
-    pub is_primary: bool,
-    pub text: Vec<Text>,
-    pub label: Option<String>,
-    pub suggested_replacement: Option<String>,
-    pub suggestion_applicability: Option<Applicability>,
-    pub expansion: Option<Expansion>,
+pub(crate) struct Span {
+    pub(crate) file_name: PathBuf,
+    pub(crate) byte_start: usize,
+    pub(crate) byte_end: usize,
+    pub(crate) line_start: usize,
+    pub(crate) line_end: usize,
+    pub(crate) column_start: usize,
+    pub(crate) column_end: usize,
+    pub(crate) is_primary: bool,
+    pub(crate) text: Vec<Text>,
+    pub(crate) label: Option<String>,
+    pub(crate) suggested_replacement: Option<String>,
+    pub(crate) suggestion_applicability: Option<Applicability>,
+    pub(crate) expansion: Option<Expansion>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Expansion {
-    pub span: Box<Span>,
-    pub macro_decl_name: String,
-    pub def_site_span: Option<Box<Span>>,
+pub(crate) struct Expansion {
+    pub(crate) span: Box<Span>,
+    pub(crate) macro_decl_name: String,
+    pub(crate) def_site_span: Option<Box<Span>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
-pub enum Applicability {
+pub(crate) enum Applicability {
     MachineApplicable,
     HasPlaceholders,
     MaybeIncorrect,
@@ -56,14 +56,14 @@ pub enum Applicability {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Code {
-    pub code: String,
-    pub explanation: Option<String>,
+pub(crate) struct Code {
+    pub(crate) code: String,
+    pub(crate) explanation: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Text {
-    pub text: String,
-    pub highlight_start: usize,
-    pub highlight_end: usize,
+pub(crate) struct Text {
+    pub(crate) text: String,
+    pub(crate) highlight_start: usize,
+    pub(crate) highlight_end: usize,
 }
