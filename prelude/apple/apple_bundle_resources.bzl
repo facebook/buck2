@@ -186,8 +186,17 @@ def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
     apple_library_info = binary.get(AppleLibraryInfo)
     if apple_library_info == None:
         return []
+    tset = apple_library_info.public_framework_headers
+    if tset._tset == None:
+        return []
 
-    return [AppleBundlePart(source = header, destination = AppleBundleDestination("headers")) for header in apple_library_info.public_framework_headers]
+    bundle_parts = []
+    for public_framework_headers in tset._tset.traverse():
+        for public_framework_header in public_framework_headers:
+            for artifact in public_framework_header.artifacts:
+                bundle_parts.append(AppleBundlePart(source = artifact, destination = AppleBundleDestination("headers")))
+
+    return bundle_parts
 
 def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> list[AppleBundlePart]:
     result = []

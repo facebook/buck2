@@ -7,6 +7,8 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
+    "make_artifact_tset",
     "project_artifacts",
 )
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
@@ -116,7 +118,7 @@ AppleLibraryAdditionalParams = record(
 
 AppleLibraryInfo = provider(
     fields = {
-        "public_framework_headers": provider_field(list[Artifact], default = []),
+        "public_framework_headers": ArtifactTSet,
     },
 )
 
@@ -159,7 +161,17 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
 
 def _make_apple_library_info_provider(ctx: AnalysisContext) -> list[AppleLibraryInfo]:
     public_framework_headers = cxx_attr_headers_list(ctx, ctx.attrs.public_framework_headers, [], get_apple_cxx_headers_layout(ctx))
-    return [AppleLibraryInfo(public_framework_headers = [header.artifact for header in public_framework_headers])]
+    all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
+    apple_library_infos = filter(None, [dep.get(AppleLibraryInfo) for dep in all_deps])
+
+    public_framework_header_tset = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        artifacts = [header.artifact for header in public_framework_headers],
+        children = [apple_library.public_framework_headers for apple_library in apple_library_infos],
+    )
+
+    return [AppleLibraryInfo(public_framework_headers = public_framework_header_tset)]
 
 def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[MockingbirdLibraryInfo]:
     _, swift_sources = _filter_swift_srcs(ctx)
