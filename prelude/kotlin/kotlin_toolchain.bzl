@@ -13,7 +13,6 @@ KotlinToolchainInfo = provider(
     fields = {
         "annotation_processing_jar": provider_field(typing.Any, default = None),
         "class_loader_bootstrapper": provider_field(typing.Any, default = None),
-        "compilation_tracer_plugin": provider_field(typing.Any, default = None),
         "compile_kotlin": provider_field(typing.Any, default = None),
         "dep_files": provider_field(typing.Any, default = None),
         "jvm_abi_gen_plugin": provider_field(typing.Any, default = None),
@@ -34,7 +33,6 @@ KotlinToolchainInfo = provider(
         "kotlincd_jvm_args_target": provider_field(typing.Any, default = None),
         "kotlincd_main_class": provider_field(typing.Any, default = None),
         "kotlincd_worker": provider_field(typing.Any, default = None),
-        "qpld_dotslash": provider_field(typing.Any, default = None),
         "should_use_compilation_tracer": provider_field(typing.Any, default = None),
         "track_class_usage_plugin": provider_field(typing.Any, default = None),
     },
