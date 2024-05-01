@@ -12,5 +12,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
 pub trait ArtifactDyn: Send + Sync + 'static {
     fn resolve_path(&self, fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf>;
-    fn is_source(&self) -> bool;
+    /// Build artifacts and source artifacts from external cells require materialization. Other
+    /// source artifacts do not.
+    fn requires_materialization(&self, fs: &ArtifactFs) -> bool;
 }

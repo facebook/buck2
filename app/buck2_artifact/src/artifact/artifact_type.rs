@@ -180,8 +180,16 @@ impl ArtifactDyn for Artifact {
         self.get_path().resolve(fs)
     }
 
-    fn is_source(&self) -> bool {
-        self.is_source()
+    fn requires_materialization(&self, fs: &ArtifactFs) -> bool {
+        let Some(source_artifact) = self.get_source() else {
+            return true;
+        };
+        let path = source_artifact.get_path();
+        fs.cell_resolver()
+            .get(path.package().cell_name())
+            .unwrap()
+            .external()
+            .is_some()
     }
 }
 

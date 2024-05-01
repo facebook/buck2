@@ -831,7 +831,7 @@ pub async fn materialize_inputs(
         match input {
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, _) in group.iter() {
-                    if !artifact.is_source() {
+                    if artifact.requires_materialization(artifact_fs) {
                         paths.push(artifact.resolve_path(artifact_fs)?);
                     }
                 }
@@ -897,7 +897,7 @@ async fn check_inputs(
                 match input {
                     CommandExecutionInput::Artifact(group) => {
                         for (artifact, _) in group.iter() {
-                            if !artifact.is_source() {
+                            if artifact.requires_materialization(artifact_fs) {
                                 let path = artifact.resolve_path(artifact_fs)?;
                                 let abs_path = artifact_fs.fs().resolve(&path);
 
