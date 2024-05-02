@@ -15,6 +15,15 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 #[allow(unused_extern_crates)]
 #[allow(clippy::extra_unused_lifetimes)]
 mod explain_generated;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::environment::QueryTarget;
 use flatbuffers::FlatBufferBuilder;
@@ -85,10 +94,40 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
             .collect(),
     );
 
+    // internal attrs
+    let default_target_platform = node.map_attr(DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD, |attr| {
+        attr.and_then(|a| optional_string(a).map(|v| builder.create_shared_string(&v)))
+    });
+    let target_compatible_with = list_of_strings_to_fbs(
+        &mut builder,
+        list_of_strings_attr(node, TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
+    );
+    let compatible_with = list_of_strings_to_fbs(
+        &mut builder,
+        list_of_strings_attr(node, LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
+    );
+    let exec_compatible_with = list_of_strings_to_fbs(
+        &mut builder,
+        list_of_strings_attr(node, EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
+    );
+    let visibility = list_of_strings_to_fbs(
+        &mut builder,
+        list_of_strings_attr(node, VISIBILITY_ATTRIBUTE_FIELD),
+    );
+    let within_view = list_of_strings_to_fbs(
+        &mut builder,
+        list_of_strings_attr(node, WITHIN_VIEW_ATTRIBUTE_FIELD),
+    );
+    let tests = list_of_strings_to_fbs(
+        &mut builder,
+        list_of_strings_attr(node, TESTS_ATTRIBUTE_FIELD),
+    );
+
     // TODO iguridi: fill in other fields
     let target = fbs::ConfiguredTargetNode::create(
         &mut builder,
         &fbs::ConfiguredTargetNodeArgs {
+            // special attrs
             configured_target_label: Some(label),
             name: Some(name),
             type_: Some(type_),
@@ -98,13 +137,14 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
             target_configuration: Some(target_configuration),
             execution_platform: Some(execution_platform),
             plugins,
-            default_target_platform: None,
-            target_compatible_with: None,
-            compatible_with: None,
-            exec_compatible_with: None,
-            visibility: None,
-            within_view: None,
-            tests: None,
+            // internal attrs
+            default_target_platform,
+            target_compatible_with,
+            compatible_with,
+            exec_compatible_with,
+            visibility,
+            within_view,
+            tests,
             attrs: None,
         },
     );
@@ -120,6 +160,17 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
     Ok(builder)
 }
 
+fn list_of_strings_attr(node: &ConfiguredTargetNode, attr_name: &str) -> Vec<String> {
+    // Only works on attributes that are lists of strings
+    node.map_attr(attr_name, |attr| {
+        attr.and_then(|a| a.unpack_list())
+            .into_iter()
+            .flatten()
+            .filter_map(optional_string)
+            .collect::<Vec<String>>()
+    })
+}
+
 fn list_of_strings_to_fbs<'a>(
     builder: &'_ mut FlatBufferBuilder<'static>,
     list: Vec<String>,
@@ -129,6 +180,14 @@ fn list_of_strings_to_fbs<'a>(
         .map(|v| builder.create_shared_string(&v))
         .collect::<Vec<WIPOffset<&str>>>();
     Some(builder.create_vector(&list))
+}
+
+fn optional_string(attr: &ConfiguredAttr) -> Option<String> {
+    match attr {
+        ConfiguredAttr::None => None,
+        ConfiguredAttr::String(_v) => Some(attr.to_owned().as_display_no_ctx().to_string()),
+        _ => None, // TODO iguridi: support other types
+    }
 }
 
 #[cfg(test)]
@@ -174,7 +233,7 @@ mod tests {
         let build = flatbuffers::root::<Build>(fbs).unwrap();
         let target = build.targets().unwrap().get(0);
 
-        // Assert contents
+        // special attrs
         assert_eq!(
             target.configured_target_label(),
             Some("cell//pkg:foo (<testing>#2c29d96c65b4379a)")
@@ -187,5 +246,13 @@ mod tests {
         assert_eq!(target.execution_platform(), Some("cell//pkg:bar"));
         assert_eq!(target.deps().unwrap().is_empty(), true);
         assert_eq!(target.plugins().unwrap().is_empty(), true);
+        // internal attrs
+        assert_eq!(target.default_target_platform(), None);
+        assert!(target.target_compatible_with().unwrap().is_empty());
+        assert!(target.compatible_with().unwrap().is_empty());
+        assert!(target.exec_compatible_with().unwrap().is_empty());
+        assert!(target.visibility().unwrap().is_empty());
+        assert!(target.within_view().unwrap().is_empty());
+        assert!(target.tests().unwrap().is_empty());
     }
 }
