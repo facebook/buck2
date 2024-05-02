@@ -276,7 +276,6 @@ def compile_swift(
         headers = [exported_swift_header],
         modular_args = modulemap_pp_info.modular_args,
         relative_args = CPreprocessorArgs(args = modulemap_pp_info.relative_args.args),
-        absolute_args = CPreprocessorArgs(args = modulemap_pp_info.absolute_args.args),
         modulemap_path = modulemap_pp_info.modulemap_path,
     )
 

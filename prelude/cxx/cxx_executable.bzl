@@ -24,10 +24,6 @@ load(
     "apple_get_link_info_by_deduping_link_infos",
 )
 load(
-    "@prelude//apple:xcode.bzl",
-    "get_project_root_file",
-)
-load(
     "@prelude//cxx:cxx_bolt.bzl",
     "cxx_use_bolt",
 )
@@ -191,14 +187,11 @@ CxxExecutableOutput = record(
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
-    project_root_file = get_project_root_file(ctx)
-
     # Gather preprocessor inputs.
     preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
-        project_root_file = project_root_file,
         raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = impl_params.extra_preprocessors,
         non_exported_deps = preprocessor_deps,

@@ -312,7 +312,6 @@ def create_compile_cmds(
     )
 
     headers_tag = ctx.actions.artifact_tag()
-    abs_headers_tag = ctx.actions.artifact_tag()  # This headers tag is just for convenience use in _mk_argsfile and is otherwise unused.
 
     src_compile_cmds = []
     hdr_compile_cmds = []
@@ -326,7 +325,7 @@ def create_compile_cmds(
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(ctx, impl_params, pre, headers_tag, abs_headers_tag, ext)
+        cmd = _generate_base_compile_command(ctx, impl_params, pre, headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
@@ -724,7 +723,6 @@ def _generate_base_compile_command(
         impl_params: CxxRuleConstructorParams,
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
-        abs_headers_tag: ArtifactTag,
         ext: CxxExtension) -> _CxxCompileCommand:
     """
     Generate a common part of a compile command that is shared by all sources
@@ -748,7 +746,6 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
-    abs_headers_tag = abs_headers_tag  # Cleanup
     argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, headers_tag, False)
     xcode_argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, headers_tag, True)
 

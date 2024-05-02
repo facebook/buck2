@@ -68,7 +68,3 @@ def _get_attribute_with_output(ctx: AnalysisContext, attr_name: str) -> [Depende
             # So, an empty `DefaultInfo` basically signifies that there's no xctoolchain.
             return dep
     return None
-
-def get_project_root_file(ctx) -> Artifact:
-    content = cmd_args(ctx.label.project_root)
-    return ctx.actions.write("project_root", content, absolute = True)

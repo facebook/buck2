@@ -30,16 +30,9 @@ def main(argv):
     if len(mapping_args) % 2 != 0:
         parser.error("mappings must be dest-source pairs")
 
-    project_root = None
-    if args.project_root_file:
-        with open(args.project_root_file) as file:
-            project_root = file.read().strip()
-
     # Convert the hmap mappings passed on the command line to a dict.
     mappings = {}
     for src, dst in itertools.zip_longest(*([iter(mapping_args)] * 2)):
-        if project_root:
-            dst = f"{project_root}/{dst}"
         mappings[src] = dst
 
         # NOTE(agallagher): Add a mapping from the mapped path to itself. If

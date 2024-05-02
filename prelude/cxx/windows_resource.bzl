@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:xcode.bzl", "get_project_root_file")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load("@prelude//cxx:preprocessor.bzl", "cxx_merge_cpreprocessors", "cxx_private_preprocessor_info")
@@ -18,7 +17,6 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     (own_non_exported_preprocessor_info, _) = cxx_private_preprocessor_info(
         ctx = ctx,
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
-        project_root_file = get_project_root_file(ctx),
         raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = [],
         non_exported_deps = [],

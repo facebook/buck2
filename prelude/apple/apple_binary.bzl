@@ -238,8 +238,7 @@ def _get_bridging_header_flags(ctx: AnalysisContext) -> list[ArgLike]:
         header_map = {paths.join(h.namespace, h.name): h.artifact for h in headers}
 
         # We need to expose private headers to swift-compile action, in case something is imported to bridging header.
-        # TODO(chatatap): Handle absolute paths here.
-        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers", None)
+        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers")
         if header_root != None:
             private_headers_args = [cmd_args("-I"), header_root.include_path]
         else:
