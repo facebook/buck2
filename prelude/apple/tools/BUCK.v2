@@ -6,7 +6,7 @@ source_listing()
 
 apple_tools(
     name = "apple-tools",
-    adhoc_codesign_tool = None # @oss-enable
+    adhoc_codesign_tool = None, # @oss-enable
     # @oss-disable: adhoc_codesign_tool = "prelude//apple/tools/meta_only/codesign_rust:adhoc-signer", 
     assemble_bundle = "prelude//apple/tools/bundling:assemble_bundle",
     dry_codesign_tool = ":dry_codesign_tool",
