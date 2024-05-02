@@ -6,6 +6,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-strict
+
 """
 Creates a Python Source DB JSON file containing both a rule's immediate sources
 and the sources of all transitive dependencies (e.g. for use with Pyre).
