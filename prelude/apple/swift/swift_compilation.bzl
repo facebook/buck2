@@ -450,8 +450,8 @@ def _compile_with_argsfile(
         args_without_file_prefix_args = shared_flags,
     )
 
-    # Swift correctly handles relative paths and we can utilize the relative argsfile for absolute paths.
-    return CompileArgsfiles(relative = {extension: relative_argsfile}, absolute = {extension: relative_argsfile})
+    # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
+    return CompileArgsfiles(relative = {extension: relative_argsfile}, xcode = {extension: relative_argsfile})
 
 def _get_shared_flags(
         ctx: AnalysisContext,

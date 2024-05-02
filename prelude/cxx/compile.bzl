@@ -108,8 +108,8 @@ _CxxCompileCommand = record(
     base_compile_cmd = field(cmd_args),
     # The argsfile of arguments from the rule and it's dependencies.
     argsfile = field(CompileArgsfile),
-    # Similar to the argsfile above but with absolute paths.
-    abs_argsfile = field(CompileArgsfile),
+    # The argsfile to use for Xcode integration.
+    xcode_argsfile = field(CompileArgsfile),
     headers_dep_files = field([_HeadersDepFiles, None]),
     compiler_type = field(str),
     # The action category
@@ -155,7 +155,7 @@ CxxCompileOutput = record(
     clang_trace = field(Artifact | None, None),
 )
 
-_ABSOLUTE_ARGSFILE_SUBSTITUTIONS = [
+_XCODE_ARG_SUBSTITUTION = [
     (regex("-filter-error=.+"), "-fcolor-diagnostics"),
     (regex("-filter-ignore=.+"), "-fcolor-diagnostics"),
     (regex("-filter-warning=.+"), "-fcolor-diagnostics"),
@@ -318,7 +318,7 @@ def create_compile_cmds(
     hdr_compile_cmds = []
     cxx_compile_cmd_by_ext = {}  # type: dict[CxxExtension, _CxxCompileCommand]
     argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
-    abs_argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
+    xcode_argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
 
     src_extensions = collect_source_extensions(srcs_with_flags, extension_for_plain_headers)
 
@@ -329,7 +329,7 @@ def create_compile_cmds(
         cmd = _generate_base_compile_command(ctx, impl_params, pre, headers_tag, abs_headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
-        abs_argsfile_by_ext[ext.value] = cmd.abs_argsfile
+        xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
 
     for src in srcs_with_flags:
         src_args = []
@@ -351,13 +351,13 @@ def create_compile_cmds(
             src_compile_cmds.append(src_compile_command)
 
     argsfile_by_ext.update(impl_params.additional.argsfiles.relative)
-    abs_argsfile_by_ext.update(impl_params.additional.argsfiles.absolute)
+    xcode_argsfile_by_ext.update(impl_params.additional.argsfiles.xcode)
 
     return CxxCompileCommandOutput(
         src_compile_cmds = src_compile_cmds,
         argsfiles = CompileArgsfiles(
             relative = argsfile_by_ext,
-            absolute = abs_argsfile_by_ext,
+            xcode = xcode_argsfile_by_ext,
         ),
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
@@ -645,10 +645,7 @@ def _mk_argsfile(
 
     _add_compiler_info_flags(ctx, compiler_info, ext, args)
 
-    if is_xcode_argsfile:
-        args.add(preprocessor.set.project_as_args("abs_args"))
-    else:
-        args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
+    args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
     # Different preprocessors will contain whether to use modules,
     # and the modulemap to use, so we need to get the final outcome.
@@ -672,22 +669,17 @@ def _mk_argsfile(
 
     # Put file_prefix_args in argsfile directly, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
+    args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
+
     if is_xcode_argsfile:
-        args.add(cmd_args(preprocessor.set.project_as_args("abs_file_prefix_args")))
-
-        # HACK: Replace Xcode clang incompatible flags with compatible ones.
-        # TODO: Refactor this to be a true Xcode argsfile generating flow.
-        for re, sub in _ABSOLUTE_ARGSFILE_SUBSTITUTIONS:
+        for re, sub in _XCODE_ARG_SUBSTITUTION:
             args.replace_regex(re, sub)
+        file_args = args
     else:
-        args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
-
-    file_args = args
-    if not is_xcode_argsfile:
         file_args = cmd_args(args, quote = "shell")
 
     file_name = ext.value + ("-xcode.argsfile" if is_xcode_argsfile else ".argsfile")
-    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = is_xcode_argsfile)
+    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
 
     input_args = [args]
 
@@ -756,14 +748,15 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
+    abs_headers_tag = abs_headers_tag  # Cleanup
     argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, headers_tag, False)
-    abs_argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, abs_headers_tag, True)
+    xcode_argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, headers_tag, True)
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
     return _CxxCompileCommand(
         base_compile_cmd = base_compile_cmd,
         argsfile = argsfile,
-        abs_argsfile = abs_argsfile,
+        xcode_argsfile = xcode_argsfile,
         headers_dep_files = headers_dep_files,
         compiler_type = compiler_info.compiler_type,
         category = category,
