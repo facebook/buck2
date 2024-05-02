@@ -97,30 +97,24 @@ def create_annotation_processor_properties(
         annotation_processor_params = annotation_processor_params,
     )
 
-def create_ksp_annotation_processor_properties(ctx: AnalysisContext, plugins: list[Dependency]) -> AnnotationProcessorProperties:
-    ap_processors = []
-    ap_processor_deps = []
+def create_ksp_annotation_processor_properties(plugins: list[Dependency]) -> AnnotationProcessorProperties:
+    annotation_processors = []
 
     # APs derived from `plugins` attribute
     for ap_plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("ksp_annotation_processor"):
-            ap_processors += ap_plugin.processors
-            if ap_plugin.deps:
-                ap_processor_deps.append(ap_plugin.deps)
-
-    if not ap_processors:
-        return AnnotationProcessorProperties(annotation_processors = [], annotation_processor_params = [])
+            annotation_processors.append(AnnotationProcessor(
+                affects_abi = ap_plugin.affects_abi,
+                supports_source_only_abi = ap_plugin.supports_source_only_abi,
+                processors = ap_plugin.processors,
+                deps = ap_plugin.deps,
+                isolate_class_loader = ap_plugin.isolate_class_loader,
+            ))
 
     return AnnotationProcessorProperties(
-        annotation_processors = [AnnotationProcessor(
-            processors = dedupe(ap_processors),
-            deps = ctx.actions.tset(JavaPackagingDepTSet, children = ap_processor_deps) if ap_processor_deps else None,
-            affects_abi = True,
-            supports_source_only_abi = False,
-            isolate_class_loader = False,
-        )],
+        annotation_processors = annotation_processors,
         annotation_processor_params = [],
     )
 

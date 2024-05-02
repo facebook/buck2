@@ -310,7 +310,7 @@ def build_kotlin_library(
             ctx.attrs.annotation_processor_params,
             ctx.attrs.annotation_processor_deps,
         )
-        ksp_annotation_processor_properties = create_ksp_annotation_processor_properties(ctx, ctx.attrs.plugins)
+        ksp_annotation_processor_properties = create_ksp_annotation_processor_properties(ctx.attrs.plugins)
 
         kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
         if kotlin_toolchain.kotlinc_protocol == "classic":
