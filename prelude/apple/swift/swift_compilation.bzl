@@ -301,7 +301,7 @@ def compile_swift(
         argsfiles = object_output.argsfiles,
         swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
         clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers),
-        compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.absolute[SWIFT_EXTENSION]),
+        compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
     ), swift_interface_info)
 
