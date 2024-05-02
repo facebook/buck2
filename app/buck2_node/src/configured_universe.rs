@@ -278,6 +278,7 @@ mod tests {
     use buck2_core::configuration::bound_label::BoundConfigurationLabel;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::configuration::hash::ConfigurationHash;
+    use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::package::PackageLabel;
     use buck2_core::pattern::pattern_type::ConfigurationPredicate;
     use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -326,6 +327,7 @@ mod tests {
             CqueryUniverse::build(&TargetSet::from_iter([ConfiguredTargetNode::testing_new(
                 target_label.dupe(),
                 "idris_library",
+                ExecutionPlatformResolution::new(None, Vec::new()),
             )]))
             .unwrap();
         let provider_label = ConfiguredProvidersLabel::new(target_label, providers_name());

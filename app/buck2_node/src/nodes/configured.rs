@@ -196,14 +196,17 @@ impl Debug for ConfiguredTargetNodeData {
 
 impl ConfiguredTargetNode {
     /// Creates a minimal ConfiguredTargetNode. Some operations may unexpectedly fail.
-    pub fn testing_new(name: ConfiguredTargetLabel, rule_type: &str) -> Self {
+    pub fn testing_new(
+        name: ConfiguredTargetLabel,
+        rule_type: &str,
+        execution_platform_resolution: ExecutionPlatformResolution,
+    ) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
 
         let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
             import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
             name: rule_type.to_owned(),
         }));
-        let execution_platform_resolution = ExecutionPlatformResolution::new(None, Vec::new());
 
         Self::new(
             name.dupe(),

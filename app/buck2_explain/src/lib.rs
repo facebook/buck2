@@ -102,6 +102,7 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> FlatBufferBuilder<'static> {
 #[cfg(test)]
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::target::label::label::TargetLabel;
 
     use super::*;
@@ -113,7 +114,11 @@ mod tests {
             let target_label = TargetLabel::testing_parse("cell//pkg:foo");
             let configured_target_label = target_label.configure(ConfigurationData::testing_new());
 
-            let target = ConfiguredTargetNode::testing_new(configured_target_label, "foo_lib");
+            let target = ConfiguredTargetNode::testing_new(
+                configured_target_label,
+                "foo_lib",
+                ExecutionPlatformResolution::new(None, Vec::new()),
+            );
             vec![target]
         };
 

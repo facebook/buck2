@@ -30,6 +30,7 @@ use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::target::label::label::TargetLabel;
@@ -115,7 +116,11 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
         .mock_and_return(
             configured_node_key,
             Ok(MaybeCompatible::Compatible(
-                ConfiguredTargetNode::testing_new(target.dupe(), "foo_lib"),
+                ConfiguredTargetNode::testing_new(
+                    target.dupe(),
+                    "foo_lib",
+                    ExecutionPlatformResolution::new(None, Vec::new()),
+                ),
             )),
         );
 
@@ -208,7 +213,11 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         .mock_and_return(
             configured_node_key,
             Ok(MaybeCompatible::Compatible(
-                ConfiguredTargetNode::testing_new(target.dupe(), "foo_lib"),
+                ConfiguredTargetNode::testing_new(
+                    target.dupe(),
+                    "foo_lib",
+                    ExecutionPlatformResolution::new(None, Vec::new()),
+                ),
             )),
         );
 
