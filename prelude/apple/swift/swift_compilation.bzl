@@ -11,8 +11,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//:paths.bzl", "paths")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
@@ -71,12 +70,8 @@ load(
     "SwiftToolchainInfo",
 )
 
-# {"module_name": [exported_headers]}, used for Swift header post processing
-ExportedHeadersTSet = transitive_set()
-
 SwiftDependencyInfo = provider(fields = {
     "debug_info_tset": provider_field(ArtifactTSet),
-    "exported_headers": provider_field(ExportedHeadersTSet),
     # Includes modules through exported_deps, used for compilation
     "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
 })
@@ -265,12 +260,7 @@ def compile_swift(
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
 
-    if toolchain.can_toolchain_emit_obj_c_header_textually:
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_symbols)
-    else:
-        unprocessed_header = ctx.actions.declare_output(module_name + "-SwiftUnprocessed.h")
-        _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, unprocessed_header, output_symbols)
-        _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
+    _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_symbols)
 
     object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
 
@@ -305,7 +295,7 @@ def compile_swift(
         object_files = object_output.object_files,
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
-        dependency_info = get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule, deps_providers),
+        dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, deps_providers),
         pre = pre,
         exported_pre = exported_pp_info,
         argsfiles = object_output.argsfiles,
@@ -314,30 +304,6 @@ def compile_swift(
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.absolute[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
     ), swift_interface_info)
-
-# Swift headers are postprocessed to make them compatible with Objective-C
-# compilation that does not use -fmodules. This is a workaround for the bad
-# performance of -fmodules without Explicit Modules, once Explicit Modules is
-# supported, this postprocessing should be removed.
-def _perform_swift_postprocessing(
-        ctx: AnalysisContext,
-        module_name: str,
-        unprocessed_header: Artifact,
-        output_header: Artifact):
-    transitive_exported_headers = {
-        module: module_exported_headers
-        for exported_headers_map in _get_exported_headers_tset(ctx).traverse()
-        if exported_headers_map
-        for module, module_exported_headers in exported_headers_map.items()
-    }
-    deps_json = ctx.actions.write_json(module_name + "-Deps.json", transitive_exported_headers)
-    postprocess_cmd = cmd_args(ctx.attrs._apple_tools[AppleToolsInfo].swift_objc_header_postprocess)
-    postprocess_cmd.add([
-        unprocessed_header,
-        deps_json,
-        output_header.as_output(),
-    ])
-    ctx.actions.run(postprocess_cmd, category = "swift_objc_header_postprocess")
 
 # We use separate actions for swiftmodule and object file output. This
 # improves build parallelism at the cost of duplicated work, but by disabling
@@ -721,17 +687,6 @@ def _get_external_debug_info_tsets(deps: list[Dependency]) -> list[ArtifactTSet]
         if SwiftDependencyInfo in d
     ]
 
-def _get_exported_headers_tset(ctx: AnalysisContext, exported_headers: [list[str], None] = None) -> ExportedHeadersTSet:
-    return ctx.actions.tset(
-        ExportedHeadersTSet,
-        value = {get_module_name(ctx): exported_headers} if exported_headers else None,
-        children = [
-            dep.exported_headers
-            for dep in [x.get(SwiftDependencyInfo) for x in _exported_deps(ctx)]
-            if dep and dep.exported_headers
-        ],
-    )
-
 def get_swift_pcm_uncompile_info(
         ctx: AnalysisContext,
         propagated_exported_preprocessor_info: [CPreprocessorInfo, None],
@@ -752,17 +707,9 @@ def get_swift_pcm_uncompile_info(
 
 def get_swift_dependency_info(
         ctx: AnalysisContext,
-        exported_pre: [CPreprocessor, None],
         output_module: Artifact | None,
         deps_providers: list) -> SwiftDependencyInfo:
     exported_deps = _exported_deps(ctx)
-
-    # We only need to pass up the exported_headers for Swift header post-processing.
-    # If the toolchain can emit textual imports already then we skip the extra work.
-    exported_headers = []
-    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.can_toolchain_emit_obj_c_header_textually:
-        exported_headers = [_header_basename(header) for header in ctx.attrs.exported_headers]
-        exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
 
     # We pass through the SDK swiftmodules here to match Buck 1 behaviour. This is
     # pretty loose, but it matches Buck 1 behavior so cannot be improved until
@@ -788,15 +735,8 @@ def get_swift_dependency_info(
 
     return SwiftDependencyInfo(
         debug_info_tset = debug_info_tset,
-        exported_headers = _get_exported_headers_tset(ctx, exported_headers),
         exported_swiftmodules = exported_swiftmodules,
     )
-
-def _header_basename(header: [Artifact, str]) -> str:
-    if type(header) == type(""):
-        return paths.basename(header)
-    else:
-        return header.basename
 
 def uses_explicit_modules(ctx: AnalysisContext) -> bool:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info

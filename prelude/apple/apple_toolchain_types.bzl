@@ -57,7 +57,6 @@ AppleToolsInfo = provider(
         "ipa_package_maker": provider_field(RunInfo),
         "make_modulemap": provider_field(RunInfo),
         "make_vfsoverlay": provider_field(RunInfo),
-        "swift_objc_header_postprocess": provider_field(RunInfo),
         "xcframework_maker": provider_field(RunInfo),
     },
 )

@@ -16,7 +16,6 @@ apple_tools(
     make_vfsoverlay = ":make_vfsoverlay",
     selective_debugging_scrubber = "prelude//apple/tools/selective_debugging:tool",
     split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
-    swift_objc_header_postprocess = ":swift_objc_header_postprocess",
     visibility = ["PUBLIC"],
     xcframework_maker = ":xcframework_maker",
 )
@@ -87,12 +86,6 @@ command_alias(
 export_file(
     name = "swift_exec.sh",
     src = "swift_exec.sh",
-)
-
-python_bootstrap_binary(
-    name = "swift_objc_header_postprocess",
-    main = "swift_objc_header_postprocess.py",
-    visibility = ["PUBLIC"],
 )
 
 python_bootstrap_binary(
