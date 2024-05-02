@@ -43,12 +43,12 @@ table ConfiguredTargetNode {
     tests: [string];
     // special attrs
     type: string;
-    deps: string;
+    deps: [string];
     package: string;
     oncall: string;
     target_configuration: string;
     execution_platform: string;
-    plugins: string;
+    plugins: [string];
     // user attrs
     attrs: [Attribute]; // TODO iguridi
     // extras

@@ -22,6 +22,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
@@ -485,6 +486,16 @@ impl ConfiguredTargetNode {
             None => self,
             Some(t) => t,
         }
+    }
+
+    #[inline]
+    pub fn target_configuration(&self) -> &ConfigurationData {
+        self.as_ref().0.get().label.cfg()
+    }
+
+    #[inline]
+    pub fn execution_platform(&self) -> anyhow::Result<&ExecutionPlatform> {
+        self.as_ref().execution_platform_resolution().platform()
     }
 
     #[inline]
