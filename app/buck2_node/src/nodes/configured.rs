@@ -15,7 +15,6 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
@@ -54,7 +53,6 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::ResolvedConfiguration;
@@ -306,21 +304,6 @@ impl ConfiguredTargetNode {
         static ATTRIBUTE: Lazy<Attribute> =
             Lazy::new(|| Attribute::new(None, "", AttrType::configured_dep(ProviderIdSet::EMPTY)));
         &ATTRIBUTE
-    }
-
-    pub fn target_compatible_with(
-        &self,
-    ) -> impl Iterator<Item = anyhow::Result<ConfigurationSettingKey>> + '_ {
-        self.get(
-            TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-            AttrInspectOptions::All,
-        )
-        .into_iter()
-        .flat_map(|a| {
-            Self::attr_as_target_compatible_with(a.value).map(|a| {
-                a.with_context(|| format!("attribute `{}`", TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD))
-            })
-        })
     }
 
     pub fn attr_as_target_compatible_with(
