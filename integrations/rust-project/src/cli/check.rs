@@ -22,6 +22,8 @@ pub(crate) struct Check {
 
 impl Check {
     pub(crate) fn new(mode: Option<String>, use_clippy: bool, saved_file: PathBuf) -> Self {
+        let saved_file = saved_file.canonicalize().unwrap_or(saved_file);
+
         let mode = select_mode(mode.as_deref());
         let buck = buck::Buck::new(mode);
         Self {

@@ -213,7 +213,16 @@ impl Develop {
         let targets = match input {
             Input::Targets(targets) => targets,
             Input::Files(files) => {
-                let targets: FxHashMap<String, Vec<Target>> = self.resolve_file_owners(files)?;
+                let canonical_files = files
+                    .into_iter()
+                    .map(|p| match p.canonicalize() {
+                        Ok(path) => path,
+                        Err(_) => p,
+                    })
+                    .collect::<Vec<_>>();
+
+                let targets: FxHashMap<String, Vec<Target>> =
+                    self.resolve_file_owners(canonical_files)?;
                 targets
                     .values()
                     .into_iter()
