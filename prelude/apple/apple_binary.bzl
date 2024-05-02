@@ -100,7 +100,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + entitlements_link_flags(ctx) + extra_linker_output_flags
 
         framework_search_path_pre = CPreprocessor(
-            relative_args = CPreprocessorArgs(args = [framework_search_path_flags]),
+            args = CPreprocessorArgs(args = [framework_search_path_flags]),
         )
 
         swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, deps_providers)

@@ -145,7 +145,7 @@ def generate_exported_symbols(ctx: AnalysisContext, exported_headers: list[CHead
     ])
     args.add(cmd_args(compiler_info.preprocessor_flags, prepend = "-Xparser"))
     args.add(cmd_args(compiler_info.compiler_flags, prepend = "-Xparser"))
-    args.add(cmd_args(exported_preprocessor.relative_args.args, prepend = "-Xparser"))
+    args.add(cmd_args(exported_preprocessor.args.args, prepend = "-Xparser"))
     for ppinfo in transitive_preprocessor:
         args.add(cmd_args(ppinfo.set.project_as_args("args"), prepend = "-Xparser"))
         args.add(cmd_args(ppinfo.set.project_as_args("include_dirs"), prepend = "-Xparser"))

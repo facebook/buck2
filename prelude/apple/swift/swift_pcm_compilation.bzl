@@ -102,7 +102,7 @@ def _compiled_module_info(
     )
 
     clang_importer_args = cmd_args("-Xcc")
-    clang_importer_args.add(pcm_info.exported_preprocessor.relative_args.args)
+    clang_importer_args.add(pcm_info.exported_preprocessor.args.args)
     clang_importer_args.hidden(pcm_info.exported_preprocessor.modular_args)
 
     return SwiftCompiledModuleInfo(

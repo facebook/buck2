@@ -560,7 +560,7 @@ def _convert_python_library_to_executable(
         ]
         extra_preprocessors = []
         if ctx.attrs.par_style == "native":
-            extra_preprocessors.append(CPreprocessor(relative_args = CPreprocessorArgs(args = ["-DNATIVE_PAR_STYLE=1"])))
+            extra_preprocessors.append(CPreprocessor(args = CPreprocessorArgs(args = ["-DNATIVE_PAR_STYLE=1"])))
 
         # All deps inolved in the link.
         link_deps = (

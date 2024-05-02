@@ -308,7 +308,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         return providers
 
     framework_search_path_pre = CPreprocessor(
-        relative_args = CPreprocessorArgs(args = [framework_search_paths_flags]),
+        args = CPreprocessorArgs(args = [framework_search_paths_flags]),
     )
 
     validation_deps_outputs = get_validation_deps_outputs(ctx)

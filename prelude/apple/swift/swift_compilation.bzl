@@ -275,7 +275,7 @@ def compile_swift(
     exported_pp_info = CPreprocessor(
         headers = [exported_swift_header],
         modular_args = modulemap_pp_info.modular_args,
-        relative_args = CPreprocessorArgs(args = modulemap_pp_info.relative_args.args),
+        args = CPreprocessorArgs(args = modulemap_pp_info.args.args),
         modulemap_path = modulemap_pp_info.modulemap_path,
     )
 
@@ -441,7 +441,7 @@ def _compile_with_argsfile(
         no_outputs_cleanup = should_build_swift_incrementally(ctx, len(srcs)),
     )
 
-    relative_argsfile = CompileArgsfile(
+    argsfile = CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
         input_args = input_args,
@@ -450,7 +450,7 @@ def _compile_with_argsfile(
     )
 
     # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
-    return CompileArgsfiles(relative = {extension: relative_argsfile}, xcode = {extension: relative_argsfile})
+    return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile})
 
 def _get_shared_flags(
         ctx: AnalysisContext,
@@ -662,7 +662,7 @@ def _add_mixed_library_flags_to_cmd(
         # the debugger as they require absolute paths. Instead we will enforce
         # that mixed libraries do not have serialized debugging info and rely on
         # rdeps to serialize the correct paths.
-        for arg in objc_modulemap_pp_info.relative_args.args:
+        for arg in objc_modulemap_pp_info.args.args:
             cmd.add("-Xcc")
             cmd.add(arg)
 

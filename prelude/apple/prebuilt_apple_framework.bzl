@@ -63,7 +63,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
         inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
         providers.append(cxx_merge_cpreprocessors(
             ctx,
-            [CPreprocessor(relative_args = CPreprocessorArgs(args = ["-F", framework_dir]))],
+            [CPreprocessor(args = CPreprocessorArgs(args = ["-F", framework_dir]))],
             inherited_pp_info,
         ))
 

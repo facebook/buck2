@@ -347,7 +347,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     own_pp_info = CPreprocessor(
-        relative_args = CPreprocessorArgs(args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs])),
+        args = CPreprocessorArgs(args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs])),
     )
 
     return [

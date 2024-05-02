@@ -267,7 +267,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     args.extend(ctx.attrs.exported_preprocessor_flags)
     for inc_dir in ctx.attrs.include_dirs:
         args += ["-isystem", inc_dir]
-    preprocessor = CPreprocessor(relative_args = CPreprocessorArgs(args = args))
+    preprocessor = CPreprocessor(args = CPreprocessorArgs(args = args))
     inherited_pp_info = cxx_inherited_preprocessor_infos(exported_deps)
     providers.append(cxx_merge_cpreprocessors(ctx, [preprocessor], inherited_pp_info))
 

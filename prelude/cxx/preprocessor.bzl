@@ -45,7 +45,7 @@ CPreprocessorArgs = record(
 # Note: Any generic attributes are assumed to be relative.
 CPreprocessor = record(
     # Relative path args to be used for build operations.
-    relative_args = field(CPreprocessorArgs, CPreprocessorArgs()),
+    args = field(CPreprocessorArgs, CPreprocessorArgs()),
     # Header specs
     headers = field(list[CHeader], []),
     # Those should be mutually exclusive with normal headers as per documentation
@@ -66,7 +66,7 @@ CPreprocessor = record(
 def _cpreprocessor_args(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
-        args.add(pre.relative_args.args)
+        args.add(pre.args.args)
     return args
 
 def _cpreprocessor_modular_args(pres: list[CPreprocessor]):
@@ -78,7 +78,7 @@ def _cpreprocessor_modular_args(pres: list[CPreprocessor]):
 def _cpreprocessor_file_prefix_args(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
-        args.add(pre.relative_args.file_prefix_args)
+        args.add(pre.args.file_prefix_args)
     return args
 
 def _cpreprocessor_include_dirs(pres: list[CPreprocessor]):
@@ -212,14 +212,14 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
     include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
     system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
-    relative_args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors)
+    args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors)
 
     modular_args = []
     for pre in extra_preprocessors:
         modular_args.extend(pre.modular_args)
 
     return CPreprocessor(
-        relative_args = CPreprocessorArgs(args = relative_args.args, file_prefix_args = relative_args.file_prefix_args),
+        args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args),
         headers = exported_headers,
         raw_headers = raw_headers,
         include_dirs = include_dirs,
@@ -255,7 +255,7 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Art
 
     # Append any extra preprocessor info passed in via the constructor params
     for pre in extra_preprocessors:
-        args.extend(pre.relative_args.args)
+        args.extend(pre.args.args)
 
     return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args)
 
@@ -323,10 +323,10 @@ def _cxx_private_preprocessor_info(
     all_raw_headers.extend(raw_headers)
     include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
 
-    relative_args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers)
+    args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers)
 
     return CPreprocessor(
-        relative_args = CPreprocessorArgs(args = relative_args.args, file_prefix_args = relative_args.file_prefix_args),
+        args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args),
         headers = headers,
         raw_headers = all_raw_headers,
         include_dirs = include_dirs,

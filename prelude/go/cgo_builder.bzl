@@ -120,7 +120,7 @@ def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
     header_root = prepare_headers(ctx, header_map, "h_files-private-headers")
 
     return CPreprocessor(
-        relative_args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
+        args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
     )
 
 def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Artifact], c_files: list[Artifact], c_flags: list[str], cpp_flags: list[str]) -> (list[Artifact], list[Artifact], Artifact):
@@ -135,7 +135,7 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
     go_gen_srcs, c_gen_headers, c_gen_srcs, gen_dir = _cgo(ctx, cgo_files, [own_pre], inherited_pre, c_flags, cpp_flags)
 
     # Wrap the generated CGO C headers in a CPreprocessor object for compiling.
-    cgo_headers_pre = CPreprocessor(relative_args = CPreprocessorArgs(args = [
+    cgo_headers_pre = CPreprocessor(args = CPreprocessorArgs(args = [
         "-I",
         prepare_headers(
             ctx,

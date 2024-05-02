@@ -76,5 +76,5 @@ def get_min_deployment_version_target_preprocessor_flags(ctx: AnalysisContext) -
 
     args = cmd_args(min_version_flag)
     return [CPreprocessor(
-        relative_args = CPreprocessorArgs(args = [args]),
+        args = CPreprocessorArgs(args = [args]),
     )]
