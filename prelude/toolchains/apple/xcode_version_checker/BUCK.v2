@@ -1,11 +1,10 @@
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("build_infra")
 
 source_listing()
 
-fb_native.export_file(
+export_file(
     name = "xcode_version_checker",
     labels = ["buck2-only"],
     mode = "reference",
