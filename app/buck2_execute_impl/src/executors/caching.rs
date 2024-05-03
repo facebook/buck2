@@ -66,12 +66,6 @@ fn error_on_cache_upload() -> anyhow::Result<bool> {
     )
 }
 
-#[derive(Copy, Clone, Debug, Dupe, Eq, PartialEq)]
-enum CacheUploadSuccessful {
-    Yes,
-    No,
-}
-
 /// A PreparedCommandExecutor that will write to cache after invoking the inner executor
 pub struct CacheUploader {
     artifact_fs: ArtifactFs,
@@ -110,7 +104,7 @@ impl CacheUploader {
         action_digest_and_blobs: &ActionDigestAndBlobs,
         result: &CommandExecutionResult,
         error_on_cache_upload: bool,
-    ) -> anyhow::Result<CacheUploadSuccessful> {
+    ) -> anyhow::Result<CacheUploadOutcome> {
         tracing::debug!(
             "Uploading action result for `{}`",
             action_digest_and_blobs.action
@@ -137,7 +131,7 @@ impl CacheUploader {
         result: &CommandExecutionResult,
         dep_file_entry: DepFileEntry,
         error_on_cache_upload: bool,
-    ) -> anyhow::Result<CacheUploadSuccessful> {
+    ) -> anyhow::Result<CacheUploadOutcome> {
         tracing::debug!(
             "Uploading dep file entry for action `{}` with dep file key `{}`",
             action_digest_and_blobs.action,
@@ -174,7 +168,7 @@ impl CacheUploader {
         reason: buck2_data::CacheUploadReason,
         action_blobs: &ActionBlobs,
         error_on_cache_upload: bool,
-    ) -> anyhow::Result<CacheUploadSuccessful> {
+    ) -> anyhow::Result<CacheUploadOutcome> {
         let digest_str = digest.to_string();
         let output_bytes = result.calc_output_size_bytes();
 
@@ -189,7 +183,7 @@ impl CacheUploader {
                 let mut file_digests = Vec::new();
                 let mut tree_digests = Vec::new();
 
-                let res: std::result::Result<CacheUploadOutcome, anyhow::Error> = async {
+                let outcome = async {
                     if let Some(max_bytes) = self.max_bytes {
                         if output_bytes > max_bytes {
                             return Ok(CacheUploadOutcome::Rejected(
@@ -198,14 +192,8 @@ impl CacheUploader {
                         }
                     }
 
-                    if let Err(reason) = self
-                        .cache_upload_permission_checker
-                        .has_permission_to_upload_to_cache(self.re_use_case, &self.platform)
-                        .await?
-                    {
-                        return Ok(CacheUploadOutcome::Rejected(
-                            CacheUploadRejectionReason::PermissionDenied(reason),
-                        ));
+                    if let Err(rejected) = self.check_upload_permission().await? {
+                        return Ok(rejected);
                     }
 
                     // upload Action to CAS.
@@ -248,68 +236,43 @@ impl CacheUploader {
 
                     Ok(CacheUploadOutcome::Success)
                 }
-                .await;
+                .await
+                .unwrap_or_else(CacheUploadOutcome::Failed);
 
-                let (success, error, re_error_code) = match &res {
-                    Ok(CacheUploadOutcome::Success) => {
-                        tracing::info!("Cache upload for `{}` succeeded", digest_str);
-                        (CacheUploadSuccessful::Yes, String::new(), None)
-                    }
-                    Ok(CacheUploadOutcome::Rejected(reason)) => {
-                        tracing::info!("Cache upload for `{}` rejected: {:#}", digest_str, reason);
-                        let re_error_code = match reason {
-                            CacheUploadRejectionReason::SymlinkOutput
-                            | CacheUploadRejectionReason::OutputExceedsLimit { .. } => None,
-                            CacheUploadRejectionReason::PermissionDenied(_) => {
-                                Some(TCode::PERMISSION_DENIED.to_string())
-                            }
-                        };
-                        (
-                            CacheUploadSuccessful::No,
-                            format!("Rejected: {}", reason),
-                            re_error_code,
-                        )
-                    }
-                    Err(e) => {
-                        tracing::warn!("Cache upload for `{}` failed: {:#}", digest, e);
-                        (
-                            CacheUploadSuccessful::No,
-                            format!("{:#}", e),
-                            e.downcast_ref::<REClientError>()
-                                .map(|e| e.code.to_string()),
-                        )
-                    }
+                let cache_upload_end_event = buck2_data::CacheUploadEnd {
+                    key: Some(info.target.as_proto_action_key()),
+                    name: Some(info.target.as_proto_action_name()),
+                    action_digest: digest_str.clone(),
+                    success: outcome.uploaded(),
+                    error: outcome.error(),
+                    re_error_code: outcome.re_error_code(),
+                    file_digests: file_digests.into_map(|d| d.to_string()),
+                    tree_digests: tree_digests.into_map(|d| d.to_string()),
+                    output_bytes: Some(output_bytes),
+                    reason: reason.into(),
                 };
-
-                let result = match success {
-                    CacheUploadSuccessful::Yes => Ok(success),
-                    CacheUploadSuccessful::No => {
-                        if error_on_cache_upload {
-                            Err(anyhow::anyhow!("cache_upload_failed"))
-                        } else {
-                            Ok(success)
-                        }
-                    }
-                };
-
                 (
-                    result,
-                    Box::new(buck2_data::CacheUploadEnd {
-                        key: Some(info.target.as_proto_action_key()),
-                        name: Some(info.target.as_proto_action_name()),
-                        action_digest: digest_str.clone(),
-                        success: success == CacheUploadSuccessful::Yes,
-                        error,
-                        re_error_code,
-                        file_digests: file_digests.into_map(|d| d.to_string()),
-                        tree_digests: tree_digests.into_map(|d| d.to_string()),
-                        output_bytes: Some(output_bytes),
-                        reason: reason.into(),
-                    }),
+                    outcome.log_and_create_result(&digest_str, error_on_cache_upload),
+                    Box::new(cache_upload_end_event),
                 )
             },
         )
         .await
+    }
+
+    async fn check_upload_permission(&self) -> anyhow::Result<Result<(), CacheUploadOutcome>> {
+        let outcome = if let Err(reason) = self
+            .cache_upload_permission_checker
+            .has_permission_to_upload_to_cache(self.re_use_case, &self.platform)
+            .await?
+        {
+            Err(CacheUploadOutcome::Rejected(
+                CacheUploadRejectionReason::PermissionDenied(reason),
+            ))
+        } else {
+            Ok(())
+        };
+        Ok(outcome)
     }
 
     async fn upload_files_and_directories(
@@ -478,10 +441,67 @@ impl CacheUploader {
 }
 
 /// Whether we completed a cache upload.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum CacheUploadOutcome {
     Success,
     Rejected(CacheUploadRejectionReason),
+    Failed(anyhow::Error),
+}
+
+impl CacheUploadOutcome {
+    fn uploaded(&self) -> bool {
+        match self {
+            CacheUploadOutcome::Success => true,
+            _ => false,
+        }
+    }
+
+    fn error(&self) -> String {
+        match self {
+            CacheUploadOutcome::Success => String::new(),
+            CacheUploadOutcome::Rejected(reason) => format!("Rejected: {}", reason),
+            CacheUploadOutcome::Failed(e) => format!("{:#}", e),
+        }
+    }
+
+    fn re_error_code(&self) -> Option<String> {
+        match self {
+            CacheUploadOutcome::Success => None,
+            CacheUploadOutcome::Rejected(reason) => match reason {
+                CacheUploadRejectionReason::SymlinkOutput
+                | CacheUploadRejectionReason::OutputExceedsLimit { .. } => None,
+                CacheUploadRejectionReason::PermissionDenied(_) => {
+                    Some(TCode::PERMISSION_DENIED.to_string())
+                }
+            },
+            CacheUploadOutcome::Failed(e) => e
+                .downcast_ref::<REClientError>()
+                .map(|e| e.code.to_string()),
+        }
+    }
+
+    fn log_and_create_result(
+        self,
+        digest_str: &String,
+        error_on_cache_upload: bool,
+    ) -> anyhow::Result<CacheUploadOutcome> {
+        match &self {
+            CacheUploadOutcome::Success => {
+                tracing::info!("Cache upload for `{}` succeeded", digest_str);
+            }
+            CacheUploadOutcome::Rejected(reason) => {
+                tracing::info!("Cache upload for `{}` rejected: {:#}", digest_str, reason);
+            }
+            CacheUploadOutcome::Failed(e) => {
+                tracing::warn!("Cache upload for `{}` failed: {:#}", digest_str, e);
+            }
+        };
+        if !self.uploaded() && error_on_cache_upload {
+            Err(anyhow::anyhow!("cache_upload_failed"))
+        } else {
+            Ok(self)
+        }
+    }
 }
 
 /// A reason why we chose not to upload.
@@ -510,7 +530,7 @@ impl UploadCache for CacheUploader {
             // TODO(bobyf, torozco) should these be critical sections?
             self.upload_action_result(info, action_digest_and_blobs, res, error_on_cache_upload)
                 .await?
-                == CacheUploadSuccessful::Yes
+                .uploaded()
         } else {
             tracing::info!(
                 "Cache upload for `{}` not attempted",
@@ -521,8 +541,8 @@ impl UploadCache for CacheUploader {
 
         // Cache upload should only invoked for successful actions only. Double check here.
         let did_dep_file_cache_upload = match dep_file_entry {
-            Some(dep_file_entry) if res.was_success() => {
-                self.upload_dep_file_result(
+            Some(dep_file_entry) if res.was_success() => self
+                .upload_dep_file_result(
                     info,
                     action_digest_and_blobs,
                     res,
@@ -530,8 +550,7 @@ impl UploadCache for CacheUploader {
                     error_on_cache_upload,
                 )
                 .await?
-                    == CacheUploadSuccessful::Yes
-            }
+                .uploaded(),
             _ => {
                 tracing::info!(
                     "Dep file cache upload for `{}` not attempted",
