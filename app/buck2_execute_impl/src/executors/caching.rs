@@ -8,7 +8,6 @@
  */
 
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -59,7 +58,7 @@ use crate::executors::action_cache_upload_permission_checker::ActionCacheUploadP
 use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
-fn error_on_cache_unload() -> anyhow::Result<bool> {
+fn error_on_cache_upload() -> anyhow::Result<bool> {
     buck2_env!(
         "BUCK2_TEST_ERROR_ON_CACHE_UPLOAD",
         bool,
@@ -105,25 +104,6 @@ impl CacheUploader {
         }
     }
 
-    // Only return error on upload failure if we pass a flag
-    fn modify_upload_result(
-        digest: &dyn Display,
-        result: anyhow::Result<CacheUploadSuccessful>,
-        error_on_cache_upload: bool,
-    ) -> anyhow::Result<CacheUploadSuccessful> {
-        match result {
-            Err(e) => {
-                if error_on_cache_upload {
-                    Err(e).context("cache_upload")
-                } else {
-                    tracing::warn!("Cache upload for `{}` failed: {:#}", digest, e);
-                    Ok(CacheUploadSuccessful::No)
-                }
-            }
-            _ => result,
-        }
-    }
-
     async fn upload_action_result(
         &self,
         info: &CacheUploadInfo<'_>,
@@ -135,21 +115,16 @@ impl CacheUploader {
             "Uploading action result for `{}`",
             action_digest_and_blobs.action
         );
-        let result = self
-            .perform_cache_upload(
-                info,
-                result,
-                action_digest_and_blobs.action.dupe(),
-                vec![],
-                buck2_data::CacheUploadReason::LocalExecution,
-                &action_digest_and_blobs.blobs,
-            )
-            .await;
-        Self::modify_upload_result(
-            &action_digest_and_blobs.action,
+        self.perform_cache_upload(
+            info,
             result,
+            action_digest_and_blobs.action.dupe(),
+            vec![],
+            buck2_data::CacheUploadReason::LocalExecution,
+            &action_digest_and_blobs.blobs,
             error_on_cache_upload,
         )
+        .await
     }
 
     /// Upload an action result with additional information about dep files to the RE action cache.
@@ -174,18 +149,16 @@ impl CacheUploader {
             value: dep_file_entry.entry.encode_to_vec(),
             ..Default::default()
         };
-        let result = self
-            .perform_cache_upload(
-                info,
-                result,
-                digest_re,
-                vec![dep_file_tany],
-                buck2_data::CacheUploadReason::DepFile,
-                &action_digest_and_blobs.blobs,
-            )
-            .await;
-
-        Self::modify_upload_result(&dep_file_entry.key, result, error_on_cache_upload)
+        self.perform_cache_upload(
+            info,
+            result,
+            digest_re,
+            vec![dep_file_tany],
+            buck2_data::CacheUploadReason::DepFile,
+            &action_digest_and_blobs.blobs,
+            error_on_cache_upload,
+        )
+        .await
     }
 
     /// Upload an action result to the RE action cache, assuming conditions for the upload are met:
@@ -200,6 +173,7 @@ impl CacheUploader {
         metadata: Vec<TAny>,
         reason: buck2_data::CacheUploadReason,
         action_blobs: &ActionBlobs,
+        error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadSuccessful> {
         let digest_str = digest.to_string();
         let output_bytes = result.calc_output_size_bytes();
@@ -296,16 +270,30 @@ impl CacheUploader {
                             re_error_code,
                         )
                     }
-                    Err(e) => (
-                        CacheUploadSuccessful::No,
-                        format!("{:#}", e),
-                        e.downcast_ref::<REClientError>()
-                            .map(|e| e.code.to_string()),
-                    ),
+                    Err(e) => {
+                        tracing::warn!("Cache upload for `{}` failed: {:#}", digest, e);
+                        (
+                            CacheUploadSuccessful::No,
+                            format!("{:#}", e),
+                            e.downcast_ref::<REClientError>()
+                                .map(|e| e.code.to_string()),
+                        )
+                    }
+                };
+
+                let result = match success {
+                    CacheUploadSuccessful::Yes => Ok(success),
+                    CacheUploadSuccessful::No => {
+                        if error_on_cache_upload {
+                            Err(anyhow::anyhow!("cache_upload_failed"))
+                        } else {
+                            Ok(success)
+                        }
+                    }
                 };
 
                 (
-                    Ok(success),
+                    result,
                     Box::new(buck2_data::CacheUploadEnd {
                         key: Some(info.target.as_proto_action_key()),
                         name: Some(info.target.as_proto_action_name()),
@@ -516,7 +504,7 @@ impl UploadCache for CacheUploader {
         dep_file_entry: Option<DepFileEntry>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
-        let error_on_cache_upload = error_on_cache_unload().context("cache_upload")?;
+        let error_on_cache_upload = error_on_cache_upload().context("cache_upload")?;
 
         let did_cache_upload = if res.was_locally_executed() {
             // TODO(bobyf, torozco) should these be critical sections?
