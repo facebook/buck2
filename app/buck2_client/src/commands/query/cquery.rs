@@ -82,10 +82,7 @@ pub struct CqueryCommand {
         short = 'u',
         use_value_delimiter = true,
         help = "Comma separated list of targets at which to root the queryable universe.
-                This is useful since targets can exist in multiple configurations. While
-                this argument isn't required, it's recommended for most non-trivial queries.
-                In the absence of this argument, buck2 will use the target literals
-                in your cquery expression as the argument to this."
+                This is useful since targets can exist in multiple configurations."
     )]
     target_universe: Vec<String>,
 

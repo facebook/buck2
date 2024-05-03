@@ -69,9 +69,14 @@ impl TargetCfgOptions {
 #[clap(next_help_heading = HELP_HEADING)]
 pub struct TargetCfgWithUniverseOptions {
     /// Comma separated list of targets to construct a configured target universe.
+    ///
     /// When the option is specified, command targets are be resolved in this universe.
-    /// Additionally, `--target-platforms=` and `--modifier=` flags
-    /// are be used to configure the universe targets, not the command targets.
+    /// Additionally, `--target-platforms=` and `--modifier=` flags are be used to configure the
+    /// universe targets, not the command targets.
+    ///
+    /// This argument is particularly recommended on most non-trivial cqueries. In the absence of
+    /// this argument, buck2 will use the target literals in your cquery expression as the value for
+    /// this argument, which may not be what you want.
     #[clap(long, short = 'u', use_value_delimiter = true, verbatim_doc_comment)]
     pub target_universe: Vec<String>,
 
