@@ -352,7 +352,7 @@ def _make_py_package_impl(
         other_outputs_prefix = symlink_tree_path.short_path if symlink_tree_path != None else None,
         hidden_resources = hidden_resources,
         sub_targets = sub_targets,
-        run_cmd = cmd_args(run_args).hidden(runtime_files + hidden_resources),
+        run_cmd = cmd_args(run_args).hidden(runtime_files + hidden_resources, python_toolchain.interpreter),
     )
 
 def _debuginfo_subtarget(
