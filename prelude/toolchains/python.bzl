@@ -57,7 +57,10 @@ def _system_python_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         PythonToolchainInfo(
+            binary_linker_flags = ctx.attrs.binary_linker_flags,
+            linker_flags = ctx.attrs.linker_flags,
             fail_with_message = ctx.attrs.fail_with_message[RunInfo],
+            generate_static_extension_info = ctx.attrs.generate_static_extension_info,
             make_source_db = ctx.attrs.make_source_db[RunInfo],
             make_source_db_no_deps = ctx.attrs.make_source_db_no_deps[RunInfo],
             host_interpreter = RunInfo(args = [ctx.attrs.interpreter]),
@@ -76,8 +79,11 @@ def _system_python_toolchain_impl(ctx):
 system_python_toolchain = rule(
     impl = _system_python_toolchain_impl,
     attrs = {
+        "binary_linker_flags": attrs.default_only(attrs.list(attrs.arg(), default = [])),
         "fail_with_message": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:fail_with_message")),
+        "generate_static_extension_info": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:generate_static_extension_info")),
         "interpreter": attrs.string(default = _INTERPRETER),
+        "linker_flags": attrs.default_only(attrs.list(attrs.arg(), default = [])),
         "make_py_package_inplace": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_py_package_inplace")),
         "make_py_package_modules": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_py_package_modules")),
         "make_source_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:make_source_db")),
