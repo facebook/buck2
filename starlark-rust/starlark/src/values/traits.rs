@@ -671,14 +671,15 @@ pub trait StarlarkValue<'v>:
         ValueError::unsupported(self, "-")
     }
 
-    /// Add with the arguments the other way around. Should return [`None`]
-    /// to fall through to normal add.
+    /// Add with the arguments the other way around.
+    /// Normal `add` should return `None` in order for it to be evaluated.
     fn radd(&self, _lhs: Value<'v>, _heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
         None
     }
 
     /// Add `other` to the current value. Pass both self and
-    /// the Value form of self as original.
+    /// the Value form of self as original. Should return [`None`]
+    /// to fall through to `radd`.
     ///
     /// # Examples
     ///

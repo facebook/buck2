@@ -689,8 +689,8 @@ impl<'v> Value<'v> {
         self.vtable().type_starlark_repr()
     }
 
-    /// Add two [`Value`]s together. Will first try using [`radd`](StarlarkValue::radd),
-    /// before falling back to [`add`](StarlarkValue::add).
+    /// Add two [`Value`]s together. Will first try using [`add`](StarlarkValue::add),
+    /// before falling back to [`radd`](StarlarkValue::radd).
     pub fn add(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // Fast special case for ints.
         if let Some(ls) = self.unpack_inline_int() {
