@@ -32,7 +32,7 @@ registration_spec = RuleRegistrationSpec(
     name = "apple_tools",
     impl = _impl,
     attrs = {
-        "adhoc_codesign_tool": attrs.dep(providers = [RunInfo]),
+        "adhoc_codesign_tool": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "assemble_bundle": attrs.dep(providers = [RunInfo]),
         "dry_codesign_tool": attrs.dep(providers = [RunInfo]),
         "info_plist_processor": attrs.dep(providers = [RunInfo]),
