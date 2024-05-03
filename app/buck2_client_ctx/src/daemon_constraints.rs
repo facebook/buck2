@@ -8,8 +8,7 @@
  */
 
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
-use buck2_core::buck2_env;
-use buck2_core::ci::ci_identifiers;
+use buck2_core::ci::sandcastle_id;
 
 use crate::version::BuckVersion;
 
@@ -29,14 +28,6 @@ pub fn version() -> String {
     BuckVersion::get_unique_id().to_owned()
 }
 
-/// Used to make sure that daemons are restarted between CI jobs if they don't properly clean up
-/// after themselves.
 pub fn user_version() -> anyhow::Result<Option<String>> {
-    // This shouldn't really be necessary, but we used to check it so we'll keep it for now.
-    if let Some(id) = buck2_env!("SANDCASTLE_ID", applicability = internal)? {
-        return Ok(Some(id.to_owned()));
-    }
-    // The `ci_identifiers` function reports better identifiers earlier, so taking the first one is
-    // enough
-    Ok(ci_identifiers()?.find_map(|x| x.1).map(|s| s.to_owned()))
+    Ok(sandcastle_id()?.map(|s| s.to_owned()))
 }

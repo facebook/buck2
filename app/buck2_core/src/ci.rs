@@ -50,3 +50,7 @@ pub fn ci_identifiers() -> anyhow::Result<impl Iterator<Item = (&'static str, Op
     ]
     .into_iter())
 }
+
+pub fn sandcastle_id() -> anyhow::Result<Option<&'static str>> {
+    buck2_env!("SANDCASTLE_ID")
+}
