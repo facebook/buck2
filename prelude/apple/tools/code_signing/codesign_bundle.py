@@ -36,6 +36,7 @@ from .prepare_info_plist import prepare_info_plist
 from .provisioning_profile_diagnostics import (
     interpret_provisioning_profile_diagnostics,
     META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK,
+    META_IOS_PROVISIONING_PROFILES_COMMAND,
     META_IOS_PROVISIONING_PROFILES_LINK,
 )
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
@@ -101,7 +102,12 @@ def _select_provisioning_profile(
         )
     if not provisioning_profiles:
         raise CodeSignProvisioningError(
-            f"\n\nFailed to find any provisioning profiles. Please make sure to install required provisioning profiles and make sure they are located at '{provisioning_profiles_dir}'.\n\nPlease follow the wiki to build & run on device: {META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK}.\nProvisioning profiles for your app can be downloaded from {META_IOS_PROVISIONING_PROFILES_LINK}.\n"
+            (
+                f"\n\nFailed to find any provisioning profiles. Please make sure to install required provisioning profiles and make sure they are located at '{provisioning_profiles_dir}'.\n\n"
+                f"Execute `{META_IOS_PROVISIONING_PROFILES_COMMAND}` to download the profiles.\n"
+                f"Please follow the wiki to build & run on device: {META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK}.\n"
+                f"Provisioning profiles for your app can also be downloaded from {META_IOS_PROVISIONING_PROFILES_LINK}.\n"
+            )
         )
     entitlements = _read_entitlements_file(entitlements_path)
     selected_profile_info, mismatches = select_best_provisioning_profile(

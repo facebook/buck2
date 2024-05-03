@@ -23,6 +23,7 @@ META_IOS_DEVELOPER_CERTIFICATE_LINK: str = (
 META_IOS_PROVISIONING_PROFILES_LINK: str = (
     "https://www.internalfb.com/intern/apple/download-provisioning-profile/"
 )
+META_IOS_PROVISIONING_PROFILES_COMMAND: str = "arc download-provisioning-profiles"
 META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK: str = (
     "https://www.internalfb.com/intern/wiki/Ios-first-steps/running-on-device/#2-register-your-device-i"
 )
@@ -212,7 +213,8 @@ def interpret_provisioning_profile_diagnostics(
                 header,
                 f"The provisioning profile `{mismatch.profile.file_path.name}` is the best match, but it doesn't contain all the needed entitlements. ",
                 f"Expected entitlement item with key `{mismatch.mismatched_key}` and value `{mismatch.mismatched_value}` is missing. ",
-                f"Usually that means the application entitlements were changed recently, provisioning profile was updated and you need to download & install the latest version of provisioning profile for Bundle ID `{bundle_id}` from {META_IOS_PROVISIONING_PROFILES_LINK}",
+                f"Usually that means the application entitlements were changed recently, provisioning profile was updated and you need to download & install the latest version of provisioning profile for Bundle ID `{bundle_id}`.",
+                f"Execute `{META_IOS_PROVISIONING_PROFILES_COMMAND}` or download from from {META_IOS_PROVISIONING_PROFILES_LINK}",
                 footer,
             ]
         )
@@ -233,7 +235,8 @@ def interpret_provisioning_profile_diagnostics(
             [
                 header,
                 f"The provisioning profile `{mismatch.profile.file_path.name}` is the the best match; however, it has expired",
-                f"Please download and install a valid profile from {META_IOS_PROVISIONING_PROFILES_LINK}",
+                f"Execute `{META_IOS_PROVISIONING_PROFILES_COMMAND}` to get the latest provisioning profiles.",
+                f"Alternatively, please download and install a valid profile from {META_IOS_PROVISIONING_PROFILES_LINK}",
                 footer,
             ]
         )
@@ -242,7 +245,8 @@ def interpret_provisioning_profile_diagnostics(
         [
             header,
             f"No provisioning profile matching the Bundle ID `{bundle_id}` was found. ",
-            f"Please download and install the appropriate profile from {META_IOS_PROVISIONING_PROFILES_LINK}",
+            f"Execute `{META_IOS_PROVISIONING_PROFILES_COMMAND}` to get the latest provisioning profiles.",
+            f"Alternatively, please download and install the appropriate profile from {META_IOS_PROVISIONING_PROFILES_LINK}",
             footer,
         ]
     )
