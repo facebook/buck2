@@ -127,6 +127,7 @@ def get_android_binary_native_library_info(
             root_module_native_lib_assets = [],
             non_root_module_native_lib_assets = [],
             generated_java_code = [],
+            unstripped_shared_libraries = None,
         )
 
     native_libs = ctx.actions.declare_output("native_libs_symlink")
@@ -394,6 +395,7 @@ def get_android_binary_native_library_info(
         root_module_native_lib_assets = [native_lib_assets_for_primary_apk, stripped_native_linkable_assets_for_primary_apk, root_module_metadata_assets],
         non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_lib_assets],
         generated_java_code = generated_java_code,
+        unstripped_shared_libraries = unstripped_native_libraries_files,
     )
 
 _NativeLibSubtargetArtifacts = record(
