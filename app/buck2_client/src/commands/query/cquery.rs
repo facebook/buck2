@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::CqueryRequest;
 use buck2_cli_proto::CqueryResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -79,15 +79,6 @@ pub struct CqueryCommand {
 
     #[clap(
         long,
-        short = 'u',
-        use_value_delimiter = true,
-        help = "Comma separated list of targets at which to root the queryable universe.
-                This is useful since targets can exist in multiple configurations."
-    )]
-    target_universe: Vec<String>,
-
-    #[clap(
-        long,
         help = "Show the providers of the query result instead of the attributes and labels"
     )]
     show_providers: bool,
@@ -107,7 +98,7 @@ pub struct CqueryCommand {
     correct_owner: bool,
 
     #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
+    target_cfg: TargetCfgWithUniverseOptions,
 
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
@@ -147,8 +138,8 @@ impl StreamingCommand for CqueryCommand {
                     query_args,
                     context: Some(context),
                     output_attributes,
-                    target_universe: self.target_universe,
-                    target_cfg: Some(self.target_cfg.target_cfg()),
+                    target_universe: self.target_cfg.target_universe,
+                    target_cfg: Some(self.target_cfg.target_cfg.target_cfg()),
                     show_providers: self.show_providers,
                     unstable_output_format,
                     correct_owner,
