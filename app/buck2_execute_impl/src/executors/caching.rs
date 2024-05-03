@@ -98,63 +98,6 @@ impl CacheUploader {
         }
     }
 
-    async fn upload_action_result(
-        &self,
-        info: &CacheUploadInfo<'_>,
-        action_digest_and_blobs: &ActionDigestAndBlobs,
-        result: &CommandExecutionResult,
-        error_on_cache_upload: bool,
-    ) -> anyhow::Result<CacheUploadOutcome> {
-        tracing::debug!(
-            "Uploading action result for `{}`",
-            action_digest_and_blobs.action
-        );
-        self.perform_cache_upload(
-            info,
-            result,
-            action_digest_and_blobs.action.dupe(),
-            vec![],
-            buck2_data::CacheUploadReason::LocalExecution,
-            &action_digest_and_blobs.blobs,
-            error_on_cache_upload,
-        )
-        .await
-    }
-
-    /// Upload an action result with additional information about dep files to the RE action cache.
-    /// The conditions for the upload are: the action must have been successful and produced a depfile
-    /// and cache uploads must have been enabled for this action.
-    async fn upload_dep_file_result(
-        &self,
-        info: &CacheUploadInfo<'_>,
-        action_digest_and_blobs: &ActionDigestAndBlobs,
-        result: &CommandExecutionResult,
-        dep_file_entry: DepFileEntry,
-        error_on_cache_upload: bool,
-    ) -> anyhow::Result<CacheUploadOutcome> {
-        tracing::debug!(
-            "Uploading dep file entry for action `{}` with dep file key `{}`",
-            action_digest_and_blobs.action,
-            dep_file_entry.key
-        );
-        let digest_re = dep_file_entry.key.coerce::<ActionDigestKind>();
-        let dep_file_tany = TAny {
-            type_url: REMOTE_DEP_FILE_KEY.to_owned(),
-            value: dep_file_entry.entry.encode_to_vec(),
-            ..Default::default()
-        };
-        self.perform_cache_upload(
-            info,
-            result,
-            digest_re,
-            vec![dep_file_tany],
-            buck2_data::CacheUploadReason::DepFile,
-            &action_digest_and_blobs.blobs,
-            error_on_cache_upload,
-        )
-        .await
-    }
-
     /// Upload an action result to the RE action cache, assuming conditions for the upload are met:
     /// the action must have been successful and must have run locally (not much point in caching
     /// something that ran on RE and is already cached), and cache uploads must be enabled for this particular action.
@@ -527,10 +470,22 @@ impl UploadCache for CacheUploader {
         let error_on_cache_upload = error_on_cache_upload().context("cache_upload")?;
 
         let did_cache_upload = if res.was_locally_executed() {
+            tracing::debug!(
+                "Uploading action result for `{}`",
+                action_digest_and_blobs.action
+            );
             // TODO(bobyf, torozco) should these be critical sections?
-            self.upload_action_result(info, action_digest_and_blobs, res, error_on_cache_upload)
-                .await?
-                .uploaded()
+            self.perform_cache_upload(
+                info,
+                res,
+                action_digest_and_blobs.action.dupe(),
+                vec![],
+                buck2_data::CacheUploadReason::LocalExecution,
+                &action_digest_and_blobs.blobs,
+                error_on_cache_upload,
+            )
+            .await?
+            .uploaded()
         } else {
             tracing::info!(
                 "Cache upload for `{}` not attempted",
@@ -541,16 +496,30 @@ impl UploadCache for CacheUploader {
 
         // Cache upload should only invoked for successful actions only. Double check here.
         let did_dep_file_cache_upload = match dep_file_entry {
-            Some(dep_file_entry) if res.was_success() => self
-                .upload_dep_file_result(
+            Some(dep_file_entry) if res.was_success() => {
+                tracing::debug!(
+                    "Uploading dep file entry for action `{}` with dep file key `{}`",
+                    action_digest_and_blobs.action,
+                    dep_file_entry.key
+                );
+                let digest_re = dep_file_entry.key.coerce::<ActionDigestKind>();
+                let dep_file_tany = TAny {
+                    type_url: REMOTE_DEP_FILE_KEY.to_owned(),
+                    value: dep_file_entry.entry.encode_to_vec(),
+                    ..Default::default()
+                };
+                self.perform_cache_upload(
                     info,
-                    action_digest_and_blobs,
                     res,
-                    dep_file_entry,
+                    digest_re,
+                    vec![dep_file_tany],
+                    buck2_data::CacheUploadReason::DepFile,
+                    &action_digest_and_blobs.blobs,
                     error_on_cache_upload,
                 )
                 .await?
-                .uploaded(),
+                .uploaded()
+            }
             _ => {
                 tracing::info!(
                     "Dep file cache upload for `{}` not attempted",
