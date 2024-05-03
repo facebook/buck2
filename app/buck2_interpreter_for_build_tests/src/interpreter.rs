@@ -501,6 +501,32 @@ fn test_oncall() -> anyhow::Result<()> {
                 export_file(name = "rule_name")
             "#
     ))?;
+    tester.run_starlark_test(indoc!(
+        r#"
+            def _impl(ctx):
+                pass
+            export_file = rule(impl=_impl, attrs = {})
+
+            def test():
+                oncall("valid")
+                if read_oncall() != "valid":
+                    fail("oncall should be set to valid")
+                export_file(name = "rule_name")
+                if read_oncall() != "valid":
+                    fail("oncall should be set to valid and targets set")
+            "#
+    ))?;
+    tester.run_starlark_test(indoc!(
+        r#"
+            def _impl(ctx):
+                pass
+            export_file = rule(impl=_impl, attrs = {})
+
+            def test():
+                if read_oncall() != None:
+                    fail("oncall should be None if never set")
+            "#
+    ))?;
     tester.run_starlark_test_expecting_error(
         indoc!(
             r#"
@@ -524,6 +550,16 @@ fn test_oncall() -> anyhow::Result<()> {
             "#
         ),
         "after one or more targets",
+    );
+    tester.run_starlark_test_expecting_error(
+        indoc!(
+            r#"
+            def test():
+                read_oncall()
+                oncall("valid")
+            "#
+        ),
+        "after calling `read_oncall`",
     );
     Ok(())
 }

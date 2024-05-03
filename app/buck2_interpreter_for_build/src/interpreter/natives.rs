@@ -11,6 +11,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
+use starlark::values::StringValue;
 use starlark::values::Value;
 
 use crate::interpreter::module_internals::ModuleInternals;
@@ -36,6 +37,18 @@ pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
         let internals = ModuleInternals::from_context(eval, "oncall")?;
         internals.set_oncall(name)?;
         Ok(NoneType)
+    }
+
+    /// Called in a `BUCK` file to retrieve the previously set `oncall`, or `None` if none has been set.
+    /// It is an error to call `oncall` after calling this function.
+    fn read_oncall<'v>(
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> anyhow::Result<Option<StringValue<'v>>> {
+        let internals = ModuleInternals::from_context(eval, "read_oncall")?;
+        match internals.get_oncall() {
+            None => Ok(None),
+            Some(oncall) => Ok(Some(eval.heap().alloc_str(oncall.as_str()))),
+        }
     }
 
     fn implicit_package_symbol<'v>(
