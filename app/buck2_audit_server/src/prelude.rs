@@ -22,6 +22,12 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::ServerAuditSubcommand;
 
+#[derive(buck2_error::Error, Debug)]
+enum AuditPreludeError {
+    #[error("Project has no prelude")]
+    NoPrelude,
+}
+
 #[async_trait]
 impl ServerAuditSubcommand for AuditPreludeCommand {
     async fn server_execute(
@@ -35,7 +41,9 @@ impl ServerAuditSubcommand for AuditPreludeCommand {
                 let mut stdout = stdout.as_writer();
                 // Print out all the Prelude-like stuff that is loaded into each module
                 let cell_resolver = ctx.get_cell_resolver().await?;
-                let prelude_path = prelude_path(&cell_resolver)?;
+                let Some(prelude_path) = prelude_path(&cell_resolver)? else {
+                    return Err(AuditPreludeError::NoPrelude.into());
+                };
                 writeln!(
                     stdout,
                     "{}",

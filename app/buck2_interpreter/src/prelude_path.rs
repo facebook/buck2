@@ -37,9 +37,13 @@ impl PreludePath {
     }
 }
 
-pub fn prelude_path(cell_resolver: &CellResolver) -> anyhow::Result<PreludePath> {
+pub fn prelude_path(cell_resolver: &CellResolver) -> anyhow::Result<Option<PreludePath>> {
     let alias_resolver = cell_resolver.root_cell_cell_alias_resolver();
-    let prelude_cell = alias_resolver.resolve("prelude")?;
+    let Ok(prelude_cell) = alias_resolver.resolve("prelude") else {
+        return Ok(None);
+    };
     let prelude_file = CellRelativePathBuf::unchecked_new("prelude.bzl".to_owned());
-    ImportPath::new_same_cell(CellPath::new(prelude_cell, prelude_file)).map(PreludePath)
+    Ok(Some(PreludePath(ImportPath::new_same_cell(
+        CellPath::new(prelude_cell, prelude_file),
+    )?)))
 }

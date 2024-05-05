@@ -762,7 +762,7 @@ impl DiceUpdater for DiceCommandUpdater {
         // just be setting the config overrides and host platform override as leaves on the graph.
 
         let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path(&cell_resolver)?),
+            prelude_path(&cell_resolver)?,
             self.interpreter_platform,
             self.interpreter_architecture,
             self.interpreter_xcode_version.clone(),
