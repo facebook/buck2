@@ -67,6 +67,8 @@ your team.
 
 - [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for
   introspection of Buck2's graphs.
+- [Buck2 change detector](https://github.com/facebookincubator/buck2-change-detector) -
+  tools for building a CI that only builds/tests what has changed in diff/PR.
 - [Buck2 GitHub actions installer](https://github.com/dtolnay/install-buck2) -
   script to make GitHub CI with Buck2 easier.
 - [Reindeer](https://github.com/facebookincubator/reindeer) - a set of tools for
