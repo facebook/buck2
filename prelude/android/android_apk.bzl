@@ -69,7 +69,12 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     install_info = get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info, definitely_has_native_libs = definitely_has_native_libs)
 
     return [
-        AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest, materialized_artifacts = android_binary_info.materialized_artifacts),
+        AndroidApkInfo(
+            apk = output_apk,
+            manifest = resources_info.manifest,
+            materialized_artifacts = android_binary_info.materialized_artifacts,
+            unstripped_shared_libraries = native_library_info.unstripped_shared_libraries,
+        ),
         AndroidApkUnderTestInfo(
             java_packaging_deps = set([dep.label.raw_target() for dep in java_packaging_deps]),
             keystore = keystore,
@@ -80,7 +85,6 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             resource_infos = set([info.raw_target for info in resources_info.unfiltered_resource_infos]),
             r_dot_java_packages = set([info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]),
             shared_libraries = set(native_library_info.shared_libraries),
-            unstripped_shared_libraries = native_library_info.unstripped_shared_libraries,
         ),
         DefaultInfo(default_output = default_output, other_outputs = install_info.files.values() + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         install_info,

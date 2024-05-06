@@ -18,6 +18,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
 
     input_android_apk_under_test_info = None
+    input_unstripped_shared_libraries = None
     if ctx.attrs.apk != None:
         # TODO(T104150125) The underlying APK should not have exopackage enabled
         input_android_apk_info = ctx.attrs.apk[AndroidApkInfo]
@@ -25,6 +26,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_apk = input_android_apk_info.apk
         input_manifest = input_android_apk_info.manifest
         input_materialized_artifacts = input_android_apk_info.materialized_artifacts
+        input_unstripped_shared_libraries = input_android_apk_info.unstripped_shared_libraries
         input_android_apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
 
         env_vars = {
@@ -112,6 +114,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 apk = output_apk,
                 manifest = input_manifest,
                 materialized_artifacts = input_materialized_artifacts,
+                unstripped_shared_libraries = input_unstripped_shared_libraries,
             ),
             get_install_info(
                 ctx,

@@ -115,6 +115,7 @@ AndroidApkInfo = provider(
         "apk": provider_field(typing.Any, default = None),
         "manifest": provider_field(typing.Any, default = None),
         "materialized_artifacts": provider_field(typing.Any, default = None),
+        "unstripped_shared_libraries": provider_field(typing.Any, default = None),  # artifact
     },
 )
 
@@ -138,7 +139,6 @@ AndroidApkUnderTestInfo = provider(
         "resource_infos": provider_field(typing.Any, default = None),  # set_type("ResourceInfos")
         "r_dot_java_packages": provider_field(typing.Any, default = None),  # set_type(str)
         "shared_libraries": provider_field(typing.Any, default = None),  # set_type(raw_target)
-        "unstripped_shared_libraries": provider_field(typing.Any, default = None),  # artifact
     },
 )
 
