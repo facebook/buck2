@@ -20,10 +20,20 @@ def _eprintln(msg: str) -> None:
     print(msg, flush=True, file=sys.stderr)
 
 
+def _is_argfile(index: int, args: List[str]) -> bool:
+    if (
+        " ".join(args[index - 1 : index]) == "-rpath"
+        or " ".join(args[index - 2 : index]) == "-rpath -Xlinker"
+    ):
+        return False
+
+    return args[index].startswith("@")
+
+
 def _expand_arg_files(args: List[str]) -> List[str]:
     expanded_args = []
-    for arg in args:
-        if arg.startswith("@"):
+    for index, arg in enumerate(args):
+        if _is_argfile(index, args):
             with open(arg[1:]) as argfile:
                 expanded_args.extend(
                     [line.strip('"') for line in argfile.read().splitlines()]
