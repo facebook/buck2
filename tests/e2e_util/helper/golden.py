@@ -14,7 +14,7 @@ import re
 def _prepend_header(content: str) -> str:
     return (
         f"# This file is {'@'}generated, "
-        f"re-run test with `BUCK2_UPDATE_GOLDEN=1` to regenerate\n\n{content}"
+        f"regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command\n\n{content}"
     )
 
 
@@ -58,7 +58,7 @@ def golden(*, output: str, rel_path: str) -> None:
             "End of expected.\n"
             f"Actual:\n\n{output}\n"
             "End of actual.\n"
-            "Rerun with `BUCK2_UPDATE_GOLDEN=1` to update"
+            "Re-run test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command to regenerate the files"
         )
 
 
