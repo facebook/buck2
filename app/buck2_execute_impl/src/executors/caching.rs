@@ -100,16 +100,15 @@ impl CacheUploader {
     /// the action must have been successful and must have run locally (not much point in caching
     /// something that ran on RE and is already cached), and cache uploads must be enabled for this particular action.
     /// The CacheUploader should only be used if cache uploads are enabled.
-    async fn perform_cache_upload(
+    async fn upload_local_outputs(
         &self,
         info: &CacheUploadInfo<'_>,
         result: &CommandExecutionResult,
-        metadata: Vec<TAny>,
-        reason: buck2_data::CacheUploadReason,
         action_digest_and_blobs: &ActionDigestAndBlobs,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
         let digest = action_digest_and_blobs.action;
+        let reason = buck2_data::CacheUploadReason::LocalExecution;
         let digest_str = digest.to_string();
         let output_bytes = result.calc_output_size_bytes();
 
@@ -156,7 +155,6 @@ impl CacheUploader {
                             &mut file_digests,
                             &mut tree_digests,
                             info.digest_config,
-                            metadata,
                         )
                         .await?
                     {
@@ -169,13 +167,13 @@ impl CacheUploader {
                     self.re_client
                         .write_action_result(
                             digest,
-                            result,
+                            result.clone(),
                             self.re_use_case,
                             &self.platform.to_re_platform(),
                         )
                         .await?;
 
-                    Ok(CacheUploadOutcome::Success)
+                    Ok(CacheUploadOutcome::Success(Some(result)))
                 }
                 .await
                 .unwrap_or_else(CacheUploadOutcome::Failed);
@@ -190,6 +188,87 @@ impl CacheUploader {
                     file_digests: file_digests.into_map(|d| d.to_string()),
                     tree_digests: tree_digests.into_map(|d| d.to_string()),
                     output_bytes: Some(output_bytes),
+                    reason: reason.into(),
+                };
+                (
+                    outcome.log_and_create_result(&digest_str, error_on_cache_upload),
+                    Box::new(cache_upload_end_event),
+                )
+            },
+        )
+        .await
+    }
+
+    /// Upload an action result with additional information about dep files to the RE action cache.
+    /// The conditions for the upload are: the action must have been successful and produced a depfile
+    /// and cache uploads must have been enabled for this action.
+    async fn upload_dep_file(
+        &self,
+        info: &CacheUploadInfo<'_>,
+        mut action_result: TActionResult2,
+        dep_file_entry: DepFileEntry,
+        error_on_cache_upload: bool,
+    ) -> anyhow::Result<CacheUploadOutcome> {
+        let digest = dep_file_entry.action.action;
+        let reason = buck2_data::CacheUploadReason::DepFile;
+        let dep_file_tany = TAny {
+            type_url: REMOTE_DEP_FILE_KEY.to_owned(),
+            value: dep_file_entry.entry.encode_to_vec(),
+            ..Default::default()
+        };
+        action_result.execution_metadata.auxiliary_metadata = vec![dep_file_tany];
+
+        let digest_str = digest.to_string();
+        span_async(
+            buck2_data::CacheUploadStart {
+                key: Some(info.target.as_proto_action_key()),
+                name: Some(info.target.as_proto_action_name()),
+                action_digest: digest_str.clone(),
+                reason: reason.into(),
+            },
+            async {
+                let outcome = async {
+                    if let Err(rejected) = self.check_upload_permission().await? {
+                        return Ok(rejected);
+                    }
+
+                    // upload Action to CAS.
+                    // This is necessary when writing to the ActionCache through CAS, since CAS needs to inspect the Action related to the ActionResult.
+                    // Without storing the Action itself to CAS, ActionCache writes would fail.
+                    self.re_client
+                        .upload_files_and_directories(
+                            vec![],
+                            vec![],
+                            dep_file_entry.action.blobs.to_inlined_blobs(),
+                            self.re_use_case,
+                        )
+                        .await?;
+
+                    // upload ActionResult to ActionCache
+                    self.re_client
+                        .write_action_result(
+                            digest,
+                            action_result,
+                            self.re_use_case,
+                            &self.platform.to_re_platform(),
+                        )
+                        .await?;
+
+                    Ok(CacheUploadOutcome::Success(None))
+                }
+                .await
+                .unwrap_or_else(CacheUploadOutcome::Failed);
+
+                let cache_upload_end_event = buck2_data::CacheUploadEnd {
+                    key: Some(info.target.as_proto_action_key()),
+                    name: Some(info.target.as_proto_action_name()),
+                    action_digest: digest_str.clone(),
+                    success: outcome.uploaded(),
+                    error: outcome.error(),
+                    re_error_code: outcome.re_error_code(),
+                    file_digests: Vec::new(),
+                    tree_digests: Vec::new(),
+                    output_bytes: None,
                     reason: reason.into(),
                 };
                 (
@@ -222,8 +301,6 @@ impl CacheUploader {
         file_digests: &mut Vec<TrackedFileDigest>,
         tree_digests: &mut Vec<TrackedFileDigest>,
         digest_config: DigestConfig,
-        // metadata to be added in the auxiliary_metadata field of TActionResult
-        metadata: Vec<TAny>,
     ) -> anyhow::Result<Result<TActionResult2, CacheUploadRejectionReason>> {
         let mut upload_futs = vec![];
         let mut output_files: Vec<TFile> = Vec::new();
@@ -371,7 +448,6 @@ impl CacheUploader {
                     result.report.timing.end_time(),
                 )?,
                 execution_attempts: 1,
-                auxiliary_metadata: metadata,
                 ..Default::default()
             },
             ..Default::default()
@@ -382,9 +458,9 @@ impl CacheUploader {
 }
 
 /// Whether we completed a cache upload.
-#[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum CacheUploadOutcome {
-    Success,
+    Success(Option<TActionResult2>),
     Rejected(CacheUploadRejectionReason),
     Failed(anyhow::Error),
 }
@@ -392,14 +468,14 @@ enum CacheUploadOutcome {
 impl CacheUploadOutcome {
     fn uploaded(&self) -> bool {
         match self {
-            CacheUploadOutcome::Success => true,
+            CacheUploadOutcome::Success(_) => true,
             _ => false,
         }
     }
 
     fn error(&self) -> String {
         match self {
-            CacheUploadOutcome::Success => String::new(),
+            CacheUploadOutcome::Success(_) => String::new(),
             CacheUploadOutcome::Rejected(reason) => format!("Rejected: {}", reason),
             CacheUploadOutcome::Failed(e) => format!("{:#}", e),
         }
@@ -407,7 +483,7 @@ impl CacheUploadOutcome {
 
     fn re_error_code(&self) -> Option<String> {
         match self {
-            CacheUploadOutcome::Success => None,
+            CacheUploadOutcome::Success(_) => None,
             CacheUploadOutcome::Rejected(reason) => match reason {
                 CacheUploadRejectionReason::SymlinkOutput
                 | CacheUploadRejectionReason::OutputExceedsLimit { .. } => None,
@@ -427,7 +503,7 @@ impl CacheUploadOutcome {
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
         match &self {
-            CacheUploadOutcome::Success => {
+            CacheUploadOutcome::Success(_) => {
                 tracing::info!("Cache upload for `{}` succeeded", digest_str);
             }
             CacheUploadOutcome::Rejected(reason) => {
@@ -467,52 +543,42 @@ impl UploadCache for CacheUploader {
     ) -> anyhow::Result<CacheUploadResult> {
         let error_on_cache_upload = error_on_cache_upload().context("cache_upload")?;
 
-        let did_cache_upload = if res.was_locally_executed() {
+        let (did_cache_upload, action_result) = if res.was_locally_executed() {
             tracing::debug!(
                 "Uploading action result for `{}`",
                 action_digest_and_blobs.action
             );
             // TODO(bobyf, torozco) should these be critical sections?
-            self.perform_cache_upload(
-                info,
-                res,
-                vec![],
-                buck2_data::CacheUploadReason::LocalExecution,
-                &action_digest_and_blobs,
-                error_on_cache_upload,
+            let outcome = self
+                .upload_local_outputs(info, res, &action_digest_and_blobs, error_on_cache_upload)
+                .await?;
+
+            (
+                outcome.uploaded(),
+                if let CacheUploadOutcome::Success(action_result) = outcome {
+                    action_result
+                } else {
+                    None
+                },
             )
-            .await?
-            .uploaded()
         } else {
             tracing::info!(
                 "Cache upload for `{}` not attempted",
                 action_digest_and_blobs.action
             );
-            false
+            (false, None)
         };
 
-        let did_dep_file_cache_upload = match (did_cache_upload, dep_file_entry) {
-            (true, Some(dep_file_entry)) => {
+        let did_dep_file_cache_upload = match (action_result, dep_file_entry) {
+            (Some(action_result), Some(dep_file_entry)) => {
                 tracing::debug!(
                     "Uploading dep file entry for action `{}` with dep file key `{}`",
                     action_digest_and_blobs.action,
                     dep_file_entry.action.action,
                 );
-                let dep_file_tany = TAny {
-                    type_url: REMOTE_DEP_FILE_KEY.to_owned(),
-                    value: dep_file_entry.entry.encode_to_vec(),
-                    ..Default::default()
-                };
-                self.perform_cache_upload(
-                    info,
-                    res,
-                    vec![dep_file_tany],
-                    buck2_data::CacheUploadReason::DepFile,
-                    &dep_file_entry.action,
-                    error_on_cache_upload,
-                )
-                .await?
-                .uploaded()
+                self.upload_dep_file(info, action_result, dep_file_entry, error_on_cache_upload)
+                    .await?
+                    .uploaded()
             }
             (_, _) => {
                 tracing::info!(
