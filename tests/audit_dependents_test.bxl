@@ -17,7 +17,7 @@ def _audit_dependents_test(ctx: BxlContext, source_target: TargetLabel, target: 
 
     cquery = ctx.cquery()
     reverse_deps = cquery.eval(
-        "rdeps({}, {}, 1) - set({} {})".format(source_target, target, source_target, target),
+        "nattrfilter(labels, codegen_rule, rdeps({}, {}, 1) - set({} {}))".format(source_target, target, source_target, target),
         target_universe = [str(source_target)],
     )
     allowlist_regex = rule_list_regex(allowlist_patterns)
