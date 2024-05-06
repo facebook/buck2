@@ -1063,7 +1063,8 @@ apk_genrule = prelude_rule(
         {
             "apk": attrs.option(attrs.dep(), default = None, doc = """
                 The input `android_binary()` rule. The path to the APK can be
-                 accessed with the `$APK` shell variable.
+                 accessed with the `$APK` shell variable. Only one of `apk` or
+                 `aab` can be provided.
             """),
             "keystore": attrs.option(attrs.dep(), default = None),
         } |
@@ -1074,13 +1075,21 @@ apk_genrule = prelude_rule(
         genrule_common.type_arg() |
         {
             "out": attrs.option(attrs.string(), default = None, doc = """
-                This argument only exists for historical reasons and it does not have any
-                 effect. It will be deprecated and removed in the future.
+                The name of the output file or directory. The complete path to this
+                 argument is provided to the shell command through
+                 the `OUT` environment variable. Only one of`out`
+                 or `outs` may be present.
+
+                For an apk_genrule the output should be a '.apk' or '.aab' file.
             """),
         } |
         genrule_common.environment_expansion_separator() |
         {
-            "aab": attrs.option(attrs.dep(), default = None),
+            "aab": attrs.option(attrs.dep(), default = None, doc = """
+                The input `android_binary()` rule. The path to the AAB can be
+                 accessed with the `$AAB` shell variable. Only one of `apk` or
+                 `aab` can be provided.
+            """),
             "cacheable": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
