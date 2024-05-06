@@ -307,14 +307,14 @@ fn handle_discover_buck_targets(
         "resolving targets",
         token = DiscoverBuckTargets::METHOD.to_owned(),
     )
-    .in_scope(|| develop.resolve_file_owners(&params.text_documents))?;
+    .in_scope(|| develop.related_targets(&params.text_documents))?;
 
-    let Some(target) = targets.keys().last() else {
+    let Some(target) = targets.first() else {
         return Err(anyhow::anyhow!("Could not find any targets."));
     };
 
     // this request is load-bearing: it is necessary in order to start showing in-editor progress.
-    let token = lsp_types::ProgressToken::String(target.display().to_string());
+    let token = lsp_types::ProgressToken::String(target.to_string());
     server.send_request::<lsp_types::request::WorkDoneProgressCreate>(
         lsp_types::WorkDoneProgressCreateParams {
             token: token.clone(),
@@ -325,17 +325,11 @@ fn handle_discover_buck_targets(
         target: "lsp_progress",
         tracing::Level::INFO,
         "resolving targets",
-        token = target.display().to_string(),
-        label = target.display().to_string(),
+        token = target.to_string(),
+        label = target.to_string(),
     );
     let _guard = span.entered();
 
-    let targets = targets
-        .values()
-        .into_iter()
-        .map(|v| v.iter().cloned())
-        .flatten()
-        .collect::<Vec<Target>>();
     let project = develop.run(targets)?;
     tracing::info!(crate_len = &project.crates.len(), "created index");
 

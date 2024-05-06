@@ -572,6 +572,22 @@ impl Buck {
         Ok(raw)
     }
 
+    /// Return all the targets that own each file.
+    #[instrument(skip_all)]
+    pub(crate) fn query_owner(
+        &self,
+        files: &[PathBuf],
+    ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
+        let mut command = self.command(["uquery"]);
+
+        command.args(["--json", "owner(\"%s\")", "--"]);
+        command.args(files);
+
+        info!(?files, "querying buck to determine owner");
+        let out = deserialize_output(command.output(), &command)?;
+        Ok(out)
+    }
+
     /// Find the buildfile that owns each file specified, and return the path to
     /// each buildfile along with all the targets it contains.
     #[instrument(skip_all)]

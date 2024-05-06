@@ -120,12 +120,72 @@ impl Develop {
     }
 }
 
+const DEFAULT_EXTRA_TARGETS: usize = 50;
+
 impl Develop {
-    pub(crate) fn resolve_file_owners(
-        &self,
-        files: &[PathBuf],
-    ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let all_file_owners = match self.buck.query_owning_buildfile(&files) {
+    /// For every Rust file, return the relevant buck targets that should be used to configure rust-analyzer.
+    pub(crate) fn related_targets(&self, files: &[PathBuf]) -> Result<Vec<Target>, anyhow::Error> {
+        // We always want the targets that directly own these Rust files.
+        let direct_owning_targets = dedupe_unittest(&self.resolve_file_targets(files));
+
+        let unique_owning_targets = direct_owning_targets
+            .iter()
+            .cloned()
+            .collect::<FxHashSet<_>>();
+
+        let mut targets = direct_owning_targets;
+
+        // We want to load additional targets from the enclosing buildfile, to help users
+        // who have a bunch of small targets in their buildfile. However, we want to set a limit
+        // so we don't try to load everything in very large generated buildfiles.
+        let max_extra_targets: usize = match std::env::var("RUST_PROJECT_EXTRA_TARGETS") {
+            Ok(s) => s.parse::<usize>().unwrap_or(DEFAULT_EXTRA_TARGETS),
+            Err(_) => DEFAULT_EXTRA_TARGETS,
+        };
+
+        // Include additional targets from the found buildfiles, up to max_extra_targets more.
+        let owners = self.resolve_file_owners(files);
+        let extra_targets = owners
+            .values()
+            .flatten()
+            .filter(|t| !unique_owning_targets.contains(t))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        targets.extend(
+            dedupe_unittest(&extra_targets)
+                .into_iter()
+                .take(max_extra_targets),
+        );
+
+        Ok(targets)
+    }
+
+    fn resolve_file_targets(&self, files: &[PathBuf]) -> Vec<Target> {
+        let file_targets = match self.buck.query_owner(files) {
+            Ok(targets) => targets.into_values().flatten().collect::<Vec<_>>(),
+            Err(_) => {
+                let mut file_targets = vec![];
+                for file in files {
+                    match self.buck.query_owner(&[file.to_path_buf()]) {
+                        Ok(targets) => {
+                            file_targets.extend(targets.into_values().flatten());
+                        }
+                        Err(e) => {
+                            warn!(file = ?file, "Could not find a target that owns this file: {}", e);
+                        }
+                    }
+                }
+
+                file_targets
+            }
+        };
+
+        dedupe_targets(&file_targets)
+    }
+
+    fn resolve_file_owners(&self, files: &[PathBuf]) -> FxHashMap<PathBuf, Vec<Target>> {
+        match self.buck.query_owning_buildfile(&files) {
             Ok(owners) => owners,
             Err(_) => {
                 let mut owners = FxHashMap::default();
@@ -143,26 +203,7 @@ impl Develop {
 
                 owners
             }
-        };
-
-        // Don't bother with target `foo` if `foo-unittest` is present.
-        let mut file_owners = FxHashMap::default();
-        for (file, owners) in all_file_owners.iter() {
-            let unique_owners = owners.iter().collect::<FxHashSet<_>>();
-
-            let mut filtered_owners = vec![];
-            for owner in owners {
-                if unique_owners.contains(&Target::new(format!("{}-unittest", owner))) {
-                    continue;
-                }
-
-                filtered_owners.push(owner.clone());
-            }
-
-            file_owners.insert(file.clone(), filtered_owners);
         }
-
-        Ok(file_owners)
     }
 
     pub(crate) fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
@@ -221,14 +262,7 @@ impl Develop {
                     })
                     .collect::<Vec<_>>();
 
-                let targets: FxHashMap<_, Vec<Target>> =
-                    self.resolve_file_owners(&canonical_files)?;
-                targets
-                    .values()
-                    .into_iter()
-                    .map(|v| v.iter().cloned())
-                    .flatten()
-                    .collect::<Vec<Target>>()
+                self.related_targets(&canonical_files)?
             }
         };
 
@@ -267,4 +301,47 @@ fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
     } else {
         Ok(path.to_path_buf())
     }
+}
+
+/// Remove duplicate targets, but preserve order.
+fn dedupe_targets(targets: &[Target]) -> Vec<Target> {
+    let mut seen = FxHashSet::default();
+    let mut unique_targets = vec![];
+    for target in targets {
+        if !seen.contains(target) {
+            seen.insert(target);
+            unique_targets.push(target.clone());
+        }
+    }
+
+    unique_targets
+}
+
+// Don't bother with target `foo` if `foo-unittest` is present.
+fn dedupe_unittest(targets: &[Target]) -> Vec<Target> {
+    let unique_targets = targets.iter().collect::<FxHashSet<_>>();
+
+    targets
+        .iter()
+        .filter(|t| !unique_targets.contains(&Target::new(format!("{}-unittest", t))))
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn test_dedupe_unittest() {
+    let targets = vec![
+        Target::new("foo-unittest".to_owned()),
+        Target::new("bar".to_owned()),
+        Target::new("foo".to_owned()),
+        Target::new("baz-unittest".to_owned()),
+    ];
+
+    let expected = vec![
+        Target::new("foo-unittest".to_owned()),
+        Target::new("bar".to_owned()),
+        Target::new("baz-unittest".to_owned()),
+    ];
+
+    assert_eq!(dedupe_unittest(&targets), expected);
 }
