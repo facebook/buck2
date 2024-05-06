@@ -305,6 +305,7 @@ impl PreparedCommandExecutor for ReExecutor {
             )
             .await?;
 
+        let exit_code = response.action_result.exit_code;
         let res = download_action_results(
             request,
             &*self.materializer,
@@ -323,15 +324,15 @@ impl PreparedCommandExecutor for ReExecutor {
             &response,
             self.paranoid.as_ref(),
             cancellations,
-            response.action_result.exit_code,
+            exit_code,
             &self.artifact_fs,
             self.materialize_failed_inputs,
         )
         .boxed()
         .await;
 
-        let DownloadResult::Result(res) = res;
-
+        let DownloadResult::Result(mut res) = res;
+        res.action_result = Some(response.action_result);
         res
     }
 

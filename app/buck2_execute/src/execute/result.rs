@@ -16,8 +16,10 @@ use std::time::SystemTime;
 
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexMap;
+use remote_execution::TActionResult2;
 
 use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::Claim;
@@ -160,7 +162,8 @@ impl Default for CommandExecutionMetadata {
 }
 
 /// CommandExecutionResult is the result of an executor executing a command.
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct CommandExecutionResult {
     /// The outputs produced by this command
     pub outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
@@ -180,6 +183,10 @@ pub struct CommandExecutionResult {
     /// This is picked up from the action result's auxiliary metadata and
     /// is used to verify the dep file cache lookup result
     pub dep_file_metadata: Option<RemoteDepFile>,
+    /// If the action executed on RE, the original action result
+    /// to be re-used when uploading the remote dep file.
+    #[derivative(Debug = "ignore")]
+    pub action_result: Option<TActionResult2>,
 }
 
 impl CommandExecutionResult {
