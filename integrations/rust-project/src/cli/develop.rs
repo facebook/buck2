@@ -123,15 +123,15 @@ impl Develop {
 impl Develop {
     pub(crate) fn resolve_file_owners(
         &self,
-        files: Vec<PathBuf>,
-    ) -> Result<FxHashMap<String, Vec<Target>>, anyhow::Error> {
-        let all_file_owners = match self.buck.query_owner(&files) {
+        files: &[PathBuf],
+    ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
+        let all_file_owners = match self.buck.query_owning_buildfile(&files) {
             Ok(owners) => owners,
             Err(_) => {
                 let mut owners = FxHashMap::default();
 
                 for file in files {
-                    match self.buck.query_owner(&vec![file.to_path_buf()]) {
+                    match self.buck.query_owning_buildfile(&[file.to_path_buf()]) {
                         Ok(file_owners) => {
                             owners.extend(file_owners.into_iter());
                         }
@@ -221,8 +221,8 @@ impl Develop {
                     })
                     .collect::<Vec<_>>();
 
-                let targets: FxHashMap<String, Vec<Target>> =
-                    self.resolve_file_owners(canonical_files)?;
+                let targets: FxHashMap<_, Vec<Target>> =
+                    self.resolve_file_owners(&canonical_files)?;
                 targets
                     .values()
                     .into_iter()
