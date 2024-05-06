@@ -491,9 +491,8 @@ impl UploadCache for CacheUploader {
             false
         };
 
-        // Cache upload should only invoked for successful actions only. Double check here.
-        let did_dep_file_cache_upload = match dep_file_entry {
-            Some(dep_file_entry) if res.was_success() => {
+        let did_dep_file_cache_upload = match (did_cache_upload, dep_file_entry) {
+            (true, Some(dep_file_entry)) => {
                 tracing::debug!(
                     "Uploading dep file entry for action `{}` with dep file key `{}`",
                     action_digest_and_blobs.action,
@@ -515,7 +514,7 @@ impl UploadCache for CacheUploader {
                 .await?
                 .uploaded()
             }
-            _ => {
+            (_, _) => {
                 tracing::info!(
                     "Dep file cache upload for `{}` not attempted",
                     action_digest_and_blobs.action
