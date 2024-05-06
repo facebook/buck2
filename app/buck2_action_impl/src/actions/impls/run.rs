@@ -480,7 +480,7 @@ impl RunAction {
                         "Action result is cached via remote dep file cache, skipping execution of :\n```\n$ {}\n```\n for action `{}` with remote dep file key `{}`",
                         request.all_args_str(),
                         action_digest,
-                        bundle.remote_dep_file_key,
+                        bundle.remote_dep_file_action.action,
                     );
                     return Ok(ControlFlow::Break(result));
                 }
@@ -488,7 +488,7 @@ impl RunAction {
                 // This should not happen as we check for the metadata on the cache querier side.
                 tracing::debug!(
                     "The remote dep file cache returned a hit for `{}`, but there is no metadata",
-                    bundle.remote_dep_file_key
+                    bundle.remote_dep_file_action.action
                 );
             }
         }
@@ -657,7 +657,7 @@ impl IncrementalActionExecutable for RunAction {
         let (mut dep_file_bundle, req) = if let Some(visitor) = dep_file_visitor {
             let bundle = make_dep_file_bundle(ctx, visitor, cmdline_digest, req.paths())?;
             // Enable remote dep file cache lookup
-            let req = req.with_remote_dep_file_key(&bundle.remote_dep_file_key);
+            let req = req.with_remote_dep_file_key(&bundle.remote_dep_file_action.action.coerce());
             (Some(bundle), req)
         } else {
             (None, req)
@@ -720,7 +720,7 @@ impl IncrementalActionExecutable for RunAction {
 
         // If the action has a dep file, log the remote dep file key so we can look out for collisions
         if let Some(bundle) = &dep_file_bundle {
-            result.dep_file_key = Some(bundle.remote_dep_file_key.dupe())
+            result.dep_file_key = Some(bundle.remote_dep_file_action.action.coerce())
         }
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it

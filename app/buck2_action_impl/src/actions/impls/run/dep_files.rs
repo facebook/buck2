@@ -44,12 +44,15 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::expand_selector_for_dependencies;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
+use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
 use buck2_execute::execute::cache_uploader::DepFileEntry;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::request::CommandExecutionPaths;
@@ -57,7 +60,6 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
-use buck2_file_watcher::mergebase::Mergebase;
 use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
@@ -303,22 +305,38 @@ impl CommonDigests {
         digester.finalize()
     }
 
-    fn make_remote_dep_file_key(
+    // Construct an action so that the action digest can be used as a remote dep file key,
+    // which is the key to an action result with dep file metadata.
+    // The action itself is unused but we need to upload some action to avoid permission
+    // errors when uploading the action result, and the digest needs to match that action.
+    fn make_remote_dep_file_action(
         &self,
-        digest_config: DigestConfig,
-        mergebase: &Mergebase,
-    ) -> DepFileDigest {
+        ctx: &mut dyn ActionExecutionCtx,
+    ) -> ActionDigestAndBlobs {
+        let digest_config = ctx.digest_config();
         let mut digester = DepFileDigest::digester(digest_config.cas_digest_config());
-
         digester.update(self.fingerprint(digest_config).raw_digest().as_bytes());
 
         // Take the digest of the mergebase to get the closest hit.
-        match mergebase.0.as_ref() {
+        match ctx.mergebase().0.as_ref() {
             Some(m) => digester.update(m.as_bytes()),
             None => (),
         };
+        let inner_remote_dep_file_key = digester.finalize().to_string();
 
-        digester.finalize()
+        let mut blobs = ActionDigestAndBlobsBuilder::new(digest_config);
+        let command = blobs.add_command(&remote_execution::Command {
+            // Instead of using the digest directly, we could use the constituent digests, or constituent paths
+            // which might be useful for debugging.
+            arguments: vec![inner_remote_dep_file_key],
+            platform: Some(ctx.re_platform().clone()),
+            ..Default::default()
+        });
+
+        blobs.build(&remote_execution::Action {
+            command_digest: Some(command.to_grpc()),
+            ..Default::default()
+        })
     }
 
     /// Take a list of declared dep files (label, artifact) and filtered inputs (StoredFingerprints)
@@ -366,7 +384,7 @@ impl CommonDigests {
 
 pub(crate) struct DepFileBundle {
     dep_files_key: DepFilesKey,
-    pub(crate) remote_dep_file_key: DepFileDigest,
+    pub(crate) remote_dep_file_action: ActionDigestAndBlobs,
     input_directory_digest: FileDigest,
     shared_declared_inputs: PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: DeclaredDepFiles,
@@ -398,9 +416,8 @@ impl DepFileBundle {
             &self.declared_dep_files,
             self.filtered_input_fingerprints.as_ref().unwrap(),
         );
-
         let res = DepFileEntry {
-            key: self.remote_dep_file_key.dupe(),
+            action: self.remote_dep_file_action.clone(),
             entry,
         };
 
@@ -630,12 +647,11 @@ pub(crate) fn make_dep_file_bundle<'a>(
             execution_paths.output_paths(),
         ),
     };
-    let remote_dep_file_key =
-        common_digests.make_remote_dep_file_key(ctx.digest_config(), ctx.mergebase());
+    let remote_dep_file_action = common_digests.make_remote_dep_file_action(ctx);
 
     Ok(DepFileBundle {
         dep_files_key,
-        remote_dep_file_key,
+        remote_dep_file_action,
         input_directory_digest,
         shared_declared_inputs,
         declared_dep_files,

@@ -16,6 +16,7 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::paths_with_digest::PathsWithDigestBlobData;
 
+#[derive(Clone)]
 pub struct ActionDigestAndBlobs {
     pub action: ActionDigest,
     /// The encoded action and other messages referenced from it by digest (e.g. RE::Command).

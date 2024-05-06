@@ -259,6 +259,8 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn re_client(&self) -> ManagedRemoteExecutionClient;
 
+    fn re_platform(&self) -> &remote_execution::Platform;
+
     fn digest_config(&self) -> DigestConfig;
 
     /// Obtain per-command knobs for RunAction.

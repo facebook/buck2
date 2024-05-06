@@ -107,6 +107,10 @@ impl CommandExecutor {
         ExecutorFs::new(&self.0.artifact_fs, self.0.options.path_separator)
     }
 
+    pub fn re_platform(&self) -> &RE::Platform {
+        &self.0.re_platform
+    }
+
     /// Check if the action can be served by the action cache.
     pub async fn action_cache(
         &self,

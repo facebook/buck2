@@ -356,6 +356,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.re_client.dupe()
     }
 
+    fn re_platform(&self) -> &remote_execution::Platform {
+        self.executor.command_executor.re_platform()
+    }
+
     fn digest_config(&self) -> DigestConfig {
         self.executor.digest_config
     }

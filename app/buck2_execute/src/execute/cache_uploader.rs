@@ -13,7 +13,6 @@ use buck2_core::buck2_env;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
-use crate::execute::dep_file_digest::DepFileDigest;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 
@@ -23,7 +22,7 @@ pub struct CacheUploadInfo<'a> {
 }
 
 pub struct DepFileEntry {
-    pub key: DepFileDigest,
+    pub action: ActionDigestAndBlobs,
     pub entry: RemoteDepFile,
 }
 

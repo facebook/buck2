@@ -19,6 +19,7 @@ use crate::execute::request::ActionMetadataBlobData;
 use crate::execute::request::ActionMetadataBlobMessage;
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
+#[derive(Clone)]
 pub struct ActionBlobs(HashMap<TrackedFileDigest, ActionMetadataBlobData>);
 
 impl ActionBlobs {

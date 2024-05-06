@@ -25,8 +25,6 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::execute::action_digest::ActionDigest;
-use buck2_execute::execute::action_digest::ActionDigestKind;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
@@ -106,12 +104,12 @@ impl CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         result: &CommandExecutionResult,
-        digest: ActionDigest,
         metadata: Vec<TAny>,
         reason: buck2_data::CacheUploadReason,
-        action_blobs: &ActionBlobs,
+        action_digest_and_blobs: &ActionDigestAndBlobs,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
+        let digest = action_digest_and_blobs.action;
         let digest_str = digest.to_string();
         let output_bytes = result.calc_output_size_bytes();
 
@@ -146,7 +144,7 @@ impl CacheUploader {
                         .upload_files_and_directories(
                             vec![],
                             vec![],
-                            action_blobs.to_inlined_blobs(),
+                            action_digest_and_blobs.blobs.to_inlined_blobs(),
                             self.re_use_case,
                         )
                         .await?;
@@ -478,10 +476,9 @@ impl UploadCache for CacheUploader {
             self.perform_cache_upload(
                 info,
                 res,
-                action_digest_and_blobs.action.dupe(),
                 vec![],
                 buck2_data::CacheUploadReason::LocalExecution,
-                &action_digest_and_blobs.blobs,
+                &action_digest_and_blobs,
                 error_on_cache_upload,
             )
             .await?
@@ -500,9 +497,8 @@ impl UploadCache for CacheUploader {
                 tracing::debug!(
                     "Uploading dep file entry for action `{}` with dep file key `{}`",
                     action_digest_and_blobs.action,
-                    dep_file_entry.key
+                    dep_file_entry.action.action,
                 );
-                let digest_re = dep_file_entry.key.coerce::<ActionDigestKind>();
                 let dep_file_tany = TAny {
                     type_url: REMOTE_DEP_FILE_KEY.to_owned(),
                     value: dep_file_entry.entry.encode_to_vec(),
@@ -511,10 +507,9 @@ impl UploadCache for CacheUploader {
                 self.perform_cache_upload(
                     info,
                     res,
-                    digest_re,
                     vec![dep_file_tany],
                     buck2_data::CacheUploadReason::DepFile,
-                    &action_digest_and_blobs.blobs,
+                    &dep_file_entry.action,
                     error_on_cache_upload,
                 )
                 .await?
