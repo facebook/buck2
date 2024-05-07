@@ -9,6 +9,7 @@
 
 import datetime
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, cast, Dict, List, Optional, Tuple
 
@@ -135,6 +136,17 @@ def _check_developer_certificates_match(
     )
 
 
+def _make_multiple_matching_profiles_message(
+    profiles: list[ProvisioningProfileMetadata],
+) -> str:
+    messages = [f"Found MULTIPLE matching profiles: {len(profiles)}"]
+    messages += [
+        f"    Matching Profile = UUID:{profile.uuid}, file path: {profile.file_path}"
+        for profile in profiles
+    ]
+    return "\n".join(messages)
+
+
 @dataclass
 class SelectedProvisioningProfileInfo:
     profile: ProvisioningProfileMetadata
@@ -148,6 +160,7 @@ def select_best_provisioning_profile(
     provisioning_profiles: List[ProvisioningProfileMetadata],
     entitlements: Optional[Dict[str, Any]],
     platform: ApplePlatform,
+    strict_search: bool,
 ) -> Tuple[
     Optional[SelectedProvisioningProfileInfo], List[IProvisioningProfileDiagnostics]
 ]:
@@ -179,6 +192,8 @@ def select_best_provisioning_profile(
         _LOGGER.info(
             f"Skipping provisioning profile `{mismatch.profile.file_path.name}`: {mismatch.log_message()}"
         )
+
+    profiles_for_match_length = defaultdict(list)
 
     for profile in provisioning_profiles:
         app_id = profile.get_app_id()
@@ -250,8 +265,22 @@ def select_best_provisioning_profile(
         _LOGGER.info(
             f"Matching provisioning profile `{profile.file_path.name}` with score {current_match_length}"
         )
+
+        profiles_for_match_length[current_match_length] += [profile]
+
         if current_match_length > best_match_length:
             best_match_length = current_match_length
             result = SelectedProvisioningProfileInfo(profile, certificate)
+
+    all_matching_profiles = (
+        profiles_for_match_length[best_match_length] if result else []
+    )
+    if len(all_matching_profiles) > 1:
+        multiple_profiles_message = _make_multiple_matching_profiles_message(
+            all_matching_profiles
+        )
+        _LOGGER.info(multiple_profiles_message)
+        if strict_search:
+            raise CodeSignProvisioningError(multiple_profiles_message)
 
     return result, diagnostics

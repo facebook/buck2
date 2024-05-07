@@ -139,6 +139,7 @@ def _main() -> None:
                 list_codesign_identities=ListCodesignIdentities.default(),
                 platform=args.platform,
                 should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
+                strict_provisioning_profile_search=args.strict_provisioning_profile_search,
             )
 
         bundle_path = CodesignedPath(

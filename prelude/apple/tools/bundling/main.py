@@ -326,6 +326,7 @@ def _main() -> None:
                     ),
                     log_file_path=args.log_file,
                     should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
+                    strict_provisioning_profile_search=args.strict_provisioning_profile_search,
                 )
             else:
                 profile_selection_context = None
@@ -348,6 +349,7 @@ def _main() -> None:
                 list_codesign_identities=list_codesign_identities,
                 log_file_path=args.log_file,
                 should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
+                strict_provisioning_profile_search=args.strict_provisioning_profile_search,
             )
             selected_identity_argument = (
                 signing_context.selected_profile_info.identity.fingerprint

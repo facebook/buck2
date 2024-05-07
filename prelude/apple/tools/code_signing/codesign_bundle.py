@@ -80,6 +80,7 @@ def _select_provisioning_profile(
     platform: ApplePlatform,
     list_codesign_identities: IListCodesignIdentities,
     should_use_fast_provisioning_profile_parsing: bool,
+    strict_provisioning_profile_search: bool,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory = _default_read_provisioning_profile_command_factory,
     log_file_path: Optional[Path] = None,
 ) -> SelectedProvisioningProfileInfo:
@@ -116,6 +117,7 @@ def _select_provisioning_profile(
         provisioning_profiles,
         entitlements,
         platform,
+        strict_provisioning_profile_search,
     )
     if selected_profile_info is None:
         if not mismatches:
@@ -165,6 +167,7 @@ def signing_context_with_profile_selection(
     list_codesign_identities: IListCodesignIdentities,
     log_file_path: Optional[Path] = None,
     should_use_fast_provisioning_profile_parsing: bool = False,
+    strict_provisioning_profile_search: bool = False,
 ) -> SigningContextWithProfileSelection:
     with open(info_plist_source, mode="rb") as info_plist_file:
         info_plist_metadata = InfoPlistMetadata.from_file(info_plist_file)
@@ -176,6 +179,7 @@ def signing_context_with_profile_selection(
         list_codesign_identities=list_codesign_identities,
         log_file_path=log_file_path,
         should_use_fast_provisioning_profile_parsing=should_use_fast_provisioning_profile_parsing,
+        strict_provisioning_profile_search=strict_provisioning_profile_search,
     )
 
     return SigningContextWithProfileSelection(
