@@ -347,7 +347,7 @@ def create_jar_artifact_kotlincd(
         is_creating_subtarget = is_creating_subtarget,
     )
 
-    final_jar = prepare_final_jar(
+    final_jar_output = prepare_final_jar(
         actions = actions,
         actions_identifier = actions_identifier,
         output = None,
@@ -367,7 +367,7 @@ def create_jar_artifact_kotlincd(
             additional_compiled_srcs = None,
             is_building_android_binary = is_building_android_binary,
             class_abi_generator = java_toolchain.class_abi_generator,
-            final_jar = final_jar,
+            final_jar = final_jar_output.final_jar,
             compiling_deps_tset = compiling_deps_tset,
             source_only_abi_deps = source_only_abi_deps,
             class_abi_jar = class_abi_jar,
@@ -376,7 +376,8 @@ def create_jar_artifact_kotlincd(
             define_action = define_kotlincd_action,
         )
         return make_compile_outputs(
-            full_library = final_jar,
+            full_library = final_jar_output.final_jar,
+            preprocessed_library = final_jar_output.preprocessed_jar,
             class_abi = class_abi,
             source_only_abi = source_only_abi,
             classpath_abi = classpath_abi,
@@ -386,7 +387,8 @@ def create_jar_artifact_kotlincd(
         )
     else:
         return make_compile_outputs(
-            full_library = final_jar,
+            full_library = final_jar_output.final_jar,
+            preprocessed_library = final_jar_output.preprocessed_jar,
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
         )

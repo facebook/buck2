@@ -443,6 +443,7 @@ def _create_jar_artifact(
 
     return make_compile_outputs(
         full_library = final_jar,
+        preprocessed_library = jar_out,
         class_abi = abi,
         required_for_source_only_abi = required_for_source_only_abi,
         annotation_processor_output = generated_sources_dir,
@@ -667,6 +668,7 @@ def build_java_library(
         generated_sources = all_generated_sources,
         has_srcs = has_srcs,
         gwt_module = gwt_output,
+        preprocessed_library = outputs.preprocessed_library if outputs else None,
     )
 
     class_to_src_map, class_to_src_map_sub_targets = get_class_to_source_map_info(

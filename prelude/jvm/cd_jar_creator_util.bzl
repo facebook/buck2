@@ -476,6 +476,12 @@ def prepare_cd_exe(
         )
         return worker_run_info, FORCE_PERSISTENT_WORKERS
 
+FinalJarOutput = record(
+    final_jar = Artifact,
+    # The same as final_jar unless there is a jar_postprocessor.
+    preprocessed_jar = Artifact,
+)
+
 # If there's additional compiled srcs, we need to merge them in and if the
 # caller specified an output artifact we need to make sure the jar is in that
 # location.
@@ -486,17 +492,21 @@ def prepare_final_jar(
         output_paths: OutputPaths,
         additional_compiled_srcs: Artifact | None,
         jar_builder: RunInfo,
-        jar_postprocessor: [RunInfo, None]) -> Artifact:
+        jar_postprocessor: [RunInfo, None]) -> FinalJarOutput:
+    def make_output(jar: Artifact) -> FinalJarOutput:
+        if jar_postprocessor:
+            postprocessed_jar = postprocess_jar(actions, jar_postprocessor, jar, actions_identifier)
+            return FinalJarOutput(final_jar = postprocessed_jar, preprocessed_jar = jar)
+        else:
+            return FinalJarOutput(final_jar = jar, preprocessed_jar = jar)
+
     if not additional_compiled_srcs:
         output_jar = output_paths.jar
         if output:
             actions.copy_file(output.as_output(), output_paths.jar)
             output_jar = output
 
-        if jar_postprocessor:
-            return postprocess_jar(actions, jar_postprocessor, output_jar, actions_identifier)
-        else:
-            return output_jar
+        return make_output(output_jar)
 
     merged_jar = output
     if not merged_jar:
@@ -515,10 +525,7 @@ def prepare_final_jar(
         identifier = actions_identifier,
     )
 
-    if jar_postprocessor:
-        return postprocess_jar(actions, jar_postprocessor, merged_jar, actions_identifier)
-    else:
-        return merged_jar
+    return make_output(merged_jar)
 
 def generate_abi_jars(
         actions: AnalysisActions,

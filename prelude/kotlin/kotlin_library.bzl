@@ -426,6 +426,7 @@ def build_kotlin_library(
                 needs_desugar = source_level > 7 or target_level > 7,
                 generated_sources = generated_sources,
                 has_srcs = bool(srcs),
+                preprocessed_library = outputs.preprocessed_library if outputs else None,
             )
 
             class_to_src_map, class_to_src_map_sub_targets = get_class_to_source_map_info(

@@ -307,7 +307,7 @@ def create_jar_artifact_javacd(
         is_creating_subtarget,
     )
     jar_postprocessor = ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None
-    final_jar = prepare_final_jar(
+    final_jar_output = prepare_final_jar(
         actions = actions,
         actions_identifier = actions_identifier,
         output = output,
@@ -326,7 +326,7 @@ def create_jar_artifact_javacd(
             additional_compiled_srcs,
             is_building_android_binary,
             java_toolchain.class_abi_generator,
-            final_jar,
+            final_jar_output.final_jar,
             compiling_deps_tset,
             source_only_abi_deps,
             class_abi_jar = class_abi_jar,
@@ -336,7 +336,8 @@ def create_jar_artifact_javacd(
         )
 
         result = make_compile_outputs(
-            full_library = final_jar,
+            full_library = final_jar_output.final_jar,
+            preprocessed_library = final_jar_output.preprocessed_jar,
             class_abi = class_abi,
             source_abi = source_abi,
             source_only_abi = source_only_abi,
@@ -347,7 +348,8 @@ def create_jar_artifact_javacd(
         )
     else:
         result = make_compile_outputs(
-            full_library = final_jar,
+            full_library = final_jar_output.final_jar,
+            preprocessed_library = final_jar_output.preprocessed_jar,
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
         )

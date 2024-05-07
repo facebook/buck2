@@ -175,7 +175,6 @@ JavaLibraryInfo = provider(
 )
 
 JavaLibraryIntellijInfo = provider(
-    # @unsorted-dict-items
     doc = "Information about a java library that is required for Intellij project generation",
     fields = {
         # Directory containing external annotation jars
@@ -184,6 +183,9 @@ JavaLibraryIntellijInfo = provider(
         "compiling_classpath": provider_field(typing.Any, default = None),  # ["artifact"]
         "generated_sources": provider_field(typing.Any, default = None),  # ["artifact"]
         "lint_jar": provider_field(typing.Any, default = None),  # ["artifact"]
+        # If this library has a jar_postprocessor, this is the jar prior to post-processing.
+        # Otherwise, it is the same as library_output in JavaLibraryInfo.
+        "preprocessed_library": provider_field(typing.Any, default = None),  # ["artifact", None]
     },
 )
 
@@ -210,6 +212,7 @@ JavaCompileOutputs = record(
     source_only_abi = Artifact | None,
     classpath_entry = JavaClasspathEntry,
     annotation_processor_output = Artifact | None,
+    preprocessed_library = Artifact,
 )
 
 JavaProviders = record(
@@ -243,6 +246,7 @@ def to_list(java_providers: JavaProviders) -> list[Provider]:
 # specific artifact to be used as the abi for the JavaClasspathEntry.
 def make_compile_outputs(
         full_library: Artifact,
+        preprocessed_library: Artifact,
         class_abi: Artifact | None = None,
         source_abi: Artifact | None = None,
         source_only_abi: Artifact | None = None,
@@ -263,6 +267,7 @@ def make_compile_outputs(
             required_for_source_only_abi = required_for_source_only_abi,
         ),
         annotation_processor_output = annotation_processor_output,
+        preprocessed_library = preprocessed_library,
     )
 
 def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, library: Artifact) -> Artifact:
@@ -464,7 +469,8 @@ def create_java_library_providers(
         annotation_jars_dir: Artifact | None = None,
         proguard_config: Artifact | None = None,
         gwt_module: Artifact | None = None,
-        lint_jar: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
+        lint_jar: Artifact | None = None,
+        preprocessed_library: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
@@ -495,6 +501,7 @@ def create_java_library_providers(
         generated_sources = generated_sources,
         annotation_jars_dir = annotation_jars_dir,
         lint_jar = lint_jar,
+        preprocessed_library = preprocessed_library,
     )
 
     return (library_info, packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_info, intellij_info)
