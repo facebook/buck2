@@ -22,6 +22,10 @@ pub fn get_possibly_nested_invocation_daemon_uuid() -> Option<String> {
     std::env::var("BUCK2_DAEMON_UUID").ok()
 }
 
+/// Generates the daemon constraints *for the currently running daemon.*
+///
+/// Note that this function is called *from the daemon* and represents the daemon's constraints -
+/// the constraints that the client would like the daemon to have are generated separately.
 pub fn gen_daemon_constraints(
     daemon_startup_config: &DaemonStartupConfig,
 ) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
