@@ -172,7 +172,7 @@ impl Develop {
                             file_targets.extend(targets.into_values().flatten());
                         }
                         Err(e) => {
-                            warn!(file = ?file, "Could not find a target that owns this file: {}", e);
+                            warn!(file = ?file, "Could not find a target that owns this file: {:#}", e);
                         }
                     }
                 }
@@ -196,7 +196,7 @@ impl Develop {
                             owners.extend(file_owners.into_iter());
                         }
                         Err(e) => {
-                            warn!(file = ?file, "Could not find a target that owns this file: {}", e);
+                            warn!(file = ?file, "Could not find a target that owns this file: {:#}", e);
                         }
                     }
                 }
