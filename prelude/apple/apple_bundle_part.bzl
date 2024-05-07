@@ -142,6 +142,9 @@ def assemble_bundle(
             get_apple_bundle_part_relative_destination_path(ctx, info_plist_part),
         ] if info_plist_part else []
         codesign_args.extend(info_plist_args)
+
+        if ctx.attrs.strict_provisioning_profile_search:
+            codesign_args.append("--strict-provisioning-profile-search")
     elif codesign_type.value == "skip":
         pass
     else:

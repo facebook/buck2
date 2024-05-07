@@ -81,6 +81,12 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Path to code signing utility. If not provided standard `codesign` tool will be used.",
     )
     parser.add_argument(
+        "--strict-provisioning-profile-search",
+        action="store_true",
+        required=False,
+        help="Fail code signing if more than one matching profile found.",
+    )
+    parser.add_argument(
         "--codesign-args",
         type=str,
         default=[],

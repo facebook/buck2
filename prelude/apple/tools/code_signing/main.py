@@ -38,6 +38,7 @@ class Arguments(Tap):  # pyre-ignore[13] ignore uninitialized attributes for typ
     platform: ApplePlatform
     codesign_on_copy: Optional[List[pathlib.Path]] = None
     fast_provisioning_profile_parsing: bool = False
+    strict_provisioning_profile_search: bool = False
 
     def configure(self) -> None:
         """
@@ -104,6 +105,12 @@ class Arguments(Tap):  # pyre-ignore[13] ignore uninitialized attributes for typ
             action="store_true",
             required=False,
             help="Uses experimental faster provisioning profile parsing.",
+        )
+        self.add_argument(
+            "--strict-provisioning-profile-search",
+            action="store_true",
+            required=False,
+            help="Fail code signing if more than one matching profile found.",
         )
 
 
