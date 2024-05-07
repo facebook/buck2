@@ -214,6 +214,15 @@ impl CommandExecutionResult {
         }
     }
 
+    pub fn was_remotely_executed(&self) -> bool {
+        match self.report.status {
+            CommandExecutionStatus::Success {
+                execution_kind: CommandExecutionKind::Remote { .. },
+            } => true,
+            _ => false,
+        }
+    }
+
     pub fn was_locally_executed(&self) -> bool {
         match self.report.status {
             CommandExecutionStatus::Success {

@@ -14,6 +14,7 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
+use buck2_common::cas_digest::CasDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::directory::DirectoryEntry;
@@ -25,6 +26,7 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::execute::action_digest::ActionDigestKind;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
@@ -532,6 +534,10 @@ enum CacheUploadRejectionReason {
     PermissionDenied(String),
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[error("Missing action result for RE action `{0}`")]
+struct DepFileReActionResultMissingError(CasDigest<ActionDigestKind>);
+
 #[async_trait]
 impl UploadCache for CacheUploader {
     async fn upload(
@@ -561,6 +567,13 @@ impl UploadCache for CacheUploader {
                     None
                 },
             )
+        } else if res.was_remotely_executed() {
+            if res.action_result.is_none() {
+                return Err(
+                    DepFileReActionResultMissingError(action_digest_and_blobs.action).into(),
+                );
+            }
+            (false, res.action_result.clone())
         } else {
             tracing::info!(
                 "Cache upload for `{}` not attempted",
