@@ -415,6 +415,8 @@ enum MaterializerCommand<T: 'static> {
         oneshot::Sender<bool>,
     ),
 
+    HasArtifact(ProjectRelativePathBuf, oneshot::Sender<bool>),
+
     /// Declares that given paths are no longer eligible to be materialized by this materializer.
     /// This typically should reflect a change made to the underlying filesystem, either because
     /// the file was created, or because it was removed..
@@ -462,6 +464,9 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             }
             MaterializerCommand::MatchArtifacts(paths, _) => {
                 write!(f, "MatchArtifacts({:?})", paths)
+            }
+            MaterializerCommand::HasArtifact(path, _) => {
+                write!(f, "HasArtifact({:?})", path)
             }
             MaterializerCommand::InvalidateFilePaths(paths, ..) => {
                 write!(f, "InvalidateFilePaths({:?})", paths)
@@ -884,6 +889,19 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             .context("Recv'ing match future from command thread.")?;
 
         Ok(is_match.into())
+    }
+
+    async fn has_artifact_at(&self, path: ProjectRelativePathBuf) -> anyhow::Result<bool> {
+        let (sender, recv) = oneshot::channel();
+
+        self.command_sender
+            .send(MaterializerCommand::HasArtifact(path, sender))?;
+
+        let has_artifact = recv
+            .await
+            .context("Recv'ing match future from command thread.")?;
+
+        Ok(has_artifact)
     }
 
     async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
@@ -1373,6 +1391,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .all(|(path, value)| self.match_artifact(path, value));
                 sender.send(all_matches).ok();
             }
+            MaterializerCommand::HasArtifact(path, sender) => {
+                sender.send(self.has_artifact(path)).ok();
+            }
             MaterializerCommand::InvalidateFilePaths(paths, sender, event_dispatcher) => {
                 tracing::trace!(
                     paths = ?paths,
@@ -1732,6 +1753,42 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
 
         is_match
+    }
+
+    fn has_artifact(&mut self, path: ProjectRelativePathBuf) -> bool {
+        let mut path_iter = path.iter();
+        let Some(data) = self.tree.prefix_get_mut(&mut path_iter) else {
+            return false;
+        };
+        // Something was declared above our path.
+        if path_iter.next().is_some() {
+            return false;
+        }
+
+        match &mut data.stage {
+            ArtifactMaterializationStage::Materialized {
+                metadata: _,
+                last_access_time,
+                active,
+            } => {
+                // Treat this case much like a `declare_existing`
+                *active = true;
+                *last_access_time = Utc::now();
+                if let Some(sqlite_db) = &mut self.sqlite_db {
+                    if let Err(e) = sqlite_db
+                        .materializer_state_table()
+                        .update_access_times(vec![&path])
+                    {
+                        soft_error!("has_artifact_update_time", e.context(self.log_buffer.clone()), quiet: true).unwrap();
+                    }
+                }
+            }
+            ArtifactMaterializationStage::Declared { .. } => {
+                // Nothing to do here
+            }
+        }
+
+        true
     }
 
     #[instrument(level = "debug", skip(self), fields(path = %path))]

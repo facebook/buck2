@@ -193,6 +193,11 @@ impl Materializer for ImmediateMaterializer {
         Ok(DeclareMatchOutcome::NotMatch)
     }
 
+    async fn has_artifact_at(&self, _path: ProjectRelativePathBuf) -> anyhow::Result<bool> {
+        // This materializer does not keep track of state
+        Ok(false)
+    }
+
     async fn declare_write<'a>(
         &self,
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,

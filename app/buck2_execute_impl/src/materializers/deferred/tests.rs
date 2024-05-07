@@ -97,6 +97,7 @@ mod state_machine {
     use buck2_core::fs::fs_util;
     use buck2_core::fs::fs_util::ReadDir;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::Symlink;
@@ -1290,6 +1291,30 @@ mod state_machine {
                 ..
             } = res.stats.unwrap();
             assert_eq!(retained_artifact_count, 1);
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_has_artifact_at() -> anyhow::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, _) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
+
+            let path = make_path("test/dir/path");
+            let value1 = ArtifactValue::dir(digest_config.empty_directory());
+            dm.declare_existing(&path, value1);
+
+            assert!(dm.has_artifact(path.clone()));
+            assert!(!dm.has_artifact(path.join(ForwardRelativePath::new("foo").unwrap())));
+            assert!(!dm.has_artifact(path.parent().unwrap().to_owned()));
+
+            dm.materialize_artifact(&path, EventDispatcher::null());
+            assert!(dm.has_artifact(path.clone()));
+            assert!(!dm.has_artifact(path.join(ForwardRelativePath::new("foo").unwrap())));
+            assert!(!dm.has_artifact(path.parent().unwrap().to_owned()));
+
             Ok(())
         })
         .await

@@ -179,6 +179,18 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     ) -> anyhow::Result<DeclareMatchOutcome>;
 
+    /// Ask the materializer if there is a "tracked" artifact at the given path.
+    ///
+    /// While this method provides no information about what that artifact actually is, it can be
+    /// used to verify that the artifact has not been eg corrupted by a partial clean-stale since
+    /// being materialized.
+    ///
+    /// Furthermore, if this method returns `true`, the artifact is also treated as having been
+    /// declared in the current daemon.
+    ///
+    /// This method does not guarantee that the artifact was materialized.
+    async fn has_artifact_at(&self, path: ProjectRelativePathBuf) -> anyhow::Result<bool>;
+
     /// Declare an artifact at `path` exists. This will overwrite any pre-existing materialization
     /// methods for this file and indicate that no materialization is necessary.
     async fn invalidate(&self, path: ProjectRelativePathBuf) -> anyhow::Result<()> {

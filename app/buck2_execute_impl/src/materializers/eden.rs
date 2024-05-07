@@ -218,6 +218,11 @@ impl Materializer for EdenMaterializer {
         Ok(DeclareMatchOutcome::NotMatch)
     }
 
+    async fn has_artifact_at(&self, _path: ProjectRelativePathBuf) -> anyhow::Result<bool> {
+        // This would require querying Eden at a minimum.
+        Ok(false)
+    }
+
     async fn declare_write<'a>(
         &self,
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
