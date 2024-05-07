@@ -108,6 +108,7 @@ impl CacheUploader {
         result: &CommandExecutionResult,
         action_digest_and_blobs: &ActionDigestAndBlobs,
         error_on_cache_upload: bool,
+        has_depfile_entry: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
         let digest = action_digest_and_blobs.action;
         let reason = buck2_data::CacheUploadReason::LocalExecution;
@@ -165,17 +166,23 @@ impl CacheUploader {
                         }
                         Ok(taction2) => taction2,
                     };
+                    // Skip expensive clone if it's not needed
+                    let result_for_dep_file = if has_depfile_entry {
+                        Some(result.clone())
+                    } else {
+                        None
+                    };
 
                     self.re_client
                         .write_action_result(
                             digest,
-                            result.clone(),
+                            result,
                             self.re_use_case,
                             &self.platform.to_re_platform(),
                         )
                         .await?;
 
-                    Ok(CacheUploadOutcome::Success(Some(result)))
+                    Ok(CacheUploadOutcome::Success(result_for_dep_file))
                 }
                 .await
                 .unwrap_or_else(CacheUploadOutcome::Failed);
@@ -544,7 +551,7 @@ impl UploadCache for CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
-        dep_file_entry: Option<DepFileEntry>,
+        mut dep_file_entry: Option<DepFileEntry>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let error_on_cache_upload = error_on_cache_upload().context("cache_upload")?;
@@ -556,7 +563,13 @@ impl UploadCache for CacheUploader {
             );
             // TODO(bobyf, torozco) should these be critical sections?
             let outcome = self
-                .upload_local_outputs(info, res, &action_digest_and_blobs, error_on_cache_upload)
+                .upload_local_outputs(
+                    info,
+                    res,
+                    &action_digest_and_blobs,
+                    error_on_cache_upload,
+                    dep_file_entry.is_some(),
+                )
                 .await?;
 
             (
@@ -567,13 +580,14 @@ impl UploadCache for CacheUploader {
                     None
                 },
             )
-        } else if res.was_remotely_executed() {
-            if res.action_result.is_none() {
+        } else if let Some(ref mut dep_file_entry) = dep_file_entry {
+            let action_result = dep_file_entry.action_result.take();
+            if res.was_remotely_executed() && action_result.is_none() {
                 return Err(
                     DepFileReActionResultMissingError(action_digest_and_blobs.action).into(),
                 );
             }
-            (false, res.action_result.clone())
+            (false, action_result)
         } else {
             tracing::info!(
                 "Cache upload for `{}` not attempted",

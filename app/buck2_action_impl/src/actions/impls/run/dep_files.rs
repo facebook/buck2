@@ -68,6 +68,7 @@ use once_cell::sync::Lazy;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
+use remote_execution::TActionResult2;
 use starlark_map::ordered_map::OrderedMap;
 use tracing::instrument;
 
@@ -396,6 +397,7 @@ impl DepFileBundle {
     pub(crate) async fn make_remote_dep_file_entry(
         &mut self,
         ctx: &dyn ActionExecutionCtx,
+        action_result: Option<TActionResult2>,
     ) -> anyhow::Result<DepFileEntry> {
         let digest_config = ctx.digest_config();
         // Compute the input fingerprint digest if it hasn't been computed already.
@@ -419,6 +421,7 @@ impl DepFileBundle {
         let res = DepFileEntry {
             action: self.remote_dep_file_action.clone(),
             entry,
+            action_result,
         };
 
         Ok(res)

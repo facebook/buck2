@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::buck2_env;
+use remote_execution::TActionResult2;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
@@ -24,6 +25,9 @@ pub struct CacheUploadInfo<'a> {
 pub struct DepFileEntry {
     pub action: ActionDigestAndBlobs,
     pub entry: RemoteDepFile,
+    // The action result from RE, if executed on RE.
+    // If local, this is generated while uploading outputs.
+    pub action_result: Option<TActionResult2>,
 }
 
 pub struct CacheUploadResult {

@@ -730,7 +730,10 @@ impl IncrementalActionExecutable for RunAction {
         {
             let dep_file_entry = match &mut dep_file_bundle {
                 Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
-                    let entry = dep_file_bundle.make_remote_dep_file_entry(ctx).await?;
+                    let action_result = result.action_result.take();
+                    let entry = dep_file_bundle
+                        .make_remote_dep_file_entry(ctx, action_result)
+                        .await?;
                     Some(entry)
                 }
                 _ => None,
