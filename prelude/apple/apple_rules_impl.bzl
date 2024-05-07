@@ -48,8 +48,6 @@ load(":apple_universal_executable.bzl", "apple_universal_executable_impl")
 load(":apple_xcuitest.bzl", "apple_xcuitest_impl")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
-load(":xcode_postbuild_script.bzl", "xcode_postbuild_script_impl")
-load(":xcode_prebuild_script.bzl", "xcode_prebuild_script_impl")
 
 implemented_rules = {
     "apple_asset_catalog": apple_asset_catalog_impl,
@@ -66,8 +64,6 @@ implemented_rules = {
     "prebuilt_apple_framework": prebuilt_apple_framework_impl,
     "scene_kit_assets": scene_kit_assets_impl,
     "swift_toolchain": swift_toolchain_impl,
-    "xcode_postbuild_script": xcode_postbuild_script_impl,
-    "xcode_prebuild_script": xcode_prebuild_script_impl,
 }
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()

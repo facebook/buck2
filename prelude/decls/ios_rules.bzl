@@ -1017,50 +1017,6 @@ swift_toolchain = prelude_rule(
     ),
 )
 
-xcode_postbuild_script = prelude_rule(
-    name = "xcode_postbuild_script",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "cmd": attrs.string(default = ""),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "input_file_lists": attrs.list(attrs.string(), default = []),
-            "inputs": attrs.list(attrs.string(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "output_file_lists": attrs.list(attrs.string(), default = []),
-            "outputs": attrs.list(attrs.string(), default = []),
-            "srcs": attrs.list(attrs.source(), default = []),
-        }
-    ),
-)
-
-xcode_prebuild_script = prelude_rule(
-    name = "xcode_prebuild_script",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "cmd": attrs.string(default = ""),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "input_file_lists": attrs.list(attrs.string(), default = []),
-            "inputs": attrs.list(attrs.string(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "output_file_lists": attrs.list(attrs.string(), default = []),
-            "outputs": attrs.list(attrs.string(), default = []),
-            "srcs": attrs.list(attrs.source(), default = []),
-        }
-    ),
-)
-
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1076,6 +1032,4 @@ ios_rules = struct(
     scene_kit_assets = scene_kit_assets,
     swift_library = swift_library,
     swift_toolchain = swift_toolchain,
-    xcode_postbuild_script = xcode_postbuild_script,
-    xcode_prebuild_script = xcode_prebuild_script,
 )
