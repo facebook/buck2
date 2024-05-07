@@ -44,11 +44,35 @@ configuration.
 
 ## Origins
 
-Currently, the only supported origin is the `bundled` one. This origin can only
-be used with the `prelude` cell, and provides access to a copy of the prelude
-that is bundled as part of the buck2 binary. We certainly want to at least
-support git repos, and possibly other HTTP endpoints. Ideas or PRs for
-extensions are welcome.
+Buck2 currently supports two external cell origins, `bundled` and `git`.
+
+### The `bundled` origin
+
+The bundled origin can only be used with the `prelude` cell, and provides access
+to a copy of the prelude that is bundled as part of the buck2 binary. This is
+useful as an easier-to-install alternative to vendoring or submoduling the
+prelude.
+
+### The `git` origin
+
+The `git` origin indicates that an external cell's content should be loaded from
+some git repo. It accepts two additional configuration parameters, `git_origin`
+and `commit`, like this:
+
+```
+[cells]
+  root = .
+  libfoo = libfoo
+
+[external_cells]
+  libfoo = git
+
+[external_cell_libfoo]
+  git_origin = https://github.com/facebook/foo
+  commit_hash = <sha1sum>
+```
+
+The `commit_hash` value must be a sha1, it cannot be eg a branch name.
 
 ## Expanding external cells
 
