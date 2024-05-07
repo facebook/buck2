@@ -94,6 +94,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # (https://fb.workplace.com/groups/1042353022615812/posts/1849505965233843/).
     "uses_php",
 
+    # Uses the `libX11-devel` package which is not available on RE.
+    "uses_x11",
+
     # Unity license client needs to be set up on RE workers for this to work, and maybe further debugging.
     "uses_unity",
 
