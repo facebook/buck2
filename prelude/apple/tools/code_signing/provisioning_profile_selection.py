@@ -283,4 +283,19 @@ def select_best_provisioning_profile(
         if strict_search:
             raise CodeSignProvisioningError(multiple_profiles_message)
 
+    if result:
+        _LOGGER.info(
+            (
+                f"Found matching provisioning profile and identity\n"
+                f"  Selected Identity: {result.identity}\n"
+                f"  Provisioning Profile: `{result.profile.file_path.name}`\n"
+                f"    UUID: {result.profile.uuid}\n"
+                f"    File: {result.profile.file_path}\n"
+                f"    Expiration: {result.profile.expiration_date}\n"
+                f"    Platforms: {result.profile.platforms}\n"
+                f"    Fingerprints: {result.profile.developer_certificate_fingerprints}\n"
+                f"    Entitlements: {result.profile.entitlements}"
+            )
+        )
+
     return result, diagnostics
