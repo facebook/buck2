@@ -14,6 +14,12 @@ bundled_cell(
     source_listing = _PKG_PREFIX + "tests/e2e_util/nano_prelude:source_listing",
 )
 
+bundled_cell(
+    name = "prelude",
+    include_from_file = "src/lib.rs",
+    source_listing = "prelude//:source_listing",
+)
+
 rust_library(
     name = "buck2_external_cells_bundled",
     srcs = glob([
@@ -23,6 +29,7 @@ rust_library(
     ]),
     mapped_srcs = {
         ":nano_prelude": "src/nano_prelude",
+        ":prelude": "src/prelude",
     },
     # Do not add non-third party deps. This should store the data only, so that
     # we avoid recompiling if at all possible.
