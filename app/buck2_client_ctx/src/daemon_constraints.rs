@@ -12,6 +12,16 @@ use buck2_core::ci::sandcastle_id;
 
 use crate::version::BuckVersion;
 
+/// Checks an environment variable to see if we were spawned by a buck daemon and if so, returns the
+/// UUID of that daemon.
+///
+/// This is used to detect nested invocations, but returning `Some` does not guarantee that this is
+/// a nested invocation.
+pub fn get_possibly_nested_invocation_daemon_uuid() -> Option<String> {
+    // Intentionally don't use `buck2_env!` because we don't want this showing up in help output
+    std::env::var("BUCK2_DAEMON_UUID").ok()
+}
+
 pub fn gen_daemon_constraints(
     daemon_startup_config: &DaemonStartupConfig,
 ) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {

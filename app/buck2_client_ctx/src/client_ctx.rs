@@ -29,6 +29,7 @@ use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
 use crate::exit_result::ExitResult;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
@@ -163,11 +164,6 @@ impl<'a> ClientCommandContext<'a> {
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
 
-        let daemon_uuid = match std::env::var("BUCK2_DAEMON_UUID") {
-            Ok(daemon_uuid) => Some(daemon_uuid),
-            _ => None,
-        };
-
         Ok(ClientContext {
             working_dir: self
                 .working_dir
@@ -186,7 +182,7 @@ impl<'a> ClientCommandContext<'a> {
             skip_targets_with_duplicate_names: false,
             trace_id: format!("{}", self.trace_id),
             reuse_current_config: false,
-            daemon_uuid,
+            daemon_uuid: get_possibly_nested_invocation_daemon_uuid(),
             sanitized_argv: Vec::new(),
             argfiles: Vec::new(),
             buck2_hard_error: buck2_hard_error_env()?.unwrap_or_default().to_owned(),
