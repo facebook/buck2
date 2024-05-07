@@ -39,7 +39,11 @@ mod prelude {
     include!("prelude/contents.rs");
 }
 
-#[cfg(buck_build)]
+#[cfg(not(buck_build))]
+mod prelude {
+    include!(concat!(env!("OUT_DIR"), "/include.rs"));
+}
+
 const PRELUDE: BundledCell = BundledCell {
     name: "prelude",
     files: prelude::DATA,
@@ -95,7 +99,7 @@ pub const fn get_bundled_data() -> &'static [BundledCell] {
     }
     #[cfg(not(buck_build))]
     {
-        &[TEST_CELL]
+        &[TEST_CELL, PRELUDE]
     }
 }
 
@@ -109,5 +113,26 @@ mod tests {
                 .iter()
                 .any(|file| file.path == "dir/src.txt" && file.contents == "foobar\n".as_bytes())
         )
+    }
+
+    #[test]
+    fn test_bundled_prelude_data() {
+        let c = super::PRELUDE;
+        // Make sure there's a buckconfig
+        assert!(c.files.iter().any(|file| {
+            file.path == ".buckconfig"
+                && std::str::from_utf8(file.contents)
+                    .unwrap()
+                    .contains("prelude = .")
+        }));
+
+        // And that there's at least 50 files with a reasonable amount of data
+        assert!(
+            c.files
+                .iter()
+                .filter(|file| file.contents.len() > 100)
+                .count()
+                > 50
+        );
     }
 }

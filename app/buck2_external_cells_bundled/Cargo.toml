@@ -1,4 +1,5 @@
 [package]
+build = "build.rs"
 description = "Buck2 external cells bundled data"
 edition = "2021"
 license = { workspace = true }
@@ -10,3 +11,6 @@ version = "0.1.0"
 async-trait = { workspace = true }
 
 buck2_common = { workspace = true }
+
+[build-dependencies]
+walkdir = { workspace = true }
