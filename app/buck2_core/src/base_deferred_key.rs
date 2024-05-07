@@ -9,6 +9,7 @@
 
 use std::any::Any;
 use std::borrow::Cow;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -102,6 +103,7 @@ impl BaseDeferredKey {
         prefix: &ForwardRelativePath,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
+        fully_hash_path: bool,
     ) -> ProjectRelativePathBuf {
         match self {
             BaseDeferredKey::TargetLabel(target) => {
@@ -111,13 +113,7 @@ impl BaseDeferredKey {
                 // It is performance critical that we use slices and allocate via `join` instead of
                 // repeated calls to `join` on the path object because `join` allocates on each call,
                 // which has a significant impact.
-                let parts = [
-                    base.as_str(),
-                    "/",
-                    prefix.as_str(),
-                    "/",
-                    target.pkg().cell_name().as_str(),
-                    "/",
+                let path_identifier = [
                     target.cfg().output_hash().as_str(),
                     if target.exec_cfg().is_some() { "-" } else { "" },
                     target
@@ -142,10 +138,29 @@ impl BaseDeferredKey {
                     },
                     action_key.unwrap_or_default(),
                     if action_key.is_none() { "" } else { "__/" },
+                ];
+
+                let path_or_hash = if fully_hash_path {
+                    let mut hasher = DefaultHasher::new();
+                    path_identifier.hash(&mut hasher);
+
+                    format!("{:x}/", hasher.finish())
+                } else {
+                    path_identifier.concat()
+                };
+
+                let hashed_path = [
+                    base.as_str(),
+                    "/",
+                    prefix.as_str(),
+                    "/",
+                    target.pkg().cell_name().as_str(),
+                    "/",
+                    path_or_hash.as_str(),
                     path.as_str(),
                 ];
 
-                ProjectRelativePathBuf::unchecked_new(parts.concat())
+                ProjectRelativePathBuf::unchecked_new(hashed_path.concat())
             }
             BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(d) => {
                 d.make_hashed_path(base, prefix, action_key, path)

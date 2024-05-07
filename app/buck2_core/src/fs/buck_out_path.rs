@@ -194,6 +194,7 @@ impl BuckOutPathResolver {
             path.owner(),
             path.action_key(),
             path.path(),
+            false,
         )
     }
 
@@ -203,6 +204,7 @@ impl BuckOutPathResolver {
             path.owner(),
             path.action_key(),
             path.path(),
+            false,
         )
     }
 
@@ -232,6 +234,8 @@ impl BuckOutPathResolver {
             &path.owner,
             None,
             &path.path,
+            // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
+            true,
         )
     }
 
@@ -251,8 +255,9 @@ impl BuckOutPathResolver {
         owner: &BaseDeferredKey,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
+        fully_hash_path: bool,
     ) -> ProjectRelativePathBuf {
-        owner.make_hashed_path(&self.0, prefix, action_key, path)
+        owner.make_hashed_path(&self.0, prefix, action_key, path, fully_hash_path)
     }
 
     /// This function returns the exact location of the symlink of a given target.
@@ -372,19 +377,39 @@ mod tests {
         );
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
+        let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
-            BaseDeferredKey::TargetLabel(cfg_target),
+        let resolved_gen_path = path_resolver.resolve_gen(&BuckOutPath::new(
+            owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("faz.file".into()),
         ));
 
-        let re =
+        let expected_gen_path =
             Regex::new("base/buck-out/v2/gen/foo/[0-9a-z]+/baz-package/__target-name__/faz.file")?;
         assert!(
-            re.is_match(resolved.as_str()),
+            expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{}.is_match({})",
-            re,
-            resolved
+            expected_gen_path,
+            resolved_gen_path
+        );
+
+        let resolved_scratch_path = path_resolver.resolve_scratch(
+            &BuckOutScratchPath::new(
+                owner,
+                &Category::try_from("category").unwrap(),
+                Some(&String::from("blah.file")),
+                "1_2".to_owned(),
+            )
+            .unwrap(),
+        );
+
+        let expected_scratch_path =
+            Regex::new("base/buck-out/v2/tmp/foo/[0-9a-z]+/category/blah.file")?;
+        assert!(
+            expected_scratch_path.is_match(resolved_scratch_path.as_str()),
+            "{}.is_match({})",
+            expected_scratch_path,
+            resolved_scratch_path
         );
         Ok(())
     }
@@ -400,35 +425,58 @@ mod tests {
         );
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
+        let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
-            BaseDeferredKey::TargetLabel(cfg_target.dupe()),
+        let resolved_gen_path = path_resolver.resolve_gen(&BuckOutPath::new(
+            owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
         ));
 
-        let re = Regex::new("buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/quux")?;
+        let expected_gen_path: Regex =
+            Regex::new("buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/quux")?;
         assert!(
-            re.is_match(resolved.as_str()),
+            expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{}.is_match({})",
-            re,
-            resolved
+            expected_gen_path,
+            resolved_gen_path
         );
 
         let path = BuckOutPath::with_action_key(
-            BaseDeferredKey::TargetLabel(cfg_target),
+            owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
             Some(Arc::from("xxx")),
         );
-        let resolved = path_resolver.resolve_gen(&path);
+        let resolved_gen_path = path_resolver.resolve_gen(&path);
 
-        let re = Regex::new(
+        let expected_gen_path = Regex::new(
             "buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/__action__xxx__/quux",
         )?;
         assert!(
-            re.is_match(resolved.as_str()),
+            expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{}.is_match({})",
-            re,
-            resolved
+            expected_gen_path,
+            resolved_gen_path
+        );
+
+        let resolved_scratch_path = path_resolver.resolve_scratch(
+            &BuckOutScratchPath::new(
+                owner,
+                &Category::try_from("category").unwrap(),
+                Some(&String::from(
+                    "xxx_some_crazy_long_file_name_that_causes_it_to_be_hashed_xxx.txt",
+                )),
+                "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
+            )
+            .unwrap(),
+        );
+
+        let expected_scratch_path =
+            Regex::new("buck-out/tmp/foo/[0-9a-z]+/category/_buck_[0-9a-z]+")?;
+        assert!(
+            expected_scratch_path.is_match(resolved_scratch_path.as_str()),
+            "{}.is_match({})",
+            expected_scratch_path,
+            resolved_scratch_path
         );
 
         Ok(())
