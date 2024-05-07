@@ -1061,37 +1061,6 @@ xcode_prebuild_script = prelude_rule(
     ),
 )
 
-xcode_workspace_config = prelude_rule(
-    name = "xcode_workspace_config",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "action_config_names": attrs.dict(key = attrs.enum(SchemeActionType), value = attrs.string(), sorted = False, default = {}),
-            "additional_scheme_actions": attrs.option(attrs.dict(key = attrs.enum(SchemeActionType), value = attrs.dict(key = attrs.enum(AdditionalActions), value = attrs.list(attrs.string()), sorted = False), sorted = False), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "environment_variables": attrs.option(attrs.dict(key = attrs.enum(SchemeActionType), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False), default = None),
-            "explicit_runnable_path": attrs.option(attrs.string(), default = None),
-            "extra_schemes": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
-            "extra_shallow_targets": attrs.list(attrs.dep(), default = []),
-            "extra_targets": attrs.list(attrs.dep(), default = []),
-            "extra_tests": attrs.list(attrs.dep(), default = []),
-            "is_remote_runnable": attrs.option(attrs.bool(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "launch_style": attrs.option(attrs.enum(LaunchStyle), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "notification_payload_file": attrs.option(attrs.string(), default = None),
-            "src_target": attrs.option(attrs.dep(), default = None),
-            "was_created_for_app_extension": attrs.option(attrs.bool(), default = None),
-            "watch_interface": attrs.option(attrs.enum(WatchInterface), default = None),
-            "workspace_name": attrs.option(attrs.string(), default = None),
-        }
-    ),
-)
-
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1109,5 +1078,4 @@ ios_rules = struct(
     swift_toolchain = swift_toolchain,
     xcode_postbuild_script = xcode_postbuild_script,
     xcode_prebuild_script = xcode_prebuild_script,
-    xcode_workspace_config = xcode_workspace_config,
 )
