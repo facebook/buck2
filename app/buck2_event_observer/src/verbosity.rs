@@ -15,7 +15,7 @@ use dupe::Dupe;
 enum VerbosityError {
     #[error("Can't have more than 1 level set at a time")]
     MoreThan1Level,
-    #[error("Item name not reconized: {0}")]
+    #[error("Item name not recognized: {0}")]
     UnknownItem(String),
 }
 
