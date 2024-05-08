@@ -280,6 +280,10 @@ impl REClientBuilder {
             interceptor.dupe(),
         );
 
+        if let Some(max_decoding_message_size) = opts.max_decoding_message_size {
+            capabilities_client = capabilities_client.max_decoding_message_size(max_decoding_message_size);
+        }
+
         let instance_name = InstanceName(opts.instance_name.clone());
 
         let capabilities = if opts.capabilities.unwrap_or(true) {
@@ -295,7 +299,8 @@ impl REClientBuilder {
             return Err(anyhow::anyhow!("Server has remote execution disabled."));
         }
 
-        let max_decoding_msg_size = std::cmp::max(DEFAULT_MAX_MSG_SIZE, capabilities.max_msg_size * 3);
+        let max_decoding_msg_size = opts.max_decoding_message_size
+            .unwrap_or(capabilities.max_msg_size * 2);
 
         let grpc_clients = GRPCClients {
             cas_client: ContentAddressableStorageClient::with_interceptor(
