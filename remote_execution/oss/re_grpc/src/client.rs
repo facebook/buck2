@@ -27,7 +27,6 @@ use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
-use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client;
 use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
@@ -287,7 +286,7 @@ impl REClientBuilder {
         let instance_name = InstanceName(opts.instance_name.clone());
 
         let capabilities = if opts.capabilities.unwrap_or(true) {
-            Self::fetch_rbe_capabilities(&mut capabilities_client, &instance_name).await?
+            Self::fetch_rbe_capabilities(&mut capabilities_client, &instance_name, opts.max_total_file_size).await?
         } else {
             RECapabilities {
                 exec_enabled: true,
@@ -301,6 +300,11 @@ impl REClientBuilder {
 
         let max_decoding_msg_size = opts.max_decoding_message_size
             .unwrap_or(capabilities.max_msg_size * 2);
+
+        if max_decoding_msg_size < capabilities.max_msg_size {
+            return Err(anyhow::anyhow!(
+                "Attribute `max_decoding_message_size` must always be equal or higher to `max_total_file_size`"));
+        }
 
         let grpc_clients = GRPCClients {
             cas_client: ContentAddressableStorageClient::with_interceptor(
@@ -319,7 +323,6 @@ impl REClientBuilder {
                 bytestream.context("Error creating Bytestream client")?,
                 interceptor.dupe(),
             ).max_decoding_message_size(max_decoding_msg_size),
-            capabilities_client
         };
 
         Ok(REClient::new(
@@ -335,6 +338,7 @@ impl REClientBuilder {
     async fn fetch_rbe_capabilities(
         client: &mut CapabilitiesClient<GrpcService>,
         instance_name: &InstanceName,
+        max_total_file_size: Option<usize>,
     ) -> anyhow::Result<RECapabilities> {
         // TODO use more of the capabilities of the remote build executor
 
@@ -345,18 +349,27 @@ impl REClientBuilder {
             .await
             .context("Failed to query capabilities of remote")?
             .into_inner();
-        // Default is a reasonable size for the gRPC transport
-        // with enough room for headers.
-        let mut max_msg_size = DEFAULT_MAX_MSG_SIZE;
+
         let mut exec_enabled = true;
 
-        if let Some(cache_cap) = resp.cache_capabilities {
+        let max_msg_size_from_capabilities: Option<usize> = if let Some(cache_cap) = resp.cache_capabilities {
             let size = cache_cap.max_batch_total_size_bytes as usize;
             // A value of 0 means no limit is set
             if size != 0 {
-                max_msg_size = size;
+                Some(size)
+            } else {
+                None
             }
-        }
+        } else {
+            None
+        };
+
+        let max_msg_size = match (max_msg_size_from_capabilities, max_total_file_size) {
+            (Some(cap), Some(config)) => std::cmp::min(cap, config),
+            (Some(cap), None) => cap,
+            (None, Some(config)) => config,
+            (None, None) => DEFAULT_MAX_MSG_SIZE,
+        };
 
         if let Some(exec_cap) = resp.execution_capabilities {
             exec_enabled = exec_cap.exec_enabled;
@@ -421,7 +434,6 @@ pub struct GRPCClients {
     execution_client: ExecutionClient<GrpcService>,
     action_cache_client: ActionCacheClient<GrpcService>,
     bytestream_client: ByteStreamClient<GrpcService>,
-    capabilities_client: CapabilitiesClient<GrpcService>,
 }
 
 pub struct REClient {
