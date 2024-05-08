@@ -1135,6 +1135,7 @@ prebuilt_cxx_library = prelude_rule(
             "exported_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
             "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "exported_post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
+            "extract_soname": attrs.bool(default = False),
             "frameworks": attrs.list(attrs.string(), default = []),
             "import_lib": attrs.option(attrs.source(), default = None),
             "include_in_android_merge_map_output": attrs.bool(default = True),

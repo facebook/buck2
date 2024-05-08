@@ -14,7 +14,7 @@ load(
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:expect.bzl", "expect")
 
-_Soname = record(
+Soname = record(
     # Return the SONAME if it's a string, otherwise None.
     as_str = field(typing.Callable),
     # Return the SONAME as a string, throwing an error if it is actually an
@@ -40,7 +40,7 @@ SharedLibrary = record(
     stripped_lib = field(Artifact | None, None),
     can_be_asset = field(bool, False),
     for_primary_apk = field(bool, False),
-    soname = field(_Soname),
+    soname = field(Soname),
     label = field(Label),
 )
 
@@ -48,8 +48,10 @@ def _ensure_str(soname: str | Artifact) -> str:
     expect(type(soname) == type(""), "SONAME is not a `str`: {}", soname)
     return soname
 
-def _soname(soname: str | Artifact) -> _Soname:
-    return _Soname(
+def to_soname(soname: str | Artifact | Soname) -> Soname:
+    if isinstance(soname, Soname):
+        return soname
+    return Soname(
         as_str = lambda: soname if type(soname) == type("") else None,
         ensure_str = lambda: _ensure_str(soname),
         is_str = lambda: type(soname) == type(""),
@@ -59,10 +61,10 @@ def _soname(soname: str | Artifact) -> _Soname:
 def create_shlib(
         # The soname can either be a string or an artifact with the soname in
         # text form.
-        soname: str | Artifact,
+        soname: str | Artifact | Soname,
         **kwargs):
     return SharedLibrary(
-        soname = _soname(soname),
+        soname = to_soname(soname),
         **kwargs
     )
 
@@ -89,6 +91,27 @@ def get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo) -> list:
 
     return ["--strip-unneeded"]
 
+def create_shlib_from_ctx(
+        ctx: AnalysisContext,
+        soname: str | Artifact | Soname,
+        lib: LinkedObject):
+    cxx_toolchain = getattr(ctx.attrs, "_cxx_toolchain", None)
+    return create_shlib(
+        lib = lib,
+        stripped_lib = strip_object(
+            ctx,
+            cxx_toolchain[CxxToolchainInfo],
+            lib.output,
+            cmd_args(get_strip_non_global_flags(cxx_toolchain[CxxToolchainInfo])),
+        ) if cxx_toolchain != None else None,
+        link_args = lib.link_args,
+        shlib_deps = None,  # TODO(cjhopman): we need this figured out.
+        can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
+        for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
+        label = ctx.label,
+        soname = soname,
+    )
+
 def create_shared_libraries(
         ctx: AnalysisContext,
         libraries: dict[str, LinkedObject]) -> SharedLibraries:
@@ -96,23 +119,11 @@ def create_shared_libraries(
     Take a mapping of dest -> src and turn it into a mapping that will be
     passed around in providers. Used for both srcs, and resources.
     """
-    cxx_toolchain = getattr(ctx.attrs, "_cxx_toolchain", None)
     return SharedLibraries(
-        libraries = [create_shlib(
-            lib = shlib,
-            stripped_lib = strip_object(
-                ctx,
-                cxx_toolchain[CxxToolchainInfo],
-                shlib.output,
-                cmd_args(get_strip_non_global_flags(cxx_toolchain[CxxToolchainInfo])),
-            ) if cxx_toolchain != None else None,
-            link_args = shlib.link_args,
-            shlib_deps = None,  # TODO(cjhopman): we need this figured out.
-            can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
-            for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
-            label = ctx.label,
-            soname = name,
-        ) for (name, shlib) in libraries.items()],
+        libraries = [
+            create_shlib_from_ctx(ctx = ctx, soname = name, lib = shlib)
+            for (name, shlib) in libraries.items()
+        ],
     )
 
 # Merge multiple SharedLibraryInfo. The value in `node` represents a set of
@@ -269,3 +280,22 @@ def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: l
         ),
         dir = True,
     )
+
+def extract_soname_from_shlib(
+        actions: AnalysisActions,
+        name: str,
+        shared_lib: Artifact) -> Artifact:
+    """
+    Extract the SONAME from a shared library into a file.
+    """
+    soname = actions.declare_output(name)
+    cmd = cmd_args(
+        "sh",
+        "-c",
+        '''set -euo pipefail; objdump -p "$1" | grep SONAME | awk '{print $2}' > "$2"''',
+        "",
+        shared_lib,
+        soname.as_output(),
+    )
+    actions.run(cmd, category = "extract_soname", identifier = shared_lib.short_path)
+    return soname

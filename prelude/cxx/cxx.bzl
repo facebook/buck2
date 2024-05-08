@@ -55,7 +55,15 @@ load(
     "@prelude//linking:linkables.bzl",
     "linkables",
 )
-load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraries",
+    "SharedLibraryInfo",
+    "create_shlib_from_ctx",
+    "extract_soname_from_shlib",
+    "merge_shared_libraries",
+    "to_soname",
+)
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
@@ -387,8 +395,15 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
+    elif shared_lib != None and ctx.attrs.extract_soname:
+        soname = extract_soname_from_shlib(
+            actions = ctx.actions,
+            name = "__soname__.txt",
+            shared_lib = shared_lib,
+        )
     else:
         soname = get_shared_library_name(linker_info, ctx.label.name, apply_default_prefix = True)
+    soname = to_soname(soname)
 
     # Use ctx.attrs.deps instead of cxx_attr_deps, since prebuilt rules don't have platform_deps.
     first_order_deps = ctx.attrs.deps
@@ -419,7 +434,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Gather link infos, outputs, and shared libs for effective link style.
     outputs = {}
     libraries = {}
-    solibs = {}
+    solibs = []
     sub_targets = {}
     for output_style in get_output_styles_for_linkage(preferred_linkage):
         out = None
@@ -462,8 +477,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
                         link_result = cxx_link_shared_library(
                             ctx = ctx,
-                            output = soname,
-                            name = soname,
+                            output = soname.ensure_str(),
+                            name = soname.ensure_str(),
                             opts = link_options(
                                 links = [
                                     LinkArgs(flags = shlink_args),
@@ -504,12 +519,18 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     # Provided means something external to the build will provide
                     # the libraries, so we don't need to propagate anything.
                     if not ctx.attrs.provided:
-                        solibs[soname] = shared_lib
+                        solibs.append(
+                            create_shlib_from_ctx(
+                                ctx = ctx,
+                                lib = shared_lib,
+                                soname = soname,
+                            ),
+                        )
 
                     # Provide a sub-target that always provides the shared lib
                     # using the soname.
-                    if soname and shared_lib.output.basename != paths.basename(soname):
-                        soname_lib = ctx.actions.copy_file(soname, shared_lib.output)
+                    if soname and soname.is_str() and shared_lib.output.basename != paths.basename(soname.ensure_str()):
+                        soname_lib = ctx.actions.copy_file(soname.ensure_str(), shared_lib.output)
                     else:
                         soname_lib = shared_lib.output
                     sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]
@@ -566,7 +587,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ))
 
     # Propagate shared libraries up the tree.
-    shared_libs = create_shared_libraries(ctx, solibs)
+    shared_libs = SharedLibraries(libraries = solibs)
     providers.append(merge_shared_libraries(
         ctx.actions,
         shared_libs,
@@ -574,13 +595,13 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ))
 
     # Omnibus root provider.
-    if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
+    if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only and soname.is_str():
         # TODO(cjhopman): This doesn't support thin archives
         linkable_root = create_linkable_root(
             label = ctx.label,
-            name = soname,
+            name = soname.ensure_str(),
             link_infos = LinkInfos(default = LinkInfo(
-                name = soname,
+                name = soname.ensure_str(),
                 pre_flags = (
                     linker_flags.exported_flags +
                     linker_flags.flags
@@ -608,7 +629,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             linkable_node = create_linkable_node(
                 ctx = ctx,
-                default_soname = soname,
+                default_soname = soname.as_str(),
                 preferred_linkage = preferred_linkage,
                 default_link_strategy = to_link_strategy(cxx_toolchain.linker_info.link_style),
                 exported_deps = exported_first_order_deps,
