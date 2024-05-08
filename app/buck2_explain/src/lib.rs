@@ -226,6 +226,7 @@ mod tests {
                 configured_target_label,
                 "foo_lib",
                 execution_platform_resolution,
+                vec![],
             );
             vec![target]
         };

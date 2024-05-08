@@ -328,6 +328,7 @@ mod tests {
                 target_label.dupe(),
                 "idris_library",
                 ExecutionPlatformResolution::new(None, Vec::new()),
+                vec![],
             )]))
             .unwrap();
         let provider_label = ConfiguredProvidersLabel::new(target_label, providers_name());

@@ -120,6 +120,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
                     target.dupe(),
                     "foo_lib",
                     ExecutionPlatformResolution::new(None, Vec::new()),
+                    vec![],
                 ),
             )),
         );
@@ -217,6 +218,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
                     target.dupe(),
                     "foo_lib",
                     ExecutionPlatformResolution::new(None, Vec::new()),
+                    vec![],
                 ),
             )),
         );
