@@ -38,6 +38,7 @@ toolchain_utilities(
     utility_modules = [
         "edoc_doclet_chunks.erl",
         "edoc_report.erl",
+        "epp_dodger.erl",
     ],
     visibility = ["PUBLIC"],
 )
