@@ -356,11 +356,11 @@ impl Buck2OssReConfiguration {
                     property: "use_fbcode_metadata",
                 })?
                 .unwrap_or(true),
-            max_decoding_message_size: legacy_config .parse(BuckconfigKeyRef {
+            max_decoding_message_size: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_decoding_message_size",
             })?,
-            max_total_file_size: legacy_config .parse(BuckconfigKeyRef {
+            max_total_file_size: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_total_file_size",
             })?,
