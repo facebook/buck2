@@ -123,6 +123,8 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
         list_of_strings_attr(node, TESTS_ATTRIBUTE_FIELD),
     );
 
+    // defined attrs
+
     // TODO iguridi: fill in other fields
     let target = fbs::ConfiguredTargetNode::create(
         &mut builder,
@@ -145,7 +147,10 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
             visibility,
             within_view,
             tests,
-            attrs: None,
+            // defined attrs
+            bool_attrs: None,
+            string_attrs: None,
+            list_of_strings_attrs: None,
         },
     );
 
@@ -254,5 +259,9 @@ mod tests {
         assert!(target.visibility().unwrap().is_empty());
         assert!(target.within_view().unwrap().is_empty());
         assert!(target.tests().unwrap().is_empty());
+        // defined attrs
+        assert!(target.bool_attrs().is_none());
+        assert!(target.string_attrs().is_none());
+        assert!(target.list_of_strings_attrs().is_none())
     }
 }

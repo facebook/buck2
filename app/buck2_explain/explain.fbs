@@ -1,33 +1,19 @@
 namespace explain;
 
-table Bool {
+
+table BoolAttr {
+    key: string;
     value: bool;
 }
 
-table String {
+table StringAttr {
+    key: string;
     value: string;
 }
 
-table ListOfStrings {
+table ListOfStringsAttr {
+    key: string;
     value: [string];
-}
-
-union Value {
-    String,
-    ListOfStrings,
-    Bool,
-    ConfiguredTargetLabel,
-    // ListOfKeyValues,
-}
-
-table ConfiguredTargetLabel {
-    name: string;
-    configuration: string;
-}
-
-table Attribute {
-  key: string;
-  value: Value;
 }
 
 table ConfiguredTargetNode {
@@ -50,7 +36,10 @@ table ConfiguredTargetNode {
     execution_platform: string;
     plugins: [string];
     // user attrs
-    attrs: [Attribute]; // TODO iguridi
+    bool_attrs: [BoolAttr];
+    string_attrs: [StringAttr];
+    list_of_strings_attrs: [ListOfStringsAttr];
+    // TODO iguridi: add other possible types
     // extras
     configured_target_label: string;
 }
