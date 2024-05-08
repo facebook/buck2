@@ -43,25 +43,3 @@ impl fmt::Display for ExternalCellOrigin {
         }
     }
 }
-
-impl ExternalCellOrigin {
-    pub fn parse_from_config_value(value: &str) -> anyhow::Result<Self> {
-        #[derive(buck2_error::Error, Debug)]
-        enum ExternalCellOriginParseError {
-            #[error("Unknown external cell origin `{0}`")]
-            Unknown(String),
-        }
-        if value == "bundled" {
-            Ok(ExternalCellOrigin::Bundled)
-        } else if value == "git" {
-            // TODO(JakobDegen): Finish implementing in next diff
-            #[allow(unreachable_code)]
-            Ok(ExternalCellOrigin::Git(GitCellSetup {
-                git_origin: unimplemented!(),
-                commit: unimplemented!(),
-            }))
-        } else {
-            Err(ExternalCellOriginParseError::Unknown(value.to_owned()).into())
-        }
-    }
-}

@@ -19,6 +19,7 @@ use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::external::ExternalCellOrigin;
+use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -283,7 +284,7 @@ impl BuckConfigBasedCells {
                 if let Some(external_cells) = config.get_section("external_cells") {
                     for (alias, origin) in external_cells.iter() {
                         let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                        let origin = ExternalCellOrigin::parse_from_config_value(origin.as_str())?;
+                        let origin = Self::parse_external_cell_origin(origin.as_str())?;
                         let target = root_aliases
                             .get(&alias)
                             .ok_or(CellsError::UnknownCellName(alias))?;
@@ -431,6 +432,26 @@ impl BuckConfigBasedCells {
             /* follow includes */ true,
         )
         .await
+    }
+
+    fn parse_external_cell_origin(value: &str) -> anyhow::Result<ExternalCellOrigin> {
+        #[derive(buck2_error::Error, Debug)]
+        enum ExternalCellOriginParseError {
+            #[error("Unknown external cell origin `{0}`")]
+            Unknown(String),
+        }
+        if value == "bundled" {
+            Ok(ExternalCellOrigin::Bundled)
+        } else if value == "git" {
+            // TODO(JakobDegen): Finish implementing in next diff
+            #[allow(unreachable_code, clippy::todo)]
+            Ok(ExternalCellOrigin::Git(GitCellSetup {
+                git_origin: todo!(),
+                commit: todo!(),
+            }))
+        } else {
+            Err(ExternalCellOriginParseError::Unknown(value.to_owned()).into())
+        }
     }
 }
 
