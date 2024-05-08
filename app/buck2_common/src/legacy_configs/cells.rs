@@ -20,6 +20,7 @@ use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -32,6 +33,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 
+use crate::cas_digest::RawDigest;
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::dice::file_ops::DiceFileComputations;
@@ -284,14 +286,17 @@ impl BuckConfigBasedCells {
                 if let Some(external_cells) = config.get_section("external_cells") {
                     for (alias, origin) in external_cells.iter() {
                         let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                        let origin = Self::parse_external_cell_origin(origin.as_str())?;
                         let target = root_aliases
                             .get(&alias)
                             .ok_or(CellsError::UnknownCellName(alias))?;
                         let name = cells_aggregator
                             .get_name(target)
                             .internal_error("We just checked that this cell exists")?;
-                        EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
+                        let origin =
+                            Self::parse_external_cell_origin(name, origin.as_str(), &config)?;
+                        if origin == ExternalCellOrigin::Bundled {
+                            EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
+                        }
                         cells_aggregator.mark_external_cell(target.to_owned(), origin)?;
                     }
                 }
@@ -434,20 +439,41 @@ impl BuckConfigBasedCells {
         .await
     }
 
-    fn parse_external_cell_origin(value: &str) -> anyhow::Result<ExternalCellOrigin> {
+    fn parse_external_cell_origin(
+        cell: CellName,
+        value: &str,
+        config: &LegacyBuckConfig,
+    ) -> anyhow::Result<ExternalCellOrigin> {
         #[derive(buck2_error::Error, Debug)]
         enum ExternalCellOriginParseError {
             #[error("Unknown external cell origin `{0}`")]
             Unknown(String),
+            #[error("Missing buckconfig `{0}.{1}` for external cell configuration")]
+            MissingConfiguration(String, String),
         }
+
+        let get_config = |section: &str, property: &str| {
+            config
+                .get(crate::legacy_configs::key::BuckconfigKeyRef { section, property })
+                .ok_or_else(|| {
+                    ExternalCellOriginParseError::MissingConfiguration(
+                        section.to_owned(),
+                        property.to_owned(),
+                    )
+                })
+        };
+
         if value == "bundled" {
             Ok(ExternalCellOrigin::Bundled)
         } else if value == "git" {
-            // TODO(JakobDegen): Finish implementing in next diff
-            #[allow(unreachable_code, clippy::todo)]
+            let section = &format!("external_cell_{}", cell.as_str());
+            let commit: Arc<str> = get_config(section, "commit_hash")?.into();
+            // No use in storing the commit hash as a byte array, but let's reuse existing code to
+            // check for validity
+            let _ = RawDigest::parse_sha1(commit.as_bytes())?;
             Ok(ExternalCellOrigin::Git(GitCellSetup {
-                git_origin: todo!(),
-                commit: todo!(),
+                git_origin: get_config(section, "git_origin")?.into(),
+                commit,
             }))
         } else {
             Err(ExternalCellOriginParseError::Unknown(value.to_owned()).into())
@@ -572,6 +598,7 @@ mod tests {
 
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::external::ExternalCellOrigin;
+    use buck2_core::cells::external::GitCellSetup;
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use dice::DiceComputations;
@@ -1247,6 +1274,83 @@ mod tests {
         .unwrap();
 
         assert!(format!("{}", e).contains("No bundled cell"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_git_external_cell() -> anyhow::Result<()> {
+        initialize_external_cells_impl();
+
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            "/.buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        libfoo = foo/
+                    [external_cells]
+                        libfoo = git
+                    [external_cell_libfoo]
+                        git_origin = https://github.com/jeff/libfoo.git
+                        commit_hash = aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee
+                "#
+            ),
+        )])?;
+
+        let project_fs = create_project_filesystem();
+        let resolver = BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut file_ops,
+            &[],
+            ProjectRelativePath::empty(),
+        )?
+        .cell_resolver;
+
+        let instance = resolver.get(CellName::testing_new("libfoo")).unwrap();
+
+        assert_eq!(
+            instance.external(),
+            Some(&ExternalCellOrigin::Git(GitCellSetup {
+                git_origin: "https://github.com/jeff/libfoo.git".into(),
+                commit: "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee".into(),
+            })),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_git_external_cell_invalid_sha1() -> anyhow::Result<()> {
+        initialize_external_cells_impl();
+
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            "/.buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        libfoo = foo/
+                    [external_cells]
+                        libfoo = git
+                    [external_cell_libfoo]
+                        git_origin = https://github.com/jeff/libfoo.git
+                        commit_hash = abcde
+                "#
+            ),
+        )])?;
+
+        let project_fs = create_project_filesystem();
+        let e = BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut file_ops,
+            &[],
+            ProjectRelativePath::empty(),
+        )
+        .err()
+        .unwrap();
+
+        assert!(format!("{}", e).contains("not a valid SHA1 digest"));
 
         Ok(())
     }
