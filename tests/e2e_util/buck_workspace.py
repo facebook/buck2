@@ -137,12 +137,13 @@ async def buck_fixture(  # noqa C901 : "too complex"
             env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = extra_config
 
         else:
-            _setup_not_inplace(temp_dir)
+            repo_dir = temp_dir / "repo"
+            _setup_not_inplace(repo_dir)
             if marker.data_dir is not None:
                 src = Path(os.environ["TEST_REPO_DATA"], marker.data_dir)
-                _copytree(src, temp_dir)
-                _setup_ovr_config(temp_dir)
-                with open(Path(temp_dir, ".watchmanconfig"), "w") as f:
+                _copytree(src, repo_dir)
+                _setup_ovr_config(repo_dir)
+                with open(Path(repo_dir, ".watchmanconfig"), "w") as f:
                     # Use the FS Events watcher, which is more reliable than the default.
                     json.dump(
                         {
@@ -153,7 +154,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
                         f,
                     )
 
-            buck_cwd = temp_dir
+            buck_cwd = repo_dir
 
         buck = Buck(
             test_executable_type,
