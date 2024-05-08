@@ -24,6 +24,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use dice::DiceComputations;
 
 mod bundled;
+mod git;
 
 struct ConcreteExternalCellsImpl;
 
@@ -45,6 +46,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
             ExternalCellOrigin::Bundled => {
                 Ok(bundled::get_file_ops_delegate(ctx, cell_name).await? as _)
             }
+            ExternalCellOrigin::Git(setup) => git::get_file_ops_delegate(ctx, &setup).await,
         }
     }
 
@@ -84,6 +86,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         // now.
         let materialized_path = match origin {
             ExternalCellOrigin::Bundled => bundled::materialize_all(ctx, cell).await?,
+            ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, &setup).await?,
         };
 
         io.project_root().copy(&materialized_path, &dest_path)

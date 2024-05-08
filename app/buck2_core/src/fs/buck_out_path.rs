@@ -218,10 +218,14 @@ impl BuckOutPathResolver {
             ForwardRelativePath::new("external_cells").unwrap(),
             match origin {
                 ExternalCellOrigin::Bundled => ForwardRelativePath::new("bundled").unwrap(),
+                ExternalCellOrigin::Git(_) => ForwardRelativePath::new("git").unwrap(),
             },
-            match origin {
+            match &origin {
                 ExternalCellOrigin::Bundled => {
                     ForwardRelativePath::new(path.cell().as_str()).unwrap()
+                }
+                ExternalCellOrigin::Git(setup) => {
+                    ForwardRelativePath::new(setup.commit.as_ref()).unwrap()
                 }
             },
             path.path().as_ref(),
