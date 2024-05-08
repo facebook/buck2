@@ -80,6 +80,23 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
     // TODO iguridi: just 1 node for now
     let node = &data[0];
 
+    let target = target_to_fbs(&mut builder, node)?;
+
+    let targets = builder.create_vector(&[target]);
+    let build = fbs::Build::create(
+        &mut builder,
+        &fbs::BuildArgs {
+            targets: Some(targets),
+        },
+    );
+    builder.finish(build, None);
+    Ok(builder)
+}
+
+fn target_to_fbs<'a>(
+    builder: &'_ mut FlatBufferBuilder<'static>,
+    node: &'_ ConfiguredTargetNode,
+) -> anyhow::Result<WIPOffset<fbs::ConfiguredTargetNode<'a>>, anyhow::Error> {
     // special attrs
     let name = builder.create_shared_string(&node.name());
     let label = builder.create_shared_string(&node.label().to_string());
@@ -90,11 +107,11 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
         builder.create_shared_string(&node.target_configuration().to_string());
     let execution_platform = builder.create_shared_string(&node.execution_platform()?.id());
     let deps = list_of_strings_to_fbs(
-        &mut builder,
+        builder,
         node.deps().map(|dep| dep.label().to_string()).collect(),
     );
     let plugins = list_of_strings_to_fbs(
-        &mut builder,
+        builder,
         node.plugin_lists()
             .iter()
             .map(|(kind, _, _)| kind.to_string())
@@ -106,29 +123,26 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
         attr.and_then(|a| optional_string(a).map(|v| builder.create_shared_string(&v)))
     });
     let target_compatible_with = list_of_strings_to_fbs(
-        &mut builder,
+        builder,
         list_of_strings_attr(node, TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
     );
     let compatible_with = list_of_strings_to_fbs(
-        &mut builder,
+        builder,
         list_of_strings_attr(node, LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
     );
     let exec_compatible_with = list_of_strings_to_fbs(
-        &mut builder,
+        builder,
         list_of_strings_attr(node, EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
     );
     let visibility = list_of_strings_to_fbs(
-        &mut builder,
+        builder,
         list_of_strings_attr(node, VISIBILITY_ATTRIBUTE_FIELD),
     );
     let within_view = list_of_strings_to_fbs(
-        &mut builder,
+        builder,
         list_of_strings_attr(node, WITHIN_VIEW_ATTRIBUTE_FIELD),
     );
-    let tests = list_of_strings_to_fbs(
-        &mut builder,
-        list_of_strings_attr(node, TESTS_ATTRIBUTE_FIELD),
-    );
+    let tests = list_of_strings_to_fbs(builder, list_of_strings_attr(node, TESTS_ATTRIBUTE_FIELD));
 
     // defined attrs
     let mut bools = vec![];
@@ -157,7 +171,7 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
         .into_iter()
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
-            fbs::BoolAttr::create(&mut builder, &fbs::BoolAttrArgs { key, value })
+            fbs::BoolAttr::create(builder, &fbs::BoolAttrArgs { key, value })
         })
         .collect();
     let bool_attrs = Some(builder.create_vector(&list));
@@ -167,7 +181,7 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
             let value = Some(builder.create_shared_string(&value));
-            fbs::StringAttr::create(&mut builder, &fbs::StringAttrArgs { key, value })
+            fbs::StringAttr::create(builder, &fbs::StringAttrArgs { key, value })
         })
         .collect();
     let string_attrs = Some(builder.create_vector(&list));
@@ -176,15 +190,14 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
         .into_iter()
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
-            let value = list_of_strings_to_fbs(&mut builder, value);
-            fbs::ListOfStringsAttr::create(&mut builder, &fbs::ListOfStringsAttrArgs { key, value })
+            let value = list_of_strings_to_fbs(builder, value);
+            fbs::ListOfStringsAttr::create(builder, &fbs::ListOfStringsAttrArgs { key, value })
         })
         .collect();
     let list_of_strings_attrs = Some(builder.create_vector(&list));
 
-    // TODO iguridi: fill in other fields
     let target = fbs::ConfiguredTargetNode::create(
-        &mut builder,
+        builder,
         &fbs::ConfiguredTargetNodeArgs {
             // special attrs
             configured_target_label: Some(label),
@@ -210,16 +223,7 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
             list_of_strings_attrs,
         },
     );
-
-    let targets = builder.create_vector(&[target]);
-    let build = fbs::Build::create(
-        &mut builder,
-        &fbs::BuildArgs {
-            targets: Some(targets),
-        },
-    );
-    builder.finish(build, None);
-    Ok(builder)
+    Ok(target)
 }
 
 fn list_of_strings_attr(node: &ConfiguredTargetNode, attr_name: &str) -> Vec<String> {
@@ -275,6 +279,7 @@ mod tests {
 
     use super::*;
     pub use crate::explain_generated::explain::Build;
+
     #[test]
     fn test_gen_fbs() {
         // Setup data
