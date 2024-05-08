@@ -26,6 +26,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use clap::builder::StringValueParser;
+use clap::builder::TypedValueParser;
 use clap::Parser;
 use clap::ValueEnum;
 use dupe::Dupe;
@@ -44,6 +46,7 @@ use starlark::errors::EvalMessage;
 use starlark::errors::EvalSeverity;
 use starlark::read_line::ReadLine;
 use starlark::syntax::Dialect;
+use suppression::GlobLintSuppression;
 use walkdir::WalkDir;
 
 use crate::eval::ContextMode;
@@ -51,6 +54,7 @@ use crate::eval::ContextMode;
 mod bazel;
 mod dap;
 mod eval;
+mod suppression;
 
 #[derive(Debug, Parser)]
 #[command(name = "starlark", about = "Evaluate Starlark code", version)]
@@ -147,6 +151,15 @@ struct Args {
         help = "Run in Bazel mode (temporary, will be removed)"
     )]
     bazel: bool,
+
+    #[arg(
+        long = "suppression",
+        help = "Specify lint rules to suppress. You may specify an optional glob pattern to \
+suppress rules for files matching the pattern, in the format of `[<glob>:]<rule>[,<rule>]*`.",
+        requires = "check",
+        value_parser = StringValueParser::new().try_map(GlobLintSuppression::try_parse)
+    )]
+    suppression: Vec<GlobLintSuppression>,
 }
 
 #[derive(ValueEnum, Copy, Clone, Dupe, Debug, PartialEq, Eq)]
@@ -313,6 +326,7 @@ fn main() -> anyhow::Result<()> {
             is_interactive,
             dialect,
             globals,
+            args.suppression,
         )?;
 
         if args.lsp {

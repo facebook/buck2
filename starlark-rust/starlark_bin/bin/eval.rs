@@ -44,6 +44,8 @@ use starlark_lsp::server::LspEvalResult;
 use starlark_lsp::server::LspUrl;
 use starlark_lsp::server::StringLiteralResult;
 
+use crate::suppression::GlobLintSuppression;
+
 #[derive(Debug)]
 pub(crate) enum ContextMode {
     Check,
@@ -70,6 +72,7 @@ pub(crate) struct Context {
     pub(crate) globals: Globals,
     pub(crate) builtin_docs: HashMap<LspUrl, String>,
     pub(crate) builtin_symbols: HashMap<String, LspUrl>,
+    pub(crate) suppression_rules: Vec<GlobLintSuppression>,
 }
 
 /// The outcome of evaluating (checking, parsing or running) given starlark code.
@@ -101,6 +104,7 @@ impl Context {
         module: bool,
         dialect: Dialect,
         globals: Globals,
+        suppression_rules: Vec<GlobLintSuppression>,
     ) -> anyhow::Result<Self> {
         let prelude: Vec<_> = prelude
             .iter()
@@ -143,6 +147,7 @@ impl Context {
             globals,
             builtin_docs,
             builtin_symbols,
+            suppression_rules,
         })
     }
 
@@ -172,7 +177,7 @@ impl Context {
         let mut errors = Either::Left(iter::empty());
         let final_ast = match self.mode {
             ContextMode::Check => {
-                warnings = Either::Right(self.check(&ast));
+                warnings = Either::Right(self.check(file, &ast));
                 Some(ast)
             }
             ContextMode::Run => {
@@ -266,7 +271,13 @@ impl Context {
         )
     }
 
-    fn check(&self, module: &AstModule) -> impl Iterator<Item = EvalMessage> {
+    fn is_suppressed(&self, file: &str, issue: &str) -> bool {
+        self.suppression_rules
+            .iter()
+            .any(|rule| rule.is_suppressed(file, issue))
+    }
+
+    fn check(&self, file: &str, module: &AstModule) -> impl Iterator<Item = EvalMessage> {
         let globals = if self.prelude.is_empty() {
             None
         } else {
@@ -284,10 +295,9 @@ impl Context {
             Some(globals)
         };
 
-        module
-            .lint(globals.as_ref())
-            .into_iter()
-            .map(EvalMessage::from)
+        let mut lints = module.lint(globals.as_ref());
+        lints.retain(|issue| !self.is_suppressed(file, &issue.short_name));
+        lints.into_iter().map(EvalMessage::from)
     }
 }
 

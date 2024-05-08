@@ -25,6 +25,7 @@ argfile = "0.1.0"
 clap = { version = "4.0.7", features = ["derive", "wrap_help"] }
 debugserver-types = "0.5.0"
 either = "1.8"
+globset = "0.4.13"
 itertools = "0.10"
 lsp-types = "0.94.1"
 serde = { version = "1.0", features = ["derive"] }
