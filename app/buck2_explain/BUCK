@@ -17,6 +17,7 @@ rust_library(
     },
     test_deps = [
         "//buck2/app/buck2_util:buck2_util",
+        "//buck2/gazebo/dupe:dupe",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

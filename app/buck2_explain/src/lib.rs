@@ -77,12 +77,12 @@ pub fn main(
 fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<'static>> {
     let mut builder = FlatBufferBuilder::new();
 
-    // TODO iguridi: just 1 node for now
-    let node = &data[0];
+    let targets: Result<Vec<_>, _> = data
+        .iter()
+        .map(|node| target_to_fbs(&mut builder, node))
+        .collect();
 
-    let target = target_to_fbs(&mut builder, node)?;
-
-    let targets = builder.create_vector(&[target]);
+    let targets = builder.create_vector(&targets?);
     let build = fbs::Build::create(
         &mut builder,
         &fbs::BuildArgs {
@@ -276,6 +276,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::provider_id_set::ProviderIdSet;
     use buck2_util::arc_str::ArcSlice;
+    use dupe::Dupe;
 
     use super::*;
     pub use crate::explain_generated::explain::Build;
@@ -332,10 +333,20 @@ mod tests {
             let target = ConfiguredTargetNode::testing_new(
                 configured_target_label,
                 "foo_lib",
-                execution_platform_resolution,
+                execution_platform_resolution.dupe(),
                 attrs,
             );
-            vec![target]
+
+            let target_label2 = TargetLabel::testing_parse("cell//pkg:baz");
+            let configured_target_label2 =
+                target_label2.configure(ConfigurationData::testing_new());
+            let target2 = ConfiguredTargetNode::testing_new(
+                configured_target_label2,
+                "foo_lib",
+                execution_platform_resolution,
+                vec![],
+            );
+            vec![target, target2]
         };
 
         // Generate fbs
@@ -392,6 +403,14 @@ mod tests {
                 .unwrap()
                 .is_empty(),
             true
+        );
+
+        let target2 = build.targets().unwrap().get(1);
+        assert!(
+            target2
+                .configured_target_label()
+                .unwrap()
+                .contains("cell//pkg:baz (<testing>#"),
         );
     }
 }
