@@ -73,6 +73,7 @@ BinaryUtilitiesInfo = provider(fields = {
     "dwp": provider_field(typing.Any, default = None),
     "nm": provider_field(typing.Any, default = None),
     "objcopy": provider_field(typing.Any, default = None),
+    "objdump": provider_field(typing.Any, default = None),
     "ranlib": provider_field(typing.Any, default = None),
     "strip": provider_field(typing.Any, default = None),
 })

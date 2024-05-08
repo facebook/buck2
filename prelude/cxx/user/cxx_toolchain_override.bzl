@@ -122,6 +122,7 @@ def _cxx_toolchain_override(ctx):
     binary_utilities_info = BinaryUtilitiesInfo(
         nm = _pick_bin(ctx.attrs.nm, base_binary_utilities_info.nm),
         objcopy = _pick_bin(ctx.attrs.objcopy, base_binary_utilities_info.objcopy),
+        objdump = _pick_bin(ctx.attrs.objdump, base_binary_utilities_info.objdump),
         ranlib = _pick_bin(ctx.attrs.ranlib, base_binary_utilities_info.ranlib),
         strip = _pick_bin(ctx.attrs.strip, base_binary_utilities_info.strip),
         dwp = base_binary_utilities_info.dwp,
@@ -206,6 +207,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "mk_shlib_intf": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "nm": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "objcopy": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "object_format": attrs.enum(CxxObjectFormat.values(), default = "native"),
         "pic_behavior": attrs.enum(PicBehavior.values(), default = "supported"),
         "platform_deps_aliases": attrs.option(attrs.list(attrs.string()), default = None),

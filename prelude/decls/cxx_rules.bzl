@@ -971,6 +971,7 @@ cxx_toolchain = prelude_rule(
             "nm": attrs.source(),
             "objcopy_for_shared_library_interface": attrs.source(),
             "objcopy_recalculates_layout": attrs.bool(default = False),
+            "objdump": attrs.option(attrs.source(), default = None),
             "object_file_extension": attrs.string(default = ""),
             "pic_type_for_shared_linking": attrs.enum(PicType, default = "pic"),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),

@@ -124,6 +124,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
             binary_utilities_info = BinaryUtilitiesInfo(
                 nm = RunInfo(args = ["nm"]),
                 objcopy = RunInfo(args = ["objcopy"]),
+                objdump = RunInfo(args = ["objdump"]),
                 ranlib = RunInfo(args = ["ranlib"]),
                 strip = RunInfo(args = ["strip"]),
                 dwp = None,
