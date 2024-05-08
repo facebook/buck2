@@ -295,7 +295,7 @@ zstd = "0.13.0"
 # @oss-disable: fbinit.path = "../common/rust/shed/fbinit"
 fbinit.version = "0.1"
 # @oss-disable: sorted_vector_map.path = "../common/rust/shed/sorted_vector_map"
-sorted_vector_map.version = "0.1"
+sorted_vector_map.version = "0.2"
 
 allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "relative-path", "serde_json", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 allocative.path = "allocative/allocative"

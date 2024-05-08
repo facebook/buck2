@@ -28,7 +28,7 @@ scopeguard = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 slab = "0.4.7"
 # @oss-disable: sorted_vector_map.path = "../../../common/rust/shed/sorted_vector_map"
-sorted_vector_map.version = "0.1"
+sorted_vector_map.version = "0.2"
 static_assertions = { workspace = true }
 take_mut = { workspace = true }
 thiserror = "1.0.36"
