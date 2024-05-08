@@ -46,7 +46,9 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
             ExternalCellOrigin::Bundled => {
                 Ok(bundled::get_file_ops_delegate(ctx, cell_name).await? as _)
             }
-            ExternalCellOrigin::Git(setup) => git::get_file_ops_delegate(ctx, &setup).await,
+            ExternalCellOrigin::Git(setup) => {
+                Ok(git::get_file_ops_delegate(ctx, cell_name, setup).await? as _)
+            }
         }
     }
 
@@ -86,7 +88,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         // now.
         let materialized_path = match origin {
             ExternalCellOrigin::Bundled => bundled::materialize_all(ctx, cell).await?,
-            ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, &setup).await?,
+            ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, cell, setup).await?,
         };
 
         io.project_root().copy(&materialized_path, &dest_path)

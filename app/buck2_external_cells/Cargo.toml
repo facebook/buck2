@@ -15,6 +15,7 @@ dupe = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
+tokio = { workspace = true }
 
 buck2_build_api = { workspace = true }
 buck2_common = { workspace = true }
@@ -22,6 +23,7 @@ buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_external_cells_bundled = { workspace = true }
+buck2_util = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
