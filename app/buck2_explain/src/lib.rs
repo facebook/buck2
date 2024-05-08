@@ -17,6 +17,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 mod explain_generated;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
@@ -32,10 +33,16 @@ use flatbuffers::WIPOffset;
 // use crate::explain_generated::explain::Bool;
 
 mod fbs {
+    pub use crate::explain_generated::explain::BoolAttr;
+    pub use crate::explain_generated::explain::BoolAttrArgs;
     pub use crate::explain_generated::explain::Build;
     pub use crate::explain_generated::explain::BuildArgs;
     pub use crate::explain_generated::explain::ConfiguredTargetNode;
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
+    pub use crate::explain_generated::explain::ListOfStringsAttr;
+    pub use crate::explain_generated::explain::ListOfStringsAttrArgs;
+    pub use crate::explain_generated::explain::StringAttr;
+    pub use crate::explain_generated::explain::StringAttrArgs;
 }
 
 pub fn main(
@@ -124,6 +131,56 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
     );
 
     // defined attrs
+    let mut bools = vec![];
+    let mut strings = vec![];
+    let mut list_of_strings: Vec<(&str, Vec<String>)> = vec![];
+    for a in node.attrs(AttrInspectOptions::DefinedOnly) {
+        match a.value {
+            ConfiguredAttr::Bool(v) => bools.push((a.name, v.0)),
+            ConfiguredAttr::String(v) => strings.push((a.name, v.0.to_string())),
+            ConfiguredAttr::List(v) => {
+                let mut list = vec![];
+                v.0.iter().for_each(|v| {
+                    match v {
+                        ConfiguredAttr::String(v) => list.push(v.0.to_string()),
+                        _ => {} // TODO iguridi: handle other list types
+                    }
+                });
+                list_of_strings.push((a.name, list));
+            }
+            ConfiguredAttr::None => {}
+            _ => {} // TODO iguridi: implement
+        }
+    }
+
+    let list: Vec<_> = bools
+        .into_iter()
+        .map(|(key, value)| {
+            let key = Some(builder.create_shared_string(key));
+            fbs::BoolAttr::create(&mut builder, &fbs::BoolAttrArgs { key, value })
+        })
+        .collect();
+    let bool_attrs = Some(builder.create_vector(&list));
+
+    let list: Vec<_> = strings
+        .into_iter()
+        .map(|(key, value)| {
+            let key = Some(builder.create_shared_string(key));
+            let value = Some(builder.create_shared_string(&value));
+            fbs::StringAttr::create(&mut builder, &fbs::StringAttrArgs { key, value })
+        })
+        .collect();
+    let string_attrs = Some(builder.create_vector(&list));
+
+    let list: Vec<_> = list_of_strings
+        .into_iter()
+        .map(|(key, value)| {
+            let key = Some(builder.create_shared_string(key));
+            let value = list_of_strings_to_fbs(&mut builder, value);
+            fbs::ListOfStringsAttr::create(&mut builder, &fbs::ListOfStringsAttrArgs { key, value })
+        })
+        .collect();
+    let list_of_strings_attrs = Some(builder.create_vector(&list));
 
     // TODO iguridi: fill in other fields
     let target = fbs::ConfiguredTargetNode::create(
@@ -148,9 +205,9 @@ fn gen_fbs(data: Vec<ConfiguredTargetNode>) -> anyhow::Result<FlatBufferBuilder<
             within_view,
             tests,
             // defined attrs
-            bool_attrs: None,
-            string_attrs: None,
-            list_of_strings_attrs: None,
+            bool_attrs,
+            string_attrs,
+            list_of_strings_attrs,
         },
     );
 
@@ -201,7 +258,20 @@ mod tests {
     use buck2_core::execution_types::execution::ExecutionPlatform;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+    use buck2_core::package::PackageLabel;
+    use buck2_core::plugins::PluginKindSet;
+    use buck2_core::provider::label::ProvidersLabel;
+    use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::label::TargetLabel;
+    use buck2_core::target::name::TargetName;
+    use buck2_node::attrs::attr::Attribute;
+    use buck2_node::attrs::attr_type::bool::BoolLiteral;
+    use buck2_node::attrs::attr_type::list::ListLiteral;
+    use buck2_node::attrs::attr_type::string::StringLiteral;
+    use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::coerced_attr::CoercedAttr;
+    use buck2_node::provider_id_set::ProviderIdSet;
+    use buck2_util::arc_str::ArcSlice;
 
     use super::*;
     pub use crate::explain_generated::explain::Build;
@@ -222,11 +292,43 @@ mod tests {
                 ExecutionPlatformResolution::new(Some(platform), Vec::new())
             };
 
+            let attrs = {
+                let pkg = PackageLabel::testing_parse("cell//foo/bar");
+                let name = TargetName::testing_new("t2");
+                let label = TargetLabel::new(pkg, name.as_ref());
+                vec![
+                    (
+                        "bool_field",
+                        Attribute::new(None, "", AttrType::bool()),
+                        CoercedAttr::Bool(BoolLiteral(false)),
+                    ),
+                    (
+                        "another_field",
+                        Attribute::new(None, "", AttrType::string()),
+                        CoercedAttr::String(StringLiteral("some_string".into())),
+                    ),
+                    (
+                        "some_deps",
+                        Attribute::new(
+                            None,
+                            "",
+                            AttrType::list(AttrType::dep(
+                                ProviderIdSet::EMPTY,
+                                PluginKindSet::EMPTY,
+                            )),
+                        ),
+                        CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
+                            ProvidersLabel::new(label, ProvidersName::Default),
+                        )]))),
+                    ),
+                ]
+            };
+
             let target = ConfiguredTargetNode::testing_new(
                 configured_target_label,
                 "foo_lib",
                 execution_platform_resolution,
-                vec![],
+                attrs,
             );
             vec![target]
         };
@@ -260,9 +362,31 @@ mod tests {
         assert!(target.visibility().unwrap().is_empty());
         assert!(target.within_view().unwrap().is_empty());
         assert!(target.tests().unwrap().is_empty());
+
         // defined attrs
-        assert!(target.bool_attrs().is_none());
-        assert!(target.string_attrs().is_none());
-        assert!(target.list_of_strings_attrs().is_none())
+        // bools
+        assert_eq!(
+            target.bool_attrs().unwrap().get(0).key(),
+            Some("bool_field")
+        );
+        assert_eq!(target.bool_attrs().unwrap().get(0).value(), false);
+        // strings
+        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("name"));
+        assert_eq!(target.string_attrs().unwrap().get(0).value(), Some("foo"));
+        // list of strings
+        assert_eq!(
+            target.list_of_strings_attrs().unwrap().get(0).key(),
+            Some("some_deps")
+        );
+        assert_eq!(
+            target
+                .list_of_strings_attrs()
+                .unwrap()
+                .get(0)
+                .value()
+                .unwrap()
+                .is_empty(),
+            true
+        );
     }
 }

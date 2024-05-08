@@ -15,6 +15,9 @@ rust_library(
         "//buck2/app/buck2_explain:explain_html": "src/explain.html",
         ":schema_rust[explain_generated.rs]": "src/explain_generated.rs",
     },
+    test_deps = [
+        "//buck2/app/buck2_util:buck2_util",
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:base64",
