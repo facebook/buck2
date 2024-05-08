@@ -70,5 +70,6 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
 
     enhance_ctx.debug_output("preprocess_java_classes_input_dir", input_dir)
     enhance_ctx.debug_output("preprocess_java_classes_input_jars_map", input_jars_map)
+    enhance_ctx.debug_output("preprocess_java_classes_materialized_artifacts_dir", materialized_artifacts_dir)
 
     return output_jars_to_owners, materialized_artifacts_dir
