@@ -188,6 +188,7 @@ def assemble_bundle(
         command.add("--fast-provisioning-profile-parsing")
 
     subtargets = {}
+    bundling_log_output = None
     if ctx.attrs._bundling_log_file_enabled:
         bundling_log_output = ctx.actions.declare_output("bundling_log.txt")
         command.add("--log-file", bundling_log_output.as_output())
@@ -206,6 +207,17 @@ def assemble_bundle(
     command_json = ctx.actions.declare_output("bundling_command.json")
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
     subtargets["command"] = [DefaultInfo(default_output = command_json, other_outputs = [command_json_cmd_args])]
+
+    bundle_manifest = {
+        ctx.label: {
+            "command": command_json,
+            "log": bundling_log_output,
+            "spec": spec_file,
+        },
+    }
+    bundle_manifest_json = ctx.actions.declare_output("bundle_manifest.json")
+    bundle_manifest_cmd_args = ctx.actions.write_json(bundle_manifest_json, bundle_manifest, with_inputs = True, pretty = True)
+    subtargets["manifest"] = [DefaultInfo(default_output = bundle_manifest_json, other_outputs = [bundle_manifest_cmd_args])]
 
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
