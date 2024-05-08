@@ -27,6 +27,7 @@ use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
+use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client;
 use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
@@ -274,33 +275,15 @@ impl REClientBuilder {
 
         let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
 
-        let mut grpc_clients = GRPCClients {
-            cas_client: ContentAddressableStorageClient::with_interceptor(
-                cas.context("Error creating CAS client")?,
-                interceptor.dupe(),
-            ),
-            execution_client: ExecutionClient::with_interceptor(
-                execution.context("Error creating Execution client")?,
-                interceptor.dupe(),
-            ),
-            action_cache_client: ActionCacheClient::with_interceptor(
-                action_cache.context("Error creating ActionCache client")?,
-                interceptor.dupe(),
-            ),
-            bytestream_client: ByteStreamClient::with_interceptor(
-                bytestream.context("Error creating Bytestream client")?,
-                interceptor.dupe(),
-            ),
-            capabilities_client: CapabilitiesClient::with_interceptor(
-                capabilities.context("Error creating Capabilities client")?,
-                interceptor.dupe(),
-            ),
-        };
+        let mut capabilities_client = CapabilitiesClient::with_interceptor(
+            capabilities.context("Error creating Capabilities client")?,
+            interceptor.dupe(),
+        );
 
         let instance_name = InstanceName(opts.instance_name.clone());
 
         let capabilities = if opts.capabilities.unwrap_or(true) {
-            Self::fetch_rbe_capabilities(&mut grpc_clients, &instance_name).await?
+            Self::fetch_rbe_capabilities(&mut capabilities_client, &instance_name).await?
         } else {
             RECapabilities {
                 exec_enabled: true,
@@ -311,6 +294,28 @@ impl REClientBuilder {
         if !capabilities.exec_enabled {
             return Err(anyhow::anyhow!("Server has remote execution disabled."));
         }
+
+        let max_decoding_msg_size = std::cmp::max(DEFAULT_MAX_MSG_SIZE, capabilities.max_msg_size * 3);
+
+        let grpc_clients = GRPCClients {
+            cas_client: ContentAddressableStorageClient::with_interceptor(
+                cas.context("Error creating CAS client")?,
+                interceptor.dupe(),
+            ).max_decoding_message_size(max_decoding_msg_size),
+            execution_client: ExecutionClient::with_interceptor(
+                execution.context("Error creating Execution client")?,
+                interceptor.dupe(),
+            ).max_decoding_message_size(max_decoding_msg_size),
+            action_cache_client: ActionCacheClient::with_interceptor(
+                action_cache.context("Error creating ActionCache client")?,
+                interceptor.dupe(),
+            ).max_decoding_message_size(max_decoding_msg_size),
+            bytestream_client: ByteStreamClient::with_interceptor(
+                bytestream.context("Error creating Bytestream client")?,
+                interceptor.dupe(),
+            ).max_decoding_message_size(max_decoding_msg_size),
+            capabilities_client
+        };
 
         Ok(REClient::new(
             RERuntimeOpts {
@@ -323,13 +328,12 @@ impl REClientBuilder {
     }
 
     async fn fetch_rbe_capabilities(
-        clients: &mut GRPCClients,
+        client: &mut CapabilitiesClient<GrpcService>,
         instance_name: &InstanceName,
     ) -> anyhow::Result<RECapabilities> {
         // TODO use more of the capabilities of the remote build executor
 
-        let resp = clients
-            .capabilities_client
+        let resp = client
             .get_capabilities(GetCapabilitiesRequest {
                 instance_name: instance_name.as_str().to_owned(),
             })
@@ -405,13 +409,14 @@ impl Interceptor for InjectHeadersInterceptor {
     }
 }
 
+type GrpcService = InterceptedService<Channel, InjectHeadersInterceptor>;
+
 pub struct GRPCClients {
-    cas_client:
-        ContentAddressableStorageClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    execution_client: ExecutionClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    action_cache_client: ActionCacheClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    bytestream_client: ByteStreamClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    capabilities_client: CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    cas_client: ContentAddressableStorageClient<GrpcService>,
+    execution_client: ExecutionClient<GrpcService>,
+    action_cache_client: ActionCacheClient<GrpcService>,
+    bytestream_client: ByteStreamClient<GrpcService>,
+    capabilities_client: CapabilitiesClient<GrpcService>,
 }
 
 pub struct REClient {
