@@ -270,6 +270,7 @@ async fn build_action_no_redirect(
                 action_result,
                 wall_time,
                 queue_duration,
+                execution_kind,
             },
             Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action_key),
@@ -306,7 +307,12 @@ async fn build_action_no_redirect(
 
     // TODO: This wall time is rather wrong. We should report a wall time on failures too.
     ctx.store_evaluation_data(BuildKeyActivationData {
-        action: action.dupe(),
+        action_with_extra_data: ActionWithExtraData {
+            action: action.dupe(),
+            execution_kind: action_execution_data
+                .execution_kind
+                .unwrap_or(buck2_data::ActionExecutionKind::NotSet),
+        },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
             total: now.elapsed(),
@@ -382,15 +388,22 @@ fn try_run_error_handler(
 }
 
 pub struct BuildKeyActivationData {
-    pub action: Arc<RegisteredAction>,
+    pub action_with_extra_data: ActionWithExtraData,
     pub duration: NodeDuration,
     pub spans: SmallVec<[SpanId; 1]>,
+}
+
+#[derive(Clone)]
+pub struct ActionWithExtraData {
+    pub action: Arc<RegisteredAction>,
+    pub execution_kind: buck2_data::ActionExecutionKind,
 }
 
 struct ActionExecutionData {
     action_result: anyhow::Result<ActionOutputs>,
     wall_time: Option<std::time::Duration>,
     queue_duration: Option<std::time::Duration>,
+    execution_kind: Option<buck2_data::ActionExecutionKind>,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls

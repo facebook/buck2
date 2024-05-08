@@ -394,6 +394,8 @@ message CriticalPathEntry2 {
       BxlFunctionKey bxl_key = 3;
       AnonTarget anon_target = 4;
     }
+
+    ActionExecutionKind execution_kind = 5;
   }
 
   message Materialization {

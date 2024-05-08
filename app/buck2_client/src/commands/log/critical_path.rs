@@ -83,6 +83,7 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
         let name;
         let mut category = "";
         let mut identifier = "";
+        let mut execution_kind = "";
 
         match &entry.entry {
             Some(Entry::Analysis(analysis)) => {
@@ -118,6 +119,11 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
                     }
                     None => {}
                 }
+
+                execution_kind =
+                    buck2_data::ActionExecutionKind::from_i32(action_execution.execution_kind)
+                        .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
+                        .as_str_name();
             }
             Some(Entry::Materialization(materialization)) => {
                 use buck2_data::critical_path_entry2::materialization::Owner;
@@ -175,11 +181,12 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
         }
 
         buck2_client_ctx::println!(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             kind,
             name,
             category,
             identifier,
+            execution_kind,
             OptionalDuration::new(entry.total_duration.clone())?,
             OptionalDuration::new(entry.user_duration.clone())?,
             OptionalDuration::new(entry.potential_improvement_duration.clone())?,

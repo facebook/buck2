@@ -22,9 +22,9 @@ use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
-use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::artifact_groups::calculation::EnsureProjectedArtifactKey;
 use buck2_build_api::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
@@ -190,7 +190,7 @@ pub(crate) struct Evaluation {
     // now) to have them not tied to the right variant.
     /// The RegisteredAction that corresponds to this Evaluation (this will only be present for
     /// NodeKey::BuildKey).
-    action: Option<Arc<RegisteredAction>>,
+    action_with_extra_data: Option<ActionWithExtraData>,
 
     /// The Load result that corresponds to this Evaluation (this will only be pesent for
     /// InterpreterResultsKey).
@@ -247,7 +247,7 @@ impl ActivationTracker for BuildSignalSender {
 
         let mut signal = Evaluation {
             key,
-            action: None,
+            action_with_extra_data: None,
             duration: NodeDuration::zero(),
             dep_keys: deps.into_iter().filter_map(NodeKey::from_any).collect(),
             spans: Default::default(),
@@ -268,12 +268,12 @@ impl ActivationTracker for BuildSignalSender {
 
         if let ActivationData::Evaluated(mut activation_data) = activation_data {
             if let Some(BuildKeyActivationData {
-                action,
+                action_with_extra_data,
                 duration,
                 spans,
             }) = downcast_and_take(&mut activation_data)
             {
-                signal.action = Some(action);
+                signal.action_with_extra_data = Some(action_with_extra_data);
                 signal.duration = duration;
                 signal.spans = spans;
             } else if let Some(AnalysisKeyActivationData { duration, spans }) =
@@ -417,7 +417,7 @@ where
         let compute_elapsed = now.elapsed();
 
         let meta_entry_data = NodeData {
-            action: None,
+            action_with_extra_data: None,
             duration: NodeDuration {
                 user: Duration::ZERO,
                 total: compute_elapsed,
@@ -442,14 +442,23 @@ where
                         // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
                         // in our data (unless we didn't actually run it because of e.g. early
                         // cutoff, in which case omitting it is what we want).
-                        let action = data.action.as_ref()?;
+                        let action_with_extra_data = data.action_with_extra_data.as_ref()?;
 
                         buck2_data::critical_path_entry2::ActionExecution {
                             owner: Some(owner),
                             name: Some(buck2_data::ActionName {
-                                category: action.category().as_str().to_owned(),
-                                identifier: action.identifier().unwrap_or("").to_owned(),
+                                category: action_with_extra_data
+                                    .action
+                                    .category()
+                                    .as_str()
+                                    .to_owned(),
+                                identifier: action_with_extra_data
+                                    .action
+                                    .identifier()
+                                    .unwrap_or("")
+                                    .to_owned(),
                             }),
+                            execution_kind: action_with_extra_data.execution_kind.into(),
                         }
                         .into()
                     }
@@ -524,7 +533,7 @@ where
 
         self.backend.process_node(
             evaluation.key,
-            evaluation.action,
+            evaluation.action_with_extra_data,
             evaluation.duration,
             evaluation.dep_keys.into_iter(),
             evaluation.spans,
@@ -615,12 +624,12 @@ pub(crate) struct BuildInfo {
 
 #[derive(Clone)]
 struct NodeData {
-    action: Option<Arc<RegisteredAction>>,
+    action_with_extra_data: Option<ActionWithExtraData>,
     duration: NodeDuration,
     span_ids: SmallVec<[SpanId; 1]>,
 }
 
-assert_eq_size!(NodeData, [usize; 10]);
+assert_eq_size!(NodeData, [usize; 11]);
 
 fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();

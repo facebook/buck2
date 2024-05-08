@@ -7,11 +7,10 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::NodeDuration;
 use buck2_core::soft_error;
@@ -54,7 +53,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
     fn process_node(
         &mut self,
         key: NodeKey,
-        action: Option<Arc<RegisteredAction>>,
+        action_with_extra_data: Option<ActionWithExtraData>,
         duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
@@ -68,7 +67,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             key,
             dep_keys,
             NodeData {
-                action,
+                action_with_extra_data,
                 duration,
                 span_ids,
             },
@@ -188,7 +187,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 let data = std::mem::replace(
                     &mut data[vertex_idx],
                     NodeData {
-                        action: None,
+                        action_with_extra_data: None,
                         duration: NodeDuration::zero(),
                         span_ids: Default::default(),
                     },

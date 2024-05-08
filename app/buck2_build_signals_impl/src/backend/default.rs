@@ -11,11 +11,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::NodeDuration;
 use buck2_events::span::SpanId;
@@ -95,7 +94,7 @@ impl BuildListenerBackend for DefaultBackend {
     fn process_node(
         &mut self,
         key: NodeKey,
-        value: Option<Arc<RegisteredAction>>,
+        value: Option<ActionWithExtraData>,
         duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
@@ -111,7 +110,7 @@ impl BuildListenerBackend for DefaultBackend {
             .max_by_key(|d| d.1);
 
         let value = NodeData {
-            action: value,
+            action_with_extra_data: value,
             duration,
             span_ids,
         };
@@ -178,6 +177,7 @@ mod tests {
             },
         );
     }
+
     #[test]
     fn empty_path() {
         let predecessors = CriticalPathMap::new();
