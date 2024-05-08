@@ -6,6 +6,11 @@
 # of this source tree.
 
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",
+    "gen_shared_libs_action",
+)
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
@@ -80,6 +85,29 @@ def create_manifest_for_source_map(
         ctx,
         param,
         [(dest, artifact, origin) for dest, artifact in srcs.items()],
+    )
+
+def create_manifest_for_shared_libs(
+        actions: AnalysisActions,
+        name: str,
+        shared_libs: list[SharedLibrary]) -> ManifestInfo:
+    """
+    Generate a source manifest for the given list of sources.
+    """
+    return ManifestInfo(
+        manifest = gen_shared_libs_action(
+            actions = actions,
+            out = name + ".manifest",
+            shared_libs = shared_libs,
+            gen_action = lambda actions, output, shared_libs: actions.write_json(
+                output,
+                [
+                    (soname, shlib.lib.output, name)
+                    for soname, shlib in shared_libs.items()
+                ],
+            ),
+        ),
+        artifacts = [(shlib.lib.output, "") for shlib in shared_libs],
     )
 
 def create_manifest_for_source_dir(
