@@ -266,7 +266,11 @@ async fn build_action_no_redirect(
             .unwrap_or_default();
 
         (
-            (action_result, wall_time, queue_duration),
+            ActionExecutionData {
+                action_result,
+                wall_time,
+                queue_duration,
+            },
             Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action_key),
                 kind: action.kind().into(),
@@ -297,21 +301,21 @@ async fn build_action_no_redirect(
     };
 
     // boxed() the future so that we don't need to allocate space for it while waiting on input dependencies.
-    let ((res, wall_time, queue_duration), spans) =
+    let (action_execution_data, spans) =
         async_record_root_spans(span_async(start_event, fut.boxed())).await;
 
     // TODO: This wall time is rather wrong. We should report a wall time on failures too.
     ctx.store_evaluation_data(BuildKeyActivationData {
         action: action.dupe(),
         duration: NodeDuration {
-            user: wall_time.unwrap_or_default(),
+            user: action_execution_data.wall_time.unwrap_or_default(),
             total: now.elapsed(),
-            queue: queue_duration,
+            queue: action_execution_data.queue_duration,
         },
         spans,
     })?;
 
-    res
+    action_execution_data.action_result
 }
 
 // Attempt to run the error handler if one was specified. Returns either the error diagnostics, or
@@ -381,6 +385,12 @@ pub struct BuildKeyActivationData {
     pub action: Arc<RegisteredAction>,
     pub duration: NodeDuration,
     pub spans: SmallVec<[SpanId; 1]>,
+}
+
+struct ActionExecutionData {
+    action_result: anyhow::Result<ActionOutputs>,
+    wall_time: Option<std::time::Duration>,
+    queue_duration: Option<std::time::Duration>,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls
