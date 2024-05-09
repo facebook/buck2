@@ -122,7 +122,13 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
 
     classmap_source_info = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if JavaClassToSourceMapInfo in ctx.attrs.apk else []
 
-    return inject_test_run_info(ctx, test_info) + [
+    test_info, run_info = inject_test_run_info(ctx, test_info)
+
+    # We append additional args so that "buck2 run" will work with sane defaults
+    run_info.args.add(cmd_args(["--auto-run-on-connected-device", "--output", ".", "--adb-executable-path", "adb"]))
+    return [
+        test_info,
+        run_info,
         DefaultInfo(),
     ] + classmap_source_info
 
