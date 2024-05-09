@@ -550,6 +550,50 @@ def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) ->
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
     return DefaultInfo(default_output = json_map)
 
+def _find_all_relevant_roots(
+        specs: list[LinkGroupLibSpec],
+        link_group_mappings: dict[Label, str],  # target label to link group name
+        roots: list[Label],
+        linkable_graph_node_map: dict[Label, LinkableNode]) -> dict[str, list[Label]]:
+    relevant_roots = {}
+    link_groups_for_full_traversal = set()  # list[str]
+
+    for spec in specs:
+        if spec.root != None:
+            relevant_roots[spec.group.name] = spec.root.deps
+        else:
+            roots_from_mappings, has_empty_root = _get_roots_from_mappings(spec, linkable_graph_node_map)
+            relevant_roots[spec.group.name] = roots_from_mappings
+            if has_empty_root:
+                link_groups_for_full_traversal.add(spec.group.name)
+
+    def collect_and_traverse_roots(node_target, populate_queue):
+        node = linkable_graph_node_map.get(node_target)
+        if node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents:
+            populate_queue(node.deps)
+            populate_queue(node.exported_deps)
+            return
+
+        node_link_group = link_group_mappings.get(node_target)
+
+        if node_link_group == MATCH_ALL_LABEL:
+            # Add node into the list of roots for all link groups
+            for link_group in relevant_roots.keys():
+                relevant_roots[link_group].append(node_target)
+        elif link_groups_for_full_traversal.contains(node_link_group) and node_link_group != NO_MATCH_LABEL:
+            relevant_roots[node_link_group].append(node_target)
+
+        populate_queue(node.deps)
+        populate_queue(node.exported_deps)
+
+    breadth_first_traversal_with_callback(
+        linkable_graph_node_map,
+        roots,
+        collect_and_traverse_roots,
+    )
+
+    return relevant_roots
+
 def find_relevant_roots(
         link_group: [str, None] = None,
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
@@ -602,39 +646,10 @@ def _get_roots_from_mappings(
             roots.extend([root for root in mapping.roots if root in linkable_graph_node_map])
     return (roots, has_empty_root)
 
-def _get_link_group_roots(
-        spec: LinkGroupLibSpec,
-        linkable_graph_node_map: dict[Label, LinkableNode],
-        link_group_mappings: dict[Label, str],
-        executable_deps: list[Label],
-        other_roots: list[Label]) -> list[Label]:
-    # Get roots to begin the linkable search.
-    # TODO(agallagher): We should use the groups "public" nodes as the roots.
-    if spec.root != None:
-        return spec.root.deps
-    roots, has_empty_root = _get_roots_from_mappings(spec, linkable_graph_node_map)
-
-    # If this link group has an empty mapping, we need to search everything
-    # -- even the additional roots -- to find potential nodes in the link
-    # group.
-    if has_empty_root:
-        roots.extend(
-            find_relevant_roots(
-                link_group = spec.group.name,
-                linkable_graph_node_map = linkable_graph_node_map,
-                link_group_mappings = link_group_mappings,
-                roots = executable_deps + other_roots,
-            ),
-        )
-    return roots
-
 def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec,
-        # The deps of the top-level executable.
-        executable_deps: list[Label] = [],
-        # Additional roots involved in the link.
-        other_roots: list[Label] = [],
+        roots: list[Label],
         public_nodes: set_record = set(),
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
         linker_flags: list[typing.Any] = [],
@@ -674,14 +689,6 @@ def _create_link_group(
             spec.root.link_infos,
             prefer_stripped = prefer_stripped_objects,
         ))
-
-    roots = _get_link_group_roots(
-        spec = spec,
-        linkable_graph_node_map = linkable_graph_node_map,
-        link_group_mappings = link_group_mappings,
-        executable_deps = executable_deps,
-        other_roots = other_roots,
-    )
 
     # Add roots...
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(
@@ -860,6 +867,12 @@ def create_link_groups(
     linked_link_groups = {}
     undefined_symfiles = []
     global_symfiles = []
+    roots = _find_all_relevant_roots(
+        specs,
+        link_group_mappings,
+        executable_deps + other_roots,
+        linkable_graph_node_map,
+    )
 
     for link_group_spec in specs:
         # NOTE(agallagher): It might make sense to move this down to be
@@ -868,8 +881,7 @@ def create_link_groups(
         link_group_lib = _create_link_group(
             ctx = ctx,
             spec = link_group_spec,
-            executable_deps = executable_deps,
-            other_roots = other_roots,
+            roots = roots[link_group_spec.group.name],
             linkable_graph_node_map = linkable_graph_node_map,
             public_nodes = public_nodes,
             linker_flags = (
