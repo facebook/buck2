@@ -12,7 +12,6 @@ use std::time::Duration;
 use anyhow::Context;
 use nix::sys::signal::Signal;
 use sysinfo::Process;
-use sysinfo::ProcessExt;
 
 use crate::kill::get_sysinfo_status;
 use crate::pid::Pid;

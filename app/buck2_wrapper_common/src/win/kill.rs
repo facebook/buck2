@@ -9,9 +9,7 @@
 
 use std::time::Duration;
 
-use sysinfo::PidExt;
 use sysinfo::Process;
-use sysinfo::ProcessExt;
 
 use crate::pid::Pid;
 use crate::win::winapi_process::WinapiProcessHandle;
