@@ -11,7 +11,7 @@ import React, {useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
-import {Build} from './fbs/explain'
+import {BoolAttr, Build, ListOfStringsAttr, StringAttr} from './fbs/explain'
 
 function List(props: {attr: (i: number) => String; length: number}): JSX.Element {
   const items: JSX.Element[] = []
@@ -21,6 +21,69 @@ function List(props: {attr: (i: number) => String; length: number}): JSX.Element
     items.push(row)
   }
   return <ul>{items}</ul>
+}
+
+function ListOfBoolAttrs(props: {
+  attr: (i: number) => BoolAttr | null
+  length: number
+}): JSX.Element {
+  const items: JSX.Element[] = []
+  for (let i = 0; i < props.length; i++) {
+    const value = props.attr(i)
+    if (value == null) {
+      continue
+    }
+    const row = (
+      <li key={i}>
+        <b>{value.key()}: </b>
+        <span>{value.value()}</span>
+      </li>
+    )
+    items.push(row)
+  }
+  return <>{items}</>
+}
+
+function ListOfStringAttrs(props: {
+  attr: (i: number) => StringAttr | null
+  length: number
+}): JSX.Element {
+  const items: JSX.Element[] = []
+  for (let i = 0; i < props.length; i++) {
+    const value = props.attr(i)
+    if (value == null) {
+      continue
+    }
+    const row = (
+      <li key={i}>
+        <b>{value.key()}: </b>
+        <span>{value.value()}</span>
+      </li>
+    )
+    items.push(row)
+  }
+  return <>{items}</>
+}
+
+function ListOfListOfStringAttrs(props: {
+  attr: (i: number) => ListOfStringsAttr | null
+  length: number
+}): JSX.Element {
+  const items: JSX.Element[] = []
+  for (let i = 0; i < props.length; i++) {
+    const value = props.attr(i)
+    if (value == null) {
+      continue
+    }
+    const row = (
+      <li key={i}>
+        <b>{value.key()}: </b>
+        <List attr={i => value.value(i)} length={value.valueLength()} />
+      </li>
+    )
+    items.push(row)
+  }
+  return <>{items}</>
 }
 
 function App() {
@@ -131,6 +194,18 @@ function App() {
             <b>Plugins: </b>
             <List attr={i => rootTarget.plugins(i)} length={rootTarget.pluginsLength()} />
           </li>
+          <ListOfBoolAttrs
+            attr={i => rootTarget.boolAttrs(i)}
+            length={rootTarget.boolAttrsLength()}
+          />
+          <ListOfStringAttrs
+            attr={i => rootTarget.stringAttrs(i)}
+            length={rootTarget.stringAttrsLength()}
+          />
+          <ListOfListOfStringAttrs
+            attr={i => rootTarget.listOfStringsAttrs(i)}
+            length={rootTarget.listOfStringsAttrsLength()}
+          />
         </ul>
       </>
     )
