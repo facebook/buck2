@@ -432,21 +432,21 @@ impl Drop for REClient {
 /// Used to defer reading of NamedDigest contents till
 /// actual execution of upload and prevent opening too many
 /// files at the same time.
-enum BatchUploadRequest {
-    Blob(InlinedBlobWithDigest),
-    File(NamedDigest),
+enum BatchUploadRequest<'a> {
+    Blob(&'a InlinedBlobWithDigest),
+    File(&'a NamedDigest),
 }
 
 /// Builds up a vector of batch upload requests based upon the maximum allowed message size.
 #[derive(Default)]
-struct BatchUploadReqAggregator {
+struct BatchUploadReqAggregator<'a> {
     max_msg_size: i64,
-    curr_req: Vec<BatchUploadRequest>,
-    requests: Vec<Vec<BatchUploadRequest>>,
+    curr_req: Vec<BatchUploadRequest<'a>>,
+    requests: Vec<Vec<BatchUploadRequest<'a>>>,
     curr_request_size: i64,
 }
 
-impl BatchUploadReqAggregator {
+impl <'a> BatchUploadReqAggregator<'a> {
     pub fn new(max_msg_size: usize) -> Self {
         BatchUploadReqAggregator {
             max_msg_size: max_msg_size as i64,
@@ -454,7 +454,7 @@ impl BatchUploadReqAggregator {
         }
     }
 
-    pub fn push(&mut self, req: BatchUploadRequest) {
+    pub fn push(&mut self, req: BatchUploadRequest<'a>) {
         let size_in_bytes = match &req {
             BatchUploadRequest::Blob(blob) => blob.digest.size_in_bytes,
             BatchUploadRequest::File(file) => file.digest.size_in_bytes,
@@ -468,7 +468,7 @@ impl BatchUploadReqAggregator {
         self.curr_req.push(req);
     }
 
-    pub fn done(mut self) -> Vec<Vec<BatchUploadRequest>> {
+    pub fn done(mut self) -> Vec<Vec<BatchUploadRequest<'a>>> {
         if !self.curr_req.is_empty() {
             self.requests.push(std::mem::take(&mut self.curr_req));
         }
@@ -680,6 +680,18 @@ impl REClient {
 
                 Ok(resp.into_inner())
             },
+            |request| async {
+                let metadata = metadata.clone();
+                let mut cas_client = self.grpc_clients.cas_client.clone();
+                let response = cas_client
+                    .find_missing_blobs(with_re_metadata(
+                        request, 
+                        metadata, 
+                        self.runtime_opts.use_fbcode_metadata
+                    ))
+                    .await?;
+                Ok(response.into_inner())
+            }
         )
         .await
     }
@@ -1088,17 +1100,49 @@ where
     })
 }
 
-async fn upload_impl<Byt, Cas>(
+async fn upload_impl<Byt, Cas, Find>(
     instance_name: &InstanceName,
     request: UploadRequest,
     max_msg_size: usize,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
     bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
+    find_missing_blobs_f: impl Fn(FindMissingBlobsRequest) -> Find + Sync + Send + Copy
 ) -> anyhow::Result<UploadResponse>
 where
     Cas: Future<Output = anyhow::Result<BatchUpdateBlobsResponse>> + Send,
     Byt: Future<Output = anyhow::Result<WriteResponse>> + Send,
+    Find: Future<Output = anyhow::Result<FindMissingBlobsResponse>> + Send,
 {
+    let inlined_blobs_with_digest = &request.inlined_blobs_with_digest.unwrap_or_default();
+    let inlined_blobs_by_digest: HashMap<_, _> = inlined_blobs_with_digest
+        .iter()
+        .map(|blob| { (blob.digest.clone(), blob) })
+        .collect();
+
+    let files_with_digest = &request.files_with_digest.unwrap_or_default();
+    let named_files_by_digest: HashMap<_, _> = files_with_digest
+        .iter()
+        .map(|file| { (file.digest.clone(), file) })
+        .collect();
+
+    let should_upload_blob: Box<dyn Send + Fn(String, i64) -> bool> = if request.upload_only_missing {
+        let find_missing_blobs_req = FindMissingBlobsRequest { 
+            instance_name: instance_name.as_str().to_owned(), 
+            blob_digests: vec![
+                named_files_by_digest.keys().collect::<Vec<&TDigest>>(), 
+                inlined_blobs_by_digest.keys().collect::<Vec<&TDigest>>(),
+            ].concat().map(|d| tdigest_to((*d).clone())),
+        };
+
+        let missing_blob_digests = find_missing_blobs_f(find_missing_blobs_req).await?.missing_blob_digests;
+        let missing_blobs_by_digest: HashMap<(String, i64), _> = missing_blob_digests.iter()
+            .map(|d| { ((d.hash.clone(), d.size_bytes), ()) }).collect();
+
+        Box::new(move |hash: String, size: i64| missing_blobs_by_digest.contains_key(&(hash, size)))
+    } else {
+        Box::new(|_hash, _size| true)
+    };
+
     // NOTE if we stop recording blob_hashes, we can drop out a lot of allocations.
     let mut upload_futures: Vec<BoxFuture<anyhow::Result<Vec<String>>>> = vec![];
 
@@ -1107,16 +1151,20 @@ where
     let mut batched_blob_updates = BatchUploadReqAggregator::new(max_msg_size);
 
     // Create futures for any blobs that need uploading.
-    for blob in request.inlined_blobs_with_digest.unwrap_or_default() {
-        let hash = blob.digest.hash.clone();
-        let size = blob.digest.size_in_bytes;
+    for (digest, blob) in inlined_blobs_by_digest {
+        let hash = digest.hash.clone();
+        let size = digest.size_in_bytes;
 
+        if !should_upload_blob(hash.clone(), size) {
+            continue;
+        }
+
+        let data = blob.blob.clone();
         if size < max_msg_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::Blob(blob));
             continue;
         }
 
-        let data = blob.blob;
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = format!(
             "{}uploads/{}/blobs/{}/{}",
@@ -1151,9 +1199,14 @@ where
     }
 
     // Create futures for any files that needs uploading.
-    for file in request.files_with_digest.unwrap_or_default() {
-        let hash = file.digest.hash.clone();
-        let size = file.digest.size_in_bytes;
+    for (digest, file) in named_files_by_digest {
+        let hash = digest.hash.clone();
+        let size = digest.size_in_bytes;
+
+        if !should_upload_blob(hash.clone(), size) {
+            continue;
+        }
+
         let name = file.name.clone();
         if size < max_msg_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::File(file));
@@ -1905,6 +1958,9 @@ mod tests {
                 }
             },
             |_req| async { panic!("A Bytestream upload should not be triggered") },
+            |req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: req.blob_digests 
+            }) },
         )
         .await?;
 
@@ -1996,6 +2052,9 @@ mod tests {
                     anyhow::Ok(WriteResponse { committed_size: 18 })
                 }
             },
+            |req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: req.blob_digests 
+            }) },
         )
         .await?;
         Ok(())
@@ -2070,6 +2129,9 @@ mod tests {
                     anyhow::Ok(WriteResponse { committed_size: 18 })
                 }
             },
+            |req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: req.blob_digests 
+            }) },
         )
         .await?;
         Ok(())
@@ -2113,6 +2175,9 @@ mod tests {
                 // Not the right size
                 anyhow::Ok(WriteResponse { committed_size: 10 })
             },
+            |req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: req.blob_digests 
+            }) },
         )
         .await;
 
@@ -2174,6 +2239,9 @@ mod tests {
                 assert!(write_reqs[1].finish_write);
                 anyhow::Ok(WriteResponse { committed_size: 6 })
             },
+            |req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: req.blob_digests 
+            }) },
         )
         .await?;
         Ok(())
@@ -2212,6 +2280,9 @@ mod tests {
             |_write_reqs| async move {
                 panic!("Not called");
             },
+            |req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: req.blob_digests 
+            }) },
         )
         .await;
 
@@ -2259,6 +2330,44 @@ mod tests {
                 assert!(write_reqs[0].resource_name.ends_with("/blobs/aa/3"));
                 anyhow::Ok(WriteResponse { committed_size: 3 })
             },
+            |req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: req.blob_digests 
+            }) },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_do_not_upload_existing_blobs() -> anyhow::Result<()> {
+        let req = UploadRequest { 
+            files_with_digest: Some(vec![NamedDigest{
+                name: "bla".to_owned(),
+                digest: TDigest { hash: "aa".to_owned(), size_in_bytes: 3, ..Default::default() },
+                ..Default::default()
+            }]), 
+            inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest{
+                blob: vec![0, 1, 2],
+                digest: TDigest { hash: "bb".to_owned(), size_in_bytes: 3, ..Default::default() },
+                ..Default::default()
+            }]), 
+            upload_only_missing: true,
+            ..Default::default() 
+        };
+        upload_impl(
+            &InstanceName(Some("instance".to_owned())),
+            req,
+            1,
+            |_req| async {
+                panic!("Not called");
+            },
+            |_write_reqs| async {
+                panic!("Not called");
+            },
+            |_req| async { Ok(FindMissingBlobsResponse { 
+                missing_blob_digests: vec![]
+            }) },
         )
         .await?;
 
