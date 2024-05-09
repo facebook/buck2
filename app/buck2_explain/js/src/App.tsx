@@ -14,8 +14,6 @@ import {ByteBuffer} from 'flatbuffers'
 import {Build} from './fbs/explain'
 
 function App() {
-  const target = 'fbcode//buck2:buck2'
-
   const [blobBase64, setBlobBase64] = useState('XXDATAXX')
   useEffect(() => {
     const fetchData = async () => {
@@ -32,27 +30,25 @@ function App() {
 
   const decodedString = atob(blobBase64)
   // TODO iguridi: decode blob better
-  var byteArray = new Uint8Array(decodedString.length)
-  for (var i = 0; i < decodedString.length; i++) {
-    byteArray[i] += decodedString.charCodeAt(i)
+  const byteArray = new Uint8Array(decodedString.length)
+  for (let i = 0; i < decodedString.length; i++) {
+    byteArray[i] = decodedString.charCodeAt(i)
   }
 
   let buf = new ByteBuffer(byteArray)
 
   // Get an accessor to the root object inside the buffer.
-  var build = Build.getRootAsBuild(buf)
+  const build = Build.getRootAsBuild(buf)
 
-  var target2 = build.targets(1)
+  const rootTarget = build.targets(0)
 
-  console.log(target2?.name())
-
-  const name = target2?.name()
+  const name = rootTarget?.name()
 
   return (
     <>
       <p>
         <i>
-          <span>{target}</span>
+          <span>{rootTarget?.configuredTargetLabel()}</span>
         </i>
       </p>
       <h2>{name}</h2>
