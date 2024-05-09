@@ -11,7 +11,7 @@ import React, {useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
-import {BoolAttr, Build, ListOfStringsAttr, StringAttr} from './fbs/explain'
+import {BoolAttr, Build, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
 
 function List(props: {attr: (i: number) => String; length: number}): JSX.Element {
   const items: JSX.Element[] = []
@@ -88,6 +88,8 @@ function ListOfListOfStringAttrs(props: {
 
 function App() {
   const [blobBase64, setBlobBase64] = useState('XXDATAXX')
+  const [currentTarget, setCurrentTarget] = useState<ConfiguredTargetNode | null>(null)
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -115,7 +117,11 @@ function App() {
 
   const rootTarget = build.targets(0)
 
-  if (rootTarget == null) return <p>Loading...</p>
+  if (currentTarget == null && rootTarget != null) {
+    setCurrentTarget(rootTarget)
+  }
+
+  if (currentTarget == null || rootTarget == null) return <p>Loading...</p>
   else {
     return (
       <>
@@ -127,84 +133,90 @@ function App() {
         <ul>
           <li>
             <b>Name: </b>
-            <span>{rootTarget.name()}</span>
+            <span>{currentTarget.name()}</span>
           </li>
           <li>
             <b>Default target platform: </b>
-            <span>{rootTarget.defaultTargetPlatform()}</span>
+            <span>{currentTarget.defaultTargetPlatform()}</span>
           </li>
           <li>
             <b>Target compatible with: </b>
             <List
-              attr={i => rootTarget.targetCompatibleWith(i)}
-              length={rootTarget.targetCompatibleWithLength()}
+              attr={i => currentTarget.targetCompatibleWith(i)}
+              length={currentTarget.targetCompatibleWithLength()}
             />
           </li>
           <li>
             <b>Compatible with: </b>
             <List
-              attr={i => rootTarget.compatibleWith(i)}
-              length={rootTarget.compatibleWithLength()}
+              attr={i => currentTarget.compatibleWith(i)}
+              length={currentTarget.compatibleWithLength()}
             />
           </li>
           <li>
             <b>Exec compatible with: </b>
             <List
-              attr={i => rootTarget.execCompatibleWith(i)}
-              length={rootTarget.execCompatibleWithLength()}
+              attr={i => currentTarget.execCompatibleWith(i)}
+              length={currentTarget.execCompatibleWithLength()}
             />
           </li>
           <li>
             <b>Visibility: </b>
-            <List attr={i => rootTarget.visibility(i)} length={rootTarget.visibilityLength()} />
+            <List
+              attr={i => currentTarget.visibility(i)}
+              length={currentTarget.visibilityLength()}
+            />
           </li>
           <li>
             <b>Within view: </b>
-            <List attr={i => rootTarget.withinView(i)} length={rootTarget.withinViewLength()} />
+            <List
+              attr={i => currentTarget.withinView(i)}
+              length={currentTarget.withinViewLength()}
+            />
           </li>
           <li>
             <b>Tests: </b>
-            <List attr={i => rootTarget.tests(i)} length={rootTarget.testsLength()} />
+            <List attr={i => currentTarget.tests(i)} length={currentTarget.testsLength()} />
           </li>
           <li>
             <b>Type: </b>
-            <span>{rootTarget.type()}</span>
+            <span>{currentTarget.type()}</span>
           </li>
           <li>
             <b>Deps: </b>
-            <List attr={i => rootTarget.deps(i)} length={rootTarget.depsLength()} />
+            <List attr={i => currentTarget.deps(i)} length={currentTarget.depsLength()} />
           </li>
           <li>
             <b>Package: </b>
-            <span>{rootTarget.package_()}</span>
+            <span>{currentTarget.package_()}</span>
           </li>
           <li>
             <b>Oncall: </b>
-            <span>{rootTarget.oncall()}</span>
+            <span>{currentTarget.oncall()}</span>
           </li>
           <li>
             <b>Target configuration: </b>
-            <span>{rootTarget.targetConfiguration()}</span>
+            <span>{currentTarget.targetConfiguration()}</span>
           </li>
           <li>
             <b>Execution platform: </b>
-            <span>{rootTarget.executionPlatform()}</span>
+            <span>{currentTarget.executionPlatform()}</span>
           </li>
           <li>
             <b>Plugins: </b>
-            <List attr={i => rootTarget.plugins(i)} length={rootTarget.pluginsLength()} />
+            <List attr={i => currentTarget.plugins(i)} length={currentTarget.pluginsLength()} />
           </li>
           <ListOfBoolAttrs
-            attr={i => rootTarget.boolAttrs(i)}
-            length={rootTarget.boolAttrsLength()}
+            attr={i => currentTarget.boolAttrs(i)}
+            length={currentTarget.boolAttrsLength()}
           />
           <ListOfStringAttrs
-            attr={i => rootTarget.stringAttrs(i)}
-            length={rootTarget.stringAttrsLength()}
+            attr={i => currentTarget.stringAttrs(i)}
+            length={currentTarget.stringAttrsLength()}
           />
           <ListOfListOfStringAttrs
-            attr={i => rootTarget.listOfStringsAttrs(i)}
-            length={rootTarget.listOfStringsAttrsLength()}
+            attr={i => currentTarget.listOfStringsAttrs(i)}
+            length={currentTarget.listOfStringsAttrsLength()}
           />
         </ul>
       </>
