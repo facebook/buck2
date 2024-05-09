@@ -42,18 +42,19 @@ function App() {
 
   const rootTarget = build.targets(0)
 
-  const name = rootTarget?.name()
-
-  return (
-    <>
-      <p>
-        <i>
-          <span>{rootTarget?.configuredTargetLabel()}</span>
-        </i>
-      </p>
-      <h2>{name}</h2>
-    </>
-  )
+  if (rootTarget == null) return <p>Loading...</p>
+  else {
+    return (
+      <>
+        <p>
+          <i>
+            <span>{rootTarget.configuredTargetLabel()}</span>
+          </i>
+        </p>
+        <h2>{rootTarget.name()}</h2>
+      </>
+    )
+  }
 }
 
 const container = document.getElementById('root') as HTMLElement
