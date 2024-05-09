@@ -32,6 +32,10 @@ export const CurrentTargetContext = React.createContext<{
   setTarget: (target: ConfiguredTargetNode | null) => void
 }>({target: null, setTarget: () => {}})
 
+/**
+ * Sets the current target based on the 'target' URL parameter.
+ * If the parameter is not present, it defaults to the root target.
+ */
 function fromUrl(
   data: STATE_TYPE,
   currentTarget: ConfiguredTargetNode | null,
@@ -49,6 +53,9 @@ function fromUrl(
   }
 }
 
+/**
+ * Acts as a normal webpage banner, where clicking on it sends the user back to the root page of the website
+ */
 function RootSpan(props: {setCurrentTarget: (target: ConfiguredTargetNode | null) => void}) {
   const {rootTarget} = useContext(DataContext)
 
@@ -68,6 +75,9 @@ function App() {
 
   const [currentTarget, setCurrentTarget] = useState<ConfiguredTargetNode | null>(null)
 
+  /**
+   * Wrapper around setCurrentTarget to set url query params
+   */
   const setCurrentTargetAndUrl = (target: ConfiguredTargetNode | null) => {
     const label = target?.configuredTargetLabel()
     if (label == null) return
@@ -85,6 +95,9 @@ function App() {
     setCurrentTarget(target)
   }
 
+  /**
+   * Updates target every time the user goes back in history
+   */
   useEffect(() => {
     // This is triggered every time the user goes back in history
     const f = () => {
@@ -96,6 +109,9 @@ function App() {
     }
   }, [data, currentTarget])
 
+  /**
+   * Loads initial information on page load
+   */
   useEffect(() => {
     const fetchData = async () => {
       try {
