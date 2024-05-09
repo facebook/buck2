@@ -27,7 +27,7 @@ use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ParameterP;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq)]
 pub enum DefError {
     #[error("duplicated parameter name")]
     DuplicateParameterName,
@@ -208,5 +208,84 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
             num_positional: u32::try_from(num_positional.unwrap_or(params.len())).unwrap(),
             params,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::syntax::ast::AssignIdentP;
+    use crate::syntax::ast::AstNoPayload;
+    use crate::syntax::ast::ExprP;
+
+    fn fails(params: &[AstParameterP<AstNoPayload>], expected_error: DefError) {
+        let codemap = CodeMap::default();
+        let x = DefParams::unpack(params, &codemap);
+        match x {
+            Ok(_) => panic!("Expected error from {params:?}"),
+            Err(e) => assert_eq!(e.inner(), &expected_error),
+        }
+    }
+
+    fn passes(params: &[AstParameterP<AstNoPayload>]) {
+        let codemap = CodeMap::default();
+        assert!(DefParams::unpack(params, &codemap).is_ok());
+    }
+
+    fn spanned<T>(node: T) -> Spanned<T> {
+        Spanned {
+            span: Default::default(),
+            node,
+        }
+    }
+
+    fn ident(i: usize) -> AstAssignIdentP<AstNoPayload> {
+        spanned(AssignIdentP {
+            ident: format!("x{i}"),
+            payload: Default::default(),
+        })
+    }
+
+    fn param(i: usize) -> AstParameterP<AstNoPayload> {
+        spanned(ParameterP::Normal(ident(i), None))
+    }
+
+    fn args(i: usize) -> AstParameterP<AstNoPayload> {
+        spanned(ParameterP::Args(ident(i), None))
+    }
+
+    fn kwargs(i: usize) -> AstParameterP<AstNoPayload> {
+        spanned(ParameterP::KwArgs(ident(i), None))
+    }
+
+    fn default(i: usize) -> AstParameterP<AstNoPayload> {
+        let default = spanned(ExprP::Tuple(Vec::new()));
+        spanned(ParameterP::WithDefaultValue(
+            ident(i),
+            None,
+            Box::new(default),
+        ))
+    }
+
+    #[test]
+    fn test_params_unpack() {
+        fails(
+            &[param(0), param(1), param(0)],
+            DefError::DuplicateParameterName,
+        );
+        fails(
+            &[default(0), param(1)],
+            DefError::PositionalThenNonPositional,
+        );
+        fails(
+            &[kwargs(0), default(1)],
+            DefError::DefaultParameterAfterStars,
+        );
+        fails(&[args(0), args(1)], DefError::ArgsParameterAfterStars);
+        fails(&[kwargs(0), args(1)], DefError::ArgsParameterAfterStars);
+        fails(&[kwargs(0), kwargs(1)], DefError::MultipleKwargs);
+
+        passes(&[param(0), param(1), default(2), args(3), kwargs(4)]);
     }
 }
