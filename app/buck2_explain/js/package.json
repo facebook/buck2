@@ -11,6 +11,6 @@
   },
   "scripts": {
     "build": "esbuild src/App.tsx --bundle --outfile=dist/app.js",
-    "check": "tsc -noEmit app.tsx --jsx react --lib 'ES2015,dom'"
+    "check": "tsc -noEmit -p tsconfig.json"
   }
 }
