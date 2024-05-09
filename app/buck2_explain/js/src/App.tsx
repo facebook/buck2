@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-import React, {Dispatch, SetStateAction, useEffect, useState} from 'react'
+import React, {Dispatch, SetStateAction, useContext, useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
@@ -25,6 +25,8 @@ type STATE_TYPE = {
   rootTarget: ConfiguredTargetNode | null
   allTargets: {[key: string]: number}
 }
+
+export const DataContext = React.createContext<STATE_TYPE>(INITIAL_STATE)
 
 function fromUrl(
   data: STATE_TYPE,
@@ -44,21 +46,22 @@ function fromUrl(
 }
 
 function RootSpan(props: {
-  target: ConfiguredTargetNode
   setCurrentTarget: Dispatch<SetStateAction<ConfiguredTargetNode | null>>
 }) {
+  const {rootTarget} = useContext(DataContext)
+
   const handleClick = () => {
     const url = new URL(window.location.toString())
     const params = new URLSearchParams(url.search)
     params.delete('target')
     url.search = params.toString()
     window.history.pushState({}, '', url.toString())
-    props.setCurrentTarget(props.target)
+    props.setCurrentTarget(rootTarget)
   }
   return (
     <p style={{cursor: 'pointer'}} onClick={handleClick}>
       <i>
-        <span>{props.target.configuredTargetLabel()}</span>
+        <span>{rootTarget?.configuredTargetLabel()}</span>
       </i>
     </p>
   )
@@ -128,10 +131,10 @@ function App() {
   if (currentTarget == null && rootTarget == null) return <p>Loading...</p>
   else {
     return (
-      <>
-        {rootTarget ? <RootSpan target={rootTarget} setCurrentTarget={setCurrentTarget} /> : null}
+      <DataContext.Provider value={data}>
+        {rootTarget ? <RootSpan setCurrentTarget={setCurrentTarget} /> : null}
         {currentTarget ? <Target target={currentTarget} /> : <p>No target found</p>}
-      </>
+      </DataContext.Provider>
     )
   }
 }
