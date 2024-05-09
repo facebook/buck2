@@ -27,6 +27,10 @@ type STATE_TYPE = {
 }
 
 export const DataContext = React.createContext<STATE_TYPE>(INITIAL_STATE)
+export const CurrentTargetContext = React.createContext<{
+  target: ConfiguredTargetNode | null
+  setTarget: (target: ConfiguredTargetNode | null) => void
+}>({target: null, setTarget: () => {}})
 
 function fromUrl(
   data: STATE_TYPE,
@@ -45,19 +49,11 @@ function fromUrl(
   }
 }
 
-function RootSpan(props: {
-  setCurrentTarget: Dispatch<SetStateAction<ConfiguredTargetNode | null>>
-}) {
+function RootSpan(props: {setCurrentTarget: (target: ConfiguredTargetNode | null) => void}) {
   const {rootTarget} = useContext(DataContext)
 
-  const handleClick = () => {
-    const url = new URL(window.location.toString())
-    const params = new URLSearchParams(url.search)
-    params.delete('target')
-    url.search = params.toString()
-    window.history.pushState({}, '', url.toString())
-    props.setCurrentTarget(rootTarget)
-  }
+  const handleClick = () => props.setCurrentTarget(rootTarget)
+
   return (
     <p style={{cursor: 'pointer'}} onClick={handleClick}>
       <i>
@@ -71,6 +67,23 @@ function App() {
   const [data, setData] = useState<STATE_TYPE>(INITIAL_STATE)
 
   const [currentTarget, setCurrentTarget] = useState<ConfiguredTargetNode | null>(null)
+
+  const setCurrentTargetAndUrl = (target: ConfiguredTargetNode | null) => {
+    const label = target?.configuredTargetLabel()
+    if (label == null) return
+
+    const url = new URL(window.location.toString())
+    const params = new URLSearchParams(url.search)
+    if (label === data.rootTarget?.configuredTargetLabel()) {
+      params.delete('target')
+    } else {
+      params.set('target', label)
+    }
+
+    url.search = params.toString()
+    window.history.pushState({}, '', url.toString())
+    setCurrentTarget(target)
+  }
 
   useEffect(() => {
     // This is triggered every time the user goes back in history
@@ -132,8 +145,11 @@ function App() {
   else {
     return (
       <DataContext.Provider value={data}>
-        {rootTarget ? <RootSpan setCurrentTarget={setCurrentTarget} /> : null}
-        {currentTarget ? <Target target={currentTarget} /> : <p>No target found</p>}
+        {rootTarget ? <RootSpan setCurrentTarget={setCurrentTargetAndUrl} /> : null}
+        <CurrentTargetContext.Provider
+          value={{target: currentTarget, setTarget: setCurrentTargetAndUrl}}>
+          {currentTarget ? <Target target={currentTarget} /> : <p>No target found</p>}
+        </CurrentTargetContext.Provider>
       </DataContext.Provider>
     )
   }
