@@ -125,12 +125,12 @@ function App() {
 
   const rootTarget = data.rootTarget
 
-  if (currentTarget == null || rootTarget == null) return <p>Loading...</p>
+  if (currentTarget == null && rootTarget == null) return <p>Loading...</p>
   else {
     return (
       <>
-        <RootSpan target={rootTarget} setCurrentTarget={setCurrentTarget} />
-        <Target target={currentTarget} />
+        {rootTarget ? <RootSpan target={rootTarget} setCurrentTarget={setCurrentTarget} /> : null}
+        {currentTarget ? <Target target={currentTarget} /> : <p>No target found</p>}
       </>
     )
   }
