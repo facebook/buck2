@@ -110,7 +110,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
             let span = param.span;
             match &param.node {
                 ParameterP::Normal(n, ty) => {
-                    if seen_kwargs || seen_optional {
+                    if seen_kwargs || (seen_optional && !seen_args) {
                         return Err(WithDiagnostic::new_spanned(
                             DefError::PositionalThenNonPositional,
                             param.span,
@@ -259,6 +259,10 @@ mod tests {
         spanned(ParameterP::KwArgs(ident(i), None))
     }
 
+    fn noargs() -> AstParameterP<AstNoPayload> {
+        spanned(ParameterP::NoArgs)
+    }
+
     fn default(i: usize) -> AstParameterP<AstNoPayload> {
         let default = spanned(ExprP::Tuple(Vec::new()));
         spanned(ParameterP::WithDefaultValue(
@@ -287,5 +291,20 @@ mod tests {
         fails(&[kwargs(0), kwargs(1)], DefError::MultipleKwargs);
 
         passes(&[param(0), param(1), default(2), args(3), kwargs(4)]);
+    }
+
+    #[test]
+    fn test_params_noargs() {
+        fails(&[noargs(), noargs()], DefError::ArgsParameterAfterStars);
+        fails(
+            &[param(0), default(1), param(2)],
+            DefError::PositionalThenNonPositional,
+        );
+        passes(&[args(0), param(1)]);
+        passes(&[args(0), default(1)]);
+        passes(&[args(0), param(1), default(2)]);
+        passes(&[default(0), args(1), param(2)]);
+        passes(&[args(0), param(1), default(2), param(3)]);
+        passes(&[noargs(), param(0), default(1), param(2)]);
     }
 }
