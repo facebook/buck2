@@ -76,11 +76,6 @@ use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
 
-// RBE Services (e.g. Buildbarn) may not be robust against having too many files open at
-// once. Limit to an arbitrary reasonable number since this information is not expressed
-// in the Capabilities message query.
-const CONCURRENT_UPLOAD_LIMIT: usize = 64;
-
 const DEFAULT_MAX_MSG_SIZE: usize = 4 * 1000 * 1000;
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
@@ -213,6 +208,8 @@ pub struct RECapabilities {
 pub struct RERuntimeOpts {
     /// Use the Meta version of the request metadata
     use_fbcode_metadata: bool,
+    /// Maximum number of concurrent upload requests.
+    max_concurrent_uploads: Option<usize>,
 }
 
 struct InstanceName(Option<String>);
@@ -315,6 +312,7 @@ impl REClientBuilder {
         Ok(REClient::new(
             RERuntimeOpts {
                 use_fbcode_metadata: opts.use_fbcode_metadata,
+                max_concurrent_uploads: opts.max_concurrent_uploads,
             },
             grpc_clients,
             capabilities,
@@ -654,6 +652,7 @@ impl REClient {
             &self.instance_name,
             request,
             self.capabilities.max_msg_size,
+            self.runtime_opts.max_concurrent_uploads,
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut cas_client = self.grpc_clients.cas_client.clone();
@@ -1092,6 +1091,7 @@ async fn upload_impl<Byt, Cas>(
     instance_name: &InstanceName,
     request: UploadRequest,
     max_msg_size: usize,
+    max_concurrent_uploads: Option<usize>,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
     bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<UploadResponse>
@@ -1275,9 +1275,11 @@ where
         upload_futures.push(Box::pin(fut));
     }
 
-    let upload_stream =
-        futures::stream::iter(upload_futures).buffer_unordered(CONCURRENT_UPLOAD_LIMIT);
-    let blob_hashes = upload_stream.try_collect::<Vec<Vec<String>>>().await?;
+    let blob_hashes = if let Some(concurrency_limit) = max_concurrent_uploads {
+        futures::stream::iter(upload_futures).buffer_unordered(concurrency_limit).try_collect::<Vec<Vec<String>>>().await?
+    } else {
+        futures::future::try_join_all(upload_futures).await?
+    };
 
     tracing::debug!("uploaded: {:?}", blob_hashes);
     Ok(UploadResponse {})
@@ -1891,6 +1893,7 @@ mod tests {
             &InstanceName(None),
             req,
             10000,
+            None,
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -1973,6 +1976,7 @@ mod tests {
             &InstanceName(None),
             req,
             10, // kept small to simulate a large file upload
+            None,
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2046,6 +2050,7 @@ mod tests {
             &InstanceName(None),
             req,
             10, // kept small to simulate a large inlined upload
+            None,
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2106,6 +2111,7 @@ mod tests {
             &InstanceName(None), // TODO
             req,
             10,
+            None,
             |_req| async move {
                 panic!("This should not be called as there are no blobs to upload in batch");
             },
@@ -2166,6 +2172,7 @@ mod tests {
             &InstanceName(None),
             req,
             3,
+            None,
             |_req| async move {
                 panic!("Not called");
             },
@@ -2206,6 +2213,7 @@ mod tests {
             &InstanceName(None),
             req,
             0,
+            None,
             |_req| async move {
                 panic!("Not called");
             },
@@ -2251,6 +2259,7 @@ mod tests {
             &InstanceName(Some("instance".to_owned())),
             req,
             1,
+            None,
             |_req| async move {
                 panic!("Not called");
             },

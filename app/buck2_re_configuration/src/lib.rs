@@ -264,6 +264,8 @@ pub struct Buck2OssReConfiguration {
     pub instance_name: Option<String>,
     /// Use the Meta version of the request metadata
     pub use_fbcode_metadata: bool,
+    /// Maximum number of concurrent upload requests.
+    pub max_concurrent_uploads: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -352,6 +354,10 @@ impl Buck2OssReConfiguration {
                     property: "use_fbcode_metadata",
                 })?
                 .unwrap_or(true),
+            max_concurrent_uploads: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_concurrent_uploads",
+            })?,
         })
     }
 }
