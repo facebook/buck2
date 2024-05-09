@@ -14,6 +14,16 @@ import {ByteBuffer} from 'flatbuffers'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
 import {Target} from './Target'
 
+function RootSpan(props: {target: ConfiguredTargetNode}) {
+  return (
+    <p>
+      <i>
+        <span>{props.target.configuredTargetLabel()}</span>
+      </i>
+    </p>
+  )
+}
+
 function App() {
   const [blobBase64, setBlobBase64] = useState('XXDATAXX')
   const [currentTarget, setCurrentTarget] = useState<ConfiguredTargetNode | null>(null)
@@ -69,11 +79,7 @@ function App() {
   else {
     return (
       <>
-        <p>
-          <i>
-            <span>{rootTarget.configuredTargetLabel()}</span>
-          </i>
-        </p>
+        <RootSpan rootTarget={rootTarget} />
         <Target target={currentTarget} />
       </>
     )
