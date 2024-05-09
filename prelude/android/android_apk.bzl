@@ -43,7 +43,10 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             native_library_info = native_library_info.exopackage_info,
             resources_info = resources_info.exopackage_info,
         )
-        default_output = ctx.actions.write("exopackage_apk_warning", "exopackage apks should not be used externally, try buck install or building with exopackage disabled\n")
+        default_output = ctx.actions.write(
+            "{}_exopackage_apk_warning".format(ctx.label.name),
+            "exopackage apks should not be used externally, try buck install or building with exopackage disabled\n",
+        )
         sub_targets["exo_apk"] = [DefaultInfo(default_output = output_apk)]  # Used by tests
     else:
         exopackage_info = None
