@@ -45,8 +45,24 @@ function App() {
 
   const rootTarget = build.targets(0)
 
-  if (currentTarget == null && rootTarget != null) {
-    setCurrentTarget(rootTarget)
+  const allTargets: {[key: string]: number} = {}
+  for (let i = 0; i < build.targetsLength(); i++) {
+    let target = build.targets(i)
+    let label = target?.configuredTargetLabel()
+    if (label == null) {
+      continue
+    }
+    allTargets[label] = i
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const target_param = params.get('target')
+
+  let target = target_param == null ? null : build.targets(allTargets[target_param])
+  target = target || rootTarget
+
+  if (target != null && target?.configuredTargetLabel() != currentTarget?.configuredTargetLabel()) {
+    setCurrentTarget(target)
   }
 
   if (currentTarget == null || rootTarget == null) return <p>Loading...</p>
