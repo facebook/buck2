@@ -7,59 +7,60 @@
  * of this source tree.
  */
 
-import React, { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import React, {useEffect, useState} from 'react'
+import {createRoot} from 'react-dom/client'
 
-import { ByteBuffer } from 'flatbuffers';
-import { Build } from './fbs/explain'
-
-
+import {ByteBuffer} from 'flatbuffers'
+import {Build} from './fbs/explain'
 
 function App() {
   const target = 'fbcode//buck2:buck2'
 
-  const [blobBase64, setBlobBase64] = useState("XXDATAXX");
+  const [blobBase64, setBlobBase64] = useState('XXDATAXX')
   useEffect(() => {
     const fetchData = async () => {
       try {
         // keep this line as is, it will be replaced later
-        const data = (await import('./data')).DATA;
-        setBlobBase64(data);
+        const data = (await import('./data')).DATA
+        setBlobBase64(data)
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error:', error)
       }
-    };
-    fetchData();
-  }, []);
+    }
+    fetchData()
+  }, [])
 
-  const decodedString = atob(blobBase64);
+  const decodedString = atob(blobBase64)
   // TODO iguridi: decode blob better
-  var byteArray = new Uint8Array(decodedString.length);
+  var byteArray = new Uint8Array(decodedString.length)
   for (var i = 0; i < decodedString.length; i++) {
-    byteArray[i] += decodedString.charCodeAt(i);
+    byteArray[i] += decodedString.charCodeAt(i)
   }
 
-  let buf = new ByteBuffer(byteArray);
-
+  let buf = new ByteBuffer(byteArray)
 
   // Get an accessor to the root object inside the buffer.
-  var build = Build.getRootAsBuild(buf);
+  var build = Build.getRootAsBuild(buf)
 
-  var target2 = build.targets(1);
+  var target2 = build.targets(1)
 
-  console.log(target2?.name());
+  console.log(target2?.name())
 
-  const name = target2?.name();
+  const name = target2?.name()
 
   return (
     <>
-      <p><i><span>{target}</span></i></p>
+      <p>
+        <i>
+          <span>{target}</span>
+        </i>
+      </p>
       <h2>{name}</h2>
     </>
   )
 }
 
-const container = document.getElementById('root');
+const container = document.getElementById('root')
 const root = createRoot(container)
 
-root.render(<App />);
+root.render(<App />)
