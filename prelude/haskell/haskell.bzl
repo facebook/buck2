@@ -925,10 +925,12 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link.hidden(compiled.stubs)
 
+    link_args = cmd_args()
+
     osuf, _hisuf = output_extensions(link_style, enable_profiling)
 
     objfiles = _srcs_to_objfiles(ctx, compiled.objects, osuf)
-    link.add(objfiles)
+    link_args.add(objfiles)
 
     indexing_tsets = {}
     if compiled.producing_indices:
@@ -1073,8 +1075,12 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         sos.extend(traverse_shared_library_info(shlib_info))
         infos = get_link_args_for_strategy(ctx, nlis, to_link_strategy(link_style))
 
-    link.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
+    link_args.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
 
+    argsfile = ctx.actions.declare_output("haskell_link.argsfile")
+    ctx.actions.write(argsfile.as_output(), link_args, allow_args = True)
+    link.add(cmd_args(argsfile, format = "@{}"))
+    link.hidden(link_args)
     ctx.actions.run(link, category = "haskell_link")
 
     run = cmd_args(output)
