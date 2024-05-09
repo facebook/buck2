@@ -7,16 +7,27 @@
  * of this source tree.
  */
 
-import React, {useEffect, useState} from 'react'
+import React, {Dispatch, SetStateAction, useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
 import {Target} from './Target'
 
-function RootSpan(props: {target: ConfiguredTargetNode}) {
+function RootSpan(props: {
+  target: ConfiguredTargetNode
+  setCurrentTarget: Dispatch<SetStateAction<ConfiguredTargetNode | null>>
+}) {
+  const handleClick = () => {
+    const url = new URL(window.location.toString())
+    const params = new URLSearchParams(url.search)
+    params.delete('target')
+    url.search = params.toString()
+    window.history.pushState({}, '', url.toString())
+    props.setCurrentTarget(props.target)
+  }
   return (
-    <p>
+    <p style={{cursor: 'pointer'}} onClick={handleClick}>
       <i>
         <span>{props.target.configuredTargetLabel()}</span>
       </i>
@@ -79,7 +90,7 @@ function App() {
   else {
     return (
       <>
-        <RootSpan rootTarget={rootTarget} />
+        <RootSpan target={rootTarget} setCurrentTarget={setCurrentTarget} />
         <Target target={currentTarget} />
       </>
     )
