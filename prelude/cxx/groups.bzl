@@ -14,6 +14,7 @@ load(
 )
 load(
     "@prelude//utils:graph_utils.bzl",
+    "breadth_first_traversal_by",
     "breadth_first_traversal_with_callback",
 )
 load(
@@ -257,11 +258,11 @@ def _find_targets_in_mapping(
                 return False
         return True
 
-    def populate_matching_targets_bfs_wrapper(node, populate_queue):  # (Label, typing.Callable) -> None
+    def populate_matching_targets_bfs_wrapper(node):  # (Label) -> list
         if populate_matching_targets(node):
             graph_node = graph_map[node]
-            populate_queue(graph_node.deps)
-            populate_queue(graph_node.exported_deps)
+            return graph_node.deps + graph_node.exported_deps
+        return []
 
     if not mapping.roots:
         for node in graph_map:
@@ -273,7 +274,7 @@ def _find_targets_in_mapping(
             # We reset it for each root we visit so that we don't have results
             # from other roots.
             matching_targets = {}
-            breadth_first_traversal_with_callback(graph_map, [root], populate_matching_targets_bfs_wrapper)
+            breadth_first_traversal_by(graph_map, [root], populate_matching_targets_bfs_wrapper)
             for t in matching_targets:
                 targets_to_counter[t] = targets_to_counter.get(t, 0) + 1
 
@@ -283,7 +284,7 @@ def _find_targets_in_mapping(
             if count > 1
         ]
     else:
-        breadth_first_traversal_with_callback(graph_map, mapping.roots, populate_matching_targets_bfs_wrapper)
+        breadth_first_traversal_by(graph_map, mapping.roots, populate_matching_targets_bfs_wrapper)
 
     return matching_targets.keys()
 
