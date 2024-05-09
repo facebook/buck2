@@ -122,6 +122,14 @@ config_setting(
     visibility = ["PUBLIC"],
 )
 
+config_setting(
+    name = "linux-sgx",
+    constraint_values = [
+        "//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
 # For platforms with no OS, like microcontrollers.
 config_setting(
     name = "none",
