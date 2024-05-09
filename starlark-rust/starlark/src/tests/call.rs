@@ -244,6 +244,18 @@ noop(f)(1)
     );
 }
 
+#[test]
+fn test_non_optional_after_optional() {
+    assert::pass(
+        r#"
+def f(*args, x, y = 42, z):
+    return (args, x, y, z)
+assert_eq(f(x = 1, z = 3), ((), 1, 42, 3))
+assert_eq(f(2, 4, y = 7, x = 1, z = 3), ((2, 4), 1, 7, 3))
+"#,
+    );
+}
+
 // This test relies on stack behavior which does not hold when
 // ASAN is enabled. See D47571173 for more context.
 #[cfg_attr(rust_nightly, cfg(not(sanitize = "address")))]
