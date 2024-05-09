@@ -409,18 +409,7 @@ mod tests {
     #[test]
     fn test_load_all_bundled_cells() {
         for c in get_bundled_data() {
-            let res = get_file_ops_delegate_impl(*c, DigestConfig::testing_default());
-            // TODO(JakobDegen): Fix in next diff
-            if c.name == "prelude" && cfg!(windows) && cfg!(not(buck_build)) {
-                assert!(
-                    res.err()
-                        .unwrap()
-                        .to_string()
-                        .contains("non-forward relative bundled path")
-                );
-            } else {
-                res.unwrap();
-            }
+            get_file_ops_delegate_impl(*c, DigestConfig::testing_default()).unwrap();
         }
     }
 }
