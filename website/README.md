@@ -61,6 +61,8 @@ To do that, run the following **from your mac**:
 ssh -L 3000:localhost:3000 $DEVSERVER
 ```
 
+PS: You need to be either on lighthouse or VPN for this to work.
+
 ## Internal variants
 
 To see the internal versions of the page, do:
