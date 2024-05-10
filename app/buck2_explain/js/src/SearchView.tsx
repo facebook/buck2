@@ -9,7 +9,6 @@
 
 import React, {useContext} from 'react'
 import {DataContext} from './App'
-import {RootSpan} from './RootSpan'
 import {Link} from './Router'
 
 export function SearchView(props: {view: string}) {
@@ -19,12 +18,7 @@ export function SearchView(props: {view: string}) {
   const search = params.get(props.view)
 
   if (search == null || search.length < 3) {
-    return (
-      <>
-        {rootTarget ? <RootSpan /> : null}
-        <p>Invalid search "{search}", try again</p>
-      </>
-    )
+    return <p>Invalid search "{search}", try again</p>
   }
 
   const res: string[] = []
@@ -36,7 +30,6 @@ export function SearchView(props: {view: string}) {
 
   return (
     <>
-      {rootTarget ? <RootSpan /> : null}
       <h2>Showing targets labels containing "{search}"</h2>
       <ul>
         {res.map(label => (

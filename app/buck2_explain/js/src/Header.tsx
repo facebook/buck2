@@ -12,16 +12,18 @@ import {DataContext} from './App'
 import {Link} from './Router'
 
 /**
- * Acts as a normal webpage banner, where clicking on it sends the user back to the root page of the website
+ * Header that goes on every view
  */
-export function RootSpan() {
+export function Header() {
   const {rootTarget} = useContext(DataContext)
 
   return (
-    <Link to={new Map()}>
-      <i>
-        <span>{rootTarget?.configuredTargetLabel()}</span>
-      </i>
-    </Link>
+    <>
+      {rootTarget ? (
+        <Link to={new Map()}>
+          <i>{rootTarget.configuredTargetLabel()}</i>
+        </Link>
+      ) : null}
+    </>
   )
 }

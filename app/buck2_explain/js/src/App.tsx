@@ -16,6 +16,7 @@ import {Router} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
+import {Header} from './Header'
 
 const INITIAL_STATE = {
   build: null,
@@ -83,6 +84,7 @@ function App() {
   else {
     return (
       <DataContext.Provider value={data}>
+        <Header />
         <Router>
           <RootView view="" />
           <TargetView view="target" />
