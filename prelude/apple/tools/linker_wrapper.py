@@ -21,9 +21,13 @@ def _eprintln(msg: str) -> None:
 
 
 def _is_argfile(index: int, args: List[str]) -> bool:
+    previous_argument = args[index - 1 : index]
+    previous_two_arguments = args[index - 2 : index]
     if (
-        " ".join(args[index - 1 : index]) == "-rpath"
-        or " ".join(args[index - 2 : index]) == "-rpath -Xlinker"
+        previous_argument == ["-rpath"]
+        or previous_argument == ["-install_name"]
+        or previous_two_arguments == ["-rpath", "-Xlinker"]
+        or previous_two_arguments == ["-install_name", "-Xlinker"]
     ):
         return False
 
