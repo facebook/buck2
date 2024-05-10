@@ -7,9 +7,46 @@
  * of this source tree.
  */
 
-import React, {useContext} from 'react'
+import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
 import {Link} from './Router'
+
+function SearchBox() {
+  const params = new URLSearchParams(window.location.search)
+
+  const [searchTerm, setSearchTerm] = useState(params.get('search') ?? '')
+
+  const goSearch = () => {
+    const url = new URL(window.location.toString())
+    const params = new URLSearchParams(url.search)
+
+    for (let [k, _] of params.entries()) {
+      params.delete(k)
+    }
+
+    params.set('search', searchTerm)
+
+    url.search = params.toString()
+
+    window.location.href = url.toString()
+  }
+  return (
+    <div>
+      <input
+        type="text"
+        value={searchTerm}
+        onChange={event => setSearchTerm(event.target.value)}
+        placeholder="Search target by label substring..."
+        onKeyDown={event => {
+          event.key == 'Enter' ? goSearch() : null
+        }}
+      />
+      <button style={{cursor: 'pointer'}} type="submit" onPointerDown={goSearch}>
+        Go
+      </button>
+    </div>
+  )
+}
 
 /**
  * Header that goes on every view
@@ -24,6 +61,9 @@ export function Header() {
           <i>{rootTarget.configuredTargetLabel()}</i>
         </Link>
       ) : null}
+      <br /> {/* TODO iguridi: use CSS here */}
+      <br />
+      <SearchBox />
     </>
   )
 }
