@@ -285,6 +285,7 @@ def create_jar_artifact_javacd(
             category = "{}javacd_jar".format(category_prefix),
             identifier = actions_identifier or "",
             dep_files = dep_files,
+            allow_dep_file_cache_upload = True,
             exe = exe,
             local_only = local_only,
             low_pass_filter = False,
