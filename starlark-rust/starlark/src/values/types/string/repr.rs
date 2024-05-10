@@ -25,6 +25,7 @@ use crate::values::types::string::simd::Vector;
 
 /// Check if any byte in the buffer is non-ASCII or need escape.
 #[inline(always)]
+#[allow(dead_code)]
 unsafe fn chunk_non_ascii_or_need_escape<V: Vector>(chunk: V) -> bool {
     #[allow(clippy::many_single_char_names)]
     unsafe fn or4<V: Vector>(a: V, b: V, c: V, d: V) -> V {
@@ -124,6 +125,7 @@ pub(crate) fn string_repr(str: &str, buffer: &mut String) {
     }
 
     #[inline(always)]
+    #[allow(dead_code)] // FIXME: Investigate if this is really needed, fails on Mac.
     unsafe fn loop_ascii_simd<V: Vector>(val: &str, buffer: &mut String) {
         // `buffer` must have enough capacity to contain `val` if it does not need escaping
         // followed by trailing double quote.
