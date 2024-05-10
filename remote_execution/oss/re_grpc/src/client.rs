@@ -11,6 +11,8 @@ use std::collections::HashMap;
 use std::env::VarError;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::num::NonZeroUsize;
 
 use anyhow::Context;
 use buck2_re_configuration::Buck2OssReConfiguration;
@@ -23,6 +25,7 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use futures::Stream;
 use gazebo::prelude::*;
+use lru::LruCache;
 use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
@@ -419,6 +422,8 @@ pub struct REClient {
     grpc_clients: GRPCClients,
     capabilities: RECapabilities,
     instance_name: InstanceName,
+    // buck2 calls find_missing for same blobs
+    find_missing_cache: Mutex<LruCache<TDigest, bool>>,
 }
 
 impl Drop for REClient {
@@ -488,6 +493,7 @@ impl REClient {
             grpc_clients,
             capabilities,
             instance_name,
+            find_missing_cache: Mutex::new(LruCache::new(NonZeroUsize::new(50 << 20).unwrap())), // 50Mb
         }
     }
 
@@ -742,6 +748,7 @@ impl REClient {
         let mut remote_ttl: HashMap<TDigest, DigestWithTtl> = HashMap::new();
 
         for digest_chunk in request.digests.chunks(100) {
+            let mut digest_to_check : Vec<TDigest> = Vec::new();
             for digest in digest_chunk {
                 // Assume that all digests are present on the remote because the API
                 // returns what is *not* present.
@@ -754,12 +761,28 @@ impl REClient {
                         ttl: 60,
                     },
                 );
+                let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
+                match find_missing_cache.get(digest) {
+                    Some(&missing) => {
+                      if missing {
+                        digest_to_check.push(digest.clone());
+                      }
+                    }
+                    None => {
+                      digest_to_check.push(digest.clone());
+                    }
+               }
             }
+
+            if digest_to_check.len() == 0 {
+                continue;
+            }
+
             let missing_blobs = cas_client
                 .find_missing_blobs(with_re_metadata(
                     FindMissingBlobsRequest {
                         instance_name: self.instance_name.as_str().to_owned(),
-                        blob_digests: digest_chunk.map(|b| tdigest_to(b.clone())),
+                        blob_digests: digest_to_check.map(|b| tdigest_to(b.clone())),
                     },
                     metadata.clone(),
                     self.runtime_opts.use_fbcode_metadata,
@@ -767,6 +790,10 @@ impl REClient {
                 .await
                 .context("Failed to request what blobs are not present on remote")?;
             let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
+            let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
+            for digest in &digest_to_check {
+                find_missing_cache.put(digest.clone(), false);
+            }
             for digest in &resp.missing_blob_digests.map(|d| tdigest_from(d.clone())) {
                 // If it's present in the MissingBlobsResponse, it's expired on the remote and
                 // needs to be refetched.
@@ -777,6 +804,7 @@ impl REClient {
                         ttl: 0,
                     },
                 );
+                find_missing_cache.put(digest.clone(), true);
             }
         }
 
