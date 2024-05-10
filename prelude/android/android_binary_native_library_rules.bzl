@@ -1359,12 +1359,12 @@ def _create_all_relinkable_links(
             final = final_platform_to_native_linkables[platform][soname]
             original_args, _ = ctx.actions.write(
                 "{}/{}/original.args".format(platform, soname),
-                [unpack_link_args(args, True, LinkOrdering("topological")) for args in lib.link_args] if lib.link_args else "",
+                [unpack_link_args(args, LinkOrdering("topological")) for args in lib.link_args] if lib.link_args else "",
                 allow_args = True,
             )
             final_args, _ = ctx.actions.write(
                 "{}/{}/final.args".format(platform, soname),
-                [unpack_link_args(args, True, LinkOrdering("topological")) for args in final.link_args] if final.link_args else "",
+                [unpack_link_args(args, LinkOrdering("topological")) for args in final.link_args] if final.link_args else "",
                 allow_args = True,
             )
             debug_outputs["{}/{}/original.args".format(platform, soname)] = original_args

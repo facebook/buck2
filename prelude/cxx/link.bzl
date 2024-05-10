@@ -188,7 +188,6 @@ def cxx_link_into(
         links_with_linker_map,
         suffix = link_args_suffix,
         output_short_path = output.short_path,
-        is_shared = result_type.value == "shared_library",
         link_ordering = value_or(
             opts.link_ordering,
             # Fallback to toolchain default.

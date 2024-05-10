@@ -1495,7 +1495,7 @@ def _shared_library(
             if shared_interface_info != None and impl_params.shared_library_interface_target != None:
                 # collect the linker args which are required
                 # to correctly set symbol visibility.
-                link_args = [unpack_link_args(l, True) for l in links]
+                link_args = [unpack_link_args(link) for link in links]
                 exported_shlib = generate_tbd_with_symbols(ctx, soname, shared_interface_info.interfaces, link_args, impl_params.shared_library_interface_target)
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link

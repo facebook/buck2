@@ -76,7 +76,6 @@ def make_link_args(
         links: list[LinkArgs],
         suffix = None,
         output_short_path: [str, None] = None,
-        is_shared: [bool, None] = None,
         link_ordering: [LinkOrdering, None] = None) -> LinkArgsOutput:
     """
     Merges LinkArgs. Returns the args, files that must be present for those
@@ -120,7 +119,7 @@ def make_link_args(
         hidden.append(pdb_artifact.as_output())
 
     for link in links:
-        args.add(unpack_link_args(link, is_shared, link_ordering = link_ordering))
+        args.add(unpack_link_args(link, link_ordering = link_ordering))
 
     filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
     hidden.extend(filelists)

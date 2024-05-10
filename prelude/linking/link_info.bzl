@@ -318,15 +318,7 @@ def _link_info_default_args(infos: LinkInfos):
     info = infos.default
     return link_info_to_args(info)
 
-def _link_info_default_shared_link_args(infos: LinkInfos):
-    info = infos.default
-    return link_info_to_args(info)
-
-def _link_info_stripped_args(infos: LinkInfos):
-    info = infos.stripped or infos.default
-    return link_info_to_args(info)
-
-def _link_info_stripped_shared_link_args(infos: LinkInfos):
+def _link_info_stripped_link_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_args(info)
 
@@ -357,10 +349,8 @@ LinkInfosTSet = transitive_set(
     args_projections = {
         "default": _link_info_default_args,
         "default_filelist": _link_info_default_filelist,
-        "default_shared": _link_info_default_shared_link_args,
-        "stripped": _link_info_stripped_args,
+        "stripped": _link_info_stripped_link_args,
         "stripped_filelist": _link_info_stripped_filelist,
-        "stripped_shared": _link_info_stripped_shared_link_args,
     },
     reductions = {
         "has_default_filelist": _link_info_has_default_filelist,
@@ -630,19 +620,14 @@ def get_link_info(
 
     return infos.default
 
-def unpack_link_args(args: LinkArgs, is_shared: [bool, None] = None, link_ordering: [LinkOrdering, None] = None) -> ArgLike:
+def unpack_link_args(args: LinkArgs, link_ordering: [LinkOrdering, None] = None) -> ArgLike:
     if args.tset != None:
         ordering = link_ordering.value if link_ordering else "preorder"
 
         tset = args.tset.infos
-        if is_shared:
-            if args.tset.prefer_stripped:
-                return tset.project_as_args("stripped_shared", ordering = ordering)
-            return tset.project_as_args("default_shared", ordering = ordering)
-        else:
-            if args.tset.prefer_stripped:
-                return tset.project_as_args("stripped", ordering = ordering)
-            return tset.project_as_args("default", ordering = ordering)
+        if args.tset.prefer_stripped:
+            return tset.project_as_args("stripped", ordering = ordering)
+        return tset.project_as_args("default", ordering = ordering)
 
     if args.infos != None:
         return cmd_args([link_info_to_args(info) for info in args.infos])
