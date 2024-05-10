@@ -51,6 +51,7 @@ _RESOURCE_BUNDLE_FIELDS = [
     "ibtool_module_flag",
     "info_plist",
     "info_plist_substitutions",
+    "module_map",
     "product_name",
     "privacy_manifest",
     "resource_group",

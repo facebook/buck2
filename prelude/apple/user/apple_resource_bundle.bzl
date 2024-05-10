@@ -38,6 +38,7 @@ def _apple_resource_bundle_attrs():
         "info_plist": attrs.source(),
         "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
         "labels": attrs.list(attrs.string(), default = []),
+        "module_map": attrs.option(attrs.source(), default = None),
         "privacy_manifest": attrs.option(attrs.source(), default = None),
         "product_name": attrs.option(attrs.string(), default = None),
         "resource_group": attrs.option(attrs.string(), default = None),

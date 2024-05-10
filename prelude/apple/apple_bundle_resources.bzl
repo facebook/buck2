@@ -131,6 +131,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
     parts.extend(_copy_resources(ctx, resource_specs))
     parts.extend(_copy_first_level_bundles(ctx))
     parts.extend(_copy_public_headers(ctx))
+    parts.extend(_copy_module_map(ctx))
 
     return AppleBundleResourcePartListOutput(
         resource_parts = parts,
@@ -197,6 +198,15 @@ def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
                 bundle_parts.append(AppleBundlePart(source = artifact, destination = AppleBundleDestination("headers")))
 
     return bundle_parts
+
+def _copy_module_map(ctx: AnalysisContext) -> list[AppleBundlePart]:
+    extension = get_extension_attr(ctx)
+    if not extension == "framework":
+        return []
+    module_map = ctx.attrs.module_map
+    if not module_map:
+        return []
+    return [AppleBundlePart(source = module_map, destination = AppleBundleDestination("modules"))]
 
 def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> list[AppleBundlePart]:
     result = []
