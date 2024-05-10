@@ -9,7 +9,7 @@
 
 import React, {useContext} from 'react'
 import {DataContext} from './App'
-import {Link} from './Router'
+import {Link, TARGET_VIEW} from './Router'
 
 export function SearchView(props: {view: string}) {
   const {allTargets, rootTarget} = useContext(DataContext)
@@ -34,7 +34,7 @@ export function SearchView(props: {view: string}) {
       <ul>
         {res.map(label => (
           <li key={label}>
-            <Link to={{target: label}}>{label}</Link>
+            <Link to={new Map().set(TARGET_VIEW, label)}>{label}</Link>
           </li>
         ))}
       </ul>

@@ -9,12 +9,12 @@
 
 import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
-import {Link} from './Router'
+import {Link, SEARCH_VIEW} from './Router'
 
 function SearchBox() {
   const params = new URLSearchParams(window.location.search)
 
-  const [searchTerm, setSearchTerm] = useState(params.get('search') ?? '')
+  const [searchTerm, setSearchTerm] = useState(params.get(SEARCH_VIEW) ?? '')
 
   const goSearch = () => {
     const url = new URL(window.location.toString())
@@ -24,7 +24,7 @@ function SearchBox() {
       params.delete(k)
     }
 
-    params.set('search', searchTerm)
+    params.set(SEARCH_VIEW, searchTerm)
 
     url.search = params.toString()
 

@@ -10,7 +10,7 @@
 import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {BoolAttr, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
-import {Link} from './Router'
+import {Link, TARGET_VIEW} from './Router'
 
 function List(props: {attr: (i: number) => string; length: number}): JSX.Element {
   const {allTargets} = useContext(DataContext)
@@ -22,7 +22,7 @@ function List(props: {attr: (i: number) => string; length: number}): JSX.Element
     if (allTargets.hasOwnProperty(value)) {
       row = (
         <li key={i}>
-          <Link to={{target: value}}>{value}</Link>
+          <Link to={new Map().set(TARGET_VIEW, value)}>{value}</Link>
         </li>
       )
     } else {

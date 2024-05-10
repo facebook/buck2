@@ -9,6 +9,10 @@
 
 import React, {ReactNode} from 'react'
 
+export const SEARCH_VIEW = 'search'
+export const TARGET_VIEW = 'target'
+export const ROOT_VIEW = ''
+
 /**
  * Decides what to show based on existing query params
  * Inspired by reach-router library
@@ -22,8 +26,8 @@ export function Router(props: {children: ReactNode}) {
       if (params.has(child.props.view)) {
         return child
       }
-      // root view
-      if (child.props.view === '' && all.length === 0) {
+
+      if (child.props.view === ROOT_VIEW && all.length === 0) {
         return child
       }
     }

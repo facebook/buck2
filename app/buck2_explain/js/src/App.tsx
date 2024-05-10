@@ -12,7 +12,7 @@ import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
-import {Router} from './Router'
+import {ROOT_VIEW, Router, SEARCH_VIEW, TARGET_VIEW} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
@@ -86,9 +86,9 @@ function App() {
       <DataContext.Provider value={data}>
         <Header />
         <Router>
-          <RootView view="" />
-          <TargetView view="target" />
-          <SearchView view="search" />
+          <RootView view={ROOT_VIEW} />
+          <TargetView view={TARGET_VIEW} />
+          <SearchView view={SEARCH_VIEW} />
         </Router>
       </DataContext.Provider>
     )
