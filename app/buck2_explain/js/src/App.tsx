@@ -15,6 +15,7 @@ import {Build, ConfiguredTargetNode} from './fbs/explain'
 import {Router} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
+import {SearchView} from './SearchView'
 
 const INITIAL_STATE = {
   build: null,
@@ -85,6 +86,7 @@ function App() {
         <Router>
           <RootView view="" />
           <TargetView view="target" />
+          <SearchView view="search" />
         </Router>
       </DataContext.Provider>
     )
