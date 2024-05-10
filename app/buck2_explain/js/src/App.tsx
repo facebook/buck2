@@ -119,39 +119,39 @@ function App() {
       try {
         blobBase64 = (await import('./data')).DATA
       } catch (error) {
-        console.info("./data.ts not found, using replaced data")
+        console.info('./data.ts not found, using replaced data')
       }
 
       const decodedString = atob(blobBase64)
-        // TODO iguridi: decode blob better
-        const byteArray = new Uint8Array(decodedString.length)
-        for (let i = 0; i < decodedString.length; i++) {
-          byteArray[i] = decodedString.charCodeAt(i)
+      // TODO iguridi: decode blob better
+      const byteArray = new Uint8Array(decodedString.length)
+      for (let i = 0; i < decodedString.length; i++) {
+        byteArray[i] = decodedString.charCodeAt(i)
+      }
+
+      const buf = new ByteBuffer(byteArray)
+
+      // Get an accessor to the root object inside the buffer.
+      const build = Build.getRootAsBuild(buf)
+      // TODO iguridi: just show 1 target for now
+      const rootTarget = build.targets(0)
+
+      const allTargets: {[key: string]: number} = {}
+      for (let i = 0; i < build.targetsLength(); i++) {
+        let target = build.targets(i)
+        let label = target?.configuredTargetLabel()
+        if (label == null) {
+          continue
         }
+        allTargets[label] = i
+      }
 
-        const buf = new ByteBuffer(byteArray)
+      const data2 = {build, allTargets, rootTarget}
 
-        // Get an accessor to the root object inside the buffer.
-        const build = Build.getRootAsBuild(buf)
-        // TODO iguridi: just show 1 target for now
-        const rootTarget = build.targets(0)
+      setData(data2)
 
-        const allTargets: {[key: string]: number} = {}
-        for (let i = 0; i < build.targetsLength(); i++) {
-          let target = build.targets(i)
-          let label = target?.configuredTargetLabel()
-          if (label == null) {
-            continue
-          }
-          allTargets[label] = i
-        }
-
-        const data2 = {build, allTargets, rootTarget}
-
-        setData(data2)
-
-        // This should run just once total
-        fromUrl(data2, currentTarget, setCurrentTarget)
+      // This should run just once total
+      fromUrl(data2, currentTarget, setCurrentTarget)
     }
     fetchData()
   }, [])
