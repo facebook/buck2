@@ -8,6 +8,7 @@ static website generator.
 ```shell
 $ yarn global add node-gyp
 $ yarn
+$ yarn install
 ```
 
 If on Eden you might get faster builds by doing
