@@ -7,12 +7,14 @@
  * of this source tree.
  */
 
-import React, {Dispatch, SetStateAction, useContext, useEffect, useState} from 'react'
+import React, {useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
-import {Target} from './Target'
+import {Router} from './Router'
+import {RootView} from './RootView'
+import {TargetView} from './TargetView'
 
 const INITIAL_STATE = {
   build: null,
@@ -27,87 +29,9 @@ type STATE_TYPE = {
 }
 
 export const DataContext = React.createContext<STATE_TYPE>(INITIAL_STATE)
-export const CurrentTargetContext = React.createContext<{
-  target: ConfiguredTargetNode | null
-  setTarget: (target: ConfiguredTargetNode | null) => void
-}>({target: null, setTarget: () => {}})
-
-/**
- * Sets the current target based on the 'target' URL parameter.
- * If the parameter is not present, it defaults to the root target.
- */
-function fromUrl(
-  data: STATE_TYPE,
-  currentTarget: ConfiguredTargetNode | null,
-  setCurrentTarget: Dispatch<SetStateAction<ConfiguredTargetNode | null>>,
-) {
-  const {build, allTargets, rootTarget} = data
-  const params = new URLSearchParams(window.location.search)
-  const target_param = params.get('target')
-
-  let target = target_param == null ? null : build?.targets(allTargets[target_param])
-  target = target || rootTarget
-
-  if (target != null && currentTarget?.configuredTargetLabel() != target?.configuredTargetLabel()) {
-    setCurrentTarget(target)
-  }
-}
-
-/**
- * Acts as a normal webpage banner, where clicking on it sends the user back to the root page of the website
- */
-function RootSpan(props: {setCurrentTarget: (target: ConfiguredTargetNode | null) => void}) {
-  const {rootTarget} = useContext(DataContext)
-
-  const handleClick = () => props.setCurrentTarget(rootTarget)
-
-  return (
-    <p style={{cursor: 'pointer'}} onClick={handleClick}>
-      <i>
-        <span>{rootTarget?.configuredTargetLabel()}</span>
-      </i>
-    </p>
-  )
-}
 
 function App() {
   const [data, setData] = useState<STATE_TYPE>(INITIAL_STATE)
-
-  const [currentTarget, setCurrentTarget] = useState<ConfiguredTargetNode | null>(null)
-
-  /**
-   * Wrapper around setCurrentTarget to set url query params
-   */
-  const setCurrentTargetAndUrl = (target: ConfiguredTargetNode | null) => {
-    const label = target?.configuredTargetLabel()
-    if (label == null) return
-
-    const url = new URL(window.location.toString())
-    const params = new URLSearchParams(url.search)
-    if (label === data.rootTarget?.configuredTargetLabel()) {
-      params.delete('target')
-    } else {
-      params.set('target', label)
-    }
-
-    url.search = params.toString()
-    window.history.pushState({}, '', url.toString())
-    setCurrentTarget(target)
-  }
-
-  /**
-   * Updates target every time the user goes back in history
-   */
-  useEffect(() => {
-    // This is triggered every time the user goes back in history
-    const f = () => {
-      fromUrl(data, currentTarget, setCurrentTarget)
-    }
-    window.addEventListener('popstate', f)
-    return () => {
-      window.removeEventListener('popstate', f)
-    }
-  }, [data, currentTarget])
 
   /**
    * Loads initial information on page load
@@ -146,27 +70,22 @@ function App() {
         allTargets[label] = i
       }
 
-      const data2 = {build, allTargets, rootTarget}
-
-      setData(data2)
-
       // This should run just once total
-      fromUrl(data2, currentTarget, setCurrentTarget)
+      setData({build, allTargets, rootTarget})
     }
     fetchData()
   }, [])
 
   const rootTarget = data.rootTarget
 
-  if (currentTarget == null && rootTarget == null) return <p>Loading...</p>
+  if (rootTarget == null) return <p>Loading...</p>
   else {
     return (
       <DataContext.Provider value={data}>
-        {rootTarget ? <RootSpan setCurrentTarget={setCurrentTargetAndUrl} /> : null}
-        <CurrentTargetContext.Provider
-          value={{target: currentTarget, setTarget: setCurrentTargetAndUrl}}>
-          {currentTarget ? <Target target={currentTarget} /> : <p>No target found</p>}
-        </CurrentTargetContext.Provider>
+        <Router>
+          <RootView view="" />
+          <TargetView view="target" />
+        </Router>
       </DataContext.Provider>
     )
   }

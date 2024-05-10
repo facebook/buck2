@@ -8,23 +8,21 @@
  */
 
 import React, {useContext} from 'react'
-import {CurrentTargetContext, DataContext} from './App'
+import {DataContext} from './App'
 import {BoolAttr, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
+import {Link} from './Router'
 
 function List(props: {attr: (i: number) => string; length: number}): JSX.Element {
-  // TODO iguridi: presumably this can be simpler
-  const {build, allTargets} = useContext(DataContext)
-  const {setTarget} = useContext(CurrentTargetContext)
+  const {allTargets} = useContext(DataContext)
 
   const items: JSX.Element[] = []
   for (let i = 0; i < props.length; i++) {
     const value = props.attr(i)
     let row = null
     if (allTargets.hasOwnProperty(value)) {
-      const handleClick = () => setTarget(build?.targets(allTargets[value]) ?? null)
       row = (
-        <li key={i} style={{cursor: 'pointer'}} onClick={handleClick}>
-          {value}
+        <li key={i}>
+          <Link to={{target: value}}>{value}</Link>
         </li>
       )
     } else {
