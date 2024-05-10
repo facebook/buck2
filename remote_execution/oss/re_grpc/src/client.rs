@@ -974,6 +974,7 @@ where
                 acceptable_compressors: vec![compressor::Value::Identity as i32],
             };
             requests.push(read_blob_req);
+            curr_size = digest.size_bytes;
         }
         curr_digests.push(digest.clone());
     }
@@ -1396,6 +1397,9 @@ fn substitute_env_vars_impl(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicU16;
+    use core::sync::atomic::Ordering;
+
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_read_blobs_response;
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
@@ -1678,6 +1682,88 @@ mod tests {
 
         assert_eq!(inlined_blobs[1].digest, *digest2);
         assert_eq!(inlined_blobs[1].blob, vec![4, 5, 6]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_multiple_batches() -> anyhow::Result<()> {
+        let digest1 = &TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest2 = &TDigest {
+            hash: "bb".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest3 = &TDigest {
+            hash: "cc".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest4 = &TDigest {
+            hash: "dd".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest5 = &TDigest {
+            hash: "dd".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest6 = &TDigest {
+            hash: "dd".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digests = vec![
+            digest1.clone(), 
+            digest2.clone(),
+            digest3.clone(),
+            digest4.clone(),
+            digest5.clone(),
+            digest6.clone()];
+
+        let req = DownloadRequest {
+            inlined_digests: Some(digests.clone()),
+            ..Default::default()
+        };
+
+        let counter = AtomicU16::new(0);
+
+        let res = download_impl(
+            &InstanceName(None),
+            req,
+            7,
+            |req| {
+                counter.fetch_add(1, Ordering::Relaxed);
+                let res = BatchReadBlobsResponse{
+                    responses: req.digests.map(|d| batch_read_blobs_response::Response { 
+                        digest: Some(d.clone()),
+                        data: vec![0, 1, 2], 
+                        ..Default::default() 
+                    })
+                };
+                async {
+                    Ok(res)
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        let inlined_blobs = res.inlined_blobs.unwrap();
+
+        assert_eq!(inlined_blobs.len(), digests.len());
+        assert_eq!(counter.load(Ordering::Relaxed), 3);
 
         Ok(())
     }
