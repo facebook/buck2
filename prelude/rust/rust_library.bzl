@@ -350,7 +350,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     check_artifacts = rust_param_artifact[check_params]
     providers += _default_providers(
         lang_style_param = lang_style_param,
-        param_artifact = rust_param_artifact,
+        rust_param_artifact = rust_param_artifact,
+        native_param_artifact = native_param_artifact,
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
@@ -481,7 +482,8 @@ def _handle_rust_artifact(
 
 def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
+        rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
+        native_param_artifact: dict[BuildParams, RustcOutput],
         rustdoc: Artifact,
         rustdoc_test: cmd_args,
         doctests_enabled: bool,
@@ -505,7 +507,7 @@ def _default_providers(
     # determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
     # Do we want to do the same?
     for output_style in LibOutputStyle:
-        link = param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]][MetadataKind("link")]
+        link = rust_param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]][MetadataKind("link")]
         nested_sub_targets = {}
         if link.pdb:
             nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = link.output)
@@ -517,6 +519,13 @@ def _default_providers(
         sub_targets[name] = [DefaultInfo(
             default_output = link.output,
             sub_targets = nested_sub_targets,
+        )]
+
+    lang_style_for_staticlib = (LinkageLang("native"), LibOutputStyle("archive"))
+    if lang_style_for_staticlib in lang_style_param:
+        artifact = native_param_artifact[lang_style_param[lang_style_for_staticlib]]
+        sub_targets["staticlib"] = [DefaultInfo(
+            default_output = artifact.output,
         )]
 
     providers = []
