@@ -184,8 +184,6 @@ impl SuperConsoleOutput for NonBlockingSuperConsoleOutput {
 
 #[cfg(test)]
 mod tests {
-    use crossbeam_channel::Receiver;
-
     use super::*;
 
     /// A test writer that just sends into a channel. Lets us block / unblock the output to test

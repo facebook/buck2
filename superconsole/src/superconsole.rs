@@ -260,9 +260,9 @@ mod tests {
     use crate::testing::frame_contains;
     use crate::testing::test_console;
     use crate::testing::SuperConsoleTestingExt;
-    use crate::Lines;
 
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct Msg(Lines);
 
     #[test]

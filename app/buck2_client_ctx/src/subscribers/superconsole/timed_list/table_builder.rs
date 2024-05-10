@@ -148,6 +148,7 @@ impl TimedRow {
 
 /// This component echoes the `Lines` that have been stored in it.
 #[derive(Debug)]
+#[allow(dead_code)]
 struct LinesComponent(Lines);
 
 impl Component for LinesComponent {

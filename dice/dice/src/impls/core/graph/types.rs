@@ -61,6 +61,7 @@ pub(crate) mod testing {
     use crate::impls::core::graph::types::VersionedGraphResultMismatch;
     use crate::impls::value::DiceComputedValue;
 
+    #[allow(dead_code)]
     pub(crate) trait VersionedCacheResultAssertsExt {
         fn assert_compute(&self);
 

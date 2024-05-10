@@ -175,11 +175,14 @@ mod tests {
     use crate::Lines;
 
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct Echo1(Lines);
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct Echo2(Lines);
 
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct Echo3(Lines);
 
     mod horizontal {

@@ -29,7 +29,6 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
-use humantime;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 

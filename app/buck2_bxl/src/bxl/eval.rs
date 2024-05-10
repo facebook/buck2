@@ -401,6 +401,7 @@ fn eval_bxl<'a>(
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Expected {0} to be a bxl function, was a {1}")]
+#[allow(dead_code)]
 struct NotABxlFunction(String, &'static str);
 
 pub(crate) fn get_bxl_callable<'a>(

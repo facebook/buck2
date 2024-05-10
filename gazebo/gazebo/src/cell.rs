@@ -208,7 +208,6 @@ impl<T: ?Sized> AsARef<T> for RefCell<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
     use std::mem;
 
     use super::*;

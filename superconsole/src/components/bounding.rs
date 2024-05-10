@@ -48,6 +48,7 @@ mod tests {
     use crate::Span;
 
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct Msg(Lines);
 
     #[test]

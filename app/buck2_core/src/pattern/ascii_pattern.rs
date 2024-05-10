@@ -37,6 +37,7 @@ const fn assert_ascii_str(s: &str) -> &[u8] {
 /// Caller of this trait skips boundary checks/UTF-8 checks, so this trait is `unsafe`.
 pub(crate) unsafe trait AsciiPattern {
     fn first_index_in(&self, s: &str) -> Option<usize>;
+    #[allow(dead_code)]
     fn last_index_in(&self, s: &str) -> Option<usize>;
     fn is_prefix_of(&self, s: &str) -> bool;
     fn is_suffix_of(&self, s: &str) -> bool;

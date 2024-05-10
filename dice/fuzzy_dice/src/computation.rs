@@ -86,6 +86,7 @@ impl InjectedKey for LookupVar {
 
 pub trait FuzzEquations {
     fn set_equation(&mut self, var: Var, expr: Expr) -> anyhow::Result<()>;
+    #[allow(dead_code)]
     fn set_equations(&mut self, expr: impl IntoIterator<Item = (Var, Expr)>) -> anyhow::Result<()>;
 }
 

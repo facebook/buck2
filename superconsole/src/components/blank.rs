@@ -36,6 +36,7 @@ mod tests {
     use crate::Lines;
 
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct EchoMsg(Lines);
 
     #[test]

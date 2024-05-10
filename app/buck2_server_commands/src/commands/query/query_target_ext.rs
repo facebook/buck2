@@ -17,6 +17,7 @@ use dupe::Dupe;
 pub(crate) trait QueryCommandTarget: QueryTarget {
     fn call_stack(&self) -> Option<String>;
 
+    #[allow(dead_code)]
     fn attr_to_string_alternate(&self, _options: AttrFmtOptions, attr: &Self::Attr<'_>) -> String;
 
     fn attr_serialize<S: serde::Serializer>(

@@ -101,6 +101,7 @@ use crate::session::TestSessionOptions;
 use crate::translations::build_configured_target_handle;
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub(crate) struct TestReport {
     project_root: AbsNormPathBuf,
     outputs: HashMap<TargetLabel, Vec<ProjectRelativePathBuf>>,

@@ -262,11 +262,13 @@ pub struct SerializedGraphNodesForKey {
 }
 
 pub(crate) trait EngineForIntrospection {
+    #[allow(dead_code)]
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
     fn keys_currently_running<'a>(
         &'a self,
     ) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)>;
+    #[allow(dead_code)]
     fn versions_currently_running<'a>(&'a self) -> Vec<VersionNumber>;
     fn nodes<'a>(
         &'a self,

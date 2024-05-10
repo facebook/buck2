@@ -164,6 +164,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 struct CfgConstructorLocation {
     pub import_path: ImportPath,
     pub function: String,

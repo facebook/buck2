@@ -136,6 +136,7 @@ mod tests {
     use crate::Lines;
 
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct Msg(Lines);
 
     #[test]

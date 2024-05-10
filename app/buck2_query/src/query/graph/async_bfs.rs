@@ -262,6 +262,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     struct SuccessorsPlus1;
 
     impl AsyncChildVisitor<TestNode> for SuccessorsPlus1 {
@@ -275,6 +276,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     struct TestLookupImpl;
 
     #[async_trait]

@@ -46,12 +46,15 @@ pub(crate) trait Dependency: Allocative + Debug + Display + Send + Sync {
 
     /// looks up the stored node of this dependency. This can return `None` if this entry
     /// was evicted from the storage.
+    #[allow(dead_code)]
     fn lookup_node(&self, v: VersionNumber, mv: MinorVersion) -> Option<Arc<dyn GraphNodeDyn>>;
 
+    #[allow(dead_code)]
     fn dirty(&self, v: VersionNumber);
 
     fn get_key_equality(&self) -> PartialEqAny;
 
+    #[allow(dead_code)]
     fn to_key_any(&self) -> &dyn Any;
 
     fn hash(&self, state: &mut dyn Hasher);

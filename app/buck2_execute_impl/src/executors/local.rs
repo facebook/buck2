@@ -1076,8 +1076,6 @@ impl EnvironmentBuilder for Command {
 mod unix {
     use std::os::unix::ffi::OsStrExt;
 
-    use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
-
     use super::*;
 
     pub async fn exec_via_forkserver(

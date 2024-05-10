@@ -20,6 +20,7 @@ use tokio::time::Sleep;
 
 #[derive(Debug, buck2_error::Error, Copy, Clone, Dupe)]
 #[error("LivelinessObserver reports this session is shutting down")]
+#[allow(dead_code)]
 struct NotAlive;
 
 /// A LivelinessObserver can be passed to notify callees that they should stop work and return

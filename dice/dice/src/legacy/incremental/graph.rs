@@ -266,6 +266,7 @@ where
 pub(crate) trait GraphNodeDyn: Allocative + Send + Sync + 'static {
     fn get_history(&self) -> ReadOnlyHistory;
 
+    #[allow(dead_code)]
     fn read_rdeps(&self) -> VersionedRevDependencies;
 
     fn add_rdep(&self, dependent: Weak<dyn GraphNodeDyn>, v: VersionNumber);
@@ -275,6 +276,7 @@ pub(crate) trait GraphNodeDyn: Allocative + Send + Sync + 'static {
     /// whether this is a valid entry or a transient entry
     fn is_valid(&self) -> bool;
 
+    #[allow(dead_code)]
     fn key(&self) -> AnyKey;
 
     fn id(&self) -> usize;

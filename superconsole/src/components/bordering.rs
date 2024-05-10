@@ -146,6 +146,7 @@ mod tests {
     use crate::components::echo::Echo;
 
     #[derive(AsRef, Debug)]
+    #[allow(dead_code)]
     struct Msg(Lines);
 
     #[test]

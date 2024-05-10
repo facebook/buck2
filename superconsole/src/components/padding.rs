@@ -85,6 +85,7 @@ mod tests {
     use crate::Lines;
 
     #[derive(Debug, AsRef)]
+    #[allow(dead_code)]
     struct Msg(Lines);
 
     #[test]

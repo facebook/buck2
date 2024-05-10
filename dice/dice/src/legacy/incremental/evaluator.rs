@@ -22,6 +22,7 @@ use crate::TransactionCtx;
 use crate::WeakDiceFutureHandle;
 
 #[async_trait]
+#[allow(dead_code)]
 pub(crate) trait Recompute: IncrementalComputeProperties {
     /// Dice task executed in the `IncrementalEngine` for compute or recompute.
     type DiceTask: DiceTask;

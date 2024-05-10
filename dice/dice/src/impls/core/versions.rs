@@ -186,6 +186,7 @@ pub(crate) mod introspection {
     );
 
     impl VersionIntrospectable {
+        #[allow(dead_code)]
         pub(crate) fn versions_currently_running(&self) -> Vec<VersionNumber> {
             self.0.iter().map(|(v, _)| VersionNumber(*v)).collect()
         }

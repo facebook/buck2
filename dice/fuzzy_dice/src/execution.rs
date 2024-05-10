@@ -536,8 +536,8 @@ impl Arbitrary for DiceExecutionOrder {
             }
             // Semi-randomly select the expr type.
             match usize::arbitrary(g) % 100 {
-                0..33 => Expr::Unit(Unit::Literal(bool::arbitrary(g))),
-                34..66 => Expr::Xor({
+                0..=33 => Expr::Unit(Unit::Literal(bool::arbitrary(g))),
+                34..=66 => Expr::Xor({
                     let mut vec = Vec::new();
                     for _ in 0..Self::VARS_PER_XOR {
                         vec.push(select_var(g, vars))
@@ -564,7 +564,7 @@ impl Arbitrary for DiceExecutionOrder {
             let i = usize::arbitrary(g) % active_vars.len();
             // Semi-randomly select a next op.
             timeline.push(match usize::arbitrary(g) % 100 {
-                0..40 => Operation::Query {
+                0..=40 => Operation::Query {
                     ctx_id: {
                         if gen_out_of_order {
                             *g.choose(&ctx_ids).unwrap()
@@ -574,7 +574,7 @@ impl Arbitrary for DiceExecutionOrder {
                     },
                     var: active_vars[i],
                 },
-                41..50 if gen_transients => Operation::EnqueueStep(
+                41..=50 if gen_transients => Operation::EnqueueStep(
                     *g.choose(&active_vars).unwrap(),
                     vec![ComputationStep::ReturnTransient],
                 ),

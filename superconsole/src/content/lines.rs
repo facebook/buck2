@@ -379,9 +379,6 @@ impl IntoIterator for Lines {
 
 #[cfg(test)]
 mod tests {
-    use crossterm::style::Attribute;
-    use crossterm::style::Color;
-
     use super::*;
 
     #[test]
