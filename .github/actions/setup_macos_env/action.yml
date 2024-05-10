@@ -10,6 +10,6 @@ runs:
     run: brew install cmake python3 coreutils opam llvm protobuf zstd ghc
     shell: bash
   - name: Install conan
-    run: sudo pip3 install conan==1.*
+    run: sudo pip3 install --break-system-packages conan==1.*
     shell: bash
   - uses: "./.github/actions/print_versions"
