@@ -524,7 +524,6 @@ mod tests {
     use super::*;
     use crate::values::any::StarlarkAny;
     use crate::values::layout::avalue::simple;
-    use crate::values::layout::avalue::AValueImpl;
 
     fn to_repr(x: &AValueHeader) -> String {
         let mut s = String::new();

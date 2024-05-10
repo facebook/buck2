@@ -346,9 +346,6 @@ pub(crate) fn scope(module: &AstModule) -> Scope {
 mod tests {
     use std::iter;
 
-    use starlark::codemap::Pos;
-    use starlark::codemap::Span;
-    use starlark::syntax::AstModule;
     use starlark::syntax::Dialect;
     use starlark_syntax::slice_vec_ext::SliceExt;
     use starlark_syntax::slice_vec_ext::VecExt;

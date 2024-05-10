@@ -9,7 +9,6 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::fs::fs_util::IoError;
@@ -17,7 +16,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
-use dupe::Dupe;
 
 use super::Version;
 use super::VersionTracker;
@@ -104,7 +102,6 @@ mod state_machine {
     use buck2_execute::directory::INTERNER;
     use buck2_execute::execute::blocking::IoRequest;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
-    use parking_lot::Mutex;
     use tokio::time::sleep;
     use tokio::time::Duration as TokioDuration;
 

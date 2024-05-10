@@ -18,11 +18,9 @@ use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::NodeLookup;
 use derive_more::Display;
 use derive_more::From;
-use dupe::OptionDupedExt;
 use indexmap::IndexSet;
 
 use super::*;
-use crate::query::traversal::AsyncNodeLookup;
 
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display, From)]
 struct TestTargetId(u64);

@@ -1573,8 +1573,6 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
-    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_events::dispatch::EventDispatcher;
     use buck2_test_api::data::TestStatus;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;

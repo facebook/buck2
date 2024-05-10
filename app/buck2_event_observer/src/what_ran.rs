@@ -506,7 +506,6 @@ fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
 
 #[cfg(test)]
 mod tests {
-    use buck2_data::re_platform::Property;
     use buck2_data::ReExecute;
     use buck2_data::RePlatform;
 

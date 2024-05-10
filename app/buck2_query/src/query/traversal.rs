@@ -217,7 +217,6 @@ pub async fn async_depth_first_postorder_traversal<
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::collections::HashMap;
 
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::cells::cell_path::CellPath;

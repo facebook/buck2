@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Borrow;
-use std::borrow::ToOwned;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcStr;

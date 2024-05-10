@@ -337,16 +337,13 @@ pub fn register_promise(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
 
     use starlark::any::ProvidesStaticType;
-    use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
     use starlark::syntax::AstModule;
     use starlark::syntax::Dialect;
     use starlark::values::none::NoneType;
     use starlark::values::tuple::TupleRef;
-    use starlark::values::Value;
 
     use super::*;
 

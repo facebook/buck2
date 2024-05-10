@@ -1005,7 +1005,6 @@ impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResponse>
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
-    use std::time::Duration;
 
     use host_sharing::HostSharingRequirements;
     use sorted_vector_map::sorted_vector_map;

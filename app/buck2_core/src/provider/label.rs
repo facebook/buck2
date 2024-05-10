@@ -281,7 +281,6 @@ pub mod testing {
 
     use super::*;
     use crate::package::PackageLabel;
-    use crate::target::label::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
     pub trait ProvidersLabelTestExt {

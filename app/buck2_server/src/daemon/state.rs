@@ -913,7 +913,6 @@ fn http_client_from_startup_config(
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
 
     use buck2_common::legacy_configs::testing::parse;
     use indoc::indoc;

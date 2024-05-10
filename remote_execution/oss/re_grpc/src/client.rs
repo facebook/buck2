@@ -1400,8 +1400,6 @@ mod tests {
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
     use super::*;
-    use crate::NamedDigest;
-    use crate::NamedDigestWithPermissions;
 
     #[tokio::test]
     async fn test_download_named() -> anyhow::Result<()> {

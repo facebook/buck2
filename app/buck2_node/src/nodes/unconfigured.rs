@@ -597,26 +597,17 @@ impl<'a> TargetNodeRef<'a> {
 }
 
 pub mod testing {
-    use std::sync::Arc;
 
-    use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::label::TargetLabel;
-    use dupe::Dupe;
     use serde_json::map::Map;
     use serde_json::value::Value;
 
     use super::*;
     use crate::attrs::attr::Attribute;
-    use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
     use crate::attrs::fmt_context::AttrFmtContext;
-    use crate::attrs::inspect_options::AttrInspectOptions;
-    use crate::attrs::spec::AttributeSpec;
-    use crate::attrs::values::AttrValues;
     use crate::nodes::targets_map::TargetsMap;
-    use crate::rule_type::RuleType;
 
     pub trait TargetNodeExt {
         fn testing_new(

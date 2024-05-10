@@ -169,7 +169,6 @@ mod tests {
 
     use super::*;
     use crate as buck2_error;
-    use crate::error::ErrorKind;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;

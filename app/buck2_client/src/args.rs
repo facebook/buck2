@@ -260,9 +260,6 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
 
 #[cfg(test)]
 mod tests {
-    use buck2_client_ctx::immediate_config::ImmediateConfigContext;
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::abs_path::AbsPath;
     use buck2_core::fs::working_dir::WorkingDir;
 

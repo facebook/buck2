@@ -608,11 +608,6 @@ pub(crate) mod helpers {
     use std::collections::hash_map::Entry;
     use std::collections::HashMap;
 
-    use starlark::codemap::CodeMap;
-    use starlark::codemap::Pos;
-    use starlark::codemap::ResolvedSpan;
-    use starlark::codemap::Span;
-    use starlark::syntax::AstModule;
     use starlark::syntax::Dialect;
     use starlark_syntax::codemap::ResolvedPos;
     use textwrap::dedent;

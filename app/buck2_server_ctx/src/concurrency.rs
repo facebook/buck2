@@ -667,30 +667,22 @@ impl Drop for OnExecExit {
 mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
-    use std::sync::Arc;
     use std::task::Poll;
     use std::time::Duration;
 
     use allocative::Allocative;
-    use anyhow::Context;
     use assert_matches::assert_matches;
     use async_trait::async_trait;
     use buck2_core::is_open_source;
     use buck2_events::create_source_sink_pair;
-    use buck2_events::dispatch::EventDispatcher;
     use buck2_events::source::ChannelEventSource;
     use buck2_events::span::SpanId;
     use buck2_events::BuckEvent;
     use buck2_futures::cancellation::CancellationContext;
-    use buck2_wrapper_common::invocation_id::TraceId;
     use derivative::Derivative;
     use dice::DetectCycles;
-    use dice::Dice;
-    use dice::DiceComputations;
-    use dice::DiceTransactionUpdater;
     use dice::InjectedKey;
     use dice::Key;
-    use dice::UserComputationData;
     use dupe::Dupe;
     use futures::pin_mut;
     use futures::poll;

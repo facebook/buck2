@@ -281,7 +281,6 @@ mod tests {
         use dupe::Dupe;
         use futures::stream::Stream;
         use tokio_util::codec::BytesCodec;
-        use tokio_util::codec::FramedRead;
 
         use super::*;
 

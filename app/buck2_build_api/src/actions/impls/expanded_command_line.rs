@@ -69,7 +69,6 @@ impl ExpandedCommandLine {
 #[cfg(test)]
 mod tests {
     use sorted_vector_map::sorted_vector_map;
-    use sorted_vector_map::SortedVectorMap;
 
     use super::*;
 

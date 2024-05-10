@@ -192,7 +192,6 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::cells::paths::CellRelativePath;
 
     use super::*;
 

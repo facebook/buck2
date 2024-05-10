@@ -587,7 +587,6 @@ mod tests {
         use std::convert::Infallible;
         use std::path::PathBuf;
 
-        use anyhow::Context;
         use hyper::service::make_service_fn;
         use hyper::service::service_fn;
         use hyper::Server;

@@ -15,7 +15,6 @@ use std::time::Duration;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -25,12 +24,8 @@ use tokio::sync::oneshot;
 use tokio::time::timeout;
 
 use super::*;
-use crate::api::computations::DiceComputations;
-use crate::api::cycles::DetectCycles;
 use crate::api::error::DiceErrorImpl;
 use crate::api::injected::InjectedKey;
-use crate::api::key::Key;
-use crate::api::user_data::UserComputationData;
 use crate::legacy::ctx::testing::DiceCtxExt;
 use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
 use crate::legacy::incremental::testing::DependencyExt;

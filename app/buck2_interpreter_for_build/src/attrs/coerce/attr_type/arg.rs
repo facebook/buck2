@@ -240,7 +240,6 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
-    use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;
     use buck2_node::attrs::display::AttrDisplayWithContextExt;

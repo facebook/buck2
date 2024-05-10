@@ -733,7 +733,6 @@ impl CellsAggregator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cells::CellResolver;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 

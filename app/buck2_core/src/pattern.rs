@@ -1019,17 +1019,12 @@ mod tests {
 
     use assert_matches::assert_matches;
     use gazebo::prelude::*;
-    use pattern_type::PatternType;
     use test_case::test_case;
 
     use super::*;
     use crate::cells::alias::NonEmptyCellAlias;
-    use crate::cells::cell_root_path::CellRootPathBuf;
-    use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
-    use crate::target::label::label::TargetLabel;
-    use crate::target::name::TargetNameRef;
 
     fn mk_package<P: PatternType>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Package(PackageLabel::testing_new(cell, path))

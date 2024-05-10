@@ -489,9 +489,7 @@ mod tests {
 
     #[cfg(unix)]
     mod unix {
-        use std::path::Path;
 
-        use anyhow::Context;
         use assert_matches::assert_matches;
         use tokio::process::Command;
 

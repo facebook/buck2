@@ -567,7 +567,6 @@ pub fn async_record_root_spans<Fut>(fut: Fut) -> RootSpansRecordingFuture<Fut> {
 mod tests {
     use buck2_data::CommandEnd;
     use buck2_data::CommandStart;
-    use buck2_data::SpanStartEvent;
     use tokio::task::JoinHandle;
 
     use super::*;

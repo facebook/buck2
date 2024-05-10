@@ -153,9 +153,7 @@ mod tests {
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::source::ChannelEventSource;
     use buck2_events::BuckEvent;
-    use buck2_wrapper_common::invocation_id::TraceId;
     use futures::future::BoxFuture;
-    use futures::FutureExt;
     use tokio::sync::Barrier;
     use tokio::sync::Mutex;
 

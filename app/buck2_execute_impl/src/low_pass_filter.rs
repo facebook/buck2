@@ -113,7 +113,6 @@ impl Drop for LowPassFilterGuard<'_> {
 
 #[cfg(test)]
 mod tests {
-    use futures::future::FutureExt;
 
     use super::*;
 

@@ -893,7 +893,6 @@ mod tests {
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
-    use buck2_wrapper_common::invocation_id::TraceId;
     use superconsole::testing::frame_contains;
     use superconsole::testing::test_console;
     use superconsole::testing::SuperConsoleTestingExt;

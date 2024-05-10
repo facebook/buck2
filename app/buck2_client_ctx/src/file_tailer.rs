@@ -137,12 +137,7 @@ fn omit_stderr_line(line: &[u8]) -> bool {
 mod tests {
     use std::io::Write;
 
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-
     use super::*;
-    use crate::events_ctx::FileTailerEvent;
-    use crate::file_tailer::FileTailer;
-    use crate::file_tailer::StdoutOrStderr;
 
     #[tokio::test]
     async fn test_tailer_stdout() -> anyhow::Result<()> {

@@ -108,7 +108,6 @@ mod unix {
 mod tests {
     use std::process::Stdio;
 
-    use tempfile;
     use tokio::fs::File;
     use tokio::io::AsyncBufReadExt;
     use tokio::io::AsyncWriteExt;

@@ -149,10 +149,8 @@ mod tests {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
-    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
     use super::*;
-    use crate::interpreter::rule_defs::cmd_args::builder::DefaultCommandLineContext;
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 
     #[test]

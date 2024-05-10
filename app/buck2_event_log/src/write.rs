@@ -611,12 +611,9 @@ impl<'a> SerializeForLog for StreamValueForWrite<'a> {
 mod tests {
     use std::time::SystemTime;
 
-    use buck2_core::fs::paths::abs_path::AbsPathBuf;
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
-    use buck2_events::BuckEvent;
-    use buck2_wrapper_common::invocation_id::TraceId;
     use futures::TryStreamExt;
     use tempfile::TempDir;
 

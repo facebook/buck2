@@ -14,7 +14,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::fs_util::IoError;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -398,7 +397,6 @@ mod tests {
     use std::os::unix;
 
     use assert_matches::assert_matches;
-    use buck2_core::fs::paths::abs_path::AbsPath;
     use tempfile::TempDir;
 
     use super::*;

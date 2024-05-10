@@ -853,7 +853,6 @@ mod tests {
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Formatter;
-    use std::marker::Send;
     use std::sync::Arc;
 
     use allocative::Allocative;

@@ -314,7 +314,6 @@ pub(crate) mod tests {
     use assert_matches::assert_matches;
 
     use super::*;
-    use crate::error::HardErrorConfig;
 
     #[test]
     fn test_hard_error() -> anyhow::Result<()> {

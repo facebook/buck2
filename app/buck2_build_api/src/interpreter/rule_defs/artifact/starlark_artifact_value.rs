@@ -122,7 +122,6 @@ pub(crate) fn register_artifact_value(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use starlark::values::Heap;
 
     use super::*;
 
