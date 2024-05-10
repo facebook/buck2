@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "esbuild src/App.tsx --bundle --outfile=dist/app.js",
+    "watch": "esbuild src/App.tsx --bundle --outfile=dist/app.js --watch",
     "check": "tsc -noEmit -p tsconfig.json"
   }
 }
