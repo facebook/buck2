@@ -114,11 +114,15 @@ function App() {
    */
   useEffect(() => {
     const fetchData = async () => {
+      // keep this line as is, it will be replaced later
+      let blobBase64 = 'XXDATAXX'
       try {
-        // keep this line as is, it will be replaced later
-        const data = (await import('./data')).DATA
-        const blobBase64 = data
-        const decodedString = atob(blobBase64)
+        blobBase64 = (await import('./data')).DATA
+      } catch (error) {
+        console.info("./data.ts not found, using replaced data")
+      }
+
+      const decodedString = atob(blobBase64)
         // TODO iguridi: decode blob better
         const byteArray = new Uint8Array(decodedString.length)
         for (let i = 0; i < decodedString.length; i++) {
@@ -148,9 +152,6 @@ function App() {
 
         // This should run just once total
         fromUrl(data2, currentTarget, setCurrentTarget)
-      } catch (error) {
-        console.error('Error:', error)
-      }
     }
     fetchData()
   }, [])
