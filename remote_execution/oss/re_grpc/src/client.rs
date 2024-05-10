@@ -774,7 +774,7 @@ impl REClient {
                }
             }
 
-            if digest_to_check.len() == 0 {
+            if digest_to_check.is_empty() {
                 continue;
             }
 

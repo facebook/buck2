@@ -17,6 +17,7 @@ rust_library(
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:regex",
+        "fbsource//third-party/rust:lru",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic",
