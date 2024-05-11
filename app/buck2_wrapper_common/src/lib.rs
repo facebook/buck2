@@ -46,6 +46,42 @@ struct ProcessInfo {
     cmd: Vec<String>,
 }
 
+/// Get the list of all PIDs on Linux
+///
+/// As of sysinfo 0.30, the `processes` function returns all posix TIDs (what the kernel calls
+/// PIDs), and not just all posix PIDs (what the kernel calls TGIDs). In order to make sure that we
+/// don't kill any of the TIDs in our PID, we need to filter the list of TIDs down. This function
+/// returns the list of all PIDs on the system.
+fn get_all_tgids_linux() -> Option<HashSet<sysinfo::Pid>> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return Some(HashSet::new());
+    };
+
+    let mut all_tgids = HashSet::new();
+
+    for e in entries {
+        let Ok(e) = e else {
+            continue;
+        };
+        let Ok(file_type) = e.file_type() else {
+            continue;
+        };
+        if !file_type.is_dir() {
+            continue;
+        }
+        let Some(pid) = e.file_name().to_str().and_then(|s| s.parse::<u32>().ok()) else {
+            continue;
+        };
+        all_tgids.insert(sysinfo::Pid::from_u32(pid));
+    }
+
+    Some(all_tgids)
+}
+
 /// Find all buck2 processes in the system.
 fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
@@ -62,8 +98,16 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
         parent = system.process(pid).and_then(|p| p.parent());
     }
 
+    let filtered_proc_list = get_all_tgids_linux();
+
     let mut buck2_processes = Vec::new();
     for (pid, process) in system.processes() {
+        // See comment on `get_all_tgids_linux`
+        if let Some(filtered_proc_list) = filtered_proc_list.as_ref() {
+            if !filtered_proc_list.contains(&pid) {
+                continue;
+            }
+        }
         let Some(exe) = process.exe() else {
             continue;
         };
