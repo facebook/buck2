@@ -8,8 +8,7 @@
 load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
-def _run_entry_point(ctx: bxl.Context) -> None:
-    targets = flatten(ctx.cli_args.target)
+def check_targets(ctx: bxl.Context, targets: typing.Any) -> None:
     checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets))
 
     build_result = ctx.build([
@@ -25,6 +24,10 @@ def _run_entry_point(ctx: bxl.Context) -> None:
         },
         "root": ctx.root(),
     })
+
+def _run_entry_point(ctx: bxl.Context) -> None:
+    targets = flatten(ctx.cli_args.target)
+    check_targets(ctx, targets)
 
 run = bxl_main(
     doc = "Run [typecheck] on a set of targets or target patterns.",

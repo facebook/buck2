@@ -1,0 +1,24 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load(":batch.bxl", "check_targets")
+
+def _run_entry_point(ctx: bxl.Context) -> None:
+    targets = ctx.uquery().owner(ctx.cli_args.source)
+    check_targets(ctx, targets)
+
+run = bxl_main(
+    doc = "Run [typecheck] on the owning targets of given files.",
+    impl = _run_entry_point,
+    cli_args = {
+        "source": cli_args.list(
+            cli_args.string(
+                doc = "Files whose owning targets need to be checked",
+            ),
+        ),
+    },
+)
