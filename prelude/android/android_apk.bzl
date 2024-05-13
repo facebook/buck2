@@ -35,6 +35,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         resources_info = resources_info,
         compress_resources_dot_arsc = ctx.attrs.resource_compression == "enabled" or ctx.attrs.resource_compression == "enabled_with_strings_as_assets",
         validation_deps_outputs = get_validation_deps_outputs(ctx),
+        packaging_options = ctx.attrs.packaging_options,
     )
 
     if dex_files_info.secondary_dex_exopackage_info or native_library_info.exopackage_info or resources_info.exopackage_info:
@@ -109,7 +110,8 @@ def build_apk(
         native_library_info: AndroidBinaryNativeLibsInfo,
         resources_info: AndroidBinaryResourcesInfo,
         compress_resources_dot_arsc: bool = False,
-        validation_deps_outputs: [list[Artifact], None] = None) -> Artifact:
+        validation_deps_outputs: [list[Artifact], None] = None,
+        packaging_options: dict | None = None) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(label.name))
 
     apk_builder_args = cmd_args([
@@ -165,6 +167,13 @@ def build_apk(
         "--jar-files-that-may-contain-resources-list",
         jar_files_that_may_contain_resources,
     ])
+
+    if packaging_options:
+        for key, value in packaging_options.items():
+            if key != "excluded_resources":
+                fail("Only 'excluded_resources' is supported in packaging_options right now!")
+            else:
+                apk_builder_args.add("--excluded-resources", actions.write("excluded_resources.txt", value))
 
     actions.run(apk_builder_args, category = "apk_build")
 
