@@ -25,6 +25,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         resources_info = android_binary_info.resources_info,
         bundle_config = ctx.attrs.bundle_config_file,
         validation_deps_outputs = get_validation_deps_outputs(ctx),
+        packaging_options = ctx.attrs.packaging_options,
     )
 
     sub_targets = {}
@@ -63,7 +64,8 @@ def build_bundle(
         native_library_info: AndroidBinaryNativeLibsInfo,
         resources_info: AndroidBinaryResourcesInfo,
         bundle_config: Artifact | None,
-        validation_deps_outputs: [list[Artifact], None] = None) -> Artifact:
+        validation_deps_outputs: [list[Artifact], None] = None,
+        packaging_options: dict | None = None) -> Artifact:
     output_bundle = actions.declare_output("{}.aab".format(label.name))
 
     bundle_builder_args = cmd_args([
@@ -130,6 +132,13 @@ def build_bundle(
         "--zipalign_tool",
         android_toolchain.zipalign[RunInfo],
     ])
+
+    if packaging_options:
+        for key, value in packaging_options.items():
+            if key != "excluded_resources":
+                fail("Only 'excluded_resources' is supported in packaging_options right now!")
+            else:
+                bundle_builder_args.add("--excluded-resources", actions.write("excluded_resources.txt", value))
 
     actions.run(bundle_builder_args, category = "bundle_build")
 
