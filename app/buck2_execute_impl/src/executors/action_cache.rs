@@ -185,6 +185,7 @@ async fn query_action_cache_and_download_result(
             } else {
                 None
             },
+            cache_type: cache_type.to_proto().into(),
         }
         .into(),
         request.paths(),

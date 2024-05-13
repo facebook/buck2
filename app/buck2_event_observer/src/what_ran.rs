@@ -274,7 +274,14 @@ impl<'a> CommandReproducer<'a> {
     pub fn executor(&self) -> String {
         match self {
             Self::CacheQuery(..) => "cache_query".to_owned(),
-            Self::CacheHit(..) => "cache".to_owned(),
+            Self::CacheHit(&buck2_data::CacheHit { cache_type, .. }) => {
+                match buck2_data::CacheHitType::from_i32(cache_type) {
+                    Some(buck2_data::CacheHitType::RemoteDepFileCache) => {
+                        "re_dep_file_cache".to_owned()
+                    }
+                    _ => "cache".to_owned(),
+                }
+            }
             Self::ReExecute(execute) => executor_with_platform(execute),
             Self::LocalExecute(..) => "local".to_owned(),
             Self::WorkerExecute(..) => "worker".to_owned(),
