@@ -8,6 +8,7 @@
 # buildifier: keep sorted
 CLIPPY_ALLOW = [
     "clippy::arc-with-non-send-sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
+    "clippy::assigning-clones",  # FIXME new in Rust 1.78.0
     "clippy::await_holding_lock",  # FIXME new in Rust 1.74
     "clippy::blocks-in-conditions",  # FIXME new in Rust 1.77.1
     "clippy::bool-assert-comparison",  # Sometimes more clear to write it this way
@@ -27,6 +28,7 @@ CLIPPY_ALLOW = [
     "clippy::match-like-matches-macro",  # Using matches! is sometimes clearer, sometimes not
     "clippy::match-wild-err-arm",  # Seems reasonable to panic on Err(_)
     "clippy::missing-safety-doc",  # Documentation should be tailored to the reader, not the linter
+    "clippy::multiple-bound-locations",  # FIXME New in 1.78.0
     "clippy::mut_from_ref",  # Tries to check soundness, which Rust already does
     "clippy::naive-bytecount",  # Requires an extra dependency for marginal gains.
     "clippy::needless_borrows_for_generic_args",  # FIXME new in Rust 1.74

@@ -281,7 +281,6 @@ def clippy(package_args: List[str], fix: bool) -> None:
             "--tests",
             "--benches",
             "--",
-            "-Zcrate-attr=feature(diagnostic_namespace)",
             *clippy_deny_args,
             *clippy_allow_args,
         ]
