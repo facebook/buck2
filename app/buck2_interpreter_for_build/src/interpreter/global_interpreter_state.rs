@@ -12,6 +12,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::CellResolver;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
@@ -41,6 +43,9 @@ pub struct GlobalInterpreterState {
 
     /// Static typechecking for bzl and bxl files.
     pub unstable_typecheck: bool,
+
+    /// Enable f-strings support.
+    pub enable_f_strings: bool,
 }
 
 impl GlobalInterpreterState {
@@ -49,6 +54,7 @@ impl GlobalInterpreterState {
         interpreter_configuror: Arc<BuildInterpreterConfiguror>,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
+        enable_f_strings: bool,
     ) -> anyhow::Result<Self> {
         let global_env = interpreter_configuror.globals();
 
@@ -58,6 +64,7 @@ impl GlobalInterpreterState {
             configuror: interpreter_configuror,
             disable_starlark_types,
             unstable_typecheck,
+            enable_f_strings,
         })
     }
 
@@ -109,12 +116,23 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let disable_starlark_types = ctx.get_disable_starlark_types().await?;
                 let unstable_typecheck = ctx.get_unstable_typecheck().await?;
+                let enable_f_strings = ctx
+                    .parse_legacy_config_property(
+                        cell_resolver.root_cell(),
+                        BuckconfigKeyRef {
+                            section: "buck2",
+                            property: "starlark_enable_f_strings",
+                        },
+                    )
+                    .await?
+                    .unwrap_or_else(|| false);
 
                 Ok(GisValue(Arc::new(GlobalInterpreterState::new(
                     cell_resolver,
                     interpreter_configuror,
                     disable_starlark_types,
                     unstable_typecheck,
+                    enable_f_strings,
                 )?)))
             }
 

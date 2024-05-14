@@ -205,6 +205,7 @@ impl Tester {
                 )?,
                 false,
                 true,
+                false,
             )?),
             Arc::new(import_paths),
         )?))

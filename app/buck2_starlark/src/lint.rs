@@ -86,7 +86,7 @@ async fn lint_file(
     io: &dyn IoProvider,
     cache: &mut Cache<'_>,
 ) -> anyhow::Result<Vec<Lint>> {
-    let dialect = path.file_type().dialect(false);
+    let dialect = path.file_type().dialect(false, true);
     let proj_path = cell_resolver.resolve_path(path.path().as_ref().as_ref())?;
     let path_str = proj_path.to_string();
     let content = io

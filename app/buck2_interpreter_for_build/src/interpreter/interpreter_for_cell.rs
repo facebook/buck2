@@ -441,7 +441,9 @@ impl InterpreterForCell {
         let ast = match AstModule::parse(
             project_relative_path.as_str(),
             content,
-            &import.file_type().dialect(disable_starlark_types),
+            &import
+                .file_type()
+                .dialect(disable_starlark_types, self.global_state.enable_f_strings),
         ) {
             Ok(ast) => ast,
             Err(e) => {
