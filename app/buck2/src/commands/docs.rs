@@ -25,7 +25,6 @@ mod starlark;
 enum DocsKind {
     Starlark(DocsStarlarkCommand),
     Uquery(DocsUqueryCommand),
-    Query(DocsUqueryCommand),
     Cquery(DocsCqueryCommand),
     Aquery(DocsAqueryCommand),
 }
@@ -50,7 +49,6 @@ impl DocsCommand {
         match self.docs_kind {
             DocsKind::Starlark(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
-            DocsKind::Query(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Aquery(cmd) => cmd.exec(submatches, ctx),
         }

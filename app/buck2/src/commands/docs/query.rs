@@ -17,7 +17,7 @@ use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescrip
 use crate::commands::docs::output::DocsOutputFormatOptions;
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "docs-uquery", about = "Print documentation for uquery")]
+#[clap(name = "docs-uquery", about = "Print documentation for query/uquery")]
 pub(crate) struct DocsUqueryCommand {
     #[clap(flatten)]
     docs_options: DocsOutputFormatOptions,
