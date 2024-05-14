@@ -25,3 +25,7 @@ runs:
       New-Item -ItemType Directory -Path "$env:USERPROFILE\temp"
     shell: pwsh
   - uses: "./.github/actions/print_versions"
+  - uses: actions/checkout@v4
+  - uses: actions/setup-go@v5
+    with:
+      go-version: '~1.22.0'

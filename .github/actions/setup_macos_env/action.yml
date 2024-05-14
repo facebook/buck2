@@ -13,3 +13,7 @@ runs:
     run: sudo pip3 install --break-system-packages conan==1.*
     shell: bash
   - uses: "./.github/actions/print_versions"
+  - uses: actions/checkout@v4
+  - uses: actions/setup-go@v5
+    with:
+      go-version: '~1.22.0'
