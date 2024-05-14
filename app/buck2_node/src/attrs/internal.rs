@@ -11,9 +11,7 @@
 
 use std::sync::Arc;
 
-use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::id::ProviderId;
-use dupe::Dupe;
 use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 
@@ -23,7 +21,6 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::metadata::map::MetadataMap;
-use crate::provider_id_set::ProviderIdSet;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -69,10 +66,7 @@ fn default_target_platform_attribute() -> Attribute {
     Attribute::new(
         Some(Arc::new(CoercedAttr::None)),
         "specifies the default target platform, used when no platforms are specified on the command line",
-        AttrType::option(AttrType::dep(
-            ProviderIdSet::from(vec![internal_attrs_platform_info_provider_id().dupe()]),
-            PluginKindSet::EMPTY,
-        )),
+        AttrType::option(AttrType::label()),
     )
 }
 
