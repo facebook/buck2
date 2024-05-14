@@ -761,7 +761,7 @@ def _get_native_linkables(
                 stripped_native_linkable_module_assets_srcs.setdefault(module, {})[so_name_path] = lib
             elif native_linkable.can_be_asset and package_native_libs_as_assets_enabled:
                 if enabled_voltron_non_asset_libs:
-                    native_libs_assets_dir = paths.join(_get_native_libs_as_assets_dir(module), "assets")
+                    native_libs_assets_dir = paths.join(_get_native_libs_as_assets_dir(module))
                 else:
                     native_libs_assets_dir = _get_native_libs_as_assets_dir(module)
                 so_name_path = paths.join(native_libs_assets_dir, abi_directory, so_name)
