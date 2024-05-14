@@ -120,8 +120,8 @@ impl NotifyFileData {
             let cell_path = cells.get_cell_path(&path)?;
             let ignore = ignore_specs
                 .get(&cell_path.cell())
-                .expect("unexpected cell name mismatch")
-                .is_match(cell_path.path());
+                // See the comment on the analogous code in `watchman/interface.rs`
+                .map_or(false, |ignore| ignore.is_match(cell_path.path()));
 
             info!(
                 "FileWatcher: {:?} {:?} (ignore = {})",
