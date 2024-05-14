@@ -125,7 +125,7 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
                         },
                     )
                     .await?
-                    .unwrap_or_else(|| false);
+                    .unwrap_or(true);
 
                 Ok(GisValue(Arc::new(GlobalInterpreterState::new(
                     cell_resolver,
