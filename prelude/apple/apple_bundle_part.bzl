@@ -122,6 +122,8 @@ def assemble_bundle(
             codesign_args.extend(provisioning_profiles_args)
 
             identities_command = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign_identities_command
+            if ctx.attrs._codesign_identities_command_override:
+                identities_command = ctx.attrs._codesign_identities_command_override[RunInfo]
             identities_command_args = ["--codesign-identities-command", cmd_args(identities_command)] if identities_command else []
             codesign_args.extend(identities_command_args)
 

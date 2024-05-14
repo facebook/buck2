@@ -33,6 +33,7 @@ def apple_bundle_config() -> dict[str, typing.Any]:
         "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", True),
         "_bundling_log_file_level": read_root_config("apple", "bundling_log_file_level", None),
         "_code_signing_configuration": _get_code_signing_configuration(),
+        "_codesign_identities_command_override": read_root_config("apple", "codesign_identities_command_override", None),
         "_codesign_type": read_root_config("apple", "codesign_type_override", None),
         "_compile_resources_locally_override": _maybe_get_bool("compile_resources_locally_override", None),
         "_embed_provisioning_profile_when_adhoc_code_signing": _maybe_get_bool("embed_provisioning_profile_when_adhoc_code_signing", None),

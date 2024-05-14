@@ -63,6 +63,7 @@ def _apple_bundle_like_common_attrs():
         "_bundling_log_file_enabled": attrs.bool(default = False),
         "_bundling_log_file_level": attrs.option(attrs.string(), default = None),
         "_code_signing_configuration": attrs.option(attrs.enum(CodeSignConfiguration.values()), default = None),
+        "_codesign_identities_command_override": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
         "_fast_provisioning_profile_parsing_enabled": attrs.bool(default = False),
