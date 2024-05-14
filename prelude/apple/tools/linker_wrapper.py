@@ -10,8 +10,10 @@
 import argparse
 import enum
 import re
+import shlex
 import subprocess
 import sys
+import tempfile
 
 from typing import List, Optional, Tuple
 
@@ -138,7 +140,13 @@ def main(argv: List[str]) -> int:
             ["-Xlinker", "-pika_include_mangled_names_in_undefined_symbol_errors"]
         )
 
-    result = subprocess.run([args.linker] + linker_args, capture_output=True, text=True)
+    with tempfile.NamedTemporaryFile(mode="w+t") as linker_argsfile:
+        linker_argsfile.write("\n".join([shlex.quote(a) for a in linker_args]))
+        linker_argsfile.flush()
+        result = subprocess.run(
+            [args.linker, f"@{linker_argsfile.name}"], capture_output=True, text=True
+        )
+
     if result.returncode != 0:
         if args.unexported_symbol_list and linker == Linker.LLD:
             diagnosis = _diagnose_potential_unexported_symbol_issue(
