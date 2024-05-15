@@ -18,6 +18,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::NodeDuration;
 use buck2_common::events::HasEvents;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
@@ -32,6 +33,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -140,6 +142,24 @@ async fn build_action_no_redirect(
 
     let now = Instant::now();
     let action = &action;
+
+    let target = match action.key().deferred_key().owner() {
+        BaseDeferredKey::TargetLabel(target_label) => Some(target_label.dupe()),
+        _ => None,
+    };
+
+    // TODO(minglunli): Used in D57311882
+    let _target_rule_type_name = match target {
+        Some(label) => Some(
+            ctx.get_configured_target_node(&label)
+                .await?
+                .require_compatible()?
+                .rule_type()
+                .name()
+                .to_owned(),
+        ),
+        None => None,
+    };
 
     let ctx = &*ctx;
     let fut = async move {
