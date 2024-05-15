@@ -139,13 +139,10 @@ impl DiceTaskWorker {
             .lookup_key(VersionedGraphKey::new(v, self.k))
             .await;
 
-        match state_result {
-            VersionedGraphResult::Match(entry) => task_state.lookup_matches(entry),
-            VersionedGraphResult::Compute => {
-                let task_state = task_state.lookup_dirtied(&self.eval);
-                self.compute(task_state).await
+        let task_state = match state_result {
+            VersionedGraphResult::Match(entry) => {
+                return task_state.lookup_matches(entry);
             }
-
             VersionedGraphResult::CheckDeps(mismatch) => {
                 let task_state = task_state.checking_deps(&self.eval);
                 let deps_changed = {
@@ -158,17 +155,10 @@ impl DiceTaskWorker {
                 };
 
                 match deps_changed {
-                    DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                        let task_state = task_state.deps_not_match();
-                        self.compute(task_state).await
-                    }
                     DidDepsChange::NoChange => {
                         let task_state = task_state.deps_match()?;
 
-                        let activation_info = ActivationInfo::new(
-                            &self.eval.dice.key_index,
-                            &self.eval.user_data.activation_tracker,
-                            self.k,
+                        let activation_info = self.activation_info(
                             mismatch.deps_to_validate.iter_keys(),
                             ActivationData::Reused,
                         );
@@ -183,11 +173,18 @@ impl DiceTaskWorker {
                             )
                             .await;
 
-                        response.map(|r| task_state.cached(r, activation_info))
+                        return response.map(|r| task_state.cached(r, activation_info));
+                    }
+                    DidDepsChange::Changed | DidDepsChange::NoDeps => {
+                        // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
+                        // implicit meaning to a node having no deps at this point, but it's unclear what that is.
+                        task_state.deps_not_match()
                     }
                 }
             }
-        }
+            VersionedGraphResult::Compute => task_state.lookup_dirtied(&self.eval),
+        };
+        self.compute(task_state).await
     }
 
     async fn compute(
@@ -210,13 +207,7 @@ impl DiceTaskWorker {
             result,
         } = self.eval.evaluate(self.k, task_state).await?;
 
-        let activation_info = ActivationInfo::new(
-            &self.eval.dice.key_index,
-            &self.eval.user_data.activation_tracker,
-            self.k,
-            result.deps.iter_keys(),
-            activation_data,
-        );
+        let activation_info = self.activation_info(result.deps.iter_keys(), activation_data);
 
         let res = {
             match result.value.into_valid_value() {
@@ -315,6 +306,20 @@ impl DiceTaskWorker {
             state_handle,
             version_epoch,
         }
+    }
+
+    fn activation_info<'a>(
+        &self,
+        deps: impl Iterator<Item = DiceKey> + 'a,
+        data: ActivationData,
+    ) -> Option<ActivationInfo> {
+        ActivationInfo::new(
+            &self.eval.dice.key_index,
+            &self.eval.user_data.activation_tracker,
+            self.k,
+            deps,
+            data,
+        )
     }
 }
 
