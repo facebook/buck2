@@ -187,6 +187,7 @@ pub(crate) mod metrics;
 mod opaque;
 pub(crate) mod owned;
 pub(crate) mod result;
+pub(crate) mod stats;
 mod transaction;
 mod transaction_update;
 mod versions;
@@ -243,6 +244,7 @@ use crate::introspection::serialize_dense_graph;
 use crate::introspection::serialize_graph;
 use crate::legacy::DiceLegacy;
 use crate::legacy::DiceLegacyDataBuilder;
+pub use crate::stats::GlobalStats;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 #[derive(Allocative, Debug)]
