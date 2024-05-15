@@ -136,7 +136,7 @@ impl IncrementalEngine {
                             epoch: version_epoch,
                             storage: eval_result.storage,
                             value,
-                            deps: Arc::new(eval_result.deps.into_iter().collect()),
+                            deps: Arc::new(eval_result.deps.iter_keys().collect()),
                             resp: tx,
                         });
 
@@ -221,7 +221,7 @@ impl IncrementalEngine {
                             &eval.dice.key_index,
                             &eval.user_data.activation_tracker,
                             k,
-                            mismatch.deps_to_validate.iter(),
+                            mismatch.deps_to_validate.iter().copied(),
                             ActivationData::Reused,
                         ))?;
 
@@ -271,7 +271,7 @@ impl IncrementalEngine {
                         epoch: self.version_epoch,
                         storage: eval_result.storage,
                         value,
-                        deps: Arc::new(eval_result.deps.into_iter().collect()),
+                        deps: Arc::new(eval_result.deps.iter_keys().collect()),
                         resp: tx,
                     });
 

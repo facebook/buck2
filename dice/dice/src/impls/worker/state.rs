@@ -347,12 +347,12 @@ impl ActivationInfo {
         key_index: &DiceKeyIndex,
         activation_tracker: &Option<Arc<dyn ActivationTracker>>,
         key: DiceKey,
-        deps: impl Iterator<Item = &'a DiceKey>,
+        deps: impl Iterator<Item = DiceKey> + 'a,
         activation_data: ActivationData,
     ) -> Option<ActivationInfo> {
         if let Some(activation_tracker) = activation_tracker {
             let key = key_index.get(key).dupe();
-            let deps = deps.map(|dep| key_index.get(*dep).dupe()).collect();
+            let deps = deps.map(|dep| key_index.get(dep).dupe()).collect();
 
             Some(ActivationInfo {
                 activation_tracker: activation_tracker.dupe(),

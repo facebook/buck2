@@ -57,7 +57,6 @@ use crate::impls::transaction::TransactionUpdater;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
@@ -65,7 +64,6 @@ use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::DiceTransactionUpdater;
-use crate::HashSet;
 use crate::LinearRecomputeDiceComputations;
 use crate::UserCycleDetectorGuard;
 
@@ -422,17 +420,13 @@ impl ModernComputeCtx<'static> {
     pub(crate) fn finalize(
         self,
     ) -> (
-        (HashSet<DiceKey>, DiceValidity),
+        RecordedDeps,
         EvaluationData,
         KeyComputingUserCycleDetectorData,
     ) {
         let (data, dep_trackers) = self.into_owned();
-        let RecordedDeps {
-            deps,
-            deps_validity,
-        } = dep_trackers.collect_deps();
         (
-            (deps.into_set(), deps_validity),
+            dep_trackers.collect_deps(),
             data.evaluation_data.into_inner(),
             data.cycles,
         )
