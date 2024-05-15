@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _APPLE_BUILD_MODES = "APPLE_BUILD_MODES", _BUILD_MODE = "BUILD_MODE", _get_build_mode = "get_build_mode", _get_build_mode_debug = "get_build_mode_debug") 
+# @oss-disable: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _APPLE_BUILD_MODES = "APPLE_BUILD_MODES", _BUILD_MODE = "BUILD_MODE", _get_build_mode = "get_build_mode", _get_build_mode_debug = "get_build_mode_debug", _get_build_mode_release = "get_build_mode_release") 
 
 BUILD_MODE_DEBUG = "debug" # @oss-enable
 BUILD_MODE_PROFILE = "profile" # @oss-enable
@@ -56,3 +56,7 @@ def get_build_mode():
 def get_build_mode_debug():
     return BUILD_MODE.DEBUG # @oss-enable
     # @oss-disable: return _get_build_mode_debug() 
+
+def get_build_mode_release():
+    return BUILD_MODE.RELEASE # @oss-enable
+    # @oss-disable: return _get_build_mode_release() 
