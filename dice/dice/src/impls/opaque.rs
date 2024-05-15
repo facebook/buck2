@@ -48,7 +48,7 @@ mod tests {
 
     use crate::api::data::DiceData;
     use crate::api::key::Key;
-    use crate::impls::dep_trackers::testing::RecordingDepsTrackersExt;
+    use crate::impls::deps::testing::RecordingDepsTrackersExt;
     use crate::impls::dice::DiceModern;
     use crate::impls::key::DiceKey;
     use crate::impls::opaque::OpaqueValueModern;

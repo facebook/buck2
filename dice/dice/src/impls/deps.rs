@@ -224,7 +224,7 @@ use sync_arena::SyncArena;
 #[cfg(test)]
 pub(crate) mod testing {
 
-    use crate::impls::dep_trackers::RecordingDepsTracker;
+    use crate::impls::deps::RecordingDepsTracker;
     use crate::impls::key::DiceKey;
     use crate::HashSet;
 
@@ -242,7 +242,7 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod tests {
 
-    use crate::impls::dep_trackers::RecordingDepsTracker;
+    use crate::impls::deps::RecordingDepsTracker;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceValidity;
     use crate::HashSet;
