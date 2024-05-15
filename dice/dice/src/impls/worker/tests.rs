@@ -167,7 +167,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     assert!(
         engine
             .compute_whether_dependencies_changed(
-                ParentKey::None,
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(0),
                     VersionNumber::new(1)
@@ -205,7 +204,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     assert!(
         !engine
             .compute_whether_dependencies_changed(
-                ParentKey::None,
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
@@ -246,7 +244,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     assert!(
         engine
             .compute_whether_dependencies_changed(
-                ParentKey::None,
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)

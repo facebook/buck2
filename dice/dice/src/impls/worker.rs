@@ -145,20 +145,14 @@ impl DiceTaskWorker {
         match state_result {
             VersionedGraphResult::Match(entry) => task_state.lookup_matches(entry),
             VersionedGraphResult::Compute => {
-                self.compute(task_state.lookup_dirtied(&self.eval)).await
+                let task_state = task_state.lookup_dirtied(&self.eval);
+                self.compute(task_state).await
             }
 
             VersionedGraphResult::CheckDeps(mismatch) => {
                 let task_state = task_state.checking_deps(&self.eval);
-
                 let deps_changed = {
-                    self.event_dispatcher.check_deps_started(self.k);
-                    scopeguard::defer! {
-                        self.event_dispatcher.check_deps_finished(self.k);
-                    }
-
                     self.compute_whether_dependencies_changed(
-                        ParentKey::Some(self.k), // the computing of deps is triggered by this key as the parent
                         &mismatch.verified_versions,
                         &mismatch.deps_to_validate,
                         &task_state,
@@ -168,7 +162,8 @@ impl DiceTaskWorker {
 
                 match deps_changed {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                        self.compute(task_state.deps_not_match()).await
+                        let task_state = task_state.deps_not_match();
+                        self.compute(task_state).await
                     }
                     DidDepsChange::NoChange => {
                         let task_state = task_state.deps_match(ActivationInfo::new(
@@ -248,11 +243,15 @@ impl DiceTaskWorker {
     ))]
     async fn compute_whether_dependencies_changed(
         &self,
-        parent_key: ParentKey,
         verified_versions: &VersionRanges,
         deps: &SeriesParallelDeps,
         check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>,
     ) -> CancellableResult<DidDepsChange> {
+        self.event_dispatcher.check_deps_started(self.k);
+        scopeguard::defer! {
+            self.event_dispatcher.check_deps_finished(self.k);
+        }
+
         trace!(deps = ?deps);
 
         if deps.is_empty() {
@@ -266,7 +265,7 @@ impl DiceTaskWorker {
                     .per_live_version_ctx
                     .compute_opaque(
                         dep.dupe(),
-                        parent_key,
+                        ParentKey::Some(self.k),
                         &self.eval,
                         check_deps_state.cycles_for_dep(dep, &self.eval),
                     )
