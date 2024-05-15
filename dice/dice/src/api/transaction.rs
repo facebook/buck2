@@ -84,7 +84,7 @@ impl DiceTransactionUpdater {
 ///
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
 #[derive(Allocative, Clone, Dupe)]
-pub struct DiceTransaction(pub(crate) DiceTransactionImpl<'static>);
+pub struct DiceTransaction(pub(crate) DiceTransactionImpl);
 
 impl DiceTransaction {
     /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the

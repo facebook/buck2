@@ -18,12 +18,12 @@ use crate::DiceComputations;
 use crate::DiceTransactionUpdater;
 
 #[derive(Allocative)]
-pub(crate) enum DiceTransactionImpl<'a> {
-    Legacy(DiceComputations<'a>),
-    Modern(BaseComputeCtx<'a>),
+pub(crate) enum DiceTransactionImpl {
+    Legacy(DiceComputations<'static>),
+    Modern(BaseComputeCtx<'static>),
 }
 
-impl Clone for DiceTransactionImpl<'_> {
+impl Clone for DiceTransactionImpl {
     fn clone(&self) -> Self {
         match self {
             DiceTransactionImpl::Legacy(ctx) => match &ctx.inner() {
@@ -41,9 +41,9 @@ impl Clone for DiceTransactionImpl<'_> {
     }
 }
 
-impl Dupe for DiceTransactionImpl<'_> {}
+impl Dupe for DiceTransactionImpl {}
 
-impl<'a> DiceTransactionImpl<'a> {
+impl DiceTransactionImpl {
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
             DiceTransactionImpl::Legacy(ctx) => ctx.inner().get_version(),
@@ -65,14 +65,14 @@ impl<'a> DiceTransactionImpl<'a> {
         }
     }
 
-    pub(crate) fn as_computations(&self) -> &DiceComputations<'a> {
+    pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
         match self {
             DiceTransactionImpl::Legacy(ctx) => ctx,
             DiceTransactionImpl::Modern(ctx) => ctx.as_computations(),
         }
     }
 
-    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'a> {
+    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'static> {
         match self {
             DiceTransactionImpl::Legacy(ctx) => ctx,
             DiceTransactionImpl::Modern(ctx) => ctx.as_computations_mut(),

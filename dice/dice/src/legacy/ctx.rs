@@ -435,7 +435,7 @@ pub(crate) mod testing {
         }
     }
 
-    impl DiceCtxExt for DiceTransactionImpl<'_> {
+    impl DiceCtxExt for DiceTransactionImpl {
         fn get_minor_version(&self) -> MinorVersion {
             match self {
                 DiceTransactionImpl::Legacy(delegate) => delegate.inner().get_minor_version(),
