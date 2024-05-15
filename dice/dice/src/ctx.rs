@@ -11,10 +11,9 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_futures::owning_future::OwningFuture;
-use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use gazebo::prelude::VecExt;
 use gazebo::variants::UnpackVariants;
 
 use crate::api::computations::DiceComputations;
@@ -24,24 +23,32 @@ use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
+use crate::impls::ctx::LinearRecomputeModern;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
+use crate::legacy::ctx::LinearRecomputeLegacy;
 use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
+use crate::LinearRecomputeDiceComputations;
 use crate::ProjectionKey;
 
-#[derive(Allocative, UnpackVariants, Clone, Dupe)]
-pub(crate) enum DiceComputationsImpl {
-    Legacy(Arc<DiceComputationsImplLegacy>),
-    Modern(Arc<ModernComputeCtx>),
+/// This is just a dispatcher to either of Legacy or Modern Dice.
+///
+/// It converts their impl futures into a common impl (via left/right_future()) and does some
+/// minor packing/unpacking of types (like OpaqueValue to/from OpaqueValueLegacy). Otherwise it
+/// just forwards calls along.
+#[derive(Allocative, UnpackVariants)]
+pub(crate) enum DiceComputationsImpl<'a> {
+    Legacy(DiceComputationsImplLegacy<'a>),
+    Modern(ModernComputeCtx<'a>),
 }
 
-impl DiceComputationsImpl {
+impl<'d> DiceComputationsImpl<'d> {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
     pub(crate) fn compute<'a, K>(
-        &'a self,
+        &'a mut self,
         key: &K,
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
@@ -94,7 +101,7 @@ impl DiceComputationsImpl {
     }
 
     pub fn opaque_into_value<'a, K: Key>(
-        &'a self,
+        &'a mut self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
         match self {
@@ -107,30 +114,40 @@ impl DiceComputationsImpl {
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
     pub(crate) fn compute_many<'a, T: 'a>(
-        &'a self,
+        &'a mut self,
         computes: impl IntoIterator<
             Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
-        computes
-            .into_iter()
-            .map(|work| OwningFuture::new(DiceComputations::borrowed(self), work))
-            .collect()
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => delegate
+                .compute_many(computes)
+                .into_map(|v| v.left_future()),
+            DiceComputationsImpl::Modern(delegate) => delegate
+                .compute_many(computes)
+                .into_map(|v| v.right_future()),
+        }
     }
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
-        &'a self,
+        &'a mut self,
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
-        (
-            OwningFuture::new(DiceComputations::borrowed(self), compute1),
-            OwningFuture::new(DiceComputations::borrowed(self), compute2),
-        )
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => {
+                let (a, b) = delegate.compute2(compute1, compute2);
+                (a.left_future(), b.left_future())
+            }
+            DiceComputationsImpl::Modern(delegate) => {
+                let (a, b) = delegate.compute2(compute1, compute2);
+                (a.right_future(), b.right_future())
+            }
+        }
     }
 
     pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
-        &'a self,
+        &'a mut self,
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
         compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
@@ -139,11 +156,30 @@ impl DiceComputationsImpl {
         impl Future<Output = U> + 'a,
         impl Future<Output = V> + 'a,
     ) {
-        (
-            OwningFuture::new(DiceComputations::borrowed(self), compute1),
-            OwningFuture::new(DiceComputations::borrowed(self), compute2),
-            OwningFuture::new(DiceComputations::borrowed(self), compute3),
-        )
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => {
+                let (a, b, c) = delegate.compute3(compute1, compute2, compute3);
+                (a.left_future(), b.left_future(), c.left_future())
+            }
+            DiceComputationsImpl::Modern(delegate) => {
+                let (a, b, c) = delegate.compute3(compute1, compute2, compute3);
+                (a.right_future(), b.right_future(), c.right_future())
+            }
+        }
+    }
+
+    pub(crate) fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
+        &'a mut self,
+        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+    ) -> impl Future<Output = T> + 'a {
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => {
+                delegate.with_linear_recompute(func).left_future()
+            }
+            DiceComputationsImpl::Modern(delegate) => {
+                delegate.with_linear_recompute(func).right_future()
+            }
+        }
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
@@ -184,6 +220,20 @@ impl DiceComputationsImpl {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.get_version(),
             DiceComputationsImpl::Modern(delegate) => delegate.get_version(),
+        }
+    }
+}
+
+pub(crate) enum LinearRecomputeDiceComputationsImpl<'a> {
+    Legacy(LinearRecomputeLegacy<'a>),
+    Modern(LinearRecomputeModern<'a>),
+}
+
+impl LinearRecomputeDiceComputationsImpl<'_> {
+    pub(crate) fn get(&self) -> DiceComputations<'_> {
+        match self {
+            LinearRecomputeDiceComputationsImpl::Legacy(delegate) => delegate.get(),
+            LinearRecomputeDiceComputationsImpl::Modern(delegate) => delegate.get(),
         }
     }
 }

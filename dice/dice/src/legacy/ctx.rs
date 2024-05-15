@@ -10,9 +10,14 @@
 use std::any::Any;
 use std::future::Future;
 use std::sync::Arc;
+use std::thread;
 
 use allocative::Allocative;
+use buck2_futures::owning_future::OwningFuture;
+use dupe::Clone_;
 use dupe::Dupe;
+use dupe::Dupe_;
+use futures::future::BoxFuture;
 use futures::FutureExt;
 use parking_lot::Mutex;
 
@@ -25,6 +30,8 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
+use crate::ctx::DiceComputationsImpl;
+use crate::ctx::LinearRecomputeDiceComputationsImpl;
 use crate::legacy::cycles::CycleDetector;
 use crate::legacy::incremental::dep_trackers::BothDepTrackers;
 use crate::legacy::incremental::dep_trackers::BothDeps;
@@ -41,7 +48,9 @@ use crate::legacy::projection::ProjectionKeyAsKey;
 use crate::legacy::projection::ProjectionKeyProperties;
 use crate::legacy::DiceLegacy;
 use crate::versions::VersionNumber;
+use crate::DiceComputations;
 use crate::DiceError;
+use crate::LinearRecomputeDiceComputations;
 
 /// A context for the duration of a top-level compute request.
 ///
@@ -137,22 +146,29 @@ impl ComputationData {
 /// version. The next version is only committed when the current context is
 /// dropped. context, which means that the "current" context will not see
 /// updated values.
-#[derive(Allocative)]
-pub(crate) struct DiceComputationsImplLegacy {
-    pub(crate) transaction_ctx: Arc<TransactionCtx>,
-    pub(crate) dice: Arc<DiceLegacy>,
-    pub(crate) dep_trackers: BothDepTrackers,
-    pub(crate) extra: ComputationData,
+#[derive(Allocative, Clone_, Dupe_)]
+pub(crate) enum DiceComputationsImplLegacy<'a> {
+    Owned(Arc<Data>),
+    #[allocative(skip)]
+    Borrowed(&'a Data),
 }
 
-impl DiceComputationsImplLegacy {
+#[derive(Allocative)]
+pub(crate) struct Data {
+    transaction_ctx: Arc<TransactionCtx>,
+    dice: Arc<DiceLegacy>,
+    dep_trackers: BothDepTrackers,
+    extra: ComputationData,
+}
+
+impl<'this> DiceComputationsImplLegacy<'this> {
     pub(crate) fn new_transaction(
         dice: Arc<DiceLegacy>,
         version: VersionGuard,
         version_for_writes: VersionForWrites,
         extra: ComputationData,
     ) -> Self {
-        Self {
+        Self::Owned(Arc::new(Data {
             transaction_ctx: Arc::new(TransactionCtx::new(
                 version,
                 version_for_writes,
@@ -162,49 +178,73 @@ impl DiceComputationsImplLegacy {
             dep_trackers: BothDepTrackers::noop(),
             dice: dice.dupe(),
             extra,
-        }
+        }))
     }
 
     pub(crate) fn new_for_key_evaluation(
         dice: Arc<DiceLegacy>,
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
-    ) -> Arc<Self> {
+    ) -> Self {
         // TODO(bobyf): for memory, handle cases where we don't want explicit tracking
-        Arc::new(Self {
+        Self::Owned(Arc::new(Data {
             transaction_ctx,
             dice: dice.dupe(),
             dep_trackers: BothDepTrackers::recording(),
             extra,
-        })
+        }))
     }
 
-    pub(crate) fn finalize(self: Arc<Self>) -> (BothDeps, ComputationData) {
-        // TODO express this via lifetimes
-        let this = Arc::try_unwrap(self).map_err(|_| "The computation lifetime of the `ctx` has ended and there should be no further references to the `Arc`").unwrap();
-
-        (this.dep_trackers.collect_deps(), this.extra)
+    fn data(&self) -> &Data {
+        match self {
+            Self::Owned(x) => x,
+            Self::Borrowed(x) => x,
+        }
     }
 
-    pub(crate) fn compute<'a, K>(
-        self: &'a Arc<Self>,
+    fn borrowed<'a>(&'a self) -> DiceComputationsImplLegacy<'a> {
+        DiceComputationsImplLegacy::Borrowed(self.data())
+    }
+
+    pub(crate) fn finalize(self) -> (BothDeps, ComputationData)
+    where
+        Self: 'static,
+    {
+        match self {
+            DiceComputationsImplLegacy::Owned(data) => {
+                // // TODO express this via lifetimes
+                let this = Arc::try_unwrap(data).map_err(|_| "The computation lifetime of the `ctx` has ended and there should be no further references to the `Arc`").unwrap();
+                (this.dep_trackers.collect_deps(), this.extra)
+            }
+            DiceComputationsImplLegacy::Borrowed(_) => unreachable!(),
+        }
+    }
+
+    pub(crate) fn compute<'b, K>(
+        &'b self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'b
     where
         K: Key,
     {
         // This would be simpler with an `async fn/async move {}`, but we create these for every edge in the computation
         // and many of those may be live at a time, and so we need to take more care and ensure this is fairly small.
-        let cache = self.dice.find_cache::<K>();
-        let extra = self.extra.subrequest::<StoragePropertiesForKey<K>>(key);
+        let cache = self.data().dice.find_cache::<K>();
+        let extra = self
+            .data()
+            .extra
+            .subrequest::<StoragePropertiesForKey<K>>(key);
         match extra {
             Ok(extra) => cache
-                .eval_for_opaque(key, &self.transaction_ctx, extra)
+                .eval_for_opaque(key, &self.data().transaction_ctx, extra)
                 .map(|value| {
                     // Track dependencies.
                     let res = value.val().dupe();
-                    self.dep_trackers
-                        .record(self.transaction_ctx.get_version(), cache, value);
+                    self.data().dep_trackers.record(
+                        self.data().transaction_ctx.get_version(),
+                        cache,
+                        value,
+                    );
                     Ok(res)
                 })
                 .left_future(),
@@ -213,7 +253,7 @@ impl DiceComputationsImplLegacy {
     }
 
     pub(crate) fn compute_opaque<'a, K>(
-        self: &'a Arc<Self>,
+        &'a self,
         key: &K,
     ) -> impl Future<Output = DiceResult<OpaqueValueImplLegacy<K>>> + 'a
     where
@@ -221,15 +261,18 @@ impl DiceComputationsImplLegacy {
     {
         // This would be simpler with an `async fn/async move {}`, but we create these for every edge in the computation
         // and many of those may be live at a time, and so we need to take more care and ensure this is fairly small.
-        let cache = self.dice.find_cache::<K>();
-        let extra = self.extra.subrequest::<StoragePropertiesForKey<K>>(key);
+        let cache = self.data().dice.find_cache::<K>();
+        let extra = self
+            .data()
+            .extra
+            .subrequest::<StoragePropertiesForKey<K>>(key);
         match extra {
             Ok(extra) => cache
-                .eval_for_opaque(key, &self.transaction_ctx, extra)
+                .eval_for_opaque(key, &self.data().transaction_ctx, extra)
                 .map(move |value| {
                     Ok(OpaqueValueImplLegacy::new(
                         value,
-                        self.transaction_ctx.get_version(),
+                        self.data().transaction_ctx.get_version(),
                         cache.dupe(),
                     ))
                 })
@@ -239,14 +282,14 @@ impl DiceComputationsImplLegacy {
     }
 
     pub(crate) fn projection<K: Key, P: ProjectionKey<DeriveFromKey = K>>(
-        self: &Arc<Self>,
+        &self,
         derive_from: &OpaqueValueImplLegacy<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value>
     where
         P: ProjectionKey,
     {
-        let cache = self.dice.find_projection_cache::<P>();
+        let cache = self.data().dice.find_projection_cache::<P>();
 
         let projection_key_as_key = ProjectionKeyAsKey {
             derive_from_key: derive_from.key().clone(),
@@ -254,14 +297,15 @@ impl DiceComputationsImplLegacy {
         };
 
         let extra = self
+            .data()
             .extra
             .subrequest::<ProjectionKeyProperties<P>>(&projection_key_as_key)?;
 
         Ok(cache.eval_projection(
-            &self.dep_trackers,
+            &self.data().dep_trackers,
             &projection_key_as_key,
             derive_from,
-            &self.transaction_ctx,
+            &self.data().transaction_ctx,
             &extra,
         ))
     }
@@ -270,14 +314,67 @@ impl DiceComputationsImplLegacy {
         &'a self,
         derive_from: OpaqueValueImplLegacy<K>,
     ) -> K::Value {
-        let cache = self.dice.find_cache::<K>();
+        let cache = self.data().dice.find_cache::<K>();
         let value = derive_from.value.val().dupe();
 
         // Track dependencies.
-        self.dep_trackers
-            .record(self.transaction_ctx.get_version(), cache, derive_from.value);
+        self.data().dep_trackers.record(
+            self.data().transaction_ctx.get_version(),
+            cache,
+            derive_from.value,
+        );
 
         value
+    }
+
+    /// Computes all the given tasks in parallel, returning an unordered Stream
+    pub(crate) fn compute_many<'a, T: 'a>(
+        &'a self,
+        computes: impl IntoIterator<
+            Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        >,
+    ) -> Vec<impl Future<Output = T> + 'a> {
+        computes
+            .into_iter()
+            .map(|func| OwningFuture::new(self.borrowed().into(), |ctx| func(ctx)))
+            .collect()
+    }
+
+    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        (
+            OwningFuture::new(self.borrowed().into(), |ctx| compute1(ctx)),
+            OwningFuture::new(self.borrowed().into(), |ctx| compute2(ctx)),
+        )
+    }
+
+    pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+    ) -> (
+        impl Future<Output = T> + 'a,
+        impl Future<Output = U> + 'a,
+        impl Future<Output = V> + 'a,
+    ) {
+        (
+            OwningFuture::new(self.borrowed().into(), |ctx| compute1(ctx)),
+            OwningFuture::new(self.borrowed().into(), |ctx| compute2(ctx)),
+            OwningFuture::new(self.borrowed().into(), |ctx| compute3(ctx)),
+        )
+    }
+
+    pub(crate) fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
+        &'a mut self,
+        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+    ) -> impl Future<Output = T> + 'a {
+        func(LinearRecomputeDiceComputations(
+            LinearRecomputeDiceComputationsImpl::Legacy(LinearRecomputeLegacy(self.borrowed())),
+        ))
     }
 
     pub(crate) fn changed<K, I>(&self, changed: I) -> DiceResult<()>
@@ -285,10 +382,10 @@ impl DiceComputationsImplLegacy {
         K: Key,
         I: IntoIterator<Item = K> + Send + Sync + 'static,
     {
-        let mut changes = self.transaction_ctx.changes();
+        let mut changes = self.data().transaction_ctx.changes();
 
         changed.into_iter().try_for_each(|k| {
-            let dice = self.dice.dupe();
+            let dice = self.data().dice.dupe();
             changes.change(
                 k.clone(),
                 Box::new(move |version| {
@@ -307,13 +404,13 @@ impl DiceComputationsImplLegacy {
         K: Key,
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
-        let mut changes = self.transaction_ctx.changes();
+        let mut changes = self.data().transaction_ctx.changes();
 
         changed.into_iter().try_for_each(|(k, v)| {
             if !K::validity(&v) {
                 return Err(DiceError::invalid_change(Arc::new(k)));
             }
-            let dice = self.dice.dupe();
+            let dice = self.data().dice.dupe();
             changes.change(
                 k.clone(),
                 Box::new(move |version| {
@@ -327,65 +424,89 @@ impl DiceComputationsImplLegacy {
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     /// This can only be called when the this is the only node remaining in the computation graph
-    pub(crate) fn commit(self: Arc<Self>) -> Arc<DiceComputationsImplLegacy> {
-        // TODO need to clean up these ctxs so we have less runtime errors from Arc references
-        let this = Arc::try_unwrap(self)
-            .map_err(|_| "Error: tried to commit when there are more references")
-            .unwrap();
-        let eval = Arc::try_unwrap(this.transaction_ctx)
-            .map_err(|_| "Error: tried to commit when there are more references")
-            .unwrap();
+    pub(crate) async fn commit(self) -> DiceComputations<'static>
+    where
+        Self: 'static,
+    {
+        match self {
+            DiceComputationsImplLegacy::Owned(data) => {
+                // TODO need to clean up these ctxs so we have less runtime errors from Arc references
+                let this = Arc::try_unwrap(data)
+                    .map_err(|_| "Error: tried to commit when there are more references")
+                    .unwrap();
+                let eval = Arc::try_unwrap(this.transaction_ctx)
+                    .map_err(|_| "Error: tried to commit when there are more references")
+                    .unwrap();
 
-        // hold onto the prev version until we get the new one below so we don't increment minor
-        // version needlessly.
-        let _prev_v = eval.commit();
+                // hold onto the prev version until we get the new one below so we don't increment minor
+                // version needlessly.
+                let _prev_v = eval.commit();
 
-        this.dice.make_ctx(this.extra)
+                DiceComputations(DiceComputationsImpl::Legacy(this.dice.make_ctx(this.extra)))
+            }
+            DiceComputationsImplLegacy::Borrowed(_) => unreachable!(),
+        }
     }
 
     /// Same as `commit`, but replacing the user data with the given
-    pub(crate) fn commit_with_data(
-        self: Arc<Self>,
+    pub(crate) async fn commit_with_data(
+        self,
         extra: UserComputationData,
-    ) -> Arc<DiceComputationsImplLegacy> {
-        // TODO need to clean up these ctxs so we have less runtime errors from Arc references
-        let mut this = Arc::try_unwrap(self)
-            .map_err(|_| "Error: tried to commit when there are more references")
-            .unwrap();
-        let eval = Arc::try_unwrap(this.transaction_ctx)
-            .map_err(|_| "Error: tried to commit when there are more references")
-            .unwrap();
+    ) -> DiceComputations<'static> {
+        match self {
+            DiceComputationsImplLegacy::Owned(data) => {
+                // TODO need to clean up these ctxs so we have less runtime errors from Arc references
+                let mut this = Arc::try_unwrap(data)
+                    .map_err(|_| "Error: tried to commit when there are more references")
+                    .unwrap();
+                let eval = Arc::try_unwrap(this.transaction_ctx)
+                    .map_err(|_| "Error: tried to commit when there are more references")
+                    .unwrap();
 
-        // hold onto the prev version until we get the new one below so we don't increment minor
-        // version needlessly.
-        let _prev_v = eval.commit();
+                // hold onto the prev version until we get the new one below so we don't increment minor
+                // version needlessly.
+                let _prev_v = eval.commit();
 
-        this.dice.make_ctx(ComputationData {
-            user_data: Arc::new(extra),
-            cycle_detector: this.extra.cycle_detector.take(),
-            user_cycle_detector_guard: None,
-            evaluation_data: Mutex::new(None),
-        })
+                DiceComputations(DiceComputationsImpl::Legacy(this.dice.make_ctx(
+                    ComputationData {
+                        user_data: Arc::new(extra),
+                        cycle_detector: this.extra.cycle_detector.take(),
+                        user_cycle_detector_guard: None,
+                        evaluation_data: Mutex::new(None),
+                    },
+                )))
+            }
+            DiceComputationsImplLegacy::Borrowed(_) => unreachable!(),
+        }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.transaction_ctx.get_version()
+        self.data().transaction_ctx.get_version()
     }
 
-    pub(crate) fn unstable_take(self: &Arc<Self>) -> DiceMap {
-        self.dice.unstable_take()
+    pub(crate) fn unstable_take(&self) -> DiceMap {
+        self.data().dice.unstable_take()
+    }
+
+    pub(crate) fn unstable_clear(&self) {
+        let map = self.unstable_take();
+        // Destructors can be slow, so we do this in a separate thread.
+        thread::Builder::new()
+            .name("dice-legacy-take-drop".to_owned())
+            .spawn(|| drop(map))
+            .expect("failed to spawn thread");
     }
 
     pub(crate) fn global_data(&self) -> &DiceData {
-        &self.dice.data
+        &self.data().dice.data
     }
 
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        &self.extra.user_data
+        &self.data().extra.user_data
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
-        match &self.extra.user_cycle_detector_guard {
+        match &self.data().extra.user_cycle_detector_guard {
             None => Ok(None),
             Some(guard) => match guard.dupe().as_any_arc().downcast() {
                 Ok(guard) => Ok(Some(guard)),
@@ -400,12 +521,26 @@ impl DiceComputationsImplLegacy {
     }
 
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
-        let mut evaluation_data = self.extra.evaluation_data.lock();
+        let mut evaluation_data = self.data().extra.evaluation_data.lock();
         if evaluation_data.is_some() {
             return Err(DiceError::duplicate_activation_data());
         }
         *evaluation_data = Some(Box::new(value) as _);
         Ok(())
+    }
+}
+
+impl<'a> From<DiceComputationsImplLegacy<'a>> for DiceComputations<'a> {
+    fn from(value: DiceComputationsImplLegacy<'a>) -> Self {
+        DiceComputations(DiceComputationsImpl::Legacy(value))
+    }
+}
+
+pub(crate) struct LinearRecomputeLegacy<'a>(DiceComputationsImplLegacy<'a>);
+
+impl LinearRecomputeLegacy<'_> {
+    pub(crate) fn get(&self) -> DiceComputations<'_> {
+        self.0.borrowed().into()
     }
 }
 
@@ -422,11 +557,11 @@ pub(crate) mod testing {
         fn get_minor_version(&self) -> MinorVersion;
     }
 
-    impl DiceCtxExt for DiceComputationsImpl {
+    impl DiceCtxExt for DiceComputationsImpl<'_> {
         fn get_minor_version(&self) -> MinorVersion {
             match self {
                 DiceComputationsImpl::Legacy(delegate) => {
-                    delegate.transaction_ctx.get_minor_version()
+                    delegate.data().transaction_ctx.get_minor_version()
                 }
                 DiceComputationsImpl::Modern(_delegate) => {
                     unimplemented!("todo")
@@ -438,7 +573,7 @@ pub(crate) mod testing {
     impl DiceCtxExt for DiceTransactionImpl {
         fn get_minor_version(&self) -> MinorVersion {
             match self {
-                DiceTransactionImpl::Legacy(delegate) => delegate.inner().get_minor_version(),
+                DiceTransactionImpl::Legacy(delegate) => delegate.0.get_minor_version(),
                 DiceTransactionImpl::Modern(_delegate) => {
                     unimplemented!("todo")
                 }

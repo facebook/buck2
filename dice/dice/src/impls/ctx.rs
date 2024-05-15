@@ -13,12 +13,13 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_futures::owning_future::OwningFuture;
 use derivative::Derivative;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::FutureExt;
 use futures::TryFutureExt;
 use parking_lot::Mutex;
-use parking_lot::MutexGuard;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
@@ -28,6 +29,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::ctx::LinearRecomputeDiceComputationsImpl;
 use crate::impls::cache::DiceTaskRef;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::state::CoreStateHandle;
@@ -60,34 +62,34 @@ use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::DiceTransactionUpdater;
 use crate::HashSet;
+use crate::LinearRecomputeDiceComputations;
 use crate::UserCycleDetectorGuard;
 
 /// Context that is the base for which all requests start from
 #[derive(Allocative)]
-pub(crate) struct BaseComputeCtx<'a> {
+pub(crate) struct BaseComputeCtx {
     // we need to give off references of `DiceComputation` so hold this for now, but really once we
     // get rid of the enum, we just hold onto the base data directly and do some ref casts
-    data: DiceComputations<'a>,
+    data: DiceComputations<'static>,
     live_version_guard: ActiveTransactionGuard,
 }
 
-impl Clone for BaseComputeCtx<'_> {
+impl Clone for BaseComputeCtx {
     fn clone(&self) -> Self {
-        Self {
-            data: match &self.data.inner() {
-                DiceComputationsImpl::Legacy(_) => {
-                    unreachable!("wrong dice")
-                }
-                modern => DiceComputations::new((*modern).clone()),
-            },
-            live_version_guard: self.live_version_guard.dupe(),
+        match &self.data.0 {
+            DiceComputationsImpl::Legacy(_) => {
+                unreachable!("wrong dice")
+            }
+            DiceComputationsImpl::Modern(modern) => {
+                BaseComputeCtx::clone_for(modern, self.live_version_guard.dupe())
+            }
         }
     }
 }
 
-impl Dupe for BaseComputeCtx<'_> {}
+impl Dupe for BaseComputeCtx {}
 
-impl<'a> BaseComputeCtx<'a> {
+impl BaseComputeCtx {
     pub(crate) fn new(
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
@@ -95,52 +97,60 @@ impl<'a> BaseComputeCtx<'a> {
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
-            data: DiceComputations::new(DiceComputationsImpl::Modern(Arc::new(
-                ModernComputeCtx::new(
-                    ParentKey::None,
+            data: DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::new(
+                ParentKey::None,
+                KeyComputingUserCycleDetectorData::Untracked,
+                AsyncEvaluator {
                     per_live_version_ctx,
                     user_data,
                     dice,
-                    KeyComputingUserCycleDetectorData::Untracked,
-                ),
+                },
+            ))),
+            live_version_guard,
+        }
+    }
+
+    fn clone_for(
+        modern: &ModernComputeCtx<'_>,
+        live_version_guard: ActiveTransactionGuard,
+    ) -> BaseComputeCtx {
+        Self {
+            data: DiceComputations(DiceComputationsImpl::Modern(ModernComputeCtx::new(
+                ParentKey::None,
+                KeyComputingUserCycleDetectorData::Untracked,
+                modern.ctx_data().async_evaluator.clone(),
             ))),
             live_version_guard,
         }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.data.inner().get_version()
+        self.data.0.get_version()
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(
-            match self
-                .data
-                .try_into_inner()
-                .expect("base compute ctx should have a DiceComputations::Owned")
-            {
-                DiceComputationsImpl::Legacy(_) => unreachable!("modern dice"),
-                DiceComputationsImpl::Modern(delegate) => DiceTransactionUpdaterImpl::Modern(
-                    delegate.into_owned().unwrap().into_updater(),
-                ),
-            },
-        )
+        DiceTransactionUpdater(match self.data.0 {
+            DiceComputationsImpl::Legacy(_) => unreachable!("modern dice"),
+            DiceComputationsImpl::Modern(delegate) => {
+                DiceTransactionUpdaterImpl::Modern(delegate.into_updater())
+            }
+        })
     }
 
-    pub(crate) fn as_computations(&self) -> &DiceComputations<'a> {
+    pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
         &self.data
     }
 
-    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'a> {
+    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'static> {
         &mut self.data
     }
 }
 
-impl Deref for BaseComputeCtx<'_> {
-    type Target = ModernComputeCtx;
+impl Deref for BaseComputeCtx {
+    type Target = ModernComputeCtx<'static>;
 
     fn deref(&self) -> &Self::Target {
-        match &self.data.inner() {
+        match &self.data.0 {
             DiceComputationsImpl::Legacy(_) => {
                 unreachable!("legacy dice instead of modern")
             }
@@ -149,7 +159,7 @@ impl Deref for BaseComputeCtx<'_> {
     }
 }
 
-impl ModernComputeCtx {
+impl<'d> ModernComputeCtx<'d> {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
@@ -159,6 +169,7 @@ impl ModernComputeCtx {
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
         K: Key,
+        Self: 'a,
     {
         self.compute_opaque(key)
             .map(|r| r.map(|opaque| self.opaque_into_value(opaque)))
@@ -175,7 +186,7 @@ impl ModernComputeCtx {
     where
         K: Key,
     {
-        self.ctx_data
+        self.ctx_data()
             .compute_opaque(key)
             .map(move |cancellable_result| {
                 let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
@@ -186,8 +197,58 @@ impl ModernComputeCtx {
             })
     }
 
+    /// Computes all the given tasks in parallel, returning an unordered Stream
+    pub(crate) fn compute_many<'a, T: 'a>(
+        &'a self,
+        computes: impl IntoIterator<
+            Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        >,
+    ) -> Vec<impl Future<Output = T> + 'a> {
+        computes
+            .into_iter()
+            .map(|func| OwningFuture::new(self.borrowed().into(), |ctx| func(ctx)))
+            .collect()
+    }
+
+    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        (
+            OwningFuture::new(self.borrowed().into(), |ctx| compute1(ctx)),
+            OwningFuture::new(self.borrowed().into(), |ctx| compute2(ctx)),
+        )
+    }
+
+    pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
+        &'a self,
+        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+    ) -> (
+        impl Future<Output = T> + 'a,
+        impl Future<Output = U> + 'a,
+        impl Future<Output = V> + 'a,
+    ) {
+        (
+            OwningFuture::new(self.borrowed().into(), |ctx| compute1(ctx)),
+            OwningFuture::new(self.borrowed().into(), |ctx| compute2(ctx)),
+            OwningFuture::new(self.borrowed().into(), |ctx| compute3(ctx)),
+        )
+    }
+
+    pub(crate) fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
+        &'a mut self,
+        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+    ) -> impl Future<Output = T> + 'a {
+        func(LinearRecomputeDiceComputations(
+            LinearRecomputeDiceComputationsImpl::Modern(LinearRecomputeModern(self.borrowed())),
+        ))
+    }
+
     pub fn opaque_into_value<'a, K: Key>(&'a self, opaque: OpaqueValueModern<K>) -> K::Value {
-        self.dep_trackers
+        self.dep_trackers()
             .lock()
             .record(opaque.derive_from_key, opaque.derive_from.validity());
 
@@ -199,11 +260,32 @@ impl ModernComputeCtx {
     }
 }
 
+impl<'a> From<ModernComputeCtx<'a>> for DiceComputations<'a> {
+    fn from(value: ModernComputeCtx<'a>) -> Self {
+        DiceComputations(DiceComputationsImpl::Modern(value))
+    }
+}
+
+pub(crate) struct LinearRecomputeModern<'a>(ModernComputeCtx<'a>);
+
+impl LinearRecomputeModern<'_> {
+    pub(crate) fn get(&self) -> DiceComputations<'_> {
+        self.0.borrowed().into()
+    }
+}
+
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative)]
-pub(crate) struct ModernComputeCtx {
-    dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
+pub(crate) enum ModernComputeCtx<'a> {
+    Owned(Data),
+    #[allocative(skip)]
+    Borrowed(&'a Data),
+}
+
+#[derive(Allocative)]
+pub(crate) struct Data {
     ctx_data: CoreCtx,
+    dep_trackers: Mutex<RecordingDepsTracker>,
 }
 
 #[derive(Allocative)]
@@ -217,33 +299,7 @@ struct CoreCtx {
     evaluation_data: Mutex<EvaluationData>,
 }
 
-impl ModernComputeCtx {
-    pub(crate) fn new(
-        parent_key: ParentKey,
-        per_live_version_ctx: SharedLiveTransactionCtx,
-        user_data: Arc<UserComputationData>,
-        dice: Arc<DiceModern>,
-        cycles: KeyComputingUserCycleDetectorData,
-    ) -> Self {
-        Self {
-            dep_trackers: Mutex::new(RecordingDepsTracker::new()),
-            ctx_data: CoreCtx {
-                async_evaluator: AsyncEvaluator {
-                    per_live_version_ctx,
-                    user_data,
-                    dice,
-                },
-                parent_key,
-                cycles,
-                evaluation_data: Mutex::new(EvaluationData::none()),
-            },
-        }
-    }
-
-    pub(crate) fn into_owned(self: Arc<Self>) -> Option<Self> {
-        Arc::into_inner(self)
-    }
-
+impl ModernComputeCtx<'static> {
     pub(crate) fn finalize(
         self,
     ) -> (
@@ -251,12 +307,57 @@ impl ModernComputeCtx {
         EvaluationData,
         KeyComputingUserCycleDetectorData,
     ) {
-        let data = self.ctx_data;
-        (
-            self.dep_trackers.into_inner().collect_deps(),
-            data.evaluation_data.into_inner(),
-            data.cycles,
-        )
+        match self {
+            ModernComputeCtx::Borrowed(..) => unreachable!(),
+            ModernComputeCtx::Owned(v) => {
+                let data = v.ctx_data;
+                (
+                    v.dep_trackers.into_inner().collect_deps(),
+                    data.evaluation_data.into_inner(),
+                    data.cycles,
+                )
+            }
+        }
+    }
+
+    pub(crate) fn into_updater(self) -> TransactionUpdater {
+        match self {
+            ModernComputeCtx::Owned(v) => v.ctx_data.into_updater(),
+            ModernComputeCtx::Borrowed(_) => unreachable!(),
+        }
+    }
+}
+
+impl ModernComputeCtx<'_> {
+    pub(crate) fn new(
+        parent_key: ParentKey,
+        cycles: KeyComputingUserCycleDetectorData,
+        async_evaluator: AsyncEvaluator,
+    ) -> ModernComputeCtx<'static> {
+        ModernComputeCtx::Owned(Data {
+            dep_trackers: Mutex::new(RecordingDepsTracker::new()),
+            ctx_data: CoreCtx {
+                async_evaluator,
+                parent_key,
+                cycles,
+                evaluation_data: Mutex::new(EvaluationData::none()),
+            },
+        })
+    }
+
+    fn borrowed<'a>(&'a self) -> ModernComputeCtx<'a> {
+        ModernComputeCtx::Borrowed(self.data())
+    }
+
+    fn data(&self) -> &Data {
+        match self {
+            ModernComputeCtx::Owned(data) => data,
+            ModernComputeCtx::Borrowed(data) => data,
+        }
+    }
+
+    fn ctx_data(&self) -> &CoreCtx {
+        &self.data().ctx_data
     }
 
     /// Compute "projection" based on deriving value
@@ -265,18 +366,18 @@ impl ModernComputeCtx {
         derive_from: &OpaqueValueModern<K>,
         key: &P,
     ) -> DiceResult<P::Value> {
-        self.ctx_data.project(
+        self.ctx_data().project(
             key,
             derive_from.derive_from_key,
             derive_from.derive_from.dupe(),
-            &self.dep_trackers,
+            self.dep_trackers(),
         )
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
-        self.ctx_data.global_data()
+        self.ctx_data().global_data()
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -284,31 +385,30 @@ impl ModernComputeCtx {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        self.ctx_data.per_transaction_data()
+        self.ctx_data().per_transaction_data()
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.ctx_data.get_version()
-    }
-
-    pub(crate) fn into_updater(self) -> TransactionUpdater {
-        self.ctx_data.into_updater()
+        self.ctx_data().get_version()
     }
 
     #[allow(unused)] // used in test
-    pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {
-        self.dep_trackers.lock()
+    pub(super) fn dep_trackers(&self) -> &Mutex<RecordingDepsTracker> {
+        match self {
+            ModernComputeCtx::Owned(d) => &d.dep_trackers,
+            ModernComputeCtx::Borrowed(d) => &d.dep_trackers,
+        }
     }
 
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
         &self,
         value: T,
     ) -> DiceResult<()> {
-        self.ctx_data.store_evaluation_data(value)
+        self.ctx_data().store_evaluation_data(value)
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
-        self.ctx_data.cycle_guard()
+        self.ctx_data().cycle_guard()
     }
 }
 

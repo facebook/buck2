@@ -21,6 +21,7 @@ use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::ctx::LinearRecomputeDiceComputationsImpl;
 use crate::ProjectionKey;
 use crate::UserCycleDetectorGuard;
 
@@ -33,18 +34,7 @@ use crate::UserCycleDetectorGuard;
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
 #[derive(Allocative)]
-pub struct DiceComputations<'a>(DiceComputationsKind<'a>);
-
-// separate because we don't want the cases to be pub.
-#[derive(Allocative)]
-enum DiceComputationsKind<'a> {
-    // Used by the initial DiceComputations that a key sees (or when created for a transaction).
-    Owned(DiceComputationsImpl),
-
-    // Used for cases where we create a "sub-computations" for the initial computation, like in compute_many or compute2.
-    #[allocative(skip)]
-    Borrowed(&'a DiceComputationsImpl),
-}
+pub struct DiceComputations<'a>(pub(crate) DiceComputationsImpl<'a>);
 
 fn _test_computations_sync_send() {
     fn _assert_sync_send<T: Sync + Send>() {}
@@ -52,28 +42,6 @@ fn _test_computations_sync_send() {
 }
 
 impl<'d> DiceComputations<'d> {
-    pub(crate) fn borrowed(inner: &'d DiceComputationsImpl) -> Self {
-        DiceComputations(DiceComputationsKind::Borrowed(inner))
-    }
-
-    pub(crate) fn new(inner: DiceComputationsImpl) -> Self {
-        DiceComputations(DiceComputationsKind::Owned(inner))
-    }
-
-    pub(crate) fn inner(&self) -> &DiceComputationsImpl {
-        match &self.0 {
-            DiceComputationsKind::Owned(v) => &v,
-            DiceComputationsKind::Borrowed(v) => v,
-        }
-    }
-
-    pub(crate) fn try_into_inner(self) -> Option<DiceComputationsImpl> {
-        match self.0 {
-            DiceComputationsKind::Owned(v) => Some(v),
-            DiceComputationsKind::Borrowed(_) => None,
-        }
-    }
-
     /// Gets the result of the given computation key.
     /// Record dependencies of the current computation for which this
     /// context is for.
@@ -84,7 +52,7 @@ impl<'d> DiceComputations<'d> {
     where
         K: Key,
     {
-        self.inner().compute(key)
+        self.0.compute(key)
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -98,7 +66,7 @@ impl<'d> DiceComputations<'d> {
     where
         K: Key,
     {
-        self.inner().compute_opaque(key)
+        self.0.compute_opaque(key)
     }
 
     pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
@@ -106,14 +74,14 @@ impl<'d> DiceComputations<'d> {
         derive_from: &OpaqueValue<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value> {
-        self.inner().projection(derive_from, projection_key)
+        self.0.projection(derive_from, projection_key)
     }
 
     pub fn opaque_into_value<'a, K: Key>(
         &'a mut self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
-        self.inner().opaque_into_value(derive_from)
+        self.0.opaque_into_value(derive_from)
     }
 
     /// DiceComputations &mut-based api can make some computations much more complex to express, but without it
@@ -151,9 +119,7 @@ impl<'d> DiceComputations<'d> {
         &'a mut self,
         func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
     ) -> impl Future<Output = T> + 'a {
-        func(LinearRecomputeDiceComputations(DiceComputations::borrowed(
-            self.inner(),
-        )))
+        self.0.with_linear_recompute(func)
     }
 
     /// Creates computation Futures for all the given tasks.
@@ -179,7 +145,7 @@ impl<'d> DiceComputations<'d> {
             Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
-        self.inner().compute_many(computes)
+        self.0.compute_many(computes)
     }
 
     /// Maps the items into computation futures and joins on them.
@@ -249,7 +215,7 @@ impl<'d> DiceComputations<'d> {
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
-        self.inner().compute2(compute1, compute2)
+        self.0.compute2(compute1, compute2)
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream.
@@ -265,7 +231,7 @@ impl<'d> DiceComputations<'d> {
         impl Future<Output = U> + 'a,
         impl Future<Output = V> + 'a,
     ) {
-        self.inner().compute3(compute1, compute2, compute3)
+        self.0.compute3(compute1, compute2, compute3)
     }
 
     /// Used to declare a higher order closure for compute_join and try_compute_join.
@@ -294,7 +260,7 @@ impl<'d> DiceComputations<'d> {
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub fn global_data(&self) -> &DiceData {
-        self.inner().global_data()
+        self.0.global_data()
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -302,27 +268,26 @@ impl<'d> DiceComputations<'d> {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub fn per_transaction_data(&self) -> &UserComputationData {
-        self.inner().per_transaction_data()
+        self.0.per_transaction_data()
     }
 
     /// Gets the current cycle guard if its set. If it's set but a different type, an error will be returned.
     pub fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
-        self.inner().cycle_guard()
+        self.0.cycle_guard()
     }
 
     /// Store some extra data that the ActivationTracker will receive if / when this key finishes
     /// executing.
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
-        self.inner().store_evaluation_data(value)
+        self.0.store_evaluation_data(value)
     }
 }
 
-pub struct LinearRecomputeDiceComputations<'a>(DiceComputations<'a>);
+pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeDiceComputationsImpl<'a>);
 
 impl LinearRecomputeDiceComputations<'_> {
     pub fn get(&self) -> DiceComputations<'_> {
-        // for now, we don't actually record deps in any detail so we just cheap in the implementation here.
-        DiceComputations::borrowed(self.0.inner())
+        self.0.get()
     }
 }
 

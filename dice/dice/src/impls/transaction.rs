@@ -90,7 +90,7 @@ impl TransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) async fn commit<'a>(self) -> BaseComputeCtx<'a> {
+    pub(crate) async fn commit<'a>(self) -> BaseComputeCtx {
         let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
 
@@ -101,10 +101,7 @@ impl TransactionUpdater {
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub(crate) async fn commit_with_data<'a>(
-        self,
-        extra: UserComputationData,
-    ) -> BaseComputeCtx<'a> {
+    pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> BaseComputeCtx {
         let dice = self.dice.dupe();
 
         let (transaction, guard) = self.commit_to_state().await;
@@ -112,7 +109,7 @@ impl TransactionUpdater {
         BaseComputeCtx::new(transaction, Arc::new(extra), dice, guard)
     }
 
-    pub(crate) async fn existing_state(&self) -> BaseComputeCtx<'static> {
+    pub(crate) async fn existing_state(&self) -> BaseComputeCtx {
         let (tx, rx) = oneshot::channel();
         self.dice
             .state_handle

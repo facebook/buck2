@@ -20,18 +20,18 @@ use crate::DiceTransactionUpdater;
 #[derive(Allocative)]
 pub(crate) enum DiceTransactionImpl {
     Legacy(DiceComputations<'static>),
-    Modern(BaseComputeCtx<'static>),
+    Modern(BaseComputeCtx),
 }
 
 impl Clone for DiceTransactionImpl {
     fn clone(&self) -> Self {
         match self {
-            DiceTransactionImpl::Legacy(ctx) => match &ctx.inner() {
+            DiceTransactionImpl::Legacy(ctx) => match &ctx.0 {
                 // since 'DiceComputations' should not be clone or dupe, we manually implement
                 // clone and dupe for the 'DiceTransaction'
-                DiceComputationsImpl::Legacy(ctx) => DiceTransactionImpl::Legacy(
-                    DiceComputations::new(DiceComputationsImpl::Legacy(ctx.dupe())),
-                ),
+                DiceComputationsImpl::Legacy(ctx) => DiceTransactionImpl::Legacy(DiceComputations(
+                    DiceComputationsImpl::Legacy(ctx.dupe()),
+                )),
                 DiceComputationsImpl::Modern(_) => {
                     unreachable!("wrong dice")
                 }
@@ -46,16 +46,16 @@ impl Dupe for DiceTransactionImpl {}
 impl DiceTransactionImpl {
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
-            DiceTransactionImpl::Legacy(ctx) => ctx.inner().get_version(),
+            DiceTransactionImpl::Legacy(ctx) => ctx.0.get_version(),
             DiceTransactionImpl::Modern(ctx) => ctx.get_version(),
         }
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
         match self {
-            DiceTransactionImpl::Legacy(delegate) => match delegate.inner() {
+            DiceTransactionImpl::Legacy(delegate) => match delegate.0 {
                 DiceComputationsImpl::Legacy(ctx) => {
-                    DiceTransactionUpdater(DiceTransactionUpdaterImpl::Legacy(ctx.dupe()))
+                    DiceTransactionUpdater(DiceTransactionUpdaterImpl::Legacy(ctx))
                 }
                 DiceComputationsImpl::Modern(_) => {
                     unreachable!("legacy dice")

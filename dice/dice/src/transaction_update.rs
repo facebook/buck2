@@ -8,8 +8,6 @@
  */
 
 use std::future::Future;
-use std::sync::Arc;
-use std::thread;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -29,7 +27,7 @@ use crate::DiceTransaction;
 /// to DICE, which returns the Transaction where we spawn computations.
 #[derive(Allocative)]
 pub(crate) enum DiceTransactionUpdaterImpl {
-    Legacy(Arc<DiceComputationsImplLegacy>),
+    Legacy(DiceComputationsImplLegacy<'static>),
     #[allow(unused)]
     Modern(TransactionUpdater),
 }
@@ -39,7 +37,7 @@ impl DiceTransactionUpdaterImpl {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
                 futures::future::ready(DiceTransaction(DiceTransactionImpl::Legacy(
-                    DiceComputations::new(DiceComputationsImpl::Legacy(ctx.dupe())),
+                    DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
                 )))
                 .left_future()
             }
@@ -84,12 +82,10 @@ impl DiceTransactionUpdaterImpl {
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     pub(crate) fn commit(self) -> impl Future<Output = DiceTransaction> {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => {
-                futures::future::ready(DiceTransaction(DiceTransactionImpl::Legacy(
-                    DiceComputations::new(DiceComputationsImpl::Legacy(ctx.commit())),
-                )))
-                .left_future()
-            }
+            DiceTransactionUpdaterImpl::Legacy(delegate) => delegate
+                .commit()
+                .map(|x| DiceTransaction(DiceTransactionImpl::Legacy(x)))
+                .left_future(),
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .commit()
                 .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x)))
@@ -104,12 +100,10 @@ impl DiceTransactionUpdaterImpl {
         extra: UserComputationData,
     ) -> impl Future<Output = DiceTransaction> {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => futures::future::ready(DiceTransaction(
-                DiceTransactionImpl::Legacy(DiceComputations::new(DiceComputationsImpl::Legacy(
-                    ctx.commit_with_data(extra),
-                ))),
-            ))
-            .left_future(),
+            DiceTransactionUpdaterImpl::Legacy(delegate) => delegate
+                .commit_with_data(extra)
+                .map(|x| DiceTransaction(DiceTransactionImpl::Legacy(x)))
+                .left_future(),
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .commit_with_data(extra)
                 .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x)))
@@ -118,21 +112,15 @@ impl DiceTransactionUpdaterImpl {
     }
 
     /// Clears the entire DICE state. The dropping of values from memory happens asynchronously.
+    // TODO(cjhopman): Why is this named take when it doesn't return the taken data? It should be named clear.
     pub fn unstable_take(self) -> Self {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => {
-                let map = ctx.unstable_take();
-                // Destructors can be slow, so we do this in a separate thread.
-                thread::Builder::new()
-                    .name("dice-legacy-take-drop".to_owned())
-                    .spawn(|| drop(map))
-                    .expect("failed to spawn thread");
-
-                DiceTransactionUpdaterImpl::Legacy(ctx)
+            DiceTransactionUpdaterImpl::Legacy(delegate) => {
+                delegate.unstable_clear();
+                DiceTransactionUpdaterImpl::Legacy(delegate)
             }
             DiceTransactionUpdaterImpl::Modern(delegate) => {
                 delegate.unstable_take();
-
                 DiceTransactionUpdaterImpl::Modern(delegate)
             }
         }
