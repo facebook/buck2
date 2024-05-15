@@ -7,15 +7,143 @@
  * of this source tree.
  */
 
-//!
 //! A cache that deals with versions
 //!
 //! This is responsible for performing incremental caching and invalidations
 //! with multiple versions in-flight at the same time.
 //!
-//! The 'VersionedCache' will track dependency edges and use computed version
+//! The 'VersionedGraph' will track dependency edges and use computed version
 //! number for each cache entry and a global version counter to determine
 //! up-to-date-ness of cache entries.
+//!
+//! TODO(cjhopman): Some of the documentation below indicates intended or future behavior. The intent
+//! is that this documentation describes a "correct" implementation of VersionedGraph as we want it
+//! to be, the implementation is still being updated to match it. This TODO should be removed when
+//! we've matched this behavior.
+//!
+//! Behavior:
+//!
+//! There's two main operations that the storage needs to support:
+//!
+//! (Op. 1) getting the value of a key (X) at a particular version, this happens one of three ways:
+//!    (1.1): X has no previous value present: the new value is computed
+//!    (1.2): X has a previous value present and it is known to be valid at that version: use the existing value
+//!    (1.3): X has a previous value present and it is invalidated at that version
+//!      (1.3a): if X's deps' values have not changed since some version where X's stored value was present, reuse the existing value
+//!      (1.3b): if any of X's deps values have changed, recompute the value
+//! (Op. 2) processing invalidations being receieved (only at the most recent version)
+//!
+//! To support these operations, nodes store
+//!  (i) computed values
+//!  (ii) the seriesparalleldeps for that computed value
+//!  (iii) a cellhistory indicating at what versions both (1)+(2) are known to be valid (and so at which they've been dirtied)
+//!  (iv) the non-invalidated most recent reverse dependencies.
+//!
+//! A node may store multiple computed values (and so also multiple (ii) and (iii)) at different versions. Nodes for InjectedKeys, for
+//! example, will store all values that they ever see (as we cannot recompute ones that we drop).
+//!
+//! A node will not know about invalidations outside of its valid cell history.
+//!
+//! For example, consider a scenario with a node A depends on B and this sequence:
+//! at v1, A is computed (and so B is as well)
+//! at v2, B is invalidated, A will also be invalidated
+//! at v2, B is then computed (but not A)
+//! at v3, B is invalidated.
+//!
+//! After this sequence, A will not have been informed of the invalidation at v3.
+//! If A is then computed at v2, we will do "deferred dirty propagation" to
+//! inform it of the dirty at v3 (if appropriate).
+//!
+//! For (Op. 2) invalidations: Invalidations can start at both leaf and non-leaf nodes. An invalidation only happens at
+//! the maximum version. Invalidation of a node does roughly:
+//!
+//! ```ignore
+//! // returns a set of keys that also need to be invalidated
+//! invalidate(node, version) -> Vec<Key> {
+//!     if already dirtied? { return vec![] }
+//!     mark_dirty(node, version);
+//!     return take(&mut node.rdeps);
+//! }
+//! ```
+//!
+//! rdeps are stored only for invalidation. Together, this means that a node only needs to stores
+//! rdeps for its latest version and only until being invalidated.
+//!
+//! For (Op. 1) get/compute, there's a couple of non-trivial steps:
+//!
+//! Consider `get(key=K, version=V)`:
+//! 1. node lookup: will lookup the node for key K, if it's not present, it needs to be computed (so skip (2)),
+//!   if it is present and valid at V it can be directly reused (and we skip everything else, including 4 as
+//!   there's no state to update).
+//! 2. deps check: this will try to determine if we can reuse the cached (but dirtied) value for a node. First,
+//!   we have the node for key K with a potential value+deps and cell-history H. We will check the latest version
+//!   in H less than V (call this VP). For each dep Dn, we will get it's history at V and check if it also includes
+//!   ther version VP (i.e. Dn had the same value at VP as it does at V). If all deps pass that  check, we can reuse
+//!   K's value from version VP.
+//! 3. re-compute: the VersionedGraph doesn't care much about this, it's just a normal non-cached compute
+//! 4. update state: for a value+deps we are storing we have two associated things to make sure are
+//!   up-to-date: (i) the corresponding cell-history and (ii) the rdeps of the node's dependencies.
+//!   (i) has two parts: first determine the initial cell history from the node, there's two cases:
+//!       a. value is valid from checkdeps: in this case, we'll get a version VP (from (2) above) that indicates
+//!         the version at which we've checked the deps didn't change. we can reuse the cell history for the node
+//!         at version VP.
+//!       b. value has been recomputed. we can reuse the cell-history for the node if both its value and its deps
+//!         are equal to the new value+deps.
+//!   If there's no cell-history to reuse (maybe because a newer computation has evicted the associated data), we only
+//!   know that the value+deps are valid at exactly `[V, V+1)` (i.e. just at version V).
+//!   second, we determine the set of versions at which we know the deps have the same value as at the version
+//!   we are computing (V). This is just an intersection of their cell-histories at that version.
+//!   The final valid cell-history is the union of these two.
+//!   (ii) is easier, we just tell each dep node to record the rdep at the version we are computing. If the rdep has already seen a
+//!   dirty at a later version, it does not need to record the rdep (and our computing of (i) will reflect that dirty).
+//!
+//! Code structure:
+//!
+//! This is structured so that VersionedGraphNode is mostly responsible for the parts of these operations
+//! that are specific to a specific node and that VersionedGraph is responsible for the rest (so things
+//! crossing multiple nodes, managing the map of nodes, dealing with nodes not yet being in the map, etc.).
+//!
+//! Potential improvements:
+//!
+//! 1. We could decouple the cell history for (i) and (ii). Right now, if
+//! the list of deps changes but the computed value stays the same, we don't record that dependents could
+//! reuse the value across the two versions.
+//!
+//! 2. For the deps check, instead of checking only the against the most recent previous version, we could
+//! check against the entire cell-history for our potential reused value. The idea of the deps check is that
+//! if all of the deps are in a matching state for any version within our cell-history, we can reuse that
+//! cell. We currently check only against the most recent version because it is significantly simpler and
+//! in practice is almost as good as checking against the whole history.
+//!
+//! FAQ:
+//!
+//! Q: CellHistory is complex, couldn't we just operate on single VersionRange?
+//!
+//! A: Consider the case where you have key A depends on B depends on C, and the following sequence of operations:
+//!
+//! At V1, compute A (and so B and C).
+//! Change C to a new value (computation is now at V2).
+//! At V2, compute C.
+//!   A and B will now be dirty at V2
+//! Change C back to its initial (V1) value (computation is now at V3)
+//! At V3, compute A
+//!
+//! When B is recomputed at V3, we will see a history like: `[[V1, V2), [V3, inf)]` and see that we can reuse
+//! the A that was computed at V1. If nodes only stored a valid VersionRange, B would have lost the information
+//! that it has the same value at V1 and V3.
+//!
+//! Q: Why use CellHistory-based dependency checks at all? Could we store a node's deps seen values along with the
+//! deps and do value-based dependency checks?
+//!
+//! A: This could be an interesting avenue to explore. It has several potential drawbacks: (1) significantly increased
+//! memory use to store pointers (probably Arc) to the values in each dependent (2) value equality is potentially
+//! expensive and this approach may require additional caching to avoid that cost (for example, at least a
+//! transaction-level cache of such comparisons, otherwise we'd need to do O(E) equality checks).
+//!
+//! Q: Could we do strong-hash-based equality checks instead?
+//!
+//! A: This could also be interesting to explore. It's possible that this could resolve all the issues with doing
+//! value-based dep checks.
 
 use std::cmp;
 use std::ops::Bound;
