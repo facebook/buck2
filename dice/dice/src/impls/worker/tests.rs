@@ -7,13 +7,6 @@
  * of this source tree.
  */
 
-//!
-//! The incrementality module of BUCK
-//!
-//! This is responsible for performing incremental caching and invalidations
-//! with multiple versions in-flight at the same time.
-
-use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::atomic::AtomicBool;
@@ -49,8 +42,6 @@ use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
-use crate::impls::incremental::testing::DidDepsChangeExt;
-use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::handle::DiceTaskHandle;
@@ -63,6 +54,8 @@ use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
+use crate::impls::worker::testing::DidDepsChangeExt;
+use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
 use crate::versions::testing::VersionRangesExt;
 use crate::versions::VersionNumber;
@@ -142,9 +135,10 @@ impl Key for Finish {
 #[tokio::test]
 async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let dice = DiceModern::new(DiceData::new());
-    let engine = IncrementalEngine::new(dice.state_handle.dupe(), VersionEpoch::testing_new(0));
+    let key = dice.key_index.index_key(Finish);
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
+    let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
 
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
@@ -160,13 +154,20 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
+    let engine = DiceTaskWorker::testing_new(
+        key,
+        eval.clone(),
+        events.clone(),
+        dice.state_handle.dupe(),
+        ctx.testing_get_epoch(),
+    );
+
     let mut task_handle = DiceTaskHandle::testing_new();
 
     assert!(
         engine
             .compute_whether_dependencies_changed(
                 ParentKey::None,
-                eval.dupe(),
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(0),
                     VersionNumber::new(1)
@@ -186,17 +187,25 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
         ),
     );
+
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
 
+    let engine = DiceTaskWorker::testing_new(
+        key,
+        eval.clone(),
+        events.clone(),
+        dice.state_handle.dupe(),
+        ctx.testing_get_epoch(),
+    );
+
     assert!(
         !engine
             .compute_whether_dependencies_changed(
                 ParentKey::None,
-                eval.dupe(),
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
@@ -219,17 +228,25 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(2)], &[])),
         ),
     );
+
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
 
+    let engine = DiceTaskWorker::testing_new(
+        key,
+        eval.clone(),
+        events.clone(),
+        dice.state_handle.dupe(),
+        ctx.testing_get_epoch(),
+    );
+
     assert!(
         engine
             .compute_whether_dependencies_changed(
                 ParentKey::None,
-                eval.dupe(),
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
@@ -307,7 +324,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
@@ -350,7 +367,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
@@ -402,7 +419,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
@@ -492,7 +509,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
@@ -520,7 +537,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
@@ -578,7 +595,7 @@ async fn spawn_with_no_previously_cancelled_task() {
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
     let previously_cancelled_task = None;
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval,
@@ -634,7 +651,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     }
 
     let k = dice.key_index.index_key(CancellableNeverFinish);
-    let previous_task = IncrementalEngine::spawn_for_key(
+    let previous_task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
@@ -652,7 +669,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
     let cycles = UserCycleDetectorData::testing_new();
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval,
@@ -707,7 +724,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     }
 
     let k = dice.key_index.index_key(Finish);
-    let previous_task = IncrementalEngine::spawn_for_key(
+    let previous_task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
@@ -731,7 +748,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
     let cycles = UserCycleDetectorData::testing_new();
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval,
@@ -770,7 +787,7 @@ async fn mismatch_epoch_results_in_cancelled_result() {
     drop(guard);
 
     let k = dice.key_index.index_key(Finish);
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         k,
         shared_ctx.testing_get_epoch(),
         eval.dupe(),
@@ -879,7 +896,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
-    let first_task = IncrementalEngine::spawn_for_key(
+    let first_task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
@@ -891,7 +908,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     first_task.cancel();
 
     let cycles = UserCycleDetectorData::testing_new();
-    let second_task = IncrementalEngine::spawn_for_key(
+    let second_task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
@@ -905,7 +922,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     second_task.cancel();
 
     let cycles = UserCycleDetectorData::testing_new();
-    let third_task = IncrementalEngine::spawn_for_key(
+    let third_task = DiceTaskWorker::spawn(
         k,
         VersionEpoch::testing_new(0),
         eval,
@@ -1042,7 +1059,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         dice: dice.dupe(),
     };
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
@@ -1077,7 +1094,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         dice: dice.dupe(),
     };
 
-    let task = IncrementalEngine::spawn_for_key(
+    let task = DiceTaskWorker::spawn(
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),

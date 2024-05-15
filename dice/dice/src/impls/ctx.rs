@@ -43,7 +43,6 @@ use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
-use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
@@ -58,6 +57,8 @@ use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::worker::project_for_key;
+use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
@@ -737,7 +738,7 @@ impl SharedLiveTransactionCtx {
                         );
 
                         take_mut::take(occupied.get_mut(), |previous| {
-                            IncrementalEngine::spawn_for_key(
+                            DiceTaskWorker::spawn(
                                 key,
                                 self.version_epoch,
                                 eval,
@@ -765,7 +766,7 @@ impl SharedLiveTransactionCtx {
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let task = IncrementalEngine::spawn_for_key(
+                let task = DiceTaskWorker::spawn(
                     key,
                     self.version_epoch,
                     eval,
@@ -854,7 +855,7 @@ impl SharedLiveTransactionCtx {
             }
         };
 
-        IncrementalEngine::project_for_key(
+        project_for_key(
             state,
             promise,
             key,

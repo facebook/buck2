@@ -8,6 +8,7 @@
  */
 
 use std::any::Any;
+use std::hash::Hash;
 use std::sync::atomic::Ordering;
 use std::task::Poll;
 

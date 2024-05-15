@@ -15,7 +15,6 @@ pub(crate) mod dice;
 pub(crate) mod evaluator;
 pub(crate) mod events;
 mod hash;
-pub(crate) mod incremental;
 pub(crate) mod key;
 mod key_index;
 pub(crate) mod opaque;
