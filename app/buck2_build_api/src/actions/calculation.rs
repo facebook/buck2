@@ -148,8 +148,7 @@ async fn build_action_no_redirect(
         _ => None,
     };
 
-    // TODO(minglunli): Used in D57311882
-    let _target_rule_type_name = match target {
+    let target_rule_type_name = match target {
         Some(label) => Some(
             ctx.get_configured_target_node(&label)
                 .await?
@@ -291,6 +290,7 @@ async fn build_action_no_redirect(
                 wall_time,
                 queue_duration,
                 execution_kind,
+                target_rule_type_name,
             },
             Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action_key),
@@ -332,6 +332,7 @@ async fn build_action_no_redirect(
             execution_kind: action_execution_data
                 .execution_kind
                 .unwrap_or(buck2_data::ActionExecutionKind::NotSet),
+            target_rule_type_name: action_execution_data.target_rule_type_name,
         },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
@@ -417,6 +418,7 @@ pub struct BuildKeyActivationData {
 pub struct ActionWithExtraData {
     pub action: Arc<RegisteredAction>,
     pub execution_kind: buck2_data::ActionExecutionKind,
+    pub target_rule_type_name: Option<String>,
 }
 
 struct ActionExecutionData {
@@ -424,6 +426,7 @@ struct ActionExecutionData {
     wall_time: Option<std::time::Duration>,
     queue_duration: Option<std::time::Duration>,
     execution_kind: Option<buck2_data::ActionExecutionKind>,
+    target_rule_type_name: Option<String>,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls
