@@ -11,8 +11,8 @@ load("@prelude//platforms/apple:base.bzl", "BUILD_MODE_TO_CONSTRAINTS_MAP", "app
 load(
     "@prelude//platforms/apple:build_mode.bzl",
     "APPLE_BUILD_MODES",
-    "BUILD_MODE_LOCAL",
     "get_build_mode",
+    "get_build_mode_debug",
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
@@ -104,7 +104,7 @@ def apple_target_platforms(
 
     analysis_platform = _get_analysis_platform_for_supported_platforms(supported_cxx_platforms)
     analysis_platform_dep = get_default_target_platform_for_platform(analysis_platform)
-    analysis_platform_build_mode_constraints = build_mode_constraint_values.get(BUILD_MODE_LOCAL, [])
+    analysis_platform_build_mode_constraints = build_mode_constraint_values.get(get_build_mode_debug(), [])
 
     platform_rule(
         name = base_name + "-analysis",

@@ -61,3 +61,7 @@ def constraints(constraint_setting_rule, constraint_value_rule):
 def get_build_mode():
     return read_root_config("apple", "build_mode", BUILD_MODE_DEBUG) # @oss-enable
     # @oss-disable: return _get_build_mode() 
+
+def get_build_mode_debug():
+    return BUILD_MODE.DEBUG # @oss-enable
+    # @oss-disable: return BUILD_MODE.LOCAL 
