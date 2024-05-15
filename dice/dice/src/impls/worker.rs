@@ -45,6 +45,7 @@ use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
 use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
 use crate::impls::worker::state::DiceWorkerStateComputing;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
+use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
@@ -162,13 +163,15 @@ impl DiceTaskWorker {
                         self.compute(task_state).await
                     }
                     DidDepsChange::NoChange => {
-                        let task_state = task_state.deps_match(ActivationInfo::new(
+                        let task_state = task_state.deps_match()?;
+
+                        let activation_info = ActivationInfo::new(
                             &self.eval.dice.key_index,
                             &self.eval.user_data.activation_tracker,
                             self.k,
                             mismatch.deps_to_validate.iter_keys(),
                             ActivationData::Reused,
-                        ))?;
+                        );
 
                         let response = self
                             .state_handle
@@ -180,7 +183,7 @@ impl DiceTaskWorker {
                             )
                             .await;
 
-                        response.map(|r| task_state.cached(r))
+                        response.map(|r| task_state.cached(r, activation_info))
                     }
                 }
             }
@@ -201,19 +204,30 @@ impl DiceTaskWorker {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let eval_result_state = self.eval.evaluate(self.k, task_state).await?;
-        let eval_result = eval_result_state.result;
+        let DiceWorkerStateFinishedEvaluating {
+            state,
+            activation_data,
+            result,
+        } = self.eval.evaluate(self.k, task_state).await?;
+
+        let activation_info = ActivationInfo::new(
+            &self.eval.dice.key_index,
+            &self.eval.user_data.activation_tracker,
+            self.k,
+            result.deps.iter_keys(),
+            activation_data,
+        );
 
         let res = {
-            match eval_result.value.into_valid_value() {
+            match result.value.into_valid_value() {
                 Ok(value) => {
                     self.state_handle
                         .update_computed(
                             VersionedGraphKey::new(v, self.k),
                             self.version_epoch,
-                            eval_result.storage,
+                            result.storage,
                             value,
-                            Arc::new(eval_result.deps),
+                            Arc::new(result.deps),
                         )
                         .await
                 }
@@ -224,7 +238,7 @@ impl DiceTaskWorker {
             }
         };
 
-        res.map(|res| eval_result_state.state.cached(res))
+        res.map(|res| state.cached(res, activation_info))
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and

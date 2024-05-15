@@ -232,10 +232,7 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
         }
     }
 
-    pub(crate) fn deps_match(
-        self,
-        activation_info: Option<ActivationInfo>,
-    ) -> CancellableResult<DiceWorkerStateFinished<'a, 'b>> {
+    pub(crate) fn deps_match(self) -> CancellableResult<DiceWorkerStateFinished<'a, 'b>> {
         debug!(msg = "reusing previous value because deps didn't change. Updating caches");
 
         let guard = match self
@@ -253,7 +250,6 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
         Ok(DiceWorkerStateFinished {
             _prevent_cancellation: guard,
             internals: self.internals,
-            activation_info,
         })
     }
 
@@ -302,7 +298,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
         self,
         cycles: KeyComputingUserCycleDetectorData,
         result: KeyEvaluationResult,
-        activation_info: Option<ActivationInfo>,
+        activation_data: ActivationData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         debug!(msg = "evaluation finished. updating caches");
 
@@ -324,8 +320,8 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
             state: DiceWorkerStateFinished {
                 _prevent_cancellation: guard,
                 internals: self.internals,
-                activation_info,
             },
+            activation_data,
             result,
         })
     }
@@ -334,6 +330,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
 /// When the spawned dice worker has just finished evaluating the `Key::compute` function
 pub(crate) struct DiceWorkerStateFinishedEvaluating<'a, 'b> {
     pub(crate) state: DiceWorkerStateFinished<'a, 'b>,
+    pub(crate) activation_data: ActivationData,
     pub(crate) result: KeyEvaluationResult,
 }
 
@@ -343,14 +340,17 @@ pub(crate) struct DiceWorkerStateFinishedEvaluating<'a, 'b> {
 pub(crate) struct DiceWorkerStateFinished<'a, 'b> {
     _prevent_cancellation: DisableCancellationGuard,
     internals: &'a mut DiceTaskHandle<'b>,
-    activation_info: Option<ActivationInfo>,
 }
 
 impl<'a, 'b> DiceWorkerStateFinished<'a, 'b> {
-    pub(crate) fn cached(mut self, value: DiceComputedValue) -> DiceWorkerStateFinishedAndCached {
+    pub(crate) fn cached(
+        self,
+        value: DiceComputedValue,
+        activation_info: Option<ActivationInfo>,
+    ) -> DiceWorkerStateFinishedAndCached {
         debug!(msg = "Update caches complete");
 
-        if let Some(activation_info) = self.activation_info.take() {
+        if let Some(activation_info) = activation_info {
             activation_info.activation_tracker.key_activated(
                 activation_info.key.as_any(),
                 &mut activation_info.deps.iter().map(|k| k.as_any()),

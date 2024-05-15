@@ -25,7 +25,6 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateComputing;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::result::CancellableResult;
@@ -76,14 +75,6 @@ impl AsyncEvaluator {
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
                 };
 
-                let activation = ActivationInfo::new(
-                    &self.dice.key_index,
-                    &self.user_data.activation_tracker,
-                    key,
-                    recorded_deps.iter_keys(),
-                    evaluation_data.into_activation_data(), // Projection keys can't set this.
-                );
-
                 state.finished(
                     cycles,
                     KeyEvaluationResult {
@@ -91,7 +82,7 @@ impl AsyncEvaluator {
                         deps: recorded_deps.deps,
                         storage: key_dyn.storage_type(),
                     },
-                    activation,
+                    evaluation_data.into_activation_data(),
                 )
             }
             DiceKeyErased::Projection(proj) => {
@@ -112,14 +103,6 @@ impl AsyncEvaluator {
 
                 let value = proj.proj().compute(base.value(), &ctx);
 
-                let activation = ActivationInfo::new(
-                    &self.dice.key_index,
-                    &self.user_data.activation_tracker,
-                    key,
-                    [proj.base()].into_iter(),
-                    ActivationData::Evaluated(None), // Projection keys can't set this.
-                );
-
                 state.finished(
                     cycles,
                     KeyEvaluationResult {
@@ -127,7 +110,7 @@ impl AsyncEvaluator {
                         deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
                         storage: proj.proj().storage_type(),
                     },
-                    activation,
+                    ActivationData::Evaluated(None), // Projection keys can't set this.
                 )
             }
         }
