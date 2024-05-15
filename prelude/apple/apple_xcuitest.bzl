@@ -21,7 +21,7 @@ def apple_xcuitest_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         _get_xctrunner_binary(ctx),
         _get_uitest_bundle(ctx),
     ] + _get_xctrunner_frameworks(ctx)
-    assemble_bundle(
+    bundle_result = assemble_bundle(
         ctx = ctx,
         bundle = output_bundle,
         info_plist_part = process_info_plist(ctx, override_input = None),
@@ -39,7 +39,7 @@ def apple_xcuitest_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             # The test runner binary does not contain Swift
             skip_copying_swift_stdlib = True,
         ),
-    ]
+    ] + bundle_result.providers
 
 def _get_uitest_bundle(ctx: AnalysisContext) -> AppleBundlePart:
     return AppleBundlePart(

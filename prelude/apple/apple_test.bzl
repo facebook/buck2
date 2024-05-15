@@ -185,7 +185,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
             cxx_library_output.xcode_data_info,
             cxx_library_output.cxx_compilationdb_info,
-        ]
+        ] + bundle_result.providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_test_providers)

@@ -378,7 +378,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         xcode_data_info,
         extra_output_provider,
         link_cmd_debug_info,
-    ]
+    ] + bundle_result.providers
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, typing.Any]:
     data = {

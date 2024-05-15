@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
-load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestLogFiles")
+load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
@@ -42,6 +42,7 @@ SwiftStdlibArguments = record(
 )
 
 AppleBundleConstructionResult = record(
+    providers = field(list[Provider]),
     sub_targets = field(dict[str, list[Provider]]),
 )
 
@@ -229,6 +230,8 @@ def assemble_bundle(
     bundle_manifest_cmd_args = ctx.actions.write_json(bundle_manifest_json_file, bundle_manifest_json_object, with_inputs = True, pretty = True)
     subtargets["manifest"] = [DefaultInfo(default_output = bundle_manifest_json_file, other_outputs = [bundle_manifest_cmd_args])]
 
+    providers = [AppleBundleManifestInfo(manifest = bundle_manifest)]
+
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
     if cache_buster:
@@ -243,7 +246,7 @@ def assemble_bundle(
         env = env,
         **run_incremental_args
     )
-    return AppleBundleConstructionResult(sub_targets = subtargets)
+    return AppleBundleConstructionResult(sub_targets = subtargets, providers = providers)
 
 def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))

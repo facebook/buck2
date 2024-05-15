@@ -25,6 +25,12 @@ AppleBundleManifest = record(
     log_file_map = dict[Label, AppleBundleManifestLogFiles],
 )
 
+AppleBundleManifestInfo = provider(
+    fields = {
+        "manifest": provider_field(AppleBundleManifest),
+    },
+)
+
 # Provider flagging that result of the rule contains Apple bundle.
 # It might be copied into main bundle to appropriate place if rule
 # with this provider is a dependency of `apple_bundle`.
