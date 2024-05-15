@@ -20,7 +20,9 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use futures::TryFutureExt;
+use itertools::Either;
 use parking_lot::Mutex;
+use typed_arena::Arena;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
@@ -35,6 +37,7 @@ use crate::impls::cache::DiceTaskRef;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::versions::VersionEpoch;
+use crate::impls::dep_trackers::RecordedDeps;
 use crate::impls::dep_trackers::RecordingDepsTracker;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
@@ -225,10 +228,9 @@ impl<'d> ModernComputeCtx<'d> {
             Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
-        computes
-            .into_iter()
-            .map(|func| OwningFuture::new(self.borrowed().into(), |ctx| func(ctx)))
-            .collect()
+        let iter = computes.into_iter();
+        let parallel = self.parallel_builder(iter.size_hint().0);
+        iter.map(|func| parallel.compute(func)).collect()
     }
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
@@ -236,10 +238,8 @@ impl<'d> ModernComputeCtx<'d> {
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
-        (
-            OwningFuture::new(self.borrowed().into(), |ctx| compute1(ctx)),
-            OwningFuture::new(self.borrowed().into(), |ctx| compute2(ctx)),
-        )
+        let parallel = self.parallel_builder(2);
+        (parallel.compute(compute1), parallel.compute(compute2))
     }
 
     pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
@@ -252,10 +252,12 @@ impl<'d> ModernComputeCtx<'d> {
         impl Future<Output = U> + 'a,
         impl Future<Output = V> + 'a,
     ) {
+        let parallel = self.parallel_builder(3);
+
         (
-            OwningFuture::new(self.borrowed().into(), |ctx| compute1(ctx)),
-            OwningFuture::new(self.borrowed().into(), |ctx| compute2(ctx)),
-            OwningFuture::new(self.borrowed().into(), |ctx| compute3(ctx)),
+            parallel.compute(compute1),
+            parallel.compute(compute2),
+            parallel.compute(compute3),
         )
     }
 
@@ -264,7 +266,10 @@ impl<'d> ModernComputeCtx<'d> {
         func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
     ) -> impl Future<Output = T> + 'a {
         func(LinearRecomputeDiceComputations(
-            LinearRecomputeDiceComputationsImpl::Modern(LinearRecomputeModern(self.borrowed())),
+            LinearRecomputeDiceComputationsImpl::Modern(LinearRecomputeModern {
+                ctx_data: self.ctx_data(),
+                dep_trackers: Mutex::new(RecordingDepsTracker::new()),
+            }),
         ))
     }
 
@@ -273,11 +278,12 @@ impl<'d> ModernComputeCtx<'d> {
     }
 
     fn opaque_into_value_impl<K: Key>(
-        deps: &Mutex<RecordingDepsTracker>,
+        deps: DepsTrackerHolder,
         opaque: OpaqueValueModern<K>,
     ) -> K::Value {
         deps.lock()
             .record(opaque.derive_from_key, opaque.derive_from.validity());
+
         opaque
             .derive_from
             .downcast_maybe_transient::<K::Value>()
@@ -292,30 +298,108 @@ impl<'a> From<ModernComputeCtx<'a>> for DiceComputations<'a> {
     }
 }
 
-pub(crate) struct LinearRecomputeModern<'a>(ModernComputeCtx<'a>);
+pub(crate) struct LinearRecomputeModern<'a> {
+    ctx_data: &'a CoreCtx,
+    dep_trackers: Mutex<RecordingDepsTracker>,
+}
 
 impl LinearRecomputeModern<'_> {
     pub(crate) fn get(&self) -> DiceComputations<'_> {
-        self.0.borrowed().into()
+        ModernComputeCtx::Linear {
+            ctx_data: self.ctx_data,
+            dep_trackers: &self.dep_trackers,
+        }
+        .into()
+    }
+}
+
+/// This is used to create the ctx for each individual parallel compute (from compute_many/compute_join/compute2/etc).
+///
+/// For the Normal case, each parallel ctx will be expected to record its deps into a RecordedDeps allocated in the arena.
+///
+/// For the Linear case, each parallel ctx will record deps into the shared RecordingDepsTracker.
+pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
+    Normal {
+        ctx_data: &'a CoreCtx,
+        tracker_arena: &'a Arena<RecordedDeps>,
+    },
+    Linear {
+        ctx_data: &'a CoreCtx,
+        dep_trackers: &'a Mutex<RecordingDepsTracker>,
+    },
+}
+impl<'a> ModernComputeCtxParallelBuilder<'a> {
+    fn compute<T: 'a>(
+        &self,
+        func: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+    ) -> impl Future<Output = T> + 'a {
+        match self {
+            ModernComputeCtxParallelBuilder::Normal {
+                ctx_data,
+                tracker_arena,
+            } => OwningFuture::new(
+                (
+                    tracker_arena.alloc(RecordedDeps::new()),
+                    ModernComputeCtx::Parallel {
+                        ctx_data,
+                        dep_trackers: RecordingDepsTracker::new(),
+                    }
+                    .into(),
+                ),
+                |(_, ctx)| func(ctx),
+            )
+            .map_taking_data(|v, (this_deps, ctx)| match ctx.0 {
+                DiceComputationsImpl::Modern(ModernComputeCtx::Parallel {
+                    dep_trackers, ..
+                }) => {
+                    *this_deps = dep_trackers.collect_deps();
+                    v
+                }
+                _ => unreachable!(),
+            })
+            .left_future(),
+            ModernComputeCtxParallelBuilder::Linear {
+                ctx_data,
+                dep_trackers,
+            } => OwningFuture::new(
+                ModernComputeCtx::Linear {
+                    ctx_data,
+                    dep_trackers,
+                }
+                .into(),
+                func,
+            )
+            .right_future(),
+        }
     }
 }
 
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative)]
 pub(crate) enum ModernComputeCtx<'a> {
-    Owned(Data),
-    #[allocative(skip)]
-    Borrowed(&'a Data),
+    /// The initial ctx for a key computation.
+    Owned {
+        ctx_data: CoreCtx,
+        dep_trackers: RecordingDepsTracker,
+    },
+    /// The ctx within a compute_many/compute_join/try_compute_join.
+    Parallel {
+        #[allocative(skip)]
+        ctx_data: &'a CoreCtx,
+        #[allocative(skip)]
+        dep_trackers: RecordingDepsTracker,
+    },
+    /// The ctx within a with_linear_recompute.
+    Linear {
+        #[allocative(skip)]
+        ctx_data: &'a CoreCtx,
+        #[allocative(skip)]
+        dep_trackers: &'a Mutex<RecordingDepsTracker>,
+    },
 }
 
 #[derive(Allocative)]
-pub(crate) struct Data {
-    ctx_data: CoreCtx,
-    dep_trackers: Mutex<RecordingDepsTracker>,
-}
-
-#[derive(Allocative)]
-struct CoreCtx {
+pub(crate) struct CoreCtx {
     async_evaluator: AsyncEvaluator,
     parent_key: ParentKey,
     #[allocative(skip)]
@@ -326,6 +410,15 @@ struct CoreCtx {
 }
 
 impl ModernComputeCtx<'static> {
+    fn into_owned(self) -> (CoreCtx, RecordingDepsTracker) {
+        match self {
+            ModernComputeCtx::Owned {
+                ctx_data,
+                dep_trackers,
+            } => (ctx_data, dep_trackers),
+            _ => unreachable!(),
+        }
+    }
     pub(crate) fn finalize(
         self,
     ) -> (
@@ -333,24 +426,27 @@ impl ModernComputeCtx<'static> {
         EvaluationData,
         KeyComputingUserCycleDetectorData,
     ) {
-        match self {
-            ModernComputeCtx::Borrowed(..) => unreachable!(),
-            ModernComputeCtx::Owned(v) => {
-                let data = v.ctx_data;
-                (
-                    v.dep_trackers.into_inner().collect_deps(),
-                    data.evaluation_data.into_inner(),
-                    data.cycles,
-                )
-            }
-        }
+        let (data, dep_trackers) = self.into_owned();
+        let RecordedDeps {
+            deps,
+            deps_validity,
+        } = dep_trackers.collect_deps();
+        (
+            (deps.into_set(), deps_validity),
+            data.evaluation_data.into_inner(),
+            data.cycles,
+        )
     }
 
     pub(crate) fn into_updater(self) -> TransactionUpdater {
-        match self {
-            ModernComputeCtx::Owned(v) => v.ctx_data.into_updater(),
-            ModernComputeCtx::Borrowed(_) => unreachable!(),
-        }
+        self.into_owned().0.into_updater()
+    }
+}
+
+struct DepsTrackerHolder<'a>(Either<&'a mut RecordingDepsTracker, &'a Mutex<RecordingDepsTracker>>);
+impl<'a> DepsTrackerHolder<'a> {
+    fn lock(self) -> impl DerefMut<Target = RecordingDepsTracker> + 'a {
+        self.0.map_right(|v| v.lock())
     }
 }
 
@@ -360,35 +456,69 @@ impl ModernComputeCtx<'_> {
         cycles: KeyComputingUserCycleDetectorData,
         async_evaluator: AsyncEvaluator,
     ) -> ModernComputeCtx<'static> {
-        ModernComputeCtx::Owned(Data {
-            dep_trackers: Mutex::new(RecordingDepsTracker::new()),
+        ModernComputeCtx::Owned {
+            dep_trackers: RecordingDepsTracker::new(),
             ctx_data: CoreCtx {
                 async_evaluator,
                 parent_key,
                 cycles,
                 evaluation_data: Mutex::new(EvaluationData::none()),
             },
-        })
+        }
     }
 
-    fn borrowed<'a>(&'a self) -> ModernComputeCtx<'a> {
-        ModernComputeCtx::Borrowed(self.data())
-    }
-
-    fn data(&self) -> &Data {
+    fn parallel_builder<'a>(&'a mut self, size_hint: usize) -> ModernComputeCtxParallelBuilder<'a> {
         match self {
-            ModernComputeCtx::Owned(data) => data,
-            ModernComputeCtx::Borrowed(data) => data,
+            ModernComputeCtx::Owned {
+                ctx_data,
+                dep_trackers,
+            } => ModernComputeCtxParallelBuilder::Normal {
+                ctx_data,
+                tracker_arena: dep_trackers.push_parallel(size_hint),
+            },
+            ModernComputeCtx::Parallel {
+                ctx_data,
+                dep_trackers,
+            } => ModernComputeCtxParallelBuilder::Normal {
+                ctx_data,
+                tracker_arena: dep_trackers.push_parallel(size_hint),
+            },
+            ModernComputeCtx::Linear {
+                ctx_data,
+                dep_trackers,
+            } => ModernComputeCtxParallelBuilder::Linear {
+                ctx_data,
+                dep_trackers,
+            },
         }
     }
 
     fn ctx_data(&self) -> &CoreCtx {
-        &self.data().ctx_data
+        match self {
+            ModernComputeCtx::Owned { ctx_data, .. } => ctx_data,
+            ModernComputeCtx::Parallel { ctx_data, .. } => ctx_data,
+            ModernComputeCtx::Linear { ctx_data, .. } => ctx_data,
+        }
     }
 
-    fn unpack(&mut self) -> (&CoreCtx, &Mutex<RecordingDepsTracker>) {
-        let data = self.data();
-        (&data.ctx_data, &data.dep_trackers)
+    fn unpack(&mut self) -> (&CoreCtx, DepsTrackerHolder) {
+        match self {
+            ModernComputeCtx::Owned {
+                ctx_data,
+                dep_trackers,
+            } => (ctx_data, DepsTrackerHolder(Either::Left(dep_trackers))),
+            ModernComputeCtx::Parallel {
+                ctx_data,
+                dep_trackers,
+            } => (
+                ctx_data,
+                DepsTrackerHolder(Either::Left(&mut *dep_trackers)),
+            ),
+            ModernComputeCtx::Linear {
+                ctx_data,
+                dep_trackers,
+            } => (ctx_data, DepsTrackerHolder(Either::Right(dep_trackers))),
+        }
     }
 
     /// Compute "projection" based on deriving value
@@ -425,11 +555,8 @@ impl ModernComputeCtx<'_> {
     }
 
     #[allow(unused)] // used in test
-    pub(super) fn dep_trackers(&self) -> &Mutex<RecordingDepsTracker> {
-        match self {
-            ModernComputeCtx::Owned(d) => &d.dep_trackers,
-            ModernComputeCtx::Borrowed(d) => &d.dep_trackers,
-        }
+    pub(super) fn dep_trackers(&mut self) -> impl DerefMut<Target = RecordingDepsTracker> + '_ {
+        self.unpack().1.lock()
     }
 
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
@@ -475,12 +602,12 @@ impl CoreCtx {
     }
 
     /// Compute "projection" based on deriving value
-    pub(crate) fn project<K>(
+    fn project<K>(
         &self,
         key: &K,
         base_key: DiceKey,
         base: MaybeValidDiceValue,
-        dep_trackers: &Mutex<RecordingDepsTracker>,
+        dep_trackers: DepsTrackerHolder,
     ) -> DiceResult<K::Value>
     where
         K: ProjectionKey,

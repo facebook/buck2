@@ -36,6 +36,7 @@ tokio = { version = "1.5", features = ["full"] }
 tokio-stream = { workspace = true }
 tracing = "0.1.22"
 triomphe = { workspace = true }
+typed-arena = { workspace = true }
 
 [dev-dependencies]
 anyhow = "1.0.65"

@@ -115,6 +115,14 @@ pub(crate) enum DiceValidity {
     Transient,
 }
 
+impl DiceValidity {
+    pub(crate) fn and(&mut self, other: Self) {
+        if other == DiceValidity::Transient {
+            *self = DiceValidity::Transient;
+        }
+    }
+}
+
 #[derive(Allocative, Clone)]
 pub(crate) struct DiceComputedValue {
     value: MaybeValidDiceValue,
