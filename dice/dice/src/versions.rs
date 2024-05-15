@@ -199,7 +199,7 @@ impl RangeBounds<VersionNumber> for VersionRange {
     }
 
     fn end_bound(&self) -> Bound<&VersionNumber> {
-        self.end.as_ref().map_or(Bound::Unbounded, Bound::Included)
+        self.end.as_ref().map_or(Bound::Unbounded, Bound::Excluded)
     }
 }
 
@@ -420,11 +420,32 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::RangeBounds;
+
     use sorted_vector_map::sorted_vector_set;
 
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;
+
+    #[test]
+    fn version_range_contains() {
+        let r1 = VersionRange::bounded(VersionNumber::new(3), VersionNumber::new(6));
+        assert_eq!(r1.contains(&VersionNumber::new(1)), false);
+        assert_eq!(r1.contains(&VersionNumber::new(2)), false);
+        assert_eq!(r1.contains(&VersionNumber::new(3)), true);
+        assert_eq!(r1.contains(&VersionNumber::new(4)), true);
+        assert_eq!(r1.contains(&VersionNumber::new(5)), true);
+        assert_eq!(r1.contains(&VersionNumber::new(6)), false);
+        assert_eq!(r1.contains(&VersionNumber::new(7)), false);
+        assert_eq!(r1.contains(&VersionNumber::new(8)), false);
+
+        let r1 = VersionRange::begins_with(VersionNumber::new(3));
+        assert_eq!(r1.contains(&VersionNumber::new(2)), false);
+        assert_eq!(r1.contains(&VersionNumber::new(3)), true);
+        assert_eq!(r1.contains(&VersionNumber::new(4)), true);
+        assert_eq!(r1.contains(&VersionNumber::new(5000)), true);
+    }
 
     #[test]
     fn version_range_intersects() {
