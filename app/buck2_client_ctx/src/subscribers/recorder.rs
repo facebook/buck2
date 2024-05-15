@@ -37,6 +37,7 @@ use buck2_events::errors::create_error_report;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::BuckEvent;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
+use buck2_util::sliding_window::SlidingWindow;
 use buck2_util::system_stats::system_memory_stats;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -144,6 +145,7 @@ pub(crate) struct InvocationRecorder<'a> {
     server_stderr: String,
     target_rule_type_names: Vec<String>,
     new_configs_used: bool,
+    re_download_speeds: Vec<SlidingWindow>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -241,6 +243,11 @@ impl<'a> InvocationRecorder<'a> {
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
             new_configs_used: false,
+            re_download_speeds: vec![
+                SlidingWindow::new(Duration::from_secs(1)),
+                SlidingWindow::new(Duration::from_secs(5)),
+                SlidingWindow::new(Duration::from_secs(10)),
+            ],
         }
     }
 
@@ -467,6 +474,11 @@ impl<'a> InvocationRecorder<'a> {
             best_error_tag: best_error_tag.map(|t| t.to_owned()),
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(self.new_configs_used),
+            re_max_download_speed: self
+                .re_download_speeds
+                .iter()
+                .map(|w| w.max_per_second().unwrap_or_default())
+                .max(),
         };
 
         let event = BuckEvent::new(
@@ -849,7 +861,7 @@ impl<'a> InvocationRecorder<'a> {
     fn handle_snapshot(
         &mut self,
         update: &buck2_data::Snapshot,
-        _event: &BuckEvent,
+        event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.max_malloc_bytes_active =
             cmp::max(self.max_malloc_bytes_active, update.malloc_bytes_active);
@@ -879,6 +891,10 @@ impl<'a> InvocationRecorder<'a> {
         }
         if self.initial_re_download_bytes.is_none() {
             self.initial_re_download_bytes = Some(update.re_download_bytes);
+        }
+
+        for s in self.re_download_speeds.iter_mut() {
+            s.update(event.timestamp(), update.re_download_bytes);
         }
 
         Ok(())

@@ -1864,6 +1864,8 @@ message InvocationRecord {
   // Time elapsed from a build's start until first test discovery begins.
   optional uint64 time_to_first_test_discovery_ms = 81;
   optional bool new_configs_used = 84;
+  // Max sustained RE download speed
+  optional uint64 re_max_download_speed = 85;
 }
 
 // Record event sent directly to scribe.
