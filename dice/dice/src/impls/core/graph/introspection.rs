@@ -66,7 +66,7 @@ impl VersionedGraph {
                     node_id: NodeID(key.index as usize),
                     kind: GraphNodeKind::Occupied,
                     history: o.metadata().hist.to_introspectable(),
-                    deps: Some(visit_deps(o.metadata().deps.deps())),
+                    deps: Some(visit_deps(o.metadata().deps.deps().iter_keys())),
                     rdeps: Some(visit_rdeps(o.metadata().rdeps.rdeps())),
                 }),
                 VersionedGraphNode::Vacant(_) => {
@@ -91,15 +91,16 @@ impl VersionedGraph {
             if let Some(last) = versioned_nodes.iter().last() {
                 edges.insert(
                     *k,
-                    last.1
-                        .unpack_occupied()
-                        .map_or_else(|| Arc::new(Vec::new()), |node| node.metadata().deps.deps()),
+                    last.1.unpack_occupied().map_or_else(
+                        || Arc::new(Vec::new()),
+                        |node| Arc::new(node.metadata().deps.deps().iter_keys().collect()),
+                    ),
                 );
             }
         }
 
-        fn visit_deps(deps: Arc<Vec<DiceKey>>) -> HashSet<KeyID> {
-            deps.iter().map(|d| d.introspect()).collect()
+        fn visit_deps<'a>(deps: impl Iterator<Item = DiceKey> + 'a) -> HashSet<KeyID> {
+            deps.map(|d| d.introspect()).collect()
         }
 
         fn visit_rdeps(

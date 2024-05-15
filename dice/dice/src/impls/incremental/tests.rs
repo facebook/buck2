@@ -45,6 +45,7 @@ use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::state::StateRequest;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
@@ -170,7 +171,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(0),
                     VersionNumber::new(1)
                 )]),
-                &[DiceKey { index: 100 }],
+                &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
                 &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
             .await?
@@ -200,7 +201,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(1),
                     VersionNumber::new(2)
                 )]),
-                &[DiceKey { index: 100 }],
+                &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
                 &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
             .await?
@@ -233,7 +234,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(1),
                     VersionNumber::new(2)
                 )]),
-                &[DiceKey { index: 200 }],
+                &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 200 }]),
                 &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
             .await?
@@ -268,7 +269,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         epoch: ctx.testing_get_epoch(),
         storage: StorageType::LastN(1),
         value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-        deps: Arc::new(vec![]),
+        deps: Arc::new(SeriesParallelDeps::new()),
         resp: tx,
     });
     let (tx, _rx) = tokio::sync::oneshot::channel();
@@ -277,7 +278,9 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         epoch: ctx.testing_get_epoch(),
         storage: StorageType::LastN(1),
         value: DiceValidValue::testing_new(DiceKeyValue::<IsRan>::new(())),
-        deps: Arc::new(vec![DiceKey { index: 100 }]),
+        deps: Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+            index: 100,
+        }])),
         resp: tx,
     });
 
@@ -982,7 +985,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             DiceKey { index: 100 },
             VersionNumber::new(0),
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
         );
         let _ignore = update_computed_value(
             dice,
@@ -990,7 +993,9 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             compute_key.dupe(),
             VersionNumber::new(0),
             compute_res.dupe(),
-            Arc::new(vec![DiceKey { index: 100 }]),
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+                index: 100,
+            }])),
         );
     }
 
@@ -1111,7 +1116,7 @@ fn update_computed_value(
     k: DiceKey,
     v: VersionNumber,
     value: DiceValidValue,
-    deps: Arc<Vec<DiceKey>>,
+    deps: Arc<SeriesParallelDeps>,
 ) -> tokio::sync::oneshot::Receiver<CancellableResult<DiceComputedValue>> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     dice.state_handle.request(StateRequest::UpdateComputed {

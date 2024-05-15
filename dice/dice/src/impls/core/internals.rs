@@ -23,6 +23,7 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::VersionTracker;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::TerminationObserver;
@@ -104,7 +105,7 @@ impl CoreState {
         storage: StorageType,
         value: DiceValidValue,
         reusability: ValueReusable,
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
     ) -> CancellableResult<DiceComputedValue> {
         if self.version_tracker.is_relevant(key.v, epoch) {
             debug!(msg = "update graph entry", k = ?key.k, v = %key.v, v_epoch = %epoch);

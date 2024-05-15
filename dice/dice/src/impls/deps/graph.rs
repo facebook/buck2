@@ -52,7 +52,7 @@ use crate::impls::key::DiceKey;
 ///   SPSeriesHeader::Complex{keys: x, specs: y}: Indicates a complex series that covers the next x keys and y specs.
 ///
 /// For both SPItem::Parallel and SPSeriesHeader::Complex, the specs value is the size of the encoded specs.
-#[derive(Allocative, Debug)]
+#[derive(Allocative, Debug, Eq, PartialEq)]
 pub(crate) enum SeriesParallelDeps {
     None,
     /// It's very common for a parallel compute to record only a single dep and so we have an optimized case for that.
@@ -62,6 +62,10 @@ pub(crate) enum SeriesParallelDeps {
 }
 
 impl SeriesParallelDeps {
+    pub(crate) fn new() -> Self {
+        Self::None
+    }
+
     pub(crate) fn insert(&mut self, k: DiceKey) {
         match self {
             SeriesParallelDeps::None => *self = SeriesParallelDeps::One(k),
@@ -133,6 +137,14 @@ impl SeriesParallelDeps {
         }
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        match self {
+            SeriesParallelDeps::None => true,
+            SeriesParallelDeps::One(_) => false,
+            SeriesParallelDeps::Many(many) => many.deps.is_empty(),
+        }
+    }
+
     #[allow(unused)] // TODO(cjhopman): delete this once it's used outside tests
     pub(crate) fn iter(&self) -> impl Iterator<Item = SeriesParallelDepsIteratorItem<'_>> {
         match self {
@@ -157,7 +169,7 @@ impl SeriesParallelDeps {
     }
 }
 
-#[derive(Allocative)]
+#[derive(Allocative, Eq, PartialEq)]
 pub(crate) struct SPDepsMany {
     deps: Vec<DiceKey>,
     /// This holds the encoded series-parallel graph structure, i.e. it tells how to read the deps list as a series-parallel graph.

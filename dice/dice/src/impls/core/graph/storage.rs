@@ -35,6 +35,7 @@ use crate::impls::core::graph::nodes::VersionedGraphNode;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::graph::types::VersionedGraphResultMismatch;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
@@ -171,7 +172,7 @@ impl VersionedGraph {
         key: VersionedGraphKey,
         value: DiceValidValue,
         reusable: ValueReusable,
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
         storage_type: StorageType,
     ) -> (DiceComputedValue, bool) {
         let StorageType::LastN(num_to_keep) = storage_type;
@@ -193,7 +194,7 @@ impl VersionedGraph {
 
         let mut latest_dep_verified = None;
         let mut first_dep_dirtied = None;
-        for dep in deps.iter() {
+        for dep in deps.iter_keys() {
             match self.get_internal(VersionedGraphKey::new(key.v, dep.dupe())) {
                 None => {
                     unreachable!("dependency should exist")
@@ -284,7 +285,7 @@ impl VersionedGraph {
         value: DiceValidValue,
         first_dep_dirtied: Option<VersionNumber>,
         latest_dep_verified: Option<VersionNumber>,
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
     ) -> DiceComputedValue {
         debug!("making new graph entry because previously empty");
 
@@ -314,7 +315,7 @@ impl VersionedGraph {
         first_dep_dirtied: Option<VersionNumber>,
         latest_dep_verified: Option<VersionNumber>,
         reusable: ValueReusable,
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
         num_to_keep: usize,
     ) -> (DiceComputedValue, bool) {
         let versioned_map = self.last_n.get_mut(&key.k).unwrap();
@@ -460,7 +461,7 @@ impl VersionedGraph {
                         let new = OccupiedGraphNode::new(
                             key.k,
                             value,
-                            VersionedDependencies::new(since, Arc::new(vec![])),
+                            VersionedDependencies::new(since, Arc::new(SeriesParallelDeps::new())),
                             hist,
                         );
 
@@ -475,7 +476,7 @@ impl VersionedGraph {
                         let entry = VersionedGraphNode::Occupied(OccupiedGraphNode::new(
                             key.k,
                             value,
-                            VersionedDependencies::new(key.v, Arc::new(vec![])),
+                            VersionedDependencies::new(key.v, Arc::new(SeriesParallelDeps::new())),
                             CellHistory::verified(key.v),
                         ));
 
@@ -689,6 +690,7 @@ mod tests {
     use crate::impls::core::graph::storage::ValueReusable;
     use crate::impls::core::graph::storage::VersionedGraph;
     use crate::impls::core::graph::types::VersionedGraphKey;
+    use crate::impls::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
@@ -732,7 +734,7 @@ mod tests {
                     key.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -750,7 +752,7 @@ mod tests {
                     key2.dupe(),
                     res2.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -786,7 +788,7 @@ mod tests {
                     key3.dupe(),
                     res3,
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -826,7 +828,7 @@ mod tests {
                     key4.dupe(),
                     res4,
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1),
                 )
                 .1
@@ -892,7 +894,7 @@ mod tests {
                     key,
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(usize::MAX)
                 )
                 .1
@@ -909,7 +911,7 @@ mod tests {
                     key2.dupe(),
                     res2.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(usize::MAX)
                 )
                 .1
@@ -935,7 +937,7 @@ mod tests {
                     key3,
                     res3.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(usize::MAX)
                 )
                 .1
@@ -997,7 +999,7 @@ mod tests {
                     key.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(2)
                 )
                 .1
@@ -1014,7 +1016,7 @@ mod tests {
                     key2.dupe(),
                     res2.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(2)
                 )
                 .1
@@ -1040,7 +1042,7 @@ mod tests {
                     key3.dupe(),
                     res3.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(2)
                 )
                 .1
@@ -1099,7 +1101,7 @@ mod tests {
             key(0),
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(usize::MAX),
         );
         assert!(
@@ -1145,7 +1147,7 @@ mod tests {
             key(0),
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(1),
         );
         assert!(
@@ -1184,7 +1186,7 @@ mod tests {
             key1,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(1),
         );
 
@@ -1195,7 +1197,7 @@ mod tests {
             key2,
             res2.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(1),
         );
 
@@ -1205,7 +1207,7 @@ mod tests {
             key3.dupe(),
             res3.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(1),
         );
 
@@ -1236,7 +1238,7 @@ mod tests {
                     key.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1259,7 +1261,7 @@ mod tests {
                     key2.dupe(),
                     res2.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1285,7 +1287,7 @@ mod tests {
                     key3.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1315,7 +1317,7 @@ mod tests {
                     key4.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1356,7 +1358,7 @@ mod tests {
                     ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
                         VersionRange::bounded(VersionNumber::new(5), VersionNumber::new(6))
                     ])),
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1380,7 +1382,7 @@ mod tests {
                     ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
                         VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(5))
                     ])),
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1408,7 +1410,7 @@ mod tests {
                     ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
                         VersionRange::bounded(VersionNumber::new(5), VersionNumber::new(6))
                     ])),
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1440,7 +1442,7 @@ mod tests {
                     ValueReusable::VersionBased(VersionRanges::testing_new(sorted_vector_set![
                         VersionRange::bounded(VersionNumber::new(5), VersionNumber::new(6))
                     ])),
-                    Arc::new(vec![]),
+                    Arc::new(SeriesParallelDeps::new()),
                     StorageType::LastN(1)
                 )
                 .1
@@ -1472,7 +1474,7 @@ mod tests {
             key,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(1),
         );
 
@@ -1481,7 +1483,9 @@ mod tests {
             key1,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![DiceKey { index: 0 }]),
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+                index: 0,
+            }])),
             StorageType::LastN(1),
         );
 
@@ -1490,7 +1494,9 @@ mod tests {
             key2,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![DiceKey { index: 0 }]),
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+                index: 0,
+            }])),
             StorageType::LastN(1),
         );
 
@@ -1507,7 +1513,9 @@ mod tests {
                 ))
                 .assert_check_deps()
                 .deps_to_validate,
-            Arc::new(vec![DiceKey { index: 0 }])
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+                index: 0
+            }]))
         );
         assert_eq!(
             cache
@@ -1517,7 +1525,9 @@ mod tests {
                 ))
                 .assert_check_deps()
                 .deps_to_validate,
-            Arc::new(vec![DiceKey { index: 0 }])
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+                index: 0
+            }]))
         );
 
         Ok(())
@@ -1533,7 +1543,7 @@ mod tests {
             key,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(1),
         );
 
@@ -1547,7 +1557,7 @@ mod tests {
             key,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(vec![]),
+            Arc::new(SeriesParallelDeps::new()),
             StorageType::LastN(1),
         );
 

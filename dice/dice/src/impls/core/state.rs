@@ -23,6 +23,7 @@ use crate::impls::core::processor::StateProcessor;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -67,7 +68,7 @@ pub(crate) enum StateRequest {
         /// The newly computed value
         value: DiceValidValue,
         /// The deps accessed during the computation of newly computed value
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<CancellableResult<DiceComputedValue>>,

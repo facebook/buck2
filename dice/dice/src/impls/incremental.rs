@@ -32,6 +32,7 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::core::versions::VersionEpoch;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
@@ -136,7 +137,7 @@ impl IncrementalEngine {
                             epoch: version_epoch,
                             storage: eval_result.storage,
                             value,
-                            deps: Arc::new(eval_result.deps.iter_keys().collect()),
+                            deps: Arc::new(eval_result.deps),
                             resp: tx,
                         });
 
@@ -221,7 +222,7 @@ impl IncrementalEngine {
                             &eval.dice.key_index,
                             &eval.user_data.activation_tracker,
                             k,
-                            mismatch.deps_to_validate.iter().copied(),
+                            mismatch.deps_to_validate.iter_keys(),
                             ActivationData::Reused,
                         ))?;
 
@@ -271,7 +272,7 @@ impl IncrementalEngine {
                         epoch: self.version_epoch,
                         storage: eval_result.storage,
                         value,
-                        deps: Arc::new(eval_result.deps.iter_keys().collect()),
+                        deps: Arc::new(eval_result.deps),
                         resp: tx,
                     });
 
@@ -299,7 +300,7 @@ impl IncrementalEngine {
         parent_key: ParentKey,
         eval: AsyncEvaluator,
         verified_versions: &VersionRanges,
-        deps: &[DiceKey],
+        deps: &SeriesParallelDeps,
         check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>,
     ) -> CancellableResult<DidDepsChange> {
         trace!(deps = ?deps);
@@ -309,14 +310,14 @@ impl IncrementalEngine {
         }
 
         let mut fs: FuturesUnordered<_> = deps
-            .iter()
+            .iter_keys()
             .map(|dep| {
                 eval.per_live_version_ctx
                     .compute_opaque(
-                        dep.dupe(),
+                        dep,
                         parent_key,
                         &eval,
-                        check_deps_state.cycles_for_dep(*dep, &eval),
+                        check_deps_state.cycles_for_dep(dep, &eval),
                     )
                     .map(|r| r.map(|v| v.history().get_verified_ranges()))
             })

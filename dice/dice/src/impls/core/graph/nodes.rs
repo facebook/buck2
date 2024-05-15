@@ -25,6 +25,7 @@ use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::dependencies::VersionedRevDependencies;
 use crate::impls::core::graph::history::CellHistory;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
@@ -109,7 +110,7 @@ impl OccupiedGraphNode {
         v: VersionNumber,
         latest_dep_verified: Option<VersionNumber>,
         first_dep_dirtied: Option<VersionNumber>,
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
     ) -> VersionNumber {
         // Marking a node as unchanged ALWAYS requires the dependencies for which we used to deem
         // that the node is unchanged.
@@ -168,6 +169,7 @@ mod tests {
     use crate::impls::core::graph::history::testing::HistoryExt;
     use crate::impls::core::graph::history::CellHistory;
     use crate::impls::core::graph::nodes::OccupiedGraphNode;
+    use crate::impls::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
@@ -195,7 +197,10 @@ mod tests {
 
     #[test]
     fn update_versioned_graph_entry_tracks_versions_and_deps() {
-        let deps0: Arc<Vec<DiceKey>> = Arc::new(vec![DiceKey { index: 5 }]);
+        let deps0: Arc<SeriesParallelDeps> =
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+                index: 5,
+            }]));
         let mut entry = OccupiedGraphNode::new(
             DiceKey { index: 1335 },
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
@@ -213,7 +218,12 @@ mod tests {
             .assert_verified();
         assert_eq!(entry.metadata().deps.deps(), deps0);
 
-        entry.mark_unchanged(VersionNumber::new(1), None, None, Arc::new(vec![]));
+        entry.mark_unchanged(
+            VersionNumber::new(1),
+            None,
+            None,
+            Arc::new(SeriesParallelDeps::new()),
+        );
         entry
             .metadata()
             .hist
@@ -224,9 +234,14 @@ mod tests {
             .hist
             .get_history(&VersionNumber::new(1))
             .assert_verified();
-        assert_eq!(entry.metadata().deps.deps(), Arc::new(Vec::new()));
+        assert_eq!(
+            entry.metadata().deps.deps(),
+            Arc::new(SeriesParallelDeps::new())
+        );
 
-        let deps1 = Arc::new(vec![DiceKey { index: 7 }]);
+        let deps1 = Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+            index: 7,
+        }]));
         entry.mark_unchanged(
             VersionNumber::new(2),
             Some(VersionNumber::new(1)),

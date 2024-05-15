@@ -15,6 +15,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::arc::Arc;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::versions::VersionNumber;
 use crate::HashMap;
@@ -24,7 +25,7 @@ pub(crate) struct VersionedDependencies {
     /// once the deps at a particular version is written, it is final and never modified
     /// We only store the dependencies relevant to the most recent result
     recorded_at: VersionNumber,
-    deps: Arc<Vec<DiceKey>>,
+    deps: Arc<SeriesParallelDeps>,
 }
 
 impl Dupe for VersionedDependencies {
@@ -32,15 +33,15 @@ impl Dupe for VersionedDependencies {
 }
 
 impl VersionedDependencies {
-    pub(crate) fn new(recorded_at: VersionNumber, deps: Arc<Vec<DiceKey>>) -> Self {
+    pub(crate) fn new(recorded_at: VersionNumber, deps: Arc<SeriesParallelDeps>) -> Self {
         Self { recorded_at, deps }
     }
 
-    pub(crate) fn deps(&self) -> Arc<Vec<DiceKey>> {
+    pub(crate) fn deps(&self) -> Arc<SeriesParallelDeps> {
         self.deps.dupe()
     }
 
-    pub(crate) fn replace_deps(&mut self, v: VersionNumber, deps: Arc<Vec<DiceKey>>) {
+    pub(crate) fn replace_deps(&mut self, v: VersionNumber, deps: Arc<SeriesParallelDeps>) {
         if self.recorded_at < v {
             // we only ever write the newest version of the dependencies of this node for simplicity
             // That way, if we are ever dirtied, we just check if the latest version of the deps
