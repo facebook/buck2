@@ -10,6 +10,7 @@
 use std::any::Any;
 use std::future::Future;
 use std::ops::Deref;
+use std::ops::DerefMut;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -159,20 +160,32 @@ impl Deref for BaseComputeCtx {
     }
 }
 
+impl DerefMut for BaseComputeCtx {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match &mut self.data.0 {
+            DiceComputationsImpl::Legacy(_) => {
+                unreachable!("legacy dice instead of modern")
+            }
+            DiceComputationsImpl::Modern(ctx) => ctx,
+        }
+    }
+}
+
 impl<'d> ModernComputeCtx<'d> {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
     pub(crate) fn compute<'a, K>(
-        &'a self,
+        &'a mut self,
         key: &K,
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
         K: Key,
         Self: 'a,
     {
-        self.compute_opaque(key)
-            .map(|r| r.map(|opaque| self.opaque_into_value(opaque)))
+        let (ctx_data, dep_trackers) = self.unpack();
+        Self::compute_opaque_impl(ctx_data, key)
+            .map(move |r| r.map(|opaque| Self::opaque_into_value_impl(dep_trackers, opaque)))
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -186,20 +199,28 @@ impl<'d> ModernComputeCtx<'d> {
     where
         K: Key,
     {
-        self.ctx_data()
-            .compute_opaque(key)
-            .map(move |cancellable_result| {
-                let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
-                    OpaqueValueModern::new(dice_key, dice_value.value().dupe())
-                });
+        Self::compute_opaque_impl(self.ctx_data(), key)
+    }
 
-                cancellable.map_err(|_| DiceError::cancelled())
-            })
+    fn compute_opaque_impl<'a, K>(
+        ctx_data: &CoreCtx,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'a
+    where
+        K: Key,
+    {
+        ctx_data.compute_opaque(key).map(move |cancellable_result| {
+            let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
+                OpaqueValueModern::new(dice_key, dice_value.value().dupe())
+            });
+
+            cancellable.map_err(|_| DiceError::cancelled())
+        })
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
     pub(crate) fn compute_many<'a, T: 'a>(
-        &'a self,
+        &'a mut self,
         computes: impl IntoIterator<
             Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         >,
@@ -211,7 +232,7 @@ impl<'d> ModernComputeCtx<'d> {
     }
 
     pub(crate) fn compute2<'a, T: 'a, U: 'a>(
-        &'a self,
+        &'a mut self,
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
@@ -222,7 +243,7 @@ impl<'d> ModernComputeCtx<'d> {
     }
 
     pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
-        &'a self,
+        &'a mut self,
         compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
         compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
@@ -247,11 +268,16 @@ impl<'d> ModernComputeCtx<'d> {
         ))
     }
 
-    pub fn opaque_into_value<'a, K: Key>(&'a self, opaque: OpaqueValueModern<K>) -> K::Value {
-        self.dep_trackers()
-            .lock()
-            .record(opaque.derive_from_key, opaque.derive_from.validity());
+    pub(crate) fn opaque_into_value<K: Key>(&mut self, opaque: OpaqueValueModern<K>) -> K::Value {
+        Self::opaque_into_value_impl(self.unpack().1, opaque)
+    }
 
+    fn opaque_into_value_impl<K: Key>(
+        deps: &Mutex<RecordingDepsTracker>,
+        opaque: OpaqueValueModern<K>,
+    ) -> K::Value {
+        deps.lock()
+            .record(opaque.derive_from_key, opaque.derive_from.validity());
         opaque
             .derive_from
             .downcast_maybe_transient::<K::Value>()
@@ -360,17 +386,23 @@ impl ModernComputeCtx<'_> {
         &self.data().ctx_data
     }
 
+    fn unpack(&mut self) -> (&CoreCtx, &Mutex<RecordingDepsTracker>) {
+        let data = self.data();
+        (&data.ctx_data, &data.dep_trackers)
+    }
+
     /// Compute "projection" based on deriving value
     pub(crate) fn projection<K: Key, P: ProjectionKey<DeriveFromKey = K>>(
-        &self,
+        &mut self,
         derive_from: &OpaqueValueModern<K>,
         key: &P,
     ) -> DiceResult<P::Value> {
-        self.ctx_data().project(
+        let (ctx_data, dep_trackers) = self.unpack();
+        ctx_data.project(
             key,
             derive_from.derive_from_key,
             derive_from.derive_from.dupe(),
-            self.dep_trackers(),
+            dep_trackers,
         )
     }
 

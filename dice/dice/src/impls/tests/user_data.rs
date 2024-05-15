@@ -55,9 +55,9 @@ async fn different_data_per_compute_ctx() {
         d
     };
 
-    let ctx0 = dice.updater_with_data(per_cmd_data0).commit().await;
+    let mut ctx0 = dice.updater_with_data(per_cmd_data0).commit().await;
 
-    let ctx1 = dice.updater_with_data(per_cmd_data1).commit().await;
+    let mut ctx1 = dice.updater_with_data(per_cmd_data1).commit().await;
 
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));

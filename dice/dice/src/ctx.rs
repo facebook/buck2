@@ -84,7 +84,7 @@ impl<'d> DiceComputationsImpl<'d> {
     }
 
     pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
-        &'a self,
+        &'a mut self,
         derive_from: &OpaqueValue<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value> {

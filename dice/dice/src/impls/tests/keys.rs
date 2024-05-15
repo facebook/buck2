@@ -17,6 +17,7 @@ use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::join3;
+use futures::FutureExt;
 use tokio::sync::Mutex;
 
 use crate::api::computations::DiceComputations;
@@ -65,13 +66,15 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
     let guard = Arc::new(Mutex::new(0));
     let _g = guard.lock().await;
 
-    let ctx = dice.updater().commit().await;
+    let mut ctx = dice.updater().commit().await;
 
-    let k = ComputeOnce(guard.dupe());
+    let k = &ComputeOnce(guard.dupe());
 
-    let compute1 = ctx.compute(&k);
-    let compute2 = ctx.compute(&k);
-    let compute3 = ctx.compute(&k);
+    let (compute1, compute2, compute3) = ctx.compute3(
+        |ctx| ctx.compute(k).boxed(),
+        |ctx| ctx.compute(k).boxed(),
+        |ctx| ctx.compute(k).boxed(),
+    );
 
     drop(_g);
 
@@ -136,10 +139,12 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     rt.block_on(async move {
         let dice = DiceModern::new(DiceData::new());
 
-        let ctx = dice.updater().commit().await;
-        let k = ComputeParallel(barrier.dupe());
+        let ctx = &dice.updater().commit().await;
+        let k = &ComputeParallel(barrier.dupe());
 
-        let futs = (0..n_thread).map(|_| ctx.compute(&k)).collect::<Vec<_>>();
+        let futs = (0..n_thread)
+            .map(|_| async move { ctx.clone().compute(k).await })
+            .collect::<Vec<_>>();
 
         let mut sum = 0;
         futures::future::join_all(futs)
