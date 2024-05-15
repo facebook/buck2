@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# @oss-disable: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _get_build_mode = "get_build_mode") 
+
 BUILD_MODE_DEBUG = "debug" # @oss-enable
 BUILD_MODE_PROFILE = "profile" # @oss-enable
 BUILD_MODE_RELEASE = "release" # @oss-enable
@@ -57,4 +59,5 @@ def constraints(constraint_setting_rule, constraint_value_rule):
         )
 
 def get_build_mode():
-    return None  # TODO: Implement OSS version
+    return read_root_config("apple", "build_mode", BUILD_MODE_DEBUG) # @oss-enable
+    # @oss-disable: return _get_build_mode() 

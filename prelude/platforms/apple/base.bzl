@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@fbsource//tools/build_defs/apple:build_mode_defs.bzl", get_build_mode = "build_mode") 
 # @oss-disable: load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2") 
 
 load("@prelude//:is_buck2.bzl", "is_buck2") # @oss-enable
@@ -13,7 +12,7 @@ load(
     "@prelude//platforms/apple:build_mode.bzl",
     "BUILD_MODE",
     "CONSTRAINT_PACKAGE",
-    "get_build_mode", # @oss-enable
+    "get_build_mode",
 )
 load(
     "@prelude//platforms/apple:constants.bzl",

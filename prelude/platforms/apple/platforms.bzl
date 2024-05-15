@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@fbsource//tools/build_defs:buckconfig.bzl", "read")
-# @oss-disable: load("@fbsource//tools/build_defs/apple:build_mode_defs.bzl", get_build_mode = "build_mode") 
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//platforms/apple:base.bzl", "BUILD_MODE_TO_CONSTRAINTS_MAP", "apple_build_mode_backed_platform", "is_buck2_mac_platform", "is_mobile_platform")
@@ -14,7 +12,7 @@ load(
     "@prelude//platforms/apple:build_mode.bzl",
     "APPLE_BUILD_MODES",
     "BUILD_MODE_LOCAL",
-    "get_build_mode" # @oss-enable
+    "get_build_mode",
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
@@ -23,6 +21,7 @@ load(
     "mac_platforms",
 )
 load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_PLATFORMS_MAP")
+load("@prelude//utils:buckconfig.bzl", "read")
 
 _SUPPORTED_IOS_PLATFORMS = [
     ios_platforms.IPHONEOS_ARM64,
