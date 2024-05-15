@@ -154,13 +154,8 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let engine = DiceTaskWorker::testing_new(
-        key,
-        eval.clone(),
-        events.clone(),
-        dice.state_handle.dupe(),
-        ctx.testing_get_epoch(),
-    );
+    let engine =
+        DiceTaskWorker::testing_new(key, eval.clone(), events.clone(), ctx.testing_get_epoch());
 
     let mut task_handle = DiceTaskHandle::testing_new();
 
@@ -193,13 +188,8 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let engine = DiceTaskWorker::testing_new(
-        key,
-        eval.clone(),
-        events.clone(),
-        dice.state_handle.dupe(),
-        ctx.testing_get_epoch(),
-    );
+    let engine =
+        DiceTaskWorker::testing_new(key, eval.clone(), events.clone(), ctx.testing_get_epoch());
 
     assert!(
         !engine
@@ -233,13 +223,8 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let engine = DiceTaskWorker::testing_new(
-        key,
-        eval.clone(),
-        events.clone(),
-        dice.state_handle.dupe(),
-        ctx.testing_get_epoch(),
-    );
+    let engine =
+        DiceTaskWorker::testing_new(key, eval.clone(), events.clone(), ctx.testing_get_epoch());
 
     assert!(
         engine

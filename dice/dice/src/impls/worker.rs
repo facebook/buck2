@@ -71,7 +71,6 @@ pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: AsyncEvaluator,
     event_dispatcher: DiceEventDispatcher,
-    state_handle: CoreStateHandle,
     version_epoch: VersionEpoch,
 }
 
@@ -94,7 +93,6 @@ impl DiceTaskWorker {
             k,
             eval,
             event_dispatcher,
-            state_handle,
             version_epoch,
         };
 
@@ -117,7 +115,7 @@ impl DiceTaskWorker {
                         // previous result actually finished
                     }
                     Either::Right(state) => {
-                        let _ignore = worker.do_work(state).await;
+                        let _ignore = worker.do_work(state_handle, state).await;
                     }
                 }
 
@@ -128,14 +126,15 @@ impl DiceTaskWorker {
         })
     }
 
+    /// This is the primary flow of how a key is computed or re-computed.
     pub(crate) async fn do_work(
         &self,
+        state_handle: CoreStateHandle,
         task_state: DiceWorkerStateLookupNode<'_, '_>,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let v = self.eval.per_live_version_ctx.get_version();
 
-        let state_result = self
-            .state_handle
+        let state_result = state_handle
             .lookup_key(VersionedGraphKey::new(v, self.k))
             .await;
 
@@ -163,8 +162,7 @@ impl DiceTaskWorker {
                             ActivationData::Reused,
                         );
 
-                        let response = self
-                            .state_handle
+                        let response = state_handle
                             .update_mismatch_as_unchanged(
                                 VersionedGraphKey::new(v, self.k),
                                 self.version_epoch,
@@ -184,35 +182,20 @@ impl DiceTaskWorker {
             }
             VersionedGraphResult::Compute => task_state.lookup_dirtied(&self.eval),
         };
-        self.compute(task_state).await
-    }
-
-    async fn compute(
-        &self,
-        task_state: DiceWorkerStateComputing<'_, '_>,
-    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
-        self.event_dispatcher.started(self.k);
-        scopeguard::defer! {
-            self.event_dispatcher.finished(self.k);
-        };
-
-        let v = self.eval.per_live_version_ctx.get_version();
-
-        // TODO(bobyf) these also make good locations where we want to perform instrumentation
-        debug!(msg = "running evaluator");
 
         let DiceWorkerStateFinishedEvaluating {
             state,
             activation_data,
             result,
-        } = self.eval.evaluate(self.k, task_state).await?;
+        } = self.compute(task_state).await?;
 
         let activation_info = self.activation_info(result.deps.iter_keys(), activation_data);
 
         let res = {
             match result.value.into_valid_value() {
                 Ok(value) => {
-                    self.state_handle
+                    let v = self.eval.per_live_version_ctx.get_version();
+                    state_handle
                         .update_computed(
                             VersionedGraphKey::new(v, self.k),
                             self.version_epoch,
@@ -230,6 +213,21 @@ impl DiceTaskWorker {
         };
 
         res.map(|res| state.cached(res, activation_info))
+    }
+
+    async fn compute<'a, 'b>(
+        &self,
+        task_state: DiceWorkerStateComputing<'a, 'b>,
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
+        self.event_dispatcher.started(self.k);
+        scopeguard::defer! {
+            self.event_dispatcher.finished(self.k);
+        };
+
+        // TODO(bobyf) these also make good locations where we want to perform instrumentation
+        debug!(msg = "running evaluator");
+
+        self.eval.evaluate(self.k, task_state).await
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
@@ -296,14 +294,12 @@ impl DiceTaskWorker {
         k: DiceKey,
         eval: AsyncEvaluator,
         event_dispatcher: DiceEventDispatcher,
-        state_handle: CoreStateHandle,
         version_epoch: VersionEpoch,
     ) -> Self {
         Self {
             k,
             eval,
             event_dispatcher,
-            state_handle,
             version_epoch,
         }
     }
