@@ -8,6 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
+load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestLogFiles")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
@@ -210,16 +211,19 @@ def assemble_bundle(
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
     subtargets["command"] = [DefaultInfo(default_output = command_json, other_outputs = [command_json_cmd_args])]
 
-    bundle_manifest = {
-        ctx.label: {
-            "command": command_json,
-            "log": bundling_log_output,
-            "spec": spec_file,
-        },
+    bundle_manifest_log_file_map = {
+        ctx.label: AppleBundleManifestLogFiles(
+            command_file = command_json,
+            spec_file = spec_file,
+            log_file = bundling_log_output,
+        ),
     }
-    bundle_manifest_json = ctx.actions.declare_output("bundle_manifest.json")
-    bundle_manifest_cmd_args = ctx.actions.write_json(bundle_manifest_json, bundle_manifest, with_inputs = True, pretty = True)
-    subtargets["manifest"] = [DefaultInfo(default_output = bundle_manifest_json, other_outputs = [bundle_manifest_cmd_args])]
+    bundle_manifest = AppleBundleManifest(log_file_map = bundle_manifest_log_file_map)
+    bundle_manifest_json_object = _convert_bundle_manifest_to_json_object(bundle_manifest)
+
+    bundle_manifest_json_file = ctx.actions.declare_output("bundle_manifest.json")
+    bundle_manifest_cmd_args = ctx.actions.write_json(bundle_manifest_json_file, bundle_manifest_json_object, with_inputs = True, pretty = True)
+    subtargets["manifest"] = [DefaultInfo(default_output = bundle_manifest_json_file, other_outputs = [bundle_manifest_cmd_args])]
 
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
@@ -310,3 +314,13 @@ def _should_embed_provisioning_profile(ctx: AnalysisContext, codesign_type: Code
         return ctx.attrs.embed_provisioning_profile_when_adhoc_code_signing
 
     return False
+
+def _convert_bundle_manifest_to_json_object(manifest: AppleBundleManifest) -> dict[Label, typing.Any]:
+    manifest_dict = {}
+    for target_label, logs in manifest.log_file_map.items():
+        manifest_dict[target_label] = {
+            "command": logs.command_file,
+            "log": logs.log_file,
+            "spec": logs.spec_file,
+        }
+    return manifest_dict

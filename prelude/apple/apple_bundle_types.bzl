@@ -15,6 +15,16 @@ AppleBundleType = enum(
     "appclip",
 )
 
+AppleBundleManifestLogFiles = record(
+    command_file = field(Artifact),
+    spec_file = field(Artifact),
+    log_file = field([Artifact, None], None),
+)
+
+AppleBundleManifest = record(
+    log_file_map = dict[Label, AppleBundleManifestLogFiles],
+)
+
 # Provider flagging that result of the rule contains Apple bundle.
 # It might be copied into main bundle to appropriate place if rule
 # with this provider is a dependency of `apple_bundle`.
