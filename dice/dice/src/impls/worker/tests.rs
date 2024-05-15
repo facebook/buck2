@@ -21,6 +21,7 @@ use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::pin_mut;
+use futures::Future;
 use sorted_vector_map::sorted_vector_set;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
@@ -35,7 +36,6 @@ use crate::arc::Arc;
 use crate::impls::core::graph::history::testing::CellHistoryExt;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
-use crate::impls::core::state::StateRequest;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::deps::graph::SeriesParallelDeps;
@@ -268,42 +268,37 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let is_ran = Arc::new(AtomicBool::new(false));
     let key = dice.key_index.index_key(IsRan(is_ran.dupe()));
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::CtxAtVersion {
-        version: VersionNumber::new(0),
-        guard: ActiveTransactionGuard::new(VersionNumber::new(0), dice.state_handle.dupe()),
-        resp: tx,
-    });
-    let (ctx, guard) = rx.await.unwrap();
+    let (ctx, guard) = dice
+        .state_handle
+        .ctx_at_version(
+            VersionNumber::new(0),
+            ActiveTransactionGuard::new(VersionNumber::new(0), dice.state_handle.dupe()),
+        )
+        .await;
 
     // set the initial state
-    let (tx, _rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateComputed {
-        key: VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 100 }),
-        epoch: ctx.testing_get_epoch(),
-        storage: StorageType::LastN(1),
-        value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-        deps: Arc::new(SeriesParallelDeps::new()),
-        resp: tx,
-    });
-    let (tx, _rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateComputed {
-        key: VersionedGraphKey::new(VersionNumber::new(0), key.dupe()),
-        epoch: ctx.testing_get_epoch(),
-        storage: StorageType::LastN(1),
-        value: DiceValidValue::testing_new(DiceKeyValue::<IsRan>::new(())),
-        deps: Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+    drop(dice.state_handle.update_computed(
+        VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 100 }),
+        ctx.testing_get_epoch(),
+        StorageType::LastN(1),
+        DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
+        Arc::new(SeriesParallelDeps::new()),
+    ));
+
+    drop(dice.state_handle.update_computed(
+        VersionedGraphKey::new(VersionNumber::new(0), key.dupe()),
+        ctx.testing_get_epoch(),
+        StorageType::LastN(1),
+        DiceValidValue::testing_new(DiceKeyValue::<IsRan>::new(())),
+        Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
             index: 100,
         }])),
-        resp: tx,
-    });
+    ));
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateState {
-        changes: vec![(key.dupe(), ChangeType::TestingSoftDirty)],
-        resp: tx,
-    });
-    let v = rx.await.unwrap();
+    let v = dice
+        .state_handle
+        .update_state(vec![(key.dupe(), ChangeType::TestingSoftDirty)])
+        .await;
     drop(guard);
     drop(ctx);
 
@@ -343,12 +338,10 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     assert!(!is_ran.load(Ordering::SeqCst));
 
     // next version
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateState {
-        changes: vec![(key.dupe(), ChangeType::TestingSoftDirty)],
-        resp: tx,
-    });
-    let v = rx.await.unwrap();
+    let v = dice
+        .state_handle
+        .update_state(vec![(key.dupe(), ChangeType::TestingSoftDirty)])
+        .await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
@@ -388,12 +381,10 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     // also force dirty the root node so we actually check its deps since the above would
     // short circuit dirtying due to the dep value actually being equal.
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateState {
-        changes: vec![(key.dupe(), ChangeType::TestingSoftDirty)],
-        resp: tx,
-    });
-    let new_v = rx.await.unwrap();
+    let new_v = dice
+        .state_handle
+        .update_state(vec![(key.dupe(), ChangeType::TestingSoftDirty)])
+        .await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
 
@@ -492,12 +483,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let key = dice.key_index.index_key(InstanceEqualKey(instance.dupe()));
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateState {
-        changes: vec![],
-        resp: tx,
-    });
-    let v = rx.await.unwrap();
+    let v = dice.state_handle.update_state(vec![]).await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = AsyncEvaluator {
@@ -520,12 +506,10 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         .unwrap()
         .await?;
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateState {
-        changes: vec![(key.dupe(), ChangeType::Invalidate)],
-        resp: tx,
-    });
-    let v = rx.await.unwrap();
+    let v = dice
+        .state_handle
+        .update_state(vec![(key.dupe(), ChangeType::Invalidate)])
+        .await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = AsyncEvaluator {
@@ -1116,12 +1100,9 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 }
 
 async fn soft_dirty(dice: &std::sync::Arc<DiceModern>, key: DiceKey) -> VersionNumber {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateState {
-        changes: vec![(key.dupe(), ChangeType::TestingSoftDirty)],
-        resp: tx,
-    });
-    rx.await.unwrap()
+    dice.state_handle
+        .update_state(vec![(key.dupe(), ChangeType::TestingSoftDirty)])
+        .await
 }
 
 fn update_computed_value(
@@ -1131,30 +1112,24 @@ fn update_computed_value(
     v: VersionNumber,
     value: DiceValidValue,
     deps: Arc<SeriesParallelDeps>,
-) -> tokio::sync::oneshot::Receiver<CancellableResult<DiceComputedValue>> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::UpdateComputed {
-        key: VersionedGraphKey::new(v, k),
-        epoch: ctx.testing_get_epoch(),
-        storage: StorageType::LastN(1),
+) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
+    dice.state_handle.update_computed(
+        VersionedGraphKey::new(v, k),
+        ctx.testing_get_epoch(),
+        StorageType::LastN(1),
         value,
         deps,
-        resp: tx,
-    });
-
-    rx
+    )
 }
 
 async fn get_ctx_at_version(
     dice: &std::sync::Arc<DiceModern>,
     v: VersionNumber,
 ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    dice.state_handle.request(StateRequest::CtxAtVersion {
-        version: VersionNumber::new(0),
-        guard: ActiveTransactionGuard::new(v, dice.state_handle.dupe()),
-        resp: tx,
-    });
-    let (ctx, guard) = rx.await.unwrap();
-    (ctx, guard)
+    dice.state_handle
+        .ctx_at_version(
+            VersionNumber::new(0),
+            ActiveTransactionGuard::new(v, dice.state_handle.dupe()),
+        )
+        .await
 }

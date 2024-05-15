@@ -19,7 +19,6 @@ use crate::api::data::DiceData;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::init_state;
 use crate::impls::core::state::CoreStateHandle;
-use crate::impls::core::state::StateRequest;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::transaction::TransactionUpdater;
 use crate::introspection::graph::GraphIntrospectable;
@@ -80,23 +79,11 @@ impl DiceModern {
     }
 
     pub fn metrics(&self) -> Metrics {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.state_handle
-            .request(StateRequest::Metrics { resp: tx });
-
-        // Modern dice can just run on a blocking runtime and block waiting for the channel.
-        // This is safe since the processing dice thread is dedicated, and never awaits any other tasks.
-        tokio::task::block_in_place(|| rx.blocking_recv().unwrap())
+        self.state_handle.metrics()
     }
 
     pub fn to_introspectable(&self) -> GraphIntrospectable {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.state_handle
-            .request(StateRequest::Introspection { resp: tx });
-
-        let (graph_introspectable, version_introspectable) = rx.blocking_recv().unwrap();
+        let (graph_introspectable, version_introspectable) = self.state_handle.introspection();
         // a bit subtle, but make sure we introspect the key_index after we get the graphs as
         // there may still be new keys added and running. A snapshot of `key_index` prior to
         // snapshotting the graphs will result in missing keys
@@ -120,25 +107,16 @@ impl DiceModern {
 
     /// Wait until all active versions have exited.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.state_handle
-            .request(StateRequest::GetTasksPendingCancellation { resp: tx });
-
+        let rx = self.state_handle.get_tasks_pending_cancellation();
         async move {
-            let tasks = rx.await.unwrap();
+            let tasks = rx.await;
             futures::future::join_all(tasks).await;
         }
     }
 
     /// true when there are no tasks pending cancellation
     pub async fn is_idle(&self) -> bool {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-
-        self.state_handle
-            .request(StateRequest::GetTasksPendingCancellation { resp: tx });
-
-        let tasks = rx.await.unwrap();
+        let tasks = self.state_handle.get_tasks_pending_cancellation().await;
 
         tasks.iter().all(|task| task.is_terminated())
     }
@@ -148,7 +126,6 @@ impl DiceModern {
 pub(crate) mod testing {
     use dupe::Dupe;
 
-    use crate::impls::core::state::StateRequest;
     use crate::impls::ctx::SharedLiveTransactionCtx;
     use crate::impls::dice::DiceModern;
     use crate::impls::transaction::ActiveTransactionGuard;
@@ -159,15 +136,8 @@ pub(crate) mod testing {
             &self,
             v: VersionNumber,
         ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
-            let (tx, rx) = tokio::sync::oneshot::channel();
-
             let guard = ActiveTransactionGuard::new(v, self.state_handle.dupe());
-            self.state_handle.request(StateRequest::CtxAtVersion {
-                version: v,
-                guard,
-                resp: tx,
-            });
-            rx.await.unwrap()
+            self.state_handle.ctx_at_version(v, guard).await
         }
     }
 }

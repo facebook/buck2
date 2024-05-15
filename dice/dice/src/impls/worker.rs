@@ -18,7 +18,6 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use itertools::Either;
-use tokio::sync::oneshot;
 use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
@@ -27,7 +26,6 @@ use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::state::CoreStateHandle;
-use crate::impls::core::state::StateRequest;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::evaluator::AsyncEvaluator;
@@ -134,13 +132,11 @@ impl DiceTaskWorker {
         task_state: DiceWorkerStateLookupNode<'_, '_>,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let v = self.eval.per_live_version_ctx.get_version();
-        let (tx, rx) = oneshot::channel();
-        self.state_handle.request(StateRequest::LookupKey {
-            key: VersionedGraphKey::new(v, self.k),
-            resp: tx,
-        });
 
-        let state_result = rx.await.unwrap();
+        let state_result = self
+            .state_handle
+            .lookup_key(VersionedGraphKey::new(v, self.k))
+            .await;
 
         match state_result {
             VersionedGraphResult::Match(entry) => task_state.lookup_matches(entry),
@@ -174,18 +170,17 @@ impl DiceTaskWorker {
                             ActivationData::Reused,
                         ))?;
 
-                        // report reuse
-                        let (tx, rx) = oneshot::channel();
-                        self.state_handle
-                            .request(StateRequest::UpdateMismatchAsUnchanged {
-                                key: VersionedGraphKey::new(v, self.k),
-                                epoch: self.version_epoch,
-                                storage: self.eval.storage_type(self.k),
-                                previous: mismatch,
-                                resp: tx,
-                            });
+                        let response = self
+                            .state_handle
+                            .update_mismatch_as_unchanged(
+                                VersionedGraphKey::new(v, self.k),
+                                self.version_epoch,
+                                self.eval.storage_type(self.k),
+                                mismatch,
+                            )
+                            .await;
 
-                        rx.await.unwrap().map(|r| task_state.cached(r))
+                        response.map(|r| task_state.cached(r))
                     }
                 }
             }
@@ -212,17 +207,15 @@ impl DiceTaskWorker {
         let res = {
             match eval_result.value.into_valid_value() {
                 Ok(value) => {
-                    let (tx, rx) = oneshot::channel();
-                    self.state_handle.request(StateRequest::UpdateComputed {
-                        key: VersionedGraphKey::new(v, self.k),
-                        epoch: self.version_epoch,
-                        storage: eval_result.storage,
-                        value,
-                        deps: Arc::new(eval_result.deps),
-                        resp: tx,
-                    });
-
-                    rx.await.unwrap()
+                    self.state_handle
+                        .update_computed(
+                            VersionedGraphKey::new(v, self.k),
+                            self.version_epoch,
+                            eval_result.storage,
+                            value,
+                            Arc::new(eval_result.deps),
+                        )
+                        .await
                 }
                 Err(value) => Ok(DiceComputedValue::new(
                     value,
@@ -338,20 +331,15 @@ pub(crate) fn project_for_key(
             // send the update but don't wait for it
             let state_future = match eval_result.value.dupe().into_valid_value() {
                 Ok(value) => {
-                    let (tx, rx) = oneshot::channel();
-                    state.request(StateRequest::UpdateComputed {
-                        key: VersionedGraphKey::new(v, k),
-                        epoch: version_epoch,
-                        storage: eval_result.storage,
+                    let rx = state.update_computed(
+                        VersionedGraphKey::new(v, k),
+                        version_epoch,
+                        eval_result.storage,
                         value,
-                        deps: Arc::new(eval_result.deps),
-                        resp: tx,
-                    });
+                        Arc::new(eval_result.deps),
+                    );
 
-                    Some(
-                        rx.map(|res| res.map_err(|_channel_drop| Cancelled).flatten())
-                            .boxed(),
-                    )
+                    Some(rx.map(|res| res.map_err(|_channel_drop| Cancelled)).boxed())
                 }
                 Err(_transient_result) => {
                     // transients are never stored in the state, but the result should be shared
