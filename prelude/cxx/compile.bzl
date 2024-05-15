@@ -647,7 +647,7 @@ def _mk_argsfile(
 
     _add_compiler_info_flags(ctx, compiler_info, ext, args)
 
-        args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
+    args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
     # Different preprocessors will contain whether to use modules,
     # and the modulemap to use, so we need to get the final outcome.
