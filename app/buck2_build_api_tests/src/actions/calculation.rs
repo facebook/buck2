@@ -42,14 +42,17 @@ use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::SetHttpClient;
+use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::category::Category;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellResolver;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::directory::DirectoryEntry;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -58,6 +61,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -84,6 +88,7 @@ use buck2_execute::materialize::nodisk::NoDiskMaterializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_http::HttpClientBuilder;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::testing::DiceBuilder;
 use dice::DiceTransaction;
 use dice::UserComputationData;
@@ -94,16 +99,16 @@ use sorted_vector_map::sorted_vector_map;
 
 use crate::actions::testings::SimpleAction;
 
-fn create_test_build_artifact(
-    package_cell: &str,
-    package_path: &str,
-    target_name: &str,
-) -> BuildArtifact {
-    let configured_target_label = TargetLabel::new(
-        PackageLabel::testing_new(package_cell, package_path),
-        TargetNameRef::unchecked_new(target_name),
+fn create_test_configured_target_label() -> ConfiguredTargetLabel {
+    TargetLabel::new(
+        PackageLabel::testing_new("cell", "pkg"),
+        TargetNameRef::unchecked_new("foo"),
     )
-    .configure(ConfigurationData::testing_new());
+    .configure(ConfigurationData::testing_new())
+}
+
+fn create_test_build_artifact() -> BuildArtifact {
+    let configured_target_label = create_test_configured_target_label();
     let forward_relative_path_buf = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let deferred_id = DeferredId::testing_new(0);
     BuildArtifact::testing_new(
@@ -143,7 +148,23 @@ fn mock_deferred_resolution_calculation(
 ) -> DiceBuilder {
     let arc_any: Arc<dyn DeferredOutput> = registered_action_arc;
     let an_any = DeferredValueAnyReady::AnyValue(arc_any);
-    dice_builder.mock_and_return(deferred_resolve, buck2_error::Ok(an_any))
+
+    let configured_target_label = create_test_configured_target_label();
+    let configured_node_key = ConfiguredTargetNodeKey(configured_target_label.dupe());
+
+    dice_builder
+        .mock_and_return(deferred_resolve, buck2_error::Ok(an_any))
+        .mock_and_return(
+            configured_node_key,
+            Ok(MaybeCompatible::Compatible(
+                ConfiguredTargetNode::testing_new(
+                    configured_target_label,
+                    "foo_lib",
+                    ExecutionPlatformResolution::new(None, Vec::new()),
+                    vec![],
+                ),
+            )),
+        )
 }
 
 async fn make_default_dice_state(
@@ -213,7 +234,7 @@ async fn make_default_dice_state(
 
 #[tokio::test]
 async fn test_get_action_for_artifact() -> anyhow::Result<()> {
-    let build_artifact = create_test_build_artifact("cell", "pkg", "foo");
+    let build_artifact = create_test_build_artifact();
     let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
@@ -249,7 +270,7 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_build_action() -> anyhow::Result<()> {
     let temp_fs = ProjectRootTemp::new()?;
-    let build_artifact = create_test_build_artifact("cell", "pkg", "foo");
+    let build_artifact = create_test_build_artifact();
     let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
@@ -299,7 +320,7 @@ async fn test_build_action() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_build_artifact() -> anyhow::Result<()> {
     let temp_fs = ProjectRootTemp::new()?;
-    let build_artifact = create_test_build_artifact("cell", "pkg", "foo");
+    let build_artifact = create_test_build_artifact();
     let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
@@ -346,7 +367,7 @@ async fn test_build_artifact() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
     let temp_fs = ProjectRootTemp::new()?;
-    let build_artifact = create_test_build_artifact("cell", "pkg", "foo");
+    let build_artifact = create_test_build_artifact();
     let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
