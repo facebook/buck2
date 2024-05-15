@@ -28,7 +28,6 @@ use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
 use crate::result::CancellableResult;
-use crate::result::Cancelled;
 
 pub(crate) mod state;
 
@@ -57,23 +56,22 @@ impl DiceTaskWorker {
         let worker = DiceTaskWorker::new(k, eval, events_dispatcher, incremental);
 
         spawn_dice_task(k, &*spawner, &spawner_ctx, move |handle| {
-            // NOTE: important to run prevent cancellation eagerly in the sync function to prevent
+            // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task
             let prevent_cancellation = handle.cancellation_ctx().begin_ignore_cancellation();
             let state =
                 DiceWorkerStateAwaitingPrevious::new(k, cycles, handle, prevent_cancellation);
 
-            // we hold onto the handle and drop it last after consuming the `worker`. This
-            // ensures any data being held for the actual evaluation is dropped before we
-            // notify the future as done.
             async move {
-                match worker
-                    .await_previous(previously_cancelled_task, state)
-                    .await
-                {
+                let previous_result = match previously_cancelled_task {
+                    Some(v) => state.await_previous(v).await,
+                    None => Either::Right(state.no_previous_task().await),
+                };
+
+                match previous_result {
                     Either::Left(_) => {
-                        // done
+                        // previous result actually finished
                     }
                     Either::Right(state) => {
                         let _ignore = worker.do_work(state).await;
@@ -99,39 +97,6 @@ impl DiceTaskWorker {
             events_dispatcher,
             incremental,
         }
-    }
-
-    async fn await_previous<'a, 'b>(
-        &self,
-        previously_cancelled_task: Option<PreviouslyCancelledTask>,
-        state: DiceWorkerStateAwaitingPrevious<'a, 'b>,
-    ) -> Either<
-        CancellableResult<DiceWorkerStateFinishedAndCached>,
-        DiceWorkerStateLookupNode<'a, 'b>,
-    > {
-        Either::Right(if let Some(previous) = previously_cancelled_task {
-            previous.previous.await_termination().await;
-
-            // old task actually finished, so just use that result if it wasn't
-            // cancelled
-
-            match previous
-                .previous
-                .get_finished_value()
-                .expect("Terminated task must have finished value")
-            {
-                Ok(res) => {
-                    return Either::Left(state.previously_finished(res));
-                }
-                Err(Cancelled) => {
-                    // actually was cancelled, so just continue re-evaluating
-                }
-            }
-
-            state.previously_cancelled().await
-        } else {
-            state.no_previous_task().await
-        })
     }
 
     pub(crate) async fn do_work(

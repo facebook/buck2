@@ -15,6 +15,7 @@ use buck2_futures::cancellable_future::DisableCancellationGuard;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_futures::cancellation::IgnoreCancellationGuard;
 use dupe::Dupe;
+use itertools::Either;
 
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;
@@ -22,6 +23,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -94,6 +96,34 @@ impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
             internals: self.internals,
             cycles: self.cycles,
         }
+    }
+
+    pub(crate) async fn await_previous(
+        self,
+        previous: PreviouslyCancelledTask,
+    ) -> Either<
+        CancellableResult<DiceWorkerStateFinishedAndCached>,
+        DiceWorkerStateLookupNode<'a, 'b>,
+    > {
+        previous.previous.await_termination().await;
+
+        // old task actually finished, so just use that result if it wasn't
+        // cancelled
+
+        match previous
+            .previous
+            .get_finished_value()
+            .expect("Terminated task must have finished value")
+        {
+            Ok(res) => {
+                return Either::Left(self.previously_finished(res));
+            }
+            Err(Cancelled) => {
+                // actually was cancelled, so just continue re-evaluating
+            }
+        }
+
+        Either::Right(self.previously_cancelled().await)
     }
 }
 
