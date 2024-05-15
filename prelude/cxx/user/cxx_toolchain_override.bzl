@@ -37,7 +37,7 @@ def _cxx_toolchain_override(ctx):
     if asm_info != None:
         asm_info = AsmCompilerInfo(
             compiler = _pick_bin(ctx.attrs.asm_compiler, asm_info.compiler),
-            compiler_type = asm_info.compiler_type,
+            compiler_type = _pick_raw(ctx.attrs.asm_compiler_type, asm_info.compiler_type),
             compiler_flags = _pick(ctx.attrs.asm_compiler_flags, asm_info.compiler_flags),
             preprocessor = _pick_bin(ctx.attrs.asm_compiler, asm_info.preprocessor),
             preprocessor_type = asm_info.preprocessor_type,
@@ -130,11 +130,14 @@ def _cxx_toolchain_override(ctx):
     )
 
     base_strip_flags_info = base_toolchain.strip_flags_info
-    strip_flags_info = StripFlagsInfo(
-        strip_debug_flags = _pick(ctx.attrs.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
-        strip_non_global_flags = _pick(ctx.attrs.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
-        strip_all_flags = _pick(ctx.attrs.strip_all_flags, base_strip_flags_info.strip_all_flags),
-    )
+    if base_strip_flags_info:
+        strip_flags_info = StripFlagsInfo(
+            strip_debug_flags = _pick(ctx.attrs.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
+            strip_non_global_flags = _pick(ctx.attrs.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
+            strip_all_flags = _pick(ctx.attrs.strip_all_flags, base_strip_flags_info.strip_all_flags),
+        )
+    else:
+        strip_flags_info = None
 
     return [
         DefaultInfo(),
@@ -164,7 +167,7 @@ def _cxx_toolchain_override(ctx):
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = strip_flags_info,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior) if ctx.attrs.pic_behavior != None else base_toolchain.pic_behavior.value,
-        split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),
+        split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode) if ctx.attrs.split_debug_mode else base_toolchain.split_debug_mode,
     )
 
 cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
@@ -181,6 +184,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "as_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "asm_compiler": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "asm_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+        "asm_compiler_type": attrs.option(attrs.string(), default = None),
         "asm_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "base": attrs.toolchain_dep(providers = [CxxToolchainInfo]),
         "bolt_enabled": attrs.option(attrs.bool(), default = None),
