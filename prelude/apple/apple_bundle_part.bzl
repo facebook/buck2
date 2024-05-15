@@ -41,6 +41,10 @@ SwiftStdlibArguments = record(
     primary_binary_rel_path = field(str),
 )
 
+AppleBundleConstructionResult = record(
+    sub_targets = field(dict[str, list[Provider]]),
+)
+
 def bundle_output(ctx: AnalysisContext) -> Artifact:
     bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name)
@@ -53,7 +57,7 @@ def assemble_bundle(
         info_plist_part: [AppleBundlePart, None],
         swift_stdlib_args: [SwiftStdlibArguments, None],
         extra_hidden: list[Artifact] = [],
-        skip_adhoc_signing: bool = False) -> dict[str, list[Provider]]:
+        skip_adhoc_signing: bool = False) -> AppleBundleConstructionResult:
     """
     Returns extra subtargets related to bundling.
     """
@@ -239,7 +243,7 @@ def assemble_bundle(
         env = env,
         **run_incremental_args
     )
-    return subtargets
+    return AppleBundleConstructionResult(sub_targets = subtargets)
 
 def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
