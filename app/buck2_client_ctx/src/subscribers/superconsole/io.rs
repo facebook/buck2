@@ -106,10 +106,13 @@ fn do_render(
             HumanizedBytes::new(snapshot.buck2_max_rss)
         ));
     }
-    if let Some(malloc_bytes_allocated) = snapshot.malloc_bytes_allocated {
+
+    // We prefer to display malloc_bytes_active instead of malloc_bytes_allocated
+    // because it represents active pages which is more than allocated and better reflects actual memory use of buck2.
+    if let Some(malloc_bytes_active) = snapshot.malloc_bytes_active {
         parts.push(format!(
-            "Malloc allocated = {}",
-            HumanizedBytes::new(malloc_bytes_allocated)
+            "Malloc active = {}",
+            HumanizedBytes::new(malloc_bytes_active)
         ));
     }
     if let Some(cpu) = two_snapshots.cpu_percents() {
