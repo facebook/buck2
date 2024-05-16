@@ -99,7 +99,14 @@ fn do_render(
     let mut parts = Vec::new();
     if let Some(buck2_rss) = snapshot.buck2_rss {
         parts.push(format!("RSS = {}", HumanizedBytes::new(buck2_rss)));
+    } else {
+        // buck2_rss is only available on Linux. On other platforms, buck2 keeps track of buck2_max_rss so show that instead.
+        parts.push(format!(
+            "Max RSS = {}",
+            HumanizedBytes::new(snapshot.buck2_max_rss)
+        ));
     }
+
     if let Some(cpu) = two_snapshots.cpu_percents() {
         parts.push(format!("CPU = {}%", cpu));
     }
