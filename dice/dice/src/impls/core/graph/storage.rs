@@ -292,7 +292,11 @@ impl VersionedGraph {
     ) -> (DiceComputedValue, bool) {
         let num_to_keep = match storage_type {
             StorageType::Normal => 1,
-            StorageType::Injected => usize::MAX,
+            StorageType::Injected => {
+                unreachable!(
+                    "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
+                );
+            }
         };
         // persistent keys, if any changes, are committed at the moment when the version
         // is increased. therefore, it must be the case that the current update for the
@@ -1046,39 +1050,25 @@ mod tests {
     }
 
     #[test]
-    fn last_n_max_usize_stores_everything() {
+    fn injected_keys_are_stored_indefinitely() {
         let mut cache = VersionedGraph::new();
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
         let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
 
-        assert!(
-            cache
-                .update(
-                    key,
-                    res.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
-                    StorageType::Injected
-                )
-                .1
-        );
+        assert!(cache.invalidate(
+            key,
+            InvalidateKind::Update(res.dupe(), StorageType::Injected)
+        ));
 
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
         let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
-        assert!(cache.invalidate(key2.dupe(), InvalidateKind::Invalidate));
-        assert!(
-            cache
-                .update(
-                    key2.dupe(),
-                    res2.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
-                    StorageType::Injected
-                )
-                .1
-        );
+
+        assert!(cache.invalidate(
+            key2,
+            InvalidateKind::Update(res2.dupe(), StorageType::Injected)
+        ));
 
         assert!(
             cache
@@ -1093,18 +1083,10 @@ mod tests {
         let res3 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(300));
         let key3 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
-        assert!(cache.invalidate(key3.dupe(), InvalidateKind::Invalidate));
-        assert!(
-            cache
-                .update(
-                    key3,
-                    res3.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
-                    StorageType::Injected
-                )
-                .1
-        );
+        assert!(cache.invalidate(
+            key3,
+            InvalidateKind::Update(res3.dupe(), StorageType::Injected)
+        ));
 
         assert!(
             cache
@@ -1177,7 +1159,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::Injected,
+            StorageType::Normal,
         );
         assert!(
             cache
