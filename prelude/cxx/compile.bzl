@@ -449,6 +449,7 @@ def _compile_single_cxx(
         identifier = identifier,
         dep_files = action_dep_files,
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+        allow_dep_file_cache_upload = True,
     )
 
     # If we're building with split debugging, where the debug info is in the
