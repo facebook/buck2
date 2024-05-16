@@ -547,6 +547,13 @@ impl DaemonState {
                 None
             };
 
+            let remote_dep_files_enabled = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "build",
+                    property: "remote_dep_file_cache_enabled",
+                })?
+                .unwrap_or(false);
+
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
                 format!("which-dice:{}", dice.which_dice().variant_name()),
@@ -556,6 +563,7 @@ impl DaemonState {
                     disk_state_options.sqlite_materializer_state
                 ),
                 format!("paranoid:{}", paranoid.is_some()),
+                format!("remote-dep-files:{}", remote_dep_files_enabled),
             ];
 
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
