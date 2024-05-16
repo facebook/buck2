@@ -156,7 +156,10 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
     pub(crate) fn checking_deps(
         self,
         eval: &AsyncEvaluator,
-    ) -> DiceWorkerStateCheckingDeps<'a, 'b> {
+    ) -> (
+        DiceWorkerStateCheckingDeps<'a, 'b>,
+        KeyComputingUserCycleDetectorData,
+    ) {
         debug!(msg = "found existing entry with mismatching version. checking if deps changed.");
 
         self.internals.checking_deps();
@@ -167,13 +170,21 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
             eval.user_data.cycle_detector.as_ref(),
         );
 
-        DiceWorkerStateCheckingDeps {
+        (
+            DiceWorkerStateCheckingDeps {
+                internals: self.internals,
+            },
             cycles,
-            internals: self.internals,
-        }
+        )
     }
 
-    pub(crate) fn lookup_dirtied(self, eval: &AsyncEvaluator) -> DiceWorkerStateComputing<'a, 'b> {
+    pub(crate) fn lookup_dirtied(
+        self,
+        eval: &AsyncEvaluator,
+    ) -> (
+        DiceWorkerStateEvaluating<'a, 'b>,
+        KeyComputingUserCycleDetectorData,
+    ) {
         debug!(msg = "lookup requires recompute.");
 
         self.internals.computing();
@@ -184,10 +195,12 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
             eval.user_data.cycle_detector.as_ref(),
         );
 
-        DiceWorkerStateComputing {
+        (
+            DiceWorkerStateEvaluating {
+                internals: self.internals,
+            },
             cycles,
-            internals: self.internals,
-        }
+        )
     }
 
     pub(crate) fn lookup_matches(
@@ -209,25 +222,15 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
 /// When the spawned dice task worker is checking if the dependencies have changed since the last
 /// time this node was verified, and are waiting for the results of the dependency re-computation.
 pub(crate) struct DiceWorkerStateCheckingDeps<'a, 'b> {
-    cycles: KeyComputingUserCycleDetectorData,
     internals: &'a mut DiceTaskHandle<'b>,
 }
 
 impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
-    pub(crate) fn cycles_for_dep(
-        &self,
-        dep: DiceKey,
-        eval: &AsyncEvaluator,
-    ) -> UserCycleDetectorData {
-        self.cycles.subrequest(dep, &eval.dice.key_index)
-    }
-
-    pub(crate) fn deps_not_match(self) -> DiceWorkerStateComputing<'a, 'b> {
+    pub(crate) fn deps_not_match(self) -> DiceWorkerStateEvaluating<'a, 'b> {
         debug!(msg = "deps changed");
         self.internals.computing();
 
-        DiceWorkerStateComputing {
-            cycles: self.cycles,
+        DiceWorkerStateEvaluating {
             internals: self.internals,
         }
     }
@@ -256,31 +259,8 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
     #[cfg(test)]
     pub(crate) fn testing(task_handle: &'a mut DiceTaskHandle<'b>) -> Self {
         DiceWorkerStateCheckingDeps {
-            cycles: KeyComputingUserCycleDetectorData::Untracked,
             internals: task_handle,
         }
-    }
-}
-
-/// When the spawned dice worker is currently computing the requested Key.
-pub(crate) struct DiceWorkerStateComputing<'a, 'b> {
-    cycles: KeyComputingUserCycleDetectorData,
-    internals: &'a mut DiceTaskHandle<'b>,
-}
-
-impl<'a, 'b> DiceWorkerStateComputing<'a, 'b> {
-    pub(crate) fn evaluating(
-        self,
-    ) -> (
-        KeyComputingUserCycleDetectorData,
-        DiceWorkerStateEvaluating<'a, 'b>,
-    ) {
-        (
-            self.cycles,
-            DiceWorkerStateEvaluating {
-                internals: self.internals,
-            },
-        )
     }
 }
 

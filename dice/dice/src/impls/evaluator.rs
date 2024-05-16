@@ -24,8 +24,9 @@ use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::worker::state::DiceWorkerStateComputing;
+use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::result::CancellableResult;
 use crate::ActivationData;
@@ -50,11 +51,10 @@ impl AsyncEvaluator {
     pub(crate) async fn evaluate<'a, 'b>(
         &self,
         key: DiceKey,
-        state: DiceWorkerStateComputing<'a, 'b>,
+        state: DiceWorkerStateEvaluating<'a, 'b>,
+        cycles: KeyComputingUserCycleDetectorData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         let key_erased = self.dice.key_index.get(key);
-
-        let (cycles, state) = state.evaluating();
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {

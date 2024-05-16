@@ -48,6 +48,7 @@ use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
@@ -164,7 +165,8 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             .compute_whether_dependencies_changed(
                 VersionNumber::new(0),
                 &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
+                &DiceWorkerStateCheckingDeps::testing(&mut task_handle),
+                &KeyComputingUserCycleDetectorData::Untracked,
             )
             .await?
             .is_changed()
@@ -193,7 +195,8 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             .compute_whether_dependencies_changed(
                 VersionNumber::new(1),
                 &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
+                &DiceWorkerStateCheckingDeps::testing(&mut task_handle),
+                &KeyComputingUserCycleDetectorData::Untracked,
             )
             .await?
             .is_changed()
@@ -225,7 +228,8 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             .compute_whether_dependencies_changed(
                 VersionNumber::new(1),
                 &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 200 }]),
-                &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
+                &DiceWorkerStateCheckingDeps::testing(&mut task_handle),
+                &KeyComputingUserCycleDetectorData::Untracked,
             )
             .await?
             .is_changed()

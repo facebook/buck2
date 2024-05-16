@@ -37,12 +37,13 @@ use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
 use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
-use crate::impls::worker::state::DiceWorkerStateComputing;
+use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
@@ -136,17 +137,18 @@ impl DiceTaskWorker {
             .lookup_key(VersionedGraphKey::new(v, self.k))
             .await;
 
-        let task_state = match state_result {
+        let (task_state, cycles) = match state_result {
             VersionedGraphResult::Match(entry) => {
                 return task_state.lookup_matches(entry);
             }
             VersionedGraphResult::CheckDeps(mismatch) => {
-                let task_state = task_state.checking_deps(&self.eval);
+                let (task_state, cycles) = task_state.checking_deps(&self.eval);
                 let deps_changed = {
                     self.compute_whether_dependencies_changed(
                         mismatch.prev_verified_version,
                         &mismatch.deps_to_validate,
                         &task_state,
+                        &cycles,
                     )
                     .await?
                 };
@@ -174,7 +176,7 @@ impl DiceTaskWorker {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
                         // implicit meaning to a node having no deps at this point, but it's unclear what that is.
-                        task_state.deps_not_match()
+                        (task_state.deps_not_match(), cycles)
                     }
                 }
             }
@@ -185,7 +187,7 @@ impl DiceTaskWorker {
             state,
             activation_data,
             result,
-        } = self.compute(task_state).await?;
+        } = self.compute(task_state, cycles).await?;
 
         let activation_info = self.activation_info(result.deps.iter_keys(), activation_data);
 
@@ -215,7 +217,8 @@ impl DiceTaskWorker {
 
     async fn compute<'a, 'b>(
         &self,
-        task_state: DiceWorkerStateComputing<'a, 'b>,
+        task_state: DiceWorkerStateEvaluating<'a, 'b>,
+        cycles: KeyComputingUserCycleDetectorData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         self.event_dispatcher.started(self.k);
         scopeguard::defer! {
@@ -225,21 +228,22 @@ impl DiceTaskWorker {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        self.eval.evaluate(self.k, task_state).await
+        self.eval.evaluate(self.k, task_state, cycles).await
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
     /// 'target_version'
     #[cfg_attr(debug_assertions, instrument(
         level = "debug",
-        skip(self, deps, check_deps_state),
+        skip(self, deps, _check_deps_state, cycles),
         fields(version = %self.eval.per_live_version_ctx.get_version(), prev_verified_version = %prev_verified_version)
     ))]
     async fn compute_whether_dependencies_changed(
         &self,
         prev_verified_version: VersionNumber,
         deps: &SeriesParallelDeps,
-        check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>,
+        _check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>, // enforce that we are in the right state
+        cycles: &KeyComputingUserCycleDetectorData,
     ) -> CancellableResult<DidDepsChange> {
         self.event_dispatcher.check_deps_started(self.k);
         scopeguard::defer! {
@@ -261,7 +265,7 @@ impl DiceTaskWorker {
                         dep.dupe(),
                         ParentKey::Some(self.k),
                         &self.eval,
-                        check_deps_state.cycles_for_dep(dep, &self.eval),
+                        cycles.subrequest(dep, &self.eval.dice.key_index),
                     )
                     .map(|r| r.map(|v| v.history().is_verified_at(prev_verified_version)))
             })
