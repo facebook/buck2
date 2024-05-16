@@ -32,7 +32,7 @@ def cxx_by_language_ext(x: dict[typing.Any, typing.Any], ext: str) -> list[typin
         # And you can see them in java code, but somehow it works with
         # this one, which is seem across the repo. Find out what's happening.
         key_compiler = "c_cpp_output"
-    elif ext in (".cpp", ".cc", ".cxx", ".c++"):
+    elif ext in (".cpp", ".cc", ".cxx", ".c++", ".bc"):
         key_pp = "cxx"
         key_compiler = "cxx_cpp_output"
     elif ext == ".m":
