@@ -92,6 +92,8 @@ pub use gazebo_derive::VariantName;
 
 pub trait VariantName {
     fn variant_name(&self) -> &'static str;
+
+    fn variant_name_lowercase(&self) -> &'static str;
 }
 
 impl<T> VariantName for Option<T> {
@@ -101,6 +103,13 @@ impl<T> VariantName for Option<T> {
             None => "None",
         }
     }
+
+    fn variant_name_lowercase(&self) -> &'static str {
+        match self {
+            Self::Some(_) => "some",
+            None => "none",
+        }
+    }
 }
 
 impl<T, E> VariantName for Result<T, E> {
@@ -108,6 +117,13 @@ impl<T, E> VariantName for Result<T, E> {
         match self {
             Self::Ok(_) => "Ok",
             Self::Err(_) => "Err",
+        }
+    }
+
+    fn variant_name_lowercase(&self) -> &'static str {
+        match self {
+            Self::Ok(_) => "ok",
+            Self::Err(_) => "err",
         }
     }
 }
@@ -125,16 +141,19 @@ mod tests {
         enum MyEnum {
             Foo,
             Bar(usize),
-            Baz { field: usize },
+            FooBaz { field: usize },
         }
 
         let x = MyEnum::Foo;
         assert_eq!(x.variant_name(), "Foo");
+        assert_eq!(x.variant_name_lowercase(), "foo");
 
         let x = MyEnum::Bar(1);
         assert_eq!(x.variant_name(), "Bar");
+        assert_eq!(x.variant_name_lowercase(), "bar");
 
-        let x = MyEnum::Baz { field: 1 };
-        assert_eq!(x.variant_name(), "Baz");
+        let x = MyEnum::FooBaz { field: 1 };
+        assert_eq!(x.variant_name(), "FooBaz");
+        assert_eq!(x.variant_name_lowercase(), "foo_baz");
     }
 }
