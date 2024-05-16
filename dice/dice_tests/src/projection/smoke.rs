@@ -195,6 +195,7 @@ async fn smoke() -> anyhow::Result<()> {
     }));
 
     let mut dice = Dice::modern();
+
     dice.set(tracker.dupe());
     let dice = dice.build(DetectCycles::Enabled);
 

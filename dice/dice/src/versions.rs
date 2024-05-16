@@ -253,6 +253,24 @@ impl VersionRanges {
         Self(Default::default())
     }
 
+    pub(crate) fn find_value_upper_bound(&self, v: VersionNumber) -> Option<VersionNumber> {
+        // we generally expect queries at later versions so just look through the list from the
+        // end. potentially this should be changed if that expectation is no longer true.
+        for range in self.0.iter().rev() {
+            if range.begin <= v {
+                if range.contains(&v) {
+                    return Some(v);
+                } else {
+                    let mut end = range.end.unwrap();
+                    end.dec();
+                    assert!(end < v);
+                    return Some(end);
+                }
+            }
+        }
+        None
+    }
+
     /// inserts a single range, merging different ranges if necessary
     pub(crate) fn insert(&mut self, mut range: VersionRange) {
         if let Some(smaller) = self
@@ -397,6 +415,10 @@ impl VersionRanges {
     pub(crate) fn is_empty(&self) -> bool {
         // Ranges in the set are not empty, so self is not empty if the ranges set is not empty.
         self.ranges().is_empty()
+    }
+
+    pub(crate) fn contains(&self, version: VersionNumber) -> bool {
+        self.find_value_upper_bound(version) == Some(version)
     }
 }
 

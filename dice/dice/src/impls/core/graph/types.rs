@@ -19,7 +19,6 @@ use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRanges;
 
 /// The Key for a Versioned, incremental computation
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -38,8 +37,8 @@ impl VersionedGraphKey {
 pub(crate) struct VersionedGraphResultMismatch {
     /// Last known value for the key.
     pub(crate) entry: DiceValidValue,
-    /// Versions at which the value for given key is valid.
-    pub(crate) verified_versions: VersionRanges,
+    /// Most recent previous version at which the last known value was valid.
+    pub(crate) prev_verified_version: VersionNumber,
     pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
 }
 

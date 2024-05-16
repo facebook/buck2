@@ -10,7 +10,6 @@
 //! The main worker thread for the dice task
 
 use std::any::Any;
-use std::borrow::Cow;
 use std::future;
 
 use dupe::Dupe;
@@ -50,7 +49,6 @@ use crate::impls::worker::state::DiceWorkerStateLookupNode;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRanges;
 
 pub(crate) mod state;
 
@@ -146,7 +144,7 @@ impl DiceTaskWorker {
                 let task_state = task_state.checking_deps(&self.eval);
                 let deps_changed = {
                     self.compute_whether_dependencies_changed(
-                        &mismatch.verified_versions,
+                        mismatch.prev_verified_version,
                         &mismatch.deps_to_validate,
                         &task_state,
                     )
@@ -235,11 +233,11 @@ impl DiceTaskWorker {
     #[cfg_attr(debug_assertions, instrument(
         level = "debug",
         skip(self, deps, check_deps_state),
-        fields(version = %self.eval.per_live_version_ctx.get_version(), verified_versions = %verified_versions)
+        fields(version = %self.eval.per_live_version_ctx.get_version(), prev_verified_version = %prev_verified_version)
     ))]
     async fn compute_whether_dependencies_changed(
         &self,
-        verified_versions: &VersionRanges,
+        prev_verified_version: VersionNumber,
         deps: &SeriesParallelDeps,
         check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>,
     ) -> CancellableResult<DidDepsChange> {
@@ -269,14 +267,10 @@ impl DiceTaskWorker {
             })
             .collect();
 
-        let mut verified_versions = Cow::Borrowed(verified_versions);
-
         while let Some(dep_result) = fs.next().await {
             match dep_result {
                 Ok(dep_version_ranges) => {
-                    verified_versions =
-                        Cow::Owned(verified_versions.intersect(&dep_version_ranges));
-                    if verified_versions.is_empty() {
+                    if !dep_version_ranges.contains(prev_verified_version) {
                         return Ok(DidDepsChange::Changed);
                     }
                 }

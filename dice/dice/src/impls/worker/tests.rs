@@ -162,10 +162,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     assert!(
         engine
             .compute_whether_dependencies_changed(
-                &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
-                    VersionNumber::new(0),
-                    VersionNumber::new(1)
-                )]),
+                VersionNumber::new(0),
                 &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
                 &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
@@ -194,10 +191,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     assert!(
         !engine
             .compute_whether_dependencies_changed(
-                &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
-                    VersionNumber::new(1),
-                    VersionNumber::new(2)
-                )]),
+                VersionNumber::new(1),
                 &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
                 &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )
@@ -229,10 +223,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     assert!(
         engine
             .compute_whether_dependencies_changed(
-                &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
-                    VersionNumber::new(1),
-                    VersionNumber::new(2)
-                )]),
+                VersionNumber::new(1),
                 &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 200 }]),
                 &DiceWorkerStateCheckingDeps::testing(&mut task_handle)
             )

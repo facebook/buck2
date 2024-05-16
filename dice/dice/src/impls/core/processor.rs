@@ -104,7 +104,7 @@ impl StateProcessor {
                     epoch,
                     storage,
                     previous.entry,
-                    ValueReusable::VersionBased(previous.verified_versions),
+                    ValueReusable::VersionBased(previous.prev_verified_version),
                     previous.deps_to_validate,
                 )));
             }
