@@ -1,4 +1,4 @@
 node_modules/
 dist/
-data.ts
-fbs/
+src/data.ts
+src/fbs/

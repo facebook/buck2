@@ -22,10 +22,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use is_buck2::WhoIsAsking;
-use sysinfo::PidExt;
-use sysinfo::ProcessExt;
 use sysinfo::System;
-use sysinfo::SystemExt;
 
 use crate::is_buck2::is_buck2_exe;
 use crate::pid::Pid;
@@ -67,7 +64,10 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
 
     let mut buck2_processes = Vec::new();
     for (pid, process) in system.processes() {
-        if is_buck2_exe(process.exe(), who_is_asking) && !current_parents.contains(pid) {
+        let Some(exe) = process.exe() else {
+            continue;
+        };
+        if is_buck2_exe(exe, who_is_asking) && !current_parents.contains(pid) {
             let Ok(pid) = Pid::from_u32(pid.as_u32()) else {
                 continue;
             };

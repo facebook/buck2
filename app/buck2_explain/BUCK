@@ -52,6 +52,7 @@ buck_filegroup(
     name = "files",
     srcs = glob(
         [
+            "js/src/*",
             "js/*",
         ],
         exclude = [
@@ -66,7 +67,7 @@ buck_genrule(
     srcs = [
         "explain.fbs",
     ],
-    out = "js/fbs",
+    out = "js/src/fbs",
     cmd = "$(exe fbsource//third-party/flatbuffers-23.5.26:flatc) --ts -o ${OUT} ${SRCS}",
     default_outs = ["."],
 )

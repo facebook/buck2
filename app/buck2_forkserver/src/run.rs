@@ -547,9 +547,7 @@ mod tests {
     #[tokio::test]
     async fn test_kill_terminates_process_group() -> anyhow::Result<()> {
         use sysinfo::Pid;
-        use sysinfo::ProcessExt;
         use sysinfo::System;
-        use sysinfo::SystemExt;
 
         let cmd = if cfg!(windows) {
             let mut cmd = background_command("powershell");

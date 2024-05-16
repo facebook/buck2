@@ -839,6 +839,11 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     },
     "SecurityFoundation": {"maccatalyst": (13, 0, 0), "macosx": (10, 3, 0)},
     "SecurityInterface": {"macosx": (10, 3, 0)},
+    "SensitiveContentAnalysis": {
+        "iphoneos": (17, 0, 0),
+        "maccatalyst": (17, 0, 0),
+        "macosx": (14, 0, 0),
+    },
     "SensorKit": {
         "iphoneos": (14, 0, 0),
         "maccatalyst": (14, 0, 0),

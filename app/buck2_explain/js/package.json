@@ -10,7 +10,7 @@
     "esbuild": "0.20.2"
   },
   "scripts": {
-    "build": "esbuild app.tsx --bundle --outfile=dist/app.js",
-    "check": "tsc -noEmit app.tsx --jsx react --lib 'ES2015,dom'"
+    "build": "esbuild src/App.tsx --bundle --outfile=dist/app.js",
+    "check": "tsc -noEmit -p tsconfig.json"
   }
 }

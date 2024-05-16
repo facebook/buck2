@@ -35,11 +35,13 @@ impl UnixSystemStats {
 }
 
 pub fn system_memory_stats() -> u64 {
+    use sysinfo::MemoryRefreshKind;
     use sysinfo::RefreshKind;
     use sysinfo::System;
-    use sysinfo::SystemExt;
 
-    let system = System::new_with_specifics(RefreshKind::new().with_memory());
+    let system = System::new_with_specifics(
+        RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()),
+    );
     system.total_memory()
 }
 

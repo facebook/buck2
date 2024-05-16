@@ -49,11 +49,8 @@ impl KilledProcessHandle {
 
 /// Get the status of a given process according to sysinfo.
 pub fn get_sysinfo_status(pid: Pid) -> Option<sysinfo::ProcessStatus> {
-    use sysinfo::PidExt;
-    use sysinfo::ProcessExt;
     use sysinfo::ProcessRefreshKind;
     use sysinfo::System;
-    use sysinfo::SystemExt;
 
     let pid = sysinfo::Pid::from_u32(pid.to_u32());
 

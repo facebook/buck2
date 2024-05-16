@@ -201,7 +201,11 @@ impl StreamingCommand for InstallCommand {
 
         match response {
             CommandOutcome::Success(_) => {
-                console.print_success("INSTALL SUCCEEDED")?;
+                if self.patterns.is_empty() {
+                    console.print_warning("NO BUILD TARGET PATTERNS SPECIFIED")?;
+                } else {
+                    console.print_success("INSTALL SUCCEEDED")?;
+                }
                 ExitResult::success()
             }
             CommandOutcome::Failure(exit_result) => {
