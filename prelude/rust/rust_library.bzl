@@ -78,7 +78,6 @@ load(
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
-    "CrateType",
     "Emit",
     "LinkageLang",
     "MetadataKind",
@@ -338,8 +337,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = default_roots,
     )
 
-    providers = []
-
     link_infos = _link_infos(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -348,6 +345,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     check_artifacts = rust_param_artifact[check_params]
+
+    providers = []
     providers += _default_providers(
         lang_style_param = lang_style_param,
         rust_param_artifact = rust_param_artifact,
@@ -363,21 +362,13 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers += _rust_metadata_providers(
         check_artifacts = check_artifacts,
     )
-    rust_link_info = _rust_providers(
+    providers += _link_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
         lang_style_param = lang_style_param,
-        param_artifact = rust_param_artifact,
+        rust_param_artifact = rust_param_artifact,
+        native_param_artifact = native_param_artifact,
         link_infos = link_infos,
-    )
-    providers.append(rust_link_info)
-    providers += _native_providers(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        lang_style_param = lang_style_param,
-        param_artifact = native_param_artifact,
-        link_infos = link_infos,
-        rust_link_info = rust_link_info,
     )
 
     deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
@@ -438,26 +429,72 @@ def _build_params_for_styles(
 
     return (param_lang, style_param)
 
+def _link_infos(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
+        param_artifact: dict[BuildParams, RustcOutput]) -> dict[LibOutputStyle, LinkInfos]:
+    if ctx.attrs.proc_macro:
+        # Don't need any of this for proc macros
+        return {}
+
+    advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
+    lang = LinkageLang("native-unbundled") if advanced_unstable_linking else LinkageLang("native")
+    linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
+
+    link_infos = {}
+    for output_style in LibOutputStyle:
+        lib = param_artifact[lang_style_param[(lang, output_style)]]
+        external_debug_info = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = filter(None, [lib.dwo_output_directory]),
+            children = lib.extra_external_debug_info,
+        )
+        if output_style == LibOutputStyle("shared_lib"):
+            link_infos[output_style] = LinkInfos(
+                default = LinkInfo(
+                    linkables = [SharedLibLinkable(lib = lib.output)],
+                    external_debug_info = external_debug_info,
+                ),
+                stripped = LinkInfo(
+                    linkables = [SharedLibLinkable(lib = lib.stripped_output)],
+                    external_debug_info = external_debug_info,
+                ),
+            )
+        else:
+            link_infos[output_style] = LinkInfos(
+                default = LinkInfo(
+                    linkables = [ArchiveLinkable(
+                        archive = Archive(artifact = lib.output),
+                        linker_type = linker_type,
+                    )],
+                    external_debug_info = external_debug_info,
+                ),
+                stripped = LinkInfo(
+                    linkables = [ArchiveLinkable(
+                        archive = Archive(artifact = lib.stripped_output),
+                        linker_type = linker_type,
+                    )],
+                ),
+            )
+    return link_infos
+
 def _handle_rust_artifact(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        crate_type: CrateType,
         link_strategy: LinkStrategy,
         outputs: dict[MetadataKind, RustcOutput]) -> RustLinkStrategyInfo:
     """
-    Return the RustLinkInfo for a given set of artifacts. The main consideration
+    Return the RustLinkStrategyInfo for a given set of artifacts. The main consideration
     is computing the right set of dependencies.
     """
 
     # If we're a crate where our consumers should care about transitive deps,
     # then compute them (specifically, not proc-macro).
-    if crate_type != CrateType("proc-macro"):
-        tdeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
-    else:
-        tdeps, external_debug_info, tprocmacrodeps = {e: {} for e in MetadataKind}, [], {}
-
     link_output = outputs[MetadataKind("link")]
     if not ctx.attrs.proc_macro:
+        tdeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
@@ -475,8 +512,8 @@ def _handle_rust_artifact(
         # Proc macro deps are always the real thing
         return RustLinkStrategyInfo(
             outputs = {m: link_output.output for m in MetadataKind},
-            transitive_deps = tdeps,
-            transitive_proc_macro_deps = tprocmacrodeps,
+            transitive_deps = {m: {} for m in MetadataKind},
+            transitive_proc_macro_deps = {},
             pdb = link_output.pdb,
             external_debug_info = ArtifactTSet(),
         )
@@ -549,6 +586,48 @@ def _default_providers(
         sub_targets = sub_targets,
     ))
 
+    return providers
+
+def _rust_metadata_providers(check_artifacts: dict[MetadataKind, RustcOutput]) -> list[Provider]:
+    return [
+        RustcExtraOutputsInfo(
+            metadata_full = check_artifacts[MetadataKind("full")],
+            metadata_fast = check_artifacts[MetadataKind("fast")],
+        ),
+    ]
+
+def _link_providers(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
+        rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
+        native_param_artifact: dict[BuildParams, RustcOutput],
+        link_infos: dict[LibOutputStyle, LinkInfos]) -> list[Provider]:
+    providers = []
+
+    crate = attr_crate(ctx)
+    pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
+    preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
+
+    strategies = {}
+    for link_strategy in LinkStrategy:
+        params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
+        strategies[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, rust_param_artifact[params])
+
+    merged_link_info, shared_libs, linkable_graphs, exported_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx, compile_ctx.cxx_toolchain_info, link_infos, Linkage(ctx.attrs.preferred_linkage))
+
+    # Create rust library provider.
+    rust_link_info = RustLinkInfo(
+        crate = crate,
+        strategies = strategies,
+        merged_link_info = merged_link_info,
+        exported_link_deps = exported_link_deps,
+        shared_libs = shared_libs,
+        linkable_graphs = linkable_graphs,
+    )
+
+    providers.append(rust_link_info)
+    providers += _native_link_providers(ctx, compile_ctx, lang_style_param, native_param_artifact, link_infos, rust_link_info)
     return providers
 
 def _rust_link_providers(
@@ -652,99 +731,7 @@ def _rust_link_providers(
         link_graphs = inherited_graphs
     return (merged_link_info, shared_libs, link_graphs, inherited_exported_deps)
 
-def _rust_metadata_providers(check_artifacts: dict[MetadataKind, RustcOutput]) -> list[Provider]:
-    return [
-        RustcExtraOutputsInfo(
-            metadata_full = check_artifacts[MetadataKind("full")],
-            metadata_fast = check_artifacts[MetadataKind("fast")],
-        ),
-    ]
-
-def _rust_providers(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
-        link_infos: dict[LibOutputStyle, LinkInfos]) -> RustLinkInfo:
-    """
-    Return the set of providers for Rust linkage.
-    """
-    crate = attr_crate(ctx)
-
-    pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
-    preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
-
-    strategy_info = {}
-    for link_strategy in LinkStrategy:
-        params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
-        strategy_info[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, params.crate_type, link_strategy, param_artifact[params])
-
-    merged_link_info, shared_libs, inherited_graphs, inherited_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx, compile_ctx.cxx_toolchain_info, link_infos, Linkage(ctx.attrs.preferred_linkage))
-
-    # Create rust library provider.
-    rust_link_info = RustLinkInfo(
-        crate = crate,
-        strategies = strategy_info,
-        merged_link_info = merged_link_info,
-        exported_link_deps = inherited_link_deps,
-        shared_libs = shared_libs,
-        linkable_graphs = inherited_graphs,
-    )
-
-    return rust_link_info
-
-def _link_infos(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustcOutput]) -> dict[LibOutputStyle, LinkInfos]:
-    if ctx.attrs.proc_macro:
-        # Don't need any of this for proc macros
-        return {}
-
-    advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
-    lang = LinkageLang("native-unbundled") if advanced_unstable_linking else LinkageLang("native")
-    linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
-
-    link_infos = {}
-    for output_style in LibOutputStyle:
-        lib = param_artifact[lang_style_param[(lang, output_style)]]
-        external_debug_info = make_artifact_tset(
-            actions = ctx.actions,
-            label = ctx.label,
-            artifacts = filter(None, [lib.dwo_output_directory]),
-            children = lib.extra_external_debug_info,
-        )
-        if output_style == LibOutputStyle("shared_lib"):
-            link_infos[output_style] = LinkInfos(
-                default = LinkInfo(
-                    linkables = [SharedLibLinkable(lib = lib.output)],
-                    external_debug_info = external_debug_info,
-                ),
-                stripped = LinkInfo(
-                    linkables = [SharedLibLinkable(lib = lib.stripped_output)],
-                    external_debug_info = external_debug_info,
-                ),
-            )
-        else:
-            link_infos[output_style] = LinkInfos(
-                default = LinkInfo(
-                    linkables = [ArchiveLinkable(
-                        archive = Archive(artifact = lib.output),
-                        linker_type = linker_type,
-                    )],
-                    external_debug_info = external_debug_info,
-                ),
-                stripped = LinkInfo(
-                    linkables = [ArchiveLinkable(
-                        archive = Archive(artifact = lib.stripped_output),
-                        linker_type = linker_type,
-                    )],
-                ),
-            )
-    return link_infos
-
-def _native_providers(
+def _native_link_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
