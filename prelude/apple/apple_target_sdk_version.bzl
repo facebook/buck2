@@ -116,8 +116,7 @@ def _get_min_deployment_version_target_flag(ctx: AnalysisContext) -> [None, str]
 # one added by the toolchain and then additional overrides by targets.
 
 def get_min_deployment_version_target_linker_flags(ctx: AnalysisContext) -> list[str]:
-    min_version_flag = _get_min_deployment_version_target_flag(ctx)
-    return [min_version_flag] if min_version_flag != None else []
+    return ["-target", get_versioned_target_triple(ctx)]
 
 def get_min_deployment_version_target_preprocessor_flags(ctx: AnalysisContext) -> list[CPreprocessor]:
     min_version_flag = _get_min_deployment_version_target_flag(ctx)
