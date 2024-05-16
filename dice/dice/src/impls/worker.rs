@@ -263,16 +263,17 @@ impl DiceTaskWorker {
                         &self.eval,
                         check_deps_state.cycles_for_dep(dep, &self.eval),
                     )
-                    .map(|r| r.map(|v| v.history().get_verified_ranges()))
+                    .map(|r| r.map(|v| v.history().is_verified_at(prev_verified_version)))
             })
             .collect();
 
         while let Some(dep_result) = fs.next().await {
             match dep_result {
-                Ok(dep_version_ranges) => {
-                    if !dep_version_ranges.contains(prev_verified_version) {
-                        return Ok(DidDepsChange::Changed);
-                    }
+                Ok(false) => {
+                    return Ok(DidDepsChange::Changed);
+                }
+                Ok(true) => {
+                    // dep is verified at prev_verified_version
                 }
                 Err(Cancelled) => {
                     return Err(Cancelled);

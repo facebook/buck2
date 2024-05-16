@@ -445,6 +445,21 @@ where {
             .max()
             .unwrap_or(verified_at)
     }
+
+    pub(crate) fn is_verified_at(&self, version: VersionNumber) -> bool {
+        // We expect to be called most often with recent versions and so just scan from the end.
+        for verified_at in self.verified.iter().rev() {
+            if *verified_at <= version {
+                for dirtied_at in self.dirtied.keys().rev() {
+                    if *dirtied_at <= version {
+                        return *verified_at >= *dirtied_at;
+                    }
+                }
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl CellHistory {
