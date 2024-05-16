@@ -57,6 +57,23 @@ def apple_target_platforms(
         supported_build_modes = APPLE_BUILD_MODES):  # Build modes to generate platforms for
     """ Define architecture and sdk specific platforms alongside the base platform. """
 
+    # HACK: Apps shouldn't be generating platforms for cxx_platforms they don't support. However, to support cases where other apps
+    # depend on shared libraries that don't generate particular platforms, and set a cxx.default_platform on the command line, we need
+    # to make the graph parseable and generate the missing target platforms. They will never be used, but need to exist in the config
+    # backed world.
+    config_based_platform = read("cxx", "default_platform")
+    if config_based_platform != None and config_based_platform not in supported_cxx_platforms:
+        supported_cxx_platforms = list(supported_cxx_platforms)
+        if config_based_platform in _SUPPORTED_MACOS_PLATFORMS:
+            for p in _SUPPORTED_MACOS_PLATFORMS:
+                if p not in supported_cxx_platforms:
+                    supported_cxx_platforms.append(p)
+
+        if config_based_platform in _SUPPORTED_MAC_CATALYST_PLATFORMS:
+            for p in _SUPPORTED_MAC_CATALYST_PLATFORMS:
+                if p not in supported_cxx_platforms:
+                    supported_cxx_platforms.append(p)
+
     # Form defaults
     constraint_values = constraint_values or []
     cxx_platforms_constraint_values = cxx_platforms_constraint_values or {}
