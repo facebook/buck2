@@ -1,0 +1,41 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load(":filter.bxl", "filter_root_targets")
+
+def _owners_entry_point(ctx: bxl.Context) -> None:
+    query = ctx.uquery()
+    root = ctx.root()
+
+    owning_targets = filter_root_targets(query, query.owner(ctx.cli_args.source))
+
+    files = []
+    if len(owning_targets) > 0:
+        target = owning_targets[0]
+        files = query.inputs(target)
+        cell_root = ctx.audit().cell([target.label.cell])[target.label.cell]
+        files = ["{}/{}".format(cell_root, file.path) for file in files]
+
+    ctx.output.print_json({"files": files, "owning_targets": [target.label for target in owning_targets], "root": root})
+
+build = bxl_main(
+    doc = """Determines owning python targets and root, providing files within the first owning target.
+    Note: must be run from within fbsource.
+
+    It takes a file path, returning an object of format
+    `{'owning_targets': List<string>, 'root': string, 'files': List<string>}`
+    - Owning targets is the list of python target labels that own the file.
+    - Root is the buck project root.
+    - Files is the list of files (absolute paths) within the first owning target, if any.
+    """,
+    impl = _owners_entry_point,
+    cli_args = {
+        "source": cli_args.string(
+            doc = "Source file (absolute path)",
+        ),
+    },
+)
