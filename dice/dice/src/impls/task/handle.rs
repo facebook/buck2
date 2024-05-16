@@ -74,19 +74,6 @@ impl<'a> DiceTaskHandle<'a> {
     pub(crate) fn cancellation_ctx(&self) -> &'a ExplicitCancellationContext {
         self.cancellations
     }
-
-    #[cfg(test)]
-    pub(crate) fn testing_new() -> DiceTaskHandle<'static> {
-        let internal = DiceTaskInternal::new(crate::impls::key::DiceKey { index: 99999 });
-        DiceTaskHandle::<'static> {
-            internal: internal.dupe(),
-            cancellations: ExplicitCancellationContext::testing(),
-            completion_handle: TaskCompletionHandle {
-                internal,
-                result: None,
-            },
-        }
-    }
 }
 
 impl TaskCompletionHandle {

@@ -14,6 +14,7 @@ use std::future;
 
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
+use futures::Future;
 use futures::FutureExt;
 use futures::StreamExt;
 use itertools::Either;
@@ -42,7 +43,6 @@ use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
-use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
 use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
@@ -144,10 +144,16 @@ impl DiceTaskWorker {
             VersionedGraphResult::CheckDeps(mismatch) => {
                 let (task_state, cycles) = task_state.checking_deps(&self.eval);
                 let deps_changed = {
-                    self.compute_whether_dependencies_changed(
-                        mismatch.prev_verified_version,
+                    self.event_dispatcher.check_deps_started(self.k);
+                    scopeguard::defer! {
+                        self.event_dispatcher.check_deps_finished(self.k);
+                    }
+
+                    check_dependencies(
+                        &self.eval,
+                        ParentKey::Some(self.k),
                         &mismatch.deps_to_validate,
-                        &task_state,
+                        mismatch.prev_verified_version,
                         &cycles,
                     )
                     .await?
@@ -231,25 +237,37 @@ impl DiceTaskWorker {
         self.eval.evaluate(self.k, task_state, cycles).await
     }
 
-    /// determines if the given 'Dependency' has changed between versions 'last_version' and
-    /// 'target_version'
-    #[cfg_attr(debug_assertions, instrument(
-        level = "debug",
-        skip(self, deps, _check_deps_state, cycles),
-        fields(version = %self.eval.per_live_version_ctx.get_version(), prev_verified_version = %prev_verified_version)
-    ))]
-    async fn compute_whether_dependencies_changed(
+    fn activation_info<'a>(
         &self,
-        prev_verified_version: VersionNumber,
-        deps: &SeriesParallelDeps,
-        _check_deps_state: &DiceWorkerStateCheckingDeps<'_, '_>, // enforce that we are in the right state
-        cycles: &KeyComputingUserCycleDetectorData,
-    ) -> CancellableResult<DidDepsChange> {
-        self.event_dispatcher.check_deps_started(self.k);
-        scopeguard::defer! {
-            self.event_dispatcher.check_deps_finished(self.k);
-        }
+        deps: impl Iterator<Item = DiceKey> + 'a,
+        data: ActivationData,
+    ) -> Option<ActivationInfo> {
+        ActivationInfo::new(
+            &self.eval.dice.key_index,
+            &self.eval.user_data.activation_tracker,
+            self.k,
+            deps,
+            data,
+        )
+    }
+}
 
+/// determines if the given 'Dependency' has changed between versions 'last_version' and
+/// 'target_version'
+#[allow(clippy::manual_async_fn)]
+#[cfg_attr(debug_assertions, instrument(
+    level = "debug",
+    skip(eval, deps, cycles),
+    fields(version = %eval.per_live_version_ctx.get_version(), prev_verified_version = %prev_verified_version)
+))]
+fn check_dependencies<'a>(
+    eval: &'a AsyncEvaluator,
+    parent_key: ParentKey,
+    deps: &'a SeriesParallelDeps,
+    prev_verified_version: VersionNumber,
+    cycles: &'a KeyComputingUserCycleDetectorData,
+) -> impl Future<Output = CancellableResult<DidDepsChange>> + Send + 'a {
+    async move {
         trace!(deps = ?deps);
 
         if deps.is_empty() {
@@ -258,17 +276,7 @@ impl DiceTaskWorker {
 
         let mut fs: FuturesUnordered<_> = deps
             .iter_keys()
-            .map(|dep| {
-                self.eval
-                    .per_live_version_ctx
-                    .compute_opaque(
-                        dep.dupe(),
-                        ParentKey::Some(self.k),
-                        &self.eval,
-                        cycles.subrequest(dep, &self.eval.dice.key_index),
-                    )
-                    .map(|r| r.map(|v| v.history().is_verified_at(prev_verified_version)))
-            })
+            .map(|dep| check_dependency(eval, parent_key, dep, cycles, prev_verified_version))
             .collect();
 
         while let Some(dep_result) = fs.next().await {
@@ -287,35 +295,26 @@ impl DiceTaskWorker {
 
         Ok(DidDepsChange::NoChange)
     }
+}
 
-    #[cfg(test)]
-    pub(crate) fn testing_new(
-        k: DiceKey,
-        eval: AsyncEvaluator,
-        event_dispatcher: DiceEventDispatcher,
-        version_epoch: VersionEpoch,
-    ) -> Self {
-        Self {
-            k,
-            eval,
-            event_dispatcher,
-            version_epoch,
-        }
-    }
-
-    fn activation_info<'a>(
-        &self,
-        deps: impl Iterator<Item = DiceKey> + 'a,
-        data: ActivationData,
-    ) -> Option<ActivationInfo> {
-        ActivationInfo::new(
-            &self.eval.dice.key_index,
-            &self.eval.user_data.activation_tracker,
-            self.k,
-            deps,
-            data,
+async fn check_dependency(
+    eval: &AsyncEvaluator,
+    parent_key: ParentKey,
+    dep: DiceKey,
+    cycles: &KeyComputingUserCycleDetectorData,
+    version: VersionNumber,
+) -> CancellableResult<bool> {
+    Ok(eval
+        .per_live_version_ctx
+        .compute_opaque(
+            dep,
+            parent_key,
+            &eval,
+            cycles.subrequest(dep, &eval.dice.key_index),
         )
-    }
+        .await?
+        .history()
+        .is_verified_at(version))
 }
 
 #[cfg_attr(debug_assertions, instrument(

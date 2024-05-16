@@ -255,13 +255,6 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
             internals: self.internals,
         })
     }
-
-    #[cfg(test)]
-    pub(crate) fn testing(task_handle: &'a mut DiceTaskHandle<'b>) -> Self {
-        DiceWorkerStateCheckingDeps {
-            internals: task_handle,
-        }
-    }
 }
 
 /// When the spawned dice worker is currently actively evaluating the `Key::compute` function

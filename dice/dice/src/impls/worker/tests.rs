@@ -44,7 +44,6 @@ use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
-use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
@@ -54,7 +53,7 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::worker::state::DiceWorkerStateCheckingDeps;
+use crate::impls::worker::check_dependencies;
 use crate::impls::worker::testing::DidDepsChangeExt;
 use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
@@ -136,10 +135,8 @@ impl Key for Finish {
 #[tokio::test]
 async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let dice = DiceModern::new(DiceData::new());
-    let key = dice.key_index.index_key(Finish);
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
-    let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
 
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
@@ -155,21 +152,16 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let engine =
-        DiceTaskWorker::testing_new(key, eval.clone(), events.clone(), ctx.testing_get_epoch());
-
-    let mut task_handle = DiceTaskHandle::testing_new();
-
     assert!(
-        engine
-            .compute_whether_dependencies_changed(
-                VersionNumber::new(0),
-                &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing(&mut task_handle),
-                &KeyComputingUserCycleDetectorData::Untracked,
-            )
-            .await?
-            .is_changed()
+        check_dependencies(
+            &eval,
+            ParentKey::None,
+            &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
+            VersionNumber::new(0),
+            &KeyComputingUserCycleDetectorData::Untracked,
+        )
+        .await?
+        .is_changed()
     );
 
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(2)).await;
@@ -187,19 +179,16 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let engine =
-        DiceTaskWorker::testing_new(key, eval.clone(), events.clone(), ctx.testing_get_epoch());
-
     assert!(
-        !engine
-            .compute_whether_dependencies_changed(
-                VersionNumber::new(1),
-                &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
-                &DiceWorkerStateCheckingDeps::testing(&mut task_handle),
-                &KeyComputingUserCycleDetectorData::Untracked,
-            )
-            .await?
-            .is_changed()
+        !check_dependencies(
+            &eval,
+            ParentKey::None,
+            &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 100 }]),
+            VersionNumber::new(1),
+            &KeyComputingUserCycleDetectorData::Untracked,
+        )
+        .await?
+        .is_changed()
     );
 
     // Now we also check that when deps have transients and such.
@@ -220,19 +209,16 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let engine =
-        DiceTaskWorker::testing_new(key, eval.clone(), events.clone(), ctx.testing_get_epoch());
-
     assert!(
-        engine
-            .compute_whether_dependencies_changed(
-                VersionNumber::new(1),
-                &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 200 }]),
-                &DiceWorkerStateCheckingDeps::testing(&mut task_handle),
-                &KeyComputingUserCycleDetectorData::Untracked,
-            )
-            .await?
-            .is_changed()
+        check_dependencies(
+            &eval,
+            ParentKey::None,
+            &SeriesParallelDeps::serial_from_vec(vec![DiceKey { index: 200 }]),
+            VersionNumber::new(1),
+            &KeyComputingUserCycleDetectorData::Untracked,
+        )
+        .await?
+        .is_changed()
     );
 
     Ok(())
