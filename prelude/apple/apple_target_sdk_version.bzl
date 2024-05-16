@@ -9,6 +9,19 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorArgs")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 
+_TARGET_TRIPLE_MAP = {
+    "appletvos": "{architecture}-apple-tvos{version}",
+    "appletvsimulator": "{architecture}-apple-tvos{version}-simulator",
+    "iphoneos": "{architecture}-apple-ios{version}",
+    "iphonesimulator": "{architecture}-apple-ios{version}-simulator",
+    "maccatalyst": "{architecture}-apple-ios{version}-macabi",
+    "macosx": "{architecture}-apple-macosx{version}",
+    "visionos": "{architecture}-apple-xros{version}",
+    "visionsimulator": "{architecture}-apple-xros{version}-simulator",
+    "watchos": "{architecture}-apple-watchos{version}",
+    "watchsimulator": "{architecture}-apple-watchos{version}-simulator",
+}
+
 # TODO(T112099448): In the future, the min version flag should live on the apple_toolchain()
 # TODO(T113776898): Switch to -mtargetos= flag which should live on the apple_toolchain()
 _APPLE_MIN_VERSION_FLAG_SDK_MAP = {
@@ -54,6 +67,20 @@ def get_min_deployment_version_for_node(ctx: AnalysisContext) -> [None, str]:
     if clamp_version:
         min_version = max_sdk_version(min_version, clamp_version)
     return min_version
+
+def get_versioned_target_triple(ctx: AnalysisContext) -> str:
+    apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+    architecture = apple_toolchain_info.architecture
+    if architecture == None:
+        fail("Need to set `architecture` field of apple_toolchain(), target: {}".format(ctx.label))
+
+    target_sdk_version = get_min_deployment_version_for_node(ctx) or ""
+    sdk_name = apple_toolchain_info.sdk_name
+    target_triple_format_str = _TARGET_TRIPLE_MAP.get(sdk_name)
+    if target_triple_format_str == None:
+        fail("Could not find target triple for sdk = {}".format(sdk_name))
+
+    return target_triple_format_str.format(architecture = architecture, version = target_sdk_version)
 
 # Returns the min deployment flag to pass to the compiler + linker
 def _get_min_deployment_version_target_flag(ctx: AnalysisContext) -> [None, str]:
