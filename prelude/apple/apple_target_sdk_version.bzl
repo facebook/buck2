@@ -60,12 +60,13 @@ def max_sdk_version(left: str, right: str):
 # apple_toolchain() min version as a fallback. This is the central place
 # where the version for a particular node is defined, no other places
 # should be accessing `attrs.target_sdk_version` or `attrs.min_version`.
-def get_min_deployment_version_for_node(ctx: AnalysisContext) -> [None, str]:
+def get_min_deployment_version_for_node(ctx: AnalysisContext) -> str:
     toolchain_min_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].min_version
     min_version = getattr(ctx.attrs, "target_sdk_version", None) or toolchain_min_version
     clamp_version = _APPLE_MIN_VERSION_CLAMP_MAP.get(get_apple_sdk_name(ctx))
     if clamp_version:
         min_version = max_sdk_version(min_version, clamp_version)
+
     return min_version
 
 def get_versioned_target_triple(ctx: AnalysisContext) -> str:
@@ -74,7 +75,7 @@ def get_versioned_target_triple(ctx: AnalysisContext) -> str:
     if architecture == None:
         fail("Need to set `architecture` field of apple_toolchain(), target: {}".format(ctx.label))
 
-    target_sdk_version = get_min_deployment_version_for_node(ctx) or ""
+    target_sdk_version = get_min_deployment_version_for_node(ctx)
     sdk_name = apple_toolchain_info.sdk_name
     target_triple_format_str = _TARGET_TRIPLE_MAP.get(sdk_name)
     if target_triple_format_str == None:
@@ -85,9 +86,6 @@ def get_versioned_target_triple(ctx: AnalysisContext) -> str:
 # Returns the min deployment flag to pass to the compiler + linker
 def _get_min_deployment_version_target_flag(ctx: AnalysisContext) -> [None, str]:
     target_sdk_version = get_min_deployment_version_for_node(ctx)
-    if target_sdk_version == None:
-        return None
-
     sdk_name = get_apple_sdk_name(ctx)
     min_version_flag = _APPLE_MIN_VERSION_FLAG_SDK_MAP.get(sdk_name)
     if min_version_flag == None:

@@ -196,7 +196,7 @@ extra_attributes = {
         "libtool": attrs.exec_dep(providers = [RunInfo]),
         "lipo": attrs.exec_dep(providers = [RunInfo]),
         "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "min_version": attrs.option(attrs.string(), default = None),
+        "min_version": attrs.string(),
         "momc": attrs.exec_dep(providers = [RunInfo]),
         "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # A placeholder tool that can be used to set up toolchain constraints.

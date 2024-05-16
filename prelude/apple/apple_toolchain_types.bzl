@@ -28,7 +28,7 @@ AppleToolchainInfo = provider(
         "libtool": provider_field(RunInfo),
         "lipo": provider_field(RunInfo),
         "mapc": provider_field(RunInfo | None, default = None),
-        "min_version": provider_field(str | None, default = None),
+        "min_version": provider_field(str),
         "momc": provider_field(RunInfo),
         "objdump": provider_field(RunInfo | None, default = None),
         "platform_path": provider_field(str | Artifact),
