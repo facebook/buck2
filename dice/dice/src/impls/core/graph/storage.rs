@@ -36,8 +36,9 @@
 //! To support these operations, nodes store
 //!  (i) computed values
 //!  (ii) the seriesparalleldeps for that computed value
-//!  (iii) a cellhistory indicating at what versions both (1)+(2) are known to be valid (and so at which they've been dirtied)
-//!  (iv) the non-invalidated most recent reverse dependencies.
+//!  (iii) a cellhistory indicating at what versions both (1)+(2) are known to be valid
+//!  (iv) a list of versions where the node is "force-dirtied"
+//!  (v) the non-invalidated most recent reverse dependencies.
 //!
 //! A node may store multiple computed values (and so also multiple (ii) and (iii)) at different versions. Nodes for InjectedKeys, for
 //! example, will store all values that they ever see (as we cannot recompute ones that we drop).
@@ -92,10 +93,21 @@
 //!   If there's no cell-history to reuse (maybe because a newer computation has evicted the associated data), we only
 //!   know that the value+deps are valid at exactly `[V, V+1)` (i.e. just at version V).
 //!   second, we determine the set of versions at which we know the deps have the same value as at the version
-//!   we are computing (V). This is just an intersection of their cell-histories at that version.
+//!   we are computing (V). This is just an intersection of their cell-histories at that version. The valid deps versions
+//!   are further restricted to ensure they don't cross any force-dirtied versions of the node we are computing.
 //!   The final valid cell-history is the union of these two.
 //!   (ii) is easier, we just tell each dep node to record the rdep at the version we are computing. If the rdep has already seen a
 //!   dirty at a later version, it does not need to record the rdep (and our computing of (i) will reflect that dirty).
+//!
+//! "forced-dirty":
+//! The non-leaf nodes that are directly invalidated are going to be marked as "force-dirtied" at that
+//! version, while rdeps of those just get marked as invalidated. If a dep is marked as "force-dirtied"
+//! at a version, we will never reuse its value across that version based on its deps not changing.
+//!
+//! This means that we need to store these markers forever and that a deps check cannot cross these markers
+//! and that when computing a cell-history after recomputing we must ensure that the deps-based part of that
+//! history does not cross the markers (it's okay for value-based equality to make the history cross those
+//! values).
 //!
 //! Code structure:
 //!
@@ -1790,6 +1802,195 @@ mod tests {
             cache.get(key_c0).assert_match();
             cache.get(key_c1).assert_check_deps();
             cache.get(key_c2).assert_match();
+
+            Ok(())
+        }
+        do_test().unwrap()
+    }
+
+    #[test]
+    fn check_that_force_dirty_cannot_be_used_for_deps_check_forward() -> anyhow::Result<()> {
+        let mut cache = VersionedGraph::new();
+        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+
+        let key_a = DiceKey { index: 0 };
+        let key_b = DiceKey { index: 1 };
+
+        let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
+        let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
+        let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+
+        let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+
+        // b is valid from 0->inf
+        cache.invalidate(
+            key_b0,
+            InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+        );
+
+        cache.update(
+            key_a0,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            StorageType::LastN(1),
+        );
+
+        cache.invalidate(key_a1, InvalidateKind::ForceDirty);
+
+        cache.get(key_a1).assert_compute();
+        cache.get(key_a2).assert_compute();
+
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Compute, but was CheckDeps")]
+    fn check_that_force_dirty_cannot_be_used_for_deps_check_backward() {
+        fn do_test() -> anyhow::Result<()> {
+            let mut cache = VersionedGraph::new();
+            let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+
+            let key_a = DiceKey { index: 0 };
+            let key_b = DiceKey { index: 1 };
+
+            let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
+            let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
+            let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+            let key_a3 = VersionedGraphKey::new(VersionNumber::new(3), key_a);
+
+            let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+
+            // b is valid from 0->inf
+            cache.invalidate(
+                key_b0,
+                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            );
+
+            cache.invalidate(key_a2, InvalidateKind::ForceDirty);
+            cache.update(
+                key_a3,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+                StorageType::LastN(1),
+            );
+
+            cache.get(key_a0).assert_compute();
+            cache.get(key_a1).assert_compute();
+
+            Ok(())
+        }
+        do_test().unwrap()
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Compute, but was CheckDeps")]
+    fn check_that_valid_deps_across_force_dirty_dont_extend_valid_range_past_dirty() {
+        fn do_test() -> anyhow::Result<()> {
+            let mut cache = VersionedGraph::new();
+            let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+
+            let key_a = DiceKey { index: 0 };
+            let key_b = DiceKey { index: 1 };
+
+            let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
+            let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
+            let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+            let key_a3 = VersionedGraphKey::new(VersionNumber::new(3), key_a);
+
+            let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+
+            // b is valid from 0->inf
+            cache.invalidate(
+                key_b0,
+                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            );
+
+            // a force-dirtied at v1
+            cache.invalidate(key_a1, InvalidateKind::ForceDirty);
+
+            // a computed at v2, since deps haven't changed it should be valid at v1 but due to force dirty not at v0
+            cache.update(
+                key_a2,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+                StorageType::LastN(1),
+            );
+
+            cache.get(key_a0).assert_compute();
+            cache.get(key_a1).assert_match();
+
+            cache.update(
+                key_a3,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+                StorageType::LastN(1),
+            );
+
+            cache.get(key_a0).assert_compute();
+            cache.get(key_a1).assert_match();
+
+            Ok(())
+        }
+        do_test().unwrap()
+    }
+
+    #[test]
+    #[should_panic(expected = "expected Compute, but was Match")]
+    fn check_that_force_dirty_does_not_get_forgotten_after_later_computes() {
+        fn do_test() -> anyhow::Result<()> {
+            let mut cache = VersionedGraph::new();
+            let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+
+            let key_a = DiceKey { index: 0 };
+            let key_b = DiceKey { index: 1 };
+
+            let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
+            let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
+            let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+
+            let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+
+            // b is valid from 0->inf
+            cache.invalidate(
+                key_b0,
+                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            );
+
+            let key_a100 = VersionedGraphKey::new(VersionNumber::new(100), key_a);
+
+            for i in 1..100 {
+                cache.invalidate(
+                    VersionedGraphKey::new(VersionNumber(i), key_a),
+                    InvalidateKind::ForceDirty,
+                );
+            }
+
+            cache.update(
+                key_a100,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+                StorageType::LastN(1),
+            );
+
+            cache.update(
+                key_a0,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+                StorageType::LastN(1),
+            );
+
+            // There was a force-dirty at v1 (and v2, v3, ...), we should not be able to reuse the
+            // value at v0 regardless of deps.
+            cache.get(key_a0).assert_match();
+            cache.get(key_a1).assert_compute();
+            cache.get(key_a2).assert_compute();
+            cache.get(key_a2).assert_compute();
 
             Ok(())
         }
