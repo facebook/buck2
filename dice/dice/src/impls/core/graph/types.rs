@@ -44,13 +44,12 @@ pub(crate) struct VersionedGraphResultMismatch {
 
 #[derive(Debug, VariantName, UnpackVariants)]
 pub(crate) enum VersionedGraphResult {
-    /// when the version cache has the exact matching entry via versions
+    /// the entry is present and valid at the requested version
     Match(DiceComputedValue),
-    /// when the version cache found an entry, but the versions were mismatching. The existing entry
-    /// is returned, along with the last known version
+    /// the entry at the requested version has been invalidated and
+    /// we have a previous value with deps to possibly resurrect
     CheckDeps(VersionedGraphResultMismatch),
-    /// An entry that is known to require re-evaluation because it was marked as dirty at the
-    /// requested version or that it was missing
+    /// the entry is missing or there's no previously valid value to check
     Compute,
 }
 

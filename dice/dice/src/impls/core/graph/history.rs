@@ -35,6 +35,7 @@ use crate::versions::VersionRanges;
 #[derive(Debug, Allocative, Clone)]
 pub(crate) struct CellHistory {
     verified: SortedVectorSet<VersionNumber>,
+
     /// versions of dirty, mapping ot whether or not it's a forced dirty (which means recompute
     /// regardless of node changed)
     dirtied: SortedVectorMap<VersionNumber, bool>,
