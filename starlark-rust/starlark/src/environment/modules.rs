@@ -538,6 +538,8 @@ impl Module {
             extra_value.trace(tracer);
             self.set_extra_value(extra_value);
         }
+
+        self.heap().trace_interner(tracer);
     }
 
     /// Field that can be used for any purpose you want.

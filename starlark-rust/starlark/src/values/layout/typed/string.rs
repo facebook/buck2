@@ -149,7 +149,6 @@ impl<'v> StringValue<'v> {
     }
 
     #[inline]
-    #[allow(dead_code)] // TODO(patskovn): Will be used in string interning in next commit
     pub(crate) unsafe fn cast_lifetime<'w>(self) -> StringValue<'w> {
         StringValue::new_unchecked(self.to_value().cast_lifetime())
     }
