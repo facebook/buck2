@@ -781,18 +781,33 @@ pub(crate) mod testing {
 
     impl VersionedCacheResultAssertsExt for VersionedGraphResult {
         fn assert_compute(&self) {
-            self.unpack_compute()
-                .unwrap_or_else(|| panic!("expected Compute, but was {}", self.variant_name()))
+            self.unpack_compute().unwrap_or_else(|| {
+                panic!(
+                    "expected Compute, but was {} ({:?})",
+                    self.variant_name(),
+                    self
+                )
+            })
         }
 
         fn assert_match(&self) -> &DiceComputedValue {
-            self.unpack_match()
-                .unwrap_or_else(|| panic!("expected Match, but was {}", self.variant_name()))
+            self.unpack_match().unwrap_or_else(|| {
+                panic!(
+                    "expected Match, but was {} ({:?})",
+                    self.variant_name(),
+                    self
+                )
+            })
         }
 
         fn assert_check_deps(&self) -> &VersionedGraphResultMismatch {
-            self.unpack_check_deps()
-                .unwrap_or_else(|| panic!("expected Mismatch, but was {}", self.variant_name()))
+            self.unpack_check_deps().unwrap_or_else(|| {
+                panic!(
+                    "expected Mismatch, but was {} ({:?})",
+                    self.variant_name(),
+                    self
+                )
+            })
         }
     }
 }
@@ -1698,5 +1713,86 @@ mod tests {
         ));
 
         Ok(())
+    }
+
+    // TODO(cjhopman): This test should not panic, it currently has multiple bugs so we have an `expected=` that helps see when one bug is fixed.
+    #[test]
+    #[should_panic(expected = "expected Mismatch, but was Match")]
+    fn check_that_we_handle_noncomputed_version_in_history_correctly() {
+        fn do_test() -> anyhow::Result<()> {
+            let mut cache = VersionedGraph::new();
+            let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+            let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(101));
+
+            let key_a = DiceKey { index: 0 };
+            let key_b = DiceKey { index: 1 };
+
+            let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
+            let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
+            let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+
+            let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+            let key_b1 = VersionedGraphKey::new(VersionNumber::new(1), key_b);
+            let key_b2 = VersionedGraphKey::new(VersionNumber::new(2), key_b);
+
+            cache.invalidate(
+                key_a0,
+                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            );
+            cache.invalidate(
+                key_a1,
+                InvalidateKind::Update(res2.dupe(), StorageType::LastN(usize::MAX)),
+            );
+            cache.invalidate(
+                key_a2,
+                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            );
+
+            cache.update(
+                key_b0,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
+                StorageType::LastN(1),
+            );
+
+            // deferred dirty propagation should have b invalidated at v1.
+            cache.get(key_b1).assert_check_deps();
+
+            cache.update(
+                key_b2,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
+                StorageType::LastN(1),
+            );
+
+            cache.get(key_b0).assert_match();
+            cache.get(key_b1).assert_check_deps();
+            cache.get(key_b2).assert_match();
+
+            // this last bit checks a specific optimization. we know that b is valid at v0 and v2, if
+            // we compute something at v0 that depends only on b, we should be able to reuse the computed value
+            // at v2
+            let key_c = DiceKey { index: 2 };
+            let key_c0 = VersionedGraphKey::new(VersionNumber::new(0), key_c);
+            let key_c1 = VersionedGraphKey::new(VersionNumber::new(1), key_c);
+            let key_c2 = VersionedGraphKey::new(VersionNumber::new(2), key_c);
+
+            cache.update(
+                key_c0,
+                res.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+                StorageType::LastN(1),
+            );
+
+            cache.get(key_c0).assert_match();
+            cache.get(key_c1).assert_check_deps();
+            cache.get(key_c2).assert_match();
+
+            Ok(())
+        }
+        do_test().unwrap()
     }
 }

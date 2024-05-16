@@ -149,7 +149,9 @@ impl DiceComputedValue {
 
 impl Debug for DiceComputedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiceComputedValue").finish_non_exhaustive()
+        f.debug_struct("DiceComputedValue")
+            .field("valid", &self.valid)
+            .finish_non_exhaustive()
     }
 }
 
