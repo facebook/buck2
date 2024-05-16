@@ -173,6 +173,9 @@ pub struct DaemonStateData {
 
     /// Spawner
     pub spawner: Arc<BuckSpawner>,
+
+    /// Tags to be logged per command.
+    pub tags: Vec<String>,
 }
 
 impl DaemonStateData {
@@ -544,6 +547,17 @@ impl DaemonState {
                 None
             };
 
+            let tags = vec![
+                format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
+                format!("which-dice:{}", dice.which_dice().variant_name()),
+                format!("hash-all-commands:{}", hash_all_commands),
+                format!(
+                    "sqlite-materializer-state:{}",
+                    disk_state_options.sqlite_materializer_state
+                ),
+                format!("paranoid:{}", paranoid.is_some()),
+            ];
+
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
 
@@ -568,6 +582,7 @@ impl DaemonState {
                 http_client,
                 paranoid,
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
+                tags,
             }))
         })
         .await?
@@ -719,28 +734,9 @@ impl DaemonState {
             .context("Error validating buck-out mount")?;
 
         let data = data?;
-
-        let tags = vec![
-            format!(
-                "dice-detect-cycles:{}",
-                data.dice_manager
-                    .unsafe_dice()
-                    .detect_cycles()
-                    .variant_name()
-            ),
-            format!(
-                "which-dice:{}",
-                data.dice_manager.unsafe_dice().which_dice().variant_name()
-            ),
-            format!("hash-all-commands:{}", data.hash_all_commands),
-            format!(
-                "sqlite-materializer-state:{}",
-                data.disk_state_options.sqlite_materializer_state
-            ),
-            format!("paranoid:{}", data.paranoid.is_some()),
-        ];
-
-        dispatcher.instant_event(buck2_data::TagEvent { tags });
+        dispatcher.instant_event(buck2_data::TagEvent {
+            tags: data.tags.clone(),
+        });
 
         // Sync any FS changes and invalidate DICE state if necessary.  Get the Eden
         // version of the underlying system in parallel if available.
