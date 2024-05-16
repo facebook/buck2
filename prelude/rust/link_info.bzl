@@ -147,7 +147,8 @@ RustLinkInfo = provider(
         #    library), regardless of `:A`'s preferred linkage or the link strategy. This matches the
         #    `force_rlib` behavior, in which Rust -> Rust dependency edges are always statically
         #    linked. The native link provider then depends on that, and only adds a linkable for the
-        #    `shared_lib` case.
+        #    `shared_lib` case. TODO(pickett): Update this once force_rlib is disabled in advanced
+        #    unstable linking
         "merged_link_info": MergedLinkInfo,
         "shared_libs": SharedLibraryInfo,
         # Because of the weird representation of `LinkableGraph`, there is no
@@ -171,7 +172,7 @@ RustLinkInfo = provider(
 )
 
 def _adjust_link_strategy_for_rust_dependencies(toolchain_info: RustToolchainInfo, dep_link_strategy: LinkStrategy) -> LinkStrategy:
-    if toolchain_info.force_rlib and dep_link_strategy == LinkStrategy("shared"):
+    if dep_link_strategy == LinkStrategy("shared") and not toolchain_info.advanced_unstable_linking:
         return DEFAULT_STATIC_LINK_STRATEGY
     else:
         return dep_link_strategy

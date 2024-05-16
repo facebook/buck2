@@ -668,6 +668,8 @@ def _rust_link_providers(
         # As an optimization, we never bother reporting exported deps here.
         # Whichever dependent uses the providers created here will take care of
         # that for us.
+        #
+        # TODO(pickett): Make this codepath work without force_rlib
         merged_link_info = create_merged_link_info(
             ctx,
             cxx_toolchain.pic_behavior,
