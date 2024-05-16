@@ -133,6 +133,7 @@ pub(crate) struct InvocationRecorder<'a> {
     critical_path_backend: Option<String>,
     instant_command_is_success: Option<bool>,
     bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
+    install_duration: Option<prost_types::Duration>,
     initial_re_upload_bytes: Option<u64>,
     initial_re_download_bytes: Option<u64>,
     concurrent_command_ids: HashSet<String>,
@@ -233,6 +234,7 @@ impl<'a> InvocationRecorder<'a> {
             critical_path_backend: None,
             instant_command_is_success: None,
             bxl_ensure_artifacts_duration: None,
+            install_duration: None,
             initial_re_upload_bytes: None,
             initial_re_download_bytes: None,
             concurrent_command_ids: HashSet::new(),
@@ -479,6 +481,7 @@ impl<'a> InvocationRecorder<'a> {
                 .iter()
                 .map(|w| w.max_per_second().unwrap_or_default())
                 .max(),
+            install_duration: self.install_duration.take(),
         };
 
         let event = BuckEvent::new(
@@ -783,6 +786,14 @@ impl<'a> InvocationRecorder<'a> {
         };
 
         self.bxl_ensure_artifacts_duration = bxl_ensure_artifacts_end.duration;
+        Ok(())
+    }
+
+    fn handle_install_finished(
+        &mut self,
+        install_finished: &buck2_data::InstallFinished,
+    ) -> anyhow::Result<()> {
+        self.install_duration = install_finished.duration.clone();
         Ok(())
     }
 
@@ -1108,6 +1119,9 @@ impl<'a> InvocationRecorder<'a> {
                     buck2_data::instant_event::Data::BuckConfigs(conf) => {
                         self.new_configs_used = conf.new_configs_used;
                         Ok(())
+                    }
+                    buck2_data::instant_event::Data::InstallFinished(install_finished) => {
+                        self.handle_install_finished(install_finished)
                     }
                     _ => Ok(()),
                 }

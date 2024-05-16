@@ -266,6 +266,8 @@ message InstantEvent {
     CleanStaleResult clean_stale_result = 37;
 
     BuckConfigs buck_configs = 38;
+
+    InstallFinished install_finished = 39;
   }
 }
 
@@ -1868,6 +1870,9 @@ message InvocationRecord {
   optional bool new_configs_used = 84;
   // Max sustained RE download speed
   optional uint64 re_max_download_speed = 85;
+  // Optional - for install commands, the time elapsed between the last
+  // materialization event and the last install event.
+  google.protobuf.Duration install_duration = 86;
 }
 
 // Record event sent directly to scribe.
@@ -2143,6 +2148,10 @@ message ConnectToInstallerStart {
 }
 
 message ConnectToInstallerEnd {}
+
+message InstallFinished {
+  google.protobuf.Duration duration = 1;
+}
 
 message CpuCounter {
   uint64 count = 1;

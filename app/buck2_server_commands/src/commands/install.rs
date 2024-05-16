@@ -15,6 +15,7 @@ use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::process::Stdio;
+use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -50,6 +51,7 @@ use buck2_core::target::name::TargetName;
 use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
 use buck2_error::BuckErrorContext;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -327,7 +329,7 @@ async fn handle_install_request<'a>(
         |ctx| {
             async move {
                 build_files(ctx, materializations, install_files_slice, files_tx).await?;
-                anyhow::Ok(())
+                anyhow::Ok(Instant::now())
             }
             .boxed()
         },
@@ -366,10 +368,10 @@ async fn handle_install_request<'a>(
                     installer_debug,
                 )
                 .await?;
-
                 let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
                 let artifact_fs = ctx.get_artifact_fs().await?;
 
+                let installer_ready = Instant::now();
                 for (install_id, install_files) in install_files_slice {
                     send_install_info(client.clone(), install_id, install_files, &artifact_fs)
                         .await?;
@@ -387,14 +389,22 @@ async fn handle_install_request<'a>(
                             )
                         })
                         .await;
+                let installer_finished = Instant::now();
                 send_shutdown_command(client.clone()).await?;
                 send_files_result.context("Failed to send artifacts to installer")?;
-                anyhow::Ok(())
+                anyhow::Ok((installer_ready, installer_finished))
             }
             .boxed()
         },
     );
-    try_join(build_installer_and_connect, build_files).await?;
+    let ((installer_ready, installer_finished), artifacts_ready) =
+        try_join(build_installer_and_connect, build_files).await?;
+
+    let build_finished = std::cmp::max(installer_ready, artifacts_ready);
+    let install_duration = installer_finished - build_finished;
+    get_dispatcher().instant_event(buck2_data::InstallFinished {
+        duration: install_duration.try_into().ok(),
+    });
     anyhow::Ok(())
 }
 
