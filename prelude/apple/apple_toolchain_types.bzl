@@ -39,6 +39,7 @@ AppleToolchainInfo = provider(
         # TODO(T124581557) Make it non-optional once there is no "selected xcode" toolchain
         "sdk_version": provider_field(str | None, default = None),
         "swift_toolchain_info": provider_field(SwiftToolchainInfo),
+        "target_sdk_version": provider_field(str | None, default = None),
         "xcode_build_version": provider_field(str | None, default = None),
         "xcode_version": provider_field(str | None, default = None),
         "xctest": provider_field(RunInfo),

@@ -27,7 +27,7 @@ _APPLE_MIN_VERSION_CLAMP_MAP = {
 # Compares and returns the the maximum of two version numbers. Assumes
 # they are both formatted as dot-separted strings (e.g "14.0.3").
 # If they are otherwise equal but one is longer, the longer is returned.
-def _max_version(left: str, right: str):
+def max_sdk_version(left: str, right: str):
     left_components = left.split(".")
     right_components = right.split(".")
     for component in zip(left_components, right_components):
@@ -52,7 +52,7 @@ def get_min_deployment_version_for_node(ctx: AnalysisContext) -> [None, str]:
     min_version = getattr(ctx.attrs, "target_sdk_version", None) or toolchain_min_version
     clamp_version = _APPLE_MIN_VERSION_CLAMP_MAP.get(get_apple_sdk_name(ctx))
     if clamp_version:
-        min_version = _max_version(min_version, clamp_version)
+        min_version = max_sdk_version(min_version, clamp_version)
     return min_version
 
 # Returns the min deployment flag to pass to the compiler + linker

@@ -210,6 +210,10 @@ extra_attributes = {
         "requires_xcode_version_match": attrs.bool(default = False),
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "swift_toolchain": attrs.option(attrs.toolchain_dep(), default = None),
+        # The requested deployment target for a build. This will be used to
+        # form the versioned target triple when building, and compared with
+        # each build rule's target_sdk_version to ensure compatibility.
+        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "version": attrs.option(attrs.string(), default = None),
         "xcode_build_version": attrs.option(attrs.string(), default = None),
         "xcode_version": attrs.option(attrs.string(), default = None),
