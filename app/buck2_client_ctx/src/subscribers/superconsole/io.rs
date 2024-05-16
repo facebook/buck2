@@ -106,7 +106,12 @@ fn do_render(
             HumanizedBytes::new(snapshot.buck2_max_rss)
         ));
     }
-
+    if let Some(malloc_bytes_allocated) = snapshot.malloc_bytes_allocated {
+        parts.push(format!(
+            "Malloc allocated = {}",
+            HumanizedBytes::new(malloc_bytes_allocated)
+        ));
+    }
     if let Some(cpu) = two_snapshots.cpu_percents() {
         parts.push(format!("CPU = {}%", cpu));
     }
