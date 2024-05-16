@@ -281,6 +281,12 @@ fn re_create_action(
         action_and_blobs.add_paths(digest, data);
     }
 
+    command.output_directories.sort();
+    command.output_files.sort();
+    command.output_paths.sort();
+    command.output_node_properties.sort();
+    command.environment_variables.sort_by(|e1, e2| e1.name.cmp(&e2.name));
+
     let mut action = RE::Action {
         input_root_digest: Some(input_digest.to_grpc()),
         command_digest: Some(action_and_blobs.add_command(&command).to_grpc()),
