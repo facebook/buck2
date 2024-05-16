@@ -7,26 +7,48 @@
  * of this source tree.
  */
 
-import React, {ReactNode} from 'react'
+import React, {ReactNode, useEffect, useState} from 'react'
 
 export const SEARCH_VIEW = 'search'
 export const TARGET_VIEW = 'target'
 export const ROOT_VIEW = ''
+
+export const RouterContext = React.createContext({params: '', setParams: (_s: string) => {}})
 
 /**
  * Decides what to show based on existing query params
  * Inspired by reach-router library
  */
 export function Router(props: {children: ReactNode}) {
-  const params = new URLSearchParams(window.location.search)
-  const all = Array.from(params.keys())
+  const [params, setUrlParams] = useState(window.location.search)
+
+  const setParams = (s: string) => {
+    const url = new URL(window.location.toString())
+    const params = new URLSearchParams(s)
+    url.search = params.toString()
+    window.history.pushState(null, '', url.toString())
+    setUrlParams(s)
+  }
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setParams(document.location.search)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  const urlParams = new URLSearchParams(params)
+  const all = Array.from(urlParams.keys())
 
   const res = React.Children.map(props.children, child => {
     if (React.isValidElement(child)) {
       if (child.props.view === undefined) {
         return child
       }
-      if (params.has(child.props.view)) {
+      if (urlParams.has(child.props.view)) {
         return child
       }
       if (child.props.view === ROOT_VIEW && all.length === 0) {
@@ -36,7 +58,13 @@ export function Router(props: {children: ReactNode}) {
     return null
   })
 
-  return res?.length ? res : <p>View not found</p>
+  return res?.length ? (
+    <RouterContext.Provider value={{params, setParams: p => setParams(p)}}>
+      {res}
+    </RouterContext.Provider>
+  ) : (
+    <p>View not found</p>
+  )
 }
 
 /**

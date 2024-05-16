@@ -10,12 +10,14 @@
 import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {Target} from './Target'
+import {RouterContext} from './Router'
 
 export function TargetView(props: {view: string}) {
-  const {allTargets, build, rootTarget} = useContext(DataContext)
+  const {allTargets, build} = useContext(DataContext)
+  const {params} = useContext(RouterContext)
 
-  const params = new URLSearchParams(window.location.search)
-  const targetLabel = params.get(props.view) ?? null
+  const urlParams = new URLSearchParams(params)
+  const targetLabel = urlParams.get(props.view) ?? null
   const target = targetLabel == null ? null : build?.targets(allTargets[targetLabel])
 
   return target == null ? <p>No target found</p> : <Target target={target} />
