@@ -63,6 +63,6 @@ pub trait Key: Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + 
     }
 
     fn storage_type() -> StorageType {
-        StorageType::LastN(1)
+        StorageType::Normal
     }
 }

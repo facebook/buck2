@@ -205,7 +205,7 @@ pub(crate) mod testing {
         }
 
         fn storage_type(&self) -> StorageType {
-            StorageType::LastN(1)
+            StorageType::Normal
         }
 
         fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {

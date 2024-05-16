@@ -61,7 +61,7 @@ impl<P: ProjectionKey> StorageProperties for ProjectionKeyProperties<P> {
     type Value = P::Value;
 
     fn storage_type(&self) -> StorageType {
-        StorageType::LastN(1)
+        StorageType::Normal
     }
 
     fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {

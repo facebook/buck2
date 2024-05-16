@@ -290,7 +290,10 @@ impl VersionedGraph {
         deps: Arc<SeriesParallelDeps>,
         storage_type: StorageType,
     ) -> (DiceComputedValue, bool) {
-        let StorageType::LastN(num_to_keep) = storage_type;
+        let num_to_keep = match storage_type {
+            StorageType::Normal => 1,
+            StorageType::Injected => usize::MAX,
+        };
         // persistent keys, if any changes, are committed at the moment when the version
         // is increased. therefore, it must be the case that the current update for the
         // persistent key is the largest/newest version. it's also the case that they are
@@ -418,7 +421,11 @@ impl VersionedGraph {
                         return true;
                     }
                 }
-                InvalidateKind::Update(value, StorageType::LastN(num_to_keep)) => {
+                InvalidateKind::Update(value, storage_type) => {
+                    let num_to_keep = match storage_type {
+                        StorageType::Normal => 1,
+                        StorageType::Injected => usize::MAX,
+                    };
                     let rdeps = {
                         let entry = self.last_n.get(&key.k).and_then(|versioned_map| {
                             versioned_map
@@ -901,7 +908,7 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -919,7 +926,7 @@ mod tests {
                     res2.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -955,7 +962,7 @@ mod tests {
                     res3,
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -992,7 +999,7 @@ mod tests {
                     res4,
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1),
+                    StorageType::Normal,
                 )
                 .1
         );
@@ -1051,7 +1058,7 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(usize::MAX)
+                    StorageType::Injected
                 )
                 .1
         );
@@ -1068,7 +1075,7 @@ mod tests {
                     res2.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(usize::MAX)
+                    StorageType::Injected
                 )
                 .1
         );
@@ -1094,7 +1101,7 @@ mod tests {
                     res3.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(usize::MAX)
+                    StorageType::Injected
                 )
                 .1
         );
@@ -1143,87 +1150,6 @@ mod tests {
         cache.get(key7.dupe()).assert_compute()
     }
 
-    #[tokio::test]
-    async fn last_2_stores_last_2() {
-        let mut cache = VersionedGraph::new();
-        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
-        let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
-
-        assert!(
-            cache
-                .update(
-                    key.dupe(),
-                    res.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(2)
-                )
-                .1
-        );
-
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
-
-        let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
-        let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
-        assert!(cache.invalidate(key2.dupe(), InvalidateKind::Invalidate));
-        assert!(
-            cache
-                .update(
-                    key2.dupe(),
-                    res2.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(2)
-                )
-                .1
-        );
-
-        assert!(
-            cache
-                .get(key2.dupe())
-                .assert_match()
-                .value()
-                .equality(&res2)
-        );
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
-
-        // skip a few versions
-        let res3 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(300));
-        let key3 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
-        let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
-        assert!(cache.invalidate(key3.dupe(), InvalidateKind::Invalidate));
-        assert!(
-            cache
-                .update(
-                    key3.dupe(),
-                    res3.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(2)
-                )
-                .1
-        );
-
-        assert!(
-            cache
-                .get(key3.dupe())
-                .assert_match()
-                .value()
-                .equality(&res3)
-        );
-        assert!(
-            cache
-                .get(key2.dupe())
-                .assert_match()
-                .value()
-                .equality(&res2)
-        );
-
-        // the oldest entry should be evicted because we don't store more than 2
-        let entry = cache.get(key.dupe());
-        entry.assert_compute();
-    }
-
     #[test]
     fn test_dirty_for_persistent_storage() {
         fn key(v: usize) -> VersionedGraphKey {
@@ -1251,7 +1177,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(usize::MAX),
+            StorageType::Injected,
         );
         assert!(
             cache
@@ -1297,7 +1223,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
         assert!(
             cache
@@ -1336,7 +1262,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
@@ -1347,7 +1273,7 @@ mod tests {
             res2.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         let key3 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
@@ -1357,7 +1283,7 @@ mod tests {
             res3.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         // should have created a new entry because of key2
@@ -1388,7 +1314,7 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1411,7 +1337,7 @@ mod tests {
                     res2.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1437,7 +1363,7 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1467,7 +1393,7 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1511,7 +1437,7 @@ mod tests {
                     // there's nothing in the cache to be reused.
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1525,7 +1451,7 @@ mod tests {
         );
 
         // now insert a new value of a older version, this shouldn't evict anything
-        // because LastN(1) stores the most recent N by version number.
+        // because Normal stores the most recent N by version number.
         let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
         assert!(
             cache
@@ -1534,7 +1460,7 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber(1)),
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1560,7 +1486,7 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber::new(5)),
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1590,7 +1516,7 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber::new(5)),
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1620,7 +1546,7 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::new()),
-                    StorageType::LastN(1)
+                    StorageType::Normal
                 )
                 .1
         );
@@ -1639,7 +1565,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         let key1 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 1 });
@@ -1650,7 +1576,7 @@ mod tests {
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
                 index: 0,
             }])),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         let key2 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 2 });
@@ -1661,7 +1587,7 @@ mod tests {
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
                 index: 0,
             }])),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         assert!(cache.invalidate(
@@ -1708,12 +1634,12 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         assert!(!cache.invalidate(
             VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
-            InvalidateKind::Update(res.dupe(), StorageType::LastN(1))
+            InvalidateKind::Update(res.dupe(), StorageType::Normal)
         ));
 
         let key = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
@@ -1722,14 +1648,14 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::new()),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         assert!(cache.invalidate(
             VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
             InvalidateKind::Update(
                 DiceValidValue::testing_new(DiceKeyValue::<K>::new(30)),
-                StorageType::LastN(1)
+                StorageType::Normal
             )
         ));
 
@@ -1758,15 +1684,15 @@ mod tests {
 
             cache.invalidate(
                 key_a0,
-                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+                InvalidateKind::Update(res.dupe(), StorageType::Injected),
             );
             cache.invalidate(
                 key_a1,
-                InvalidateKind::Update(res2.dupe(), StorageType::LastN(usize::MAX)),
+                InvalidateKind::Update(res2.dupe(), StorageType::Injected),
             );
             cache.invalidate(
                 key_a2,
-                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+                InvalidateKind::Update(res.dupe(), StorageType::Injected),
             );
 
             cache.update(
@@ -1774,7 +1700,7 @@ mod tests {
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
-                StorageType::LastN(1),
+                StorageType::Normal,
             );
 
             // deferred dirty propagation should have b invalidated at v1.
@@ -1785,7 +1711,7 @@ mod tests {
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
-                StorageType::LastN(1),
+                StorageType::Normal,
             );
 
             cache.get(key_b0).assert_match();
@@ -1805,7 +1731,7 @@ mod tests {
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-                StorageType::LastN(1),
+                StorageType::Normal,
             );
 
             cache.get(key_c0).assert_match();
@@ -1834,7 +1760,7 @@ mod tests {
         // b is valid from 0->inf
         cache.invalidate(
             key_b0,
-            InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            InvalidateKind::Update(res.dupe(), StorageType::Injected),
         );
 
         cache.update(
@@ -1842,7 +1768,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         cache.invalidate(key_a1, InvalidateKind::ForceDirty);
@@ -1871,7 +1797,7 @@ mod tests {
         // b is valid from 0->inf
         cache.invalidate(
             key_b0,
-            InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            InvalidateKind::Update(res.dupe(), StorageType::Injected),
         );
 
         cache.invalidate(key_a2, InvalidateKind::ForceDirty);
@@ -1880,7 +1806,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         cache.get(key_a0).assert_compute();
@@ -1908,7 +1834,7 @@ mod tests {
         // b is valid from 0->inf
         cache.invalidate(
             key_b0,
-            InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+            InvalidateKind::Update(res.dupe(), StorageType::Injected),
         );
 
         // a force-dirtied at v1
@@ -1920,7 +1846,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         cache.get(key_a0).assert_compute();
@@ -1931,7 +1857,7 @@ mod tests {
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-            StorageType::LastN(1),
+            StorageType::Normal,
         );
 
         cache.get(key_a0).assert_compute();
@@ -1959,7 +1885,7 @@ mod tests {
             // b is valid from 0->inf
             cache.invalidate(
                 key_b0,
-                InvalidateKind::Update(res.dupe(), StorageType::LastN(usize::MAX)),
+                InvalidateKind::Update(res.dupe(), StorageType::Injected),
             );
 
             let key_a100 = VersionedGraphKey::new(VersionNumber::new(100), key_a);
@@ -1976,7 +1902,7 @@ mod tests {
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-                StorageType::LastN(1),
+                StorageType::Normal,
             );
 
             cache.update(
@@ -1984,7 +1910,7 @@ mod tests {
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-                StorageType::LastN(1),
+                StorageType::Normal,
             );
 
             // There was a force-dirty at v1 (and v2, v3, ...), we should not be able to reuse the

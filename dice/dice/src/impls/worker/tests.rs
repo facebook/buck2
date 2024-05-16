@@ -255,7 +255,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     drop(dice.state_handle.update_computed(
         VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 100 }),
         ctx.testing_get_epoch(),
-        StorageType::LastN(1),
+        StorageType::Normal,
         DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
         Arc::new(SeriesParallelDeps::new()),
     ));
@@ -263,7 +263,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     drop(dice.state_handle.update_computed(
         VersionedGraphKey::new(VersionNumber::new(0), key.dupe()),
         ctx.testing_get_epoch(),
-        StorageType::LastN(1),
+        StorageType::Normal,
         DiceValidValue::testing_new(DiceKeyValue::<IsRan>::new(())),
         Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
             index: 100,
@@ -1091,7 +1091,7 @@ fn update_computed_value(
     dice.state_handle.update_computed(
         VersionedGraphKey::new(v, k),
         ctx.testing_get_epoch(),
-        StorageType::LastN(1),
+        StorageType::Normal,
         value,
         deps,
     )

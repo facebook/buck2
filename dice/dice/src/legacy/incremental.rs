@@ -1289,7 +1289,7 @@ mod tests {
     use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
     use crate::legacy::incremental::graph::dependencies::VersionedDependencies;
     use crate::legacy::incremental::graph::dependencies::VersionedRevDependencies;
-    use crate::legacy::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::legacy::incremental::graph::storage_properties::testing::ConfigurableStorageProperties;
     use crate::legacy::incremental::graph::storage_properties::StorageProperties;
     use crate::legacy::incremental::graph::GraphNode;
     use crate::legacy::incremental::graph::GraphNodeDyn;
@@ -1655,13 +1655,13 @@ mod tests {
 
         let dep = FakeDep::new(1, CellHistory::testing_new(&[VersionNumber::new(1)], &[]));
 
-        let entry = Arc::new(
-            OccupiedGraphNode::<StoragePropertiesLastN<usize, usize>>::new(
-                1337,
-                1,
-                CellHistory::testing_new(&[VersionNumber::new(0)], &[VersionNumber::new(1)]),
-            ),
-        );
+        let entry = Arc::new(OccupiedGraphNode::<
+            ConfigurableStorageProperties<usize, usize>,
+        >::new(
+            1337,
+            1,
+            CellHistory::testing_new(&[VersionNumber::new(0)], &[VersionNumber::new(1)]),
+        ));
         entry.writable().deps.add_deps(
             VersionNumber::new(0),
             Arc::new(vec![Box::new(dep.dupe()) as _]),
@@ -1670,7 +1670,7 @@ mod tests {
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
         assert!(
-            IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+            IncrementalEngine::<ConfigurableStorageProperties<usize, usize>>::compute_whether_versioned_dependencies_changed(
                 &1337,
                 &eval_ctx,
                 &ComputationData::testing_new(),
@@ -1699,7 +1699,7 @@ mod tests {
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
-            !IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+            !IncrementalEngine::<ConfigurableStorageProperties<usize, usize>>::compute_whether_versioned_dependencies_changed(
                 &1337,
                 &eval_ctx,
                 &ComputationData::testing_new(),
@@ -1774,7 +1774,7 @@ mod tests {
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
-            IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+            IncrementalEngine::<ConfigurableStorageProperties<usize, usize>>::compute_whether_versioned_dependencies_changed(
                 &1338,
                 &eval_ctx,
                 &ComputationData::testing_new(),
@@ -2249,7 +2249,7 @@ mod tests {
             }
 
             fn storage_type(&self) -> StorageType {
-                StorageType::LastN(1)
+                StorageType::Normal
             }
 
             fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {
@@ -2319,7 +2319,7 @@ mod tests {
             }
 
             fn storage_type(&self) -> StorageType {
-                StorageType::LastN(1)
+                StorageType::Normal
             }
 
             fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {

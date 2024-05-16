@@ -66,15 +66,15 @@ pub(crate) mod testing {
     /// * storage type is configured
     #[derive(Allocative)]
     #[allocative(bound = "")]
-    pub(crate) struct StoragePropertiesLastN<T: Computable, V> {
-        n: usize,
+    pub(crate) struct ConfigurableStorageProperties<T: Computable, V> {
+        n: StorageType,
         _t: std::marker::PhantomData<fn(T)>,
         _v: std::marker::PhantomData<fn(V)>,
     }
 
     #[async_trait]
     impl<T: Computable, V: PartialEq + Dupe + Allocative + Send + Sync + 'static>
-        IncrementalComputeProperties for StoragePropertiesLastN<T, V>
+        IncrementalComputeProperties for ConfigurableStorageProperties<T, V>
     {
         type DiceTask = WeakDiceFutureHandle<Self>;
 
@@ -88,7 +88,7 @@ pub(crate) mod testing {
         }
     }
 
-    impl<T: Computable, V> fmt::Debug for StoragePropertiesLastN<T, V> {
+    impl<T: Computable, V> fmt::Debug for ConfigurableStorageProperties<T, V> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.debug_struct("StorageKeyLastN")
                 .field("n", &self.n)
@@ -96,14 +96,14 @@ pub(crate) mod testing {
         }
     }
 
-    impl<K: Computable, V> Default for StoragePropertiesLastN<K, V> {
+    impl<K: Computable, V> Default for ConfigurableStorageProperties<K, V> {
         fn default() -> Self {
-            StoragePropertiesLastN::new(1)
+            ConfigurableStorageProperties::new(StorageType::Normal)
         }
     }
 
-    impl<N: Computable, V> StoragePropertiesLastN<N, V> {
-        pub(crate) fn new(n: usize) -> Self {
+    impl<N: Computable, V> ConfigurableStorageProperties<N, V> {
+        pub(crate) fn new(n: StorageType) -> Self {
             Self {
                 n,
                 _t: std::marker::PhantomData,
@@ -113,7 +113,7 @@ pub(crate) mod testing {
     }
 
     impl<T: Computable, V: PartialEq + Dupe + Allocative + Send + Sync + 'static> StorageProperties
-        for StoragePropertiesLastN<T, V>
+        for ConfigurableStorageProperties<T, V>
     {
         type Key = T;
         type Value = V;
@@ -123,7 +123,7 @@ pub(crate) mod testing {
         }
 
         fn storage_type(&self) -> StorageType {
-            StorageType::LastN(self.n)
+            self.n
         }
 
         fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {
