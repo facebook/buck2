@@ -38,6 +38,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
@@ -110,8 +111,8 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
 #[starlark_module]
 fn label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn package<'v>(this: &StarlarkTargetLabel) -> anyhow::Result<&'v str> {
-        Ok(this.label.pkg().cell_relative_path().as_str())
+    fn package<'v>(this: &StarlarkTargetLabel, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.label.pkg().cell_relative_path().as_str()))
     }
 
     #[starlark(attribute)]
@@ -213,8 +214,11 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
 #[starlark_module]
 fn configured_label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn package<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<&'v str> {
-        Ok(this.label.pkg().cell_relative_path().as_str())
+    fn package<'v>(
+        this: &StarlarkConfiguredTargetLabel,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.label.pkg().cell_relative_path().as_str()))
     }
 
     #[starlark(attribute)]
