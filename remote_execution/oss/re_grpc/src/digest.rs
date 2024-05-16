@@ -15,7 +15,7 @@ use anyhow::Context;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-#[derive(Clone, Default, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Debug, Ord, PartialOrd)]
 pub struct TDigest {
     pub hash: String,
     pub size_in_bytes: i64,
