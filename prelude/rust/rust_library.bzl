@@ -360,16 +360,17 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
     )
-    rust_link_info, rust_extra_outputs_info = _rust_providers(
+    providers += _rust_metadata_providers(
+        check_artifacts = check_artifacts,
+    )
+    rust_link_info = _rust_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
         lang_style_param = lang_style_param,
         param_artifact = rust_param_artifact,
-        check_artifacts = check_artifacts,
         link_infos = link_infos,
     )
     providers.append(rust_link_info)
-    providers.append(rust_extra_outputs_info)
     providers += _native_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -651,13 +652,20 @@ def _rust_link_providers(
         link_graphs = inherited_graphs
     return (merged_link_info, shared_libs, link_graphs, inherited_exported_deps)
 
+def _rust_metadata_providers(check_artifacts: dict[MetadataKind, RustcOutput]) -> list[Provider]:
+    return [
+        RustcExtraOutputsInfo(
+            metadata_full = check_artifacts[MetadataKind("full")],
+            metadata_fast = check_artifacts[MetadataKind("fast")],
+        ),
+    ]
+
 def _rust_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
-        check_artifacts: dict[MetadataKind, RustcOutput],
-        link_infos: dict[LibOutputStyle, LinkInfos]) -> (RustLinkInfo, RustcExtraOutputsInfo):
+        link_infos: dict[LibOutputStyle, LinkInfos]) -> RustLinkInfo:
     """
     Return the set of providers for Rust linkage.
     """
@@ -683,12 +691,7 @@ def _rust_providers(
         linkable_graphs = inherited_graphs,
     )
 
-    rust_extra_outputs = RustcExtraOutputsInfo(
-        metadata_full = check_artifacts[MetadataKind("full")],
-        metadata_fast = check_artifacts[MetadataKind("fast")],
-    )
-
-    return (rust_link_info, rust_extra_outputs)
+    return rust_link_info
 
 def _link_infos(
         ctx: AnalysisContext,
