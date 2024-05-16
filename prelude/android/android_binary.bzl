@@ -94,6 +94,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         generate_strings_and_ids_separately = should_pre_dex,
         aapt2_preferred_density = ctx.attrs.aapt2_preferred_density,
     )
+    sub_targets["manifest"] = [DefaultInfo(default_output = resources_info.manifest)]
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     compiled_r_dot_java_deps = [
         create_java_packaging_dep(
