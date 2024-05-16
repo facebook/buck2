@@ -23,10 +23,12 @@ export function Router(props: {children: ReactNode}) {
 
   const res = React.Children.map(props.children, child => {
     if (React.isValidElement(child)) {
+      if (child.props.view === undefined) {
+        return child
+      }
       if (params.has(child.props.view)) {
         return child
       }
-
       if (child.props.view === ROOT_VIEW && all.length === 0) {
         return child
       }
@@ -34,7 +36,7 @@ export function Router(props: {children: ReactNode}) {
     return null
   })
 
-  return res && res[0] ? res[0] : <p>View not found</p>
+  return res?.length ? res : <p>View not found</p>
 }
 
 /**
