@@ -294,7 +294,7 @@ def _get_codesign_type_from_attribs(ctx: AnalysisContext) -> [CodeSignType, None
 
 def _detect_codesign_type(ctx: AnalysisContext, skip_adhoc_signing: bool) -> CodeSignType:
     def compute_codesign_type():
-        if ctx.attrs.extension not in ["app", "appex", "xctest"]:
+        if ctx.attrs.extension not in ["app", "appex", "xctest", "driver"]:
             # Only code sign application bundles, extensions and test bundles
             return CodeSignType("skip")
 
