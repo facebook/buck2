@@ -223,6 +223,12 @@ def assemble_bundle(
             log_file = bundling_log_output,
         ),
     }
+
+    for dep in ctx.attrs.deps:
+        dep_manifest_info = dep.get(AppleBundleManifestInfo)
+        if dep_manifest_info:
+            bundle_manifest_log_file_map.update(dep_manifest_info.manifest.log_file_map)
+
     bundle_manifest = AppleBundleManifest(log_file_map = bundle_manifest_log_file_map)
     bundle_manifest_json_object = _convert_bundle_manifest_to_json_object(bundle_manifest)
 
