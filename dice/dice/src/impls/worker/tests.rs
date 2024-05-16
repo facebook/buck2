@@ -26,6 +26,7 @@ use dupe::IterDupedExt;
 use futures::pin_mut;
 use futures::Future;
 use gazebo::prelude::SliceExt;
+use gazebo::variants::VariantName;
 use sorted_vector_map::sorted_vector_set;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
@@ -61,7 +62,8 @@ use crate::impls::value::DiceValidValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::worker::check_dependencies;
-use crate::impls::worker::testing::DidDepsChangeExt;
+use crate::impls::worker::testing::CheckDependenciesResultExt;
+use crate::impls::worker::CheckDependenciesResult;
 use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
 use crate::versions::testing::VersionRangesExt;
@@ -1112,72 +1114,68 @@ async fn get_ctx_at_version(
 // it's tough to directly test that, instead we cause the one node we expect to be computed to wait for a
 // short period and then check the total number of nodes that get computed.
 #[tokio::test]
-#[should_panic(expected = "This fails")]
-async fn test_check_dependencies_stops_at_changed() {
-    async fn run_test() -> anyhow::Result<()> {
-        let dice = DiceModern::new(DiceData::new());
+async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
+    let dice = DiceModern::new(DiceData::new());
 
-        let compute_behavior = (0..20)
-            .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
-            .collect();
+    let compute_behavior = (0..20)
+        .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
+        .collect();
 
-        let data = Arc::new(Data {
-            total_computed: AtomicU32::new(0),
-            compute_behavior,
-        });
+    let data = Arc::new(Data {
+        total_computed: AtomicU32::new(0),
+        compute_behavior,
+    });
 
-        let spkeys: Vec<_> = (0..20)
-            .map(|v| SPKey {
-                data: data.clone(),
-                idx: v,
-            })
-            .collect();
-        let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
+    let spkeys: Vec<_> = (0..20)
+        .map(|v| SPKey {
+            data: data.clone(),
+            idx: v,
+        })
+        .collect();
+    let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
 
-        // mark all keys as having a value at v0, invalidated at v1
-        // for all keys, the real value is different (so if recomputed will be seen as changed)
-        let mut updater = dice.updater();
-        updater
-            .changed_to(spkeys.iter().map(|k| (k.dupe(), 100)).collect::<Vec<_>>())
-            .unwrap();
-        let prev_version = updater.commit().await.get_version();
+    // mark all keys as having a value at v0, invalidated at v1
+    // for all keys, the real value is different (so if recomputed will be seen as changed)
+    let mut updater = dice.updater();
+    updater
+        .changed_to(spkeys.iter().map(|k| (k.dupe(), 100)).collect::<Vec<_>>())
+        .unwrap();
+    let prev_version = updater.commit().await.get_version();
 
-        let mut updater = dice.updater();
-        updater
-            .changed(spkeys.iter().duped().collect::<Vec<_>>())
-            .unwrap();
-        let version = updater.commit().await.get_version();
+    let mut updater = dice.updater();
+    updater
+        .changed(spkeys.iter().duped().collect::<Vec<_>>())
+        .unwrap();
+    let version = updater.commit().await.get_version();
 
-        let user_data = std::sync::Arc::new(UserComputationData::new());
-        let (ctx, _guard) = dice.testing_shared_ctx(version).await;
+    let user_data = std::sync::Arc::new(UserComputationData::new());
+    let (ctx, _guard) = dice.testing_shared_ctx(version).await;
 
-        let eval = AsyncEvaluator {
-            per_live_version_ctx: ctx.dupe(),
-            user_data: user_data.dupe(),
-            dice: dice.dupe(),
-        };
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
-        *data.compute_behavior[0].lock().unwrap() =
-            ComputeBehavior::Sleep(Duration::from_millis(20));
+    *data.compute_behavior[0].lock().unwrap() = ComputeBehavior::Sleep(Duration::from_millis(20));
 
-        assert!(
-            check_dependencies(
-                &eval,
-                ParentKey::None,
-                &SeriesParallelDeps::serial_from_vec(keys),
-                prev_version,
-                &KeyComputingUserCycleDetectorData::Untracked,
-            )
-            .await?
-            .is_changed()
-        );
+    let deps = SeriesParallelDeps::serial_from_vec(keys);
+    let cycles = KeyComputingUserCycleDetectorData::Untracked;
+    let check_deps_result =
+        check_dependencies(&eval, ParentKey::None, &deps, prev_version, &cycles).await?;
 
-        assert_eq!(data.total_computed.load(Ordering::SeqCst), 1, "This fails");
-
-        Ok(())
+    match check_deps_result {
+        CheckDependenciesResult::Changed { continuables } => {
+            continuables.await?;
+        }
+        v => {
+            panic!("unexpected checkdeps result {}", v.variant_name())
+        }
     }
 
-    run_test().await.unwrap()
+    assert_eq!(data.total_computed.load(Ordering::SeqCst), 1);
+
+    Ok(())
 }
 
 /// tests that dependency checking can continue and fully finish parallel nodes
@@ -1205,106 +1203,105 @@ async fn test_check_dependencies_stops_at_changed() {
 /// we block 3 and 13's computation on getting the first result (the DidDepsChange::Changed) back
 /// from check_dependencies.
 #[tokio::test]
-#[should_panic]
-async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() {
-    async fn run_test() -> anyhow::Result<()> {
-        let dice = DiceModern::new(DiceData::new());
+async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow::Result<()> {
+    let dice = DiceModern::new(DiceData::new());
 
-        let compute_behavior = (0..20)
-            .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
-            .collect();
+    let compute_behavior = (0..20)
+        .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
+        .collect();
 
-        let data = Arc::new(Data {
-            total_computed: AtomicU32::new(0),
-            compute_behavior,
-        });
+    let data = Arc::new(Data {
+        total_computed: AtomicU32::new(0),
+        compute_behavior,
+    });
 
-        let spkeys: Vec<_> = (0..20)
-            .map(|v| SPKey {
-                data: data.clone(),
-                idx: v,
-            })
-            .collect();
-        let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
+    let spkeys: Vec<_> = (0..20)
+        .map(|v| SPKey {
+            data: data.clone(),
+            idx: v,
+        })
+        .collect();
+    let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
 
-        // mark all keys as having a value at v0, invalidated at v1
-        // for key 9, the value will be different, but for the rest it will be the same
-        let mut updater = dice.updater();
-        updater
-            .changed_to(
-                spkeys
-                    .iter()
-                    .map(|k| (k.dupe(), if k.idx == 9 { 100 } else { k.idx }))
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap();
-        let prev_version = updater.commit().await.get_version();
+    // mark all keys as having a value at v0, invalidated at v1
+    // for key 9, the value will be different, but for the rest it will be the same
+    let mut updater = dice.updater();
+    updater
+        .changed_to(
+            spkeys
+                .iter()
+                .map(|k| (k.dupe(), if k.idx == 9 { 100 } else { k.idx }))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+    let prev_version = updater.commit().await.get_version();
 
-        let mut updater = dice.updater();
-        updater
-            .changed(spkeys.iter().duped().collect::<Vec<_>>())
-            .unwrap();
-        let version = updater.commit().await.get_version();
+    let mut updater = dice.updater();
+    updater
+        .changed(spkeys.iter().duped().collect::<Vec<_>>())
+        .unwrap();
+    let version = updater.commit().await.get_version();
 
-        let user_data = std::sync::Arc::new(UserComputationData::new());
-        let (ctx, _guard) = dice.testing_shared_ctx(version).await;
+    let user_data = std::sync::Arc::new(UserComputationData::new());
+    let (ctx, _guard) = dice.testing_shared_ctx(version).await;
 
-        let eval = AsyncEvaluator {
-            per_live_version_ctx: ctx.dupe(),
-            user_data: user_data.dupe(),
-            dice: dice.dupe(),
-        };
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
-        let semaphore = Arc::new(Semaphore::new(0));
+    let semaphore = Arc::new(Semaphore::new(0));
 
-        *data.compute_behavior[3].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
-        *data.compute_behavior[13].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
+    *data.compute_behavior[3].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
+    *data.compute_behavior[13].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
 
-        let mut deps = RecordingDepsTracker::new();
-        deps.record(keys[0], DiceValidity::Valid);
-        deps.record(keys[1], DiceValidity::Valid);
-        deps.record(keys[2], DiceValidity::Valid);
-        {
-            let parallel = deps.push_parallel(0);
-            for i in 0..3 {
-                let offset = i * 5;
+    let mut deps = RecordingDepsTracker::new();
+    deps.record(keys[0], DiceValidity::Valid);
+    deps.record(keys[1], DiceValidity::Valid);
+    deps.record(keys[2], DiceValidity::Valid);
+    {
+        let parallel = deps.push_parallel(0);
+        for i in 0..3 {
+            let offset = i * 5;
+            let mut deps = RecordingDepsTracker::new();
+            deps.record(keys[3 + offset], DiceValidity::Valid);
+            deps.record(keys[4 + offset], DiceValidity::Valid);
+            {
+                let parallel = deps.push_parallel(2);
                 let mut deps = RecordingDepsTracker::new();
-                deps.record(keys[3 + offset], DiceValidity::Valid);
-                deps.record(keys[4 + offset], DiceValidity::Valid);
-                {
-                    let parallel = deps.push_parallel(2);
-                    let mut deps = RecordingDepsTracker::new();
-                    deps.record(keys[5 + offset], DiceValidity::Valid);
-                    parallel.alloc(deps.collect_deps());
-                    let mut deps = RecordingDepsTracker::new();
-                    deps.record(keys[6 + offset], DiceValidity::Valid);
-                    parallel.alloc(deps.collect_deps());
-                }
-                deps.record(keys[7 + offset], DiceValidity::Valid);
+                deps.record(keys[5 + offset], DiceValidity::Valid);
+                parallel.alloc(deps.collect_deps());
+                let mut deps = RecordingDepsTracker::new();
+                deps.record(keys[6 + offset], DiceValidity::Valid);
                 parallel.alloc(deps.collect_deps());
             }
+            deps.record(keys[7 + offset], DiceValidity::Valid);
+            parallel.alloc(deps.collect_deps());
         }
-        deps.record(keys[18], DiceValidity::Valid);
-        deps.record(keys[19], DiceValidity::Valid);
+    }
+    deps.record(keys[18], DiceValidity::Valid);
+    deps.record(keys[19], DiceValidity::Valid);
 
-        let deps = deps.collect_deps();
-        let cycles = KeyComputingUserCycleDetectorData::Untracked;
+    let deps = deps.collect_deps();
+    let cycles = KeyComputingUserCycleDetectorData::Untracked;
 
-        let checker = check_dependencies(&eval, ParentKey::None, &deps.deps, prev_version, &cycles);
-        assert!(checker.await?.is_changed());
+    let check_deps_result =
+        check_dependencies(&eval, ParentKey::None, &deps.deps, prev_version, &cycles).await?;
 
-        semaphore.add_permits(100);
-
-        // TODO(cjhopman): wait for checkdeps stream to finish
-
-        assert_eq!(data.total_computed.load(Ordering::SeqCst), 15);
-
-        // current dice will finish with a random number of things and so there's a chance it happens
-        // to pass this, so just make sure it panics for now so we dont' get a flaky test.
-        panic!()
+    match check_deps_result {
+        CheckDependenciesResult::Changed { continuables } => {
+            semaphore.add_permits(100);
+            continuables.await?;
+        }
+        v => {
+            panic!("unexpected checkdeps result {}", v.variant_name())
+        }
     }
 
-    run_test().await.unwrap()
+    assert_eq!(data.total_computed.load(Ordering::SeqCst), 15);
+
+    Ok(())
 }
 
 #[derive(Clone, Debug)]

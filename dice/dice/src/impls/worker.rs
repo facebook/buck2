@@ -13,10 +13,14 @@ use std::any::Any;
 use std::future;
 
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::pin_mut;
+use futures::stream;
 use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
 use futures::StreamExt;
+use gazebo::variants::VariantName;
 use itertools::Either;
 use tracing::Instrument;
 
@@ -28,6 +32,7 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::deps::graph::SeriesParallelDeps;
+use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
@@ -136,19 +141,24 @@ impl DiceTaskWorker {
         let state_result = state_handle
             .lookup_key(VersionedGraphKey::new(v, self.k))
             .await;
-
-        let (task_state, cycles) = match state_result {
+        // dep_check_stream needs to capture these and so they need to outlive it.
+        let cycles;
+        let mismatch;
+        let (task_state, deps_check_continuables) = match state_result {
             VersionedGraphResult::Match(entry) => {
                 return task_state.lookup_matches(entry);
             }
-            VersionedGraphResult::CheckDeps(mismatch) => {
-                let (task_state, cycles) = task_state.checking_deps(&self.eval);
-                let deps_changed = {
-                    self.event_dispatcher.check_deps_started(self.k);
+            VersionedGraphResult::CheckDeps(mismatch2) => {
+                let (task_state, cycles2) = task_state.checking_deps(&self.eval);
+                cycles = cycles2;
+                mismatch = mismatch2;
+
+                self.event_dispatcher.check_deps_started(self.k);
+
+                let check_deps_result = {
                     scopeguard::defer! {
                         self.event_dispatcher.check_deps_finished(self.k);
                     }
-
                     check_dependencies(
                         &self.eval,
                         ParentKey::Some(self.k),
@@ -159,8 +169,10 @@ impl DiceTaskWorker {
                     .await?
                 };
 
-                match deps_changed {
-                    DidDepsChange::NoChange => {
+                match check_deps_result {
+                    CheckDependenciesResult::NoChange => {
+                        drop(check_deps_result);
+
                         let task_state = task_state.deps_match()?;
 
                         let activation_info = self.activation_info(
@@ -179,21 +191,35 @@ impl DiceTaskWorker {
 
                         return response.map(|r| task_state.cached(r, activation_info));
                     }
-                    DidDepsChange::Changed | DidDepsChange::NoDeps => {
+                    CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
                         // implicit meaning to a node having no deps at this point, but it's unclear what that is.
-                        (task_state.deps_not_match(), cycles)
+                        (task_state.deps_not_match(), None)
+                    }
+                    CheckDependenciesResult::Changed { continuables } => {
+                        (task_state.deps_not_match(), Some(continuables))
                     }
                 }
             }
-            VersionedGraphResult::Compute => task_state.lookup_dirtied(&self.eval),
+            VersionedGraphResult::Compute => {
+                let (task_state, cycles2) = task_state.lookup_dirtied(&self.eval);
+                cycles = cycles2;
+                (task_state, None)
+            }
         };
 
         let DiceWorkerStateFinishedEvaluating {
             state,
             activation_data,
             result,
-        } = self.compute(task_state, cycles).await?;
+        } = self.compute(task_state, &cycles).await?;
+
+        // explicitly drop this here to make it explicit that its important that we hold onto it, it
+        // otherwise appears unused, but we don't want to cancel anything that it has started requesting
+        // before compute finishes.
+        // TODO(cjhopman): we could be polling this future, it might eagerly request deps more quickly than
+        // the compute would.
+        drop(deps_check_continuables);
 
         let activation_info = self.activation_info(result.deps.iter_keys(), activation_data);
 
@@ -224,7 +250,7 @@ impl DiceTaskWorker {
     async fn compute<'a, 'b>(
         &self,
         task_state: DiceWorkerStateEvaluating<'a, 'b>,
-        cycles: KeyComputingUserCycleDetectorData,
+        cycles: &KeyComputingUserCycleDetectorData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         self.event_dispatcher.started(self.k);
         scopeguard::defer! {
@@ -234,7 +260,7 @@ impl DiceTaskWorker {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        self.eval.evaluate(self.k, task_state, cycles).await
+        self.eval.evaluate(self.k, task_state, cycles.clone()).await
     }
 
     fn activation_info<'a>(
@@ -252,49 +278,95 @@ impl DiceTaskWorker {
     }
 }
 
-/// determines if the given 'Dependency' has changed between versions 'last_version' and
-/// 'target_version'
-#[allow(clippy::manual_async_fn)]
+/// Used for checking if dependencies have changed since the previously checked version.
 #[cfg_attr(debug_assertions, instrument(
     level = "debug",
-    skip(eval, deps, cycles),
-    fields(version = %eval.per_live_version_ctx.get_version(), prev_verified_version = %prev_verified_version)
+    skip(eval, cycles),
+    fields(version = %eval.per_live_version_ctx.get_version(), version = %version)
 ))]
-fn check_dependencies<'a>(
+pub(crate) async fn check_dependencies<'a>(
     eval: &'a AsyncEvaluator,
     parent_key: ParentKey,
     deps: &'a SeriesParallelDeps,
-    prev_verified_version: VersionNumber,
+    version: VersionNumber,
     cycles: &'a KeyComputingUserCycleDetectorData,
-) -> impl Future<Output = CancellableResult<DidDepsChange>> + Send + 'a {
-    async move {
-        trace!(deps = ?deps);
-
-        if deps.is_empty() {
-            return Ok(DidDepsChange::NoDeps);
-        }
-
-        let mut fs: FuturesUnordered<_> = deps
-            .iter_keys()
-            .map(|dep| check_dependency(eval, parent_key, dep, cycles, prev_verified_version))
-            .collect();
-
-        while let Some(dep_result) = fs.next().await {
-            match dep_result {
-                Ok(false) => {
-                    return Ok(DidDepsChange::Changed);
-                }
-                Ok(true) => {
-                    // dep is verified at prev_verified_version
-                }
-                Err(Cancelled) => {
-                    return Err(Cancelled);
-                }
+) -> CancellableResult<CheckDependenciesResult<'a>> {
+    async fn drain_continuables<
+        'a,
+        Fut: Future<Output = CancellableResult<CheckDependenciesResult<'a>>>,
+    >(
+        inner: BoxFuture<'a, CancellableResult<()>>,
+        parallel: FuturesUnordered<Fut>,
+    ) -> CancellableResult<()> {
+        let parallel = parallel.map(|v| v.map(|_| ()));
+        let combined = stream::select(inner.into_stream(), parallel);
+        pin_mut!(combined);
+        while let Some(v) = combined.next().await {
+            if let Err(Cancelled) = v {
+                return Err(Cancelled);
             }
         }
-
-        Ok(DidDepsChange::NoChange)
+        Ok(())
     }
+
+    fn check_dependencies_series<'a>(
+        eval: &'a AsyncEvaluator,
+        parent_key: ParentKey,
+        deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
+        version: VersionNumber,
+        cycles: &'a KeyComputingUserCycleDetectorData,
+    ) -> BoxFuture<'a, CancellableResult<CheckDependenciesResult<'a>>> {
+        async move {
+            for v in deps {
+                match v {
+                    SeriesParallelDepsIteratorItem::Key(k) => {
+                        match check_dependency(eval, parent_key, *k, cycles, version).await {
+                            Ok(true) => {}
+                            Ok(false) => {
+                                return Ok(CheckDependenciesResult::Changed {
+                                    continuables: std::future::ready(Ok(())).boxed(),
+                                });
+                            }
+                            Err(Cancelled) => {
+                                return Err(Cancelled);
+                            }
+                        }
+                    }
+                    SeriesParallelDepsIteratorItem::Parallel(p) => {
+                        let mut futures: FuturesUnordered<_> = p
+                            .map(|deps| {
+                                check_dependencies_series(eval, parent_key, deps, version, cycles)
+                                    .boxed()
+                            })
+                            .collect();
+
+                        while let Some(v) = futures.next().await {
+                            match v? {
+                                CheckDependenciesResult::NoChange
+                                | CheckDependenciesResult::NoDeps => {}
+                                CheckDependenciesResult::Changed { continuables } => {
+                                    return Ok(CheckDependenciesResult::Changed {
+                                        continuables: drain_continuables(continuables, futures)
+                                            .boxed(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(CheckDependenciesResult::NoChange)
+        }
+        .boxed()
+    }
+
+    if deps.is_empty() {
+        return Ok(CheckDependenciesResult::NoDeps);
+    }
+
+    trace!(deps = ?deps);
+
+    check_dependencies_series(eval, parent_key, deps.iter(), version, cycles).await
 }
 
 async fn check_dependency(
@@ -315,6 +387,21 @@ async fn check_dependency(
         .await?
         .history()
         .is_verified_at(version))
+}
+
+#[derive(VariantName)]
+enum CheckDependenciesResult<'a> {
+    NoDeps,
+    NoChange,
+    Changed {
+        /// If any dep has changed, the deps checking doesn't need to be stopped, when something has
+        /// changed in a dep in a parallel series we can continue to request and compute the other
+        /// paths in that parallel series (and so potentially continue to request new deps).
+        ///
+        /// Those other checks won't be dropped/cancelled until the continuables future is dropped,
+        /// and polling it will continue that deps check process.
+        continuables: BoxFuture<'a, CancellableResult<()>>,
+    },
 }
 
 #[cfg_attr(debug_assertions, instrument(
@@ -378,27 +465,21 @@ pub(crate) fn project_for_key(
     })
 }
 
-enum DidDepsChange {
-    Changed,
-    NoChange,
-    NoDeps,
-}
-
 #[cfg(test)]
 pub(crate) mod testing {
 
-    use crate::impls::worker::DidDepsChange;
+    use crate::impls::worker::CheckDependenciesResult;
 
-    pub(crate) trait DidDepsChangeExt {
+    pub(crate) trait CheckDependenciesResultExt {
         fn is_changed(&self) -> bool;
     }
 
-    impl DidDepsChangeExt for DidDepsChange {
+    impl CheckDependenciesResultExt for CheckDependenciesResult<'_> {
         fn is_changed(&self) -> bool {
             match self {
-                DidDepsChange::Changed => true,
-                DidDepsChange::NoChange => false,
-                DidDepsChange::NoDeps => false,
+                CheckDependenciesResult::Changed { .. } => true,
+                CheckDependenciesResult::NoChange => false,
+                CheckDependenciesResult::NoDeps => false,
             }
         }
     }
