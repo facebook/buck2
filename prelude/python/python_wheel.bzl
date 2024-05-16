@@ -80,7 +80,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         cmd.add("--entry-points={}".format(json.encode(ctx.attrs.entry_points)))
 
     for key, val in ctx.attrs.extra_metadata.items():
-        cmd.add("--metadata={}:{}".format(key, val))
+        cmd.add("--metadata", key, val)
+
+    cmd.add("--metadata", "Requires-Python", ctx.attrs.python[2:])
+
+    for requires in ctx.attrs.requires:
+        cmd.add("--metadata", "Requires-Dist", requires)
 
     libraries = {}
     for lib in ctx.attrs.libraries:
@@ -189,6 +194,7 @@ python_wheel = rule(
             ),
             default = {},
         ),
+        requires = attrs.list(attrs.string(), default = []),
         extra_metadata = attrs.dict(
             key = attrs.string(),
             value = attrs.string(),

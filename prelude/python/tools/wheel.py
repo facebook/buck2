@@ -16,7 +16,7 @@ import os
 import sys
 import zipfile
 from types import TracebackType
-from typing import cast, Dict, List, Optional, Set, Type
+from typing import cast, Dict, List, Optional, Set, Tuple, Type
 
 
 # pyre-fixme[24]: Generic type `AbstractContextManager` expects 1 type parameter.
@@ -29,18 +29,18 @@ class WheelBuilder(contextlib.AbstractContextManager):
         version: str,
         output: str,
         entry_points: Optional[Dict[str, str]] = None,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[List[Tuple[str, str]]] = None,
     ) -> None:
         self._name = name
         self._version = version
         self._record: list[str] = []
         self._outf = zipfile.ZipFile(output, mode="w")
         self._entry_points: Optional[Dict[str, str]] = entry_points
-        self._metadata: Dict[str, str] = {}
-        self._metadata["Name"] = name
-        self._metadata["Version"] = version
+        self._metadata: List[Tuple[str, str]] = []
+        self._metadata.append(("Name", name))
+        self._metadata.append(("Version", version))
         if metadata is not None:
-            self._metadata.update(metadata)
+            self._metadata.extend(metadata)
 
     def _dist_info(self, *path: str) -> str:
         return os.path.join(f"{self._name}-{self._version}.dist-info", *path)
@@ -62,9 +62,7 @@ class WheelBuilder(contextlib.AbstractContextManager):
     def close(self) -> None:
         self.writestr(
             self._dist_info("METADATA"),
-            "".join(
-                ["{}: {}\n".format(key, val) for key, val in self._metadata.items()]
-            ),
+            "".join(["{}: {}\n".format(key, val) for key, val in self._metadata]),
         )
         self.writestr(
             self._dist_info("WHEEL"),
@@ -102,7 +100,7 @@ def main(argv: List[str]) -> None:
     parser.add_argument("--version", required=True)
     parser.add_argument("--entry-points", default=None)
     parser.add_argument("--srcs", action="append", default=[])
-    parser.add_argument("--metadata", action="append", default=[])
+    parser.add_argument("--metadata", nargs=2, action="append", default=[])
     args = parser.parse_args(argv[1:])
 
     pkgs: Set[str] = set()
@@ -121,7 +119,7 @@ def main(argv: List[str]) -> None:
         entry_points=(
             json.loads(args.entry_points) if args.entry_points is not None else None
         ),
-        metadata=dict([m.split(":", 1) for m in args.metadata]),
+        metadata=args.metadata,
     ) as whl:
         for src in args.srcs:
             with open(src) as f:
