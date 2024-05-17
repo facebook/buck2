@@ -46,7 +46,7 @@ function ListOfBoolAttrs(props: {
     const row = (
       <li key={i}>
         <b>{value.key()}: </b>
-        <span>{value.value()}</span>
+        <span>{value?.value()?.toString()}</span>
       </li>
     )
     items.push(row)
