@@ -116,6 +116,19 @@ def create_jar_artifact_kotlincd(
         if kotlin_toolchain.kosabi_jvm_abi_gen_plugin != None:
             kosabiPluginOptionsMap["kosabi_jvm_abi_gen_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_plugin
 
+        current_language_version = None
+        for arg in extra_kotlinc_arguments:
+            # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
+            if "-language-version" in arg:
+                current_language_version = arg.split("=")[1].strip()
+
+        if k2 == True:
+            if not current_language_version or current_language_version < "2.0":
+                extra_kotlinc_arguments.append("-language-version=2.0")
+        elif k2 == False:
+            if not current_language_version or current_language_version >= "2.0":
+                extra_kotlinc_arguments.append("-language-version=1.9")
+
         return struct(
             extraClassPaths = bootclasspath_entries,
             standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
@@ -132,7 +145,6 @@ def create_jar_artifact_kotlincd(
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,
             extraKotlincArguments = extra_kotlinc_arguments,
-            extraNonSourceOnlyAbiKotlincArguments = ["-language-version=2.0"] if k2 else [],
             shouldRemoveKotlinCompilerFromClassPath = True,
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         )
