@@ -28,6 +28,8 @@ pub enum ReadDirError {
     DirectoryDoesNotExist(CellPath),
     #[error("Directory `{0}` is ignored ({})", .1.describe())]
     DirectoryIsIgnored(CellPath, FileIgnoreReason),
+    #[error("Path `{0}` is `{1}`, not a directory")]
+    NotADirectory(CellPath, String),
     #[error(transparent)]
     Anyhow(anyhow::Error),
 }

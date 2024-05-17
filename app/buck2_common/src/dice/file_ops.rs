@@ -386,15 +386,34 @@ fn extended_ignore_error<'a>(
                     if let Ok(FileIgnoreResult::Ignored(reason)) =
                         DiceFileComputations::is_ignored(ctx, path).await
                     {
-                        Some(ReadDirError::DirectoryIsIgnored(path.to_owned(), reason))
-                    } else {
-                        match path.path().file_name() {
-                            Some(file_name) if !v.contains(file_name) => {
-                                Some(ReadDirError::DirectoryDoesNotExist(path.to_owned()))
-                            }
-                            _ => None,
+                        return Some(ReadDirError::DirectoryIsIgnored(path.to_owned(), reason));
+                    }
+
+                    match path.path().file_name() {
+                        Some(file_name) if !v.contains(file_name) => {
+                            return Some(ReadDirError::DirectoryDoesNotExist(path.to_owned()));
+                        }
+                        _ => {}
+                    }
+
+                    match DiceFileComputations::read_path_metadata(ctx, path).await {
+                        Ok(RawPathMetadata::Directory) => {}
+                        Ok(RawPathMetadata::Symlink { .. }) => {
+                            // not sure how we should handle symlink here, if it's pointing to a dir is it potentially correct?
+                        }
+                        Err(_) => {
+                            // we ignore this, we don't know what the error is and so we can't be sure that
+                            // it's not missing important data that the original error would have.
+                        }
+                        Ok(RawPathMetadata::File(..)) => {
+                            return Some(ReadDirError::NotADirectory(
+                                path.to_owned(),
+                                "file".to_owned(),
+                            ));
                         }
                     }
+
+                    None
                 }
                 Err(e) => Some(e),
             },

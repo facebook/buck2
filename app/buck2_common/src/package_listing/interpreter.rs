@@ -121,6 +121,12 @@ pub enum GatherPackageListingError {
         path: CellPath,
         ignore_reason: FileIgnoreReason,
     },
+    #[buck2(input)]
+    NotADirectory {
+        package: CellPath,
+        path: CellPath,
+        node_type: String,
+    },
     Anyhow {
         package: CellPath,
         #[source]
@@ -157,6 +163,13 @@ impl GatherPackageListingError {
                     ignore_reason,
                 }
             }
+            ReadDirError::NotADirectory(path, node_type) => {
+                GatherPackageListingError::NotADirectory {
+                    package: package_path.to_owned(),
+                    path,
+                    node_type,
+                }
+            }
             ReadDirError::Anyhow(e) => GatherPackageListingError::Anyhow {
                 package: package_path.to_owned(),
                 error: e.into(),
@@ -189,6 +202,11 @@ impl std::fmt::Display for GatherPackageListingError {
          package `fbsource//fbcode/target/x/y/lmnop:` does not exist
                   ^--------------^
              this package is using the wrong cell, use `fbcode//target/x/y/lmnop:` instead
+
+
+         package `fbsource//foo/target/x/y/lmnop:` does not exist
+                  ^--------------------^
+            path `fbsource//foo/target/x` is a file, not a directory
 
          package `fbsource//foo/target/x/y/lmnop:` does not exist
              missing `TARGETS` file (also missing alternatives `TARGETS.v2`, `BUCK`, `BUCK.v2`)
@@ -242,6 +260,22 @@ impl std::fmt::Display for GatherPackageListingError {
                         "{}\n    dir `{}` does not exist",
                         underlined(&path_as_str),
                         path_as_str,
+                    ),
+                )
+            }
+            GatherPackageListingError::NotADirectory {
+                package,
+                path,
+                node_type,
+            } => {
+                let path_as_str = path.to_string();
+                (
+                    package,
+                    format!(
+                        "{}\n   path `{}` is a {}, not a directory",
+                        underlined(&path_as_str),
+                        path_as_str,
+                        node_type
                     ),
                 )
             }
