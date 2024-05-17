@@ -20,10 +20,16 @@ enum FileOpsError {
     ReadIgnoredDir(String, String),
 }
 
+#[derive(Debug, Allocative)]
+pub enum FileIgnoreReason {
+    IgnoredByPattern { path: String, pattern: String },
+    IgnoredByCell { path: String, cell_name: CellName },
+}
+
+#[derive(Debug, Allocative)]
 pub enum FileIgnoreResult {
     Ok,
-    IgnoredByPattern(String, String),
-    IgnoredByCell(String, CellName),
+    Ignored(FileIgnoreReason),
 }
 
 impl FileIgnoreResult {
@@ -33,15 +39,18 @@ impl FileIgnoreResult {
     pub fn into_result(self) -> anyhow::Result<()> {
         match self {
             FileIgnoreResult::Ok => Ok(()),
-            FileIgnoreResult::IgnoredByPattern(path, pattern) => {
+            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern { path, pattern }) => {
                 Err(anyhow::anyhow!(FileOpsError::ReadIgnoredDir(
                     path,
                     format!("file is matched by pattern `{}`", pattern)
                 )))
             }
-            FileIgnoreResult::IgnoredByCell(path, cell_name) => Err(anyhow::anyhow!(
-                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{}`", cell_name))
-            )),
+            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell { path, cell_name }) => {
+                Err(anyhow::anyhow!(FileOpsError::ReadIgnoredDir(
+                    path,
+                    format!("file is part of cell `{}`", cell_name)
+                )))
+            }
         }
     }
 
@@ -80,14 +89,17 @@ impl CellFileIgnores {
         let candidate = globset::Candidate::new(path.as_str());
 
         if let Some(pattern) = self.ignores.matches_candidate(&candidate) {
-            return FileIgnoreResult::IgnoredByPattern(
-                path.as_str().to_owned(),
-                pattern.to_owned(),
-            );
+            return FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern {
+                path: path.as_str().to_owned(),
+                pattern: pattern.to_owned(),
+            });
         }
 
         if let Some((_, cell_name, _)) = self.cell_ignores.matches(path) {
-            return FileIgnoreResult::IgnoredByCell(path.as_str().to_owned(), cell_name);
+            return FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell {
+                path: path.as_str().to_owned(),
+                cell_name,
+            });
         }
 
         FileIgnoreResult::Ok
