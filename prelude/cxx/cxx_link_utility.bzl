@@ -15,8 +15,8 @@ load(
     "LinkArgs",
     "LinkOrdering",  # @unused Used as a type
     "unpack_link_args",
+    "unpack_link_args_excluding_filelist",
     "unpack_link_args_filelist",
-    "unpack_link_args_non_filelist",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
 load(
@@ -119,34 +119,26 @@ def make_link_args(
         pdb_artifact = actions.declare_output(pdb_filename)
         hidden.append(pdb_artifact.as_output())
 
-    filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
-    hidden.extend(filelists)
-    filelist_file = None
-    filelist_args = None
-    if filelists:
-        if linker_type == "gnu":
-            fail("filelist populated for gnu linker")
-        elif linker_type == "darwin":
-            path = actions.write("filelist%s.txt" % suffix, filelists)
-            filelist_args = cmd_args(["-Xlinker", "-filelist", "-Xlinker", path])
-            filelist_file = path
-        else:
-            fail("Linker type {} not supported".format(linker_type))
+    filelists = None
+    if linker_type == "darwin":
+        filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
+        hidden.extend(filelists)
 
     for link in links:
-        # If we are using a filelist, we should not duplicate inputs
-        # between the filelist and the direct invocation
-        if filelist_args != None:
-            args.add(unpack_link_args_non_filelist(link, link_ordering = link_ordering))
+        if filelists:
+            # If we are using a filelist, only add argument that aren't already in the
+            # filelist. This is to avoid duplicate inputs in the link command.
+            args.add(unpack_link_args_excluding_filelist(link, link_ordering = link_ordering))
         else:
             args.add(unpack_link_args(link, link_ordering = link_ordering))
 
-    # On Darwin, filelist args _must_ come last as there's semantical difference
-    # of the position.
-    if filelist_args != None:
-        if linker_type != "darwin":
-            fail("filelist on non darwin linker: {}".format(linker_type))
-        args.add(filelist_args)
+    # On Darwin, filelist args _must_ come last as the order can affect symbol
+    # resolution and result in binary size increases.
+    filelist_file = None
+    if filelists:
+        path = actions.write("filelist%s.txt" % suffix, filelists)
+        args.add(cmd_args(["-Xlinker", "-filelist", "-Xlinker", path]))
+        filelist_file = path
 
     return LinkArgsOutput(
         link_args = args,
