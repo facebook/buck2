@@ -16,12 +16,12 @@ load(
     "bolt",
     "cxx_use_bolt",
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "cxx_link_cmd_parts",
     "linker_map_args",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load(
     "@prelude//cxx:dwp.bzl",
@@ -36,6 +36,8 @@ load(
     "LinkedObject",
     "ObjectsLinkable",
     "SharedLibLinkable",  # @unused Used as a type
+    "SwiftRuntimeLinkable",  # @unused Used as a type
+    "SwiftmoduleLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
     "unpack_external_debug_info",
@@ -149,7 +151,7 @@ def cxx_dist_link(
 
     link_infos = map_to_link_infos(links)
 
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
     lto_planner = cxx_toolchain.dist_lto_tools_info.planner
     lto_opt = cxx_toolchain.dist_lto_tools_info.opt
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
@@ -176,7 +178,7 @@ def cxx_dist_link(
     pre_post_flags = {}
 
     # buildifier: disable=uninitialized
-    def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable]):
+    def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable, ObjectsLinkable, FrameworksLinkable]):
         if idx not in linkables_index:
             linkables_index[idx] = [linkable]
         else:
