@@ -26,6 +26,19 @@ pub enum FileIgnoreReason {
     IgnoredByCell { path: String, cell_name: CellName },
 }
 
+impl FileIgnoreReason {
+    pub fn describe(&self) -> String {
+        match self {
+            FileIgnoreReason::IgnoredByPattern { pattern, .. } => {
+                format!("config project.ignore contains `{}`", pattern)
+            }
+            FileIgnoreReason::IgnoredByCell { cell_name, .. } => {
+                format!("path is contained in cell `{}`", cell_name)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Allocative)]
 pub enum FileIgnoreResult {
     Ok,
