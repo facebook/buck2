@@ -392,7 +392,7 @@ impl AttrType {
     /// while loading a build file. Returning false here will make us provide an error
     /// during the loading phase at the point that the concatenation happens.
     ///
-    /// In some cases, we can't detect that the concattenation isn't allowed at this
+    /// In some cases, we can't detect that the concatenation isn't allowed at this
     /// point and can only provide an error when performing the actual concatenation.
     pub fn supports_concat(&self) -> bool {
         match &self.0.inner {
