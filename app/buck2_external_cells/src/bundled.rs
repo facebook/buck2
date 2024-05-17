@@ -323,13 +323,19 @@ mod tests {
     #[tokio::test]
     async fn test_smoke_read() {
         let ops = testing_ops();
-        assert_eq!(
-            ops.read_file_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
-                .await
-                .unwrap()
-                .unwrap(),
-            "foobar\n"
-        );
+        let content = ops
+            .read_file_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
+            .await
+            .unwrap()
+            .unwrap();
+        let content = if cfg!(windows) {
+            // Git may check out files on Windows with \r\n as line separator.
+            // We could configure git, but it's more reliable to handle it in the test.
+            content.replace("\r\n", "\n")
+        } else {
+            content
+        };
+        assert_eq!(content, "foobar\n");
         assert!(
             ops.read_file_if_exists(&CellRelativePath::unchecked_new("dir/does_not_exist.txt"))
                 .await
