@@ -121,7 +121,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         resources_info = resources_info,
     )
 
-    class_to_srcs, _ = get_class_to_source_map_info(
+    class_to_srcs, _, _ = get_class_to_source_map_info(
         ctx,
         outputs = None,
         deps = deps,

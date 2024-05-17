@@ -72,7 +72,8 @@ def create_class_to_source_map_from_jar(
         name: str,
         java_toolchain: JavaToolchainInfo,
         jar: Artifact,
-        srcs: list[Artifact]) -> Artifact:
+        srcs: list[Artifact],
+        sources_jar_name: [str, None] = None) -> (Artifact, Artifact | None):
     output = actions.declare_output(name)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
     if java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages != None:
@@ -83,8 +84,12 @@ def create_class_to_source_map_from_jar(
     inputs_file = actions.write("class_to_srcs_map_argsfile.txt", srcs)
     cmd.add(cmd_args(inputs_file, format = "@{}"))
     cmd.hidden(srcs)
+    sources_jar = None
+    if sources_jar_name:
+        sources_jar = actions.declare_output(sources_jar_name)
+        cmd.add("--sources_jar", sources_jar.as_output())
     actions.run(cmd, category = "class_to_srcs_map")
-    return output
+    return (output, sources_jar)
 
 def maybe_create_class_to_source_map_debuginfo(
         actions: AnalysisActions,

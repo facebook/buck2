@@ -656,6 +656,14 @@ def build_java_library(
             DefaultInfo(default_output = all_generated_sources[0]),
         ]}
 
+    class_to_src_map, sources_jar, class_to_src_map_sub_targets = get_class_to_source_map_info(
+        ctx,
+        outputs = outputs,
+        deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps,
+        generate_sources_jar = True,
+    )
+    extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
+
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, intellij_info = create_java_library_providers(
         ctx,
         library_output = outputs.classpath_entry if outputs else None,
@@ -667,17 +675,10 @@ def build_java_library(
         needs_desugar = source_level > 7 or target_level > 7,
         generated_sources = all_generated_sources,
         has_srcs = has_srcs,
-        sources_jar = None,
+        sources_jar = sources_jar,
         gwt_module = gwt_output,
         preprocessed_library = outputs.preprocessed_library if outputs else None,
     )
-
-    class_to_src_map, class_to_src_map_sub_targets = get_class_to_source_map_info(
-        ctx,
-        outputs = outputs,
-        deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps,
-    )
-    extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
 
     default_info = get_default_info(
         ctx.actions,
