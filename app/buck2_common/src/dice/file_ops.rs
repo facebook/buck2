@@ -32,6 +32,7 @@ use crate::file_ops::FileOps;
 use crate::file_ops::FileOpsError;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
+use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::legacy_configs::buildfiles::HasBuildfiles;
 
 pub mod delegate;
@@ -118,7 +119,7 @@ impl DiceFileComputations {
     pub async fn is_ignored(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<FileIgnoreResult> {
         get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
             .await?
             .is_ignored(path.path())
@@ -344,7 +345,10 @@ impl FileOps for DiceFileOps<'_, '_> {
         DiceFileComputations::read_path_metadata_if_exists(&mut self.0.get(), path).await
     }
 
-    async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
+    async fn is_ignored(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> anyhow::Result<FileIgnoreResult> {
         DiceFileComputations::is_ignored(&mut self.0.get(), path).await
     }
 

@@ -94,7 +94,11 @@ pub async fn collect_package_roots<E>(
     };
 
     for path in paths {
-        match file_ops.is_ignored(path.as_ref()).await {
+        match file_ops
+            .is_ignored(path.as_ref())
+            .await
+            .map(|v| v.is_ignored())
+        {
             Ok(true) => {
                 // TODO(cjhopman): Ignoring this matches buck1 behavior, but we'd like this to be an error.
             }

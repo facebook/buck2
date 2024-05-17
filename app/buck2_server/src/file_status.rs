@@ -175,7 +175,7 @@ async fn check_file_status(
     result.checking();
 
     let cell_path = cell_resolver.get_cell_path(path)?;
-    if file_ops.is_ignored(cell_path.as_ref()).await? {
+    if file_ops.is_ignored(cell_path.as_ref()).await?.is_ignored() {
         return Ok(());
     }
 

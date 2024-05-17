@@ -321,10 +321,8 @@ impl FileOpsDelegateWithIgnores {
         self.delegate.read_path_metadata_if_exists(path).await
     }
 
-    pub async fn is_ignored(&self, path: &CellRelativePath) -> anyhow::Result<bool> {
-        Ok(self
-            .check_ignores(UncheckedCellRelativePath::new(path))
-            .is_ignored())
+    pub async fn is_ignored(&self, path: &CellRelativePath) -> anyhow::Result<FileIgnoreResult> {
+        Ok(self.check_ignores(UncheckedCellRelativePath::new(path)))
     }
 }
 

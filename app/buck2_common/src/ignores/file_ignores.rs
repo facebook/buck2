@@ -20,7 +20,7 @@ enum FileOpsError {
     ReadIgnoredDir(String, String),
 }
 
-pub(crate) enum FileIgnoreResult {
+pub enum FileIgnoreResult {
     Ok,
     IgnoredByPattern(String, String),
     IgnoredByCell(String, CellName),
@@ -30,7 +30,7 @@ impl FileIgnoreResult {
     /// Converts the FileIgnoreResult to a Result<()> where any ignored case is converted to an Err
     /// with appropriate message. This should be used when it would be an error to interact with an
     /// ignored file.
-    pub(crate) fn into_result(self) -> anyhow::Result<()> {
+    pub fn into_result(self) -> anyhow::Result<()> {
         match self {
             FileIgnoreResult::Ok => Ok(()),
             FileIgnoreResult::IgnoredByPattern(path, pattern) => {
@@ -46,7 +46,7 @@ impl FileIgnoreResult {
     }
 
     /// Returns true if the file is ignored, false otherwise.
-    pub(crate) fn is_ignored(&self) -> bool {
+    pub fn is_ignored(&self) -> bool {
         match self {
             FileIgnoreResult::Ok => false,
             _ => true,

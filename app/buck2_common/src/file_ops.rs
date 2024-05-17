@@ -31,6 +31,7 @@ use crate::cas_digest::CasDigestConfig;
 use crate::cas_digest::CasDigestKind;
 use crate::cas_digest::TrackedCasDigest;
 use crate::external_symlink::ExternalSymlink;
+use crate::ignores::file_ignores::FileIgnoreResult;
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum FileOpsError {
@@ -342,7 +343,8 @@ pub trait FileOps: Send + Sync {
     /// Return the list of file outputs, sorted.
     async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput>;
 
-    async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool>;
+    async fn is_ignored(&self, path: CellPathRef<'async_trait>)
+    -> anyhow::Result<FileIgnoreResult>;
 
     async fn read_path_metadata_if_exists(
         &self,
@@ -410,6 +412,7 @@ pub mod testing {
     use crate::file_ops::ReadDirOutput;
     use crate::file_ops::SimpleDirEntry;
     use crate::file_ops::TrackedFileDigest;
+    use crate::ignores::file_ignores::FileIgnoreResult;
 
     enum TestFileOpsEntry {
         File(String /*data*/, FileMetadata),
@@ -580,8 +583,11 @@ pub mod testing {
             })
         }
 
-        async fn is_ignored(&self, _path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
-            Ok(false)
+        async fn is_ignored(
+            &self,
+            _path: CellPathRef<'async_trait>,
+        ) -> anyhow::Result<FileIgnoreResult> {
+            Ok(FileIgnoreResult::Ok)
         }
 
         fn eq_token(&self) -> PartialEqAny {
