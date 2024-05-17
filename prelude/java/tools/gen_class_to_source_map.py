@@ -32,6 +32,7 @@ def main(argv):
     parser.add_argument(
         "--output", "-o", type=argparse.FileType("w"), default=sys.stdin
     )
+    parser.add_argument("--sources_jar", required=False)
     parser.add_argument("jar")
     parser.add_argument("sources", nargs="*")
     args = parser.parse_args(argv[1:])
@@ -96,6 +97,17 @@ def main(argv):
                             }
                         )
                         break
+
+    if args.sources_jar:
+        with zipfile.ZipFile(args.sources_jar, "w") as sources_jar:
+            for d in classes:
+                if "srcPath" in d:
+                    src_path = d["srcPath"]
+                    class_name = d["className"]
+                    _, src_path_ext = os.path.splitext(src_path)
+                    sources_jar.write(
+                        src_path, class_name.replace(".", "/") + src_path_ext
+                    )
 
     json.dump(
         {
