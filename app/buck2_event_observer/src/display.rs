@@ -626,7 +626,12 @@ impl<'a> ActionErrorDisplay<'a> {
                     );
                 }
                 Some(Command::RemoteCommand(remote_command)) => {
-                    if !buck2_core::is_open_source() {
+                    if buck2_core::is_open_source() {
+                        append!(
+                            "Remote action digest: '{}'",
+                            remote_command.action_digest
+                        );
+                    } else {
                         append!(
                             "Remote action{}, reproduce with: `frecli cas download-action {}`",
                             if remote_command.cache_hit {

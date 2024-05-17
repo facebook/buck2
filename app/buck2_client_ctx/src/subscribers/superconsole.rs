@@ -797,15 +797,21 @@ fn lines_for_command_details(
                 )]));
             }
             Some(Command::RemoteCommand(remote_command)) => {
-                if !buck2_core::is_open_source() {
-                    lines.push(Line::from_iter([Span::new_styled_lossy(
-                        format!(
-                            "Reproduce locally: `frecli cas download-action {}`",
-                            remote_command.action_digest
-                        )
-                        .with(Color::DarkRed),
-                    )]));
-                }
+                let help_message = if buck2_core::is_open_source() {
+                    format!(
+                        "Remote action digest: '{}'",
+                        remote_command.action_digest
+                    )
+                } else {
+                    format!(
+                        "Reproduce locally: `frecli cas download-action {}`",
+                        remote_command.action_digest
+                    )
+                };
+
+                lines.push(Line::from_iter([Span::new_styled_lossy(
+                    help_message.with(Color::DarkRed),
+                )]));
             }
             Some(Command::OmittedLocalCommand(..)) | None => {
                 // Nothing to show in this case.
