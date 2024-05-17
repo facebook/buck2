@@ -409,6 +409,7 @@ mod tests {
             timing,
             std_streams,
             exit_code: Some(456),
+            additional_message: None,
         }
     }
 
@@ -477,6 +478,7 @@ mod tests {
             stderr: "DEF".to_owned(),
             command_kind: Some(command_execution_kind),
             metadata: Some(command_execution_metadata),
+            additional_message: None,
         };
 
         buck2_data::CommandExecution {
