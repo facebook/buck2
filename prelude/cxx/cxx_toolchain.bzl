@@ -11,6 +11,7 @@ load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
@@ -174,6 +175,7 @@ def cxx_toolchain_impl(ctx):
         cpp_dep_tracking_mode = DepTrackingMode(ctx.attrs.cpp_dep_tracking_mode),
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
         dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
+        target_sdk_version = get_target_sdk_version(ctx),
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -201,6 +203,8 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "linker": dep_type(providers = [RunInfo]),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
+        # Darwin only: the minimum deployment target supported
+        "min_sdk_version": attrs.option(attrs.string(), default = None),
         "nm": dep_type(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
         "objdump": attrs.option(dep_type(providers = [RunInfo]), default = None),
@@ -224,6 +228,8 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
         "strip": dep_type(providers = [RunInfo]),
         "supports_distributed_thinlto": attrs.bool(default = False),
+        # Darwin only: the deployment target to use for this build
+        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "use_archiver_flags": attrs.bool(default = True),
         "use_dep_files": attrs.option(attrs.bool(), default = None),
         "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),

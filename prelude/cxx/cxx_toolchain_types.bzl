@@ -201,6 +201,7 @@ CxxToolchainInfo = provider(
         "bolt_enabled": provider_field(typing.Any, default = None),
         "pic_behavior": provider_field(typing.Any, default = None),
         "dumpbin_toolchain_path": provider_field(typing.Any, default = None),
+        "target_sdk_version": provider_field([str, None], default = None),
     },
 )
 
@@ -255,7 +256,8 @@ def cxx_toolchain_infos(
         llvm_link = None,
         platform_deps_aliases = [],
         pic_behavior = PicBehavior("supported"),
-        dumpbin_toolchain_path = None):
+        dumpbin_toolchain_path = None,
+        target_sdk_version = None):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -297,6 +299,7 @@ def cxx_toolchain_infos(
         bolt_enabled = bolt_enabled,
         pic_behavior = pic_behavior,
         dumpbin_toolchain_path = dumpbin_toolchain_path,
+        target_sdk_version = target_sdk_version,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.
