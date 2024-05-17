@@ -662,6 +662,10 @@ impl<'a> ActionErrorDisplay<'a> {
         append_stream("Stdout", &command_failed.stdout);
         append_stream("Stderr", &command_failed.stderr);
 
+        if let Some(ref additional_info) = command_failed.additional_message {
+            append_stream("Info", additional_info);
+        }
+
         if let Some(error_diagnostics) = self.error_diagnostics {
             match error_diagnostics.data.as_ref().unwrap() {
                 buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {

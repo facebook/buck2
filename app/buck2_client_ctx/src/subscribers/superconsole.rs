@@ -871,6 +871,16 @@ fn lines_for_command_details(
             .attribute(Attribute::Bold),
     )]));
     lines.extend(Lines::from_colored_multiline_string(&command_failed.stderr));
+
+    if let Some(ref additional_message) = command_failed.additional_message {
+        lines.push(Line::from_iter([Span::new_styled_lossy(
+            "info:"
+                .to_owned()
+                .with(Color::DarkRed)
+                .attribute(Attribute::Bold),
+        )]));
+        lines.extend(Lines::from_colored_multiline_string(&additional_message));
+    }
 }
 
 // Truncates a string to a reasonable number characters, or returns None if it doesn't need truncating.
