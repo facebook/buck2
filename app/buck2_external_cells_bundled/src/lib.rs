@@ -108,11 +108,11 @@ mod tests {
     #[test]
     fn test_sanity_check() {
         let c = super::TEST_CELL;
-        assert!(
-            c.files
-                .iter()
-                .any(|file| file.path == "dir/src.txt" && file.contents == "foobar\n".as_bytes())
-        )
+        assert!(c.files.iter().any(|file| {
+            file.path == "dir/src.txt"
+            // Git may check out files on Windows with \r\n as line separator.
+            && std::str::from_utf8(file.contents).unwrap().replace("\r\n", "\n") == "foobar\n"
+        }))
     }
 
     #[test]
