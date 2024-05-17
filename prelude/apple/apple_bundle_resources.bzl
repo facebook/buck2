@@ -188,14 +188,16 @@ def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
     if apple_library_info == None:
         return []
     tset = apple_library_info.public_framework_headers
-    if tset._tset == None:
-        return []
 
     bundle_parts = []
-    for public_framework_headers in tset._tset.traverse():
-        for public_framework_header in public_framework_headers:
-            for artifact in public_framework_header.artifacts:
-                bundle_parts.append(AppleBundlePart(source = artifact, destination = AppleBundleDestination("headers")))
+    if tset._tset:
+        for public_framework_headers in tset._tset.traverse():
+            for public_framework_header in public_framework_headers:
+                for artifact in public_framework_header.artifacts:
+                    bundle_parts.append(AppleBundlePart(source = artifact, destination = AppleBundleDestination("headers")))
+
+    if apple_library_info.swift_header:
+        bundle_parts.append(AppleBundlePart(source = apple_library_info.swift_header, destination = AppleBundleDestination("headers")))
 
     return bundle_parts
 

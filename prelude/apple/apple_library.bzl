@@ -119,6 +119,7 @@ AppleLibraryAdditionalParams = record(
 AppleLibraryInfo = provider(
     fields = {
         "public_framework_headers": ArtifactTSet,
+        "swift_header": [Artifact, None],
     },
 )
 
@@ -150,16 +151,17 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             ),
             deps_providers,
         )
+        swift_header = constructor_params.swift_objc_header
         output = cxx_library_parameterized(ctx, constructor_params)
 
-        return output.providers + _make_mockingbird_library_info_provider(ctx) + _make_apple_library_info_provider(ctx)
+        return output.providers + _make_mockingbird_library_info_provider(ctx) + _make_apple_library_info_provider(ctx, swift_header)
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])
 
-def _make_apple_library_info_provider(ctx: AnalysisContext) -> list[AppleLibraryInfo]:
+def _make_apple_library_info_provider(ctx: AnalysisContext, swift_header: [None, Artifact]) -> list[AppleLibraryInfo]:
     public_framework_headers = cxx_attr_headers_list(ctx, ctx.attrs.public_framework_headers, [], get_apple_cxx_headers_layout(ctx))
     all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
     apple_library_infos = filter(None, [dep.get(AppleLibraryInfo) for dep in all_deps])
@@ -171,7 +173,7 @@ def _make_apple_library_info_provider(ctx: AnalysisContext) -> list[AppleLibrary
         children = [apple_library.public_framework_headers for apple_library in apple_library_infos],
     )
 
-    return [AppleLibraryInfo(public_framework_headers = public_framework_header_tset)]
+    return [AppleLibraryInfo(public_framework_headers = public_framework_header_tset, swift_header = swift_header)]
 
 def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[MockingbirdLibraryInfo]:
     _, swift_sources = _filter_swift_srcs(ctx)
@@ -312,6 +314,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     )
 
     validation_deps_outputs = get_validation_deps_outputs(ctx)
+    if swift_compile:
+        swift_objc_header = swift_compile.exported_swift_header
+    else:
+        swift_objc_header = None
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
@@ -382,6 +389,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        swift_objc_header = swift_objc_header,
     )
 
 def _get_extra_linker_flags_and_outputs(
