@@ -81,7 +81,7 @@ use crate::response::*;
 // in the Capabilities message query.
 const CONCURRENT_UPLOAD_LIMIT: usize = 64;
 
-const DEFAULT_MAX__TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
+const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
@@ -290,7 +290,7 @@ impl REClientBuilder {
         } else {
             RECapabilities {
                 exec_enabled: true,
-                max_total_batch_size: DEFAULT_MAX__TOTAL_BATCH_SIZE,
+                max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
             }
         };
 
@@ -352,7 +352,7 @@ impl REClientBuilder {
 
         let mut exec_enabled = true;
 
-        let max_msg_size_from_capabilities: Option<usize> = if let Some(cache_cap) = resp.cache_capabilities {
+        let max_total_file_size_from_capabilities: Option<usize> = if let Some(cache_cap) = resp.cache_capabilities {
             let size = cache_cap.max_batch_total_size_bytes as usize;
             // A value of 0 means no limit is set
             if size != 0 {
@@ -364,11 +364,11 @@ impl REClientBuilder {
             None
         };
 
-        let max_total_batch_size = match (max_msg_size_from_capabilities, max_total_file_size) {
+        let max_total_batch_size = match (max_total_file_size_from_capabilities, max_total_file_size) {
             (Some(cap), Some(config)) => std::cmp::min(cap, config),
             (Some(cap), None) => cap,
             (None, Some(config)) => config,
-            (None, None) => DEFAULT_MAX__TOTAL_BATCH_SIZE,
+            (None, None) => DEFAULT_MAX_TOTAL_BATCH_SIZE,
         };
 
         if let Some(exec_cap) = resp.execution_capabilities {
