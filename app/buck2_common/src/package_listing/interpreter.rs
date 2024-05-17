@@ -204,38 +204,27 @@ impl Directory {
         subdirs: Vec<PackageRelativePathBuf>,
     ) -> BoxFuture<'a, anyhow::Result<(Vec<Directory>, Vec<ArcS<PackageRelativePath>>)>> {
         async move {
-            let futs = ctx.compute_many(subdirs.into_iter().map(|path| {
-                DiceComputations::declare_closure(
-                        |ctx: &mut DiceComputations| -> BoxFuture<
-                            anyhow::Result<(PackageRelativePathBuf, Option<Directory>)>,
-                        > {
-                            async move {
-                                let res = Directory::gather(
-                                    ctx,
-                                    buildfile_candidates,
-                                    root,
-                                    &path,
-                                    false,
-                                )
-                                .await?;
-                                Ok((path, res))
-                            }
-                            .boxed()
-                        },
-                    )
-            }));
-
-            let mut subdirs = Vec::new();
+            let mut new_subdirs = Vec::new();
             let mut subpackages = Vec::new();
 
-            for res in futures::future::join_all(futs).await {
+            for res in ctx
+                .compute_join(subdirs, |ctx, path| {
+                    async move {
+                        let res = Directory::gather(ctx, buildfile_candidates, root, &path, false)
+                            .await?;
+                        anyhow::Ok((path, res))
+                    }
+                    .boxed()
+                })
+                .await
+            {
                 let (path, res) = res?;
                 match res {
-                    Some(v) => subdirs.push(v),
+                    Some(v) => new_subdirs.push(v),
                     None => subpackages.push(path.to_arc()),
                 }
             }
-            Ok((subdirs, subpackages))
+            Ok((new_subdirs, subpackages))
         }
         .boxed()
     }
