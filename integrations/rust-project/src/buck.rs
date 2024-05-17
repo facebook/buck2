@@ -682,9 +682,9 @@ pub(crate) fn truncate_line_ending(s: &mut String) {
 pub(crate) fn select_mode(mode: Option<&str>) -> Option<String> {
     if let Some(mode) = mode {
         Some(mode.to_owned())
-    } else if cfg!(target_os = "macos") {
+    } else if cfg!(all(feature = "fbcode_build", target_os = "macos")) {
         Some("@fbcode//mode/mac".to_owned())
-    } else if cfg!(target_os = "windows") {
+    } else if cfg!(all(feature = "fbcode_build", target_os = "windows")) {
         Some("@fbcode//mode/win".to_owned())
     } else {
         // fallback to the platform default mode. This is likely slower than optimal, but
