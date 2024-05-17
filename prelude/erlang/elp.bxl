@@ -7,7 +7,20 @@
 
 # Provide information so that ELP is able to load a BUCK project
 
+load("@prelude//:paths.bzl", "paths")
+
 # ------------------ IMPL ------------------
+
+def _clean_up_includes(includes):
+    # - Strip to just dir, not file name
+    # - Remove duplicates
+    # Note: Sometimes the buck rule generating the includes has an excludes glob for a directory.
+    #       This flattening will potentially expose excluded files in the directory.
+    #       But we do it, because otherwise the performance in erlang_service parsing is too poor.
+    return _list_dedupe([paths.dirname(p) for p in includes])
+
+def _get_includes(ctx, includes_target):
+    return _clean_up_includes([get_path_without_materialization(inc, ctx, abs = True) for inc in includes_target.value()])
 
 def _dep_includes(ctx, dep, target_universe):
     lookup_val = "{}:{}".format(dep.path, dep.name)
@@ -20,9 +33,14 @@ def _dep_includes(ctx, dep, target_universe):
     if not includes:
         return []
     else:
-        return [get_path_without_materialization(inc, ctx, abs = True) for inc in includes.value()]
+        return _get_includes(ctx, includes)
 
 def _elp_config(ctx):
+    cells = {
+        cell: cell_path
+        for cell, cell_path in ctx.audit().cell(aliases = True).items()
+    }
+
     included_targets = ctx.cli_args.included_targets
     target_universe = ctx.target_universe(included_targets)
 
@@ -40,7 +58,7 @@ def _elp_config(ctx):
         if not includes:
             includes = []
         else:
-            includes = [get_path_without_materialization(inc, ctx, abs = True) for inc in includes.value()]
+            includes = _get_includes(ctx, includes)
 
         if ctx.cli_args.deps_includes:
             if deps:
@@ -55,17 +73,21 @@ def _elp_config(ctx):
 
             if apps:
                 for app in apps.value():
-                    includes.append(str(app.path))
+                    includes.append(str(_file_node_to_path(cells, app.path)))
 
         srcs = target.attrs_lazy().get("srcs")
         if not srcs:
             srcs = []
+        else:
+            srcs = [get_path_without_materialization(src, ctx, abs = True) for src in srcs.value()]
 
         suite = target.attrs_lazy().get("suite")
         if not suite:
             suite = None
         elif suite.value() == None:
             suite = None
+        else:
+            suite = str(get_path_without_materialization(suite.value(), ctx, abs = True))
 
         result[label_name] = dict(
             name = target.attrs_lazy().get("name"),
@@ -75,6 +97,13 @@ def _elp_config(ctx):
             labels = target.attrs_lazy().get("labels"),
         )
     ctx.output.print_json(result)
+
+def _file_node_to_path(cells: dict[str, str], file_node) -> str:
+    cell, path = str(file_node).split("//", 1)
+    return paths.join(cells[cell], path)
+
+def _list_dedupe(xs: list[str]) -> list[str]:
+    return {x: True for x in xs}.keys()
 
 # ------------------ INTERFACE ------------------
 
