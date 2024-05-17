@@ -143,12 +143,9 @@ impl DaemonConstraintsRequest {
             return Err(ConstraintUnsatisfiedReason::Version);
         }
 
-        let is_nested_invocation = self
-            .nested_invocation_daemon_uuid
-            .as_ref()
-            .map_or(false, |uuid| uuid == &daemon.daemon_id);
-
-        if !is_nested_invocation && self.user_version != daemon.user_version {
+        if !is_nested_invocation(self.nested_invocation_daemon_uuid.as_ref(), daemon)
+            && self.user_version != daemon.user_version
+        {
             return Err(ConstraintUnsatisfiedReason::UserVersion);
         }
 
@@ -741,10 +738,27 @@ async fn establish_connection_inner(
                 match try_connect_existing(&buckd_info, &deadline, &lifecycle_lock).await {
                     Ok(channel) => {
                         let mut client = channel.upgrade().await?;
+
                         let reason = match constraints.satisfied(&client.constraints) {
                             Ok(()) => return Ok(client),
                             Err(reason) => reason,
                         };
+
+                        if is_nested_invocation(
+                            get_possibly_nested_invocation_daemon_uuid().as_ref(),
+                            &client.constraints,
+                        ) {
+                            match reason {
+                                ConstraintUnsatisfiedReason::TraceIo
+                                | ConstraintUnsatisfiedReason::StartupConfig => {
+                                    return Err(BuckdConnectError::ConnectError {
+                                        stderr: format!("buck2 daemon constraint mismatch during nested invocation: {}", reason),
+                                    }
+                                    .into());
+                                }
+                                _ => (),
+                            }
+                        }
 
                         event_subscribers
                             .eprintln(&format!(
@@ -1063,6 +1077,13 @@ fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
     BuckdConnectError::ConnectError {
         stderr: truncate(&stderr, 64000),
     }
+}
+
+fn is_nested_invocation(
+    buck2_daemon_uuid: Option<&String>,
+    daemon: &buck2_cli_proto::DaemonConstraints,
+) -> bool {
+    buck2_daemon_uuid.map_or(false, |uuid| uuid == &daemon.daemon_id)
 }
 
 #[cfg(test)]
