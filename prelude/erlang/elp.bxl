@@ -1,0 +1,93 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+# Provide information so that ELP is able to load a BUCK project
+
+# ------------------ IMPL ------------------
+
+def _dep_includes(ctx, dep, target_universe):
+    lookup_val = "{}:{}".format(dep.path, dep.name)
+    dep_target = target_universe.lookup(lookup_val)
+    if not dep_target:
+        return []
+    dep_target = dep_target[0]
+    includes = dep_target.attrs_lazy().get("includes")
+
+    if not includes:
+        return []
+    else:
+        return [get_path_without_materialization(inc, ctx, abs = True) for inc in includes.value()]
+
+def _elp_config(ctx):
+    included_targets = ctx.cli_args.included_targets
+    target_universe = ctx.target_universe(included_targets)
+
+    all = ctx.cquery().kind("^(erlang_app|erlang_test)$", ctx.configured_targets(included_targets))
+    if ctx.cli_args.deps_target:
+        all += ctx.cquery().kind("^erlang_app$", ctx.configured_targets(ctx.cli_args.deps_target))
+    result = {}
+    dep_includes_cache = {}  # Cache of includes per dependency
+    for target in all:
+        label = target.label
+        label_name = label.raw_target()
+        deps = target.attrs_lazy().get("deps")
+
+        includes = target.attrs_lazy().get("includes")
+        if not includes:
+            includes = []
+        else:
+            includes = [get_path_without_materialization(inc, ctx, abs = True) for inc in includes.value()]
+
+        if ctx.cli_args.deps_includes:
+            if deps:
+                for dep in deps.value():
+                    if dep in dep_includes_cache:
+                        dep_includes = dep_includes_cache[dep]
+                    else:
+                        dep_includes = _dep_includes(ctx, dep, target_universe)
+                        dep_includes_cache[dep] = dep_includes
+                    includes = includes + dep_includes
+            apps = target.attrs_lazy().get("applications")
+
+            if apps:
+                for app in apps.value():
+                    includes.append(str(app.path))
+
+        srcs = target.attrs_lazy().get("srcs")
+        if not srcs:
+            srcs = []
+
+        suite = target.attrs_lazy().get("suite")
+        if not suite:
+            suite = None
+        elif suite.value() == None:
+            suite = None
+
+        result[label_name] = dict(
+            name = target.attrs_lazy().get("name"),
+            suite = suite,
+            srcs = srcs,
+            includes = includes,
+            labels = target.attrs_lazy().get("labels"),
+        )
+    ctx.output.print_json(result)
+
+# ------------------ INTERFACE ------------------
+
+elp_config = bxl_main(
+    impl = _elp_config,
+    cli_args = {
+        "deps_includes": cli_args.bool(False, doc = "Use include paths from the dependencies too."),
+        "deps_target": cli_args.option(cli_args.string(), doc = "Target to include deps from, if specified. See corresponding field in .elp.toml"),
+        "included_targets": cli_args.list(cli_args.string(), doc = "Targets to include in the query. See corresponding field in .elp.toml"),
+    },
+)
+
+# Run with `buck2 bxl prelude//erlang/elp.bxl:elp_config`
+# e.g.
+# buck2 bxl prelude//erlang/elp.bxl:elp_config -- --included_targets cell//...
+# buck2 bxl prelude//erlang/elp.bxl:elp_config -- --included_targets cell//... --deps_includes true
