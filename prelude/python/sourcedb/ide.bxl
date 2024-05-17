@@ -15,11 +15,9 @@ def _build_entry_point(ctx: bxl.Context) -> None:
     actions = bxl_actions.actions
 
     query = ctx.uquery()
-    root = ctx.root()
 
-    sources = ["{}/{}".format(root, source) for source in ctx.cli_args.source]
     output = {}
-    for source in sources:
+    for source in ctx.cli_args.source:
         owning_targets = query.owner(source)
         targets_configured = do_query(ctx, query, actions, owning_targets)
         sourcedbs = do_build_ensured(ctx, targets_configured)
