@@ -426,12 +426,14 @@ enum DigestRemoteState {
 
 struct FindMissingCache {
     cache: LruCache<TDigest, DigestRemoteState>,
+    /// To avoid a situation where we cache that an artifact is available remotely, but the artifact then expires
+    /// we clear our local cache once every `ttl`.
     ttl: Duration,
     last_check: Instant,
 }
 
 impl FindMissingCache {
-    fn chear_if_ttl_expires(&mut self) {
+    fn clear_if_ttl_expires(&mut self) {
         if self.last_check.elapsed() > self.ttl {
             self.cache.clear();
             self.last_check = Instant::now();
@@ -439,11 +441,11 @@ impl FindMissingCache {
     }
 
     pub fn put(&mut self, digest: TDigest, state: DigestRemoteState) {
-        self.chear_if_ttl_expires();
+        self.clear_if_ttl_expires();
         self.cache.put(digest, state);
     }
     pub fn get(&mut self, digest: &TDigest) -> Option<&DigestRemoteState> {
-        self.chear_if_ttl_expires();
+        self.clear_if_ttl_expires();
         self.cache.get(digest)
     }
 }
@@ -526,7 +528,7 @@ impl REClient {
             instance_name,
             find_missing_cache: Mutex::new(FindMissingCache {
                 cache: LruCache::new(NonZeroUsize::new(50 << 20).unwrap()), // 50Mb
-                ttl: Duration::from_secs(12 * 60 * 60), // 12 hours
+                ttl: Duration::from_secs(12 * 60 * 60), // 12 hours TODO: Tune this parameter
                 last_check: Instant::now(),
             })
         }
