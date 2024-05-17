@@ -102,6 +102,7 @@ def _apple_binary_extra_attrs():
 
 def _apple_library_extra_attrs():
     attribs = {
+        "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_execution_preference": link_execution_preference_attr(),
