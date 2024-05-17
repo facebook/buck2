@@ -148,27 +148,34 @@ build, which are the slowest set of actions.
 
 Buck2 can be run locally or on remote execution, or in a hybrid manner.
 
-For each action, an input action digest is created from the action (hash of
-command line and all of the action’s inputs), uploaded, and cached within RE.
-This is known as the **RE action cache**.
+For each action, a digest is created which is a hash of an action's command and
+all its inputs. Buck2 then checks if there is a result cached within RE for an
+action with a given digest.
 
-If there is a cache hit, then Buck2 does not need to run the command for the
-action, and RE returns the output action digest. This is known as **remote
-execution**.
+If there is a cache hit, Buck2 does not need to run the command for the action.
+Instead, the RE returns the output action digest. This digest can be used to
+download the actual output artifacts at a later time. This is known as the **RE
+action cache**.
 
-If there is not a cache hit, then local execution has to be done, where all the
-action’s input files are retrieved from the filesystem (most likely from
-EdenFS), computation is run on these source files, and then outputted to
-buck-out using I/O operations in the filesystem.
+If there is a cache miss, the action needs to be run either remotely or locally.
+If Buck2 decides to run the action remotely, it will first upload all of the
+action's inputs that are missing from the RE's content addressable storage. If
+Buck2 decides to run the action locally, it will first download and materialize
+in `buck-out` all of the action's inputs. These inputs might be outputs of other
+actions and are stored in RE's content addressable storage but are missing on
+the local machine.Only after those steps will Buck2 schedule the action for
+actual execution.
 
-Hybrid execution allows Buck2 to race local and remote execution and return the
-returns of whichever finishes first for a performance speedup.
+Buck2 can also decide to run local and remote execution simultaneously (a
+process known as racing), and use the result of whichever action finishes first
+to speed up performance. This strategy is known as **hybrid execution**."
 
-These action digests are how Buck2 communicates with RE. The action outputs,
-including final/build artifacts, intermediaries, file, directories, and symlinks
-related to the build, are then materialized (downloaded to disk), and can be
-found in the buck-out path. There are different configurations that a user can
-set to control how materialization is handled.
+Materialization of action outputs (which involves downloading and placing them
+in the correct location in `buck-out`) can be done immediately after the action
+has finished executing. Alternatively, it can be deferred until it is actually
+needed for the local execution of another action. There are various
+configurations that a user can set to control how this materialization is
+handled.
 
 ### State 4 - Build outputs are generated
 
