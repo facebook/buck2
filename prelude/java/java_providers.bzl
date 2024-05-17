@@ -134,6 +134,7 @@ JavaPackagingDep = record(
     # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
     # the right target from the given artifact).
     output_for_classpath_macro = Artifact,
+    sources_jar = Artifact | None,
 )
 
 def _full_jar_args(dep: JavaPackagingDep):
@@ -315,6 +316,7 @@ def create_java_packaging_dep(
         desugar_deps: list[Artifact] = [],
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
+        sources_jar: Artifact | None = None,
         dex_weight_factor: int = 1,
         proguard_config: Artifact | None = None,
         gwt_module: Artifact | None = None) -> JavaPackagingDep:
@@ -341,6 +343,7 @@ def create_java_packaging_dep(
         is_prebuilt_jar = is_prebuilt_jar,
         proguard_config = proguard_config or getattr(ctx.attrs, "proguard_config", None),
         output_for_classpath_macro = output_for_classpath_macro or library_jar,
+        sources_jar = sources_jar,
     )
 
 def get_all_java_packaging_deps(ctx: AnalysisContext, deps: list[Dependency]) -> list[JavaPackagingDep]:
@@ -402,6 +405,7 @@ def _create_non_template_providers(
         desugar_classpath: list[Artifact] = [],
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
+        sources_jar: Artifact | None = None,
         proguard_config: Artifact | None = None,
         gwt_module: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
@@ -425,6 +429,7 @@ def _create_non_template_providers(
         desugar_classpath,
         is_prebuilt_jar,
         has_srcs,
+        sources_jar,
         proguard_config = proguard_config,
         gwt_module = gwt_module,
     )
@@ -465,6 +470,7 @@ def create_java_library_providers(
         needs_desugar: bool = False,
         is_prebuilt_jar: bool = False,
         has_srcs: bool = True,
+        sources_jar: Artifact | None = None,
         generated_sources: list[Artifact] = [],
         annotation_jars_dir: Artifact | None = None,
         proguard_config: Artifact | None = None,
@@ -489,6 +495,7 @@ def create_java_library_providers(
         desugar_classpath = desugar_classpath,
         is_prebuilt_jar = is_prebuilt_jar,
         has_srcs = has_srcs,
+        sources_jar = sources_jar,
         proguard_config = proguard_config,
         gwt_module = gwt_module,
     )

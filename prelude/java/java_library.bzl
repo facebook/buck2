@@ -667,6 +667,7 @@ def build_java_library(
         needs_desugar = source_level > 7 or target_level > 7,
         generated_sources = all_generated_sources,
         has_srcs = has_srcs,
+        sources_jar = None,
         gwt_module = gwt_output,
         preprocessed_library = outputs.preprocessed_library if outputs else None,
     )
