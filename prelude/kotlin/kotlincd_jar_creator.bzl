@@ -103,8 +103,6 @@ def create_jar_artifact_kotlincd(
         jvm_abi_gen = None
         should_use_jvm_abi_gen = False
 
-    k2 = k2 and kotlin_toolchain.use_k2
-
     def encode_kotlin_extra_params(kotlin_compiler_plugins):
         kosabiPluginOptionsMap = {}
         if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
