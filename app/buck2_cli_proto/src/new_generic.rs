@@ -49,6 +49,7 @@ pub struct ExplainRequest {
     pub output: AbsPathBuf,
     pub target: String,
     pub fbs_dump: Option<AbsPathBuf>,
+    pub allow_vpnless: bool,
 }
 
 #[derive(Serialize, Deserialize)]

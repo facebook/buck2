@@ -8,6 +8,7 @@
  */
 
 use std::fs;
+use std::io::Cursor;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
@@ -15,6 +16,8 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 #[allow(unused_extern_crates)]
 #[allow(clippy::extra_unused_lifetimes)]
 mod explain_generated;
+use buck2_common::manifold::Bucket;
+use buck2_common::manifold::ManifoldClient;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -45,10 +48,11 @@ mod fbs {
     pub use crate::explain_generated::explain::StringAttrArgs;
 }
 
-pub fn main(
+pub async fn main(
     data: Vec<ConfiguredTargetNode>,
     output: &AbsPathBuf,
     fbs_dump: Option<&AbsPathBuf>,
+    allow_vpnless: bool,
 ) -> anyhow::Result<()> {
     let fbs = gen_fbs(data)?;
 
@@ -70,7 +74,26 @@ pub fn main(
         html_out
     };
 
+    let mut cursor = &mut Cursor::new(html_out.as_bytes());
+
     fs::write(output, &html_out)?;
+
+    // TODO iguridi: compress before upload
+    // TODO iguridi: write and upload concurrently
+    // upload to manifold
+    let manifold = ManifoldClient::new(allow_vpnless)?;
+
+    manifold
+        .read_and_upload(
+            Bucket::EVENT_LOGS,
+            "flat/explain.html", // TODO: use a unique name
+            Default::default(),
+            &mut cursor,
+        )
+        .await?;
+
+    // TODO: show this message "View html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/flat/explain.html";
+
     Ok(())
 }
 

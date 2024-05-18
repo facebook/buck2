@@ -65,6 +65,7 @@ impl StreamingCommand for ExplainCommand {
                         output,
                         target: self.target,
                         fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
+                        allow_vpnless: ctx.allow_vpnless().unwrap_or(true),
                     }),
                     None,
                 )

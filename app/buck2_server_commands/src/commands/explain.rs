@@ -36,6 +36,7 @@ pub(crate) async fn explain_command(
             output: req.output,
             target: req.target,
             fbs_dump: req.fbs_dump,
+            allow_vpnless: req.allow_vpnless,
         },
         ctx,
         partial_result_dispatcher,
@@ -46,6 +47,7 @@ struct ExplainServerCommand {
     output: AbsPathBuf,
     fbs_dump: Option<AbsPathBuf>,
     target: String,
+    allow_vpnless: bool,
 }
 
 #[async_trait]
@@ -67,6 +69,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
             &self.output,
             &self.target,
             self.fbs_dump.as_ref(),
+            self.allow_vpnless,
         )
         .await
     }
@@ -87,6 +90,7 @@ pub(crate) async fn explain(
     destination_path: &AbsPathBuf,
     target: &str,
     fbs_dump: Option<&AbsPathBuf>,
+    allow_vpnless: bool,
 ) -> anyhow::Result<ExplainResponse> {
     let configured_target = {
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -120,7 +124,7 @@ pub(crate) async fn explain(
     // TODO iguridi: make it work for OSS
     #[cfg(fbcode_build)]
     {
-        buck2_explain::main(all_deps, destination_path, fbs_dump)?;
+        buck2_explain::main(all_deps, destination_path, fbs_dump, allow_vpnless).await?;
     }
     #[cfg(not(fbcode_build))]
     {
@@ -128,6 +132,7 @@ pub(crate) async fn explain(
         let _destination_path = destination_path;
         let _all_deps = all_deps;
         let _fbs_dump = fbs_dump;
+        let _allow_vpnless = allow_vpnless;
     }
 
     Ok(ExplainResponse {})
