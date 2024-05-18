@@ -10,12 +10,12 @@
 use std::time::SystemTime;
 
 use anyhow::Context;
-use buck2_client_ctx::chunk_reader::ChunkReader;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::manifold;
-use buck2_client_ctx::manifold::ManifoldChunkedUploader;
-use buck2_client_ctx::manifold::ManifoldClient;
+use buck2_common::chunk_reader::ChunkReader;
+use buck2_common::manifold;
+use buck2_common::manifold::ManifoldChunkedUploader;
+use buck2_common::manifold::ManifoldClient;
 use buck2_core::buck2_env;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;

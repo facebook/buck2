@@ -18,7 +18,6 @@
 #![feature(round_char_boundary)]
 
 pub mod build_count;
-pub mod chunk_reader;
 pub mod client_cpu_tracker;
 pub mod client_ctx;
 pub mod client_metadata;
@@ -33,7 +32,6 @@ pub mod file_tailer;
 pub mod final_console;
 pub mod ide_support;
 pub mod immediate_config;
-pub mod manifold;
 pub mod output_destination_arg;
 pub mod path_arg;
 pub mod query_args;

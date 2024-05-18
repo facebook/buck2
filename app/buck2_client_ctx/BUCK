@@ -48,7 +48,6 @@ rust_library(
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:httparse",
-        "fbsource//third-party/rust:hyper",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:memmap2",
@@ -78,7 +77,6 @@ rust_library(
         "//buck2/app/buck2_event_log:buck2_event_log",
         "//buck2/app/buck2_event_observer:buck2_event_observer",
         "//buck2/app/buck2_events:buck2_events",
-        "//buck2/app/buck2_http:buck2_http",
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
@@ -86,6 +84,5 @@ rust_library(
         "//buck2/superconsole:superconsole",
         # @oss-disable: "//common/rust/shed/detect_eden:detect_eden", 
         "//common/rust/shed/fbinit:fbinit",
-        # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
     ],
 )

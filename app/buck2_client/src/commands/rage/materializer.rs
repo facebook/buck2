@@ -16,9 +16,9 @@ use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
-use buck2_client_ctx::manifold::ManifoldClient;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
+use buck2_common::manifold::ManifoldClient;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 

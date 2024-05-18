@@ -10,8 +10,8 @@
 use std::io::Cursor;
 
 use anyhow::Context;
-use buck2_client_ctx::manifold::Bucket;
-use buck2_client_ctx::manifold::ManifoldClient;
+use buck2_common::manifold::Bucket;
+use buck2_common::manifold::ManifoldClient;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use tokio::fs::File;
 
