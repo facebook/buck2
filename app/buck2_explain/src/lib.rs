@@ -50,10 +50,10 @@ mod fbs {
 
 pub async fn main(
     data: Vec<ConfiguredTargetNode>,
-    output: &AbsPathBuf,
+    output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
     allow_vpnless: bool,
-    manifold_path: String,
+    manifold_path: Option<String>,
 ) -> anyhow::Result<()> {
     let fbs = gen_fbs(data)?;
 
@@ -77,21 +77,20 @@ pub async fn main(
 
     let mut cursor = &mut Cursor::new(html_out.as_bytes());
 
-    fs::write(output, &html_out)?;
+    if let Some(o) = output {
+        fs::write(o, &html_out)?
+    };
 
-    // TODO iguridi: compress before upload
-    // TODO iguridi: write and upload concurrently
-    // upload to manifold
-    let manifold = ManifoldClient::new(allow_vpnless)?;
+    if let Some(p) = manifold_path {
+        // TODO iguridi: compress before upload
+        // TODO iguridi: write and upload concurrently
+        // upload to manifold
+        let manifold = ManifoldClient::new(allow_vpnless)?;
 
-    manifold
-        .read_and_upload(
-            Bucket::EVENT_LOGS,
-            &manifold_path,
-            Default::default(),
-            &mut cursor,
-        )
-        .await?;
+        manifold
+            .read_and_upload(Bucket::EVENT_LOGS, &p, Default::default(), &mut cursor)
+            .await?;
+    }
 
     Ok(())
 }

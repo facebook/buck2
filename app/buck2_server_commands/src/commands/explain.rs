@@ -45,11 +45,11 @@ pub(crate) async fn explain_command(
     .await
 }
 struct ExplainServerCommand {
-    output: AbsPathBuf,
+    output: Option<AbsPathBuf>,
     fbs_dump: Option<AbsPathBuf>,
     target: String,
     allow_vpnless: bool,
-    manifold_path: String,
+    manifold_path: Option<String>,
 }
 
 #[async_trait]
@@ -68,7 +68,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
         explain(
             server_ctx,
             ctx,
-            &self.output,
+            self.output.as_ref(),
             &self.target,
             self.fbs_dump.as_ref(),
             self.allow_vpnless,
@@ -90,11 +90,11 @@ impl ServerCommandTemplate for ExplainServerCommand {
 pub(crate) async fn explain(
     _server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
-    destination_path: &AbsPathBuf,
+    destination_path: Option<&AbsPathBuf>,
     target: &str,
     fbs_dump: Option<&AbsPathBuf>,
     allow_vpnless: bool,
-    manifold_path: String,
+    manifold_path: Option<String>,
 ) -> anyhow::Result<ExplainResponse> {
     let configured_target = {
         let cell_resolver = ctx.get_cell_resolver().await?;
