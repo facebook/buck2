@@ -55,6 +55,9 @@ impl StreamingCommand for ExplainCommand {
     ) -> ExitResult {
         let output = self.output.resolve(&ctx.working_dir);
 
+        // TODO iguridi: eventually use associated build uuid
+        let manifold_path = format!("flat/{}-explain.html", ctx.trace_id);
+
         if !cfg!(windows) {
             let context = ctx.client_context(matches, &self)?;
             buckd
@@ -66,10 +69,16 @@ impl StreamingCommand for ExplainCommand {
                         target: self.target,
                         fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
                         allow_vpnless: ctx.allow_vpnless().unwrap_or(true),
+                        manifold_path: manifold_path.clone(),
                     }),
                     None,
                 )
                 .await??;
+
+            buck2_client_ctx::eprintln!(
+                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{}\n",
+                manifold_path
+            )?;
 
             ExitResult::success()
         } else {

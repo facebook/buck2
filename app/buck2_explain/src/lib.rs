@@ -53,6 +53,7 @@ pub async fn main(
     output: &AbsPathBuf,
     fbs_dump: Option<&AbsPathBuf>,
     allow_vpnless: bool,
+    manifold_path: String,
 ) -> anyhow::Result<()> {
     let fbs = gen_fbs(data)?;
 
@@ -86,13 +87,11 @@ pub async fn main(
     manifold
         .read_and_upload(
             Bucket::EVENT_LOGS,
-            "flat/explain.html", // TODO: use a unique name
+            &manifold_path,
             Default::default(),
             &mut cursor,
         )
         .await?;
-
-    // TODO: show this message "View html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/flat/explain.html";
 
     Ok(())
 }

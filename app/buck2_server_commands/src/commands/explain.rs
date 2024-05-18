@@ -37,6 +37,7 @@ pub(crate) async fn explain_command(
             target: req.target,
             fbs_dump: req.fbs_dump,
             allow_vpnless: req.allow_vpnless,
+            manifold_path: req.manifold_path,
         },
         ctx,
         partial_result_dispatcher,
@@ -48,6 +49,7 @@ struct ExplainServerCommand {
     fbs_dump: Option<AbsPathBuf>,
     target: String,
     allow_vpnless: bool,
+    manifold_path: String,
 }
 
 #[async_trait]
@@ -70,6 +72,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
             &self.target,
             self.fbs_dump.as_ref(),
             self.allow_vpnless,
+            self.manifold_path.clone(),
         )
         .await
     }
@@ -91,6 +94,7 @@ pub(crate) async fn explain(
     target: &str,
     fbs_dump: Option<&AbsPathBuf>,
     allow_vpnless: bool,
+    manifold_path: String,
 ) -> anyhow::Result<ExplainResponse> {
     let configured_target = {
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -124,7 +128,14 @@ pub(crate) async fn explain(
     // TODO iguridi: make it work for OSS
     #[cfg(fbcode_build)]
     {
-        buck2_explain::main(all_deps, destination_path, fbs_dump, allow_vpnless).await?;
+        buck2_explain::main(
+            all_deps,
+            destination_path,
+            fbs_dump,
+            allow_vpnless,
+            manifold_path,
+        )
+        .await?;
     }
     #[cfg(not(fbcode_build))]
     {
@@ -133,6 +144,7 @@ pub(crate) async fn explain(
         let _all_deps = all_deps;
         let _fbs_dump = fbs_dump;
         let _allow_vpnless = allow_vpnless;
+        let _manifold_path = manifold_path;
     }
 
     Ok(ExplainResponse {})
