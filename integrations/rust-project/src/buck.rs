@@ -765,3 +765,44 @@ fn named_deps_underscores() {
         }]
     );
 }
+
+#[test]
+fn test_select_mode() {
+    // Test default behavior without the fbcode_build feature
+    assert_eq!(select_mode(None), None);
+    assert_eq!(
+        select_mode(Some("custom-mode")),
+        Some("custom-mode".to_owned())
+    );
+
+    // Test behavior with the fbcode_build feature enabled
+    #[cfg(all(feature = "fbcode_build", target_os = "macos"))]
+    {
+        assert_eq!(select_mode(None), Some("@fbcode//mode/mac".to_owned()));
+        assert_eq!(
+            select_mode(Some("custom-mode")),
+            Some("custom-mode".to_owned())
+        );
+    }
+
+    #[cfg(all(feature = "fbcode_build", target_os = "windows"))]
+    {
+        assert_eq!(select_mode(None), Some("@fbcode//mode/win".to_owned()));
+        assert_eq!(
+            select_mode(Some("custom-mode")),
+            Some("custom-mode".to_owned())
+        );
+    }
+
+    #[cfg(all(
+        feature = "fbcode_build",
+        not(any(target_os = "macos", target_os = "windows"))
+    ))]
+    {
+        assert_eq!(select_mode(None), None);
+        assert_eq!(
+            select_mode(Some("custom-mode")),
+            Some("custom-mode".to_owned())
+        );
+    }
+}
