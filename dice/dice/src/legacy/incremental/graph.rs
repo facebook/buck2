@@ -1411,7 +1411,6 @@ mod tests {
     use buck2_futures::cancellation::CancellationContext;
     use derive_more::Display;
     use dupe::Dupe;
-    use sorted_vector_map::sorted_vector_set;
 
     use crate::api::computations::DiceComputations;
     use crate::api::injected::InjectedKey;
@@ -1531,9 +1530,7 @@ mod tests {
         assert_eq!(*mismatch.entry.val(), res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
-                VersionNumber::new(2),
-            )])
+            VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(2),)])
         );
 
         // if the value is the same, then versions are shared
@@ -1565,7 +1562,7 @@ mod tests {
         assert_eq!(mismatch.entry.val(), &res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![
+            VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(4)),
                 VersionRange::begins_with(VersionNumber::new(5))
             ])
@@ -1584,7 +1581,7 @@ mod tests {
         assert_eq!(mismatch.entry.val(), &res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![
+            VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(4)),
                 VersionRange::begins_with(VersionNumber::new(5))
             ])
@@ -1597,7 +1594,7 @@ mod tests {
         assert_eq!(mismatch.entry.val(), &res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![
+            VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(4)),
                 VersionRange::begins_with(VersionNumber::new(5))
             ])

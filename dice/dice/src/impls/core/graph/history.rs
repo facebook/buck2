@@ -575,7 +575,6 @@ mod introspection {
 mod tests {
     use sorted_vector_map::sorted_vector_map;
     use sorted_vector_map::sorted_vector_set;
-    use sorted_vector_map::SortedVectorSet;
 
     use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::impls::core::graph::history::testing::HistoryExt;
@@ -596,7 +595,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(1)
             )])
@@ -622,7 +621,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![
+            &VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(1)),
                 VersionRange::begins_with(VersionNumber::new(2))
             ])
@@ -648,7 +647,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![
+            &VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(1)),
                 VersionRange::begins_with(VersionNumber::new(2))
             ])
@@ -669,7 +668,7 @@ mod tests {
         assert_eq!(history.mark_invalidated(VersionNumber::new(2)), false);
         assert_eq!(
             history.get_history(&VersionNumber::new(2)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(2)
             )])
@@ -687,7 +686,7 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(2)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(2),
             )])
@@ -723,14 +722,14 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(3)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(3)
             )])
         );
         assert_eq!(
             history.get_history(&VersionNumber::new(5)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(3)
             )])
@@ -758,7 +757,7 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(5)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(5)
             )])
@@ -792,7 +791,7 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(5)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![
+            &VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(5)),
                 VersionRange::begins_with(VersionNumber::new(6))
             ])
@@ -859,18 +858,18 @@ mod tests {
     #[test]
     fn cell_history_verified_ranges() {
         let hist = CellHistory::testing_new(&[], &[]);
-        assert_eq!(hist.get_verified_ranges().ranges(), &SortedVectorSet::new());
+        assert_eq!(hist.get_verified_ranges().ranges(), &Vec::new());
 
         let hist = CellHistory::testing_new(&[VersionNumber::new(1)], &[]);
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![VersionRange::begins_with(VersionNumber::new(1))]
+            &vec![VersionRange::begins_with(VersionNumber::new(1))]
         );
 
         let hist = CellHistory::testing_new(&[VersionNumber::new(1), VersionNumber::new(3)], &[]);
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![VersionRange::begins_with(VersionNumber::new(1))]
+            &vec![VersionRange::begins_with(VersionNumber::new(1))]
         );
 
         let hist = CellHistory::testing_new(
@@ -879,7 +878,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![
+            &vec![
                 VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(2)),
                 VersionRange::begins_with(VersionNumber::new(3))
             ]
@@ -888,7 +887,7 @@ mod tests {
         let hist = CellHistory::testing_new(&[VersionNumber::new(1)], &[VersionNumber::new(3)]);
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![VersionRange::bounded(
+            &vec![VersionRange::bounded(
                 VersionNumber::new(1),
                 VersionNumber::new(3)
             ),]
@@ -910,7 +909,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![
+            &vec![
                 VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(3)),
                 VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
                 VersionRange::begins_with(VersionNumber::new(7))

@@ -25,7 +25,6 @@ use std::ops::Sub;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use sorted_vector_map::SortedVectorSet;
 
 /// The incrementing Version number associated with all the cache entries
 #[derive(Copy, Eq, Debug, Display, Dupe)]
@@ -71,7 +70,7 @@ mod introspection {
 
 /// Represents a range of versions. This range must have a start that is inclusive, but may be
 /// unbounded towards the end. The end, if present, is exclusive.
-#[derive(Allocative, Eq, Debug, Dupe, PartialEq, Hash, Clone)]
+#[derive(Allocative, Eq, Debug, Dupe, PartialEq, Hash, Clone, Copy)]
 pub(crate) struct VersionRange {
     begin: VersionNumber,
     end: Option<VersionNumber>,
@@ -179,17 +178,22 @@ impl VersionRange {
         if is_between_end_inclusive(self.begin, other.begin, other.end)
             || is_between_end_inclusive(other.begin, self.begin, self.end)
         {
-            Some(VersionRange::new(
-                cmp::min(self.begin, other.begin),
-                match (self.end, other.end) {
-                    (None, _) => None,
-                    (_, None) => None,
-                    (Some(e1), Some(e2)) => Some(cmp::max(e1, e2)),
-                },
-            ))
+            Some(self.merge_unchecked(other))
         } else {
             None
         }
+    }
+
+    /// Merges this range with the given range assuming that they overlap
+    fn merge_unchecked(&self, other: &VersionRange) -> VersionRange {
+        VersionRange::new(
+            cmp::min(self.begin, other.begin),
+            match (self.end, other.end) {
+                (None, _) => None,
+                (_, None) => None,
+                (Some(e1), Some(e2)) => Some(cmp::max(e1, e2)),
+            },
+        )
     }
 }
 
@@ -233,7 +237,7 @@ impl Ord for VersionRange {
 /// 3, and 4 would not be in the sequence of ranges, but 1, 2, 5, would be. This is essentially
 /// a list of numerical end-exclusive intervals.
 #[derive(Allocative, Eq, Debug, PartialEq, Hash, Clone, PartialOrd, Ord)]
-pub(crate) struct VersionRanges(SortedVectorSet<VersionRange>);
+pub(crate) struct VersionRanges(Vec<VersionRange>);
 
 impl Display for VersionRanges {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -277,35 +281,52 @@ impl VersionRanges {
     }
 
     /// unions with a single range, merging different ranges if necessary
-    pub(crate) fn union_range(&mut self, mut range: VersionRange) {
-        if let Some(smaller) = self
-            .0
-            .range((Bound::Unbounded, Bound::Included(range.dupe())))
-            .max()
-        {
-            if let Some(merged) = smaller.merge(&range) {
-                let to_remove = smaller.dupe();
-                let removed = self.0.remove(&to_remove);
-                assert!(removed);
-                range = merged;
-            }
+    pub(crate) fn union_range(&mut self, range: VersionRange) {
+        let len = self.0.len();
+
+        // this works by finding a position to insert the new range, and then unions it with any overlapping ranges after its insertion point.
+
+        let idx = self.0.partition_point(|r| match r.end {
+            Some(end) if end < range.begin => true,
+            _ => false,
+        });
+
+        // idx now points to the first range with end >= range.begin, which is the position where we will "insert" the new range.
+        // there's three cases:
+        // 1. idx = len, we just append range at the end: there's nothing to merge
+        // 2. self.0[idx].begin > range.end: there's no overlapping ranges, just insert range at idx
+        // 3. self.0[idx] and range have overlap: merge them and then need to scan for and merge any additional overlap after idx
+
+        // handle case 1
+        if idx == len {
+            self.0.push(range);
+            return;
         }
 
-        if let Some(larger) = self
-            .0
-            .range((Bound::Included(range.dupe()), Bound::Unbounded))
-            .min()
-        {
-            if let Some(merged) = larger.merge(&range) {
-                let to_remove = larger.dupe();
-                let removed = self.0.remove(&to_remove);
-                assert!(removed);
-                range = merged;
+        let mut merged = match self.0[idx].merge(&range) {
+            Some(merged) => merged,
+            None => {
+                // no overlap, handle case 2
+                self.0.insert(idx, range);
+                return;
             }
+        };
+
+        let first_non_overlap = match merged.end {
+            None => len,
+            Some(end) => (idx + 1) + self.0[(idx + 1)..].partition_point(|r| r.begin <= end),
+        };
+
+        let last_overlap = first_non_overlap - 1;
+        if last_overlap > idx {
+            // the inserted range overlaps multiple entries, we need to use the largest end value of all the overlapped
+            // ranges (which is either the end of the last one or the end of the one we're inserting).
+            merged = merged.merge_unchecked(&self.0[last_overlap]);
         }
 
-        let inserted = self.0.insert(range);
-        assert!(inserted);
+        self.0[idx] = merged;
+        // Vec::drain is the most efficient way to remove a range.
+        self.0.drain((idx + 1)..first_non_overlap);
     }
 
     /// Computes the union of this set of ranges and another
@@ -314,7 +335,7 @@ impl VersionRanges {
         let mut this = self.0.iter().peekable();
         let mut other = other.0.iter().peekable();
 
-        let mut out = SortedVectorSet::new();
+        let mut out = Vec::new();
         let mut pending: Option<VersionRange> = None;
         loop {
             let smaller = match (this.peek(), other.peek()) {
@@ -336,7 +357,7 @@ impl VersionRanges {
                     if let Some(merged) = last.merge(smaller) {
                         merged
                     } else {
-                        out.insert(last);
+                        out.push(last);
                         smaller.dupe()
                     }
                 },
@@ -344,7 +365,7 @@ impl VersionRanges {
         }
 
         if let Some(last) = pending {
-            out.insert(last);
+            out.push(last);
         }
 
         VersionRanges(out)
@@ -355,7 +376,7 @@ impl VersionRanges {
         let mut this = self.0.iter().peekable();
         let mut other = other.0.iter().peekable();
 
-        let mut out = SortedVectorSet::new();
+        let mut out = Vec::new();
         // Pending is the last range we saw that has the largest end point, which is not the
         // standard sorting of intervals.
         // We want the largest end point interval to handle cases where there is one large interval
@@ -381,7 +402,7 @@ impl VersionRanges {
                     // we know that within an VersionRange, there are no overlaps, so as soon as we
                     // have an intersection, it can be pushed to the result and no other ranges
                     // will overlap with the intersection
-                    out.insert(intersect);
+                    out.push(intersect);
 
                     // get the largest ending range
                     pending = Some(cmp::max_by(r, smaller.dupe(), |r1, r2| {
@@ -425,11 +446,11 @@ impl VersionRanges {
 
 #[cfg(test)]
 impl VersionRanges {
-    pub(crate) fn testing_new(ranges: SortedVectorSet<VersionRange>) -> Self {
+    pub(crate) fn testing_new(ranges: Vec<VersionRange>) -> Self {
         Self(ranges)
     }
 
-    pub(crate) fn ranges(&self) -> &SortedVectorSet<VersionRange> {
+    pub(crate) fn ranges(&self) -> &Vec<VersionRange> {
         &self.0
     }
 }
@@ -710,7 +731,7 @@ mod tests {
             let initial = into_ranges(initial);
             let mut r = initial.clone();
             let range = into_range(range);
-            r.insert(range.clone());
+            r.insert(range);
             let expected = into_ranges(expected);
             assert!(
                 r == expected,
@@ -768,12 +789,7 @@ mod tests {
 
         // Before: |...)   |...)   |...)
         // Insert:     |...........)
-        test_insert(
-            [(20, 25), (30, 35), (40, 45)],
-            (25, 40),
-            // FIXME: should be: [(20, 45)]
-            [(20, 40), (40, 45)],
-        );
+        test_insert([(20, 25), (30, 35), (40, 45)], (25, 40), [(20, 45)]);
 
         // Before: |...)   |...)   |...)
         // Insert:    |..........)
@@ -785,29 +801,18 @@ mod tests {
 
         // Before: |...)   |...)   |...)
         // Insert:    |...................)
-        test_insert(
-            [(20, 25), (30, 35), (40, 45)],
-            (22, 47),
-            // FIXME: should be: [(20, 47)]
-            [(20, 47), (40, 45)],
-        );
+        test_insert([(20, 25), (30, 35), (40, 45)], (22, 47), [(20, 47)]);
 
         // Before: |...)   |...)   |...)
         // Insert:    |...................inf
-        test_insert(
-            [(20, 25), (30, 35), (40, 45)],
-            (22, -1),
-            // FIXME: should be: [(20, -1)]
-            [(20, -1), (40, 45)],
-        );
+        test_insert([(20, 25), (30, 35), (40, 45)], (22, -1), [(20, -1)]);
 
         // Before: |...)   |...)   |...)   |...inf
         // Insert:    |.....................)
         test_insert(
             [(20, 25), (30, 35), (40, 45), (50, -1)],
             (22, 50),
-            // FIXME: should be: [(20, -1)],
-            [(20, 50), (40, 45), (50, -1)],
+            [(20, -1)],
         );
 
         test_insert(
@@ -821,8 +826,7 @@ mod tests {
                 (80, 85),
             ],
             (22, 42),
-            // FIXME: should be: [(20, 45), (50, 55), (60, 65), (70, 75), (80, 85)],
-            [(20, 42), (40, 45), (50, 55), (60, 65), (70, 75), (80, 85)],
+            [(20, 45), (50, 55), (60, 65), (70, 75), (80, 85)],
         );
     }
 }

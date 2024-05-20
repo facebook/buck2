@@ -27,7 +27,6 @@ use futures::pin_mut;
 use futures::Future;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
-use sorted_vector_map::sorted_vector_set;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::Semaphore;
@@ -305,9 +304,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         .await?;
     assert_eq!(
         res.history().get_verified_ranges(),
-        VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
-            VersionNumber::new(0)
-        )])
+        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
     assert!(!is_ran.load(Ordering::SeqCst));
 
@@ -346,7 +343,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         .await?;
     assert_eq!(
         res.history().get_verified_ranges(),
-        VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(v)])
+        VersionRanges::testing_new(vec![VersionRange::begins_with(v)])
     );
     assert_eq!(is_ran.load(Ordering::SeqCst), true);
     is_ran.store(false, Ordering::SeqCst);
@@ -396,7 +393,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         .await?;
     assert_eq!(
         res.history().get_verified_ranges(),
-        VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(v, new_v)])
+        VersionRanges::testing_new(vec![VersionRange::bounded(v, new_v)])
     );
     assert_eq!(is_ran.load(Ordering::SeqCst), false);
 
@@ -511,9 +508,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     assert_eq!(
         res.history().get_verified_ranges(),
-        VersionRanges::testing_new(
-            sorted_vector_set! { VersionRange::begins_with(VersionNumber::new(0))}
-        )
+        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
 
     // verify that the instance we return and store is the same as the original instance
@@ -1029,9 +1024,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         .await?;
     assert_eq!(
         computed_res.history().get_verified_ranges(),
-        VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
-            VersionNumber::new(0)
-        )])
+        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
     assert!(computed_res.value().instance_equal(&res));
 
@@ -1064,9 +1057,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         .await?;
     assert_eq!(
         computed_res.history().get_verified_ranges(),
-        VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
-            VersionNumber::new(0)
-        )])
+        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
     assert!(computed_res.value().instance_equal(&res));
 

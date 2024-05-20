@@ -1269,7 +1269,6 @@ mod tests {
     use indexmap::indexset;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
-    use sorted_vector_map::sorted_vector_set;
     use tokio::sync::Barrier as AsyncBarrier;
     use tokio::sync::Mutex as AsyncMutex;
     use tokio::sync::Notify;
@@ -1675,7 +1674,7 @@ mod tests {
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
                     entry: GraphNode::occupied(entry),
-                    verified_versions: VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+                    verified_versions: VersionRanges::testing_new(vec![VersionRange::bounded(
                     VersionNumber::new(0),
                     VersionNumber::new(1)
                 )])
@@ -1704,7 +1703,7 @@ mod tests {
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
                     entry: GraphNode::occupied(entry),
-                    verified_versions: VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+                    verified_versions: VersionRanges::testing_new(vec![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
                 )]),
@@ -1779,7 +1778,7 @@ mod tests {
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
                     entry: GraphNode::occupied(entry),
-                    verified_versions: VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+                    verified_versions: VersionRanges::testing_new(vec![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
                 )]),
@@ -1928,9 +1927,7 @@ mod tests {
         );
         assert_eq!(
             entry.read_meta().hist.get_verified_ranges(),
-            VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
-                VersionNumber::new(1),
-            )])
+            VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1),)])
         );
         assert!(
             engine
@@ -1995,7 +1992,7 @@ mod tests {
         );
         assert_eq!(
             entry.read_meta().hist.get_verified_ranges(),
-            VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(3),
                 VersionNumber::new(5)
             )])
@@ -2461,9 +2458,7 @@ mod tests {
 
         assert_eq!(
             second_node.get_history().get_verified_ranges(),
-            VersionRanges::testing_new(
-                sorted_vector_set! { VersionRange::begins_with(VersionNumber::new(0))}
-            )
+            VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
         );
 
         // verify that the instance we return and store is the same as the original instance
