@@ -107,6 +107,11 @@ impl VersionRange {
         VersionRange::new(begin, None)
     }
 
+    #[allow(unused)] // TODO(cjhopman): This will be used.
+    pub(crate) fn into_ranges(self) -> VersionRanges {
+        VersionRanges(vec![self])
+    }
+
     pub(crate) fn intersect(&self, other: &VersionRange) -> Option<Self> {
         // we exclude the end bound, because intervals [1,2) and [2,3) do not intersect
         fn contains_end_exclusive(
@@ -159,8 +164,13 @@ impl VersionRange {
     }
 
     #[allow(unused)] // useful function
-    pub(crate) fn begin(&self) -> &VersionNumber {
-        &self.begin
+    pub(crate) fn begin(&self) -> VersionNumber {
+        self.begin
+    }
+
+    #[allow(unused)] // useful function
+    pub(crate) fn end(&self) -> Option<VersionNumber> {
+        self.end
     }
 
     /// Merges this range with the given range if they overlap, otherwise return `None`
@@ -197,6 +207,8 @@ impl VersionRange {
     }
 }
 
+// TODO(cjhopman): While implementing RangeBounds gives access to a bunch of apis, they are all kinda deceptive
+// because VersionRange bounds are more restricted than RangeBounds are and so using many of the apis is kinda awkward.
 impl RangeBounds<VersionNumber> for VersionRange {
     fn start_bound(&self) -> Bound<&VersionNumber> {
         Bound::Included(&self.begin)
@@ -371,6 +383,12 @@ impl VersionRanges {
         VersionRanges(out)
     }
 
+    #[allow(unused)] // TODO(cjhopman): This will be used.
+    pub(crate) fn union_in_place(&mut self, other: &VersionRanges) {
+        // TODO(cjhopman): implement this efficiently.
+        *self = self.union(other);
+    }
+
     /// Computes the intersection of this set of ranges and another
     pub(crate) fn intersect(&self, other: &VersionRanges) -> VersionRanges {
         let mut this = self.0.iter().peekable();
@@ -426,12 +444,75 @@ impl VersionRanges {
         VersionRanges(out)
     }
 
+    #[allow(unused)] // TODO(cjhopman): This will be used.
+    pub(crate) fn intersect_in_place(&mut self, other: &VersionRanges) {
+        if self != other {
+            *self = self.intersect(other)
+        }
+    }
+
     /// Computes the intersection of this set of ranges and a range.
-    #[allow(unused)] // useful function
-    pub(crate) fn intersect_range(&self, range: &VersionRange) -> VersionRanges {
-        let mut ranges = VersionRanges::new();
-        ranges.insert(range.dupe());
-        self.intersect(&ranges)
+    #[allow(unused)] // TODO(cjhopman): This will be used.
+    pub(crate) fn intersect_range(&mut self, range: VersionRange) -> bool {
+        if self.is_empty() {
+            return false;
+        }
+
+        let self_begin = self.0.first().unwrap().begin;
+        let self_end = self.0.last().unwrap().end;
+
+        if range.begin <= self_begin {
+            match (self_end, range.end) {
+                (Some(_), None) => {
+                    return false;
+                }
+                (Some(self_end), Some(range_end)) if self_end <= range_end => {
+                    return false;
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(end) = range.end {
+            for j in (0..self.0.len()).rev() {
+                let v = &mut self.0[j];
+                if v.begin < end {
+                    match v.end {
+                        Some(this_end) if this_end < end => {}
+                        _ => v.end = Some(end),
+                    }
+                    break;
+                } else {
+                    self.0.pop();
+                }
+            }
+        }
+
+        let begin = range.begin;
+        let mut i = 0;
+        while i < self.0.len() {
+            let v = &mut self.0[i];
+
+            match v.end {
+                Some(e) if e <= begin => {
+                    i += 1;
+                    continue;
+                }
+                _ => {}
+            };
+
+            if v.begin < begin {
+                v.begin = begin;
+            }
+            break;
+        }
+        if i < self.0.len() {
+            self.0.drain(0..i);
+        } else {
+            self.0.clear()
+        }
+
+        true
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -714,10 +795,86 @@ mod tests {
 
     #[test]
     fn version_ranges_intersects_range() {
-        let r1 = into_ranges([(10, 20), (30, 40)]);
-        let r2 = VersionRange::bounded(VersionNumber(15), VersionNumber(35));
-        let expected = into_ranges([(15, 20), (30, 35)]);
-        assert_eq!(expected, r1.intersect_range(&r2));
+        #[track_caller]
+        fn assert_intersect_range<const N: usize, const M: usize>(
+            initial: [(i32, i32); N],
+            intersect_with: (i32, i32),
+            expected: [(i32, i32); M],
+        ) {
+            let initial = into_ranges(initial);
+            let mut as_ranges = initial.clone();
+            let intersect_with = into_range(intersect_with);
+            as_ranges.intersect_range(intersect_with);
+            let expected_ranges = into_ranges(expected);
+
+            assert_eq!(
+                as_ranges, expected_ranges,
+                "in assert_intersect_range(\n  {:?},\n  {:?},\n  {:?}\n)",
+                initial, intersect_with, expected
+            )
+        }
+
+        assert_intersect_range([], (0, -1), []);
+
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (35, -1),
+            [(35, 40), (50, 60)],
+        );
+
+        // check cases for begin (before all ranges, between ranges, at beginning, within, at end, after all)
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (5, 55),
+            [(10, 20), (30, 40), (50, 55)],
+        );
+
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (25, 55),
+            [(30, 40), (50, 55)],
+        );
+
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (30, 55),
+            [(30, 40), (50, 55)],
+        );
+
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (35, 55),
+            [(35, 40), (50, 55)],
+        );
+
+        assert_intersect_range([(10, 20), (30, 40), (50, 60)], (40, 55), [(50, 55)]);
+
+        assert_intersect_range([(10, 20), (30, 40), (50, 60)], (65, 75), []);
+
+        // And check similar cases for end
+        assert_intersect_range([(10, 20), (30, 40), (50, 60)], (0, 5), []);
+
+        assert_intersect_range([(10, 20), (30, 40), (50, 60)], (35, 45), [(35, 40)]);
+
+        assert_intersect_range([(10, 20), (30, 40), (50, 60)], (35, 50), [(35, 40)]);
+
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (35, 55),
+            [(35, 40), (50, 55)],
+        );
+
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (35, 60),
+            [(35, 40), (50, 60)],
+        );
+
+        assert_intersect_range(
+            [(10, 20), (30, 40), (50, 60)],
+            (35, 65),
+            [(35, 40), (50, 60)],
+        );
     }
 
     #[test]
