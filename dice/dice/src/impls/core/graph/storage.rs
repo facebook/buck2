@@ -180,6 +180,7 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::versions::VersionNumber;
 use crate::HashMap;
+use crate::HashSet;
 
 /// The actual incremental cache that checks versions and dependency's versions
 /// to maintain correct caching based on versions and the versions of its
@@ -525,10 +526,16 @@ impl VersionedGraph {
     }
 
     fn invalidate_rdeps(&mut self, version: VersionNumber, mut queue: Vec<DiceKey>) {
+        let mut queued: HashSet<_> = queue.iter().copied().collect();
+
         while let Some(rdep) = queue.pop() {
             if let Some(node) = self.nodes.get_mut(&rdep) {
                 if let Some(rdeps) = node.mark_invalidated(version) {
-                    queue.extend(rdeps);
+                    for dep in rdeps {
+                        if queued.insert(dep) {
+                            queue.push(dep);
+                        }
+                    }
                 }
             }
         }
