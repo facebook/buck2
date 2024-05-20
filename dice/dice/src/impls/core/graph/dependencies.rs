@@ -12,35 +12,10 @@
 use std::collections::hash_map::Entry;
 
 use allocative::Allocative;
-use dupe::Dupe;
 
-use crate::arc::Arc;
-use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::versions::VersionNumber;
 use crate::HashMap;
-
-#[derive(Allocative, Clone)]
-pub(crate) struct VersionedDependencies {
-    /// once the deps at a particular version is written, it is final and never modified
-    /// We only store the dependencies relevant to the most recent result
-    recorded_at: VersionNumber,
-    deps: Arc<SeriesParallelDeps>,
-}
-
-impl Dupe for VersionedDependencies {
-    // triomphe is dupe
-}
-
-impl VersionedDependencies {
-    pub(crate) fn new(recorded_at: VersionNumber, deps: Arc<SeriesParallelDeps>) -> Self {
-        Self { recorded_at, deps }
-    }
-
-    pub(crate) fn deps(&self) -> &Arc<SeriesParallelDeps> {
-        &self.deps
-    }
-}
 
 // the set of reverse dependencies of a node
 #[derive(Allocative, Clone, Debug)] // TODO(bobyf) remove need to clone

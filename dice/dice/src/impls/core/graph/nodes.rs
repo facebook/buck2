@@ -26,7 +26,6 @@ use sorted_vector_map::SortedVectorMap;
 
 use super::types::VersionedGraphResult;
 use crate::arc::Arc;
-use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::dependencies::VersionedRevDependencies;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::history::HistoryState;
@@ -129,7 +128,7 @@ impl VersionedGraphNode {
                 let entry = OccupiedGraphNode::new(
                     vac.key,
                     value,
-                    VersionedDependencies::new(version, Arc::new(SeriesParallelDeps::None)),
+                    Arc::new(SeriesParallelDeps::None),
                     CellHistory::verified(version),
                 );
                 *self = Self::Occupied(entry);
@@ -161,12 +160,12 @@ impl VersionedGraphNode {
             _ => unreachable!(),
         };
 
-        let (since, _end, mut hist) = history.make_new_verified_history(key.v, latest_dep_verified);
+        let (_since, _end, mut hist) =
+            history.make_new_verified_history(key.v, latest_dep_verified);
 
         hist.propagate_from_deps_version(key.v, first_dep_dirtied);
 
-        let new =
-            OccupiedGraphNode::new(key.k, value, VersionedDependencies::new(since, deps), hist);
+        let new = OccupiedGraphNode::new(key.k, value, deps, hist);
 
         let ret = new.computed_val();
 
@@ -206,7 +205,7 @@ pub(crate) struct OccupiedGraphNode {
 /// Meta data about a DICE node, which are its edges and history information
 #[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
 pub(crate) struct NodeMetadata {
-    pub(crate) deps: VersionedDependencies,
+    pub(crate) deps: Arc<SeriesParallelDeps>,
     pub(crate) rdeps: VersionedRevDependencies,
     pub(crate) hist: CellHistory,
 }
@@ -215,7 +214,7 @@ impl OccupiedGraphNode {
     pub(crate) fn new(
         key: DiceKey,
         res: DiceValidValue,
-        deps: VersionedDependencies,
+        deps: Arc<SeriesParallelDeps>,
         hist: CellHistory,
     ) -> Self {
         Self {
@@ -275,19 +274,14 @@ impl OccupiedGraphNode {
             return InvalidateResult::NoChange;
         }
 
-        let (since, _end, mut hist) = self
+        let (_since, _end, mut hist) = self
             .metadata()
             .hist
             .make_new_verified_history(version, None);
 
         hist.propagate_from_deps_version(version, None);
 
-        let new = OccupiedGraphNode::new(
-            self.key,
-            value,
-            VersionedDependencies::new(since, Arc::new(SeriesParallelDeps::None)),
-            hist,
-        );
+        let new = OccupiedGraphNode::new(self.key, value, Arc::new(SeriesParallelDeps::None), hist);
 
         *self = new;
 
@@ -310,7 +304,7 @@ impl OccupiedGraphNode {
                         VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
                             entry: self.val().dupe(),
                             prev_verified_version,
-                            deps_to_validate: self.metadata().deps.deps().dupe(),
+                            deps_to_validate: self.metadata().deps.dupe(),
                         })
                     }
                     None => VersionedGraphResult::Compute,
@@ -457,7 +451,6 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::arc::Arc;
-    use crate::impls::core::graph::dependencies::VersionedDependencies;
     use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::impls::core::graph::history::testing::HistoryExt;
     use crate::impls::core::graph::history::CellHistory;
@@ -497,7 +490,7 @@ mod tests {
         let mut entry = OccupiedGraphNode::new(
             DiceKey { index: 1335 },
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-            VersionedDependencies::new(VersionNumber::new(0), deps0.dupe()),
+            deps0.dupe(),
             CellHistory::testing_new(
                 &[VersionNumber::new(0)],
                 &[VersionNumber::new(1), VersionNumber::new(2)],
@@ -509,7 +502,7 @@ mod tests {
             .hist
             .get_history(&VersionNumber::new(0))
             .assert_verified();
-        assert_eq!(entry.metadata().deps.deps(), &deps0);
+        assert_eq!(&entry.metadata().deps, &deps0);
 
         entry.mark_unchanged(VersionNumber::new(1), None, None);
         entry

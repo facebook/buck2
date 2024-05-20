@@ -63,7 +63,7 @@ impl VersionedGraph {
                     node_id: NodeID(key.index as usize),
                     kind: GraphNodeKind::Occupied,
                     history: o.metadata().hist.to_introspectable(),
-                    deps: Some(visit_deps(o.metadata().deps.deps().iter_keys())),
+                    deps: Some(visit_deps(o.metadata().deps.iter_keys())),
                     rdeps: Some(visit_rdeps(o.metadata().rdeps.rdeps())),
                 }),
                 VersionedGraphNode::Vacant(_) => {
@@ -92,7 +92,7 @@ impl VersionedGraph {
                 *k,
                 versioned_node.unpack_occupied().map_or_else(
                     || Arc::new(Vec::new()),
-                    |node| Arc::new(node.metadata().deps.deps().iter_keys().collect()),
+                    |node| Arc::new(node.metadata().deps.iter_keys().collect()),
                 ),
             );
         }

@@ -163,7 +163,6 @@ use allocative::Allocative;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
-use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::nodes::InjectedGraphNode;
 use crate::impls::core::graph::nodes::InvalidateResult;
@@ -286,7 +285,7 @@ impl VersionedGraph {
                         VersionedGraphNode::Occupied(OccupiedGraphNode::new(
                             key.k,
                             value,
-                            VersionedDependencies::new(key.v, Arc::new(SeriesParallelDeps::None)),
+                            Arc::new(SeriesParallelDeps::None),
                             CellHistory::verified(key.v),
                         ))
                     }
@@ -336,8 +335,7 @@ impl VersionedGraph {
         let since = latest_dep_verified.unwrap_or(v);
         let mut hist = CellHistory::verified(since);
         hist.propagate_from_deps_version(since, first_dep_dirtied);
-        let entry =
-            OccupiedGraphNode::new(key, value, VersionedDependencies::new(since, deps), hist);
+        let entry = OccupiedGraphNode::new(key, value, deps, hist);
 
         let res = entry.computed_val();
         self.nodes.insert(key, VersionedGraphNode::Occupied(entry));
@@ -377,7 +375,7 @@ impl ValueReusable {
     ) -> bool {
         match self {
             ValueReusable::EqualityBased => {
-                if new_deps != &***value.metadata().deps.deps() {
+                if new_deps != &**value.metadata().deps {
                     return false;
                 }
                 new_value.equality(value.val())
