@@ -15,6 +15,10 @@ import {Link, TARGET_VIEW} from './Router'
 function List(props: {attr: (i: number) => string; length: number}): JSX.Element {
   const {allTargets} = useContext(DataContext)
 
+  if (props.length === 0) {
+    return <span>[]</span>
+  }
+
   const items: JSX.Element[] = []
   for (let i = 0; i < props.length; i++) {
     const value = props.attr(i)
