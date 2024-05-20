@@ -414,34 +414,40 @@ pub(crate) mod testing {
     }
 
     impl VersionedCacheResultAssertsExt for VersionedGraphResult {
+        #[track_caller]
         fn assert_compute(&self) {
-            self.unpack_compute().unwrap_or_else(|| {
-                panic!(
+            match self.unpack_compute() {
+                Some(v) => v,
+                None => panic!(
                     "expected Compute, but was {} ({:?})",
                     self.variant_name(),
                     self
-                )
-            })
+                ),
+            }
         }
 
+        #[track_caller]
         fn assert_match(&self) -> &DiceComputedValue {
-            self.unpack_match().unwrap_or_else(|| {
-                panic!(
+            match self.unpack_match() {
+                Some(v) => v,
+                None => panic!(
                     "expected Match, but was {} ({:?})",
                     self.variant_name(),
                     self
-                )
-            })
+                ),
+            }
         }
 
+        #[track_caller]
         fn assert_check_deps(&self) -> &VersionedGraphResultMismatch {
-            self.unpack_check_deps().unwrap_or_else(|| {
-                panic!(
+            match self.unpack_check_deps() {
+                Some(v) => v,
+                None => panic!(
                     "expected CheckDeps, but was {} ({:?})",
                     self.variant_name(),
                     self
-                )
-            })
+                ),
+            }
         }
     }
 }
