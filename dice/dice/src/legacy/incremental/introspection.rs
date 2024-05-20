@@ -167,8 +167,8 @@ where
                 nodes: e
                     .value()
                     .iter()
-                    .map(|(v, node)| (v.to_introspectable(), visit_node(node, &mut map_id)))
-                    .collect(),
+                    .last()
+                    .and_then(|(_v, node)| visit_node(node, &mut map_id)),
             }
         }))
     }

@@ -89,10 +89,9 @@ async fn test_a_multiversion_bug() {
     assert_eq!(ctx1.compute(&Derived::Mid).await.unwrap(), 1);
     assert_eq!(ctx3.compute(&Derived::Mid).await.unwrap(), 1);
 
-    assert_eq!(ctx2.compute(&Derived::Mid).await.unwrap(), 2, "This fails!");
-
+    assert_eq!(ctx2.compute(&Derived::Mid).await.unwrap(), 2);
     assert_eq!(ctx2.compute(&Derived::Top).await.unwrap(), 2);
 
-    assert_eq!(ctx1.compute(&Derived::Top).await.unwrap(), 1);
+    assert_eq!(ctx1.compute(&Derived::Top).await.unwrap(), 1, "This fails!");
     assert_eq!(ctx3.compute(&Derived::Top).await.unwrap(), 1);
 }

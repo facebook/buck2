@@ -17,10 +17,15 @@
 //! number for each cache entry and a global version counter to determine
 //! up-to-date-ness of cache entries.
 
+use std::ops::Bound;
+
 use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
+use itertools::Either;
+use sorted_vector_map::SortedVectorMap;
 
+use super::types::VersionedGraphResult;
 use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::dependencies::VersionedRevDependencies;
@@ -37,28 +42,62 @@ use crate::versions::VersionNumber;
 #[derive(UnpackVariants, Allocative)]
 pub(crate) enum VersionedGraphNode {
     Occupied(OccupiedGraphNode),
+    Injected(InjectedGraphNode),
     Vacant(VacantGraphNode),
 }
 
 impl VersionedGraphNode {
-    pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> bool {
+    pub(crate) fn force_dirty(
+        &mut self,
+        v: VersionNumber,
+    ) -> Option<impl Iterator<Item = DiceKey> + '_> {
         match self {
-            VersionedGraphNode::Occupied(e) => e.metadata.hist.force_dirty(v),
-            VersionedGraphNode::Vacant(e) => e.hist.force_dirty(v),
+            VersionedGraphNode::Occupied(e) => {
+                let v = if e.metadata.hist.force_dirty(v) {
+                    Some(e.metadata.rdeps.rdeps().keys().cloned())
+                } else {
+                    None
+                };
+                v.map(Either::Left)
+            }
+            VersionedGraphNode::Vacant(e) => {
+                let v = if e.hist.force_dirty(v) {
+                    Some(std::iter::empty())
+                } else {
+                    None
+                };
+                v.map(Either::Right)
+            }
+            VersionedGraphNode::Injected(e) => {
+                panic!("injected keys don't get invalidated (`{:?}`)", e)
+            }
         }
     }
 
-    pub(crate) fn mark_invalidated(&mut self, v: VersionNumber) -> bool {
+    pub(crate) fn mark_invalidated(
+        &mut self,
+        v: VersionNumber,
+    ) -> Option<impl Iterator<Item = DiceKey> + '_> {
         match self {
-            VersionedGraphNode::Occupied(e) => e.metadata.hist.mark_invalidated(v),
-            VersionedGraphNode::Vacant(e) => e.hist.mark_invalidated(v),
-        }
-    }
-
-    pub(crate) fn history(&self) -> &CellHistory {
-        match self {
-            VersionedGraphNode::Occupied(o) => &o.metadata().hist,
-            VersionedGraphNode::Vacant(v) => &v.hist,
+            VersionedGraphNode::Occupied(e) => {
+                let v = if e.metadata.hist.mark_invalidated(v) {
+                    Some(e.metadata.rdeps.rdeps().keys().cloned())
+                } else {
+                    None
+                };
+                v.map(Either::Left)
+            }
+            VersionedGraphNode::Vacant(e) => {
+                let v = if e.hist.mark_invalidated(v) {
+                    Some(std::iter::empty())
+                } else {
+                    None
+                };
+                v.map(Either::Right)
+            }
+            VersionedGraphNode::Injected(e) => {
+                panic!("injected keys don't get invalidated (`{:?}`)", e)
+            }
         }
     }
 }
@@ -103,6 +142,10 @@ impl OccupiedGraphNode {
 
     pub(crate) fn metadata_mut(&mut self) -> &mut NodeMetadata {
         &mut self.metadata
+    }
+
+    pub(crate) fn history(&self) -> &CellHistory {
+        &self.metadata().hist
     }
 
     pub(crate) fn mark_unchanged(
@@ -151,6 +194,103 @@ impl OccupiedGraphNode {
 pub(crate) struct VacantGraphNode {
     pub(crate) key: DiceKey,
     pub(crate) hist: CellHistory,
+}
+
+/// An entry in the graph for an InjectedKey. This will store all injected values it ever sees because
+/// we cannot recompute them if they are dropped.
+#[derive(Allocative, Debug)]
+pub(crate) struct InjectedGraphNode {
+    key: DiceKey,
+    values: SortedVectorMap<VersionNumber, InjectedNodeData>,
+}
+
+#[derive(Allocative, Debug)]
+pub(crate) struct InjectedNodeData {
+    pub(crate) value: DiceValidValue,
+    pub(crate) history: CellHistory,
+    pub(crate) rdeps: VersionedRevDependencies,
+}
+
+impl InjectedGraphNode {
+    /// Returns a list of rdeps to invalidate and a bool indicating if the value changed. Should only ever be called at increasing version numbers.
+    pub(crate) fn on_injected(
+        &mut self,
+        version: VersionNumber,
+        value: DiceValidValue,
+    ) -> (Vec<DiceKey>, bool) {
+        let rdeps = match self.values.values_mut().next_back() {
+            Some(v) if v.value.equality(&value) => {
+                return (Vec::new(), false);
+            }
+            Some(v) => {
+                v.history.mark_invalidated(version);
+                v.rdeps.rdeps().keys().cloned().collect()
+            }
+            None => Vec::new(),
+        };
+
+        self.values.insert(
+            version,
+            InjectedNodeData {
+                value,
+                history: CellHistory::verified(version),
+                rdeps: VersionedRevDependencies::new(),
+            },
+        );
+
+        (rdeps, true)
+    }
+
+    pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
+        match self
+            .values
+            .range((Bound::Unbounded, Bound::Included(v)))
+            .last()
+        {
+            Some((_, v)) => VersionedGraphResult::Match(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(v.value.dupe()),
+                Arc::new(v.history.clone()),
+            )),
+            None => VersionedGraphResult::Compute,
+        }
+    }
+
+    pub(crate) fn add_rdep_at(
+        &mut self,
+        v: VersionNumber,
+        k: DiceKey,
+    ) -> (Option<VersionNumber>, Option<VersionNumber>) {
+        let mut first_dirtied = None;
+        for (version, value) in self.values.iter_mut().rev() {
+            if *version <= v {
+                value.rdeps.add_rdep(k, v);
+                return (Some(*version), first_dirtied);
+            }
+            first_dirtied = Some(*version);
+        }
+        unreachable!()
+    }
+
+    pub(crate) fn new(k: DiceKey, v: VersionNumber, value: DiceValidValue) -> InjectedGraphNode {
+        InjectedGraphNode {
+            key: k,
+            values: [(
+                v,
+                InjectedNodeData {
+                    value,
+                    history: CellHistory::verified(v),
+                    rdeps: VersionedRevDependencies::new(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        }
+    }
+
+    pub(crate) fn latest(&self) -> &InjectedNodeData {
+        // We don't ever create an empty values map
+        self.values.values().next_back().unwrap()
+    }
 }
 
 #[cfg(test)]

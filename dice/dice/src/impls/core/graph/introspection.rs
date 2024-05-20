@@ -29,13 +29,8 @@ use crate::HashMap;
 use crate::HashSet;
 
 pub struct VersionedGraphIntrospectable {
-    nodes: HashMap<DiceKey, GraphNodesForKey>,
+    nodes: HashMap<DiceKey, SerializedGraphNode>,
     edges: HashMap<DiceKey, Arc<Vec<DiceKey>>>,
-}
-
-pub(crate) struct GraphNodesForKey {
-    pub k: DiceKey,
-    pub nodes: BTreeMap<VersionNumber, Option<SerializedGraphNode>>,
 }
 
 impl VersionedGraphIntrospectable {
@@ -47,8 +42,10 @@ impl VersionedGraphIntrospectable {
     ) -> impl Iterator<Item = (&'a DiceKey, &'a Arc<Vec<DiceKey>>)> + 'a {
         self.edges.iter()
     }
-    pub(crate) fn nodes<'a>(&'a self) -> impl Iterator<Item = &'a GraphNodesForKey> + 'a {
-        self.nodes.values()
+    pub(crate) fn nodes<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a DiceKey, &'a SerializedGraphNode)> + 'a {
+        self.nodes.iter()
     }
     pub(crate) fn len_for_introspection(&self) -> usize {
         self.nodes.len()
@@ -73,30 +70,31 @@ impl VersionedGraph {
                     // TODO(bobyf) should probably write the metadata of vacant
                     None
                 }
+                VersionedGraphNode::Injected(inj) => {
+                    let latest = inj.latest();
+                    Some(SerializedGraphNode {
+                        node_id: NodeID(key.index as usize),
+                        kind: GraphNodeKind::Occupied,
+                        history: latest.history.to_introspectable(),
+                        deps: None,
+                        rdeps: Some(visit_rdeps(latest.rdeps.rdeps())),
+                    })
+                }
             }
         }
 
-        for (k, versioned_nodes) in self.last_n.iter() {
-            nodes.insert(
-                *k,
-                GraphNodesForKey {
-                    k: *k,
-                    nodes: versioned_nodes
-                        .iter()
-                        .map(|(v, node)| (v.to_introspectable(), visit_node(*k, node)))
-                        .collect(),
-                },
-            );
-
-            if let Some(last) = versioned_nodes.iter().last() {
-                edges.insert(
-                    *k,
-                    last.1.unpack_occupied().map_or_else(
-                        || Arc::new(Vec::new()),
-                        |node| Arc::new(node.metadata().deps.deps().iter_keys().collect()),
-                    ),
-                );
+        for (k, versioned_node) in self.nodes.iter() {
+            if let Some(serialized) = visit_node(*k, versioned_node) {
+                nodes.insert(*k, serialized);
             }
+
+            edges.insert(
+                *k,
+                versioned_node.unpack_occupied().map_or_else(
+                    || Arc::new(Vec::new()),
+                    |node| Arc::new(node.metadata().deps.deps().iter_keys().collect()),
+                ),
+            );
         }
 
         fn visit_deps<'a>(deps: impl Iterator<Item = DiceKey> + 'a) -> HashSet<KeyID> {

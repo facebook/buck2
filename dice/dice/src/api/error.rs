@@ -47,6 +47,10 @@ impl DiceError {
     pub fn duplicate_activation_data() -> Self {
         DiceError(Arc::new(DiceErrorImpl::DuplicateActivationData))
     }
+
+    pub(crate) fn injected_key_invalidated(key: Arc<dyn RequestedKey>) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::InjectedKeyGotInvalidation(key)))
+    }
 }
 
 #[derive(Debug, Error, Allocative)]
@@ -60,6 +64,8 @@ pub(crate) enum DiceErrorImpl {
     DuplicateChange(Arc<dyn RequestedKey>),
     #[error("Key `{0}` was reported as changed to an invalid value")]
     ChangedToInvalid(Arc<dyn RequestedKey>),
+    #[error("Key `{0}` is an InjectedKey and received an invalidation")]
+    InjectedKeyGotInvalidation(Arc<dyn RequestedKey>),
     /// NOTE: This isn't an error users normally see, since if the user is waiting on a result, the
     /// future doesn't get cancelled.
     #[error("The evaluation of this key was cancelled")]

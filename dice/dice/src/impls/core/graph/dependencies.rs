@@ -55,7 +55,7 @@ impl VersionedDependencies {
 }
 
 // the set of reverse dependencies of a node
-#[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
+#[derive(Allocative, Clone, Debug)] // TODO(bobyf) remove need to clone
 pub(crate) struct VersionedRevDependencies {
     rdeps: HashMap<DiceKey, VersionNumber>,
 }

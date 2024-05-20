@@ -131,7 +131,7 @@ impl CoreState {
 
         // Do the actual drop on a different thread because we may have to drop a lot of stuff
         // here.
-        let map = std::mem::take(&mut self.graph.last_n);
+        let map = std::mem::take(&mut self.graph.nodes);
         thread::Builder::new()
             .name("dice-drop-everything".to_owned())
             .spawn(move || drop(map))
@@ -149,7 +149,7 @@ impl CoreState {
         }
 
         Metrics {
-            key_count: self.graph.last_n.len(),
+            key_count: self.graph.nodes.len(),
             currently_active_key_count: currently_running_key_count,
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }

@@ -158,17 +158,16 @@
 //! value-based dep checks.
 
 use std::cmp;
-use std::ops::Bound;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::history::HistoryState;
+use crate::impls::core::graph::nodes::InjectedGraphNode;
 use crate::impls::core::graph::nodes::OccupiedGraphNode;
 use crate::impls::core::graph::nodes::VacantGraphNode;
 use crate::impls::core::graph::nodes::VersionedGraphNode;
@@ -185,9 +184,6 @@ use crate::HashMap;
 /// The actual incremental cache that checks versions and dependency's versions
 /// to maintain correct caching based on versions and the versions of its
 /// dependencies.
-///
-/// TODO refactor this so that the storage doesn't handle multi version, instead the nodes do, and
-/// support different node types of different storage persistency.
 #[derive(Allocative)]
 pub(crate) struct VersionedGraph {
     /// storage that stores every version forever
@@ -195,13 +191,13 @@ pub(crate) struct VersionedGraph {
     /// the node changes. Corresponding to each key is a node storing the values and the history.
     /// VacantGraphEntries can only be present when no other entries are present for the key at
     /// any version.
-    pub(crate) last_n: HashMap<DiceKey, SortedVectorMap<VersionNumber, VersionedGraphNode>>,
+    pub(crate) nodes: HashMap<DiceKey, VersionedGraphNode>,
 }
 
 impl VersionedGraph {
     pub(crate) fn new() -> Self {
         Self {
-            last_n: Default::default(),
+            nodes: Default::default(),
         }
     }
 
@@ -235,43 +231,18 @@ impl VersionedGraph {
             VersionedGraphResult::Compute
         }
 
-        if let Some(versioned) = self.last_n.get(&key.k) {
-            let mut potential = versioned.range((
-                Bound::Included(VersionNumber::new(0)),
-                Bound::Included(key.v),
-            ));
-            if let Some(found) = potential.next_back().map(|e| match e.1 {
+        fn handle_injected(
+            key: VersionedGraphKey,
+            entry: &InjectedGraphNode,
+        ) -> VersionedGraphResult {
+            entry.at_version(key.v)
+        }
+
+        if let Some(entry) = self.nodes.get(&key.k) {
+            match entry {
                 VersionedGraphNode::Occupied(entry) => handle_occupied(key, entry),
                 VersionedGraphNode::Vacant(_) => handle_vacant(),
-            }) {
-                found
-            } else {
-                // this branch takes care of an ongoing computation that is operating on an older
-                // version than anything stored currently.
-                versioned
-                    .range((Bound::Included(key.v), Bound::Unbounded))
-                    .find_map(|(v, e)| match e {
-                        VersionedGraphNode::Occupied(e) => Some((v, e)),
-                        VersionedGraphNode::Vacant(_) => None,
-                    })
-                    .map_or_else(
-                        || VersionedGraphResult::Compute,
-                        |(_, entry)| match entry
-                            .metadata()
-                            .hist
-                            .get_verified_ranges()
-                            .find_value_upper_bound(key.v)
-                        {
-                            Some(prev_verified_version) => {
-                                VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
-                                    entry: entry.val().dupe(),
-                                    prev_verified_version,
-                                    deps_to_validate: entry.metadata().deps.deps(),
-                                })
-                            }
-                            None => VersionedGraphResult::Compute,
-                        },
-                    )
+                VersionedGraphNode::Injected(entry) => handle_injected(key, entry),
             }
         } else {
             VersionedGraphResult::Compute
@@ -290,40 +261,25 @@ impl VersionedGraph {
         deps: Arc<SeriesParallelDeps>,
         storage_type: StorageType,
     ) -> (DiceComputedValue, bool) {
-        let num_to_keep = match storage_type {
-            StorageType::Normal => 1,
-            StorageType::Injected => {
-                unreachable!(
-                    "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
-                );
-            }
+        if let StorageType::Injected = storage_type {
+            unreachable!(
+                "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
+            );
         };
-        // persistent keys, if any changes, are committed at the moment when the version
-        // is increased. therefore, it must be the case that the current update for the
-        // persistent key is the largest/newest version. it's also the case that they are
-        // never updated to the cache more than once per version.
-        // TODO refactor this to be less error prone.
-
-        // we pick the nearest entry because the closest version number to the current key would
-        // have the least number of changes recorded in dice, which we assume naively to mean
-        // most likely to reuse a node. We could implement this to check for reuse against both
-        // the previous and the next version, but that complexity is likely not worth the benefit
-        // of trying to reuse a node. Maybe this is worth revisiting at some point.
-        let nearest = {
-            let versioned_map = self.last_n.entry(key.k).or_default();
-            Self::nearest_entry(&key, versioned_map)
-        };
-
         let mut latest_dep_verified = None;
         let mut first_dep_dirtied = None;
+
+        // Add rdeps.
         for dep in deps.iter_keys() {
-            match self.get_internal(VersionedGraphKey::new(key.v, dep.dupe())) {
+            match self.nodes.get_mut(&dep) {
                 None => {
                     unreachable!("dependency should exist")
                 }
                 Some(node) => match node {
                     VersionedGraphNode::Occupied(occ) => {
                         if let Some(dep_v) = occ.metadata().hist.latest_verified_before(key.v) {
+                            // TODO(cjhopman): Isn't there a bug here? The dep may have a dirty that
+                            // happened between this latest_verified_before and key.v.
                             latest_dep_verified = cmp::max(latest_dep_verified, Some(dep_v));
 
                             let dep_d_v = occ.metadata().hist.first_dirty_after(key.v);
@@ -338,23 +294,32 @@ impl VersionedGraph {
                     VersionedGraphNode::Vacant(_) => {
                         unreachable!("dependency should exist")
                     }
+                    VersionedGraphNode::Injected(inj) => {
+                        let (first_version_valid, version_dirtied) = inj.add_rdep_at(key.v, key.k);
+                        latest_dep_verified = cmp::max(latest_dep_verified, first_version_valid);
+                        first_dep_dirtied =
+                            cmp::min(first_dep_dirtied.or(version_dirtied), version_dirtied);
+                    }
                 },
             }
         }
 
-        if let Some(key_of_e) = nearest {
-            self.update_entry(
-                key_of_e,
+        // Update entry.
+        match self.nodes.get_mut(&key.k) {
+            node @ Some(VersionedGraphNode::Occupied(..))
+            | node @ Some(VersionedGraphNode::Vacant(..)) => Self::update_entry(
+                node.unwrap(),
                 key,
                 value,
                 first_dep_dirtied,
                 latest_dep_verified,
                 reusable,
                 deps,
-                num_to_keep,
-            )
-        } else {
-            (
+            ),
+            Some(VersionedGraphNode::Injected(..)) => {
+                unreachable!("injected nodes shouldn't be computed")
+            }
+            None => (
                 self.update_empty(
                     key.k,
                     key.v,
@@ -364,7 +329,7 @@ impl VersionedGraph {
                     deps,
                 ),
                 true,
-            )
+            ),
         }
     }
 
@@ -378,123 +343,101 @@ impl VersionedGraph {
         let rdeps = {
             match invalidate {
                 invalidate @ (InvalidateKind::ForceDirty | InvalidateKind::Invalidate) => {
-                    let versioned_map = self
-                        .last_n
-                        .entry(key.k)
-                        .or_insert_with(SortedVectorMap::new);
-                    if let Some(e) = versioned_map
-                        .range_mut((Bound::Unbounded, Bound::Included(key.v)))
-                        .next_back()
-                        .map(|(_, e)| e)
-                    {
-                        let dirtied = match invalidate {
-                            InvalidateKind::ForceDirty => e.force_dirty(key.v),
-                            InvalidateKind::Invalidate => e.mark_invalidated(key.v),
+                    match self.nodes.get_mut(&key.k) {
+                        Some(e) => match invalidate {
+                            InvalidateKind::ForceDirty => match e.force_dirty(key.v) {
+                                Some(rdeps) => rdeps.collect(),
+                                None => {
+                                    return false;
+                                }
+                            },
+                            InvalidateKind::Invalidate => match e.mark_invalidated(key.v) {
+                                Some(rdeps) => rdeps.collect(),
+                                None => {
+                                    return false;
+                                }
+                            },
                             _ => unreachable!("handled elsewhere"),
-                        };
+                        },
+                        None => {
+                            let mut entry = VersionedGraphNode::Vacant(VacantGraphNode {
+                                key: key.k,
+                                hist: CellHistory::empty(),
+                            });
 
-                        if dirtied {
-                            if let Some(e) = e.unpack_occupied() {
-                                let queue = {
-                                    let metadata = e.metadata();
-                                    let rdeps = metadata.rdeps.rdeps();
-
-                                    rdeps
-                                        .iter()
-                                        .map(|(r, v)| (r.dupe(), *v))
-                                        .collect::<Vec<_>>()
-                                };
-
-                                queue
-                            } else {
-                                return true;
-                            }
-                        } else {
-                            return false;
+                            entry.mark_invalidated(key.v);
+                            self.nodes.insert(key.k, entry);
+                            return true;
                         }
-                    } else {
-                        let mut entry = VersionedGraphNode::Vacant(VacantGraphNode {
-                            key: key.k,
-                            hist: CellHistory::empty(),
-                        });
-
-                        entry.mark_invalidated(key.v);
-
-                        versioned_map.insert(key.v, entry);
-
-                        return true;
                     }
                 }
                 InvalidateKind::Update(value, storage_type) => {
-                    let num_to_keep = match storage_type {
-                        StorageType::Normal => 1,
-                        StorageType::Injected => usize::MAX,
-                    };
-                    let rdeps = {
-                        let entry = self.last_n.get(&key.k).and_then(|versioned_map| {
-                            versioned_map
-                                .range((Bound::Unbounded, Bound::Included(key.v)))
-                                .next_back()
-                                .map(|(_, e)| e)
-                        });
+                    match self.nodes.get_mut(&key.k) {
+                        Some(VersionedGraphNode::Occupied(occ)) => {
+                            if occ.val().equality(&value) {
+                                // TODO(cjhopman): This is wrong. The node could currently be in a dirtied state and we
+                                // aren't recording that the value is verified at this version.
+                                return false;
+                            }
 
-                        match entry {
-                            Some(VersionedGraphNode::Occupied(occ)) => {
-                                if !occ.val().equality(&value) {
-                                    occ.metadata()
-                                        .rdeps
-                                        .rdeps()
-                                        .iter()
-                                        .map(|(r, v)| (r.dupe(), *v))
-                                        .collect::<Vec<_>>()
-                                } else {
+                            let (since, _end, mut hist) =
+                                occ.metadata().hist.make_new_verified_history(key.v, None);
+
+                            hist.propagate_from_deps_version(key.v, None);
+
+                            let new = OccupiedGraphNode::new(
+                                key.k,
+                                value,
+                                VersionedDependencies::new(
+                                    since,
+                                    Arc::new(SeriesParallelDeps::new()),
+                                ),
+                                hist,
+                            );
+
+                            *occ = new;
+
+                            occ.metadata()
+                                .rdeps
+                                .rdeps()
+                                .iter()
+                                .map(|(r, _)| r.dupe())
+                                .collect::<Vec<_>>()
+                        }
+                        Some(VersionedGraphNode::Injected(inj)) => {
+                            match inj.on_injected(key.v, value) {
+                                (rdeps, false) => {
+                                    assert!(rdeps.is_empty());
                                     return false;
                                 }
+                                (rdeps, true) => rdeps,
                             }
-                            _ => vec![],
                         }
-                    };
+                        _ => match storage_type {
+                            StorageType::Normal => {
+                                let entry = VersionedGraphNode::Occupied(OccupiedGraphNode::new(
+                                    key.k,
+                                    value,
+                                    VersionedDependencies::new(
+                                        key.v,
+                                        Arc::new(SeriesParallelDeps::new()),
+                                    ),
+                                    CellHistory::verified(key.v),
+                                ));
 
-                    let versioned_map = self.last_n.entry(key.k).or_default();
-                    let fixup = if let Some((key_of_e, entry)) = versioned_map
-                        .range_mut((Bound::Unbounded, Bound::Included(key.v)))
-                        .next_back()
-                    {
-                        let (since, end, mut hist) =
-                            entry.history().make_new_verified_history(key.v, None);
+                                self.nodes.insert(key.k, entry);
+                                return true;
+                            }
+                            StorageType::Injected => {
+                                let entry = VersionedGraphNode::Injected(InjectedGraphNode::new(
+                                    key.k, key.v, value,
+                                ));
 
-                        hist.propagate_from_deps_version(key.v, None);
-
-                        let new = OccupiedGraphNode::new(
-                            key.k,
-                            value,
-                            VersionedDependencies::new(since, Arc::new(SeriesParallelDeps::new())),
-                            hist,
-                        );
-
-                        MapFixup::NewEntry {
-                            since,
-                            end,
-                            new,
-                            key_of_e: *key_of_e,
-                            num_to_keep,
-                        }
-                    } else {
-                        let entry = VersionedGraphNode::Occupied(OccupiedGraphNode::new(
-                            key.k,
-                            value,
-                            VersionedDependencies::new(key.v, Arc::new(SeriesParallelDeps::new())),
-                            CellHistory::verified(key.v),
-                        ));
-
-                        versioned_map.insert(key.v, entry);
-
-                        return true;
-                    };
-
-                    fixup.fixup(versioned_map);
-
-                    rdeps
+                                self.nodes.insert(key.k, entry);
+                                return true;
+                            }
+                        },
+                    }
                 }
             }
         };
@@ -506,70 +449,6 @@ impl VersionedGraph {
     // -----------------------------------------------------------------------------
     // ------------------------- Implementation functions below --------------------
     // -----------------------------------------------------------------------------
-
-    /// gets the cache entry corresponding to the cache entry if up to date.
-    /// returns 'None' if entry is missing or versions are out of date.
-    fn get_internal<'a>(
-        &'a mut self,
-        key: VersionedGraphKey,
-    ) -> Option<&'a mut VersionedGraphNode> {
-        if let Some(versioned) = self.last_n.get_mut(&key.k) {
-            let v = versioned
-                .range((
-                    Bound::Included(VersionNumber::new(0)),
-                    Bound::Included(key.v),
-                ))
-                .next_back()
-                .map(|e| *e.0);
-
-            match v {
-                None => {
-                    // this branch takes care of an ongoing computation that is operating on an older
-                    // version than anything stored currently. However, it has a problem where it's nodes
-                    // would fail to share work due to nothing going into the cache if its evaluating
-                    // to a different result. TODO add some per ctx result caching for old versions
-                    versioned
-                        .range_mut((Bound::Included(key.v), Bound::Unbounded))
-                        .map(|(_v, e)| e)
-                        .next()
-                }
-                Some(v) => versioned.get_mut(&v),
-            }
-        } else {
-            None
-        }
-    }
-
-    /// find the nearest entry to the given key, preferring the smaller version number when tied
-    fn nearest_entry<'a>(
-        key: &VersionedGraphKey,
-        versioned_map: &'a SortedVectorMap<VersionNumber, VersionedGraphNode>,
-    ) -> Option<VersionNumber> {
-        let newest_previous = versioned_map
-            .range((
-                Bound::Included(VersionNumber::new(0)),
-                Bound::Included(key.v),
-            ))
-            .next_back()
-            .map(|(v, _e)| *v);
-        let oldest_newer = versioned_map
-            .range((Bound::Included(key.v), Bound::Unbounded))
-            .next()
-            .map(|(v, _e)| *v);
-
-        match (newest_previous, oldest_newer) {
-            (Some(prev_v), Some(next_v)) => {
-                if next_v - key.v < prev_v - key.v {
-                    Some(next_v)
-                } else {
-                    Some(prev_v)
-                }
-            }
-            (Some(x), None) => Some(x),
-            (None, Some(x)) => Some(x),
-            (None, None) => None,
-        }
-    }
 
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps), fields(key = ?key, v = %v, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
     fn update_empty(
@@ -590,100 +469,66 @@ impl VersionedGraph {
             OccupiedGraphNode::new(key, value, VersionedDependencies::new(since, deps), hist);
 
         let res = entry.computed_val();
-
-        self.last_n
-            .get_mut(&key)
-            .unwrap()
-            .insert(v, VersionedGraphNode::Occupied(entry));
-
+        self.nodes.insert(key, VersionedGraphNode::Occupied(entry));
         res
     }
 
     /// Returns the newly updated value for the key, and whether or not any state changed.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps, num_to_keep, reusable), fields(key = ?key, key_of_e = %key_of_e, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(entry, value, deps, reusable), fields(key = ?key, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
     fn update_entry(
-        &mut self,
-        key_of_e: VersionNumber,
+        entry: &mut VersionedGraphNode,
         key: VersionedGraphKey,
         value: DiceValidValue,
         first_dep_dirtied: Option<VersionNumber>,
         latest_dep_verified: Option<VersionNumber>,
         reusable: ValueReusable,
         deps: Arc<SeriesParallelDeps>,
-        num_to_keep: usize,
     ) -> (DiceComputedValue, bool) {
-        let versioned_map = self.last_n.get_mut(&key.k).unwrap();
-        let (ret, map_fixup) = match versioned_map.get_mut(&key_of_e).unwrap() {
+        let history = match entry {
             VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, entry) => {
                 debug!("marking graph entry as unchanged");
-                let since =
-                    entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied, deps);
-
+                entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied, deps);
                 let ret = entry.computed_val();
+                return (ret, false);
+            }
+            VersionedGraphNode::Occupied(entry) => entry.history(),
+            VersionedGraphNode::Vacant(entry) => &entry.hist,
+            _ => unreachable!(),
+        };
 
-                (ret, MapFixup::Reused { since, key_of_e })
+        let (since, _end, mut hist) = history.make_new_verified_history(key.v, latest_dep_verified);
+
+        hist.propagate_from_deps_version(key.v, first_dep_dirtied);
+
+        let new =
+            OccupiedGraphNode::new(key.k, value, VersionedDependencies::new(since, deps), hist);
+
+        let ret = new.computed_val();
+
+        match entry {
+            VersionedGraphNode::Occupied(entry)
+                if entry.metadata().hist.first_verified_after(key.v).is_some() =>
+            {
+                debug!("skipping new graph entry because value is older than current entry");
+                // TODO(cjhopman): Returning `true` here matches previous behavior, but it seems odd
+                // that we claim something changed when we don't change anything. It's likely that the
+                // the return value actually is used to mean something different than that we changed
+                // something.
+                (ret, true)
             }
             entry => {
                 debug!("making new graph entry because value not reusable");
-
-                let (since, end, mut hist) = entry
-                    .history()
-                    .make_new_verified_history(key.v, latest_dep_verified);
-
-                hist.propagate_from_deps_version(key.v, first_dep_dirtied);
-
-                let new = OccupiedGraphNode::new(
-                    key.k,
-                    value,
-                    VersionedDependencies::new(since, deps),
-                    hist,
-                );
-
-                let ret = new.computed_val();
-
-                (
-                    ret,
-                    MapFixup::NewEntry {
-                        since,
-                        end,
-                        new,
-                        key_of_e,
-                        num_to_keep,
-                    },
-                )
+                *entry = VersionedGraphNode::Occupied(new);
+                (ret, true)
             }
-        };
-
-        let any_invalidated = map_fixup.fixup(versioned_map);
-
-        (ret, any_invalidated)
+        }
     }
 
-    fn invalidate_rdeps(
-        &mut self,
-        version: VersionNumber,
-        mut queue: Vec<(DiceKey, VersionNumber)>,
-    ) {
-        while let Some((rdep, relevant_version)) = queue.pop() {
-            if let Some(node) = self.get_internal(VersionedGraphKey::new(relevant_version, rdep)) {
-                if node.mark_invalidated(version) {
-                    // since dirty always occurs in increasing order, it must be the case that if
-                    // the history was already dirtied, it was by a version number less than the
-                    // current version number.
-                    // furthermore, if the rdep was dirtied, at any future versions larger than
-                    // the version it was dirtied at, it may no longer depend on the current node
-                    // so we skip marking it as dirty, and rely on delayed propagation of dirty
-
-                    if let Some(node) = node.unpack_occupied() {
-                        queue.extend({
-                            let rdeps = node.metadata().rdeps.rdeps();
-
-                            rdeps
-                                .iter()
-                                .map(|(r, v)| (r.dupe(), *v))
-                                .collect::<Vec<_>>()
-                        })
-                    }
+    fn invalidate_rdeps(&mut self, version: VersionNumber, mut queue: Vec<DiceKey>) {
+        while let Some(rdep) = queue.pop() {
+            if let Some(node) = self.nodes.get_mut(&rdep) {
+                if let Some(rdeps) = node.mark_invalidated(version) {
+                    queue.extend(rdeps);
                 }
             }
         }
@@ -715,88 +560,6 @@ pub(crate) enum InvalidateKind {
     #[allow(unused)] // constructed for tests
     Invalidate,
     Update(DiceValidValue, StorageType),
-}
-
-// because of rust mut lifetimes, we have to fixup the entries in our map after we drop the
-// references to the nodes we modify. This forces us to express things via these enums
-// that approximately acts as lambdas
-enum MapFixup {
-    Reused {
-        since: VersionNumber,
-        key_of_e: VersionNumber,
-    },
-    NewEntry {
-        since: VersionNumber,
-        end: Option<VersionNumber>,
-        new: OccupiedGraphNode,
-        key_of_e: VersionNumber,
-        num_to_keep: usize,
-    },
-}
-
-impl MapFixup {
-    fn fixup(self, versioned_map: &mut SortedVectorMap<VersionNumber, VersionedGraphNode>) -> bool {
-        match self {
-            MapFixup::Reused { since, key_of_e } => {
-                if since < key_of_e {
-                    let old = versioned_map.remove(&key_of_e).unwrap();
-                    versioned_map.insert(since, old);
-                }
-                false
-            }
-            MapFixup::NewEntry {
-                since,
-                end,
-                new,
-                key_of_e,
-                num_to_keep,
-            } => {
-                match versioned_map.get(&key_of_e).unwrap() {
-                    VersionedGraphNode::Occupied(occ) => {
-                        if let Some(end) = end {
-                            // if there is newer data, we also need to store that at a newer
-                            // key to make it reachable.
-                            // TODO(bobyf): we probably want a custom versioned map here to
-                            // better represent this and reduce complexity
-
-                            if versioned_map.len() == num_to_keep {
-                                // if we are already at max entries to store, then we should
-                                // just skip doing this entirely, as the most up to date
-                                // entry we will store will be the entry at "end", which
-                                // is no different than the original entry.
-                                // We also don't need to store rdeps since this node will be discarded
-                                return true;
-                            }
-
-                            // TODO change storage so that we don't clone
-                            versioned_map.insert(end, VersionedGraphNode::Occupied(occ.clone()));
-                        }
-
-                        if versioned_map.len() == num_to_keep {
-                            let min_version_stored = *versioned_map.iter().next().expect("should be at least one entry if there is more entries than what we want to keep").0;
-
-                            if since < min_version_stored {
-                                return true;
-                            }
-
-                            versioned_map.remove(&min_version_stored);
-                        }
-
-                        versioned_map.insert(since, VersionedGraphNode::Occupied(new));
-
-                        true
-                    }
-                    VersionedGraphNode::Vacant(_) => {
-                        // remove the vacant entry since we now have an actual entry
-                        versioned_map.remove(&key_of_e);
-                        versioned_map.insert(since, VersionedGraphNode::Occupied(new));
-
-                        true
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -840,7 +603,7 @@ pub(crate) mod testing {
         fn assert_check_deps(&self) -> &VersionedGraphResultMismatch {
             self.unpack_check_deps().unwrap_or_else(|| {
                 panic!(
-                    "expected Mismatch, but was {} ({:?})",
+                    "expected CheckDeps, but was {} ({:?})",
                     self.variant_name(),
                     self
                 )
@@ -1126,10 +889,6 @@ mod tests {
         // different key is none
         let key6 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 100 });
         cache.get(key6.dupe()).assert_compute();
-
-        let key7 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
-        assert!(cache.invalidate(key7.dupe(), InvalidateKind::ForceDirty));
-        cache.get(key7.dupe()).assert_compute()
     }
 
     #[test]
@@ -1332,8 +1091,7 @@ mod tests {
                 .value()
                 .instance_equal(&res)
         );
-        // there should be size 1
-        assert_eq!(cache.last_n.get(&DiceKey { index: 0 }).unwrap().len(), 1);
+        assert!(cache.nodes.contains_key(&DiceKey { index: 0 }));
 
         // now insert the same value of a older version, this shouldn't evict anything but reuses
         // the existing node.
@@ -1456,7 +1214,7 @@ mod tests {
                 .instance_equal(&res)
         );
         // there should be size 1
-        assert_eq!(cache.last_n.get(&DiceKey { index: 0 }).unwrap().len(), 1);
+        assert!(cache.nodes.contains_key(&DiceKey { index: 0 }));
 
         // now insert the same value of a older version, this shouldn't evict anything but reuses
         // the existing node and drops the res_fake value.
@@ -1646,7 +1404,7 @@ mod tests {
 
     // TODO(cjhopman): This test should not panic, it currently has multiple bugs so we have an `expected=` that helps see when one bug is fixed.
     #[test]
-    #[should_panic(expected = "expected Mismatch, but was Match")]
+    #[should_panic(expected = "expected Match, but was CheckDeps")]
     fn check_that_we_handle_noncomputed_version_in_history_correctly() {
         fn do_test() -> anyhow::Result<()> {
             let mut cache = VersionedGraph::new();

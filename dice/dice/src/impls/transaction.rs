@@ -170,13 +170,20 @@ impl Changes {
     }
 
     pub(crate) fn change<K: Key>(&mut self, key: K, change: ChangeType) -> DiceResult<()> {
-        let key = self.dice.key_index.index_key(key);
-        if self.changes.insert(key, change).is_some() {
-            Err(DiceError::duplicate(
-                self.dice.key_index.get(key).dupe().downcast::<K>().unwrap(),
-            ))
-        } else {
-            Ok(())
+        match (change, K::storage_type()) {
+            (ChangeType::Invalidate, StorageType::Injected) => {
+                Err(DiceError::injected_key_invalidated(Arc::new(key)))
+            }
+            (change, _) => {
+                let key = self.dice.key_index.index_key(key);
+                if self.changes.insert(key, change).is_some() {
+                    Err(DiceError::duplicate(
+                        self.dice.key_index.get(key).dupe().downcast::<K>().unwrap(),
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }
