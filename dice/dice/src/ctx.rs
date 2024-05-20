@@ -170,7 +170,7 @@ impl<'d> DiceComputationsImpl<'d> {
 
     pub(crate) fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
         &'a mut self,
-        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
     ) -> impl Future<Output = T> + 'a {
         match self {
             DiceComputationsImpl::Legacy(delegate) => {

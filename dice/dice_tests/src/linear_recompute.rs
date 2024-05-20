@@ -20,7 +20,6 @@ use dice::Key;
 use futures::future::FutureExt;
 
 #[tokio::test]
-#[should_panic(expected = "This fails!")]
 async fn test_linear_recompute_tracks_deps() {
     #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
     enum K {
@@ -78,5 +77,5 @@ async fn test_linear_recompute_tracks_deps() {
     };
 
     // should be 50 less.
-    assert_eq!(ctx.compute(&K::Top).await.unwrap(), 4900, "This fails!");
+    assert_eq!(ctx.compute(&K::Top).await.unwrap(), 4900);
 }
