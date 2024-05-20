@@ -121,9 +121,7 @@ where
                     .map(|deps| deps.1.iter().map(|d| map_id(d.introspect())).collect())
             })
         }
-        fn visit_rdeps(
-            rdeps: &VersionedRevDependencies,
-        ) -> BTreeMap<crate::introspection::graph::VersionNumber, Vec<NodeID>> {
+        fn visit_rdeps(rdeps: &VersionedRevDependencies) -> Vec<NodeID> {
             let mut res = BTreeMap::new();
 
             let rdeps = rdeps.rdeps();
@@ -135,7 +133,10 @@ where
                 }
             }
 
-            res
+            res.into_iter()
+                .last()
+                .map(|(_, rdeps)| rdeps)
+                .unwrap_or(Vec::new())
         }
         fn visit_node<K: StorageProperties, M: FnMut(AnyKey) -> KeyID>(
             node: &VersionedGraphNodeInternal<K>,

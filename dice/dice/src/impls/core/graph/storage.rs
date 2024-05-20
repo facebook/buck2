@@ -282,18 +282,22 @@ impl VersionedGraph {
             }
         };
 
-        let res = match invalidate {
-            InvalidateKind::Invalidate => entry.mark_invalidated(key.v),
-            InvalidateKind::ForceDirty => entry.force_dirty(key.v),
-            InvalidateKind::Update(value, _) => entry.on_injected(key.v, value),
+        let queue = {
+            let res = match invalidate {
+                InvalidateKind::Invalidate => entry.mark_invalidated(key.v),
+                InvalidateKind::ForceDirty => entry.force_dirty(key.v),
+                InvalidateKind::Update(value, _) => entry.on_injected(key.v, value),
+            };
+
+            if let InvalidateResult::Changed(rdeps) = res {
+                rdeps.into_iter().flatten().collect()
+            } else {
+                return false;
+            }
         };
 
-        if let InvalidateResult::Changed(rdeps) = res {
-            self.invalidate_rdeps(key.v, rdeps);
-            true
-        } else {
-            false
-        }
+        self.invalidate_rdeps(key.v, queue);
+        true
     }
 
     // -----------------------------------------------------------------------------
@@ -324,13 +328,13 @@ impl VersionedGraph {
         res
     }
 
-    fn invalidate_rdeps(&mut self, version: VersionNumber, mut queue: Vec<DiceKey>) {
-        let mut queued: HashSet<_> = queue.iter().copied().collect();
+    fn invalidate_rdeps(&mut self, version: VersionNumber, mut queued: HashSet<DiceKey>) {
+        let mut queue: Vec<_> = queued.iter().copied().collect();
 
         while let Some(rdep) = queue.pop() {
             if let Some(node) = self.nodes.get_mut(&rdep) {
-                if let InvalidateResult::Changed(rdeps) = node.mark_invalidated(version) {
-                    for dep in rdeps {
+                if let InvalidateResult::Changed(Some(rdeps)) = node.mark_invalidated(version) {
+                    for dep in rdeps.into_iter() {
                         if queued.insert(dep) {
                             queue.push(dep);
                         }

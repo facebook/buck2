@@ -43,6 +43,7 @@ impl<T> Clone for Arc<T> {
         Arc(self.0.clone())
     }
 }
+
 impl<T> Dupe for Arc<T> {}
 
 impl<T> Deref for Arc<T> {

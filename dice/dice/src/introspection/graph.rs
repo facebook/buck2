@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -229,7 +228,7 @@ pub struct SerializedGraphNode {
     /// it's theoretically possible for those locks to be poisoned.
     /// Therefore, they're optional.
     pub deps: Option<HashSet<KeyID>>,
-    pub rdeps: Option<BTreeMap<VersionNumber, Vec<NodeID>>>,
+    pub rdeps: Option<Vec<NodeID>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

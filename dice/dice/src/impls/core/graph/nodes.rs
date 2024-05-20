@@ -17,18 +17,18 @@
 //! number for each cache entry and a global version counter to determine
 //! up-to-date-ness of cache entries.
 
-use std::collections::BTreeMap;
 use std::ops::Bound;
 use std::ops::RangeBounds;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
+use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
 
 use super::types::VersionedGraphResult;
 use crate::arc::Arc;
-use crate::impls::core::graph::dependencies::VersionedRevDependencies;
+use crate::impls::core::graph::lazy_deps::LazyDepsSet;
 use crate::impls::core::graph::types::VersionedGraphResultMismatch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
@@ -42,7 +42,6 @@ use crate::introspection::graph::SerializedGraphNode;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
-use crate::HashMap;
 use crate::HashSet;
 
 /// Actual entries as seen when querying the VersionedGraph.
@@ -59,16 +58,10 @@ pub(crate) enum VersionedGraphNode {
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> InvalidateResult {
         match self {
-            VersionedGraphNode::Occupied(e) => {
-                if e.force_dirty(v) {
-                    InvalidateResult::Changed(e.rdeps().keys().cloned().collect())
-                } else {
-                    InvalidateResult::NoChange
-                }
-            }
+            VersionedGraphNode::Occupied(e) => e.force_dirty(v),
             VersionedGraphNode::Vacant(e) => {
                 if e.force_dirty(v) {
-                    InvalidateResult::Changed(Vec::new())
+                    InvalidateResult::Changed(None)
                 } else {
                     InvalidateResult::NoChange
                 }
@@ -83,7 +76,7 @@ impl VersionedGraphNode {
         match self {
             VersionedGraphNode::Occupied(e) => {
                 if e.mark_invalidated(v) {
-                    InvalidateResult::Changed(e.rdeps().keys().cloned().collect())
+                    InvalidateResult::Changed(Some(e.metadata.rdeps.drain()))
                 } else {
                     InvalidateResult::NoChange
                 }
@@ -133,7 +126,7 @@ impl VersionedGraphNode {
                     vac.dirtied_history.clone(),
                 );
                 *self = Self::Occupied(entry);
-                InvalidateResult::Changed(Vec::new())
+                InvalidateResult::Changed(None)
             }
         }
     }
@@ -204,18 +197,8 @@ impl VersionedGraphNode {
             deps.map(|d| d.introspect()).collect()
         }
 
-        fn visit_rdeps(
-            rdeps: &HashMap<DiceKey, crate::versions::VersionNumber>,
-        ) -> BTreeMap<crate::introspection::graph::VersionNumber, Vec<NodeID>> {
-            let mut res = BTreeMap::<_, Vec<NodeID>>::new();
-
-            for (rdep, v) in rdeps {
-                res.entry(v.to_introspectable())
-                    .or_default()
-                    .push(NodeID(rdep.index as usize))
-            }
-
-            res
+        fn visit_rdeps(rdeps: impl Iterator<Item = DiceKey>) -> Vec<NodeID> {
+            rdeps.unique().map(|d| NodeID(d.index as usize)).collect()
         }
 
         match self {
@@ -243,7 +226,7 @@ impl VersionedGraphNode {
                         force_dirtied_at: Vec::new(),
                     },
                     deps: None,
-                    rdeps: Some(visit_rdeps(latest.rdeps.rdeps())),
+                    rdeps: Some(visit_rdeps(inj.rdeps.iter())),
                 })
             }
         }
@@ -281,9 +264,10 @@ impl VersionedGraphNode {
     }
 }
 
-pub(crate) enum InvalidateResult {
+pub(crate) enum InvalidateResult<'a> {
     NoChange,
-    Changed(Vec<DiceKey>),
+    /// Returns the rdeps of the node (that must also be invalidated). There can be duplicates in this list.
+    Changed(Option<std::vec::Drain<'a, DiceKey>>),
 }
 
 /// The stored entry of the cache
@@ -298,7 +282,7 @@ pub(crate) struct OccupiedGraphNode {
 #[derive(Allocative, Debug)]
 pub(crate) struct NodeMetadata {
     deps: Arc<SeriesParallelDeps>,
-    rdeps: VersionedRevDependencies,
+    rdeps: LazyDepsSet,
     verified_ranges: Arc<VersionRanges>,
     dirtied_history: ForceDirtyHistory,
 }
@@ -409,7 +393,7 @@ impl OccupiedGraphNode {
             res,
             metadata: NodeMetadata {
                 deps,
-                rdeps: VersionedRevDependencies::new(),
+                rdeps: LazyDepsSet::new(),
                 verified_ranges: Arc::new(verified_ranges),
                 dirtied_history,
             },
@@ -461,7 +445,7 @@ impl OccupiedGraphNode {
         self.metadata.deps = Arc::new(SeriesParallelDeps::None);
         self.metadata.verified_ranges = Arc::new(VersionRange::begins_with(version).into_ranges());
 
-        InvalidateResult::Changed(self.metadata.rdeps.rdeps().keys().cloned().collect())
+        InvalidateResult::Changed(Some(self.metadata.rdeps.drain()))
     }
 
     fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
@@ -489,13 +473,17 @@ impl OccupiedGraphNode {
 
     fn add_rdep_at(&mut self, v: VersionNumber, k: DiceKey) {
         if self.metadata.should_add_rdep_at(v) {
-            self.metadata.rdeps.add_rdep(k, v);
+            self.metadata.rdeps.insert(v, k);
         }
     }
 
-    fn force_dirty(&mut self, v: VersionNumber) -> bool {
+    fn force_dirty(&mut self, v: VersionNumber) -> InvalidateResult {
         self.mark_invalidated(v);
-        self.metadata.dirtied_history.force_dirty(v)
+        if self.metadata.dirtied_history.force_dirty(v) {
+            InvalidateResult::Changed(Some(self.metadata.rdeps.drain()))
+        } else {
+            InvalidateResult::NoChange
+        }
     }
 
     fn mark_invalidated(&mut self, v: VersionNumber) -> bool {
@@ -503,8 +491,8 @@ impl OccupiedGraphNode {
             .intersect_range(VersionRange::bounded(VersionNumber::ZERO, v))
     }
 
-    fn rdeps(&self) -> &HashMap<DiceKey, VersionNumber> {
-        self.metadata.rdeps.rdeps()
+    fn rdeps(&self) -> impl Iterator<Item = DiceKey> + '_ {
+        self.metadata.rdeps.iter()
     }
 
     pub(crate) fn deps(&self) -> &Arc<SeriesParallelDeps> {
@@ -545,12 +533,12 @@ impl VacantGraphNode {
 pub(crate) struct InjectedGraphNode {
     key: DiceKey,
     values: SortedVectorMap<VersionNumber, InjectedNodeData>,
+    rdeps: LazyDepsSet,
 }
 
 #[derive(Allocative, Debug)]
 pub(crate) struct InjectedNodeData {
     value: DiceValidValue,
-    rdeps: VersionedRevDependencies,
     first_valid_version: VersionNumber,
     // Used to cache the version ranges for `at_version`. This is a single VersionRange.
     valid_versions: Arc<VersionRanges>,
@@ -563,22 +551,21 @@ impl InjectedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
     ) -> InvalidateResult {
-        let rdeps = match self.values.values_mut().next_back() {
+        match self.values.values_mut().next_back() {
             Some(v) if v.value.equality(&value) => {
                 return InvalidateResult::NoChange;
             }
             Some(v) => {
                 v.valid_versions =
                     Arc::new(VersionRange::bounded(v.first_valid_version, version).into_ranges());
-                v.rdeps.rdeps().keys().cloned().collect()
             }
-            None => Vec::new(),
+            None => {}
         };
 
         self.values
             .insert(version, Self::new_node_data(value, version));
 
-        InvalidateResult::Changed(rdeps)
+        InvalidateResult::Changed(Some(self.rdeps.drain()))
     }
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
@@ -592,9 +579,9 @@ impl InjectedGraphNode {
     }
 
     pub(crate) fn add_rdep_at(&mut self, v: VersionNumber, k: DiceKey) {
-        for (version, value) in self.values.iter_mut().rev() {
+        for version in self.values.keys().rev() {
             if *version <= v {
-                value.rdeps.add_rdep(k, v);
+                self.rdeps.insert(v, k);
                 return;
             }
         }
@@ -605,6 +592,7 @@ impl InjectedGraphNode {
         InjectedGraphNode {
             key: k,
             values: [(v, Self::new_node_data(value, v))].into_iter().collect(),
+            rdeps: LazyDepsSet::new(),
         }
     }
 
@@ -616,7 +604,6 @@ impl InjectedGraphNode {
     fn new_node_data(value: DiceValidValue, version: VersionNumber) -> InjectedNodeData {
         InjectedNodeData {
             value,
-            rdeps: VersionedRevDependencies::new(),
             first_valid_version: version,
             valid_versions: Arc::new(VersionRange::begins_with(version).into_ranges()),
         }
