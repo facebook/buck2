@@ -70,7 +70,7 @@ async def expect_failure(
     if exit_code is not None:
         actual_exit_code = (
             failure.get_exit_code()
-            if type(exit_code) == ExitCode
+            if isinstance(exit_code, ExitCode)
             else failure.get_exit_code_v2()
         )
         assert (
