@@ -36,6 +36,8 @@ pub(crate) async fn explain_command(
             output: req.output,
             target: req.target,
             fbs_dump: req.fbs_dump,
+            allow_vpnless: req.allow_vpnless,
+            manifold_path: req.manifold_path,
         },
         ctx,
         partial_result_dispatcher,
@@ -43,9 +45,11 @@ pub(crate) async fn explain_command(
     .await
 }
 struct ExplainServerCommand {
-    output: AbsPathBuf,
+    output: Option<AbsPathBuf>,
     fbs_dump: Option<AbsPathBuf>,
     target: String,
+    allow_vpnless: bool,
+    manifold_path: Option<String>,
 }
 
 #[async_trait]
@@ -64,9 +68,11 @@ impl ServerCommandTemplate for ExplainServerCommand {
         explain(
             server_ctx,
             ctx,
-            &self.output,
+            self.output.as_ref(),
             &self.target,
             self.fbs_dump.as_ref(),
+            self.allow_vpnless,
+            self.manifold_path.clone(),
         )
         .await
     }
@@ -84,9 +90,11 @@ impl ServerCommandTemplate for ExplainServerCommand {
 pub(crate) async fn explain(
     _server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
-    destination_path: &AbsPathBuf,
+    destination_path: Option<&AbsPathBuf>,
     target: &str,
     fbs_dump: Option<&AbsPathBuf>,
+    allow_vpnless: bool,
+    manifold_path: Option<String>,
 ) -> anyhow::Result<ExplainResponse> {
     let configured_target = {
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -120,7 +128,14 @@ pub(crate) async fn explain(
     // TODO iguridi: make it work for OSS
     #[cfg(fbcode_build)]
     {
-        buck2_explain::main(all_deps, destination_path, fbs_dump)?;
+        buck2_explain::main(
+            all_deps,
+            destination_path,
+            fbs_dump,
+            allow_vpnless,
+            manifold_path,
+        )
+        .await?;
     }
     #[cfg(not(fbcode_build))]
     {
@@ -128,6 +143,8 @@ pub(crate) async fn explain(
         let _destination_path = destination_path;
         let _all_deps = all_deps;
         let _fbs_dump = fbs_dump;
+        let _allow_vpnless = allow_vpnless;
+        let _manifold_path = manifold_path;
     }
 
     Ok(ExplainResponse {})

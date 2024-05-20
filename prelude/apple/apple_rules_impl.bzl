@@ -102,6 +102,7 @@ def _apple_binary_extra_attrs():
 
 def _apple_library_extra_attrs():
     attribs = {
+        "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_execution_preference": link_execution_preference_attr(),
@@ -196,7 +197,7 @@ extra_attributes = {
         "libtool": attrs.exec_dep(providers = [RunInfo]),
         "lipo": attrs.exec_dep(providers = [RunInfo]),
         "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "min_version": attrs.option(attrs.string(), default = None),
+        "min_version": attrs.string(),
         "momc": attrs.exec_dep(providers = [RunInfo]),
         "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # A placeholder tool that can be used to set up toolchain constraints.
@@ -210,6 +211,10 @@ extra_attributes = {
         "requires_xcode_version_match": attrs.bool(default = False),
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "swift_toolchain": attrs.option(attrs.toolchain_dep(), default = None),
+        # The requested deployment target for a build. This will be used to
+        # form the versioned target triple when building, and compared with
+        # each build rule's target_sdk_version to ensure compatibility.
+        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "version": attrs.option(attrs.string(), default = None),
         "xcode_build_version": attrs.option(attrs.string(), default = None),
         "xcode_version": attrs.option(attrs.string(), default = None),

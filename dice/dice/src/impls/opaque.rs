@@ -48,7 +48,7 @@ mod tests {
 
     use crate::api::data::DiceData;
     use crate::api::key::Key;
-    use crate::impls::dep_trackers::testing::RecordingDepsTrackersExt;
+    use crate::impls::deps::testing::RecordingDepsTrackersExt;
     use crate::impls::dice::DiceModern;
     use crate::impls::key::DiceKey;
     use crate::impls::opaque::OpaqueValueModern;
@@ -82,20 +82,20 @@ mod tests {
     async fn opaque_records_deps_when_used() {
         let dice = DiceModern::new(DiceData::new());
 
-        let ctx = dice.updater().commit().await;
+        let mut ctx = dice.updater().commit().await;
 
         let opaque = OpaqueValueModern::<K>::new(
             DiceKey { index: 0 },
             MaybeValidDiceValue::new(Arc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid),
         );
 
-        assert_eq!(ctx.dep_trackers().recorded_deps(), &HashSet::default());
+        assert_eq!(ctx.dep_trackers().recorded_deps(), HashSet::default());
 
         assert_eq!(ctx.opaque_into_value(opaque), 1);
 
         assert_eq!(
             ctx.dep_trackers().recorded_deps(),
-            &[DiceKey { index: 0 }].into_iter().collect()
+            [DiceKey { index: 0 }].into_iter().collect()
         );
     }
 }

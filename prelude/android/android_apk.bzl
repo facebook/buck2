@@ -53,7 +53,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         exopackage_info = None
         default_output = output_apk
 
-    class_to_srcs, class_to_srcs_subtargets = get_class_to_source_map_info(
+    class_to_srcs, _, class_to_srcs_subtargets = get_class_to_source_map_info(
         ctx,
         outputs = None,
         deps = android_binary_info.deps_by_platform[android_binary_info.primary_platform],

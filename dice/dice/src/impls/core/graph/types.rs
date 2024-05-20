@@ -14,11 +14,11 @@ use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
 
 use crate::arc::Arc;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRanges;
 
 /// The Key for a Versioned, incremental computation
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -37,21 +37,27 @@ impl VersionedGraphKey {
 pub(crate) struct VersionedGraphResultMismatch {
     /// Last known value for the key.
     pub(crate) entry: DiceValidValue,
-    /// Versions at which the value for given key is valid.
-    pub(crate) verified_versions: VersionRanges,
-    pub(crate) deps_to_validate: Arc<Vec<DiceKey>>,
+    /// Most recent previous version at which the last known value was valid.
+    pub(crate) prev_verified_version: VersionNumber,
+    pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
 }
 
 #[derive(Debug, VariantName, UnpackVariants)]
 pub(crate) enum VersionedGraphResult {
-    /// when the version cache has the exact matching entry via versions
+    /// the entry is present and valid at the requested version
     Match(DiceComputedValue),
-    /// when the version cache found an entry, but the versions were mismatching. The existing entry
-    /// is returned, along with the last known version
+    /// the entry at the requested version has been invalidated and
+    /// we have a previous value with deps to possibly resurrect
     CheckDeps(VersionedGraphResultMismatch),
-    /// An entry that is known to require re-evaluation because it was marked as dirty at the
-    /// requested version or that it was missing
+    /// the entry is missing or there's no previously valid value to check
     Compute,
+    /// the storage has rejected the request
+    Rejected(RejectedReason),
+}
+
+#[derive(Debug)]
+pub(crate) enum RejectedReason {
+    RejectedDueToGraphClear,
 }
 
 #[cfg(test)]

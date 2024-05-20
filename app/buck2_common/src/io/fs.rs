@@ -89,7 +89,7 @@ impl FsIoProvider {
 }
 
 #[derive(Debug, buck2_error::Error)]
-enum ReadDirError {
+enum FsIoError {
     #[error("File name `{0:?}` is not UTF-8")]
     NotUtf8(OsString),
 }
@@ -139,7 +139,7 @@ impl IoProvider for FsIoProvider {
                 let file_name = e.file_name();
                 let file_name = file_name
                     .to_str()
-                    .ok_or_else(|| ReadDirError::NotUtf8(file_name.clone()))?;
+                    .ok_or_else(|| FsIoError::NotUtf8(file_name.clone()))?;
                 entries.push(RawDirEntry {
                     file_type: e.file_type()?.into(),
                     file_name: CompactString::from(file_name),

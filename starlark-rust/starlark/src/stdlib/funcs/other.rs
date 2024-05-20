@@ -342,6 +342,9 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     ///
     /// `getattr(x, "f")` is equivalent to `x.f`.
     ///
+    /// `getattr(x, "f", d)` is equivalent to `x.f if hasattr(x, "f") else d`
+    /// and will never raise an error.
+    ///
     /// ```
     /// # starlark::assert::all_true(r#"
     /// getattr("banana", "split")("a") == ["b", "n", "n", ""] # equivalent to "banana".split("a")

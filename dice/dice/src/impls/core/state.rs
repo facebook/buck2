@@ -10,8 +10,12 @@
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
+use futures::Future;
 use gazebo::variants::VariantName;
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot::Receiver;
 use tokio::sync::oneshot::Sender;
+use tokio::sync::oneshot::{self};
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
@@ -23,6 +27,7 @@ use crate::impls::core::processor::StateProcessor;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -33,10 +38,164 @@ use crate::metrics::Metrics;
 use crate::result::CancellableResult;
 use crate::versions::VersionNumber;
 
+/// A handle to the core state that allows sending requests
+#[derive(Allocative, Clone)]
+pub(crate) struct CoreStateHandle {
+    #[allocative(skip)]
+    tx: UnboundedSender<StateRequest>,
+    // should this handle hold onto the thread and terminate it when all of Dice is dropped?
+}
+
+impl CoreStateHandle {
+    pub(super) fn new(tx: UnboundedSender<StateRequest>) -> Self {
+        Self { tx }
+    }
+
+    fn request(&self, message: StateRequest) {
+        self.tx.send(message).expect("dice runner died");
+    }
+
+    fn call<T>(&self, message: StateRequest, recv: Receiver<T>) -> impl Future<Output = T> {
+        self.request(message);
+        futures::FutureExt::map(recv, |v| v.unwrap())
+    }
+
+    /// Updates the core state with the given set of changes. The new VersionNumber is returned
+    pub(crate) fn update_state(
+        &self,
+        changes: Vec<(DiceKey, ChangeType)>,
+    ) -> impl Future<Output = VersionNumber> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::UpdateState { changes, resp }, recv)
+    }
+
+    /// Gets the current version number
+    pub(crate) fn current_version(&self) -> impl Future<Output = VersionNumber> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::CurrentVersion { resp }, recv)
+    }
+
+    /// Obtains the shared state ctx at the given version
+    pub(crate) fn ctx_at_version(
+        &self,
+        version: VersionNumber,
+        guard: ActiveTransactionGuard,
+    ) -> impl Future<Output = (SharedLiveTransactionCtx, ActiveTransactionGuard)> {
+        let (resp, recv) = oneshot::channel();
+        self.call(
+            StateRequest::CtxAtVersion {
+                version,
+                guard,
+                resp,
+            },
+            recv,
+        )
+    }
+
+    /// Report that a computation context at a version has been dropped
+    pub(crate) fn drop_ctx_at_version(&self, version: VersionNumber) {
+        self.request(StateRequest::DropCtxAtVersion { version })
+    }
+
+    /// Lookup the state of a key
+    pub(crate) fn lookup_key(
+        &self,
+        key: VersionedGraphKey,
+    ) -> impl Future<Output = VersionedGraphResult> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::LookupKey { key, resp }, recv)
+    }
+
+    /// Report that a value has been computed
+    pub(crate) fn update_computed(
+        &self,
+        key: VersionedGraphKey,
+        epoch: VersionEpoch,
+        storage: StorageType,
+        value: DiceValidValue,
+        deps: Arc<SeriesParallelDeps>,
+    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
+        let (resp, recv) = oneshot::channel();
+        self.call(
+            StateRequest::UpdateComputed {
+                key,
+                epoch,
+                storage,
+                value,
+                deps,
+                resp,
+            },
+            recv,
+        )
+    }
+
+    /// Report that a value has been verified to be unchanged due to its deps
+    pub(crate) fn update_mismatch_as_unchanged(
+        &self,
+        key: VersionedGraphKey,
+        epoch: VersionEpoch,
+        storage: StorageType,
+        previous: VersionedGraphResultMismatch,
+    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
+        let (resp, recv) = oneshot::channel();
+        self.call(
+            StateRequest::UpdateMismatchAsUnchanged {
+                key,
+                epoch,
+                storage,
+                previous,
+                resp,
+            },
+            recv,
+        )
+    }
+
+    /// Get all the tasks pending cancellation
+    pub(crate) fn get_tasks_pending_cancellation(
+        &self,
+    ) -> impl Future<Output = Vec<TerminationObserver>> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::GetTasksPendingCancellation { resp }, recv)
+    }
+
+    /// For unstable take
+    pub(crate) fn unstable_drop_everything(&self) {
+        self.request(StateRequest::UnstableDropEverything)
+    }
+
+    /// Collect metrics
+    pub(crate) fn metrics(&self) -> Metrics {
+        let (resp, recv) = oneshot::channel();
+        self.request(StateRequest::Metrics { resp });
+
+        // Modern dice can just run on a blocking runtime and block waiting for the channel.
+        // This is safe since the processing dice thread is dedicated, and never awaits any other tasks.
+        tokio::task::block_in_place(|| recv.blocking_recv().unwrap())
+    }
+
+    /// Collects the introspectable dice state
+    pub(crate) fn introspection(&self) -> (VersionedGraphIntrospectable, VersionIntrospectable) {
+        let (resp, recv) = oneshot::channel();
+
+        self.request(StateRequest::Introspection { resp });
+
+        // Modern dice can just run on a blocking runtime and block waiting for the channel.
+        // This is safe since the processing dice thread is dedicated, and never awaits any other tasks.
+        recv.blocking_recv().unwrap()
+    }
+}
+
+impl Dupe for CoreStateHandle {}
+
+/// Start processing state
+pub(crate) fn init_state() -> CoreStateHandle {
+    StateProcessor::spawn()
+}
+
 /// Core state is accessed via message passing to a single threaded processor
 #[derive(Derivative, VariantName)]
 #[derivative(Debug)]
-pub(crate) enum StateRequest {
+pub(super) enum StateRequest {
     /// Updates the core state with the given set of changes. The new VersionNumber that should be
     /// used is sent back via the channel provided
     UpdateState {
@@ -67,7 +226,7 @@ pub(crate) enum StateRequest {
         /// The newly computed value
         value: DiceValidValue,
         /// The deps accessed during the computation of newly computed value
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<CancellableResult<DiceComputedValue>>,
@@ -98,29 +257,4 @@ pub(crate) enum StateRequest {
         #[derivative(Debug = "ignore")]
         resp: Sender<(VersionedGraphIntrospectable, VersionIntrospectable)>,
     },
-}
-
-/// A handle to the core state that allows sending requests
-#[derive(Allocative, Clone)]
-pub(crate) struct CoreStateHandle {
-    #[allocative(skip)]
-    tx: tokio::sync::mpsc::UnboundedSender<StateRequest>,
-    // should this handle hold onto the thread and terminate it when all of Dice is dropped?
-}
-
-impl CoreStateHandle {
-    pub(crate) fn new(tx: tokio::sync::mpsc::UnboundedSender<StateRequest>) -> Self {
-        Self { tx }
-    }
-
-    pub(crate) fn request(&self, message: StateRequest) {
-        self.tx.send(message).expect("dice runner died");
-    }
-}
-
-impl Dupe for CoreStateHandle {}
-
-/// Start processing state
-pub(crate) fn init_state() -> CoreStateHandle {
-    StateProcessor::spawn()
 }

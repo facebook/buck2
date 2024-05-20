@@ -117,18 +117,21 @@ def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
 def get_class_to_source_map_info(
         ctx: AnalysisContext,
         outputs: [JavaCompileOutputs, None],
-        deps: list[Dependency]) -> (JavaClassToSourceMapInfo, dict):
+        deps: list[Dependency],
+        generate_sources_jar: bool = False) -> (JavaClassToSourceMapInfo, Artifact | None, dict):
     sub_targets = {}
     class_to_srcs = None
     class_to_srcs_debuginfo = None
+    sources_jar = None
     if outputs != None:
         name = ctx.label.name
-        class_to_srcs = create_class_to_source_map_from_jar(
+        class_to_srcs, sources_jar = create_class_to_source_map_from_jar(
             actions = ctx.actions,
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
             name = name + ".class_to_srcs.json",
             jar = outputs.classpath_entry.full_library,
             srcs = ctx.attrs.srcs,
+            sources_jar_name = "{}-sources.jar".format(name) if generate_sources_jar else None,
         )
         class_to_srcs_debuginfo = maybe_create_class_to_source_map_debuginfo(
             actions = ctx.actions,
@@ -137,6 +140,8 @@ def get_class_to_source_map_info(
             srcs = ctx.attrs.srcs,
         )
         sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]
+        if sources_jar:
+            sub_targets["sources.jar"] = [DefaultInfo(default_output = sources_jar)]
 
     class_to_src_map_info = create_class_to_source_map_info(
         ctx = ctx,
@@ -146,7 +151,7 @@ def get_class_to_source_map_info(
     )
     if outputs != None:
         sub_targets["debuginfo"] = [DefaultInfo(default_output = class_to_src_map_info.debuginfo)]
-    return (class_to_src_map_info, sub_targets)
+    return (class_to_src_map_info, sources_jar, sub_targets)
 
 def get_classpath_subtarget(actions: AnalysisActions, packaging_info: JavaPackagingInfo) -> dict[str, list[Provider]]:
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")

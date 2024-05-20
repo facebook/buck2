@@ -284,10 +284,10 @@ mod tests {
         let src_dir = tempfile::tempdir()?;
         // <tmp>
         // ├── bar
-        // │   ├── qux
-        // │   │   └── buzz
-        // │   ├── foo_in_bar -> ../foo
-        // │   └── some_file
+        // │    ├── qux
+        // │    │    └── buzz
+        // │    ├── foo_in_bar -> ../foo
+        // │    └── some_file
         // ├── bax -> bar/qux
         // ├── foo
         // ├── foo_abs -> <tmp>/foo
@@ -334,11 +334,25 @@ mod tests {
         }
         #[cfg(windows)]
         {
-            assert_eq!(dst_dir.path().join("foo"), copied_fool_path);
+            // Symlink value is canonicalized on Windows
+            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            assert_eq!(dst_dir_canon_path.as_path().join("foo"), copied_fool_path);
         }
 
         let copied_foo_abs_path = std::fs::read_link(&dst_dir.path().join("foo_abs"))?;
-        assert_eq!(src_dir.path().join("foo"), copied_foo_abs_path);
+        #[cfg(unix)]
+        {
+            assert_eq!(src_dir.path().join("foo"), copied_foo_abs_path);
+        }
+        #[cfg(windows)]
+        {
+            // Symlink value is canonicalized on Windows
+            let src_dir_canon_path = fs_util::canonicalize(src_dir.path())?;
+            assert_eq!(
+                src_dir_canon_path.as_path().join("foo"),
+                copied_foo_abs_path
+            );
+        }
 
         let copied_bax_path = std::fs::read_link(&dst_dir.path().join("bax"))?;
         #[cfg(unix)]
@@ -347,7 +361,12 @@ mod tests {
         }
         #[cfg(windows)]
         {
-            assert_eq!(dst_dir.path().join("bar\\qux"), copied_bax_path);
+            // Symlink value is canonicalized on Windows
+            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            assert_eq!(
+                dst_dir_canon_path.as_path().join("bar\\qux"),
+                copied_bax_path
+            );
         }
 
         let copied_foo_in_bar_path = std::fs::read_link(&dst_dir.path().join("bar/foo_in_bar"))?;
@@ -357,7 +376,12 @@ mod tests {
         }
         #[cfg(windows)]
         {
-            assert_eq!(dst_dir.path().join("foo"), copied_foo_in_bar_path);
+            // Symlink value is canonicalized on Windows
+            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            assert_eq!(
+                dst_dir_canon_path.as_path().join("foo"),
+                copied_foo_in_bar_path
+            );
         }
 
         // Second time to check everything overwrites fine
@@ -374,10 +398,10 @@ mod tests {
         let src_path = fs_util::canonicalize(src_dir.path())?;
         // <tmp>
         // ├── qux
-        // │   ├── foo -> ../foo
-        // │   └── bar -> ../bar
+        // │    ├── foo -> ../foo
+        // │    └── bar -> ../bar
         // ├── bar
-        // │   └── baz
+        // │    └── baz
         // └── foo
         std::fs::write(src_path.as_path().join("foo"), "some content")?;
         std::fs::create_dir_all(src_path.as_path().join("bar"))?;
@@ -481,7 +505,9 @@ mod tests {
         }
         #[cfg(windows)]
         {
-            assert_eq!(dst_dir.path().join("bar"), target);
+            // Symlink value is canonicalized on Windows
+            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            assert_eq!(dst_dir_canon_path.as_path().join("bar"), target);
         }
 
         Ok(())

@@ -12,6 +12,7 @@ dupe = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
 http = { workspace = true }
+lru = { workspace = true }
 once_cell = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }

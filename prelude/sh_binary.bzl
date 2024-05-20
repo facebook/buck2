@@ -124,6 +124,8 @@ def sh_binary_impl(ctx):
         is_windows,
     )
 
+    script = script.with_associated_artifacts([resources_dir])
+
     return [
         DefaultInfo(default_output = script, other_outputs = [resources_dir]),
         RunInfo(

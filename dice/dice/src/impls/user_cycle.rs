@@ -33,12 +33,12 @@ impl UserCycleDetectorData {
             let k_erased = key_index.get(k);
             if let Some(guard) = detector.start_computing_key(k_erased.as_any()) {
                 debug!("cycles start key {:?}", k);
-                return KeyComputingUserCycleDetectorData::Detecting {
+                return KeyComputingUserCycleDetectorData::Detecting(Arc::new(DetectingData {
                     k_erased: k_erased.dupe(),
                     k,
                     guard,
                     detector: detector.dupe(),
-                };
+                }));
             }
         }
         KeyComputingUserCycleDetectorData::Untracked
@@ -51,21 +51,24 @@ impl UserCycleDetectorData {
 }
 
 /// User supplied cycle detector
+#[derive(Clone)]
 pub(crate) enum KeyComputingUserCycleDetectorData {
-    Detecting {
-        k_erased: DiceKeyErased,
-        k: DiceKey,
-        guard: Arc<dyn UserCycleDetectorGuard>,
-        detector: Arc<dyn UserCycleDetector>,
-    },
+    Detecting(Arc<DetectingData>),
     Untracked,
+}
+
+pub(crate) struct DetectingData {
+    k_erased: DiceKeyErased,
+    k: DiceKey,
+    guard: Arc<dyn UserCycleDetectorGuard>,
+    detector: Arc<dyn UserCycleDetector>,
 }
 
 impl KeyComputingUserCycleDetectorData {
     pub(crate) fn subrequest(&self, k: DiceKey, key_index: &DiceKeyIndex) -> UserCycleDetectorData {
         match self {
-            KeyComputingUserCycleDetectorData::Detecting { guard, .. } => {
-                guard.add_edge(key_index.get(k).as_any());
+            KeyComputingUserCycleDetectorData::Detecting(data) => {
+                data.guard.add_edge(key_index.get(k).as_any());
             }
             KeyComputingUserCycleDetectorData::Untracked => {}
         }
@@ -75,13 +78,13 @@ impl KeyComputingUserCycleDetectorData {
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         match self {
-            KeyComputingUserCycleDetectorData::Detecting { guard, .. } => {
-                match guard.dupe().as_any_arc().downcast::<T>() {
+            KeyComputingUserCycleDetectorData::Detecting(data) => {
+                match data.guard.dupe().as_any_arc().downcast::<T>() {
                     Ok(guard) => Ok(Some(guard)),
                     Err(_) => Err(DiceError(Arc::new(
                         DiceErrorImpl::UnexpectedCycleGuardType {
                             expected_type_name: std::any::type_name::<T>().to_owned(),
-                            actual_type_name: guard.type_name().to_owned(),
+                            actual_type_name: data.guard.type_name().to_owned(),
                         },
                     ))),
                 }
@@ -91,19 +94,9 @@ impl KeyComputingUserCycleDetectorData {
     }
 }
 
-impl Drop for KeyComputingUserCycleDetectorData {
+impl Drop for DetectingData {
     fn drop(&mut self) {
-        match self {
-            KeyComputingUserCycleDetectorData::Detecting {
-                k_erased,
-                k,
-                detector,
-                ..
-            } => {
-                debug!("cycles finish key {:?}", k);
-                detector.finished_computing_key(k_erased.as_any())
-            }
-            KeyComputingUserCycleDetectorData::Untracked => {}
-        }
+        debug!("cycles finish key {:?}", self.k);
+        self.detector.finished_computing_key(self.k_erased.as_any())
     }
 }

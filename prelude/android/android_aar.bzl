@@ -66,6 +66,31 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(classes_jar_cmd, category = "create_classes_jar")
 
+    sub_targets = {}
+    dependency_sources_jars = [dep.sources_jar for dep in java_packaging_deps if dep.sources_jar]
+    if dependency_sources_jars:
+        combined_sources_jar = ctx.actions.declare_output("sources.jar")
+        java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+        combined_sources_jar_cmd = cmd_args([
+            java_toolchain.jar_builder,
+            "--entries-to-jar",
+            ctx.actions.write("combined_sources_jar_entries.txt", dependency_sources_jars),
+            "--output",
+            combined_sources_jar.as_output(),
+        ]).hidden(dependency_sources_jars)
+
+        if ctx.attrs.remove_classes:
+            remove_classes_file = ctx.actions.write("sources_remove_classes.txt", ctx.attrs.remove_classes)
+            combined_sources_jar_cmd.add([
+                "--blocklist-patterns",
+                remove_classes_file,
+                "--blocklist-patterns-matcher",
+                "remove_classes_patterns_matcher",
+            ])
+
+        ctx.actions.run(combined_sources_jar_cmd, category = "create_sources_jar")
+        sub_targets["sources.jar"] = [DefaultInfo(default_output = combined_sources_jar)]
+
     entries = [android_manifest, classes_jar]
 
     resource_infos = list(android_packageable_info.resource_infos.traverse()) if android_packageable_info.resource_infos else []
@@ -117,4 +142,4 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 
-    return [DefaultInfo(default_outputs = [aar], sub_targets = enhancement_ctx.get_sub_targets())]
+    return [DefaultInfo(default_outputs = [aar], sub_targets = enhancement_ctx.get_sub_targets() | sub_targets)]

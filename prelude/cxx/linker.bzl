@@ -198,7 +198,7 @@ def get_objects_as_library_args(linker_type: str, objects: list[Artifact]) -> li
         args.append("-Wl,--start-lib")
         args.extend(objects)
         args.append("-Wl,--end-lib")
-    elif linker_type == "windows":
+    elif linker_type == "darwin" or linker_type == "windows":
         args.extend(objects)
     else:
         fail("Linker type {} not supported".format(linker_type))

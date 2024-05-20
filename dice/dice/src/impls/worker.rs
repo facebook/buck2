@@ -10,73 +10,116 @@
 //! The main worker thread for the dice task
 
 use std::any::Any;
+use std::future;
 
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::pin_mut;
+use futures::stream;
+use futures::stream::FuturesUnordered;
+use futures::Future;
 use futures::FutureExt;
+use futures::StreamExt;
+use gazebo::variants::VariantName;
 use itertools::Either;
 use tracing::Instrument;
 
+use crate::api::activation_tracker::ActivationData;
+use crate::arc::Arc;
+use crate::impls::core::graph::types::VersionedGraphKey;
+use crate::impls::core::graph::types::VersionedGraphResult;
+use crate::impls::core::state::CoreStateHandle;
+use crate::impls::core::versions::VersionEpoch;
+use crate::impls::deps::graph::SeriesParallelDeps;
+use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::impls::evaluator::AsyncEvaluator;
+use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
-use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
+use crate::impls::key::ParentKey;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::promise::DicePromise;
+use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
+use crate::impls::value::DiceComputedValue;
+use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
+use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
+use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
+use crate::versions::VersionNumber;
+use crate::versions::VersionRange;
 
 pub(crate) mod state;
 
+#[cfg(test)]
+mod tests;
+
 /// The worker on the spawned dice task
+///
+/// Manages all the handling of the results of a specific key, performing the recomputation
+/// if necessary
+///
+/// The computation of an identical request (same key and version) is
+/// automatically deduplicated, so that identical requests share the same set of
+/// work. It is guaranteed that there is at most one computation in flight at a
+/// time if they share the same key and version.
+
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: AsyncEvaluator,
-    events_dispatcher: DiceEventDispatcher,
-    incremental: IncrementalEngine,
+    event_dispatcher: DiceEventDispatcher,
+    version_epoch: VersionEpoch,
 }
 
 impl DiceTaskWorker {
     pub(crate) fn spawn(
         k: DiceKey,
+        version_epoch: VersionEpoch,
         eval: AsyncEvaluator,
         cycles: UserCycleDetectorData,
-        events_dispatcher: DiceEventDispatcher,
+        event_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
-        incremental: IncrementalEngine,
     ) -> DiceTask {
-        let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %incremental.version_epoch);
+        let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch);
 
         let spawner = eval.user_data.spawner.dupe();
         let spawner_ctx = eval.user_data.dupe();
+        let state_handle = eval.dice.state_handle.dupe();
 
-        let worker = DiceTaskWorker::new(k, eval, events_dispatcher, incremental);
+        let worker = DiceTaskWorker {
+            k,
+            eval,
+            event_dispatcher,
+            version_epoch,
+        };
 
         spawn_dice_task(k, &*spawner, &spawner_ctx, move |handle| {
-            // NOTE: important to run prevent cancellation eagerly in the sync function to prevent
+            // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task
             let prevent_cancellation = handle.cancellation_ctx().begin_ignore_cancellation();
             let state =
                 DiceWorkerStateAwaitingPrevious::new(k, cycles, handle, prevent_cancellation);
 
-            // we hold onto the handle and drop it last after consuming the `worker`. This
-            // ensures any data being held for the actual evaluation is dropped before we
-            // notify the future as done.
             async move {
-                match worker
-                    .await_previous(previously_cancelled_task, state)
-                    .await
-                {
+                let previous_result = match previously_cancelled_task {
+                    Some(v) => state.await_previous(v).await,
+                    None => Either::Right(state.no_previous_task().await),
+                };
+
+                match previous_result {
                     Either::Left(_) => {
-                        // done
+                        // previous result actually finished
                     }
                     Either::Right(state) => {
-                        let _ignore = worker.do_work(state).await;
+                        let _ignore = worker.do_work(state_handle, state).await;
                     }
                 }
 
@@ -87,59 +130,361 @@ impl DiceTaskWorker {
         })
     }
 
-    fn new(
-        k: DiceKey,
-        eval: AsyncEvaluator,
-        events_dispatcher: DiceEventDispatcher,
-        incremental: IncrementalEngine,
-    ) -> Self {
-        Self {
-            k,
-            eval,
-            events_dispatcher,
-            incremental,
-        }
-    }
-
-    async fn await_previous<'a, 'b>(
+    /// This is the primary flow of how a key is computed or re-computed.
+    pub(crate) async fn do_work(
         &self,
-        previously_cancelled_task: Option<PreviouslyCancelledTask>,
-        state: DiceWorkerStateAwaitingPrevious<'a, 'b>,
-    ) -> Either<
-        CancellableResult<DiceWorkerStateFinishedAndCached>,
-        DiceWorkerStateLookupNode<'a, 'b>,
-    > {
-        Either::Right(if let Some(previous) = previously_cancelled_task {
-            previous.previous.await_termination().await;
+        state_handle: CoreStateHandle,
+        task_state: DiceWorkerStateLookupNode<'_, '_>,
+    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+        let v = self.eval.per_live_version_ctx.get_version();
 
-            // old task actually finished, so just use that result if it wasn't
-            // cancelled
+        let state_result = state_handle
+            .lookup_key(VersionedGraphKey::new(v, self.k))
+            .await;
+        // dep_check_stream needs to capture these and so they need to outlive it.
+        let cycles;
+        let mismatch;
+        let (task_state, deps_check_continuables) = match state_result {
+            VersionedGraphResult::Match(entry) => {
+                return task_state.lookup_matches(entry);
+            }
+            VersionedGraphResult::CheckDeps(mismatch2) => {
+                let (task_state, cycles2) = task_state.checking_deps(&self.eval);
+                cycles = cycles2;
+                mismatch = mismatch2;
 
-            match previous
-                .previous
-                .get_finished_value()
-                .expect("Terminated task must have finished value")
-            {
-                Ok(res) => {
-                    return Either::Left(state.previously_finished(res));
-                }
-                Err(Cancelled) => {
-                    // actually was cancelled, so just continue re-evaluating
+                self.event_dispatcher.check_deps_started(self.k);
+
+                let check_deps_result = {
+                    scopeguard::defer! {
+                        self.event_dispatcher.check_deps_finished(self.k);
+                    }
+                    check_dependencies(
+                        &self.eval,
+                        ParentKey::Some(self.k),
+                        &mismatch.deps_to_validate,
+                        mismatch.prev_verified_version,
+                        &cycles,
+                    )
+                    .await?
+                };
+
+                match check_deps_result {
+                    CheckDependenciesResult::NoChange => {
+                        drop(check_deps_result);
+
+                        let task_state = task_state.deps_match()?;
+
+                        let activation_info = self.activation_info(
+                            mismatch.deps_to_validate.iter_keys(),
+                            ActivationData::Reused,
+                        );
+
+                        let response = state_handle
+                            .update_mismatch_as_unchanged(
+                                VersionedGraphKey::new(v, self.k),
+                                self.version_epoch,
+                                self.eval.storage_type(self.k),
+                                mismatch,
+                            )
+                            .await;
+
+                        return response.map(|r| task_state.cached(r, activation_info));
+                    }
+                    CheckDependenciesResult::NoDeps => {
+                        // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
+                        // implicit meaning to a node having no deps at this point, but it's unclear what that is.
+                        (task_state.deps_not_match(), None)
+                    }
+                    CheckDependenciesResult::Changed { continuables } => {
+                        (task_state.deps_not_match(), Some(continuables))
+                    }
                 }
             }
+            VersionedGraphResult::Compute => {
+                let (task_state, cycles2) = task_state.lookup_dirtied(&self.eval);
+                cycles = cycles2;
+                (task_state, None)
+            }
+            VersionedGraphResult::Rejected(..) => {
+                return Err(Cancelled);
+            }
+        };
 
-            state.previously_cancelled().await
-        } else {
-            state.no_previous_task().await
-        })
+        let DiceWorkerStateFinishedEvaluating {
+            state,
+            activation_data,
+            result,
+        } = self.compute(task_state, &cycles).await?;
+
+        // explicitly drop this here to make it explicit that its important that we hold onto it, it
+        // otherwise appears unused, but we don't want to cancel anything that it has started requesting
+        // before compute finishes.
+        // TODO(cjhopman): we could be polling this future, it might eagerly request deps more quickly than
+        // the compute would.
+        drop(deps_check_continuables);
+
+        let activation_info = self.activation_info(result.deps.iter_keys(), activation_data);
+
+        let res = {
+            match result.value.into_valid_value() {
+                Ok(value) => {
+                    let v = self.eval.per_live_version_ctx.get_version();
+                    state_handle
+                        .update_computed(
+                            VersionedGraphKey::new(v, self.k),
+                            self.version_epoch,
+                            result.storage,
+                            value,
+                            Arc::new(result.deps),
+                        )
+                        .await
+                }
+                Err(value) => Ok(DiceComputedValue::new(
+                    value,
+                    Arc::new(VersionRange::begins_with(v).into_ranges()),
+                )),
+            }
+        };
+
+        res.map(|res| state.cached(res, activation_info))
     }
 
-    pub(crate) async fn do_work(
-        self,
-        state: DiceWorkerStateLookupNode<'_, '_>,
-    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
-        self.incremental
-            .eval_entry_versioned(self.k, &self.eval, self.events_dispatcher, state)
-            .await
+    async fn compute<'a, 'b>(
+        &self,
+        task_state: DiceWorkerStateEvaluating<'a, 'b>,
+        cycles: &KeyComputingUserCycleDetectorData,
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
+        self.event_dispatcher.started(self.k);
+        scopeguard::defer! {
+            self.event_dispatcher.finished(self.k);
+        };
+
+        // TODO(bobyf) these also make good locations where we want to perform instrumentation
+        debug!(msg = "running evaluator");
+
+        self.eval.evaluate(self.k, task_state, cycles.clone()).await
+    }
+
+    fn activation_info<'a>(
+        &self,
+        deps: impl Iterator<Item = DiceKey> + 'a,
+        data: ActivationData,
+    ) -> Option<ActivationInfo> {
+        ActivationInfo::new(
+            &self.eval.dice.key_index,
+            &self.eval.user_data.activation_tracker,
+            self.k,
+            deps,
+            data,
+        )
+    }
+}
+
+/// Used for checking if dependencies have changed since the previously checked version.
+#[cfg_attr(debug_assertions, instrument(
+    level = "debug",
+    skip(eval, cycles),
+    fields(version = %eval.per_live_version_ctx.get_version(), version = %version)
+))]
+pub(crate) async fn check_dependencies<'a>(
+    eval: &'a AsyncEvaluator,
+    parent_key: ParentKey,
+    deps: &'a SeriesParallelDeps,
+    version: VersionNumber,
+    cycles: &'a KeyComputingUserCycleDetectorData,
+) -> CancellableResult<CheckDependenciesResult<'a>> {
+    async fn drain_continuables<
+        'a,
+        Fut: Future<Output = CancellableResult<CheckDependenciesResult<'a>>>,
+    >(
+        inner: BoxFuture<'a, CancellableResult<()>>,
+        parallel: FuturesUnordered<Fut>,
+    ) -> CancellableResult<()> {
+        let parallel = parallel.map(|v| v.map(|_| ()));
+        let combined = stream::select(inner.into_stream(), parallel);
+        pin_mut!(combined);
+        while let Some(v) = combined.next().await {
+            if let Err(Cancelled) = v {
+                return Err(Cancelled);
+            }
+        }
+        Ok(())
+    }
+
+    fn check_dependencies_series<'a>(
+        eval: &'a AsyncEvaluator,
+        parent_key: ParentKey,
+        deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
+        version: VersionNumber,
+        cycles: &'a KeyComputingUserCycleDetectorData,
+    ) -> BoxFuture<'a, CancellableResult<CheckDependenciesResult<'a>>> {
+        async move {
+            for v in deps {
+                match v {
+                    SeriesParallelDepsIteratorItem::Key(k) => {
+                        match check_dependency(eval, parent_key, *k, cycles, version).await {
+                            Ok(true) => {}
+                            Ok(false) => {
+                                return Ok(CheckDependenciesResult::Changed {
+                                    continuables: std::future::ready(Ok(())).boxed(),
+                                });
+                            }
+                            Err(Cancelled) => {
+                                return Err(Cancelled);
+                            }
+                        }
+                    }
+                    SeriesParallelDepsIteratorItem::Parallel(p) => {
+                        let mut futures: FuturesUnordered<_> = p
+                            .map(|deps| {
+                                check_dependencies_series(eval, parent_key, deps, version, cycles)
+                                    .boxed()
+                            })
+                            .collect();
+
+                        while let Some(v) = futures.next().await {
+                            match v? {
+                                CheckDependenciesResult::NoChange
+                                | CheckDependenciesResult::NoDeps => {}
+                                CheckDependenciesResult::Changed { continuables } => {
+                                    return Ok(CheckDependenciesResult::Changed {
+                                        continuables: drain_continuables(continuables, futures)
+                                            .boxed(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(CheckDependenciesResult::NoChange)
+        }
+        .boxed()
+    }
+
+    if deps.is_empty() {
+        return Ok(CheckDependenciesResult::NoDeps);
+    }
+
+    trace!(deps = ?deps);
+
+    check_dependencies_series(eval, parent_key, deps.iter(), version, cycles).await
+}
+
+async fn check_dependency(
+    eval: &AsyncEvaluator,
+    parent_key: ParentKey,
+    dep: DiceKey,
+    cycles: &KeyComputingUserCycleDetectorData,
+    version: VersionNumber,
+) -> CancellableResult<bool> {
+    Ok(eval
+        .per_live_version_ctx
+        .compute_opaque(
+            dep,
+            parent_key,
+            &eval,
+            cycles.subrequest(dep, &eval.dice.key_index),
+        )
+        .await?
+        .versions()
+        .contains(version))
+}
+
+#[derive(VariantName)]
+enum CheckDependenciesResult<'a> {
+    NoDeps,
+    NoChange,
+    Changed {
+        /// If any dep has changed, the deps checking doesn't need to be stopped, when something has
+        /// changed in a dep in a parallel series we can continue to request and compute the other
+        /// paths in that parallel series (and so potentially continue to request new deps).
+        ///
+        /// Those other checks won't be dropped/cancelled until the continuables future is dropped,
+        /// and polling it will continue that deps check process.
+        continuables: BoxFuture<'a, CancellableResult<()>>,
+    },
+}
+
+#[cfg_attr(debug_assertions, instrument(
+    level = "debug",
+    skip(state, promise, eval, event_dispatcher),
+    fields(k = ?k, version = %v),
+))]
+pub(crate) fn project_for_key(
+    state: CoreStateHandle,
+    promise: DicePromise,
+    k: DiceKey,
+    v: VersionNumber,
+    version_epoch: VersionEpoch,
+    eval: SyncEvaluator,
+    event_dispatcher: DiceEventDispatcher,
+) -> CancellableResult<DiceComputedValue> {
+    promise.sync_get_or_complete(|| {
+        event_dispatcher.started(k);
+
+        debug!(msg = "running projection");
+
+        let eval_result = eval.evaluate(k);
+
+        debug!(msg = "projection finished. updating caches");
+
+        let (res, future) = {
+            // send the update but don't wait for it
+            let state_future = match eval_result.value.dupe().into_valid_value() {
+                Ok(value) => {
+                    let rx = state.update_computed(
+                        VersionedGraphKey::new(v, k),
+                        version_epoch,
+                        eval_result.storage,
+                        value,
+                        Arc::new(eval_result.deps),
+                    );
+
+                    Some(rx.map(|res| res.map_err(|_channel_drop| Cancelled)).boxed())
+                }
+                Err(_transient_result) => {
+                    // transients are never stored in the state, but the result should be shared
+                    // with async computations as if it were.
+                    None
+                }
+            };
+
+            (eval_result.value, state_future)
+        };
+
+        debug!(msg = "update future completed");
+        event_dispatcher.finished(k);
+
+        let computed_value =
+            DiceComputedValue::new(res, Arc::new(VersionRange::begins_with(v).into_ranges()));
+        let state_future =
+            future.unwrap_or_else(|| future::ready(Ok(computed_value.dupe())).boxed());
+
+        DiceSyncResult {
+            sync_result: computed_value,
+            state_future,
+        }
+    })
+}
+
+#[cfg(test)]
+pub(crate) mod testing {
+
+    use crate::impls::worker::CheckDependenciesResult;
+
+    pub(crate) trait CheckDependenciesResultExt {
+        fn is_changed(&self) -> bool;
+    }
+
+    impl CheckDependenciesResultExt for CheckDependenciesResult<'_> {
+        fn is_changed(&self) -> bool {
+            match self {
+                CheckDependenciesResult::Changed { .. } => true,
+                CheckDependenciesResult::NoChange => false,
+                CheckDependenciesResult::NoDeps => false,
+            }
+        }
     }
 }

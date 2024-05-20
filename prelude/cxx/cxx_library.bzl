@@ -1462,6 +1462,7 @@ def _shared_library(
         ctx = ctx,
         output = soname,
         opts = link_options(
+            enable_distributed_thinlto = getattr(ctx.attrs, "enable_distributed_thinlto", False),
             links = links,
             identifier = soname,
             link_ordering = link_ordering,

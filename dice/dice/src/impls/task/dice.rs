@@ -36,6 +36,7 @@ use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
+use crate::GlobalStats;
 
 ///
 /// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special
@@ -415,6 +416,7 @@ impl Cancellations {
     }
 
     pub(super) fn cancel(&self, _lock: &MutexGuard<DiceTaskInternalCritical>) {
+        GlobalStats::record_cancellation();
         if let Some(internal) = self.internal.as_ref() {
             take_mut::take(
                 unsafe {

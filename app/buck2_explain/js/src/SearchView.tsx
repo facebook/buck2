@@ -9,13 +9,14 @@
 
 import React, {useContext} from 'react'
 import {DataContext} from './App'
-import {Link, TARGET_VIEW} from './Router'
+import {Link, RouterContext, TARGET_VIEW} from './Router'
 
 export function SearchView(props: {view: string}) {
-  const {allTargets, rootTarget} = useContext(DataContext)
+  const {allTargets} = useContext(DataContext)
+  const {params} = useContext(RouterContext)
 
-  const params = new URLSearchParams(window.location.search)
-  const search = params.get(props.view)
+  const urlParams = new URLSearchParams(params)
+  const search = urlParams.get(props.view)
 
   if (search == null || search.length < 3) {
     return <p>Invalid search "{search}", try again</p>

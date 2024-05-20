@@ -782,7 +782,10 @@ where
         key: VersionedGraphKey<K::Key>,
         entry_updater: EntryUpdater<K>,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
-        let StorageType::LastN(num_to_keep) = self.storage_properties.storage_type();
+        let num_to_keep = match self.storage_properties.storage_type() {
+            StorageType::Normal => 1,
+            StorageType::Injected => usize::MAX,
+        };
         // persistent keys, if any changes, are committed at the moment when the version
         // is increased. therefore, it must be the case that the current update for the
         // persistent key is the largest/newest version. it's also the case that they are
@@ -1408,7 +1411,6 @@ mod tests {
     use buck2_futures::cancellation::CancellationContext;
     use derive_more::Display;
     use dupe::Dupe;
-    use sorted_vector_map::sorted_vector_set;
 
     use crate::api::computations::DiceComputations;
     use crate::api::injected::InjectedKey;
@@ -1420,7 +1422,7 @@ mod tests {
     use crate::legacy::incremental::dep_trackers::BothDeps;
     use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
     use crate::legacy::incremental::graph::dependencies::Dependency;
-    use crate::legacy::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::legacy::incremental::graph::storage_properties::testing::ConfigurableStorageProperties;
     use crate::legacy::incremental::graph::storage_properties::StorageProperties;
     use crate::legacy::incremental::graph::testing::VersionedCacheResultAssertsExt;
     use crate::legacy::incremental::graph::GraphNodeDyn;
@@ -1432,7 +1434,6 @@ mod tests {
     use crate::legacy::incremental::testing::DependencyExt;
     use crate::legacy::incremental::versions::MinorVersion;
     use crate::legacy::incremental::Computable;
-    use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;
@@ -1487,7 +1488,7 @@ mod tests {
 
     #[test]
     fn latest_only_stores_latest_only() {
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(1));
+        let cache = VersionedGraph::new(ConfigurableStorageProperties::<_, i32>::default());
         let res = 100;
         let key = VersionedGraphKey::new(VersionNumber::new(1), NonPersistent(0));
         let mv = MinorVersion::testing_new(0);
@@ -1529,9 +1530,7 @@ mod tests {
         assert_eq!(*mismatch.entry.val(), res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
-                VersionNumber::new(2),
-            )])
+            VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(2),)])
         );
 
         // if the value is the same, then versions are shared
@@ -1563,7 +1562,7 @@ mod tests {
         assert_eq!(mismatch.entry.val(), &res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![
+            VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(4)),
                 VersionRange::begins_with(VersionNumber::new(5))
             ])
@@ -1582,7 +1581,7 @@ mod tests {
         assert_eq!(mismatch.entry.val(), &res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![
+            VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(4)),
                 VersionRange::begins_with(VersionNumber::new(5))
             ])
@@ -1595,7 +1594,7 @@ mod tests {
         assert_eq!(mismatch.entry.val(), &res2);
         assert_eq!(
             mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![
+            VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(4)),
                 VersionRange::begins_with(VersionNumber::new(5))
             ])
@@ -1619,7 +1618,9 @@ mod tests {
 
     #[test]
     fn last_n_max_usize_stores_everything() {
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(usize::MAX));
+        let cache = VersionedGraph::new(ConfigurableStorageProperties::<_, i32>::new(
+            StorageType::Injected,
+        ));
         let res = 100;
         let key = VersionedGraphKey::new(VersionNumber::new(0), Persistent(0));
         let mv = MinorVersion::testing_new(0);
@@ -1695,74 +1696,6 @@ mod tests {
         cache.get(key7.as_ref(), mv).assert_dirty()
     }
 
-    #[test]
-    fn last_2_stores_last_2() {
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(2));
-        let res = 100;
-        let key = VersionedGraphKey::new(VersionNumber::new(0), Last2(0));
-        let mv = MinorVersion::testing_new(0);
-
-        assert_eq!(
-            cache
-                .update_computed_value(key.clone(), mv, res, BothDeps::default())
-                .1
-                .is_none(),
-            true
-        );
-
-        assert_eq!(cache.get(key.as_ref(), mv).assert_match().val(), &res);
-
-        let res2 = 200;
-        let key2 = VersionedGraphKey::new(VersionNumber::new(1), Last2(0));
-        assert!(
-            cache
-                .entry(key2.clone(),)
-                .mark_invalidated(VersionNumber::new(1))
-        );
-        assert_eq!(
-            *cache
-                .update_computed_value(key2.clone(), mv, res2, BothDeps::default())
-                .1
-                .expect("should have an old entry that is evicted")
-                .val(),
-            res
-        );
-
-        assert_eq!(cache.get(key2.as_ref(), mv).assert_match().val(), &res2);
-        assert_eq!(cache.get(key.as_ref(), mv).assert_match().val(), &res);
-
-        // skip a few versions
-        let res3 = 300;
-        let key3 = VersionedGraphKey::new(VersionNumber::new(5), Last2(0));
-        let key2 = VersionedGraphKey::new(VersionNumber::new(1), Last2(0));
-        assert!(
-            cache
-                .entry(key3.clone())
-                .mark_invalidated(VersionNumber::new(5))
-        );
-        assert_eq!(
-            *cache
-                .update_computed_value(key3.clone(), mv, res3, BothDeps::default())
-                .1
-                .expect("should have an old entry that is evicted")
-                .val(),
-            res2
-        );
-
-        assert_eq!(cache.get(key3.as_ref(), mv).assert_match().val(), &res3);
-        assert_eq!(cache.get(key2.as_ref(), mv).assert_match().val(), &res2);
-        // the oldest entry should be evicted because we don't store more than 2
-        let mismatch = cache.get(key.as_ref(), mv).assert_mismatch();
-        assert_eq!(mismatch.entry.val(), &res2);
-        assert_eq!(
-            mismatch.verified_versions,
-            VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
-                VersionNumber::new(1),
-                VersionNumber::new(5)
-            )])
-        )
-    }
-
     #[derive(Allocative)]
     #[allocative(bound = "")]
     struct StoragePropertiesForTransientTests<K, V> {
@@ -1807,63 +1740,10 @@ mod tests {
     }
 
     #[test]
-    fn transient_entry_return_only_for_same_minor_version() {
-        let validity = Arc::new(atomic::AtomicBool::new(false));
-        let cache = VersionedGraph::new(StoragePropertiesForTransientTests {
-            storage_type: StorageType::LastN(2),
-            validity: validity.dupe(),
-            _marker: PhantomData,
-        });
-        let res = Arc::new(100);
-        let key = VersionedGraphKey::new(VersionNumber::new(0), Last2(0));
-        let mv = MinorVersion::testing_new(0);
-
-        validity.store(false, atomic::Ordering::SeqCst);
-
-        assert!(
-            cache
-                .update_computed_value(key.clone(), mv, res.dupe(), BothDeps::default())
-                .1
-                .is_none()
-        );
-
-        assert_eq!(cache.get(key.as_ref(), mv).assert_match().val(), &res);
-
-        cache
-            .get(key.as_ref(), MinorVersion::testing_new(1))
-            .assert_dirty();
-        // a newer version should always be invalid regardless of minor version
-        cache
-            .get(
-                VersionedGraphKeyRef::new(VersionNumber::new(1), &Last2(0)),
-                MinorVersion::testing_new(0),
-            )
-            .assert_dirty();
-
-        validity.store(true, atomic::Ordering::SeqCst);
-
-        assert!(
-            cache
-                .update_computed_value(
-                    key.clone(),
-                    MinorVersion::testing_new(1),
-                    res.dupe(),
-                    BothDeps::default()
-                )
-                .1
-                .is_none()
-        );
-
-        cache
-            .get(key.as_ref(), MinorVersion::testing_new(1))
-            .assert_match();
-    }
-
-    #[test]
     fn transient_entry_gets_removed_on_update() {
         let validity = Arc::new(atomic::AtomicBool::new(false));
         let cache = VersionedGraph::new(StoragePropertiesForTransientTests {
-            storage_type: StorageType::LastN(1),
+            storage_type: StorageType::Normal,
             validity: validity.dupe(),
             _marker: PhantomData,
         });
@@ -1912,7 +1792,7 @@ mod tests {
         let deps0: Arc<Vec<Box<dyn Dependency>>> = Arc::new(vec![DependencyExt::<
             EvaluatorUnreachable<_, usize>,
         >::testing_raw(5)]);
-        let entry = OccupiedGraphNode::<StoragePropertiesLastN<i32, usize>>::new(
+        let entry = OccupiedGraphNode::<ConfigurableStorageProperties<i32, usize>>::new(
             1337,
             1,
             CellHistory::testing_new(
@@ -1992,7 +1872,9 @@ mod tests {
         }
         let mv = MinorVersion::testing_new(0);
 
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(usize::MAX));
+        let cache = VersionedGraph::new(ConfigurableStorageProperties::<_, i32>::new(
+            StorageType::Injected,
+        ));
         let res = 100;
 
         let existing = cache.entry(key(0));
@@ -2039,7 +1921,7 @@ mod tests {
         }
         let mv = MinorVersion::testing_new(0);
 
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::default());
+        let cache = VersionedGraph::new(ConfigurableStorageProperties::<_, i32>::default());
         let res = 100;
 
         let existing = cache.entry(key(0));
@@ -2081,7 +1963,7 @@ mod tests {
 
     #[test]
     fn invalid_deps_makes_parent_invalid() {
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, u32>::new(2));
+        let cache = VersionedGraph::new(ConfigurableStorageProperties::<_, u32>::default());
         let res = 10;
         let key = VersionedGraphKey::new(VersionNumber::new(0), Last2(0));
         let mv = MinorVersion::testing_new(0);
@@ -2124,7 +2006,7 @@ mod tests {
             }
 
             fn storage_type(&self) -> StorageType {
-                StorageType::LastN(1)
+                StorageType::Normal
             }
 
             fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {
@@ -2182,7 +2064,7 @@ mod tests {
         // requires actually requires insertion of a new entry at v2, rather than simply marking
         // v0 as reusable.
 
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::default());
+        let cache = VersionedGraph::new(ConfigurableStorageProperties::<_, i32>::default());
 
         let key1 = VersionedGraphKey::new(VersionNumber::new(0), NonPersistent(0));
         let mv = MinorVersion::testing_new(0);
@@ -2212,7 +2094,7 @@ mod tests {
 
     #[test]
     fn update_prior_version_reuses_nodes_correctly() {
-        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(1));
+        let cache = VersionedGraph::new(ConfigurableStorageProperties::<_, i32>::default());
         let res = 100;
         let key = VersionedGraphKey::new(VersionNumber::new(5), NonPersistent(0));
         let mv = MinorVersion::testing_new(0);

@@ -11,6 +11,7 @@ use std::thread;
 
 use gazebo::prelude::SliceExt;
 
+use super::graph::types::RejectedReason;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::cache::SharedCache;
@@ -23,6 +24,7 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::VersionTracker;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::TerminationObserver;
@@ -94,7 +96,11 @@ impl CoreState {
     }
 
     pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
-        self.graph.get(key)
+        if self.version_tracker.should_reject(key.v) {
+            VersionedGraphResult::Rejected(RejectedReason::RejectedDueToGraphClear)
+        } else {
+            self.graph.get(key)
+        }
     }
 
     pub(super) fn update_computed(
@@ -104,15 +110,13 @@ impl CoreState {
         storage: StorageType,
         value: DiceValidValue,
         reusability: ValueReusable,
-        deps: Arc<Vec<DiceKey>>,
+        deps: Arc<SeriesParallelDeps>,
     ) -> CancellableResult<DiceComputedValue> {
         if self.version_tracker.is_relevant(key.v, epoch) {
             debug!(msg = "update graph entry", k = ?key.k, v = %key.v, v_epoch = %epoch);
-
             Ok(self.graph.update(key, value, reusability, deps, storage).0)
         } else {
             debug!(msg = "update is rejected due to outdated epoch", k = ?key.k, v = %key.v, v_epoch = %epoch);
-
             Err(Cancelled)
         }
     }
@@ -126,11 +130,11 @@ impl CoreState {
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
-        self.version_tracker.write().commit();
+        self.version_tracker.clear();
 
         // Do the actual drop on a different thread because we may have to drop a lot of stuff
         // here.
-        let map = std::mem::take(&mut self.graph.last_n);
+        let map = std::mem::take(&mut self.graph.nodes);
         thread::Builder::new()
             .name("dice-drop-everything".to_owned())
             .spawn(move || drop(map))
@@ -148,7 +152,7 @@ impl CoreState {
         }
 
         Metrics {
-            key_count: self.graph.last_n.len(),
+            key_count: self.graph.nodes.len(),
             currently_active_key_count: currently_running_key_count,
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }
@@ -179,7 +183,6 @@ mod tests {
     use crate::api::key::Key;
     use crate::arc::Arc;
     use crate::impls::cache::DiceTaskRef;
-    use crate::impls::core::graph::history::CellHistory;
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
     use crate::impls::key::ParentKey;
@@ -191,6 +194,7 @@ mod tests {
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
     use crate::versions::VersionNumber;
+    use crate::versions::VersionRanges;
 
     #[test]
     fn update_state_gets_next_version() {
@@ -240,7 +244,7 @@ mod tests {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(val),
                     )),
-                    Arc::new(CellHistory::empty()),
+                    Arc::new(VersionRanges::new()),
                 ));
 
                 Box::new(()) as Box<dyn Any + Send>

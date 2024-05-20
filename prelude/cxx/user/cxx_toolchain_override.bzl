@@ -131,11 +131,11 @@ def _cxx_toolchain_override(ctx):
 
     base_strip_flags_info = base_toolchain.strip_flags_info
     if base_strip_flags_info:
-        strip_flags_info = StripFlagsInfo(
-            strip_debug_flags = _pick(ctx.attrs.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
-            strip_non_global_flags = _pick(ctx.attrs.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
-            strip_all_flags = _pick(ctx.attrs.strip_all_flags, base_strip_flags_info.strip_all_flags),
-        )
+    strip_flags_info = StripFlagsInfo(
+        strip_debug_flags = _pick(ctx.attrs.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
+        strip_non_global_flags = _pick(ctx.attrs.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
+        strip_all_flags = _pick(ctx.attrs.strip_all_flags, base_strip_flags_info.strip_all_flags),
+    )
     else:
         strip_flags_info = None
 
@@ -167,7 +167,8 @@ def _cxx_toolchain_override(ctx):
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = strip_flags_info,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior) if ctx.attrs.pic_behavior != None else base_toolchain.pic_behavior.value,
-        split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode) if ctx.attrs.split_debug_mode else base_toolchain.split_debug_mode,
+        split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),
+        target_sdk_version = base_toolchain.target_sdk_version,
     )
 
 cxx_toolchain_override_registration_spec = RuleRegistrationSpec(

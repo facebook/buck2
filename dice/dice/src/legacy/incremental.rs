@@ -1269,7 +1269,6 @@ mod tests {
     use indexmap::indexset;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
-    use sorted_vector_map::sorted_vector_set;
     use tokio::sync::Barrier as AsyncBarrier;
     use tokio::sync::Mutex as AsyncMutex;
     use tokio::sync::Notify;
@@ -1289,7 +1288,7 @@ mod tests {
     use crate::legacy::incremental::evaluator::testing::EvaluatorUnreachable;
     use crate::legacy::incremental::graph::dependencies::VersionedDependencies;
     use crate::legacy::incremental::graph::dependencies::VersionedRevDependencies;
-    use crate::legacy::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::legacy::incremental::graph::storage_properties::testing::ConfigurableStorageProperties;
     use crate::legacy::incremental::graph::storage_properties::StorageProperties;
     use crate::legacy::incremental::graph::GraphNode;
     use crate::legacy::incremental::graph::GraphNodeDyn;
@@ -1318,7 +1317,6 @@ mod tests {
     use crate::legacy::incremental::TransactionCtx;
     use crate::legacy::incremental::VersionedGraphResultMismatch;
     use crate::legacy::EvaluationResult;
-    use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;
@@ -1655,13 +1653,13 @@ mod tests {
 
         let dep = FakeDep::new(1, CellHistory::testing_new(&[VersionNumber::new(1)], &[]));
 
-        let entry = Arc::new(
-            OccupiedGraphNode::<StoragePropertiesLastN<usize, usize>>::new(
-                1337,
-                1,
-                CellHistory::testing_new(&[VersionNumber::new(0)], &[VersionNumber::new(1)]),
-            ),
-        );
+        let entry = Arc::new(OccupiedGraphNode::<
+            ConfigurableStorageProperties<usize, usize>,
+        >::new(
+            1337,
+            1,
+            CellHistory::testing_new(&[VersionNumber::new(0)], &[VersionNumber::new(1)]),
+        ));
         entry.writable().deps.add_deps(
             VersionNumber::new(0),
             Arc::new(vec![Box::new(dep.dupe()) as _]),
@@ -1670,13 +1668,13 @@ mod tests {
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
         assert!(
-            IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+            IncrementalEngine::<ConfigurableStorageProperties<usize, usize>>::compute_whether_versioned_dependencies_changed(
                 &1337,
                 &eval_ctx,
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
                     entry: GraphNode::occupied(entry),
-                    verified_versions: VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+                    verified_versions: VersionRanges::testing_new(vec![VersionRange::bounded(
                     VersionNumber::new(0),
                     VersionNumber::new(1)
                 )])
@@ -1699,13 +1697,13 @@ mod tests {
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
-            !IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+            !IncrementalEngine::<ConfigurableStorageProperties<usize, usize>>::compute_whether_versioned_dependencies_changed(
                 &1337,
                 &eval_ctx,
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
                     entry: GraphNode::occupied(entry),
-                    verified_versions: VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+                    verified_versions: VersionRanges::testing_new(vec![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
                 )]),
@@ -1774,13 +1772,13 @@ mod tests {
         // new version to trigger re-evaluation of dep
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         assert!(
-            IncrementalEngine::<StoragePropertiesLastN<usize, usize>>::compute_whether_versioned_dependencies_changed(
+            IncrementalEngine::<ConfigurableStorageProperties<usize, usize>>::compute_whether_versioned_dependencies_changed(
                 &1338,
                 &eval_ctx,
                 &ComputationData::testing_new(),
                 &VersionedGraphResultMismatch {
                     entry: GraphNode::occupied(entry),
-                    verified_versions: VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+                    verified_versions: VersionRanges::testing_new(vec![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
                 )]),
@@ -1929,9 +1927,7 @@ mod tests {
         );
         assert_eq!(
             entry.read_meta().hist.get_verified_ranges(),
-            VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(
-                VersionNumber::new(1),
-            )])
+            VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1),)])
         );
         assert!(
             engine
@@ -1996,7 +1992,7 @@ mod tests {
         );
         assert_eq!(
             entry.read_meta().hist.get_verified_ranges(),
-            VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(3),
                 VersionNumber::new(5)
             )])
@@ -2249,7 +2245,7 @@ mod tests {
             }
 
             fn storage_type(&self) -> StorageType {
-                StorageType::LastN(1)
+                StorageType::Normal
             }
 
             fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {
@@ -2319,7 +2315,7 @@ mod tests {
             }
 
             fn storage_type(&self) -> StorageType {
-                StorageType::LastN(1)
+                StorageType::Normal
             }
 
             fn equality(&self, x: &Self::Value, y: &Self::Value) -> bool {
@@ -2462,9 +2458,7 @@ mod tests {
 
         assert_eq!(
             second_node.get_history().get_verified_ranges(),
-            VersionRanges::testing_new(
-                sorted_vector_set! { VersionRange::begins_with(VersionNumber::new(0))}
-            )
+            VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
         );
 
         // verify that the instance we return and store is the same as the original instance

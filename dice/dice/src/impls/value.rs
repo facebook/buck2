@@ -15,7 +15,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::arc::Arc;
-use crate::impls::core::graph::history::CellHistory;
+use crate::versions::VersionRanges;
 use crate::Key;
 use crate::ProjectionKey;
 
@@ -115,10 +115,18 @@ pub(crate) enum DiceValidity {
     Transient,
 }
 
+impl DiceValidity {
+    pub(crate) fn and(&mut self, other: Self) {
+        if other == DiceValidity::Transient {
+            *self = DiceValidity::Transient;
+        }
+    }
+}
+
 #[derive(Allocative, Clone)]
 pub(crate) struct DiceComputedValue {
     value: MaybeValidDiceValue,
-    valid: Arc<CellHistory>,
+    valid: Arc<VersionRanges>,
 }
 
 impl Dupe for DiceComputedValue {
@@ -126,7 +134,7 @@ impl Dupe for DiceComputedValue {
 }
 
 impl DiceComputedValue {
-    pub(crate) fn new(value: MaybeValidDiceValue, valid: Arc<CellHistory>) -> Self {
+    pub(crate) fn new(value: MaybeValidDiceValue, valid: Arc<VersionRanges>) -> Self {
         Self { value, valid }
     }
 
@@ -134,14 +142,16 @@ impl DiceComputedValue {
         &self.value
     }
 
-    pub(crate) fn history(&self) -> &CellHistory {
+    pub(crate) fn versions(&self) -> &VersionRanges {
         &self.valid
     }
 }
 
 impl Debug for DiceComputedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiceComputedValue").finish_non_exhaustive()
+        f.debug_struct("DiceComputedValue")
+            .field("valid", &self.valid)
+            .finish_non_exhaustive()
     }
 }
 

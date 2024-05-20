@@ -17,6 +17,7 @@
 
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::cell::RefMut;
 use std::cmp;
 use std::fmt;
 use std::fmt::Debug;
@@ -78,6 +79,7 @@ use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::string::intern::interner::FrozenStringInterner;
+use crate::values::string::intern::interner::StringValueInterner;
 use crate::values::string::StarlarkStr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -104,6 +106,7 @@ pub struct Heap {
     /// Peak memory seen when a garbage collection takes place (may be lower than currently allocated)
     peak_allocated: Cell<usize>,
     arena: FastCell<Arena<Bump>>,
+    str_interner: RefCell<StringValueInterner<'static>>,
 }
 
 impl Debug for Heap {
@@ -114,6 +117,19 @@ impl Debug for Heap {
             &self.arena.try_borrow().map(|x| x.allocated_bytes()),
         );
         x.finish()
+    }
+}
+
+impl Heap {
+    pub(crate) fn trace_interner<'v>(&'v self, tracer: &Tracer<'v>) {
+        unsafe {
+            transmute!(
+                RefMut<'_, StringValueInterner<'static>>,
+                RefMut<'_, StringValueInterner<'v>>,
+                self.str_interner.borrow_mut()
+            )
+            .trace(tracer);
+        }
     }
 }
 
@@ -596,10 +612,11 @@ impl Heap {
     pub(crate) fn alloc_str_init<'v>(
         &'v self,
         len: usize,
+        hash: StarlarkHashValue,
         init: impl FnOnce(*mut u8),
     ) -> StringValue<'v> {
         let arena = self.arena.borrow();
-        let v = arena.alloc_str_init(len, StarlarkStr::UNINIT_HASH, init);
+        let v = arena.alloc_str_init(len, hash, init);
 
         // We have an arena inside a RefCell which stores ValueMem<'v>
         // However, we promise not to clear the RefCell other than for GC
@@ -610,14 +627,39 @@ impl Heap {
         }
     }
 
+    fn alloc_str_impl<'v>(&'v self, x: &str, hash: StarlarkHashValue) -> StringValue<'v> {
+        if let Some(x) = constant_string(x) {
+            x.to_string_value()
+        } else {
+            self.alloc_str_init(x.len(), hash, |dest| unsafe {
+                copy_nonoverlapping(x.as_ptr(), dest, x.len())
+            })
+        }
+    }
+
     /// Allocate a string on the heap.
     pub fn alloc_str<'v>(&'v self, x: &str) -> StringValue<'v> {
         if let Some(x) = constant_string(x) {
             x.to_string_value()
         } else {
-            self.alloc_str_init(x.len(), |dest| unsafe {
+            self.alloc_str_init(x.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
                 copy_nonoverlapping(x.as_ptr(), dest, x.len())
             })
+        }
+    }
+
+    /// Intern string.
+    pub fn alloc_str_intern<'v>(&'v self, x: &str) -> StringValue<'v> {
+        if let Some(x) = constant_string(x) {
+            x.to_string_value()
+        } else {
+            let x = Hashed::new(x);
+            let mut interner = self.str_interner.borrow_mut();
+            unsafe {
+                interner
+                    .intern(x, || self.alloc_str_impl(x.key(), x.hash()).cast_lifetime())
+                    .cast_lifetime()
+            }
         }
     }
 
@@ -628,7 +670,7 @@ impl Heap {
         } else if y.is_empty() {
             self.alloc_str(x)
         } else {
-            self.alloc_str_init(x.len() + y.len(), |dest| unsafe {
+            self.alloc_str_init(x.len() + y.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
                 copy_nonoverlapping(x.as_ptr(), dest, x.len());
                 copy_nonoverlapping(y.as_ptr(), dest.add(x.len()), y.len())
             })
@@ -644,13 +686,17 @@ impl Heap {
         } else if z.is_empty() {
             self.alloc_str_concat(x, y)
         } else {
-            self.alloc_str_init(x.len() + y.len() + z.len(), |dest| unsafe {
-                copy_nonoverlapping(x.as_ptr(), dest, x.len());
-                let dest = dest.add(x.len());
-                copy_nonoverlapping(y.as_ptr(), dest, y.len());
-                let dest = dest.add(y.len());
-                copy_nonoverlapping(z.as_ptr(), dest, z.len());
-            })
+            self.alloc_str_init(
+                x.len() + y.len() + z.len(),
+                StarlarkStr::UNINIT_HASH,
+                |dest| unsafe {
+                    copy_nonoverlapping(x.as_ptr(), dest, x.len());
+                    let dest = dest.add(x.len());
+                    copy_nonoverlapping(y.as_ptr(), dest, y.len());
+                    let dest = dest.add(y.len());
+                    copy_nonoverlapping(z.as_ptr(), dest, z.len());
+                },
+            )
         }
     }
 
@@ -929,9 +975,65 @@ impl<'v> Tracer<'v> {
     }
 }
 
-#[test]
-fn test_send_sync()
-where
-    FrozenHeapRef: Send + Sync,
-{
+#[cfg(test)]
+mod tests {
+    use starlark_derive::starlark_module;
+
+    use super::FrozenHeapRef;
+    use super::Heap;
+    use crate as starlark;
+    use crate::assert::Assert;
+    use crate::environment::GlobalsBuilder;
+    use crate::values::StringValue;
+
+    #[test]
+    fn test_send_sync()
+    where
+        FrozenHeapRef: Send + Sync,
+    {
+    }
+
+    #[test]
+    fn test_string_reallocated_on_heap() {
+        let heap = Heap::new();
+        let first = heap.alloc_str("xx");
+        let second = heap.alloc_str("xx");
+        assert!(
+            !first.to_value().ptr_eq(second.to_value()),
+            "Plain allocations should recreate values. Note assertion negation."
+        );
+    }
+
+    #[test]
+    fn test_interned_string_equal() {
+        let heap = Heap::new();
+        let first = heap.alloc_str_intern("xx");
+        let second = heap.alloc_str_intern("xx");
+        assert!(
+            first.to_value().ptr_eq(second.to_value()),
+            "Interned allocations should be equal."
+        );
+    }
+
+    #[starlark_module]
+    fn validate_str_interning(globals: &mut GlobalsBuilder) {
+        fn append_x<'v>(str: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+            Ok(heap.alloc_str_intern(&(str.as_str().to_owned() + "x")))
+        }
+    }
+
+    #[test]
+    fn test_interned_str_starlark() {
+        let mut a = Assert::new();
+        a.globals_add(validate_str_interning);
+
+        a.pass(
+            r#"
+x = append_x("foo")
+assert_eq(x, "foox")
+garbage_collect()
+assert_eq(x, "foox")
+        "#,
+        );
+    }
 }

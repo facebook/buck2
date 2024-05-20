@@ -69,7 +69,7 @@ async fn uses_custom_spawner() {
     data.spawner = spawner.dupe();
     let updater = dice.updater_with_data(data);
 
-    let ctx = updater.commit().await;
+    let mut ctx = updater.commit().await;
 
     ctx.compute(&K).await.unwrap();
 

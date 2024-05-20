@@ -197,7 +197,6 @@ mod tests {
     use crate::arc::Arc;
     use crate::impls::cache::DiceTaskRef;
     use crate::impls::cache::SharedCache;
-    use crate::impls::core::graph::history::CellHistory;
     use crate::impls::key::DiceKey;
     use crate::impls::key::ParentKey;
     use crate::impls::task::dice::DiceTask;
@@ -206,6 +205,7 @@ mod tests {
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
+    use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
     struct K;
@@ -234,7 +234,7 @@ mod tests {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(val),
                     )),
-                    Arc::new(CellHistory::empty()),
+                    Arc::new(VersionRanges::new()),
                 ));
 
                 Box::new(()) as Box<dyn Any + Send>

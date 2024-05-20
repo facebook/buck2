@@ -459,6 +459,9 @@ where
                                     .to_owned(),
                             }),
                             execution_kind: action_with_extra_data.execution_kind.into(),
+                            target_rule_type_name: action_with_extra_data
+                                .target_rule_type_name
+                                .to_owned(),
                         }
                         .into()
                     }
@@ -629,7 +632,7 @@ struct NodeData {
     span_ids: SmallVec<[SpanId; 1]>,
 }
 
-assert_eq_size!(NodeData, [usize; 11]);
+assert_eq_size!(NodeData, [usize; 14]);
 
 fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();

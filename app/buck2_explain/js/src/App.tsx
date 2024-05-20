@@ -84,8 +84,8 @@ function App() {
   else {
     return (
       <DataContext.Provider value={data}>
-        <Header />
         <Router>
+          <Header />
           <RootView view={ROOT_VIEW} />
           <TargetView view={TARGET_VIEW} />
           <SearchView view={SEARCH_VIEW} />

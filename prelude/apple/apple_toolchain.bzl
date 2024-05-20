@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_target_sdk_version.bzl", "max_sdk_version")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
@@ -12,6 +13,16 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path
     platform_path = ctx.attrs._internal_platform_path or ctx.attrs.platform_path
+
+    if ctx.attrs.min_version != None and \
+       ctx.attrs.target_sdk_version != None and \
+       ctx.attrs.min_version != ctx.attrs.target_sdk_version and \
+       max_sdk_version(ctx.attrs.target_sdk_version, ctx.attrs.min_version) == ctx.attrs.min_version:
+        fail("target_sdk_version {} is less than toolchain min_version {}".format(
+            ctx.attrs.target_sdk_version,
+            ctx.attrs.min_version,
+        ))
+
     return [
         DefaultInfo(),
         AppleToolchainInfo(
@@ -41,6 +52,7 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             sdk_path = sdk_path,
             sdk_version = ctx.attrs.version,
             swift_toolchain_info = ctx.attrs.swift_toolchain[SwiftToolchainInfo] if ctx.attrs.swift_toolchain else None,
+            target_sdk_version = ctx.attrs.target_sdk_version,
             xcode_build_version = ctx.attrs.xcode_build_version,
             xcode_version = ctx.attrs.xcode_version,
             xctest = ctx.attrs.xctest[RunInfo],

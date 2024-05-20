@@ -149,7 +149,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
         swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
 
-        sub_targets = assemble_bundle(
+        bundle_result = assemble_bundle(
             ctx,
             xctest_bundle,
             bundle_parts,
@@ -159,7 +159,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             # + includes any entitlements if present.
             skip_adhoc_signing = True,
         )
-
+        sub_targets = bundle_result.sub_targets
         sub_targets.update(cxx_library_output.sub_targets)
 
         dsym_artifact = get_apple_dsym(
@@ -185,7 +185,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
             cxx_library_output.xcode_data_info,
             cxx_library_output.cxx_compilationdb_info,
-        ]
+        ] + bundle_result.providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_test_providers)

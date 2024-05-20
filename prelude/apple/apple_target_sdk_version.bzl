@@ -9,6 +9,19 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorArgs")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 
+_TARGET_TRIPLE_MAP = {
+    "appletvos": "{architecture}-apple-tvos{version}",
+    "appletvsimulator": "{architecture}-apple-tvos{version}-simulator",
+    "iphoneos": "{architecture}-apple-ios{version}",
+    "iphonesimulator": "{architecture}-apple-ios{version}-simulator",
+    "maccatalyst": "{architecture}-apple-ios{version}-macabi",
+    "macosx": "{architecture}-apple-macosx{version}",
+    "visionos": "{architecture}-apple-xros{version}",
+    "visionsimulator": "{architecture}-apple-xros{version}-simulator",
+    "watchos": "{architecture}-apple-watchos{version}",
+    "watchsimulator": "{architecture}-apple-watchos{version}-simulator",
+}
+
 # TODO(T112099448): In the future, the min version flag should live on the apple_toolchain()
 # TODO(T113776898): Switch to -mtargetos= flag which should live on the apple_toolchain()
 _APPLE_MIN_VERSION_FLAG_SDK_MAP = {
@@ -27,7 +40,7 @@ _APPLE_MIN_VERSION_CLAMP_MAP = {
 # Compares and returns the the maximum of two version numbers. Assumes
 # they are both formatted as dot-separted strings (e.g "14.0.3").
 # If they are otherwise equal but one is longer, the longer is returned.
-def _max_version(left: str, right: str):
+def max_sdk_version(left: str, right: str):
     left_components = left.split(".")
     right_components = right.split(".")
     for component in zip(left_components, right_components):
@@ -47,20 +60,32 @@ def _max_version(left: str, right: str):
 # apple_toolchain() min version as a fallback. This is the central place
 # where the version for a particular node is defined, no other places
 # should be accessing `attrs.target_sdk_version` or `attrs.min_version`.
-def get_min_deployment_version_for_node(ctx: AnalysisContext) -> [None, str]:
+def get_min_deployment_version_for_node(ctx: AnalysisContext) -> str:
     toolchain_min_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].min_version
     min_version = getattr(ctx.attrs, "target_sdk_version", None) or toolchain_min_version
     clamp_version = _APPLE_MIN_VERSION_CLAMP_MAP.get(get_apple_sdk_name(ctx))
     if clamp_version:
-        min_version = _max_version(min_version, clamp_version)
+        min_version = max_sdk_version(min_version, clamp_version)
+
     return min_version
+
+def get_versioned_target_triple(ctx: AnalysisContext) -> str:
+    apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+    architecture = apple_toolchain_info.architecture
+    if architecture == None:
+        fail("Need to set `architecture` field of apple_toolchain(), target: {}".format(ctx.label))
+
+    target_sdk_version = get_min_deployment_version_for_node(ctx)
+    sdk_name = apple_toolchain_info.sdk_name
+    target_triple_format_str = _TARGET_TRIPLE_MAP.get(sdk_name)
+    if target_triple_format_str == None:
+        fail("Could not find target triple for sdk = {}".format(sdk_name))
+
+    return target_triple_format_str.format(architecture = architecture, version = target_sdk_version)
 
 # Returns the min deployment flag to pass to the compiler + linker
 def _get_min_deployment_version_target_flag(ctx: AnalysisContext) -> [None, str]:
     target_sdk_version = get_min_deployment_version_for_node(ctx)
-    if target_sdk_version == None:
-        return None
-
     sdk_name = get_apple_sdk_name(ctx)
     min_version_flag = _APPLE_MIN_VERSION_FLAG_SDK_MAP.get(sdk_name)
     if min_version_flag == None:
@@ -91,8 +116,7 @@ def _get_min_deployment_version_target_flag(ctx: AnalysisContext) -> [None, str]
 # one added by the toolchain and then additional overrides by targets.
 
 def get_min_deployment_version_target_linker_flags(ctx: AnalysisContext) -> list[str]:
-    min_version_flag = _get_min_deployment_version_target_flag(ctx)
-    return [min_version_flag] if min_version_flag != None else []
+    return ["-target", get_versioned_target_triple(ctx)]
 
 def get_min_deployment_version_target_preprocessor_flags(ctx: AnalysisContext) -> list[CPreprocessor]:
     min_version_flag = _get_min_deployment_version_target_flag(ctx)

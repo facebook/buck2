@@ -33,6 +33,7 @@ use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 
@@ -115,8 +116,11 @@ where
 fn configured_label_methods(builder: &mut MethodsBuilder) {
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `buck2/hello`
     #[starlark(attribute)]
-    fn package<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> anyhow::Result<&'v str> {
-        Ok(this.label.target().pkg().cell_relative_path().as_str())
+    fn package<'v>(
+        this: &'v StarlarkConfiguredProvidersLabel,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.label.target().pkg().cell_relative_path().as_str()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `world`

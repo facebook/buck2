@@ -9,7 +9,7 @@
 
 use anyhow::Context;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
-use buck2_client_ctx::manifold::ManifoldClient;
+use buck2_common::manifold::ManifoldClient;
 use buck2_util::process::async_background_command;
 
 use crate::commands::rage::manifold::buf_to_manifold;

@@ -21,6 +21,7 @@ use crate::HashMap;
 #[derive(Allocative)]
 pub(crate) struct VersionTracker {
     current: VersionNumber,
+    invalid_before: VersionNumber,
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: HashMap<VersionNumber, ActiveVersionData>,
     epoch_tracker: VersionEpochTracker,
@@ -68,6 +69,7 @@ impl VersionTracker {
     pub(crate) fn new() -> Self {
         VersionTracker {
             current: VersionNumber::ZERO,
+            invalid_before: VersionNumber::ZERO,
             active_versions: HashMap::default(),
             epoch_tracker: VersionEpochTracker::new(),
         }
@@ -110,9 +112,15 @@ impl VersionTracker {
     /// check if the given version and epoch are "relevant", that is the current active version's
     /// epoch matches the given epoch
     pub(crate) fn is_relevant(&self, v: VersionNumber, epoch: VersionEpoch) -> bool {
-        self.active_versions
-            .get(&v)
-            .map_or(false, |active| active.version_epoch == epoch)
+        v >= self.invalid_before
+            && self
+                .active_versions
+                .get(&v)
+                .map_or(false, |active| active.version_epoch == epoch)
+    }
+
+    pub(crate) fn should_reject(&self, v: VersionNumber) -> bool {
+        v < self.invalid_before
     }
 
     /// Drops reference to a VersionNumber given the token
@@ -145,6 +153,11 @@ impl VersionTracker {
     /// the incremental computations
     pub(crate) fn write(&mut self) -> VersionForWrites {
         VersionForWrites { tracker: self }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.current.inc();
+        self.invalid_before = self.current;
     }
 }
 

@@ -12,6 +12,7 @@ pub mod trace;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -19,6 +20,31 @@ use buck2_error::ErrorTag;
 
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
+use crate::ignores::file_ignores::FileIgnoreReason;
+
+#[derive(Debug, Allocative, buck2_error::Error)]
+pub enum ReadDirError {
+    #[error("Directory `{0}` does not exist")]
+    DirectoryDoesNotExist(CellPath),
+    #[error("Directory `{0}` is ignored ({})", .1.describe())]
+    DirectoryIsIgnored(CellPath, FileIgnoreReason),
+    #[error("Path `{0}` is `{1}`, not a directory")]
+    NotADirectory(CellPath, String),
+    #[error(transparent)]
+    Anyhow(anyhow::Error),
+}
+
+impl From<anyhow::Error> for ReadDirError {
+    fn from(value: anyhow::Error) -> Self {
+        Self::Anyhow(value)
+    }
+}
+
+impl From<buck2_error::Error> for ReadDirError {
+    fn from(value: buck2_error::Error) -> Self {
+        Self::Anyhow(value.into())
+    }
+}
 
 #[async_trait]
 pub trait IoProvider: Allocative + Send + Sync {

@@ -18,6 +18,7 @@ use syn::Ident;
 pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro::TokenStream> {
     if let Data::Enum(data_enum) = input.data {
         let mut variant_body = Vec::new();
+        let mut variant_lowercase_body = Vec::new();
         for variant in data_enum.variants {
             let variant_name = &variant.ident;
             let patterns = match variant.fields {
@@ -26,8 +27,12 @@ pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro
                 Fields::Unnamed(_) => quote! { (..) },
             };
             let variant_name_str = variant_name.to_string();
+            let variant_name_lowercase_str = to_snake_case(&variant_name_str);
             variant_body.push(quote! {
                 Self::#variant_name #patterns => #variant_name_str
+            });
+            variant_lowercase_body.push(quote! {
+                Self::#variant_name #patterns => #variant_name_lowercase_str
             });
         }
 
@@ -39,6 +44,12 @@ pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro
                 fn variant_name(&self) -> &'static str {
                     match self {
                         #(#variant_body,)*
+                    }
+                }
+
+                fn variant_name_lowercase(&self) -> &'static str {
+                    match self {
+                        #(#variant_lowercase_body,)*
                     }
                 }
             }

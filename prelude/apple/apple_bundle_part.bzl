@@ -8,7 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
-load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestLogFiles")
+load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
@@ -41,6 +41,11 @@ SwiftStdlibArguments = record(
     primary_binary_rel_path = field(str),
 )
 
+AppleBundleConstructionResult = record(
+    providers = field(list[Provider]),
+    sub_targets = field(dict[str, list[Provider]]),
+)
+
 def bundle_output(ctx: AnalysisContext) -> Artifact:
     bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name)
@@ -53,7 +58,7 @@ def assemble_bundle(
         info_plist_part: [AppleBundlePart, None],
         swift_stdlib_args: [SwiftStdlibArguments, None],
         extra_hidden: list[Artifact] = [],
-        skip_adhoc_signing: bool = False) -> dict[str, list[Provider]]:
+        skip_adhoc_signing: bool = False) -> AppleBundleConstructionResult:
     """
     Returns extra subtargets related to bundling.
     """
@@ -218,12 +223,21 @@ def assemble_bundle(
             log_file = bundling_log_output,
         ),
     }
+
+    if hasattr(ctx.attrs, "deps"):
+        for dep in ctx.attrs.deps:
+            dep_manifest_info = dep.get(AppleBundleManifestInfo)
+            if dep_manifest_info:
+                bundle_manifest_log_file_map.update(dep_manifest_info.manifest.log_file_map)
+
     bundle_manifest = AppleBundleManifest(log_file_map = bundle_manifest_log_file_map)
     bundle_manifest_json_object = _convert_bundle_manifest_to_json_object(bundle_manifest)
 
     bundle_manifest_json_file = ctx.actions.declare_output("bundle_manifest.json")
     bundle_manifest_cmd_args = ctx.actions.write_json(bundle_manifest_json_file, bundle_manifest_json_object, with_inputs = True, pretty = True)
     subtargets["manifest"] = [DefaultInfo(default_output = bundle_manifest_json_file, other_outputs = [bundle_manifest_cmd_args])]
+
+    providers = [AppleBundleManifestInfo(manifest = bundle_manifest)]
 
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
@@ -239,7 +253,7 @@ def assemble_bundle(
         env = env,
         **run_incremental_args
     )
-    return subtargets
+    return AppleBundleConstructionResult(sub_targets = subtargets, providers = providers)
 
 def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
@@ -281,7 +295,7 @@ def _get_codesign_type_from_attribs(ctx: AnalysisContext) -> [CodeSignType, None
 
 def _detect_codesign_type(ctx: AnalysisContext, skip_adhoc_signing: bool) -> CodeSignType:
     def compute_codesign_type():
-        if ctx.attrs.extension not in ["app", "appex", "xctest"]:
+        if ctx.attrs.extension not in ["app", "appex", "xctest", "driver"]:
             # Only code sign application bundles, extensions and test bundles
             return CodeSignType("skip")
 

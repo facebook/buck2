@@ -7,32 +7,32 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
-use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcS;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use itertools::Itertools;
 use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
 use crate::dice::file_ops::DiceFileComputations;
 use crate::find_buildfile::find_buildfile;
+use crate::ignores::file_ignores::FileIgnoreReason;
+use crate::io::ReadDirError;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
 
 #[derive(Debug, buck2_error::Error)]
 enum PackageListingError {
-    #[error("Expected `{0}` to be a package directory, but there was no buildfile there, expected one of `{}`", .1.join("`, `"))]
-    NoBuildFile(CellPath, Vec<FileNameBuf>),
     #[error("Expected `{0}` to be within a package directory, but there was no buildfile in any parent directories. Expected one of `{}`", .1.join("`, `"))]
     NoContainingPackage(CellPath, Vec<FileNameBuf>),
 }
@@ -40,10 +40,7 @@ enum PackageListingError {
 #[async_trait]
 impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
     async fn resolve(&mut self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
-        Ok(self
-            .gather_package_listing(package.dupe())
-            .await
-            .with_context(|| format!("Error gathering package listing for `{}`", package))?)
+        Ok(self.gather_package_listing(package.dupe()).await?)
     }
 
     async fn get_enclosing_package(
@@ -105,6 +102,231 @@ pub struct InterpreterPackageListingResolver<'c, 'd> {
     ctx: &'c mut DiceComputations<'d>,
 }
 
+#[derive(Debug, buck2_error::Error)]
+pub enum GatherPackageListingError {
+    #[buck2(input)]
+    NoBuildFile {
+        package: CellPath,
+        candidates: Vec<FileNameBuf>,
+    },
+    #[buck2(input)]
+    DirectoryDoesNotExist {
+        package: CellPath,
+        expected_path: CellPath,
+        // TODO(cjhopman): would be nice to get the absolute path here
+    },
+    #[buck2(input)]
+    DirectoryIsIgnored {
+        package: CellPath,
+        path: CellPath,
+        ignore_reason: FileIgnoreReason,
+    },
+    #[buck2(input)]
+    NotADirectory {
+        package: CellPath,
+        path: CellPath,
+        node_type: String,
+    },
+    Anyhow {
+        package: CellPath,
+        #[source]
+        error: anyhow::Error,
+    },
+}
+
+impl GatherPackageListingError {
+    fn anyhow<E: Into<anyhow::Error>>(
+        package_path: CellPathRef<'_>,
+        err: E,
+    ) -> GatherPackageListingError {
+        GatherPackageListingError::Anyhow {
+            package: package_path.to_owned(),
+            error: err.into(),
+        }
+    }
+
+    fn from_read_dir(
+        package_path: CellPathRef<'_>,
+        err: ReadDirError,
+    ) -> GatherPackageListingError {
+        match err {
+            ReadDirError::DirectoryDoesNotExist(expected_path) => {
+                GatherPackageListingError::DirectoryDoesNotExist {
+                    package: package_path.to_owned(),
+                    expected_path,
+                }
+            }
+            ReadDirError::DirectoryIsIgnored(path, ignore_reason) => {
+                GatherPackageListingError::DirectoryIsIgnored {
+                    package: package_path.to_owned(),
+                    path,
+                    ignore_reason,
+                }
+            }
+            ReadDirError::NotADirectory(path, node_type) => {
+                GatherPackageListingError::NotADirectory {
+                    package: package_path.to_owned(),
+                    path,
+                    node_type,
+                }
+            }
+            ReadDirError::Anyhow(e) => GatherPackageListingError::Anyhow {
+                package: package_path.to_owned(),
+                error: e.into(),
+            },
+        }
+    }
+
+    fn no_build_file(
+        package_path: CellPathRef<'_>,
+        candidates: Vec<FileNameBuf>,
+    ) -> GatherPackageListingError {
+        GatherPackageListingError::NoBuildFile {
+            package: package_path.to_owned(),
+            candidates,
+        }
+    }
+}
+
+impl std::fmt::Display for GatherPackageListingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        /*
+         package `fbsource//foo/target/x/y/lmnop:` does not exist
+                  ^--------------------^
+             dir `fbsource//foo/target/x` does not exist
+
+         package `fbsource//foo/target/x/y/lmnop:` does not exist
+                  ^--------------------^
+             dir `fbsource//foo/target/x` is ignored (config project.ignore contains `foo/target/ **`)
+
+         package `fbsource//fbcode/target/x/y/lmnop:` does not exist
+                  ^--------------^
+             this package is using the wrong cell, use `fbcode//target/x/y/lmnop:` instead
+
+
+         package `fbsource//foo/target/x/y/lmnop:` does not exist
+                  ^--------------------^
+            path `fbsource//foo/target/x` is a file, not a directory
+
+         package `fbsource//foo/target/x/y/lmnop:` does not exist
+             missing `TARGETS` file (also missing alternatives `TARGETS.v2`, `BUCK`, `BUCK.v2`)
+
+         error loading package `fbsource//foo/target/x/y/lmnop:`
+              ... # just display the anyhow error for now
+        */
+
+        let prefix = "package `";
+        let underlined = |path_as_string: &str| {
+            format!(
+                "{}^{}^",
+                " ".repeat(prefix.len()),
+                "-".repeat(path_as_string.len().saturating_sub(2))
+            )
+        };
+
+        let (package, submessage) = match self {
+            GatherPackageListingError::Anyhow { package, .. } => {
+                // in this case we return the anyhow as our source and we're just displayed as context
+                write!(f, "gathering package listing for `{}`", &package)?;
+                return Ok(());
+            }
+            GatherPackageListingError::NoBuildFile {
+                candidates,
+                package,
+            } => {
+                if let Some(primary_candidate) =
+                    candidates.iter().find(|v| v.extension() != Some("v2"))
+                {
+                    (
+                        package,
+                        format!(
+                            "    missing `{}` file (also missing alternatives {})",
+                            primary_candidate,
+                            candidates.iter().map(|v| format!("`{}`", v)).join(", ")
+                        ),
+                    )
+                } else {
+                    unreachable!()
+                }
+            }
+            GatherPackageListingError::DirectoryDoesNotExist {
+                package,
+                expected_path,
+            } => {
+                let path_as_str = expected_path.to_string();
+                (
+                    package,
+                    format!(
+                        "{}\n    dir `{}` does not exist",
+                        underlined(&path_as_str),
+                        path_as_str,
+                    ),
+                )
+            }
+            GatherPackageListingError::NotADirectory {
+                package,
+                path,
+                node_type,
+            } => {
+                let path_as_str = path.to_string();
+                (
+                    package,
+                    format!(
+                        "{}\n   path `{}` is a {}, not a directory",
+                        underlined(&path_as_str),
+                        path_as_str,
+                        node_type
+                    ),
+                )
+            }
+            GatherPackageListingError::DirectoryIsIgnored {
+                package,
+                path,
+                ignore_reason: FileIgnoreReason::IgnoredByPattern { pattern, .. },
+            } => {
+                let path_as_str = path.to_string();
+                (
+                    package,
+                    format!(
+                        "{}\n    dir `{}` does not exist (project.ignore contains `{}`)",
+                        underlined(&path_as_str),
+                        path_as_str,
+                        &pattern
+                    ),
+                )
+            }
+            GatherPackageListingError::DirectoryIsIgnored {
+                package,
+                path,
+                ignore_reason: FileIgnoreReason::IgnoredByCell { cell_name, .. },
+            } => {
+                let path_as_str = path.to_string();
+                let corrected = {
+                    match package.strip_prefix(path.as_ref()) {
+                        Ok(fixed) => {
+                            CellPath::new(*cell_name, CellRelativePath::new(fixed).to_owned())
+                                .to_string()
+                        }
+                        _ => format!("{}//", cell_name),
+                    }
+                };
+                (
+                    package,
+                    format!(
+                        "{}\n    this package is using the wrong cell, use `{}` instead",
+                        underlined(&path_as_str),
+                        corrected,
+                    ),
+                )
+            }
+        };
+
+        writeln!(f, "{}{}:` does not exist", prefix, package)?;
+        f.write_str(&submessage)?;
+        Ok(())
+    }
+}
+
 impl<'c, 'd> InterpreterPackageListingResolver<'c, 'd> {
     pub fn new(ctx: &'c mut DiceComputations<'d>) -> Self {
         Self { ctx }
@@ -113,7 +335,7 @@ impl<'c, 'd> InterpreterPackageListingResolver<'c, 'd> {
     pub async fn gather_package_listing<'a>(
         &mut self,
         root: PackageLabel,
-    ) -> anyhow::Result<PackageListing> {
+    ) -> Result<PackageListing, GatherPackageListingError> {
         gather_package_listing_impl(self.ctx, root).await
     }
 }
@@ -138,22 +360,20 @@ impl Directory {
         root: CellPathRef<'_>,
         path: &PackageRelativePath,
         is_root: bool,
-    ) -> anyhow::Result<Option<Directory>> {
+    ) -> Result<Option<Directory>, GatherPackageListingError> {
         let cell_path = root.join(path.as_forward_rel_path());
-        let entries = DiceFileComputations::read_dir(ctx, cell_path.as_ref())
+        let entries = DiceFileComputations::read_dir_ext(ctx, cell_path.as_ref())
             .await
-            .input()?
+            .map_err(|e| GatherPackageListingError::from_read_dir(cell_path.as_ref(), e))?
             .included;
-
         let buildfile = find_buildfile(buildfile_candidates, &entries);
 
         match (is_root, buildfile) {
             (true, None) => {
-                return Err(PackageListingError::NoBuildFile(
-                    cell_path.to_owned(),
+                return Err(GatherPackageListingError::no_build_file(
+                    cell_path.as_ref(),
                     buildfile_candidates.to_vec(),
-                ))
-                .input();
+                ));
             }
             (false, Some(_)) => {
                 return Ok(None);
@@ -202,40 +422,32 @@ impl Directory {
         buildfile_candidates: &'a [FileNameBuf],
         root: CellPathRef<'a>,
         subdirs: Vec<PackageRelativePathBuf>,
-    ) -> BoxFuture<'a, anyhow::Result<(Vec<Directory>, Vec<ArcS<PackageRelativePath>>)>> {
+    ) -> BoxFuture<
+        'a,
+        Result<(Vec<Directory>, Vec<ArcS<PackageRelativePath>>), GatherPackageListingError>,
+    > {
         async move {
-            let futs = ctx.compute_many(subdirs.into_iter().map(|path| {
-                DiceComputations::declare_closure(
-                        |ctx: &mut DiceComputations| -> BoxFuture<
-                            anyhow::Result<(PackageRelativePathBuf, Option<Directory>)>,
-                        > {
-                            async move {
-                                let res = Directory::gather(
-                                    ctx,
-                                    buildfile_candidates,
-                                    root,
-                                    &path,
-                                    false,
-                                )
-                                .await?;
-                                Ok((path, res))
-                            }
-                            .boxed()
-                        },
-                    )
-            }));
-
-            let mut subdirs = Vec::new();
+            let mut new_subdirs = Vec::new();
             let mut subpackages = Vec::new();
 
-            for res in futures::future::join_all(futs).await {
+            for res in ctx
+                .compute_join(subdirs, |ctx: &mut DiceComputations, path| {
+                    async move {
+                        let res = Directory::gather(ctx, buildfile_candidates, root, &path, false)
+                            .await?;
+                        Ok((path, res))
+                    }
+                    .boxed()
+                })
+                .await
+            {
                 let (path, res) = res?;
                 match res {
-                    Some(v) => subdirs.push(v),
+                    Some(v) => new_subdirs.push(v),
                     None => subpackages.push(path.to_arc()),
                 }
             }
-            Ok((subdirs, subpackages))
+            Ok((new_subdirs, subpackages))
         }
         .boxed()
     }
@@ -282,12 +494,15 @@ impl Directory {
 async fn gather_package_listing_impl(
     ctx: &mut DiceComputations<'_>,
     root: PackageLabel,
-) -> anyhow::Result<PackageListing> {
-    let buildfile_candidates = DiceFileComputations::buildfiles(ctx, root.cell_name()).await?;
+) -> Result<PackageListing, GatherPackageListingError> {
+    let cell_path = root.as_cell_path();
+    let buildfile_candidates = DiceFileComputations::buildfiles(ctx, root.cell_name())
+        .await
+        .map_err(|e| GatherPackageListingError::anyhow(cell_path, e))?;
     Ok(Directory::gather(
         ctx,
         &buildfile_candidates,
-        root.as_cell_path(),
+        cell_path,
         PackageRelativePath::empty(),
         true,
     )

@@ -175,6 +175,10 @@ fn main() -> io::Result<()> {
             "#[serde(rename = \"bxl_ensure_artifacts_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
+            "install_duration",
+            "#[serde(rename = \"install_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
             "CriticalPathEntry2.user_duration",
             "#[serde(rename = \"user_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )

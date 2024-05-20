@@ -20,33 +20,55 @@ enum FileOpsError {
     ReadIgnoredDir(String, String),
 }
 
-pub(crate) enum FileIgnoreResult {
+#[derive(Debug, Allocative)]
+pub enum FileIgnoreReason {
+    IgnoredByPattern { path: String, pattern: String },
+    IgnoredByCell { path: String, cell_name: CellName },
+}
+
+impl FileIgnoreReason {
+    pub fn describe(&self) -> String {
+        match self {
+            FileIgnoreReason::IgnoredByPattern { pattern, .. } => {
+                format!("config project.ignore contains `{}`", pattern)
+            }
+            FileIgnoreReason::IgnoredByCell { cell_name, .. } => {
+                format!("path is contained in cell `{}`", cell_name)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Allocative)]
+pub enum FileIgnoreResult {
     Ok,
-    IgnoredByPattern(String, String),
-    IgnoredByCell(String, CellName),
+    Ignored(FileIgnoreReason),
 }
 
 impl FileIgnoreResult {
     /// Converts the FileIgnoreResult to a Result<()> where any ignored case is converted to an Err
     /// with appropriate message. This should be used when it would be an error to interact with an
     /// ignored file.
-    pub(crate) fn into_result(self) -> anyhow::Result<()> {
+    pub fn into_result(self) -> anyhow::Result<()> {
         match self {
             FileIgnoreResult::Ok => Ok(()),
-            FileIgnoreResult::IgnoredByPattern(path, pattern) => {
+            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern { path, pattern }) => {
                 Err(anyhow::anyhow!(FileOpsError::ReadIgnoredDir(
                     path,
                     format!("file is matched by pattern `{}`", pattern)
                 )))
             }
-            FileIgnoreResult::IgnoredByCell(path, cell_name) => Err(anyhow::anyhow!(
-                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{}`", cell_name))
-            )),
+            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell { path, cell_name }) => {
+                Err(anyhow::anyhow!(FileOpsError::ReadIgnoredDir(
+                    path,
+                    format!("file is part of cell `{}`", cell_name)
+                )))
+            }
         }
     }
 
     /// Returns true if the file is ignored, false otherwise.
-    pub(crate) fn is_ignored(&self) -> bool {
+    pub fn is_ignored(&self) -> bool {
         match self {
             FileIgnoreResult::Ok => false,
             _ => true,
@@ -80,14 +102,17 @@ impl CellFileIgnores {
         let candidate = globset::Candidate::new(path.as_str());
 
         if let Some(pattern) = self.ignores.matches_candidate(&candidate) {
-            return FileIgnoreResult::IgnoredByPattern(
-                path.as_str().to_owned(),
-                pattern.to_owned(),
-            );
+            return FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern {
+                path: path.as_str().to_owned(),
+                pattern: pattern.to_owned(),
+            });
         }
 
         if let Some((_, cell_name, _)) = self.cell_ignores.matches(path) {
-            return FileIgnoreResult::IgnoredByCell(path.as_str().to_owned(), cell_name);
+            return FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell {
+                path: path.as_str().to_owned(),
+                cell_name,
+            });
         }
 
         FileIgnoreResult::Ok

@@ -147,6 +147,11 @@ impl<'v> StringValue<'v> {
             .unpack_frozen()
             .map(|s| unsafe { FrozenStringValue::new_unchecked(s) })
     }
+
+    #[inline]
+    pub(crate) unsafe fn cast_lifetime<'w>(self) -> StringValue<'w> {
+        StringValue::new_unchecked(self.to_value().cast_lifetime())
+    }
 }
 
 /// Common type for [`StringValue`] and [`FrozenStringValue`].

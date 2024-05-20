@@ -24,6 +24,21 @@ async def read_what_ran(buck: Buck, *args) -> typing.List[typing.Dict[str, typin
     return out
 
 
+def timestamp_ms(s: int, ns: int) -> int:
+    f = int(ns / 1000000)
+    assert f < 1000
+    return s * 1000 + f
+
+
+async def read_timestamps(buck: Buck, *args) -> typing.List[int]:
+    log = (await buck.log("show")).stdout.strip().splitlines()
+    return [
+        timestamp_ms(*json.loads(line)["Event"]["timestamp"])
+        for line in log
+        if json_get(line, *args) is not None
+    ]
+
+
 def is_running_on_linux() -> bool:
     return sys.platform == "linux"
 

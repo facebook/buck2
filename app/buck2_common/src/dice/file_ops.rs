@@ -26,12 +26,16 @@ use dice::DiceTransactionUpdater;
 use dice::Key;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 
 use crate::dice::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::FileOps;
 use crate::file_ops::FileOpsError;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
+use crate::ignores::file_ignores::FileIgnoreResult;
+use crate::io::ReadDirError;
 use crate::legacy_configs::buildfiles::HasBuildfiles;
 
 pub mod delegate;
@@ -68,6 +72,14 @@ impl DiceFileComputations {
         })
         .await?
         .map_err(anyhow::Error::from)
+    }
+
+    /// Like read_dir, but with extended error information. This may add additional dice dependencies.
+    pub async fn read_dir_ext(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPathRef<'_>,
+    ) -> Result<ReadDirOutput, ReadDirError> {
+        read_dir_ext(ctx, path).await
     }
 
     /// Does not check if the path is ignored
@@ -118,7 +130,7 @@ impl DiceFileComputations {
     pub async fn is_ignored(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<FileIgnoreResult> {
         get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
             .await?
             .is_ignored(path.path())
@@ -344,7 +356,10 @@ impl FileOps for DiceFileOps<'_, '_> {
         DiceFileComputations::read_path_metadata_if_exists(&mut self.0.get(), path).await
     }
 
-    async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
+    async fn is_ignored(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> anyhow::Result<FileIgnoreResult> {
         DiceFileComputations::is_ignored(&mut self.0.get(), path).await
     }
 
@@ -356,5 +371,68 @@ impl FileOps for DiceFileOps<'_, '_> {
 
     async fn buildfiles<'a>(&self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
         DiceFileComputations::buildfiles(&mut self.0.get(), cell).await
+    }
+}
+
+fn extended_ignore_error<'a>(
+    ctx: &'a mut DiceComputations<'_>,
+    path: CellPathRef<'a>,
+) -> BoxFuture<'a, Option<ReadDirError>> {
+    async move {
+        match path.parent() {
+            Some(parent) => match DiceFileComputations::read_dir_ext(ctx, parent).await {
+                Ok(v) => {
+                    // the parent can be read fine, check if this path is ignored first (if it's ignored it won't appear in the read_dir results).
+                    if let Ok(FileIgnoreResult::Ignored(reason)) =
+                        DiceFileComputations::is_ignored(ctx, path).await
+                    {
+                        return Some(ReadDirError::DirectoryIsIgnored(path.to_owned(), reason));
+                    }
+
+                    match path.path().file_name() {
+                        Some(file_name) if !v.contains(file_name) => {
+                            return Some(ReadDirError::DirectoryDoesNotExist(path.to_owned()));
+                        }
+                        _ => {}
+                    }
+
+                    match DiceFileComputations::read_path_metadata(ctx, path).await {
+                        Ok(RawPathMetadata::Directory) => {}
+                        Ok(RawPathMetadata::Symlink { .. }) => {
+                            // not sure how we should handle symlink here, if it's pointing to a dir is it potentially correct?
+                        }
+                        Err(_) => {
+                            // we ignore this, we don't know what the error is and so we can't be sure that
+                            // it's not missing important data that the original error would have.
+                        }
+                        Ok(RawPathMetadata::File(..)) => {
+                            return Some(ReadDirError::NotADirectory(
+                                path.to_owned(),
+                                "file".to_owned(),
+                            ));
+                        }
+                    }
+
+                    None
+                }
+                Err(e) => Some(e),
+            },
+            None => None,
+        }
+    }
+    .boxed()
+}
+
+/// out-of-line impl for DiceComputations::read_dir_ext so it doesn't add noise to the api
+async fn read_dir_ext(
+    ctx: &mut DiceComputations<'_>,
+    path: CellPathRef<'_>,
+) -> Result<ReadDirOutput, ReadDirError> {
+    match DiceFileComputations::read_dir(ctx, path).await {
+        Ok(v) => Ok(v),
+        Err(e) => match extended_ignore_error(ctx, path).await {
+            Some(e) => Err(e),
+            None => Err(e.into()),
+        },
     }
 }

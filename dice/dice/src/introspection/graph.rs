@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -106,13 +104,13 @@ impl EngineForIntrospection for ModernIntrospectable {
         &'a self,
         _keys: &'a mut HashMap<AnyKey, KeyID>,
     ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a> {
-        Box::new(self.graph.nodes().map(|node| {
-            let any_k = self.key_map.get(&node.k).expect("key should be present");
+        Box::new(self.graph.nodes().map(|(key, node)| {
+            let any_k = self.key_map.get(&key).expect("key should be present");
             SerializedGraphNodesForKey {
-                id: KeyID(node.k.index as usize),
+                id: KeyID(node.node_id.0),
                 key: any_k.to_string(),
                 type_name: any_k.type_name().to_owned(),
-                nodes: node.nodes.clone(),
+                nodes: Some(node.clone()),
             }
         }))
     }
@@ -210,28 +208,8 @@ pub enum GraphNodeKind {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CellHistory {
-    pub history: BTreeMap<VersionNumber, HistoryState>,
-}
-
-impl CellHistory {
-    pub fn new(verified: BTreeSet<VersionNumber>, dirtied: BTreeMap<VersionNumber, bool>) -> Self {
-        Self {
-            history: verified
-                .into_iter()
-                .map(|v| (v, HistoryState::Verified))
-                .chain(dirtied.into_iter().map(|(v, f)| {
-                    (
-                        v,
-                        if f {
-                            HistoryState::ForceDirty
-                        } else {
-                            HistoryState::Dirty
-                        },
-                    )
-                }))
-                .collect(),
-        }
-    }
+    pub valid_ranges: Vec<(VersionNumber, Option<VersionNumber>)>,
+    pub force_dirtied_at: Vec<VersionNumber>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -250,7 +228,7 @@ pub struct SerializedGraphNode {
     /// it's theoretically possible for those locks to be poisoned.
     /// Therefore, they're optional.
     pub deps: Option<HashSet<KeyID>>,
-    pub rdeps: Option<BTreeMap<VersionNumber, Vec<NodeID>>>,
+    pub rdeps: Option<Vec<NodeID>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -258,7 +236,7 @@ pub struct SerializedGraphNodesForKey {
     pub id: KeyID,
     pub key: String,
     pub type_name: String,
-    pub nodes: BTreeMap<VersionNumber, Option<SerializedGraphNode>>,
+    pub nodes: Option<SerializedGraphNode>,
 }
 
 pub(crate) trait EngineForIntrospection {

@@ -9,6 +9,8 @@
 
 #![cfg(test)]
 
+mod general;
 mod legacy;
+mod multiversion;
 mod opaque;
 mod projection;

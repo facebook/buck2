@@ -20,6 +20,7 @@ futures = "0.3"
 fxhash = "0.2.1"
 gazebo = { workspace = true }
 indexmap = { version = "1.9.1", features = ["serde-1"] }
+indoc = { workspace = true }
 itertools = "0.10.0"
 lock_free_hashtable = { workspace = true }
 lock_free_vec = { workspace = true }
@@ -36,6 +37,7 @@ tokio = { version = "1.5", features = ["full"] }
 tokio-stream = { workspace = true }
 tracing = "0.1.22"
 triomphe = { workspace = true }
+typed-arena = { workspace = true }
 
 [dev-dependencies]
 anyhow = "1.0.65"

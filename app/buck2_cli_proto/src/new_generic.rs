@@ -46,9 +46,11 @@ pub struct DebugEvalResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExplainRequest {
-    pub output: AbsPathBuf,
+    pub output: Option<AbsPathBuf>,
     pub target: String,
     pub fbs_dump: Option<AbsPathBuf>,
+    pub allow_vpnless: bool,
+    pub manifold_path: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

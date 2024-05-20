@@ -53,7 +53,7 @@ pub trait ProjectionKey:
     }
 
     fn storage_type() -> StorageType {
-        StorageType::LastN(1)
+        StorageType::Normal
     }
 
     /// Provides a short informative name for this projection type.

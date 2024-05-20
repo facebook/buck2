@@ -15,6 +15,7 @@ use buck2_futures::cancellable_future::DisableCancellationGuard;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_futures::cancellation::IgnoreCancellationGuard;
 use dupe::Dupe;
+use itertools::Either;
 
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;
@@ -22,6 +23,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -95,6 +97,34 @@ impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
             cycles: self.cycles,
         }
     }
+
+    pub(crate) async fn await_previous(
+        self,
+        previous: PreviouslyCancelledTask,
+    ) -> Either<
+        CancellableResult<DiceWorkerStateFinishedAndCached>,
+        DiceWorkerStateLookupNode<'a, 'b>,
+    > {
+        previous.previous.await_termination().await;
+
+        // old task actually finished, so just use that result if it wasn't
+        // cancelled
+
+        match previous
+            .previous
+            .get_finished_value()
+            .expect("Terminated task must have finished value")
+        {
+            Ok(res) => {
+                return Either::Left(self.previously_finished(res));
+            }
+            Err(Cancelled) => {
+                // actually was cancelled, so just continue re-evaluating
+            }
+        }
+
+        Either::Right(self.previously_cancelled().await)
+    }
 }
 
 fn finish_with_cached_value(
@@ -126,7 +156,10 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
     pub(crate) fn checking_deps(
         self,
         eval: &AsyncEvaluator,
-    ) -> DiceWorkerStateCheckingDeps<'a, 'b> {
+    ) -> (
+        DiceWorkerStateCheckingDeps<'a, 'b>,
+        KeyComputingUserCycleDetectorData,
+    ) {
         debug!(msg = "found existing entry with mismatching version. checking if deps changed.");
 
         self.internals.checking_deps();
@@ -137,13 +170,21 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
             eval.user_data.cycle_detector.as_ref(),
         );
 
-        DiceWorkerStateCheckingDeps {
+        (
+            DiceWorkerStateCheckingDeps {
+                internals: self.internals,
+            },
             cycles,
-            internals: self.internals,
-        }
+        )
     }
 
-    pub(crate) fn lookup_dirtied(self, eval: &AsyncEvaluator) -> DiceWorkerStateComputing<'a, 'b> {
+    pub(crate) fn lookup_dirtied(
+        self,
+        eval: &AsyncEvaluator,
+    ) -> (
+        DiceWorkerStateEvaluating<'a, 'b>,
+        KeyComputingUserCycleDetectorData,
+    ) {
         debug!(msg = "lookup requires recompute.");
 
         self.internals.computing();
@@ -154,10 +195,12 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
             eval.user_data.cycle_detector.as_ref(),
         );
 
-        DiceWorkerStateComputing {
+        (
+            DiceWorkerStateEvaluating {
+                internals: self.internals,
+            },
             cycles,
-            internals: self.internals,
-        }
+        )
     }
 
     pub(crate) fn lookup_matches(
@@ -179,33 +222,20 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
 /// When the spawned dice task worker is checking if the dependencies have changed since the last
 /// time this node was verified, and are waiting for the results of the dependency re-computation.
 pub(crate) struct DiceWorkerStateCheckingDeps<'a, 'b> {
-    cycles: KeyComputingUserCycleDetectorData,
     internals: &'a mut DiceTaskHandle<'b>,
 }
 
 impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
-    pub(crate) fn cycles_for_dep(
-        &self,
-        dep: DiceKey,
-        eval: &AsyncEvaluator,
-    ) -> UserCycleDetectorData {
-        self.cycles.subrequest(dep, &eval.dice.key_index)
-    }
-
-    pub(crate) fn deps_not_match(self) -> DiceWorkerStateComputing<'a, 'b> {
+    pub(crate) fn deps_not_match(self) -> DiceWorkerStateEvaluating<'a, 'b> {
         debug!(msg = "deps changed");
         self.internals.computing();
 
-        DiceWorkerStateComputing {
-            cycles: self.cycles,
+        DiceWorkerStateEvaluating {
             internals: self.internals,
         }
     }
 
-    pub(crate) fn deps_match(
-        self,
-        activation_info: Option<ActivationInfo>,
-    ) -> CancellableResult<DiceWorkerStateFinished<'a, 'b>> {
+    pub(crate) fn deps_match(self) -> CancellableResult<DiceWorkerStateFinished<'a, 'b>> {
         debug!(msg = "reusing previous value because deps didn't change. Updating caches");
 
         let guard = match self
@@ -223,38 +253,7 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
         Ok(DiceWorkerStateFinished {
             _prevent_cancellation: guard,
             internals: self.internals,
-            activation_info,
         })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn testing(task_handle: &'a mut DiceTaskHandle<'b>) -> Self {
-        DiceWorkerStateCheckingDeps {
-            cycles: KeyComputingUserCycleDetectorData::Untracked,
-            internals: task_handle,
-        }
-    }
-}
-
-/// When the spawned dice worker is currently computing the requested Key.
-pub(crate) struct DiceWorkerStateComputing<'a, 'b> {
-    cycles: KeyComputingUserCycleDetectorData,
-    internals: &'a mut DiceTaskHandle<'b>,
-}
-
-impl<'a, 'b> DiceWorkerStateComputing<'a, 'b> {
-    pub(crate) fn evaluating(
-        self,
-    ) -> (
-        KeyComputingUserCycleDetectorData,
-        DiceWorkerStateEvaluating<'a, 'b>,
-    ) {
-        (
-            self.cycles,
-            DiceWorkerStateEvaluating {
-                internals: self.internals,
-            },
-        )
     }
 }
 
@@ -272,7 +271,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
         self,
         cycles: KeyComputingUserCycleDetectorData,
         result: KeyEvaluationResult,
-        activation_info: Option<ActivationInfo>,
+        activation_data: ActivationData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         debug!(msg = "evaluation finished. updating caches");
 
@@ -294,8 +293,8 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
             state: DiceWorkerStateFinished {
                 _prevent_cancellation: guard,
                 internals: self.internals,
-                activation_info,
             },
+            activation_data,
             result,
         })
     }
@@ -304,6 +303,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
 /// When the spawned dice worker has just finished evaluating the `Key::compute` function
 pub(crate) struct DiceWorkerStateFinishedEvaluating<'a, 'b> {
     pub(crate) state: DiceWorkerStateFinished<'a, 'b>,
+    pub(crate) activation_data: ActivationData,
     pub(crate) result: KeyEvaluationResult,
 }
 
@@ -313,14 +313,17 @@ pub(crate) struct DiceWorkerStateFinishedEvaluating<'a, 'b> {
 pub(crate) struct DiceWorkerStateFinished<'a, 'b> {
     _prevent_cancellation: DisableCancellationGuard,
     internals: &'a mut DiceTaskHandle<'b>,
-    activation_info: Option<ActivationInfo>,
 }
 
 impl<'a, 'b> DiceWorkerStateFinished<'a, 'b> {
-    pub(crate) fn cached(mut self, value: DiceComputedValue) -> DiceWorkerStateFinishedAndCached {
+    pub(crate) fn cached(
+        self,
+        value: DiceComputedValue,
+        activation_info: Option<ActivationInfo>,
+    ) -> DiceWorkerStateFinishedAndCached {
         debug!(msg = "Update caches complete");
 
-        if let Some(activation_info) = self.activation_info.take() {
+        if let Some(activation_info) = activation_info {
             activation_info.activation_tracker.key_activated(
                 activation_info.key.as_any(),
                 &mut activation_info.deps.iter().map(|k| k.as_any()),
@@ -347,12 +350,12 @@ impl ActivationInfo {
         key_index: &DiceKeyIndex,
         activation_tracker: &Option<Arc<dyn ActivationTracker>>,
         key: DiceKey,
-        deps: impl Iterator<Item = &'a DiceKey>,
+        deps: impl Iterator<Item = DiceKey> + 'a,
         activation_data: ActivationData,
     ) -> Option<ActivationInfo> {
         if let Some(activation_tracker) = activation_tracker {
             let key = key_index.get(key).dupe();
-            let deps = deps.map(|dep| key_index.get(*dep).dupe()).collect();
+            let deps = deps.map(|dep| key_index.get(dep).dupe()).collect();
 
             Some(ActivationInfo {
                 activation_tracker: activation_tracker.dupe(),

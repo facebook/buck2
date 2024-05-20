@@ -99,6 +99,21 @@ fn do_render(
     let mut parts = Vec::new();
     if let Some(buck2_rss) = snapshot.buck2_rss {
         parts.push(format!("RSS = {}", HumanizedBytes::new(buck2_rss)));
+    } else {
+        // buck2_rss is only available on Linux. On other platforms, buck2 keeps track of buck2_max_rss so show that instead.
+        parts.push(format!(
+            "Max RSS = {}",
+            HumanizedBytes::new(snapshot.buck2_max_rss)
+        ));
+    }
+
+    // We prefer to display malloc_bytes_active instead of malloc_bytes_allocated
+    // because it represents active pages which is more than allocated and better reflects actual memory use of buck2.
+    if let Some(malloc_bytes_active) = snapshot.malloc_bytes_active {
+        parts.push(format!(
+            "Malloc active = {}",
+            HumanizedBytes::new(malloc_bytes_active)
+        ));
     }
     if let Some(cpu) = two_snapshots.cpu_percents() {
         parts.push(format!("CPU = {}%", cpu));

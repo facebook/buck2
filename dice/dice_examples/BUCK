@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
@@ -19,5 +20,21 @@ rust_library(
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
+    ],
+)
+
+rust_binary(
+    name = "many_cancel",
+    srcs = ["bin/many_cancel.rs"],
+    deps = [
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_futures:buck2_futures",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )

@@ -261,8 +261,7 @@ impl FileOpsDelegateWithIgnores {
     pub async fn read_dir(&self, path: &CellRelativePath) -> anyhow::Result<ReadDirOutput> {
         // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
         self.check_ignores(UncheckedCellRelativePath::new(path))
-            .into_result()
-            .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
+            .into_result()?;
 
         let entries = self.delegate.read_dir(path).await?;
 
@@ -322,10 +321,8 @@ impl FileOpsDelegateWithIgnores {
         self.delegate.read_path_metadata_if_exists(path).await
     }
 
-    pub async fn is_ignored(&self, path: &CellRelativePath) -> anyhow::Result<bool> {
-        Ok(self
-            .check_ignores(UncheckedCellRelativePath::new(path))
-            .is_ignored())
+    pub async fn is_ignored(&self, path: &CellRelativePath) -> anyhow::Result<FileIgnoreResult> {
+        Ok(self.check_ignores(UncheckedCellRelativePath::new(path)))
     }
 }
 

@@ -194,7 +194,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     sub_targets = get_classpath_subtarget(ctx.actions, packaging_info)
 
-    class_to_src_map, _ = get_class_to_source_map_info(
+    class_to_src_map, _, _ = get_class_to_source_map_info(
         ctx,
         outputs = None,
         deps = ctx.attrs.deps,

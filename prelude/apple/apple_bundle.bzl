@@ -289,7 +289,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
 
     validation_deps_outputs = get_validation_deps_outputs(ctx)
-    sub_targets = assemble_bundle(
+    bundle_result = assemble_bundle(
         ctx,
         bundle,
         apple_bundle_part_list_output.parts,
@@ -297,6 +297,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path),
         validation_deps_outputs,
     )
+    sub_targets = bundle_result.sub_targets
     sub_targets.update(aggregated_debug_info.sub_targets)
 
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
@@ -377,7 +378,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         xcode_data_info,
         extra_output_provider,
         link_cmd_debug_info,
-    ]
+    ] + bundle_result.providers
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, typing.Any]:
     data = {

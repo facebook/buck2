@@ -12,10 +12,11 @@ use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
 /// Storage type for a cached entry.
-/// The oldest entry will be evicted once the cache stores more than N entries of the same key
-/// request to compute them. TODO think about whether or not we can
-/// optimize to delete injected keys when no more computation will request that version
+///
+/// For an Injected entry, we must store all values that are still reachable because we
+/// cannot recompute them.
 #[derive(UnpackVariants, Debug, Clone, Copy, Dupe, Allocative)]
 pub enum StorageType {
-    LastN(usize),
+    Normal,
+    Injected,
 }

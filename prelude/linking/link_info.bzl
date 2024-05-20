@@ -19,10 +19,6 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load(
-    "@prelude//utils:utils.bzl",
-    "flatten",
-)
 
 # Represents an archive (.a file)
 Archive = record(
@@ -221,13 +217,30 @@ def wrap_link_info(
         external_debug_info = inner.external_debug_info,
     )
 
+# Returns true if the command line argument representation of this linkable,
+# could be passed within a filelist.
+def _is_linkable_included_in_filelist(linkable: LinkableTypes) -> bool:
+    if isinstance(linkable, ArchiveLinkable):
+        # Link whole archives don't appear in the filelist, but are passed directly to the linker
+        # with a -force-load (MachO) or -whole-archive (ELF) flag. Regular archives do appear in the filelist.
+        return not linkable.link_whole
+    elif isinstance(linkable, SharedLibLinkable) or \
+         isinstance(linkable, FrameworksLinkable) or \
+         isinstance(linkable, SwiftRuntimeLinkable) or \
+         isinstance(linkable, SwiftmoduleLinkable):
+        # These are all passed directly via various command line flags, not via a filelist.
+        return False
+    elif isinstance(linkable, ObjectsLinkable):
+        # Object files always appear in the filelist.
+        return True
+    else:
+        fail("Encountered unhandled filelist-like linkable {}".format(str(linkable)))
+
 # Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     if isinstance(linkable, ArchiveLinkable):
         if linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
-        elif linkable.linker_type == "darwin":
-            pass
         else:
             args.add(linkable.archive.artifact)
 
@@ -242,16 +255,14 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
         else:
             args.add(linkable.lib)
     elif isinstance(linkable, ObjectsLinkable):
-        # We depend on just the filelist for darwin linker and don't add the normal args
-        if linkable.linker_type != "darwin":
-            # We need to export every symbol when link groups are used, but enabling
-            # --whole-archive with --start-lib is undefined behavior in gnu linkers:
-            # https://reviews.llvm.org/D120443. We need to export symbols from every
-            # linkable in the link_info
-            if not linkable.link_whole:
-                args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
-            else:
-                args.add(linkable.objects)
+        # We need to export every symbol when link groups are used, but enabling
+        # --whole-archive with --start-lib is undefined behavior in gnu linkers:
+        # https://reviews.llvm.org/D120443. We need to export symbols from every
+        # linkable in the link_info
+        if not linkable.link_whole:
+            args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
+        else:
+            args.add(linkable.objects)
     elif isinstance(linkable, FrameworksLinkable) or \
          isinstance(linkable, SwiftRuntimeLinkable) or \
          isinstance(linkable, SwiftmoduleLinkable):
@@ -263,44 +274,33 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     else:
         fail("Encountered unhandled linkable {}".format(str(linkable)))
 
-def link_info_to_args(value: LinkInfo) -> cmd_args:
-    args = cmd_args(value.pre_flags)
-    for linkable in value.linkables:
-        append_linkable_args(args, linkable)
-    if False:
-        # TODO(nga): `post_flags` is never `None`.
-        def unknown():
-            pass
+LinkInfoArgumentFilter = enum(
+    "all",
+    "filelist_only",
+    "excluding_filelist",
+)
 
-        value = unknown()
-    if value.post_flags != None:
-        args.add(value.post_flags)
-    return args
+def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFilter = LinkInfoArgumentFilter("all")) -> cmd_args:
+    pre_flags = cmd_args()
+    post_flags = cmd_args()
+    if argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("excluding_filelist"):
+        pre_flags.add(value.pre_flags)
+        post_flags.add(value.post_flags)
 
-# List of inputs to pass to the darwin linker via the `-filelist` param.
-# TODO(agallagher): It might be nicer to leave these inlined in the args
-# above and extract them at link time via reflection.  This way we'd hide
-# platform-specific details from this level.
-# NOTE(agallagher): Using filelist out-of-band means objects/archives get
-# linked out of order of their corresponding flags.
-def link_info_filelist(value: LinkInfo) -> list[Artifact]:
-    filelists = []
+    flags = cmd_args()
     for linkable in value.linkables:
-        if isinstance(linkable, ArchiveLinkable):
-            if linkable.linker_type == "darwin" and not linkable.link_whole:
-                filelists.append(linkable.archive.artifact)
-        elif isinstance(linkable, SharedLibLinkable):
-            pass
-        elif isinstance(linkable, ObjectsLinkable):
-            if linkable.linker_type == "darwin":
-                filelists += linkable.objects
-        elif isinstance(linkable, FrameworksLinkable) or \
-             isinstance(linkable, SwiftRuntimeLinkable) or \
-             isinstance(linkable, SwiftmoduleLinkable):
-            pass
-        else:
-            fail("Encountered unhandled linkable {}".format(str(linkable)))
-    return filelists
+        if argument_type_filter == LinkInfoArgumentFilter("all"):
+            append_linkable_args(flags, linkable)
+        elif argument_type_filter == LinkInfoArgumentFilter("filelist_only") and _is_linkable_included_in_filelist(linkable):
+            append_linkable_args(flags, linkable)
+        elif argument_type_filter == LinkInfoArgumentFilter("excluding_filelist") and not _is_linkable_included_in_filelist(linkable):
+            append_linkable_args(flags, linkable)
+
+    result = cmd_args()
+    result.add(pre_flags)
+    result.add(flags)
+    result.add(post_flags)
+    return result
 
 # Encapsulate all `LinkInfo`s provided by a given rule's link style.
 #
@@ -316,31 +316,39 @@ LinkInfos = record(
 
 def _link_info_default_args(infos: LinkInfos):
     info = infos.default
-    return link_info_to_args(info)
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("all"))
 
 def _link_info_stripped_link_args(infos: LinkInfos):
     info = infos.stripped or infos.default
-    return link_info_to_args(info)
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("all"))
 
 def _link_info_default_filelist(infos: LinkInfos):
     info = infos.default
-    return link_info_filelist(info)
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only"))
 
 def _link_info_stripped_filelist(infos: LinkInfos):
     info = infos.stripped or infos.default
-    return link_info_filelist(info)
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only"))
+
+def _link_info_default_excluding_filelist_args(infos: LinkInfos):
+    info = infos.default
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
+
+def _link_info_stripped_excluding_filelist_args(infos: LinkInfos):
+    info = infos.stripped or infos.default
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
 
 def _link_info_has_default_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
     if infos:
         info = infos.default
-        if link_info_filelist(info):
+        if len(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")).inputs):
             return True
     return any(children)
 
 def _link_info_has_stripped_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
     if infos:
         info = infos.stripped or infos.default
-        if link_info_filelist(info):
+        if len(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")).inputs):
             return True
     return any(children)
 
@@ -348,8 +356,10 @@ def _link_info_has_stripped_filelist(children: list[bool], infos: [LinkInfos, No
 LinkInfosTSet = transitive_set(
     args_projections = {
         "default": _link_info_default_args,
+        "default_excluding_filelist": _link_info_default_excluding_filelist_args,
         "default_filelist": _link_info_default_filelist,
         "stripped": _link_info_stripped_link_args,
+        "stripped_excluding_filelist": _link_info_stripped_excluding_filelist_args,
         "stripped_filelist": _link_info_stripped_filelist,
     },
     reductions = {
@@ -646,17 +656,34 @@ def unpack_link_args_filelist(args: LinkArgs) -> [ArgLike, None]:
         return tset.project_as_args("stripped_filelist" if stripped else "default_filelist")
 
     if args.infos != None:
-        filelist = flatten([link_info_filelist(info) for info in args.infos])
-        if not filelist:
+        result_args = cmd_args()
+        for info in args.infos:
+            result_args.add(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")))
+
+        if not len(result_args.inputs):
             return None
 
-        # Actually create cmd_args so the API is consistent between the 2 branches.
-        args = cmd_args()
-        args.add(filelist)
-        return args
+        return result_args
 
     if args.flags != None:
         return None
+
+    fail("Unpacked invalid empty link args")
+
+def unpack_link_args_excluding_filelist(args: LinkArgs, link_ordering: [LinkOrdering, None] = None) -> ArgLike:
+    if args.tset != None:
+        ordering = link_ordering.value if link_ordering else "preorder"
+
+        tset = args.tset.infos
+        if args.tset.prefer_stripped:
+            return tset.project_as_args("stripped_excluding_filelist", ordering = ordering)
+        return tset.project_as_args("default_excluding_filelist", ordering = ordering)
+
+    if args.infos != None:
+        return cmd_args([link_info_to_args(info, LinkInfoArgumentFilter("excluding_filelist")) for info in args.infos])
+
+    if args.flags != None:
+        return args.flags
 
     fail("Unpacked invalid empty link args")
 

@@ -13,6 +13,7 @@ rust_library(
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:bincode",
         "fbsource//third-party/rust:derivative",
+        "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:tempfile",
     ],
     deps = [
@@ -37,6 +38,7 @@ rust_library(
         "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:triomphe",
+        "fbsource//third-party/rust:typed-arena",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_futures:buck2_futures",
         "//buck2/gazebo/cmp_any:cmp_any",

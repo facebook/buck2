@@ -35,6 +35,7 @@ use crate::versions::VersionRanges;
 #[derive(Debug, Allocative, Clone)]
 pub(crate) struct CellHistory {
     verified: SortedVectorSet<VersionNumber>,
+
     /// versions of dirty, mapping ot whether or not it's a forced dirty (which means recompute
     /// regardless of node changed)
     dirtied: SortedVectorMap<VersionNumber, bool>,
@@ -343,20 +344,6 @@ where {
             .copied()
     }
 
-    pub(crate) fn first_dirty_after(&self, v: VersionNumber) -> Option<VersionNumber> {
-        self.dirtied
-            .range((Bound::Excluded(v), Bound::Unbounded))
-            .next()
-            .map(|(v, _)| *v)
-    }
-
-    pub(crate) fn first_verified_after(&self, v: VersionNumber) -> Option<VersionNumber> {
-        self.verified
-            .range((Bound::Excluded(v), Bound::Unbounded))
-            .next()
-            .copied()
-    }
-
     /// When a node is recomputed to the same value as its existing history, but with a new set of
     /// dependencies, that node needs to know when itself will next be dirtied due to changes in its
     /// new dependencies.
@@ -537,20 +524,23 @@ pub(crate) mod testing {
 
 mod introspection {
     use crate::impls::core::graph::history::CellHistory;
-    use crate::versions::VersionNumber;
 
     impl CellHistory {
         pub fn to_introspectable(&self) -> crate::introspection::graph::CellHistory {
-            crate::introspection::graph::CellHistory::new(
-                self.verified
+            crate::introspection::graph::CellHistory {
+                valid_ranges: self.get_verified_ranges().to_introspectable(),
+                force_dirtied_at: self
+                    .dirtied
                     .iter()
-                    .map(VersionNumber::to_introspectable)
+                    .filter_map(|(v, forced)| {
+                        if *forced {
+                            Some(v.to_introspectable())
+                        } else {
+                            None
+                        }
+                    })
                     .collect(),
-                self.dirtied
-                    .iter()
-                    .map(|(k, v)| (k.to_introspectable(), *v))
-                    .collect(),
-            )
+            }
         }
     }
 }
@@ -559,12 +549,10 @@ mod introspection {
 mod tests {
     use sorted_vector_map::sorted_vector_map;
     use sorted_vector_map::sorted_vector_set;
-    use sorted_vector_map::SortedVectorSet;
 
     use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::impls::core::graph::history::testing::HistoryExt;
     use crate::impls::core::graph::history::CellHistory;
-    use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;
@@ -581,7 +569,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(1)
             )])
@@ -607,7 +595,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![
+            &VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(1)),
                 VersionRange::begins_with(VersionNumber::new(2))
             ])
@@ -633,7 +621,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_history(&VersionNumber::new(1)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![
+            &VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(1)),
                 VersionRange::begins_with(VersionNumber::new(2))
             ])
@@ -654,7 +642,7 @@ mod tests {
         assert_eq!(history.mark_invalidated(VersionNumber::new(2)), false);
         assert_eq!(
             history.get_history(&VersionNumber::new(2)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(2)
             )])
@@ -672,7 +660,7 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(2)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(2),
             )])
@@ -708,14 +696,14 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(3)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(3)
             )])
         );
         assert_eq!(
             history.get_history(&VersionNumber::new(5)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(3)
             )])
@@ -743,7 +731,7 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(5)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
+            &VersionRanges::testing_new(vec![VersionRange::bounded(
                 VersionNumber::new(0),
                 VersionNumber::new(5)
             )])
@@ -777,7 +765,7 @@ mod tests {
             .assert_verified();
         assert_eq!(
             history.get_history(&VersionNumber::new(5)).assert_unknown(),
-            &VersionRanges::testing_new(sorted_vector_set![
+            &VersionRanges::testing_new(vec![
                 VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(5)),
                 VersionRange::begins_with(VersionNumber::new(6))
             ])
@@ -844,18 +832,18 @@ mod tests {
     #[test]
     fn cell_history_verified_ranges() {
         let hist = CellHistory::testing_new(&[], &[]);
-        assert_eq!(hist.get_verified_ranges().ranges(), &SortedVectorSet::new());
+        assert_eq!(hist.get_verified_ranges().ranges(), &Vec::new());
 
         let hist = CellHistory::testing_new(&[VersionNumber::new(1)], &[]);
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![VersionRange::begins_with(VersionNumber::new(1))]
+            &vec![VersionRange::begins_with(VersionNumber::new(1))]
         );
 
         let hist = CellHistory::testing_new(&[VersionNumber::new(1), VersionNumber::new(3)], &[]);
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![VersionRange::begins_with(VersionNumber::new(1))]
+            &vec![VersionRange::begins_with(VersionNumber::new(1))]
         );
 
         let hist = CellHistory::testing_new(
@@ -864,7 +852,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![
+            &vec![
                 VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(2)),
                 VersionRange::begins_with(VersionNumber::new(3))
             ]
@@ -873,7 +861,7 @@ mod tests {
         let hist = CellHistory::testing_new(&[VersionNumber::new(1)], &[VersionNumber::new(3)]);
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![VersionRange::bounded(
+            &vec![VersionRange::bounded(
                 VersionNumber::new(1),
                 VersionNumber::new(3)
             ),]
@@ -895,7 +883,7 @@ mod tests {
         );
         assert_eq!(
             hist.get_verified_ranges().ranges(),
-            &sorted_vector_set![
+            &vec![
                 VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(3)),
                 VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
                 VersionRange::begins_with(VersionNumber::new(7))

@@ -208,4 +208,6 @@ CxxRuleConstructorParams = record(
     # Platform preprocessor flags
     platform_preprocessor_flags = field(list[(str, typing.Any)], []),
     lang_platform_preprocessor_flags = field(dict[typing.Any, typing.Any], {}),
+    # modulename-Swift.h header for building objc targets that rely on this swift dep
+    swift_objc_header = field([Artifact, None], None),
 )

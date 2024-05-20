@@ -11,8 +11,9 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
+load("@prelude//apple:apple_target_sdk_version.bzl", "get_versioned_target_triple")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name", "get_versioned_target_triple")
+load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
@@ -100,6 +101,8 @@ SwiftCompilationOutput = record(
     pre = field(CPreprocessor),
     # Exported preprocessor info required for ObjC compilation of rdeps.
     exported_pre = field(CPreprocessor),
+    # Exported -Swift.h header
+    exported_swift_header = field(Artifact),
     # Argsfiles used to compile object files.
     argsfiles = field(CompileArgsfiles),
     # A tset of (SDK/first-party) swiftmodule artifacts required to be linked into binary.
@@ -297,6 +300,7 @@ def compile_swift(
         dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, deps_providers),
         pre = pre,
         exported_pre = exported_pp_info,
+        exported_swift_header = exported_swift_header.artifact,
         argsfiles = object_output.argsfiles,
         swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
         clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers),

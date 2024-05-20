@@ -48,7 +48,11 @@ async fn starlark_file(
     files: &mut Vec<OwnedStarlarkPath>,
 ) -> anyhow::Result<()> {
     let cell_path = cell_resolver.get_cell_path(&proj_path)?;
-    if recursive.is_some() && DiceFileComputations::is_ignored(ctx, cell_path.as_ref()).await? {
+    if recursive.is_some()
+        && DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
+            .await?
+            .is_ignored()
+    {
         // File is ignored by Buck, give up on it
         return Ok(());
     }

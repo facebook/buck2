@@ -52,6 +52,7 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::daemon_windows::spawn_background_process_on_windows;
 use crate::daemon_constraints;
+use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
 use crate::events_ctx::EventsCtx;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
@@ -67,6 +68,7 @@ pub struct DaemonConstraintsRequest {
     /// Sandcastle id.
     user_version: Option<String>,
     desired_trace_io_state: DesiredTraceIoState,
+    nested_invocation_daemon_uuid: Option<String>,
     pub reject_daemon: Option<String>,
     pub reject_materializer_state: Option<String>,
     pub daemon_startup_config: DaemonStartupConfig,
@@ -122,6 +124,7 @@ impl DaemonConstraintsRequest {
             version: daemon_constraints::version(),
             user_version: daemon_constraints::user_version()?,
             desired_trace_io_state,
+            nested_invocation_daemon_uuid: get_possibly_nested_invocation_daemon_uuid(),
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_startup_config: immediate_config.daemon_startup_config()?.clone(),
@@ -140,7 +143,9 @@ impl DaemonConstraintsRequest {
             return Err(ConstraintUnsatisfiedReason::Version);
         }
 
-        if self.user_version != daemon.user_version {
+        if !is_nested_invocation(self.nested_invocation_daemon_uuid.as_ref(), daemon)
+            && self.user_version != daemon.user_version
+        {
             return Err(ConstraintUnsatisfiedReason::UserVersion);
         }
 
@@ -733,10 +738,27 @@ async fn establish_connection_inner(
                 match try_connect_existing(&buckd_info, &deadline, &lifecycle_lock).await {
                     Ok(channel) => {
                         let mut client = channel.upgrade().await?;
+
                         let reason = match constraints.satisfied(&client.constraints) {
                             Ok(()) => return Ok(client),
                             Err(reason) => reason,
                         };
+
+                        if is_nested_invocation(
+                            get_possibly_nested_invocation_daemon_uuid().as_ref(),
+                            &client.constraints,
+                        ) {
+                            match reason {
+                                ConstraintUnsatisfiedReason::TraceIo
+                                | ConstraintUnsatisfiedReason::StartupConfig => {
+                                    return Err(BuckdConnectError::ConnectError {
+                                        stderr: format!("buck2 daemon constraint mismatch during nested invocation: {}", reason),
+                                    }
+                                    .into());
+                                }
+                                _ => (),
+                            }
+                        }
 
                         event_subscribers
                             .eprintln(&format!(
@@ -1057,6 +1079,13 @@ fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
     }
 }
 
+fn is_nested_invocation(
+    buck2_daemon_uuid: Option<&String>,
+    daemon: &buck2_cli_proto::DaemonConstraints,
+) -> bool {
+    buck2_daemon_uuid.map_or(false, |uuid| uuid == &daemon.daemon_id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1081,6 +1110,7 @@ mod tests {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
             desired_trace_io_state,
+            nested_invocation_daemon_uuid: None,
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_startup_config: DaemonStartupConfig::testing_empty(),
@@ -1124,6 +1154,7 @@ mod tests {
             user_version: None,
             desired_trace_io_state: DesiredTraceIoState::Existing,
             reject_daemon: None,
+            nested_invocation_daemon_uuid: None,
             reject_materializer_state: None,
             daemon_startup_config: DaemonStartupConfig::testing_empty(),
         };
@@ -1152,6 +1183,7 @@ mod tests {
             user_version: None,
             desired_trace_io_state: DesiredTraceIoState::Existing,
             reject_daemon: None,
+            nested_invocation_daemon_uuid: None,
             reject_materializer_state: None,
             daemon_startup_config: DaemonStartupConfig::testing_empty(),
         };
@@ -1183,6 +1215,7 @@ mod tests {
             user_version: None,
             desired_trace_io_state: DesiredTraceIoState::Existing,
             reject_daemon: None,
+            nested_invocation_daemon_uuid: None,
             reject_materializer_state: None,
             daemon_startup_config: DaemonStartupConfig::testing_empty(),
         };
@@ -1203,5 +1236,36 @@ mod tests {
         assert!(req.satisfied(&daemon).is_ok());
         req.daemon_startup_config.daemon_buster = Some("1".to_owned());
         assert!(req.satisfied(&daemon).is_err());
+    }
+
+    #[test]
+    fn test_constraints_nested_invocation_diff_user_version() {
+        let mut req = DaemonConstraintsRequest {
+            version: "foo".to_owned(),
+            user_version: Some("fake_version_1".to_owned()),
+            desired_trace_io_state: DesiredTraceIoState::Existing,
+            nested_invocation_daemon_uuid: None,
+            reject_daemon: None,
+            reject_materializer_state: None,
+            daemon_startup_config: DaemonStartupConfig::testing_empty(),
+        };
+
+        let daemon = buck2_cli_proto::DaemonConstraints {
+            version: "foo".to_owned(),
+            user_version: Some("fake_version_2".to_owned()),
+            daemon_id: "ddd".to_owned(),
+            extra: Some(buck2_cli_proto::ExtraDaemonConstraints {
+                trace_io_enabled: false,
+                materializer_state_identity: Some("mmm".to_owned()),
+            }),
+            daemon_startup_config: Some(
+                serde_json::to_string(&DaemonStartupConfig::testing_empty()).unwrap(),
+            ),
+        };
+
+        assert!(req.satisfied(&daemon).is_err());
+
+        req.nested_invocation_daemon_uuid = Some("ddd".to_owned());
+        assert!(req.satisfied(&daemon).is_ok());
     }
 }

@@ -148,13 +148,13 @@ impl DiceLegacy {
     pub(crate) fn make_ctx(
         self: &Arc<DiceLegacy>,
         extra: ComputationData,
-    ) -> Arc<DiceComputationsImplLegacy> {
-        Arc::new(DiceComputationsImplLegacy::new_transaction(
+    ) -> DiceComputationsImplLegacy<'static> {
+        DiceComputationsImplLegacy::new_transaction(
             self.dupe(),
             self.global_versions.current(),
             self.global_versions.write(),
             extra,
-        ))
+        )
     }
 
     /// finds the computation index for the given key
@@ -275,7 +275,7 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 
         let value = k
             .compute(
-                &mut DiceComputations::new(DiceComputationsImpl::Legacy(ctx.dupe())),
+                &mut DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
                 cancellations,
             )
             .await;

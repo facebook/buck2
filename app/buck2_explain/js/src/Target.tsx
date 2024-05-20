@@ -15,6 +15,10 @@ import {Link, TARGET_VIEW} from './Router'
 function List(props: {attr: (i: number) => string; length: number}): JSX.Element {
   const {allTargets} = useContext(DataContext)
 
+  if (props.length === 0) {
+    return <span>[]</span>
+  }
+
   const items: JSX.Element[] = []
   for (let i = 0; i < props.length; i++) {
     const value = props.attr(i)
@@ -46,7 +50,7 @@ function ListOfBoolAttrs(props: {
     const row = (
       <li key={i}>
         <b>{value.key()}: </b>
-        <span>{value.value()}</span>
+        <span>{value?.value()?.toString()}</span>
       </li>
     )
     items.push(row)

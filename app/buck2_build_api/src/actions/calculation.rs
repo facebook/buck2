@@ -18,6 +18,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::NodeDuration;
 use buck2_common::events::HasEvents;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
@@ -32,6 +33,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -140,6 +142,23 @@ async fn build_action_no_redirect(
 
     let now = Instant::now();
     let action = &action;
+
+    let target = match action.key().deferred_key().owner() {
+        BaseDeferredKey::TargetLabel(target_label) => Some(target_label.dupe()),
+        _ => None,
+    };
+
+    let target_rule_type_name = match target {
+        Some(label) => Some(
+            ctx.get_configured_target_node(&label)
+                .await?
+                .require_compatible()?
+                .rule_type()
+                .name()
+                .to_owned(),
+        ),
+        None => None,
+    };
 
     let ctx = &*ctx;
     let fut = async move {
@@ -271,6 +290,7 @@ async fn build_action_no_redirect(
                 wall_time,
                 queue_duration,
                 execution_kind,
+                target_rule_type_name,
             },
             Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action_key),
@@ -312,6 +332,7 @@ async fn build_action_no_redirect(
             execution_kind: action_execution_data
                 .execution_kind
                 .unwrap_or(buck2_data::ActionExecutionKind::NotSet),
+            target_rule_type_name: action_execution_data.target_rule_type_name,
         },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
@@ -397,6 +418,7 @@ pub struct BuildKeyActivationData {
 pub struct ActionWithExtraData {
     pub action: Arc<RegisteredAction>,
     pub execution_kind: buck2_data::ActionExecutionKind,
+    pub target_rule_type_name: Option<String>,
 }
 
 struct ActionExecutionData {
@@ -404,6 +426,7 @@ struct ActionExecutionData {
     wall_time: Option<std::time::Duration>,
     queue_duration: Option<std::time::Duration>,
     execution_kind: Option<buck2_data::ActionExecutionKind>,
+    target_rule_type_name: Option<String>,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls
