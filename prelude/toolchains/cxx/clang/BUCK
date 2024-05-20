@@ -1,4 +1,9 @@
 load(":tools.bzl", "path_clang_tools")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
 
 path_clang_tools(
     name = "path_clang_tools",
