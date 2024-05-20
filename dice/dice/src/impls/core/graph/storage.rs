@@ -166,14 +166,12 @@ use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::history::CellHistory;
-use crate::impls::core::graph::history::HistoryState;
 use crate::impls::core::graph::nodes::InjectedGraphNode;
 use crate::impls::core::graph::nodes::OccupiedGraphNode;
 use crate::impls::core::graph::nodes::VacantGraphNode;
 use crate::impls::core::graph::nodes::VersionedGraphNode;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
-use crate::impls::core::graph::types::VersionedGraphResultMismatch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
@@ -204,47 +202,8 @@ impl VersionedGraph {
 
     /// Gets the entry corresponding to the cache entry if up to date.
     pub(crate) fn get(&self, key: VersionedGraphKey) -> VersionedGraphResult {
-        fn handle_occupied(
-            key: VersionedGraphKey,
-            entry: &OccupiedGraphNode,
-        ) -> VersionedGraphResult {
-            match entry.metadata().hist.get_history(&key.v) {
-                HistoryState::Verified => VersionedGraphResult::Match(entry.computed_val()),
-                HistoryState::Unknown(verified_versions) => {
-                    match verified_versions.find_value_upper_bound(key.v) {
-                        Some(prev_verified_version) => {
-                            VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
-                                entry: entry.val().dupe(),
-                                prev_verified_version,
-                                deps_to_validate: entry.metadata().deps.deps(),
-                            })
-                        }
-                        None => VersionedGraphResult::Compute,
-                    }
-                }
-                HistoryState::Dirty => VersionedGraphResult::Compute,
-            }
-        }
-
-        fn handle_vacant() -> VersionedGraphResult {
-            // vacant entries only occur if no other graph entries are
-            // present, so we know this has to be dirty
-            VersionedGraphResult::Compute
-        }
-
-        fn handle_injected(
-            key: VersionedGraphKey,
-            entry: &InjectedGraphNode,
-        ) -> VersionedGraphResult {
-            entry.at_version(key.v)
-        }
-
         if let Some(entry) = self.nodes.get(&key.k) {
-            match entry {
-                VersionedGraphNode::Occupied(entry) => handle_occupied(key, entry),
-                VersionedGraphNode::Vacant(_) => handle_vacant(),
-                VersionedGraphNode::Injected(entry) => handle_injected(key, entry),
-            }
+            entry.at_version(key.v)
         } else {
             VersionedGraphResult::Compute
         }
@@ -575,7 +534,7 @@ pub(crate) mod testing {
     use gazebo::variants::VariantName;
 
     use crate::impls::core::graph::storage::VersionedGraphResult;
-    use crate::impls::core::graph::storage::VersionedGraphResultMismatch;
+    use crate::impls::core::graph::types::VersionedGraphResultMismatch;
     use crate::impls::value::DiceComputedValue;
 
     pub(crate) trait VersionedCacheResultAssertsExt {

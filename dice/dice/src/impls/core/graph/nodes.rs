@@ -30,6 +30,8 @@ use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::dependencies::VersionedRevDependencies;
 use crate::impls::core::graph::history::CellHistory;
+use crate::impls::core::graph::history::HistoryState;
+use crate::impls::core::graph::types::VersionedGraphResultMismatch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
@@ -37,8 +39,10 @@ use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 
-/// actual entries as seen when querying the cache
-/// The placeholder will be used to indicate known dirty entries.
+/// Actual entries as seen when querying the VersionedGraph.
+///
+/// This is responsible for tracking the information related to a single
+/// node (i.e. a DiceKey) required for incremental computations.
 #[derive(UnpackVariants, Allocative)]
 pub(crate) enum VersionedGraphNode {
     Occupied(OccupiedGraphNode),
@@ -98,6 +102,15 @@ impl VersionedGraphNode {
             VersionedGraphNode::Injected(e) => {
                 panic!("injected keys don't get invalidated (`{:?}`)", e)
             }
+        }
+    }
+
+    /// Returns the VersionedGraphResult for the entry at the provided version.
+    pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
+        match self {
+            VersionedGraphNode::Occupied(entry) => entry.at_version(v),
+            VersionedGraphNode::Vacant(_) => VersionedGraphResult::Compute,
+            VersionedGraphNode::Injected(entry) => entry.at_version(v),
         }
     }
 }
@@ -182,6 +195,25 @@ impl OccupiedGraphNode {
             MaybeValidDiceValue::valid(self.res.dupe()),
             Arc::new(self.metadata.hist.clone()),
         )
+    }
+
+    fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
+        match self.metadata().hist.get_history(&v) {
+            HistoryState::Verified => VersionedGraphResult::Match(self.computed_val()),
+            HistoryState::Unknown(verified_versions) => {
+                match verified_versions.find_value_upper_bound(v) {
+                    Some(prev_verified_version) => {
+                        VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
+                            entry: self.val().dupe(),
+                            prev_verified_version,
+                            deps_to_validate: self.metadata().deps.deps(),
+                        })
+                    }
+                    None => VersionedGraphResult::Compute,
+                }
+            }
+            HistoryState::Dirty => VersionedGraphResult::Compute,
+        }
     }
 }
 
