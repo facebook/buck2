@@ -196,6 +196,11 @@ pub(crate) enum ChangeType {
     UpdateValue(DiceValidValue, StorageType),
     #[cfg(test)]
     /// testing only, set as recheck but not required to rerun
+    /// TODO(cjhopman): Delete this, it's really hard to use correctly and
+    /// it causes VersionedGraph to need to deal with flows of invalidations
+    /// that it otherwise wouldn't.
+    /// The right way to get a "soft-dirty", would be to have a dep and do a
+    /// normal ChangeType::Invalidate on the dep.
     TestingSoftDirty,
 }
 

@@ -897,6 +897,11 @@ pub(crate) mod testing {
 
     impl SharedLiveTransactionCtx {
         pub(crate) fn inject(&self, k: DiceKey, v: DiceComputedValue) {
+            // TODO(cjhopman): We should delete this. tests using it are doing weird things and
+            // causing the transaction cache to be out of sync with what is possible in real
+            // execution and it makes things really difficult to reason about. These tests
+            // should be constructing the states they want to test via valid interactions
+            // with things.
             let task = unsafe {
                 // SAFETY: completed immediately below
                 sync_dice_task(k)
