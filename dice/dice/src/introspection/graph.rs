@@ -8,7 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::BTreeSet;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -210,28 +209,8 @@ pub enum GraphNodeKind {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CellHistory {
-    pub history: BTreeMap<VersionNumber, HistoryState>,
-}
-
-impl CellHistory {
-    pub fn new(verified: BTreeSet<VersionNumber>, dirtied: BTreeMap<VersionNumber, bool>) -> Self {
-        Self {
-            history: verified
-                .into_iter()
-                .map(|v| (v, HistoryState::Verified))
-                .chain(dirtied.into_iter().map(|(v, f)| {
-                    (
-                        v,
-                        if f {
-                            HistoryState::ForceDirty
-                        } else {
-                            HistoryState::Dirty
-                        },
-                    )
-                }))
-                .collect(),
-        }
-    }
+    pub valid_ranges: Vec<(VersionNumber, Option<VersionNumber>)>,
+    pub force_dirtied_at: Vec<VersionNumber>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

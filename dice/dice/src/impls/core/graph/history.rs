@@ -538,20 +538,23 @@ pub(crate) mod testing {
 
 mod introspection {
     use crate::impls::core::graph::history::CellHistory;
-    use crate::versions::VersionNumber;
 
     impl CellHistory {
         pub fn to_introspectable(&self) -> crate::introspection::graph::CellHistory {
-            crate::introspection::graph::CellHistory::new(
-                self.verified
+            crate::introspection::graph::CellHistory {
+                valid_ranges: self.get_verified_ranges().to_introspectable(),
+                force_dirtied_at: self
+                    .dirtied
                     .iter()
-                    .map(VersionNumber::to_introspectable)
+                    .filter_map(|(v, forced)| {
+                        if *forced {
+                            Some(v.to_introspectable())
+                        } else {
+                            None
+                        }
+                    })
                     .collect(),
-                self.dirtied
-                    .iter()
-                    .map(|(k, v)| (k.to_introspectable(), *v))
-                    .collect(),
-            )
+            }
         }
     }
 }

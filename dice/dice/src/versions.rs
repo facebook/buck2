@@ -509,7 +509,7 @@ impl VersionRanges {
         if i < self.0.len() {
             self.0.drain(0..i);
         } else {
-            self.0.clear()
+            self.clear()
         }
 
         true
@@ -522,6 +522,27 @@ impl VersionRanges {
 
     pub(crate) fn contains(&self, version: VersionNumber) -> bool {
         self.find_value_upper_bound(version) == Some(version)
+    }
+
+    pub(crate) fn to_introspectable(
+        &self,
+    ) -> Vec<(
+        crate::introspection::graph::VersionNumber,
+        Option<crate::introspection::graph::VersionNumber>,
+    )> {
+        self.0
+            .iter()
+            .map(|v| {
+                (
+                    v.begin().to_introspectable(),
+                    v.end().map(|v| v.to_introspectable()),
+                )
+            })
+            .collect()
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.0.clear()
     }
 }
 
