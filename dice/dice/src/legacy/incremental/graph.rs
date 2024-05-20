@@ -1435,7 +1435,6 @@ mod tests {
     use crate::legacy::incremental::testing::DependencyExt;
     use crate::legacy::incremental::versions::MinorVersion;
     use crate::legacy::incremental::Computable;
-    use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;

@@ -66,7 +66,6 @@ use crate::impls::worker::testing::CheckDependenciesResultExt;
 use crate::impls::worker::CheckDependenciesResult;
 use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
-use crate::versions::testing::VersionRangesExt;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;

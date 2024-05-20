@@ -580,7 +580,6 @@ mod tests {
     use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::impls::core::graph::history::testing::HistoryExt;
     use crate::impls::core::graph::history::CellHistory;
-    use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;

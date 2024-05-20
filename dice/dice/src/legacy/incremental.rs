@@ -1318,7 +1318,6 @@ mod tests {
     use crate::legacy::incremental::TransactionCtx;
     use crate::legacy::incremental::VersionedGraphResultMismatch;
     use crate::legacy::EvaluationResult;
-    use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;

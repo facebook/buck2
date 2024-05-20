@@ -271,8 +271,13 @@ impl VersionRanges {
         None
     }
 
-    /// inserts a single range, merging different ranges if necessary
-    pub(crate) fn insert(&mut self, mut range: VersionRange) {
+    /// same as union_range
+    pub(crate) fn insert(&mut self, range: VersionRange) {
+        self.union_range(range)
+    }
+
+    /// unions with a single range, merging different ranges if necessary
+    pub(crate) fn union_range(&mut self, mut range: VersionRange) {
         if let Some(smaller) = self
             .0
             .range((Bound::Unbounded, Bound::Included(range.dupe())))
@@ -408,13 +413,9 @@ impl VersionRanges {
         self.intersect(&ranges)
     }
 
-    pub(crate) fn ranges(&self) -> &SortedVectorSet<VersionRange> {
-        &self.0
-    }
-
     pub(crate) fn is_empty(&self) -> bool {
         // Ranges in the set are not empty, so self is not empty if the ranges set is not empty.
-        self.ranges().is_empty()
+        self.0.is_empty()
     }
 
     pub(crate) fn contains(&self, version: VersionNumber) -> bool {
@@ -423,20 +424,13 @@ impl VersionRanges {
 }
 
 #[cfg(test)]
-pub(crate) mod testing {
-    use sorted_vector_map::SortedVectorSet;
-
-    use crate::versions::VersionRange;
-    use crate::versions::VersionRanges;
-
-    pub(crate) trait VersionRangesExt {
-        fn testing_new(ranges: SortedVectorSet<VersionRange>) -> Self;
+impl VersionRanges {
+    pub(crate) fn testing_new(ranges: SortedVectorSet<VersionRange>) -> Self {
+        Self(ranges)
     }
 
-    impl VersionRangesExt for VersionRanges {
-        fn testing_new(ranges: SortedVectorSet<VersionRange>) -> Self {
-            Self(ranges)
-        }
+    pub(crate) fn ranges(&self) -> &SortedVectorSet<VersionRange> {
+        &self.0
     }
 }
 
@@ -444,11 +438,26 @@ pub(crate) mod testing {
 mod tests {
     use std::ops::RangeBounds;
 
-    use sorted_vector_map::sorted_vector_set;
-
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;
+
+    #[track_caller]
+    fn into_range(range: (i32, i32)) -> VersionRange {
+        let (b, e) = range;
+        match e {
+            -1 => VersionRange::begins_with(VersionNumber::new(b.try_into().unwrap())),
+            e => VersionRange::bounded(
+                VersionNumber::new(b.try_into().unwrap()),
+                VersionNumber::new(e.try_into().unwrap()),
+            ),
+        }
+    }
+
+    #[track_caller]
+    fn into_ranges<const N: usize>(ranges: [(i32, i32); N]) -> VersionRanges {
+        VersionRanges(ranges.iter().copied().map(into_range).collect())
+    }
 
     #[test]
     fn version_range_contains() {
@@ -657,138 +666,163 @@ mod tests {
 
     #[test]
     fn version_ranges_union() {
-        let r1 = VersionRanges(sorted_vector_set![
-            VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(3)),
-            VersionRange::bounded(VersionNumber::new(6), VersionNumber::new(8)),
-            VersionRange::bounded(VersionNumber::new(10), VersionNumber::new(11))
-        ]);
-
-        let r2 = VersionRanges(sorted_vector_set![
-            VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(1)),
-            VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
-            VersionRange::bounded(VersionNumber::new(8), VersionNumber::new(10)),
-            VersionRange::bounded(VersionNumber::new(11), VersionNumber::new(12)),
-            VersionRange::begins_with(VersionNumber::new(13)),
-        ]);
+        let r1 = into_ranges([(1, 3), (6, 8), (10, 11)]);
+        let r2 = into_ranges([(0, 1), (4, 5), (8, 10), (11, 12), (13, -1)]);
 
         assert_eq!(
             r1.union(&r2),
-            VersionRanges(sorted_vector_set![
-                VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(3)),
-                VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
-                VersionRange::bounded(VersionNumber::new(6), VersionNumber::new(12)),
-                VersionRange::begins_with(VersionNumber::new(13)),
-            ])
+            into_ranges([(0, 3), (4, 5), (6, 12), (13, -1)])
         );
     }
 
     #[test]
     fn version_ranges_intersect() {
-        let r1 = VersionRanges(sorted_vector_set![VersionRange::bounded(
-            VersionNumber::new(1),
-            VersionNumber::new(3)
-        ),]);
-
-        let r2 = VersionRanges(sorted_vector_set![
-            VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
-            VersionRange::bounded(VersionNumber::new(11), VersionNumber::new(12)),
-            VersionRange::begins_with(VersionNumber::new(13)),
-        ]);
+        let r1 = into_ranges([(1, 3)]);
+        let r2 = into_ranges([(4, 5), (11, 12), (13, -1)]);
 
         assert_eq!(r1.intersect(&r2), VersionRanges::new());
 
-        let r1 = VersionRanges(sorted_vector_set![
-            VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(3)),
-            VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
-            VersionRange::bounded(VersionNumber::new(6), VersionNumber::new(9)),
-            VersionRange::bounded(VersionNumber::new(10), VersionNumber::new(14)),
-            VersionRange::begins_with(VersionNumber::new(15)),
-        ]);
-
-        let r2 = VersionRanges(sorted_vector_set![
-            VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(1)),
-            VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
-            VersionRange::bounded(VersionNumber::new(8), VersionNumber::new(10)),
-            VersionRange::bounded(VersionNumber::new(11), VersionNumber::new(12)),
-            VersionRange::begins_with(VersionNumber::new(13)),
-        ]);
+        let r1 = into_ranges([(1, 3), (4, 5), (6, 9), (10, 14), (15, -1)]);
+        let r2 = into_ranges([(0, 1), (4, 5), (8, 10), (11, 12), (13, -1)]);
 
         assert_eq!(
             r1.intersect(&r2),
-            VersionRanges(sorted_vector_set![
-                VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(5)),
-                VersionRange::bounded(VersionNumber::new(8), VersionNumber::new(9)),
-                VersionRange::bounded(VersionNumber::new(11), VersionNumber::new(12)),
-                VersionRange::bounded(VersionNumber::new(13), VersionNumber::new(14)),
-                VersionRange::begins_with(VersionNumber::new(15)),
-            ])
+            into_ranges([(4, 5), (8, 9), (11, 12), (13, 14), (15, -1)])
         );
     }
 
     #[test]
     fn version_ranges_intersects_range() {
-        let r1 = VersionRanges(sorted_vector_set![
-            VersionRange::bounded(VersionNumber(10), VersionNumber(20)),
-            VersionRange::bounded(VersionNumber(30), VersionNumber(40)),
-        ]);
+        let r1 = into_ranges([(10, 20), (30, 40)]);
         let r2 = VersionRange::bounded(VersionNumber(15), VersionNumber(35));
-        let expected = VersionRanges(sorted_vector_set![
-            VersionRange::bounded(VersionNumber(15), VersionNumber(20)),
-            VersionRange::bounded(VersionNumber(30), VersionNumber(35)),
-        ]);
+        let expected = into_ranges([(15, 20), (30, 35)]);
         assert_eq!(expected, r1.intersect_range(&r2));
     }
 
     #[test]
     fn version_ranges_insert() {
-        let mut r = VersionRanges::new();
+        #[track_caller]
+        fn test_insert<const N: usize, const M: usize>(
+            initial: [(i32, i32); N],
+            range: (i32, i32),
+            expected: [(i32, i32); M],
+        ) {
+            let initial = into_ranges(initial);
+            let mut r = initial.clone();
+            let range = into_range(range);
+            r.insert(range.clone());
+            let expected = into_ranges(expected);
+            assert!(
+                r == expected,
+                "test_insert assertion failed\n initial: {}\n range: {}\n expected: {}\n actual: {}",
+                initial,
+                range,
+                expected,
+                r
+            );
+        }
 
-        r.insert(VersionRange::bounded(
-            VersionNumber::new(1),
-            VersionNumber::new(3),
-        ));
-        assert_eq!(
-            r.ranges(),
-            &sorted_vector_set![VersionRange::bounded(
-                VersionNumber::new(1),
-                VersionNumber::new(3)
-            )]
+        test_insert([], (1, 3), [(1, 3)]);
+
+        test_insert([(1, 3)], (4, 6), [(1, 3), (4, 6)]);
+
+        // Before: |...) |...)
+        // Insert:          |...)
+        test_insert([(1, 3), (4, 6)], (5, 7), [(1, 3), (4, 7)]);
+
+        // Before:   |...) |...)
+        // Insert: |...)
+        test_insert([(1, 3), (4, 7)], (0, 1), [(0, 3), (4, 7)]);
+
+        // Before: |...)   |...)   |...)
+        // Insert:    |..)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (22, 27),
+            [(20, 27), (30, 35), (40, 45)],
         );
 
-        r.insert(VersionRange::bounded(
-            VersionNumber::new(4),
-            VersionNumber::new(6),
-        ));
-        assert_eq!(
-            r.ranges(),
-            &sorted_vector_set![
-                VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(3)),
-                VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(6))
-            ]
+        // Before: |...)   |...)   |...)
+        // Insert:    |....)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (22, 30),
+            [(20, 35), (40, 45)],
         );
 
-        r.insert(VersionRange::bounded(
-            VersionNumber::new(5),
-            VersionNumber::new(7),
-        ));
-        assert_eq!(
-            r.ranges(),
-            &sorted_vector_set![
-                VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(3)),
-                VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(7))
-            ]
+        // Before: |...)   |...)   |...)
+        // Insert:     |...)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (25, 30),
+            [(20, 35), (40, 45)],
         );
 
-        r.insert(VersionRange::bounded(
-            VersionNumber::new(0),
-            VersionNumber::new(1),
-        ));
-        assert_eq!(
-            r.ranges(),
-            &sorted_vector_set![
-                VersionRange::bounded(VersionNumber::new(0), VersionNumber::new(3)),
-                VersionRange::bounded(VersionNumber::new(4), VersionNumber::new(7))
-            ]
+        // Before: |...)   |...)   |...)
+        // Insert:    |......)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (22, 33),
+            [(20, 35), (40, 45)],
+        );
+
+        // Before: |...)   |...)   |...)
+        // Insert:     |...........)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (25, 40),
+            // FIXME: should be: [(20, 45)]
+            [(20, 40), (40, 45)],
+        );
+
+        // Before: |...)   |...)   |...)
+        // Insert:    |..........)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (22, 37),
+            [(20, 37), (40, 45)],
+        );
+
+        // Before: |...)   |...)   |...)
+        // Insert:    |...................)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (22, 47),
+            // FIXME: should be: [(20, 47)]
+            [(20, 47), (40, 45)],
+        );
+
+        // Before: |...)   |...)   |...)
+        // Insert:    |...................inf
+        test_insert(
+            [(20, 25), (30, 35), (40, 45)],
+            (22, -1),
+            // FIXME: should be: [(20, -1)]
+            [(20, -1), (40, 45)],
+        );
+
+        // Before: |...)   |...)   |...)   |...inf
+        // Insert:    |.....................)
+        test_insert(
+            [(20, 25), (30, 35), (40, 45), (50, -1)],
+            (22, 50),
+            // FIXME: should be: [(20, -1)],
+            [(20, 50), (40, 45), (50, -1)],
+        );
+
+        test_insert(
+            [
+                (20, 25),
+                (30, 35),
+                (40, 45),
+                (50, 55),
+                (60, 65),
+                (70, 75),
+                (80, 85),
+            ],
+            (22, 42),
+            // FIXME: should be: [(20, 45), (50, 55), (60, 65), (70, 75), (80, 85)],
+            [(20, 42), (40, 45), (50, 55), (60, 65), (70, 75), (80, 85)],
         );
     }
 }
