@@ -131,10 +131,10 @@ def _cxx_toolchain_override(ctx):
 
     base_strip_flags_info = base_toolchain.strip_flags_info
     if base_strip_flags_info:
-    strip_flags_info = StripFlagsInfo(
-        strip_debug_flags = _pick(ctx.attrs.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
-        strip_non_global_flags = _pick(ctx.attrs.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
-        strip_all_flags = _pick(ctx.attrs.strip_all_flags, base_strip_flags_info.strip_all_flags),
+        strip_flags_info = StripFlagsInfo(
+            strip_debug_flags = _pick(ctx.attrs.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
+            strip_non_global_flags = _pick(ctx.attrs.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
+            strip_all_flags = _pick(ctx.attrs.strip_all_flags, base_strip_flags_info.strip_all_flags),
     )
     else:
         strip_flags_info = None
