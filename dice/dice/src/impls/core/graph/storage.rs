@@ -163,7 +163,6 @@ use allocative::Allocative;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
-use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::nodes::InjectedGraphNode;
 use crate::impls::core::graph::nodes::InvalidateResult;
 use crate::impls::core::graph::nodes::OccupiedGraphNode;
@@ -176,6 +175,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRange;
 use crate::HashMap;
 use crate::HashSet;
 
@@ -286,14 +286,14 @@ impl VersionedGraph {
                             key.k,
                             value,
                             Arc::new(SeriesParallelDeps::None),
-                            CellHistory::verified(key.v),
+                            VersionRange::begins_with(key.v),
                         ))
                     }
                     _ => {
-                        let mut hist = CellHistory::empty();
+                        let mut node = VacantGraphNode::new(key.k);
                         // invalidated and force_dirty for a vacant node are going to have the same behavior in practice.
-                        hist.force_dirty(key.v);
-                        VersionedGraphNode::Vacant(VacantGraphNode { key: key.k, hist })
+                        node.force_dirty(key.v);
+                        VersionedGraphNode::Vacant(node)
                     }
                 };
 
@@ -331,11 +331,14 @@ impl VersionedGraph {
         deps: Arc<SeriesParallelDeps>,
     ) -> DiceComputedValue {
         debug!("making new graph entry because previously empty");
-
         let since = latest_dep_verified.unwrap_or(v);
-        let mut hist = CellHistory::verified(since);
-        hist.propagate_from_deps_version(since, first_dep_dirtied);
-        let entry = OccupiedGraphNode::new(key, value, deps, hist);
+
+        let entry = OccupiedGraphNode::new(
+            key,
+            value,
+            deps,
+            VersionRange::new(since, first_dep_dirtied),
+        );
 
         let res = entry.computed_val();
         self.nodes.insert(key, VersionedGraphNode::Occupied(entry));
@@ -375,17 +378,13 @@ impl ValueReusable {
     ) -> bool {
         match self {
             ValueReusable::EqualityBased => {
-                if new_deps != &**value.metadata().deps {
+                if new_deps != &***value.deps() {
                     return false;
                 }
                 new_value.equality(value.val())
             }
             // For version-based, the deps are guaranteed to match if `version` is in the node's verified versions.
-            ValueReusable::VersionBased(version) => value
-                .metadata()
-                .hist
-                .get_verified_ranges()
-                .contains(*version),
+            ValueReusable::VersionBased(version) => value.is_verified_at(*version),
         }
     }
 }

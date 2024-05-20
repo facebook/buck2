@@ -17,6 +17,7 @@
 //! number for each cache entry and a global version counter to determine
 //! up-to-date-ness of cache entries.
 
+use std::collections::BTreeMap;
 use std::ops::Bound;
 
 use allocative::Allocative;
@@ -35,7 +36,14 @@ use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::introspection::graph::GraphNodeKind;
+use crate::introspection::graph::KeyID;
+use crate::introspection::graph::NodeID;
+use crate::introspection::graph::SerializedGraphNode;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRange;
+use crate::HashMap;
+use crate::HashSet;
 
 /// Actual entries as seen when querying the VersionedGraph.
 ///
@@ -52,14 +60,14 @@ impl VersionedGraphNode {
     pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> InvalidateResult {
         match self {
             VersionedGraphNode::Occupied(e) => {
-                if e.metadata.hist.force_dirty(v) {
-                    InvalidateResult::Changed(e.metadata.rdeps.rdeps().keys().cloned().collect())
+                if e.force_dirty(v) {
+                    InvalidateResult::Changed(e.rdeps().keys().cloned().collect())
                 } else {
                     InvalidateResult::NoChange
                 }
             }
             VersionedGraphNode::Vacant(e) => {
-                if e.hist.force_dirty(v) {
+                if e.force_dirty(v) {
                     InvalidateResult::Changed(Vec::new())
                 } else {
                     InvalidateResult::NoChange
@@ -75,7 +83,7 @@ impl VersionedGraphNode {
         match self {
             VersionedGraphNode::Occupied(e) => {
                 if e.metadata.hist.mark_invalidated(v) {
-                    InvalidateResult::Changed(e.metadata.rdeps.rdeps().keys().cloned().collect())
+                    InvalidateResult::Changed(e.rdeps().keys().cloned().collect())
                 } else {
                     InvalidateResult::NoChange
                 }
@@ -125,7 +133,7 @@ impl VersionedGraphNode {
                     vac.key,
                     value,
                     Arc::new(SeriesParallelDeps::None),
-                    CellHistory::verified(version),
+                    VersionRange::begins_with(version),
                 );
                 *self = Self::Occupied(entry);
                 InvalidateResult::Changed(Vec::new())
@@ -161,7 +169,7 @@ impl VersionedGraphNode {
 
         hist.propagate_from_deps_version(key.v, first_dep_dirtied);
 
-        let new = OccupiedGraphNode::new(key.k, value, deps, hist);
+        let new = OccupiedGraphNode::new_with_history(key.k, value, deps, hist);
 
         let ret = new.computed_val();
 
@@ -183,6 +191,50 @@ impl VersionedGraphNode {
             }
         }
     }
+
+    pub(crate) fn to_introspectable(&self) -> Option<SerializedGraphNode> {
+        fn visit_deps<'a>(deps: impl Iterator<Item = DiceKey> + 'a) -> HashSet<KeyID> {
+            deps.map(|d| d.introspect()).collect()
+        }
+
+        fn visit_rdeps(
+            rdeps: &HashMap<DiceKey, crate::versions::VersionNumber>,
+        ) -> BTreeMap<crate::introspection::graph::VersionNumber, Vec<NodeID>> {
+            let mut res = BTreeMap::<_, Vec<NodeID>>::new();
+
+            for (rdep, v) in rdeps {
+                res.entry(v.to_introspectable())
+                    .or_default()
+                    .push(NodeID(rdep.index as usize))
+            }
+
+            res
+        }
+
+        match self {
+            VersionedGraphNode::Occupied(o) => Some(SerializedGraphNode {
+                node_id: NodeID(o.key.index as usize),
+                kind: GraphNodeKind::Occupied,
+                history: o.metadata().hist.to_introspectable(),
+                deps: Some(visit_deps(o.metadata().deps.iter_keys())),
+                rdeps: Some(visit_rdeps(o.metadata().rdeps.rdeps())),
+            }),
+            VersionedGraphNode::Vacant(_) => {
+                // TODO(bobyf) should probably write the metadata of vacant
+                None
+            }
+            VersionedGraphNode::Injected(inj) => {
+                let latest = inj.latest();
+                Some(SerializedGraphNode {
+                    node_id: NodeID(inj.key.index as usize),
+                    kind: GraphNodeKind::Occupied,
+                    history: latest.history.to_introspectable(),
+                    deps: None,
+                    rdeps: Some(visit_rdeps(latest.rdeps.rdeps())),
+                })
+            }
+        }
+    }
 }
 
 pub(crate) enum InvalidateResult {
@@ -200,14 +252,27 @@ pub(crate) struct OccupiedGraphNode {
 
 /// Meta data about a DICE node, which are its edges and history information
 #[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
-pub(crate) struct NodeMetadata {
-    pub(crate) deps: Arc<SeriesParallelDeps>,
-    pub(crate) rdeps: VersionedRevDependencies,
-    pub(crate) hist: CellHistory,
+struct NodeMetadata {
+    deps: Arc<SeriesParallelDeps>,
+    rdeps: VersionedRevDependencies,
+    hist: CellHistory,
 }
 
 impl OccupiedGraphNode {
     pub(crate) fn new(
+        key: DiceKey,
+        res: DiceValidValue,
+        deps: Arc<SeriesParallelDeps>,
+        verified_range: VersionRange,
+    ) -> Self {
+        let mut hist = CellHistory::verified(verified_range.begin());
+        if let Some(end) = verified_range.end() {
+            hist.propagate_from_deps_version(verified_range.begin(), Some(end));
+        }
+        Self::new_with_history(key, res, deps, hist)
+    }
+
+    pub(crate) fn new_with_history(
         key: DiceKey,
         res: DiceValidValue,
         deps: Arc<SeriesParallelDeps>,
@@ -224,15 +289,15 @@ impl OccupiedGraphNode {
         }
     }
 
-    pub(crate) fn metadata(&self) -> &NodeMetadata {
+    fn metadata(&self) -> &NodeMetadata {
         &self.metadata
     }
 
-    pub(crate) fn metadata_mut(&mut self) -> &mut NodeMetadata {
+    fn metadata_mut(&mut self) -> &mut NodeMetadata {
         &mut self.metadata
     }
 
-    pub(crate) fn history(&self) -> &CellHistory {
+    fn history(&self) -> &CellHistory {
         &self.metadata().hist
     }
 
@@ -277,7 +342,12 @@ impl OccupiedGraphNode {
 
         hist.propagate_from_deps_version(version, None);
 
-        let new = OccupiedGraphNode::new(self.key, value, Arc::new(SeriesParallelDeps::None), hist);
+        let new = OccupiedGraphNode::new_with_history(
+            self.key,
+            value,
+            Arc::new(SeriesParallelDeps::None),
+            hist,
+        );
 
         *self = new;
 
@@ -326,6 +396,22 @@ impl OccupiedGraphNode {
             (None, dirtied_at)
         }
     }
+
+    fn force_dirty(&mut self, v: VersionNumber) -> bool {
+        self.metadata.hist.force_dirty(v)
+    }
+
+    fn rdeps(&self) -> &HashMap<DiceKey, VersionNumber> {
+        self.metadata.rdeps.rdeps()
+    }
+
+    pub(crate) fn deps(&self) -> &Arc<SeriesParallelDeps> {
+        &self.metadata.deps
+    }
+
+    pub(crate) fn is_verified_at(&self, version: VersionNumber) -> bool {
+        self.metadata.hist.get_verified_ranges().contains(version)
+    }
 }
 
 /// An entry in the graph that has no computation value associated. This is used to store the
@@ -335,8 +421,20 @@ impl OccupiedGraphNode {
 /// need the associated value at this node.
 #[derive(Allocative, Debug)]
 pub(crate) struct VacantGraphNode {
-    pub(crate) key: DiceKey,
-    pub(crate) hist: CellHistory,
+    key: DiceKey,
+    hist: CellHistory,
+}
+impl VacantGraphNode {
+    pub(crate) fn new(key: DiceKey) -> Self {
+        Self {
+            key,
+            hist: CellHistory::empty(),
+        }
+    }
+
+    pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> bool {
+        self.hist.force_dirty(v)
+    }
 }
 
 /// An entry in the graph for an InjectedKey. This will store all injected values it ever sees because
@@ -349,9 +447,9 @@ pub(crate) struct InjectedGraphNode {
 
 #[derive(Allocative, Debug)]
 pub(crate) struct InjectedNodeData {
-    pub(crate) value: DiceValidValue,
-    pub(crate) history: CellHistory,
-    pub(crate) rdeps: VersionedRevDependencies,
+    value: DiceValidValue,
+    history: CellHistory,
+    rdeps: VersionedRevDependencies,
 }
 
 impl InjectedGraphNode {
@@ -483,7 +581,7 @@ mod tests {
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
                 index: 5,
             }]));
-        let mut entry = OccupiedGraphNode::new(
+        let mut entry = OccupiedGraphNode::new_with_history(
             DiceKey { index: 1335 },
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
             deps0.dupe(),

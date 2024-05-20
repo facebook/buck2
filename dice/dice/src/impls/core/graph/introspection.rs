@@ -58,29 +58,7 @@ impl VersionedGraph {
         let mut nodes = HashMap::default();
 
         fn visit_node(key: DiceKey, node: &VersionedGraphNode) -> Option<SerializedGraphNode> {
-            match node {
-                VersionedGraphNode::Occupied(o) => Some(SerializedGraphNode {
-                    node_id: NodeID(key.index as usize),
-                    kind: GraphNodeKind::Occupied,
-                    history: o.metadata().hist.to_introspectable(),
-                    deps: Some(visit_deps(o.metadata().deps.iter_keys())),
-                    rdeps: Some(visit_rdeps(o.metadata().rdeps.rdeps())),
-                }),
-                VersionedGraphNode::Vacant(_) => {
-                    // TODO(bobyf) should probably write the metadata of vacant
-                    None
-                }
-                VersionedGraphNode::Injected(inj) => {
-                    let latest = inj.latest();
-                    Some(SerializedGraphNode {
-                        node_id: NodeID(key.index as usize),
-                        kind: GraphNodeKind::Occupied,
-                        history: latest.history.to_introspectable(),
-                        deps: None,
-                        rdeps: Some(visit_rdeps(latest.rdeps.rdeps())),
-                    })
-                }
-            }
+            node.to_introspectable()
         }
 
         for (k, versioned_node) in self.nodes.iter() {
@@ -92,28 +70,11 @@ impl VersionedGraph {
                 *k,
                 versioned_node.unpack_occupied().map_or_else(
                     || Arc::new(Vec::new()),
-                    |node| Arc::new(node.metadata().deps.iter_keys().collect()),
+                    |node| Arc::new(node.deps().iter_keys().collect()),
                 ),
             );
         }
 
-        fn visit_deps<'a>(deps: impl Iterator<Item = DiceKey> + 'a) -> HashSet<KeyID> {
-            deps.map(|d| d.introspect()).collect()
-        }
-
-        fn visit_rdeps(
-            rdeps: &HashMap<DiceKey, crate::versions::VersionNumber>,
-        ) -> BTreeMap<VersionNumber, Vec<NodeID>> {
-            let mut res = BTreeMap::<VersionNumber, Vec<NodeID>>::new();
-
-            for (rdep, v) in rdeps {
-                res.entry(v.to_introspectable())
-                    .or_default()
-                    .push(NodeID(rdep.index as usize))
-            }
-
-            res
-        }
         VersionedGraphIntrospectable { nodes, edges }
     }
 }

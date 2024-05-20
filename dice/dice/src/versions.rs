@@ -92,7 +92,7 @@ impl Display for VersionRange {
 }
 
 impl VersionRange {
-    fn new(begin: VersionNumber, end: Option<VersionNumber>) -> Self {
+    pub(crate) fn new(begin: VersionNumber, end: Option<VersionNumber>) -> Self {
         if let Some(end) = end {
             assert!(begin < end);
         }
