@@ -160,13 +160,13 @@
 use std::cmp;
 
 use allocative::Allocative;
-use dupe::Dupe;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::nodes::InjectedGraphNode;
+use crate::impls::core::graph::nodes::InvalidateResult;
 use crate::impls::core::graph::nodes::OccupiedGraphNode;
 use crate::impls::core::graph::nodes::VacantGraphNode;
 use crate::impls::core::graph::nodes::VersionedGraphNode;
@@ -280,110 +280,46 @@ impl VersionedGraph {
         key: VersionedGraphKey,
         invalidate: InvalidateKind,
     ) -> bool {
-        let rdeps = {
-            match invalidate {
-                invalidate @ (InvalidateKind::ForceDirty | InvalidateKind::Invalidate) => {
-                    match self.nodes.get_mut(&key.k) {
-                        Some(e) => match invalidate {
-                            InvalidateKind::ForceDirty => match e.force_dirty(key.v) {
-                                Some(rdeps) => rdeps.collect(),
-                                None => {
-                                    return false;
-                                }
-                            },
-                            InvalidateKind::Invalidate => match e.mark_invalidated(key.v) {
-                                Some(rdeps) => rdeps.collect(),
-                                None => {
-                                    return false;
-                                }
-                            },
-                            _ => unreachable!("handled elsewhere"),
-                        },
-                        None => {
-                            let mut entry = VersionedGraphNode::Vacant(VacantGraphNode {
-                                key: key.k,
-                                hist: CellHistory::empty(),
-                            });
-
-                            entry.mark_invalidated(key.v);
-                            self.nodes.insert(key.k, entry);
-                            return true;
-                        }
+        let entry = match self.nodes.get_mut(&key.k) {
+            Some(entry) => entry,
+            _ => {
+                let new_entry = match invalidate {
+                    InvalidateKind::Update(value, StorageType::Injected) => {
+                        VersionedGraphNode::Injected(InjectedGraphNode::new(key.k, key.v, value))
                     }
-                }
-                InvalidateKind::Update(value, storage_type) => {
-                    match self.nodes.get_mut(&key.k) {
-                        Some(VersionedGraphNode::Occupied(occ)) => {
-                            if occ.val().equality(&value) {
-                                // TODO(cjhopman): This is wrong. The node could currently be in a dirtied state and we
-                                // aren't recording that the value is verified at this version.
-                                return false;
-                            }
-
-                            let (since, _end, mut hist) =
-                                occ.metadata().hist.make_new_verified_history(key.v, None);
-
-                            hist.propagate_from_deps_version(key.v, None);
-
-                            let new = OccupiedGraphNode::new(
-                                key.k,
-                                value,
-                                VersionedDependencies::new(
-                                    since,
-                                    Arc::new(SeriesParallelDeps::new()),
-                                ),
-                                hist,
-                            );
-
-                            *occ = new;
-
-                            occ.metadata()
-                                .rdeps
-                                .rdeps()
-                                .iter()
-                                .map(|(r, _)| r.dupe())
-                                .collect::<Vec<_>>()
-                        }
-                        Some(VersionedGraphNode::Injected(inj)) => {
-                            match inj.on_injected(key.v, value) {
-                                (rdeps, false) => {
-                                    assert!(rdeps.is_empty());
-                                    return false;
-                                }
-                                (rdeps, true) => rdeps,
-                            }
-                        }
-                        _ => match storage_type {
-                            StorageType::Normal => {
-                                let entry = VersionedGraphNode::Occupied(OccupiedGraphNode::new(
-                                    key.k,
-                                    value,
-                                    VersionedDependencies::new(
-                                        key.v,
-                                        Arc::new(SeriesParallelDeps::new()),
-                                    ),
-                                    CellHistory::verified(key.v),
-                                ));
-
-                                self.nodes.insert(key.k, entry);
-                                return true;
-                            }
-                            StorageType::Injected => {
-                                let entry = VersionedGraphNode::Injected(InjectedGraphNode::new(
-                                    key.k, key.v, value,
-                                ));
-
-                                self.nodes.insert(key.k, entry);
-                                return true;
-                            }
-                        },
+                    InvalidateKind::Update(value, StorageType::Normal) => {
+                        VersionedGraphNode::Occupied(OccupiedGraphNode::new(
+                            key.k,
+                            value,
+                            VersionedDependencies::new(key.v, Arc::new(SeriesParallelDeps::new())),
+                            CellHistory::verified(key.v),
+                        ))
                     }
-                }
+                    _ => {
+                        let mut hist = CellHistory::empty();
+                        // invalidated and force_dirty for a vacant node are going to have the same behavior in practice.
+                        hist.force_dirty(key.v);
+                        VersionedGraphNode::Vacant(VacantGraphNode { key: key.k, hist })
+                    }
+                };
+
+                self.nodes.insert(key.k, new_entry);
+                return true;
             }
         };
 
-        self.invalidate_rdeps(key.v, rdeps);
-        true
+        let res = match invalidate {
+            InvalidateKind::Invalidate => entry.mark_invalidated(key.v),
+            InvalidateKind::ForceDirty => entry.force_dirty(key.v),
+            InvalidateKind::Update(value, _) => entry.on_injected(key.v, value),
+        };
+
+        if let InvalidateResult::Changed(rdeps) = res {
+            self.invalidate_rdeps(key.v, rdeps);
+            true
+        } else {
+            false
+        }
     }
 
     // -----------------------------------------------------------------------------
@@ -469,7 +405,7 @@ impl VersionedGraph {
 
         while let Some(rdep) = queue.pop() {
             if let Some(node) = self.nodes.get_mut(&rdep) {
-                if let Some(rdeps) = node.mark_invalidated(version) {
+                if let InvalidateResult::Changed(rdeps) = node.mark_invalidated(version) {
                     for dep in rdeps {
                         if queued.insert(dep) {
                             queue.push(dep);

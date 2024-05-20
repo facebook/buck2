@@ -22,7 +22,6 @@ use std::ops::Bound;
 use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
-use itertools::Either;
 use sorted_vector_map::SortedVectorMap;
 
 use super::types::VersionedGraphResult;
@@ -51,26 +50,21 @@ pub(crate) enum VersionedGraphNode {
 }
 
 impl VersionedGraphNode {
-    pub(crate) fn force_dirty(
-        &mut self,
-        v: VersionNumber,
-    ) -> Option<impl Iterator<Item = DiceKey> + '_> {
+    pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> InvalidateResult {
         match self {
             VersionedGraphNode::Occupied(e) => {
-                let v = if e.metadata.hist.force_dirty(v) {
-                    Some(e.metadata.rdeps.rdeps().keys().cloned())
+                if e.metadata.hist.force_dirty(v) {
+                    InvalidateResult::Changed(e.metadata.rdeps.rdeps().keys().cloned().collect())
                 } else {
-                    None
-                };
-                v.map(Either::Left)
+                    InvalidateResult::NoChange
+                }
             }
             VersionedGraphNode::Vacant(e) => {
-                let v = if e.hist.force_dirty(v) {
-                    Some(std::iter::empty())
+                if e.hist.force_dirty(v) {
+                    InvalidateResult::Changed(Vec::new())
                 } else {
-                    None
-                };
-                v.map(Either::Right)
+                    InvalidateResult::NoChange
+                }
             }
             VersionedGraphNode::Injected(e) => {
                 panic!("injected keys don't get invalidated (`{:?}`)", e)
@@ -78,26 +72,21 @@ impl VersionedGraphNode {
         }
     }
 
-    pub(crate) fn mark_invalidated(
-        &mut self,
-        v: VersionNumber,
-    ) -> Option<impl Iterator<Item = DiceKey> + '_> {
+    pub(crate) fn mark_invalidated(&mut self, v: VersionNumber) -> InvalidateResult {
         match self {
             VersionedGraphNode::Occupied(e) => {
-                let v = if e.metadata.hist.mark_invalidated(v) {
-                    Some(e.metadata.rdeps.rdeps().keys().cloned())
+                if e.metadata.hist.mark_invalidated(v) {
+                    InvalidateResult::Changed(e.metadata.rdeps.rdeps().keys().cloned().collect())
                 } else {
-                    None
-                };
-                v.map(Either::Left)
+                    InvalidateResult::NoChange
+                }
             }
             VersionedGraphNode::Vacant(e) => {
-                let v = if e.hist.mark_invalidated(v) {
-                    Some(std::iter::empty())
+                if e.hist.mark_invalidated(v) {
+                    InvalidateResult::Changed(Vec::new())
                 } else {
-                    None
-                };
-                v.map(Either::Right)
+                    InvalidateResult::NoChange
+                }
             }
             VersionedGraphNode::Injected(e) => {
                 panic!("injected keys don't get invalidated (`{:?}`)", e)
@@ -127,6 +116,32 @@ impl VersionedGraphNode {
             }
         }
     }
+
+    pub(crate) fn on_injected(
+        &mut self,
+        version: VersionNumber,
+        value: DiceValidValue,
+    ) -> InvalidateResult {
+        match self {
+            VersionedGraphNode::Occupied(occ) => occ.on_injected(version, value),
+            VersionedGraphNode::Injected(inj) => inj.on_injected(version, value),
+            VersionedGraphNode::Vacant(vac) => {
+                let entry = OccupiedGraphNode::new(
+                    vac.key,
+                    value,
+                    VersionedDependencies::new(version, Arc::new(SeriesParallelDeps::new())),
+                    CellHistory::verified(version),
+                );
+                *self = Self::Occupied(entry);
+                InvalidateResult::Changed(Vec::new())
+            }
+        }
+    }
+}
+
+pub(crate) enum InvalidateResult {
+    NoChange,
+    Changed(Vec<DiceKey>),
 }
 
 /// The stored entry of the cache
@@ -211,6 +226,44 @@ impl OccupiedGraphNode {
         )
     }
 
+    pub(crate) fn on_injected(
+        &mut self,
+        version: VersionNumber,
+        value: DiceValidValue,
+    ) -> InvalidateResult {
+        // TODO(cjhopman): Should we just make this whole thing an error? Why accept injections of non-InjectedKey?
+        if self.val().equality(&value) {
+            // TODO(cjhopman): This is wrong. The node could currently be in a dirtied state and we
+            // aren't recording that the value is verified at this version.
+            return InvalidateResult::NoChange;
+        }
+
+        let (since, _end, mut hist) = self
+            .metadata()
+            .hist
+            .make_new_verified_history(version, None);
+
+        hist.propagate_from_deps_version(version, None);
+
+        let new = OccupiedGraphNode::new(
+            self.key,
+            value,
+            VersionedDependencies::new(since, Arc::new(SeriesParallelDeps::new())),
+            hist,
+        );
+
+        *self = new;
+
+        InvalidateResult::Changed(
+            self.metadata()
+                .rdeps
+                .rdeps()
+                .iter()
+                .map(|(r, _)| r.dupe())
+                .collect(),
+        )
+    }
+
     fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
         match self.metadata().hist.get_history(&v) {
             HistoryState::Verified => VersionedGraphResult::Match(self.computed_val()),
@@ -280,10 +333,10 @@ impl InjectedGraphNode {
         &mut self,
         version: VersionNumber,
         value: DiceValidValue,
-    ) -> (Vec<DiceKey>, bool) {
+    ) -> InvalidateResult {
         let rdeps = match self.values.values_mut().next_back() {
             Some(v) if v.value.equality(&value) => {
-                return (Vec::new(), false);
+                return InvalidateResult::NoChange;
             }
             Some(v) => {
                 v.history.mark_invalidated(version);
@@ -301,7 +354,7 @@ impl InjectedGraphNode {
             },
         );
 
-        (rdeps, true)
+        InvalidateResult::Changed(rdeps)
     }
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
