@@ -112,6 +112,9 @@ impl DiceTransactionUpdaterImpl {
     }
 
     /// Clears the entire DICE state. The dropping of values from memory happens asynchronously.
+    ///
+    /// Any currently running computations may receive cancellations as we may have dropped data
+    /// needed to make progress.
     // TODO(cjhopman): Why is this named take when it doesn't return the taken data? It should be named clear.
     pub fn unstable_take(self) -> Self {
         match self {

@@ -206,6 +206,9 @@ impl DiceTaskWorker {
                 cycles = cycles2;
                 (task_state, None)
             }
+            VersionedGraphResult::Rejected(..) => {
+                return Err(Cancelled);
+            }
         };
 
         let DiceWorkerStateFinishedEvaluating {

@@ -75,68 +75,56 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
     Ok(())
 }
 
-// this test both panics and then fatals from asan. idk how to deal with the fatal
-// and i'll fix this test soon. so just disable it (the no_asan feature doesn't really exist)
-#[cfg(no_asan)]
-mod asan_is_bad {
-    use super::*;
+#[tokio::test]
+async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()> {
+    #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
+    #[display(fmt = "{:?}", self)]
+    struct Fib(u32);
 
-    #[tokio::test]
-    #[should_panic] // TODO(cjhopman): remove this
-    async fn test_dice_clear_doesnt_break_ongoing_computation() {
-        async fn do_test() -> anyhow::Result<()> {
-            #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-            #[display(fmt = "{:?}", self)]
-            struct Fib(u32);
+    #[async_trait]
+    impl Key for Fib {
+        type Value = Option<u32>;
 
-            #[async_trait]
-            impl Key for Fib {
-                type Value = Option<u32>;
-
-                async fn compute(
-                    &self,
-                    ctx: &mut DiceComputations,
-                    _cancellations: &CancellationContext,
-                ) -> Option<u32> {
-                    Some(match self.0 {
-                        0 => 1,
-                        1 => 1,
-                        n => {
-                            ctx.compute(&Fib(n - 1)).await.ok()??
-                                + ctx.compute(&Fib(n - 2)).await.ok()??
-                        }
-                    })
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Option<u32> {
+            Some(match self.0 {
+                0 => 1,
+                1 => 1,
+                n => {
+                    ctx.compute(&Fib(n - 1)).await.ok()??
+                        + ctx.compute(&Fib(n - 2)).await.ok()??
                 }
-
-                fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                    false
-                }
-            }
-
-            let dice = Dice::modern().build(DetectCycles::Enabled);
-            let updater = dice.updater();
-            let mut ctx1 = updater.commit().await;
-
-            ctx1.compute(&Fib(3)).await?;
-
-            let updater = dice.updater();
-            updater.unstable_take();
-
-            let res = ctx1.compute(&Fib(10)).await;
-
-            assert!(res.is_err(), "Expected `Err(_)`, got `{:?}`", res);
-
-            Ok(())
+            })
         }
-        do_test().await.unwrap()
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            false
+        }
     }
+
+    let dice = Dice::modern().build(DetectCycles::Enabled);
+    let updater = dice.updater();
+    let mut ctx1 = updater.commit().await;
+
+    ctx1.compute(&Fib(3)).await?;
+
+    let updater = dice.updater();
+    updater.unstable_take();
+
+    let res = ctx1.compute(&Fib(10)).await;
+
+    assert!(res.is_err(), "Expected `Err(_)`, got `{:?}`", res);
+
+    Ok(())
 }
 
 #[test]
-#[should_panic] // TODO(cjhopman): remove this
 fn test_dice_clear_doesnt_cause_inject_compute() {
     // Detecting that a dice compute panicked is actually kinda tricky, in normal flow
-    // that's a hard error but in tests it instead just looks to dice like the node is cancelled.
+    // that is a hard error but in tests it instead just looks to dice like the node is cancelled.
     // We detect it by configuring the runtime to shutdown and panic itself if any task panics, but
     // that only works right now with the current_thread runtime.
     let rt = tokio::runtime::Builder::new_current_thread()

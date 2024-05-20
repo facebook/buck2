@@ -11,6 +11,7 @@ use std::thread;
 
 use gazebo::prelude::SliceExt;
 
+use super::graph::types::RejectedReason;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::cache::SharedCache;
@@ -95,7 +96,11 @@ impl CoreState {
     }
 
     pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
-        self.graph.get(key)
+        if self.version_tracker.should_reject(key.v) {
+            VersionedGraphResult::Rejected(RejectedReason::RejectedDueToGraphClear)
+        } else {
+            self.graph.get(key)
+        }
     }
 
     pub(super) fn update_computed(
@@ -109,11 +114,9 @@ impl CoreState {
     ) -> CancellableResult<DiceComputedValue> {
         if self.version_tracker.is_relevant(key.v, epoch) {
             debug!(msg = "update graph entry", k = ?key.k, v = %key.v, v_epoch = %epoch);
-
             Ok(self.graph.update(key, value, reusability, deps, storage).0)
         } else {
             debug!(msg = "update is rejected due to outdated epoch", k = ?key.k, v = %key.v, v_epoch = %epoch);
-
             Err(Cancelled)
         }
     }
@@ -127,7 +130,7 @@ impl CoreState {
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
-        self.version_tracker.write().commit();
+        self.version_tracker.clear();
 
         // Do the actual drop on a different thread because we may have to drop a lot of stuff
         // here.
