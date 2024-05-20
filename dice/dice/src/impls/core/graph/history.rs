@@ -344,20 +344,6 @@ where {
             .copied()
     }
 
-    pub(crate) fn first_dirty_after(&self, v: VersionNumber) -> Option<VersionNumber> {
-        self.dirtied
-            .range((Bound::Excluded(v), Bound::Unbounded))
-            .next()
-            .map(|(v, _)| *v)
-    }
-
-    pub(crate) fn first_verified_after(&self, v: VersionNumber) -> Option<VersionNumber> {
-        self.verified
-            .range((Bound::Excluded(v), Bound::Unbounded))
-            .next()
-            .copied()
-    }
-
     /// When a node is recomputed to the same value as its existing history, but with a new set of
     /// dependencies, that node needs to know when itself will next be dirtied due to changes in its
     /// new dependencies.

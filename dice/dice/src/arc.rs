@@ -30,6 +30,13 @@ impl<T> Arc<T> {
     }
 }
 
+impl<T: Clone> Arc<T> {
+    #[inline]
+    pub(crate) fn make_mut(&mut self) -> &mut T {
+        triomphe::Arc::make_mut(&mut self.0)
+    }
+}
+
 impl<T> Clone for Arc<T> {
     #[inline]
     fn clone(&self) -> Self {

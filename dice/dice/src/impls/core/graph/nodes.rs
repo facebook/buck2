@@ -19,6 +19,7 @@
 
 use std::collections::BTreeMap;
 use std::ops::Bound;
+use std::ops::RangeBounds;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -28,8 +29,6 @@ use sorted_vector_map::SortedVectorMap;
 use super::types::VersionedGraphResult;
 use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedRevDependencies;
-use crate::impls::core::graph::history::CellHistory;
-use crate::impls::core::graph::history::HistoryState;
 use crate::impls::core::graph::types::VersionedGraphResultMismatch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
@@ -42,6 +41,7 @@ use crate::introspection::graph::NodeID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
+use crate::versions::VersionRanges;
 use crate::HashMap;
 use crate::HashSet;
 
@@ -49,7 +49,7 @@ use crate::HashSet;
 ///
 /// This is responsible for tracking the information related to a single
 /// node (i.e. a DiceKey) required for incremental computations.
-#[derive(UnpackVariants, Allocative)]
+#[derive(UnpackVariants, Allocative, Debug)]
 pub(crate) enum VersionedGraphNode {
     Occupied(OccupiedGraphNode),
     Injected(InjectedGraphNode),
@@ -82,7 +82,7 @@ impl VersionedGraphNode {
     pub(crate) fn mark_invalidated(&mut self, v: VersionNumber) -> InvalidateResult {
         match self {
             VersionedGraphNode::Occupied(e) => {
-                if e.metadata.hist.mark_invalidated(v) {
+                if e.mark_invalidated(v) {
                     InvalidateResult::Changed(e.rdeps().keys().cloned().collect())
                 } else {
                     InvalidateResult::NoChange
@@ -106,11 +106,7 @@ impl VersionedGraphNode {
         }
     }
 
-    pub(crate) fn add_rdep_at(
-        &mut self,
-        v: VersionNumber,
-        k: DiceKey,
-    ) -> (Option<VersionNumber>, Option<VersionNumber>) {
+    pub(crate) fn add_rdep_at(&mut self, v: VersionNumber, k: DiceKey) {
         match self {
             VersionedGraphNode::Occupied(occ) => occ.add_rdep_at(v, k),
             VersionedGraphNode::Injected(inj) => inj.add_rdep_at(v, k),
@@ -133,7 +129,8 @@ impl VersionedGraphNode {
                     vac.key,
                     value,
                     Arc::new(SeriesParallelDeps::None),
-                    VersionRange::begins_with(version),
+                    VersionRange::begins_with(version).into_ranges(),
+                    vac.dirtied_history.clone(),
                 );
                 *self = Self::Occupied(entry);
                 InvalidateResult::Changed(Vec::new())
@@ -142,54 +139,64 @@ impl VersionedGraphNode {
     }
 
     /// Returns the newly updated value for the key, and whether or not any state changed.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps, reusable), fields(key = ?key, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps, reusable), fields(key = ?key, valid_deps_versions = ?valid_deps_versions)))]
     pub(crate) fn on_computed(
         &mut self,
         key: super::types::VersionedGraphKey,
         value: DiceValidValue,
-        first_dep_dirtied: Option<VersionNumber>,
-        latest_dep_verified: Option<VersionNumber>,
+        mut valid_deps_versions: VersionRanges,
         reusable: super::storage::ValueReusable,
         deps: Arc<SeriesParallelDeps>,
     ) -> (DiceComputedValue, bool) {
-        let history = match self {
+        let (dirtied_history, overwrite_entry) = match self {
             VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, &deps, entry) => {
                 debug!("marking graph entry as unchanged");
-                entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied);
+                entry.mark_unchanged(key.v, valid_deps_versions);
                 let ret = entry.computed_val();
                 return (ret, false);
             }
-            VersionedGraphNode::Occupied(entry) => entry.history(),
-            VersionedGraphNode::Vacant(entry) => &entry.hist,
-            _ => unreachable!(),
+            VersionedGraphNode::Occupied(entry) => {
+                // TODO(cjhopman): Should this consider the max version in valid_deps_version rather than just key.v?
+                (
+                    &entry.metadata.dirtied_history,
+                    !entry.metadata.ever_valid_after(key.v),
+                )
+            }
+            VersionedGraphNode::Vacant(entry) => (&entry.dirtied_history, true),
+            _ => unreachable!("injected nodes are never computed"),
         };
 
-        let (_since, _end, mut hist) =
-            history.make_new_verified_history(key.v, latest_dep_verified);
+        valid_deps_versions.intersect_range(dirtied_history.restricted_range(key.v));
+        let computed_version = VersionRange::bounded(key.v, VersionNumber::new(key.v.0 + 1));
+        valid_deps_versions.insert(computed_version);
 
-        hist.propagate_from_deps_version(key.v, first_dep_dirtied);
-
-        let new = OccupiedGraphNode::new_with_history(key.k, value, deps, hist);
-
-        let ret = new.computed_val();
-
-        match self {
-            VersionedGraphNode::Occupied(entry)
-                if entry.metadata().hist.first_verified_after(key.v).is_some() =>
-            {
-                debug!("skipping new graph entry because value is older than current entry");
-                // TODO(cjhopman): Returning `true` here matches previous behavior, but it seems odd
-                // that we claim something changed when we don't change anything. It's likely that the
-                // the return value actually is used to mean something different than that we changed
-                // something.
-                (ret, true)
-            }
-            entry => {
-                debug!("making new graph entry because value not reusable");
-                *entry = VersionedGraphNode::Occupied(new);
-                (ret, true)
-            }
+        if !overwrite_entry {
+            // TODO(cjhopman): Returning `true` here matches previous behavior, but it seems odd
+            // that we claim something changed when we don't change anything. It's likely that the
+            // the return value actually is used to mean something different than that we changed
+            // something.
+            debug!("skipping new graph entry because value is older than current entry");
+            return (
+                DiceComputedValue::new(
+                    MaybeValidDiceValue::valid(value),
+                    Arc::new(valid_deps_versions),
+                ),
+                true,
+            );
         }
+
+        debug!("making new graph entry because value not reusable");
+        let new = OccupiedGraphNode::new(
+            key.k,
+            value,
+            deps,
+            valid_deps_versions,
+            dirtied_history.clone(),
+        );
+        let ret = new.computed_val();
+        *self = VersionedGraphNode::Occupied(new);
+
+        (ret, true)
     }
 
     pub(crate) fn to_introspectable(&self) -> Option<SerializedGraphNode> {
@@ -215,9 +222,12 @@ impl VersionedGraphNode {
             VersionedGraphNode::Occupied(o) => Some(SerializedGraphNode {
                 node_id: NodeID(o.key.index as usize),
                 kind: GraphNodeKind::Occupied,
-                history: o.metadata().hist.to_introspectable(),
-                deps: Some(visit_deps(o.metadata().deps.iter_keys())),
-                rdeps: Some(visit_rdeps(o.metadata().rdeps.rdeps())),
+                history: crate::introspection::graph::CellHistory {
+                    valid_ranges: o.metadata.verified_ranges.to_introspectable(),
+                    force_dirtied_at: o.metadata.dirtied_history.to_introspectable(),
+                },
+                deps: Some(visit_deps(o.deps().iter_keys())),
+                rdeps: Some(visit_rdeps(o.rdeps())),
             }),
             VersionedGraphNode::Vacant(_) => {
                 // TODO(bobyf) should probably write the metadata of vacant
@@ -228,10 +238,44 @@ impl VersionedGraphNode {
                 Some(SerializedGraphNode {
                     node_id: NodeID(inj.key.index as usize),
                     kind: GraphNodeKind::Occupied,
-                    history: latest.history.to_introspectable(),
+                    history: crate::introspection::graph::CellHistory {
+                        valid_ranges: latest.valid_versions.to_introspectable(),
+                        force_dirtied_at: Vec::new(),
+                    },
                     deps: None,
                     rdeps: Some(visit_rdeps(latest.rdeps.rdeps())),
                 })
+            }
+        }
+    }
+
+    pub(crate) fn intersect_valid_versions_at(
+        &self,
+        v: VersionNumber,
+        deps_verified_ranges: &mut VersionRanges,
+    ) {
+        match self.valid_versions_at(v) {
+            None => {
+                deps_verified_ranges.clear();
+            }
+            Some(valid_ranges) => {
+                deps_verified_ranges.intersect_in_place(valid_ranges);
+            }
+        }
+    }
+
+    fn valid_versions_at(&self, v: VersionNumber) -> Option<&VersionRanges> {
+        match self {
+            VersionedGraphNode::Occupied(occ) => {
+                if occ.metadata.verified_ranges.contains(v) {
+                    Some(&occ.metadata.verified_ranges)
+                } else {
+                    None
+                }
+            }
+            VersionedGraphNode::Injected(inj) => Some(&inj.data_at(v).unwrap().1.valid_versions),
+            VersionedGraphNode::Vacant(_) => {
+                unreachable!()
             }
         }
     }
@@ -243,7 +287,7 @@ pub(crate) enum InvalidateResult {
 }
 
 /// The stored entry of the cache
-#[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
+#[derive(Allocative, Debug)]
 pub(crate) struct OccupiedGraphNode {
     key: DiceKey,
     res: DiceValidValue,
@@ -251,11 +295,105 @@ pub(crate) struct OccupiedGraphNode {
 }
 
 /// Meta data about a DICE node, which are its edges and history information
-#[derive(Allocative, Clone)] // TODO(bobyf) remove need to clone
-struct NodeMetadata {
+#[derive(Allocative, Debug)]
+pub(crate) struct NodeMetadata {
     deps: Arc<SeriesParallelDeps>,
     rdeps: VersionedRevDependencies,
-    hist: CellHistory,
+    verified_ranges: Arc<VersionRanges>,
+    dirtied_history: ForceDirtyHistory,
+}
+impl NodeMetadata {
+    fn should_add_rdep_at(&self, v: VersionNumber) -> bool {
+        match self.verified_ranges.last() {
+            Some(last) => match (last.begin(), last.end()) {
+                (begin, _) if begin > v => false,
+                (_, Some(_end)) => false,
+                _ => true,
+            },
+            None => true,
+        }
+    }
+
+    fn ever_valid_after(&self, v: VersionNumber) -> bool {
+        match self.verified_ranges.last() {
+            Some(last) => match last.end() {
+                Some(end) => end > v,
+                _ => true,
+            },
+            _ => false,
+        }
+    }
+}
+
+/// For a node, keeps a history of every version that that node has been force-dirtied at.
+///
+/// Across a force-dirtied version, we cannot ever reuse a node's value based on its deps' values not changing.
+#[derive(Allocative, Clone, Debug)]
+pub(crate) struct ForceDirtyHistory {
+    #[allow(clippy::box_collection)]
+    versions: Option<Box<Vec<VersionNumber>>>,
+}
+
+// the vast majority of nodes are never force-dirtied, so we want to make sure that we optimize for that.
+static_assertions::assert_eq_size!(ForceDirtyHistory, [usize; 1]);
+
+impl ForceDirtyHistory {
+    pub(crate) fn new() -> Self {
+        Self { versions: None }
+    }
+
+    /// Marks a version as force-dirtied. Returns true if the version was not already marked.
+    ///
+    /// Should only ever be called at increasing version numbers.
+    pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> bool {
+        match &mut self.versions {
+            Some(versions) => {
+                if *versions.last().unwrap() == v {
+                    false
+                } else {
+                    versions.push(v);
+                    true
+                }
+            }
+            None => {
+                self.versions = Some(Box::new(vec![v]));
+                true
+            }
+        }
+    }
+
+    /// Returns the force-dirtied bounds around the provided version.
+    fn restricted_range(&self, version: VersionNumber) -> VersionRange {
+        match &self.versions {
+            None => VersionRange::begins_with(VersionNumber::ZERO),
+            Some(dirties) => {
+                let mut end = None;
+                let mut begin = None;
+                for dirty_v in dirties.iter().rev() {
+                    if *dirty_v <= version {
+                        begin = Some(*dirty_v);
+                        break;
+                    } else {
+                        end = Some(*dirty_v);
+                    }
+                }
+
+                match (begin, end) {
+                    (Some(begin), Some(end)) => VersionRange::bounded(begin, end),
+                    (Some(begin), None) => VersionRange::begins_with(begin),
+                    (None, Some(end)) => VersionRange::bounded(VersionNumber::new(0), end),
+                    (None, None) => VersionRange::begins_with(VersionNumber::ZERO),
+                }
+            }
+        }
+    }
+
+    pub(crate) fn to_introspectable(&self) -> Vec<crate::introspection::graph::VersionNumber> {
+        match &self.versions {
+            Some(versions) => versions.iter().map(|v| v.to_introspectable()).collect(),
+            None => Vec::new(),
+        }
+    }
 }
 
 impl OccupiedGraphNode {
@@ -263,53 +401,36 @@ impl OccupiedGraphNode {
         key: DiceKey,
         res: DiceValidValue,
         deps: Arc<SeriesParallelDeps>,
-        verified_range: VersionRange,
-    ) -> Self {
-        let mut hist = CellHistory::verified(verified_range.begin());
-        if let Some(end) = verified_range.end() {
-            hist.propagate_from_deps_version(verified_range.begin(), Some(end));
-        }
-        Self::new_with_history(key, res, deps, hist)
-    }
-
-    pub(crate) fn new_with_history(
-        key: DiceKey,
-        res: DiceValidValue,
-        deps: Arc<SeriesParallelDeps>,
-        hist: CellHistory,
+        verified_ranges: VersionRanges,
+        dirtied_history: ForceDirtyHistory,
     ) -> Self {
         Self {
             key,
             res,
             metadata: NodeMetadata {
-                hist,
                 deps,
                 rdeps: VersionedRevDependencies::new(),
+                verified_ranges: Arc::new(verified_ranges),
+                dirtied_history,
             },
         }
     }
 
-    fn metadata(&self) -> &NodeMetadata {
-        &self.metadata
-    }
-
-    fn metadata_mut(&mut self) -> &mut NodeMetadata {
-        &mut self.metadata
-    }
-
-    fn history(&self) -> &CellHistory {
-        &self.metadata().hist
-    }
-
     pub(crate) fn mark_unchanged(
         &mut self,
-        v: VersionNumber,
-        latest_dep_verified: Option<VersionNumber>,
-        first_dep_dirtied: Option<VersionNumber>,
-    ) -> VersionNumber {
-        self.metadata
-            .hist
-            .mark_verified_modern(v, latest_dep_verified, first_dep_dirtied)
+        version: VersionNumber,
+        mut valid_deps_versions: VersionRanges,
+    ) {
+        valid_deps_versions
+            .intersect_range(self.metadata.dirtied_history.restricted_range(version));
+        valid_deps_versions.insert(VersionRange::bounded(
+            version,
+            VersionNumber::new(version.0 + 1),
+        ));
+
+        if !valid_deps_versions.is_empty() {
+            Arc::make_mut(&mut self.metadata.verified_ranges).union_in_place(&valid_deps_versions);
+        }
     }
 
     pub(crate) fn val(&self) -> &DiceValidValue {
@@ -319,7 +440,7 @@ impl OccupiedGraphNode {
     pub(crate) fn computed_val(&self) -> DiceComputedValue {
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(self.res.dupe()),
-            Arc::new(self.metadata.hist.get_verified_ranges()),
+            self.metadata.verified_ranges.dupe(),
         )
     }
 
@@ -328,77 +449,58 @@ impl OccupiedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
     ) -> InvalidateResult {
-        // TODO(cjhopman): Should we just make this whole thing an error? Why accept injections of non-InjectedKey?
+        // TODO(cjhopman): accepting injections only for InjectedKey would make the VersionedGraph simpler. Currently, this is used
+        // for "mocking" dice keys in tests via DiceBuilder::mock_and_return().
         if self.val().equality(&value) {
             // TODO(cjhopman): This is wrong. The node could currently be in a dirtied state and we
             // aren't recording that the value is verified at this version.
             return InvalidateResult::NoChange;
         }
 
-        let (_since, _end, mut hist) = self
-            .metadata()
-            .hist
-            .make_new_verified_history(version, None);
+        self.res = value;
+        self.metadata.deps = Arc::new(SeriesParallelDeps::None);
+        self.metadata.verified_ranges = Arc::new(VersionRange::begins_with(version).into_ranges());
 
-        hist.propagate_from_deps_version(version, None);
-
-        let new = OccupiedGraphNode::new_with_history(
-            self.key,
-            value,
-            Arc::new(SeriesParallelDeps::None),
-            hist,
-        );
-
-        *self = new;
-
-        InvalidateResult::Changed(
-            self.metadata()
-                .rdeps
-                .rdeps()
-                .iter()
-                .map(|(r, _)| r.dupe())
-                .collect(),
-        )
+        InvalidateResult::Changed(self.metadata.rdeps.rdeps().keys().cloned().collect())
     }
 
     fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
-        match self.metadata().hist.get_history(&v) {
-            HistoryState::Verified => VersionedGraphResult::Match(self.computed_val()),
-            HistoryState::Unknown(verified_versions) => {
-                match verified_versions.find_value_upper_bound(v) {
-                    Some(prev_verified_version) => {
-                        VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
-                            entry: self.val().dupe(),
-                            prev_verified_version,
-                            deps_to_validate: self.metadata().deps.dupe(),
-                        })
-                    }
-                    None => VersionedGraphResult::Compute,
+        match self.metadata.verified_ranges.find_value_upper_bound(v) {
+            Some(found) if found == v => VersionedGraphResult::Match(self.computed_val()),
+            Some(prev_verified_version) => {
+                if self
+                    .metadata
+                    .dirtied_history
+                    .restricted_range(v)
+                    .contains(&prev_verified_version)
+                {
+                    VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
+                        entry: self.val().dupe(),
+                        prev_verified_version,
+                        deps_to_validate: self.metadata.deps.dupe(),
+                    })
+                } else {
+                    VersionedGraphResult::Compute
                 }
             }
-            HistoryState::Dirty => VersionedGraphResult::Compute,
+            None => VersionedGraphResult::Compute,
         }
     }
 
-    fn add_rdep_at(
-        &mut self,
-        v: VersionNumber,
-        k: DiceKey,
-    ) -> (Option<VersionNumber>, Option<VersionNumber>) {
-        if let Some(latest_dep_verified) = self.metadata().hist.latest_verified_before(v) {
-            // TODO(cjhopman): Isn't there a bug here? The dep may have a dirty that
-            // happened between this latest_verified_before and key.v.
-            let dirtied_at = self.metadata().hist.first_dirty_after(v);
-            self.metadata_mut().rdeps.add_rdep(k, v);
-            (Some(latest_dep_verified), dirtied_at)
-        } else {
-            let dirtied_at = self.metadata().hist.first_verified_after(v);
-            (None, dirtied_at)
+    fn add_rdep_at(&mut self, v: VersionNumber, k: DiceKey) {
+        if self.metadata.should_add_rdep_at(v) {
+            self.metadata.rdeps.add_rdep(k, v);
         }
     }
 
     fn force_dirty(&mut self, v: VersionNumber) -> bool {
-        self.metadata.hist.force_dirty(v)
+        self.mark_invalidated(v);
+        self.metadata.dirtied_history.force_dirty(v)
+    }
+
+    fn mark_invalidated(&mut self, v: VersionNumber) -> bool {
+        Arc::make_mut(&mut self.metadata.verified_ranges)
+            .intersect_range(VersionRange::bounded(VersionNumber::ZERO, v))
     }
 
     fn rdeps(&self) -> &HashMap<DiceKey, VersionNumber> {
@@ -410,7 +512,7 @@ impl OccupiedGraphNode {
     }
 
     pub(crate) fn is_verified_at(&self, version: VersionNumber) -> bool {
-        self.metadata.hist.get_verified_ranges().contains(version)
+        self.metadata.verified_ranges.contains(version)
     }
 }
 
@@ -422,18 +524,18 @@ impl OccupiedGraphNode {
 #[derive(Allocative, Debug)]
 pub(crate) struct VacantGraphNode {
     key: DiceKey,
-    hist: CellHistory,
+    dirtied_history: ForceDirtyHistory,
 }
 impl VacantGraphNode {
     pub(crate) fn new(key: DiceKey) -> Self {
         Self {
             key,
-            hist: CellHistory::empty(),
+            dirtied_history: ForceDirtyHistory::new(),
         }
     }
 
     pub(crate) fn force_dirty(&mut self, v: VersionNumber) -> bool {
-        self.hist.force_dirty(v)
+        self.dirtied_history.force_dirty(v)
     }
 }
 
@@ -448,8 +550,10 @@ pub(crate) struct InjectedGraphNode {
 #[derive(Allocative, Debug)]
 pub(crate) struct InjectedNodeData {
     value: DiceValidValue,
-    history: CellHistory,
     rdeps: VersionedRevDependencies,
+    first_valid_version: VersionNumber,
+    // Used to cache the version ranges for `at_version`. This is a single VersionRange.
+    valid_versions: Arc<VersionRanges>,
 }
 
 impl InjectedGraphNode {
@@ -464,50 +568,35 @@ impl InjectedGraphNode {
                 return InvalidateResult::NoChange;
             }
             Some(v) => {
-                v.history.mark_invalidated(version);
+                v.valid_versions =
+                    Arc::new(VersionRange::bounded(v.first_valid_version, version).into_ranges());
                 v.rdeps.rdeps().keys().cloned().collect()
             }
             None => Vec::new(),
         };
 
-        self.values.insert(
-            version,
-            InjectedNodeData {
-                value,
-                history: CellHistory::verified(version),
-                rdeps: VersionedRevDependencies::new(),
-            },
-        );
+        self.values
+            .insert(version, Self::new_node_data(value, version));
 
         InvalidateResult::Changed(rdeps)
     }
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
-        match self
-            .values
-            .range((Bound::Unbounded, Bound::Included(v)))
-            .last()
-        {
+        match self.data_at(v) {
             Some((_, v)) => VersionedGraphResult::Match(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(v.value.dupe()),
-                Arc::new(v.history.get_verified_ranges()),
+                v.valid_versions.dupe(),
             )),
             None => VersionedGraphResult::Compute,
         }
     }
 
-    pub(crate) fn add_rdep_at(
-        &mut self,
-        v: VersionNumber,
-        k: DiceKey,
-    ) -> (Option<VersionNumber>, Option<VersionNumber>) {
-        let mut first_dirtied = None;
+    pub(crate) fn add_rdep_at(&mut self, v: VersionNumber, k: DiceKey) {
         for (version, value) in self.values.iter_mut().rev() {
             if *version <= v {
                 value.rdeps.add_rdep(k, v);
-                return (Some(*version), first_dirtied);
+                return;
             }
-            first_dirtied = Some(*version);
         }
         unreachable!()
     }
@@ -515,22 +604,28 @@ impl InjectedGraphNode {
     pub(crate) fn new(k: DiceKey, v: VersionNumber, value: DiceValidValue) -> InjectedGraphNode {
         InjectedGraphNode {
             key: k,
-            values: [(
-                v,
-                InjectedNodeData {
-                    value,
-                    history: CellHistory::verified(v),
-                    rdeps: VersionedRevDependencies::new(),
-                },
-            )]
-            .into_iter()
-            .collect(),
+            values: [(v, Self::new_node_data(value, v))].into_iter().collect(),
         }
     }
 
     pub(crate) fn latest(&self) -> &InjectedNodeData {
         // We don't ever create an empty values map
         self.values.values().next_back().unwrap()
+    }
+
+    fn new_node_data(value: DiceValidValue, version: VersionNumber) -> InjectedNodeData {
+        InjectedNodeData {
+            value,
+            rdeps: VersionedRevDependencies::new(),
+            first_valid_version: version,
+            valid_versions: Arc::new(VersionRange::begins_with(version).into_ranges()),
+        }
+    }
+
+    fn data_at(&self, v: VersionNumber) -> Option<(&VersionNumber, &InjectedNodeData)> {
+        self.values
+            .range((Bound::Unbounded, Bound::Included(v)))
+            .last()
     }
 }
 
@@ -545,15 +640,15 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::arc::Arc;
-    use crate::impls::core::graph::history::testing::CellHistoryExt;
-    use crate::impls::core::graph::history::testing::HistoryExt;
-    use crate::impls::core::graph::history::CellHistory;
+    use crate::impls::core::graph::nodes::ForceDirtyHistory;
     use crate::impls::core::graph::nodes::OccupiedGraphNode;
     use crate::impls::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
     use crate::versions::VersionNumber;
+    use crate::versions::VersionRange;
+    use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
     struct K;
@@ -576,38 +671,32 @@ mod tests {
     }
 
     #[test]
-    fn update_versioned_graph_entry_tracks_versions_and_deps() {
+    fn update_versioned_graph_entry_tracks_versions() {
         let deps0: Arc<SeriesParallelDeps> =
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
                 index: 5,
             }]));
-        let mut entry = OccupiedGraphNode::new_with_history(
+        let mut entry = OccupiedGraphNode::new(
             DiceKey { index: 1335 },
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
             deps0.dupe(),
-            CellHistory::testing_new(
-                &[VersionNumber::new(0)],
-                &[VersionNumber::new(1), VersionNumber::new(2)],
+            VersionRanges::testing_new(
+                vec![VersionRange::bounded(
+                    VersionNumber::new(0),
+                    VersionNumber::new(1),
+                )]
+                .into_iter()
+                .collect(),
             ),
+            ForceDirtyHistory::new(),
         );
 
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(0))
-            .assert_verified();
-        assert_eq!(&entry.metadata().deps, &deps0);
+        assert!(entry.is_verified_at(VersionNumber::new(0)));
+        assert_eq!(*entry.deps(), deps0);
 
-        entry.mark_unchanged(VersionNumber::new(1), None, None);
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(0))
-            .assert_verified();
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(1))
-            .assert_verified();
+        entry.mark_unchanged(VersionNumber::new(1), VersionRanges::new());
+
+        assert!(entry.is_verified_at(VersionNumber::new(0)));
+        assert!(entry.is_verified_at(VersionNumber::new(1)));
     }
 }

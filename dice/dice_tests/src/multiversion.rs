@@ -20,7 +20,6 @@ use dice::InjectedKey;
 use dice::Key;
 
 #[tokio::test]
-#[should_panic(expected = "This fails!")]
 async fn test_a_multiversion_bug() {
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
     #[display(fmt = "{:?}", self)]
@@ -92,6 +91,6 @@ async fn test_a_multiversion_bug() {
     assert_eq!(ctx2.compute(&Derived::Mid).await.unwrap(), 2);
     assert_eq!(ctx2.compute(&Derived::Top).await.unwrap(), 2);
 
-    assert_eq!(ctx1.compute(&Derived::Top).await.unwrap(), 1, "This fails!");
+    assert_eq!(ctx1.compute(&Derived::Top).await.unwrap(), 1);
     assert_eq!(ctx3.compute(&Derived::Top).await.unwrap(), 1);
 }

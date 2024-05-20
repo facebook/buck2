@@ -157,12 +157,11 @@
 //! A: This could also be interesting to explore. It's possible that this could resolve all the issues with doing
 //! value-based dep checks.
 
-use std::cmp;
-
 use allocative::Allocative;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
+use crate::impls::core::graph::nodes::ForceDirtyHistory;
 use crate::impls::core::graph::nodes::InjectedGraphNode;
 use crate::impls::core::graph::nodes::InvalidateResult;
 use crate::impls::core::graph::nodes::OccupiedGraphNode;
@@ -176,6 +175,7 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
+use crate::versions::VersionRanges;
 use crate::HashMap;
 use crate::HashSet;
 
@@ -225,43 +225,22 @@ impl VersionedGraph {
                 "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
             );
         };
-        let mut latest_dep_verified = None;
-        let mut first_dep_dirtied = None;
+
+        let mut valid_deps_versions = VersionRange::begins_with(VersionNumber::ZERO).into_ranges();
 
         // Add rdeps.
         for dep in deps.iter_keys() {
-            let (first_version_valid, version_dirtied) = self
-                .nodes
-                .get_mut(&dep)
-                .expect("dependency should exist")
-                .add_rdep_at(key.v, key.k);
-            latest_dep_verified = cmp::max(latest_dep_verified, first_version_valid);
-            first_dep_dirtied = match (first_dep_dirtied, version_dirtied) {
-                (Some(l), Some(r)) => Some(cmp::min(l, r)),
-                (None, r) => r,
-                (l, _) => l,
-            };
+            let node = self.nodes.get_mut(&dep).expect("dependency should exist");
+            node.add_rdep_at(key.v, key.k);
+            node.intersect_valid_versions_at(key.v, &mut valid_deps_versions);
         }
 
         // Update entry.
         match self.nodes.get_mut(&key.k) {
-            Some(entry) => entry.on_computed(
-                key,
-                value,
-                first_dep_dirtied,
-                latest_dep_verified,
-                reusable,
-                deps,
-            ),
+            Some(entry) => entry.on_computed(key, value, valid_deps_versions, reusable, deps),
+
             None => (
-                self.update_empty(
-                    key.k,
-                    key.v,
-                    value,
-                    first_dep_dirtied,
-                    latest_dep_verified,
-                    deps,
-                ),
+                self.update_empty(key.k, key.v, value, valid_deps_versions, deps),
                 true,
             ),
         }
@@ -286,7 +265,8 @@ impl VersionedGraph {
                             key.k,
                             value,
                             Arc::new(SeriesParallelDeps::None),
-                            VersionRange::begins_with(key.v),
+                            VersionRange::begins_with(key.v).into_ranges(),
+                            ForceDirtyHistory::new(),
                         ))
                     }
                     _ => {
@@ -320,24 +300,23 @@ impl VersionedGraph {
     // ------------------------- Implementation functions below --------------------
     // -----------------------------------------------------------------------------
 
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps), fields(key = ?key, v = %v, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps), fields(key = ?key, v = %v, valid_deps_versions = ?valid_deps_versions)))]
     fn update_empty(
         &mut self,
         key: DiceKey,
         v: VersionNumber,
         value: DiceValidValue,
-        first_dep_dirtied: Option<VersionNumber>,
-        latest_dep_verified: Option<VersionNumber>,
+        mut valid_deps_versions: VersionRanges,
         deps: Arc<SeriesParallelDeps>,
     ) -> DiceComputedValue {
         debug!("making new graph entry because previously empty");
-        let since = latest_dep_verified.unwrap_or(v);
-
+        valid_deps_versions.insert(VersionRange::bounded(v, VersionNumber::new(v.0 + 1)));
         let entry = OccupiedGraphNode::new(
             key,
             value,
             deps,
-            VersionRange::new(since, first_dep_dirtied),
+            valid_deps_versions,
+            ForceDirtyHistory::new(),
         );
 
         let res = entry.computed_val();
@@ -1225,9 +1204,7 @@ mod tests {
         Ok(())
     }
 
-    // TODO(cjhopman): This test should not panic, it currently has multiple bugs so we have an `expected=` that helps see when one bug is fixed.
     #[test]
-    #[should_panic(expected = "expected Match, but was CheckDeps")]
     fn check_that_we_handle_noncomputed_version_in_history_correctly() {
         fn do_test() -> anyhow::Result<()> {
             let mut cache = VersionedGraph::new();
@@ -1430,61 +1407,57 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "expected Compute, but was Match")]
-    fn check_that_force_dirty_does_not_get_forgotten_after_later_computes() {
-        fn do_test() -> anyhow::Result<()> {
-            let mut cache = VersionedGraph::new();
-            let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+    fn check_that_force_dirty_does_not_get_forgotten_after_later_computes() -> anyhow::Result<()> {
+        let mut cache = VersionedGraph::new();
+        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
-            let key_a = DiceKey { index: 0 };
-            let key_b = DiceKey { index: 1 };
+        let key_a = DiceKey { index: 0 };
+        let key_b = DiceKey { index: 1 };
 
-            let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
-            let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
-            let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+        let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
+        let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
+        let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
 
-            let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+        let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
 
-            // b is valid from 0->inf
+        // b is valid from 0->inf
+        cache.invalidate(
+            key_b0,
+            InvalidateKind::Update(res.dupe(), StorageType::Injected),
+        );
+
+        let key_a100 = VersionedGraphKey::new(VersionNumber::new(100), key_a);
+
+        for i in 1..100 {
             cache.invalidate(
-                key_b0,
-                InvalidateKind::Update(res.dupe(), StorageType::Injected),
+                VersionedGraphKey::new(VersionNumber(i), key_a),
+                InvalidateKind::ForceDirty,
             );
-
-            let key_a100 = VersionedGraphKey::new(VersionNumber::new(100), key_a);
-
-            for i in 1..100 {
-                cache.invalidate(
-                    VersionedGraphKey::new(VersionNumber(i), key_a),
-                    InvalidateKind::ForceDirty,
-                );
-            }
-
-            cache.update(
-                key_a100,
-                res.dupe(),
-                ValueReusable::EqualityBased,
-                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-                StorageType::Normal,
-            );
-
-            cache.update(
-                key_a0,
-                res.dupe(),
-                ValueReusable::EqualityBased,
-                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-                StorageType::Normal,
-            );
-
-            // There was a force-dirty at v1 (and v2, v3, ...), we should not be able to reuse the
-            // value at v0 regardless of deps.
-            cache.get(key_a0).assert_match();
-            cache.get(key_a1).assert_compute();
-            cache.get(key_a2).assert_compute();
-            cache.get(key_a2).assert_compute();
-
-            Ok(())
         }
-        do_test().unwrap()
+
+        cache.update(
+            key_a100,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            StorageType::Normal,
+        );
+
+        cache.update(
+            key_a0,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            StorageType::Normal,
+        );
+
+        // There was a force-dirty at v1 (and v2, v3, ...), we should not be able to reuse the
+        // value at v0 regardless of deps.
+        cache.get(key_a0).assert_match();
+        cache.get(key_a1).assert_compute();
+        cache.get(key_a2).assert_compute();
+        cache.get(key_a2).assert_compute();
+
+        Ok(())
     }
 }

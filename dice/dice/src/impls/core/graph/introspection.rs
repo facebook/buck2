@@ -13,10 +13,12 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 
 use crate::arc::Arc;
+use crate::impls::core::graph::nodes::ForceDirtyHistory;
 use crate::impls::core::graph::nodes::VersionedGraphNode;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::key::DiceKey;
 use crate::introspection::graph::AnyKey;
+use crate::introspection::graph::CellHistory;
 use crate::introspection::graph::EngineForIntrospection;
 use crate::introspection::graph::GraphNodeKind;
 use crate::introspection::graph::KeyID;
