@@ -231,37 +231,17 @@ impl VersionedGraph {
 
         // Add rdeps.
         for dep in deps.iter_keys() {
-            match self.nodes.get_mut(&dep) {
-                None => {
-                    unreachable!("dependency should exist")
-                }
-                Some(node) => match node {
-                    VersionedGraphNode::Occupied(occ) => {
-                        if let Some(dep_v) = occ.metadata().hist.latest_verified_before(key.v) {
-                            // TODO(cjhopman): Isn't there a bug here? The dep may have a dirty that
-                            // happened between this latest_verified_before and key.v.
-                            latest_dep_verified = cmp::max(latest_dep_verified, Some(dep_v));
-
-                            let dep_d_v = occ.metadata().hist.first_dirty_after(key.v);
-                            first_dep_dirtied = cmp::min(first_dep_dirtied.or(dep_d_v), dep_d_v);
-
-                            occ.metadata_mut().rdeps.add_rdep(key.k, key.v);
-                        } else {
-                            let dep_d_v = occ.metadata().hist.first_verified_after(key.v);
-                            first_dep_dirtied = cmp::min(first_dep_dirtied.or(dep_d_v), dep_d_v);
-                        }
-                    }
-                    VersionedGraphNode::Vacant(_) => {
-                        unreachable!("dependency should exist")
-                    }
-                    VersionedGraphNode::Injected(inj) => {
-                        let (first_version_valid, version_dirtied) = inj.add_rdep_at(key.v, key.k);
-                        latest_dep_verified = cmp::max(latest_dep_verified, first_version_valid);
-                        first_dep_dirtied =
-                            cmp::min(first_dep_dirtied.or(version_dirtied), version_dirtied);
-                    }
-                },
-            }
+            let (first_version_valid, version_dirtied) = self
+                .nodes
+                .get_mut(&dep)
+                .expect("dependency should exist")
+                .add_rdep_at(key.v, key.k);
+            latest_dep_verified = cmp::max(latest_dep_verified, first_version_valid);
+            first_dep_dirtied = match (first_dep_dirtied, version_dirtied) {
+                (Some(l), Some(r)) => Some(cmp::min(l, r)),
+                (None, r) => r,
+                (l, _) => l,
+            };
         }
 
         // Update entry.

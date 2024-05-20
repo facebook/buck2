@@ -113,6 +113,20 @@ impl VersionedGraphNode {
             VersionedGraphNode::Injected(entry) => entry.at_version(v),
         }
     }
+
+    pub(crate) fn add_rdep_at(
+        &mut self,
+        v: VersionNumber,
+        k: DiceKey,
+    ) -> (Option<VersionNumber>, Option<VersionNumber>) {
+        match self {
+            VersionedGraphNode::Occupied(occ) => occ.add_rdep_at(v, k),
+            VersionedGraphNode::Injected(inj) => inj.add_rdep_at(v, k),
+            VersionedGraphNode::Vacant(_) => {
+                unreachable!("we can't have an rdep on something that has never seen a value")
+            }
+        }
+    }
 }
 
 /// The stored entry of the cache
@@ -213,6 +227,23 @@ impl OccupiedGraphNode {
                 }
             }
             HistoryState::Dirty => VersionedGraphResult::Compute,
+        }
+    }
+
+    fn add_rdep_at(
+        &mut self,
+        v: VersionNumber,
+        k: DiceKey,
+    ) -> (Option<VersionNumber>, Option<VersionNumber>) {
+        if let Some(latest_dep_verified) = self.metadata().hist.latest_verified_before(v) {
+            // TODO(cjhopman): Isn't there a bug here? The dep may have a dirty that
+            // happened between this latest_verified_before and key.v.
+            let dirtied_at = self.metadata().hist.first_dirty_after(v);
+            self.metadata_mut().rdeps.add_rdep(k, v);
+            (Some(latest_dep_verified), dirtied_at)
+        } else {
+            let dirtied_at = self.metadata().hist.first_verified_after(v);
+            (None, dirtied_at)
         }
     }
 }
