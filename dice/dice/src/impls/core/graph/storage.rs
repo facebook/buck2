@@ -372,10 +372,17 @@ impl ValueReusable {
     pub(crate) fn is_reusable(
         &self,
         new_value: &DiceValidValue,
+        new_deps: &SeriesParallelDeps,
         value: &OccupiedGraphNode,
     ) -> bool {
         match self {
-            ValueReusable::EqualityBased => new_value.equality(value.val()),
+            ValueReusable::EqualityBased => {
+                if new_deps != &***value.metadata().deps.deps() {
+                    return false;
+                }
+                new_value.equality(value.val())
+            }
+            // For version-based, the deps are guaranteed to match if `version` is in the node's verified versions.
             ValueReusable::VersionBased(version) => value
                 .metadata()
                 .hist

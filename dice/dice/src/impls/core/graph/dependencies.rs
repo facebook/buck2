@@ -37,20 +37,8 @@ impl VersionedDependencies {
         Self { recorded_at, deps }
     }
 
-    pub(crate) fn deps(&self) -> Arc<SeriesParallelDeps> {
-        self.deps.dupe()
-    }
-
-    pub(crate) fn replace_deps(&mut self, v: VersionNumber, deps: Arc<SeriesParallelDeps>) {
-        if self.recorded_at < v {
-            // we only ever write the newest version of the dependencies of this node for simplicity
-            // That way, if we are ever dirtied, we just check if the latest version of the deps
-            // have changed at the dirtied version which only requires spawning one set of deps.
-            // It might cause us to falsely fail to reuse some nodes, but this is less memory
-            // and less work per node when in incremental cases.
-            self.deps = deps;
-            self.recorded_at = v;
-        }
+    pub(crate) fn deps(&self) -> &Arc<SeriesParallelDeps> {
+        &self.deps
     }
 }
 

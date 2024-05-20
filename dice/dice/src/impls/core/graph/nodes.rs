@@ -150,9 +150,9 @@ impl VersionedGraphNode {
         deps: Arc<SeriesParallelDeps>,
     ) -> (DiceComputedValue, bool) {
         let history = match self {
-            VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, entry) => {
+            VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, &deps, entry) => {
                 debug!("marking graph entry as unchanged");
-                entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied, deps);
+                entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied);
                 let ret = entry.computed_val();
                 return (ret, false);
             }
@@ -246,24 +246,10 @@ impl OccupiedGraphNode {
         v: VersionNumber,
         latest_dep_verified: Option<VersionNumber>,
         first_dep_dirtied: Option<VersionNumber>,
-        deps: Arc<SeriesParallelDeps>,
     ) -> VersionNumber {
-        // Marking a node as unchanged ALWAYS requires the dependencies for which we used to deem
-        // that the node is unchanged.
-        //
-        // Consider a node n2 that depends on n1 at version v0.
-        // We then dirty versions v1, v2, v3 at n1. We'd defer dirtying v2, v3 on n2 due
-        // to the fact that it's possible that at v2 and v3, n2 no longer depends on n1
-        // and we rely on deferred propagation of dirtiness. However, if at v2, we recompute
-        // and find that the values are equal to that at v0, then we can resurrect v0's n2.
-        // However, at this point, we will need to deferred propagate the dirty at v3.
-        let changed_since =
-            self.metadata
-                .hist
-                .mark_verified_modern(v, latest_dep_verified, first_dep_dirtied);
-        self.metadata.deps.replace_deps(changed_since, deps);
-
-        changed_since
+        self.metadata
+            .hist
+            .mark_verified_modern(v, latest_dep_verified, first_dep_dirtied)
     }
 
     pub(crate) fn val(&self) -> &DiceValidValue {
@@ -324,7 +310,7 @@ impl OccupiedGraphNode {
                         VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
                             entry: self.val().dupe(),
                             prev_verified_version,
-                            deps_to_validate: self.metadata().deps.deps(),
+                            deps_to_validate: self.metadata().deps.deps().dupe(),
                         })
                     }
                     None => VersionedGraphResult::Compute,
@@ -523,14 +509,9 @@ mod tests {
             .hist
             .get_history(&VersionNumber::new(0))
             .assert_verified();
-        assert_eq!(entry.metadata().deps.deps(), deps0);
+        assert_eq!(entry.metadata().deps.deps(), &deps0);
 
-        entry.mark_unchanged(
-            VersionNumber::new(1),
-            None,
-            None,
-            Arc::new(SeriesParallelDeps::None),
-        );
+        entry.mark_unchanged(VersionNumber::new(1), None, None);
         entry
             .metadata()
             .hist
@@ -541,37 +522,5 @@ mod tests {
             .hist
             .get_history(&VersionNumber::new(1))
             .assert_verified();
-        assert_eq!(
-            entry.metadata().deps.deps(),
-            Arc::new(SeriesParallelDeps::None)
-        );
-
-        let deps1 = Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
-            index: 7,
-        }]));
-        entry.mark_unchanged(
-            VersionNumber::new(2),
-            Some(VersionNumber::new(1)),
-            None,
-            deps1.dupe(),
-        );
-
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(0))
-            .assert_verified();
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(1))
-            .assert_verified();
-        entry
-            .metadata()
-            .hist
-            .get_history(&VersionNumber::new(2))
-            .assert_verified();
-
-        assert_eq!(entry.metadata().deps.deps(), deps1);
     }
 }
