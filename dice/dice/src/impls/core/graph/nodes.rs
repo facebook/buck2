@@ -273,7 +273,7 @@ impl OccupiedGraphNode {
     pub(crate) fn computed_val(&self) -> DiceComputedValue {
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(self.res.dupe()),
-            Arc::new(self.metadata.hist.clone()),
+            Arc::new(self.metadata.hist.get_verified_ranges()),
         )
     }
 
@@ -416,7 +416,7 @@ impl InjectedGraphNode {
         {
             Some((_, v)) => VersionedGraphResult::Match(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(v.value.dupe()),
-                Arc::new(v.history.clone()),
+                Arc::new(v.history.get_verified_ranges()),
             )),
             None => VersionedGraphResult::Compute,
         }

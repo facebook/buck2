@@ -180,7 +180,6 @@ mod tests {
     use crate::api::key::Key;
     use crate::arc::Arc;
     use crate::impls::cache::DiceTaskRef;
-    use crate::impls::core::graph::history::CellHistory;
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
     use crate::impls::key::ParentKey;
@@ -192,6 +191,7 @@ mod tests {
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
     use crate::versions::VersionNumber;
+    use crate::versions::VersionRanges;
 
     #[test]
     fn update_state_gets_next_version() {
@@ -241,7 +241,7 @@ mod tests {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(val),
                     )),
-                    Arc::new(CellHistory::empty()),
+                    Arc::new(VersionRanges::new()),
                 ));
 
                 Box::new(()) as Box<dyn Any + Send>

@@ -15,7 +15,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::arc::Arc;
-use crate::impls::core::graph::history::CellHistory;
+use crate::versions::VersionRanges;
 use crate::Key;
 use crate::ProjectionKey;
 
@@ -126,7 +126,7 @@ impl DiceValidity {
 #[derive(Allocative, Clone)]
 pub(crate) struct DiceComputedValue {
     value: MaybeValidDiceValue,
-    valid: Arc<CellHistory>,
+    valid: Arc<VersionRanges>,
 }
 
 impl Dupe for DiceComputedValue {
@@ -134,7 +134,7 @@ impl Dupe for DiceComputedValue {
 }
 
 impl DiceComputedValue {
-    pub(crate) fn new(value: MaybeValidDiceValue, valid: Arc<CellHistory>) -> Self {
+    pub(crate) fn new(value: MaybeValidDiceValue, valid: Arc<VersionRanges>) -> Self {
         Self { value, valid }
     }
 
@@ -142,7 +142,7 @@ impl DiceComputedValue {
         &self.value
     }
 
-    pub(crate) fn history(&self) -> &CellHistory {
+    pub(crate) fn versions(&self) -> &VersionRanges {
         &self.valid
     }
 }

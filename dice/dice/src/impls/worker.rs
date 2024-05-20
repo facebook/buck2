@@ -26,7 +26,6 @@ use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::arc::Arc;
-use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::state::CoreStateHandle;
@@ -55,6 +54,7 @@ use crate::impls::worker::state::DiceWorkerStateLookupNode;
 use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRange;
 
 pub(crate) mod state;
 
@@ -239,7 +239,7 @@ impl DiceTaskWorker {
                 }
                 Err(value) => Ok(DiceComputedValue::new(
                     value,
-                    Arc::new(CellHistory::verified(v)),
+                    Arc::new(VersionRange::begins_with(v).into_ranges()),
                 )),
             }
         };
@@ -385,8 +385,8 @@ async fn check_dependency(
             cycles.subrequest(dep, &eval.dice.key_index),
         )
         .await?
-        .history()
-        .is_verified_at(version))
+        .versions()
+        .contains(version))
 }
 
 #[derive(VariantName)]
@@ -454,7 +454,8 @@ pub(crate) fn project_for_key(
         debug!(msg = "update future completed");
         event_dispatcher.finished(k);
 
-        let computed_value = DiceComputedValue::new(res, Arc::new(CellHistory::verified(v)));
+        let computed_value =
+            DiceComputedValue::new(res, Arc::new(VersionRange::begins_with(v).into_ranges()));
         let state_future =
             future.unwrap_or_else(|| future::ready(Ok(computed_value.dupe())).boxed());
 

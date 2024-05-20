@@ -31,7 +31,6 @@ use tokio::sync::Semaphore;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::arc::Arc;
-use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::dice::MaybeCancelled;
@@ -43,6 +42,7 @@ use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::result::Cancelled;
+use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
 struct K;
@@ -78,7 +78,7 @@ async fn simple_task() -> anyhow::Result<()> {
 
             handle.finished(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-                Arc::new(CellHistory::empty()),
+                Arc::new(VersionRanges::new()),
             ));
 
             Box::new(()) as Box<dyn Any + Send + 'static>
@@ -138,7 +138,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
             // wait for the lock too
             handle.finished(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-                Arc::new(CellHistory::empty()),
+                Arc::new(VersionRanges::new()),
             ));
 
             sent_finish.notify_one();
@@ -228,7 +228,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
             // wait for the lock too
             handle.finished(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-                Arc::new(CellHistory::empty()),
+                Arc::new(VersionRanges::new()),
             ));
 
             Box::new(()) as Box<dyn Any + Send + 'static>
@@ -314,7 +314,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-                Arc::new(CellHistory::empty())
+                Arc::new(VersionRanges::new())
             )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
@@ -358,11 +358,11 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
 
     let v_sync = DiceComputedValue::new(
         MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-        Arc::new(CellHistory::empty()),
+        Arc::new(VersionRanges::new()),
     );
     let v_async = DiceComputedValue::new(
         MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(99))),
-        Arc::new(CellHistory::empty()),
+        Arc::new(VersionRanges::new()),
     );
     let (tx, rx) = oneshot::channel();
 
@@ -474,7 +474,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-                Arc::new(CellHistory::empty())
+                Arc::new(VersionRanges::new())
             )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
@@ -513,7 +513,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
-                    Arc::new(CellHistory::empty()),
+                    Arc::new(VersionRanges::new()),
                 ));
 
                 Box::new(()) as Box<dyn Any + Send + 'static>
@@ -533,7 +533,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-                Arc::new(CellHistory::empty())
+                Arc::new(VersionRanges::new())
             )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
@@ -576,7 +576,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
-                    Arc::new(CellHistory::empty()),
+                    Arc::new(VersionRanges::new()),
                 ));
 
                 sem.add_permits(1);
@@ -601,7 +601,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-                Arc::new(CellHistory::empty())
+                Arc::new(VersionRanges::new())
             )))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))

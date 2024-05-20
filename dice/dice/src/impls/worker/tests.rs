@@ -38,8 +38,6 @@ use crate::api::storage_type::StorageType;
 use crate::api::user_data::NoOpTracker;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
-use crate::impls::core::graph::history::testing::CellHistoryExt;
-use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
@@ -150,7 +148,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceKey { index: 100 },
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
+            Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
         ),
     );
     let eval = AsyncEvaluator {
@@ -176,7 +174,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceKey { index: 100 },
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
+            Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
         ),
     );
 
@@ -206,7 +204,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceKey { index: 200 },
         DiceComputedValue::new(
             MaybeValidDiceValue::transient(std::sync::Arc::new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::testing_new(&[VersionNumber::new(2)], &[])),
+            Arc::new(VersionRange::begins_with(VersionNumber::new(2)).into_ranges()),
         ),
     );
 
@@ -280,7 +278,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         DiceKey { index: 100 },
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::verified(VersionNumber::new(0))),
+            Arc::new(VersionRange::begins_with(VersionNumber::new(0)).into_ranges()),
         ),
     );
     let eval = AsyncEvaluator {
@@ -303,8 +301,8 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         .unwrap()
         .await?;
     assert_eq!(
-        res.history().get_verified_ranges(),
-        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
+        res.versions(),
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
     assert!(!is_ran.load(Ordering::SeqCst));
 
@@ -319,7 +317,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         DiceKey { index: 100 },
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::verified(v)),
+            Arc::new(VersionRange::begins_with(v).into_ranges()),
         ),
     );
     let eval = AsyncEvaluator {
@@ -342,8 +340,8 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         .unwrap()
         .await?;
     assert_eq!(
-        res.history().get_verified_ranges(),
-        VersionRanges::testing_new(vec![VersionRange::begins_with(v)])
+        res.versions(),
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(v)])
     );
     assert_eq!(is_ran.load(Ordering::SeqCst), true);
     is_ran.store(false, Ordering::SeqCst);
@@ -369,7 +367,9 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         DiceKey { index: 100 },
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::testing_new(&[v, new_v], &[])),
+            Arc::new(VersionRanges::testing_new(vec![VersionRange::bounded(
+                v, new_v,
+            )])),
         ),
     );
     let eval = AsyncEvaluator {
@@ -392,8 +392,8 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         .unwrap()
         .await?;
     assert_eq!(
-        res.history().get_verified_ranges(),
-        VersionRanges::testing_new(vec![VersionRange::bounded(v, new_v)])
+        res.versions(),
+        &VersionRanges::testing_new(vec![VersionRange::bounded(v, new_v)])
     );
     assert_eq!(is_ran.load(Ordering::SeqCst), false);
 
@@ -507,8 +507,8 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     assert_eq!(instance.load(Ordering::SeqCst), 2);
 
     assert_eq!(
-        res.history().get_verified_ranges(),
-        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
+        res.versions(),
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
 
     // verify that the instance we return and store is the same as the original instance
@@ -971,7 +971,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     async fn ctx_with_dep_having_history(
         dice: &std::sync::Arc<DiceModern>,
         parent_key: DiceKey,
-        dep_history: CellHistory,
+        dep_history: VersionRanges,
     ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
         let v = soft_dirty(dice, parent_key.dupe()).await;
         let (ctx, guard) = dice.testing_shared_ctx(v).await;
@@ -999,7 +999,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     let (ctx, _guard) = ctx_with_dep_having_history(
         &dice,
         key.dupe(),
-        CellHistory::verified(VersionNumber::new(0)),
+        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))]),
     )
     .await;
 
@@ -1023,8 +1023,8 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         .unwrap()
         .await?;
     assert_eq!(
-        computed_res.history().get_verified_ranges(),
-        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
+        computed_res.versions(),
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
     assert!(computed_res.value().instance_equal(&res));
 
@@ -1032,7 +1032,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     let (ctx, _guard) = ctx_with_dep_having_history(
         &dice,
         key.dupe(),
-        CellHistory::verified(VersionNumber::new(0)),
+        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))]),
     )
     .await;
 
@@ -1056,8 +1056,8 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         .unwrap()
         .await?;
     assert_eq!(
-        computed_res.history().get_verified_ranges(),
-        VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
+        computed_res.versions(),
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
     );
     assert!(computed_res.value().instance_equal(&res));
 
