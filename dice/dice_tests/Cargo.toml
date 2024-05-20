@@ -13,8 +13,8 @@ dupe = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
+dice = { workspace = true }
+futures = { workspace = true }
 parking_lot = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
-
-dice = { workspace = true }
