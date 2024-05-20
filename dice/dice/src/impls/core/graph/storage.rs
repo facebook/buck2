@@ -246,9 +246,7 @@ impl VersionedGraph {
 
         // Update entry.
         match self.nodes.get_mut(&key.k) {
-            node @ Some(VersionedGraphNode::Occupied(..))
-            | node @ Some(VersionedGraphNode::Vacant(..)) => Self::update_entry(
-                node.unwrap(),
+            Some(entry) => entry.on_computed(
                 key,
                 value,
                 first_dep_dirtied,
@@ -256,9 +254,6 @@ impl VersionedGraph {
                 reusable,
                 deps,
             ),
-            Some(VersionedGraphNode::Injected(..)) => {
-                unreachable!("injected nodes shouldn't be computed")
-            }
             None => (
                 self.update_empty(
                     key.k,
@@ -349,57 +344,6 @@ impl VersionedGraph {
         res
     }
 
-    /// Returns the newly updated value for the key, and whether or not any state changed.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(entry, value, deps, reusable), fields(key = ?key, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
-    fn update_entry(
-        entry: &mut VersionedGraphNode,
-        key: VersionedGraphKey,
-        value: DiceValidValue,
-        first_dep_dirtied: Option<VersionNumber>,
-        latest_dep_verified: Option<VersionNumber>,
-        reusable: ValueReusable,
-        deps: Arc<SeriesParallelDeps>,
-    ) -> (DiceComputedValue, bool) {
-        let history = match entry {
-            VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, entry) => {
-                debug!("marking graph entry as unchanged");
-                entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied, deps);
-                let ret = entry.computed_val();
-                return (ret, false);
-            }
-            VersionedGraphNode::Occupied(entry) => entry.history(),
-            VersionedGraphNode::Vacant(entry) => &entry.hist,
-            _ => unreachable!(),
-        };
-
-        let (since, _end, mut hist) = history.make_new_verified_history(key.v, latest_dep_verified);
-
-        hist.propagate_from_deps_version(key.v, first_dep_dirtied);
-
-        let new =
-            OccupiedGraphNode::new(key.k, value, VersionedDependencies::new(since, deps), hist);
-
-        let ret = new.computed_val();
-
-        match entry {
-            VersionedGraphNode::Occupied(entry)
-                if entry.metadata().hist.first_verified_after(key.v).is_some() =>
-            {
-                debug!("skipping new graph entry because value is older than current entry");
-                // TODO(cjhopman): Returning `true` here matches previous behavior, but it seems odd
-                // that we claim something changed when we don't change anything. It's likely that the
-                // the return value actually is used to mean something different than that we changed
-                // something.
-                (ret, true)
-            }
-            entry => {
-                debug!("making new graph entry because value not reusable");
-                *entry = VersionedGraphNode::Occupied(new);
-                (ret, true)
-            }
-        }
-    }
-
     fn invalidate_rdeps(&mut self, version: VersionNumber, mut queue: Vec<DiceKey>) {
         let mut queued: HashSet<_> = queue.iter().copied().collect();
 
@@ -425,7 +369,11 @@ pub(crate) enum ValueReusable {
 }
 
 impl ValueReusable {
-    fn is_reusable(&self, new_value: &DiceValidValue, value: &OccupiedGraphNode) -> bool {
+    pub(crate) fn is_reusable(
+        &self,
+        new_value: &DiceValidValue,
+        value: &OccupiedGraphNode,
+    ) -> bool {
         match self {
             ValueReusable::EqualityBased => new_value.equality(value.val()),
             ValueReusable::VersionBased(version) => value

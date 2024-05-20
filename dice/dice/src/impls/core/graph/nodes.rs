@@ -137,6 +137,57 @@ impl VersionedGraphNode {
             }
         }
     }
+
+    /// Returns the newly updated value for the key, and whether or not any state changed.
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps, reusable), fields(key = ?key, first_dep_dirtied = ?first_dep_dirtied, latest_dep_verified = ?latest_dep_verified)))]
+    pub(crate) fn on_computed(
+        &mut self,
+        key: super::types::VersionedGraphKey,
+        value: DiceValidValue,
+        first_dep_dirtied: Option<VersionNumber>,
+        latest_dep_verified: Option<VersionNumber>,
+        reusable: super::storage::ValueReusable,
+        deps: Arc<SeriesParallelDeps>,
+    ) -> (DiceComputedValue, bool) {
+        let history = match self {
+            VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, entry) => {
+                debug!("marking graph entry as unchanged");
+                entry.mark_unchanged(key.v, latest_dep_verified, first_dep_dirtied, deps);
+                let ret = entry.computed_val();
+                return (ret, false);
+            }
+            VersionedGraphNode::Occupied(entry) => entry.history(),
+            VersionedGraphNode::Vacant(entry) => &entry.hist,
+            _ => unreachable!(),
+        };
+
+        let (since, _end, mut hist) = history.make_new_verified_history(key.v, latest_dep_verified);
+
+        hist.propagate_from_deps_version(key.v, first_dep_dirtied);
+
+        let new =
+            OccupiedGraphNode::new(key.k, value, VersionedDependencies::new(since, deps), hist);
+
+        let ret = new.computed_val();
+
+        match self {
+            VersionedGraphNode::Occupied(entry)
+                if entry.metadata().hist.first_verified_after(key.v).is_some() =>
+            {
+                debug!("skipping new graph entry because value is older than current entry");
+                // TODO(cjhopman): Returning `true` here matches previous behavior, but it seems odd
+                // that we claim something changed when we don't change anything. It's likely that the
+                // the return value actually is used to mean something different than that we changed
+                // something.
+                (ret, true)
+            }
+            entry => {
+                debug!("making new graph entry because value not reusable");
+                *entry = VersionedGraphNode::Occupied(new);
+                (ret, true)
+            }
+        }
+    }
 }
 
 pub(crate) enum InvalidateResult {
