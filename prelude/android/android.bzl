@@ -156,6 +156,7 @@ extra_attributes = {
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
+        "_java_test_toolchain": toolchains_common.java_test(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_instrumentation_test": {
@@ -164,6 +165,7 @@ extra_attributes = {
         "is_self_instrumenting": attrs.bool(default = False),
         "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_java_test_toolchain": toolchains_common.java_for_host_test(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_library": {

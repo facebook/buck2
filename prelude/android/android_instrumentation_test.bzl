@@ -8,8 +8,16 @@
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidInstrumentationApkInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
+load("@prelude//java:java_providers.bzl", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "create_shlib_symlink_tree",
+    "merge_shared_libraries",
+    "traverse_shared_library_info",
+)
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
@@ -21,15 +29,32 @@ DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE = "instrumentation-tests"
 def android_instrumentation_test_impl(ctx: AnalysisContext):
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
-    cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests]
+    cmd = [ctx.attrs._java_test_toolchain[JavaToolchainInfo].java_for_tests]
 
     classpath = android_toolchain.instrumentation_test_runner_classpath
 
     classpath_args = cmd_args()
     classpath_args.add("-classpath")
+    env = ctx.attrs.env or {}
     extra_classpath = []
     if ctx.attrs.instrumentation_test_listener != None:
-        extra_classpath.append(ctx.attrs.instrumentation_test_listener[DefaultInfo].default_outputs[0])
+        extra_classpath.extend([
+            get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [ctx.attrs.instrumentation_test_listener[JavaPackagingInfo]])
+                .project_as_args("full_jar_args", ordering = "bfs"),
+        ])
+
+        shared_library_info = merge_shared_libraries(
+            ctx.actions,
+            deps = [ctx.attrs.instrumentation_test_listener[SharedLibraryInfo]],
+        )
+
+        cxx_library_symlink_tree = create_shlib_symlink_tree(
+            actions = ctx.actions,
+            out = "cxx_library_symlink_tree",
+            shared_libs = traverse_shared_library_info(shared_library_info),
+        )
+
+        env["BUCK_LD_SYMLINK_TREE"] = cxx_library_symlink_tree
     classpath_args.add(cmd_args(classpath + extra_classpath, delimiter = get_path_separator_for_exec_os(ctx)))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
     cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
@@ -94,7 +119,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     test_info = ExternalRunnerTestInfo(
         type = "android_instrumentation",
         command = cmd,
-        env = ctx.attrs.env,
+        env = env,
         labels = ctx.attrs.labels,
         contacts = ctx.attrs.contacts,
         run_from_project_root = True,
