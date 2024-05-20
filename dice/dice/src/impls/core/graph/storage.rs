@@ -727,52 +727,6 @@ mod tests {
     }
 
     #[test]
-    fn test_dirty_for_persistent_storage() {
-        fn key(v: usize) -> VersionedGraphKey {
-            VersionedGraphKey::new(VersionNumber::new(v), DiceKey { index: 0 })
-        }
-
-        let mut cache = VersionedGraph::new();
-        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
-
-        let existing = cache.invalidate(key(0), InvalidateKind::Invalidate);
-        assert!(existing);
-
-        cache.get(key(0).dupe()).assert_compute();
-        cache.get(key(1).dupe()).assert_compute();
-
-        let existing = cache.invalidate(key(2), InvalidateKind::Invalidate);
-        assert!(existing);
-
-        cache.get(key(0).dupe()).assert_compute();
-        cache.get(key(1).dupe()).assert_compute();
-        cache.get(key(2).dupe()).assert_compute();
-
-        cache.update(
-            key(0),
-            res.dupe(),
-            ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::None),
-            StorageType::Normal,
-        );
-        assert!(
-            cache
-                .get(key(0).dupe())
-                .assert_match()
-                .value()
-                .equality(&res)
-        );
-        assert!(
-            cache
-                .get(key(1).dupe())
-                .assert_match()
-                .value()
-                .equality(&res)
-        );
-        cache.get(key(2)).assert_check_deps();
-    }
-
-    #[test]
     fn test_dirty_for_nonpersistent_storage() {
         fn key(v: usize) -> VersionedGraphKey {
             VersionedGraphKey::new(VersionNumber::new(v), DiceKey { index: 1 })
@@ -781,13 +735,13 @@ mod tests {
         let mut cache = VersionedGraph::new();
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
-        let existing = cache.invalidate(key(0), InvalidateKind::Invalidate);
+        let existing = cache.invalidate(key(0), InvalidateKind::ForceDirty);
         assert!(existing);
 
         cache.get(key(0).dupe()).assert_compute();
         cache.get(key(1).dupe()).assert_compute();
 
-        let existing = cache.invalidate(key(2), InvalidateKind::Invalidate);
+        let existing = cache.invalidate(key(2), InvalidateKind::ForceDirty);
         assert!(existing);
 
         cache.get(key(0).dupe()).assert_compute();
@@ -815,7 +769,7 @@ mod tests {
                 .value()
                 .equality(&res)
         );
-        cache.get(key(2).dupe()).assert_check_deps();
+        cache.get(key(2).dupe()).assert_compute();
     }
 
     #[test]

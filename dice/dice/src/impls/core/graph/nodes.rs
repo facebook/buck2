@@ -81,11 +81,7 @@ impl VersionedGraphNode {
                 }
             }
             VersionedGraphNode::Vacant(e) => {
-                if e.hist.mark_invalidated(v) {
-                    InvalidateResult::Changed(Vec::new())
-                } else {
-                    InvalidateResult::NoChange
-                }
+                panic!("vacant nodes shouldn't get invalidated (`{:?}`)", e)
             }
             VersionedGraphNode::Injected(e) => {
                 panic!("injected keys don't get invalidated (`{:?}`)", e)
@@ -337,7 +333,7 @@ impl OccupiedGraphNode {
 /// This will be replaced by `OccupiedGraphNode` when a computed value is associated with
 /// this node. There is no guarantees of when, or even if that will occur since users may never
 /// need the associated value at this node.
-#[derive(Allocative)]
+#[derive(Allocative, Debug)]
 pub(crate) struct VacantGraphNode {
     pub(crate) key: DiceKey,
     pub(crate) hist: CellHistory,
