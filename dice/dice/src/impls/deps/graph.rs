@@ -62,10 +62,6 @@ pub(crate) enum SeriesParallelDeps {
 }
 
 impl SeriesParallelDeps {
-    pub(crate) fn new() -> Self {
-        Self::None
-    }
-
     pub(crate) fn insert(&mut self, k: DiceKey) {
         match self {
             SeriesParallelDeps::None => *self = SeriesParallelDeps::One(k),

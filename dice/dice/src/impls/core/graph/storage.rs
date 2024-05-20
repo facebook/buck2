@@ -286,7 +286,7 @@ impl VersionedGraph {
                         VersionedGraphNode::Occupied(OccupiedGraphNode::new(
                             key.k,
                             value,
-                            VersionedDependencies::new(key.v, Arc::new(SeriesParallelDeps::new())),
+                            VersionedDependencies::new(key.v, Arc::new(SeriesParallelDeps::None)),
                             CellHistory::verified(key.v),
                         ))
                     }
@@ -504,7 +504,7 @@ mod tests {
                     key.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -522,7 +522,7 @@ mod tests {
                     key2.dupe(),
                     res2.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -558,7 +558,7 @@ mod tests {
                     key5.dupe(),
                     res3,
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -595,7 +595,7 @@ mod tests {
                     key4.dupe(),
                     res4,
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal,
                 )
                 .1
@@ -747,7 +747,7 @@ mod tests {
             key(0),
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
         assert!(
@@ -793,7 +793,7 @@ mod tests {
             key(0),
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
         assert!(
@@ -832,7 +832,7 @@ mod tests {
             key1,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
 
@@ -843,7 +843,7 @@ mod tests {
             key2,
             res2.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
 
@@ -853,7 +853,7 @@ mod tests {
             key3.dupe(),
             res3.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
 
@@ -884,7 +884,7 @@ mod tests {
                     key.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -907,7 +907,7 @@ mod tests {
                     key2.dupe(),
                     res2.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -932,7 +932,7 @@ mod tests {
                     key3.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -962,7 +962,7 @@ mod tests {
                     key4.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -1006,7 +1006,7 @@ mod tests {
                     res.dupe(),
                     // there's nothing in the cache to be reused.
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -1029,7 +1029,7 @@ mod tests {
                     key4.dupe(),
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber(1)),
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -1055,7 +1055,7 @@ mod tests {
                     key3.dupe(),
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber::new(5)),
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -1085,7 +1085,7 @@ mod tests {
                     key6.dupe(),
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber::new(5)),
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -1115,7 +1115,7 @@ mod tests {
                     key7.dupe(),
                     res_fake.dupe(),
                     ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::new()),
+                    Arc::new(SeriesParallelDeps::None),
                     StorageType::Normal
                 )
                 .1
@@ -1134,7 +1134,7 @@ mod tests {
             key,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
 
@@ -1203,7 +1203,7 @@ mod tests {
             key,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
 
@@ -1217,7 +1217,7 @@ mod tests {
             key,
             res.dupe(),
             ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
         );
 

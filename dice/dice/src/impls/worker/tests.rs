@@ -255,7 +255,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         ctx.testing_get_epoch(),
         StorageType::Normal,
         DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-        Arc::new(SeriesParallelDeps::new()),
+        Arc::new(SeriesParallelDeps::None),
     ));
 
     drop(dice.state_handle.update_computed(
@@ -952,7 +952,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             DiceKey { index: 100 },
             VersionNumber::new(0),
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
         );
         let _ignore = update_computed_value(
             dice,

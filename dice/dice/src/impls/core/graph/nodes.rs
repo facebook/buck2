@@ -129,7 +129,7 @@ impl VersionedGraphNode {
                 let entry = OccupiedGraphNode::new(
                     vac.key,
                     value,
-                    VersionedDependencies::new(version, Arc::new(SeriesParallelDeps::new())),
+                    VersionedDependencies::new(version, Arc::new(SeriesParallelDeps::None)),
                     CellHistory::verified(version),
                 );
                 *self = Self::Occupied(entry);
@@ -299,7 +299,7 @@ impl OccupiedGraphNode {
         let new = OccupiedGraphNode::new(
             self.key,
             value,
-            VersionedDependencies::new(since, Arc::new(SeriesParallelDeps::new())),
+            VersionedDependencies::new(since, Arc::new(SeriesParallelDeps::None)),
             hist,
         );
 
@@ -529,7 +529,7 @@ mod tests {
             VersionNumber::new(1),
             None,
             None,
-            Arc::new(SeriesParallelDeps::new()),
+            Arc::new(SeriesParallelDeps::None),
         );
         entry
             .metadata()
@@ -543,7 +543,7 @@ mod tests {
             .assert_verified();
         assert_eq!(
             entry.metadata().deps.deps(),
-            Arc::new(SeriesParallelDeps::new())
+            Arc::new(SeriesParallelDeps::None)
         );
 
         let deps1 = Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
