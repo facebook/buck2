@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
@@ -86,6 +87,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     for requires in ctx.attrs.requires:
         cmd.add("--metadata", "Requires-Dist", requires)
+
+    for name, script in ctx.attrs.scripts.items():
+        cmd.add("--data", paths.join("scripts", name), script)
 
     libraries = {}
     for lib in ctx.attrs.libraries:
@@ -210,6 +214,7 @@ python_wheel = rule(
         ),
         constraint_overrides = attrs.list(attrs.string(), default = []),
         libraries = attrs.list(attrs.dep(providers = [PythonLibraryInfo]), default = []),
+        scripts = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         libraries_query = attrs.option(attrs.query(), default = None),
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
