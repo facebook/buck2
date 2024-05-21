@@ -644,41 +644,44 @@ def _mk_argsfile(
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
-    args = cmd_args()
+    args_list = []
 
-    args.add(_add_compiler_info_flags(ctx, compiler_info, ext))
+    args_list.append(_add_compiler_info_flags(ctx, compiler_info, ext))
 
-    args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
+    args_list.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
     # Different preprocessors will contain whether to use modules,
     # and the modulemap to use, so we need to get the final outcome.
     if preprocessor.set.reduce("uses_modules"):
-        args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
+        args_list.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
 
-    args.add(_preprocessor_flags(ctx, impl_params, ext.value))
-    args.add(get_flags_for_compiler_type(compiler_info.compiler_type))
-    args.add(_compiler_flags(ctx, impl_params, ext.value))
-    args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
+    args_list.append(_preprocessor_flags(ctx, impl_params, ext.value))
+    args_list.append(get_flags_for_compiler_type(compiler_info.compiler_type))
+    args_list.append(_compiler_flags(ctx, impl_params, ext.value))
+    args_list.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
 
     # Workaround as that's not precompiled, but working just as prefix header.
     # Another thing is that it's clang specific, should be generalized.
     if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None:
-        args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
+        args_list.append(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
     if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
-        args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+        args_list.append(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
     # Create a copy of the args so that we can continue to modify it later.
-    args_without_file_prefix_args = cmd_args(args)
+    args_without_file_prefix_args = cmd_args(args_list)
 
     # Put file_prefix_args in argsfile directly, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
-    args.add(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
+    args_list.append(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
 
     if is_xcode_argsfile:
+        replace_regex = []
         for re, sub in _XCODE_ARG_SUBSTITUTION:
-            args.replace_regex(re, sub)
+            replace_regex.append((re, sub))
+        args = cmd_args(args_list, replace_regex = replace_regex)
         file_args = args
     else:
+        args = cmd_args(args_list)
         file_args = cmd_args(args, quote = "shell")
 
     file_name = ext.value + ("-xcode.argsfile" if is_xcode_argsfile else ".argsfile")
