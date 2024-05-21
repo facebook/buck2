@@ -25,7 +25,6 @@ KotlinToolchainInfo = provider(
         "kotlin_home_libraries": provider_field(typing.Any, default = None),
         "kotlin_stdlib": provider_field(typing.Any, default = None),
         "kotlinc": provider_field(typing.Any, default = None),
-        "kotlinc_classpath": provider_field(typing.Any, default = None),
         "kotlinc_protocol": provider_field(typing.Any, default = None),
         "kotlincd_debug_port": provider_field(typing.Any, default = None),
         "kotlincd_debug_target": provider_field(typing.Any, default = None),
