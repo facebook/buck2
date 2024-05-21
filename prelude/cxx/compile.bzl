@@ -621,14 +621,17 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
 
-def _add_compiler_info_flags(ctx: AnalysisContext, compiler_info: typing.Any, ext: CxxExtension, cmd: cmd_args):
-    cmd.add(compiler_info.preprocessor_flags or [])
-    cmd.add(compiler_info.compiler_flags or [])
-    cmd.add(get_flags_for_reproducible_build(ctx, compiler_info.compiler_type))
+def _add_compiler_info_flags(ctx: AnalysisContext, compiler_info: typing.Any, ext: CxxExtension) -> list:
+    cmd = []
+    cmd.append(compiler_info.preprocessor_flags or [])
+    cmd.append(compiler_info.compiler_flags or [])
+    cmd.append(get_flags_for_reproducible_build(ctx, compiler_info.compiler_type))
 
     if ext.value not in (".asm", ".asmpp"):
         # Clang's asm compiler doesn't support colorful output, so we skip this there.
-        cmd.add(get_flags_for_colorful_output(compiler_info.compiler_type))
+        cmd.append(get_flags_for_colorful_output(compiler_info.compiler_type))
+
+    return cmd
 
 def _mk_argsfile(
         ctx: AnalysisContext,
@@ -643,7 +646,7 @@ def _mk_argsfile(
     """
     args = cmd_args()
 
-    _add_compiler_info_flags(ctx, compiler_info, ext, args)
+    args.add(_add_compiler_info_flags(ctx, compiler_info, ext))
 
     args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
