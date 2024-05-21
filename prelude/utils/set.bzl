@@ -52,9 +52,9 @@ def set(initial_entries: list[typing.Any] = []) -> set_type:
 
     def set_add(v: typing.Any) -> bool:
         if self.contains(v):
-            return True
+            return False
         self._entries[v] = None
-        return False
+        return True
 
     def set_contains(v: typing.Any) -> bool:
         return v in self._entries
