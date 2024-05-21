@@ -82,7 +82,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     for key, val in ctx.attrs.extra_metadata.items():
         cmd.add("--metadata", key, val)
 
-    cmd.add("--metadata", "Requires-Python", ctx.attrs.python[2:])
+    cmd.add("--metadata", "Requires-Python", "==" + ctx.attrs.python[2:])
 
     for requires in ctx.attrs.requires:
         cmd.add("--metadata", "Requires-Dist", requires)
