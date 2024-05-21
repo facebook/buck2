@@ -429,6 +429,9 @@ def _pex_bootstrap_args(
     if package_style == PackageStyle("standalone") and not zip_safe:
         cmd.add("--no-zip-safe")
 
+    for lib_path in toolchain.native_library_runtime_paths:
+        cmd.add("--native-library-runtime-path={}".format(lib_path))
+
     return cmd
 
 def _pex_modules_common_args(
