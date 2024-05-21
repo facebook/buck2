@@ -156,7 +156,6 @@ extra_attributes = {
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
         "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
-        "_java_test_toolchain": toolchains_common.java_test(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_instrumentation_test": {
