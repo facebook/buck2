@@ -136,8 +136,6 @@ def cxx_link_into(
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
-        if not linker_info.requires_objects:
-            fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
         sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
         if sanitizer_runtime_args.extra_link_args or sanitizer_runtime_args.sanitizer_runtime_files:
             fail("Cannot use distributed thinlto with sanitizer runtime")
