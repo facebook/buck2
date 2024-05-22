@@ -24,6 +24,7 @@ use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
@@ -171,6 +172,9 @@ fn target_to_fbs<'a>(
     let mut strings = vec![];
     let mut list_of_strings: Vec<(&str, Vec<String>)> = vec![];
     for a in node.attrs(AttrInspectOptions::DefinedOnly) {
+        if a.name == NAME_ATTRIBUTE_FIELD {
+            continue;
+        }
         match a.value {
             ConfiguredAttr::Bool(v) => bools.push((a.name, v.0)),
             ConfiguredAttr::String(v) => strings.push((a.name, v.0.to_string())),
@@ -398,9 +402,9 @@ mod tests {
     fn test_string_attr() {
         let data = gen_data(
             vec![(
-                "another_field",
+                "bar",
                 Attribute::new(None, "", AttrType::string()),
-                CoercedAttr::String(StringLiteral("some_string".into())),
+                CoercedAttr::String(StringLiteral("foo".into())),
             )],
             vec![],
         );
@@ -411,7 +415,7 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("name"));
+        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
         assert_eq!(target.string_attrs().unwrap().get(0).value(), Some("foo"));
     }
 
@@ -433,11 +437,11 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.string_attrs().unwrap().get(1).key(),
+            target.string_attrs().unwrap().get(0).key(),
             Some("enum_field")
         );
         assert_eq!(
-            target.string_attrs().unwrap().get(1).value(),
+            target.string_attrs().unwrap().get(0).value(),
             Some("some_string")
         );
         Ok(())
