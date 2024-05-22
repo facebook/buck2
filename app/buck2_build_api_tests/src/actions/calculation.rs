@@ -162,6 +162,7 @@ fn mock_deferred_resolution_calculation(
                     "foo_lib",
                     ExecutionPlatformResolution::new(None, Vec::new()),
                     vec![],
+                    vec![],
                 ),
             )),
         )

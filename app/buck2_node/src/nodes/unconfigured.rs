@@ -607,6 +607,8 @@ pub mod testing {
     use crate::attrs::attr::Attribute;
     use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
     use crate::attrs::fmt_context::AttrFmtContext;
+    use crate::attrs::id::AttributeId;
+    use crate::attrs::internal::internal_attrs;
     use crate::nodes::targets_map::TargetsMap;
 
     pub trait TargetNodeExt {
@@ -614,6 +616,7 @@ pub mod testing {
             label: TargetLabel,
             rule_type: RuleType,
             attrs: Vec<(&str, Attribute, CoercedAttr)>,
+            internal_attrs: Vec<(&str, Attribute, CoercedAttr)>,
         ) -> Self;
     }
 
@@ -622,6 +625,7 @@ pub mod testing {
             label: TargetLabel,
             rule_type: RuleType,
             attrs: Vec<(&str, Attribute, CoercedAttr)>,
+            internal_attrs: Vec<(&str, Attribute, CoercedAttr)>,
         ) -> TargetNode {
             let attr_spec = AttributeSpec::testing_new(
                 attrs
@@ -636,6 +640,10 @@ pub mod testing {
                 AttributeSpec::name_attr_id(),
                 CoercedAttr::String(StringLiteral(label.name().as_str().into())),
             );
+
+            for (name, _attr, val) in internal_attrs {
+                attributes.push_sorted(node_attr_id(name), val);
+            }
 
             let mut deps_cache = CoercedDepsCollector::new();
 
@@ -668,6 +676,19 @@ pub mod testing {
                 CoercedDeps::from(deps_cache),
                 None,
             )
+        }
+    }
+
+    fn node_attr_id(field: &str) -> AttributeId {
+        let index_in_attribute_spec = u16::try_from(
+            internal_attrs()
+                .keys()
+                .position(|name| *name == field)
+                .unwrap(),
+        )
+        .unwrap();
+        AttributeId {
+            index_in_attribute_spec,
         }
     }
 

@@ -202,6 +202,7 @@ impl ConfiguredTargetNode {
         rule_type: &str,
         execution_platform_resolution: ExecutionPlatformResolution,
         attrs: Vec<(&str, Attribute, CoercedAttr)>,
+        internal_attrs: Vec<(&str, Attribute, CoercedAttr)>,
     ) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
 
@@ -212,7 +213,7 @@ impl ConfiguredTargetNode {
 
         Self::new(
             name.dupe(),
-            TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs),
+            TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs, internal_attrs),
             ResolvedConfiguration::new(
                 ConfigurationNoExec::new(name.cfg().dupe()),
                 ResolvedConfigurationSettings::empty(),
