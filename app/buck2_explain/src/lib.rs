@@ -189,7 +189,25 @@ fn target_to_fbs<'a>(
                 };
                 list_of_strings.push((a.name, list));
             }
-            _ => {} // TODO iguridi: implement
+            // TODO iguridi
+            // ConfiguredAttr::Int(v) => {}
+            // ConfiguredAttr::EnumVariant(v) => {}
+            // ConfiguredAttr::Tuple(v) => {}
+            // ConfiguredAttr::Dict(v) => {}
+            // ConfiguredAttr::OneOf(v, _) => {}
+            // ConfiguredAttr::WithinView(v) => {}
+            // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
+            // ConfiguredAttr::SplitTransitionDep(v) => {}
+            // ConfiguredAttr::ConfigurationDep(v) => {}
+            // ConfiguredAttr::PluginDep(v, v2) => {}
+            // ConfiguredAttr::Dep(v) => {}
+            // ConfiguredAttr::SourceLabel(v) => {}
+            // ConfiguredAttr::Label(v) => {}
+            // ConfiguredAttr::Arg(v) => {}
+            // ConfiguredAttr::Query(v) => {}
+            // ConfiguredAttr::SourceFile(v) => {}
+            // ConfiguredAttr::Metadata(v) => {}
+            _ => {}
         }
     }
 
