@@ -57,6 +57,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ] + android_providers
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
+    # TODO(T185976338) Remove optional Android jars from classpath by default
     if ctx.attrs.android_optional_jars == None:
         return ctx.attrs._android_toolchain[AndroidToolchainInfo].android_optional_jars
     else:
