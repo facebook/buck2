@@ -131,6 +131,13 @@ def parse_args() -> argparse.Namespace:
         help="The dynamic loader env used to find native library deps",
     )
     parser.add_argument(
+        "--native-library-runtime-path",
+        dest="native_library_runtime_paths",
+        default=[],
+        action="append",
+        help="The dynamic loader env used to find native library deps",
+    )
+    parser.add_argument(
         "-e",
         "--runtime_env",
         action="append",
@@ -161,6 +168,9 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     # Because this can be invoked from other directories, find the relative path
     # from this .par to the modules dir, and use that.
     relative_modules_dir = os.path.relpath(args.modules_dir, args.output.parent)
+    native_lib_dirs = os.pathsep.join(
+        [relative_modules_dir] + args.native_library_runtime_paths
+    )
 
     # TODO(nmj): Remove this hack. So, if arg0 in your shebang is a bash script
     #                 (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
@@ -193,7 +203,7 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
 
     # Things that are only required for the full template
     new_data = new_data.replace("<NATIVE_LIBS_ENV_VAR>", args.native_libs_env_var)
-    new_data = new_data.replace("<NATIVE_LIBS_DIR>", repr(relative_modules_dir))
+    new_data = new_data.replace("<NATIVE_LIBS_DIR>", repr(native_lib_dirs))
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD_ENV_VAR>", "LD_PRELOAD")
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD>", ld_preload)
 

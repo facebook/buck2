@@ -52,9 +52,9 @@ def set(initial_entries: list[typing.Any] = []) -> set_type:
 
     def set_add(v: typing.Any) -> bool:
         if self.contains(v):
-            return True
+            return False
         self._entries[v] = None
-        return False
+        return True
 
     def set_contains(v: typing.Any) -> bool:
         return v in self._entries
@@ -66,7 +66,7 @@ def set(initial_entries: list[typing.Any] = []) -> set_type:
         return False
 
     def set_update(values: list[typing.Any]) -> list[typing.Any]:
-        return filter(None, [v for v in values if not self.add(v)])
+        return filter(None, [v for v in values if self.add(v)])
 
     def set_size() -> int:
         return len(self._entries)

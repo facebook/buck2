@@ -219,9 +219,6 @@ def _validate_linker_info(info: LinkerInfo):
     if info.requires_archives and info.requires_objects:
         fail("only one of `requires_archives` and `requires_objects` can be enabled")
 
-    if info.supports_distributed_thinlto and not info.requires_objects:
-        fail("distributed thinlto requires enabling `requires_objects`")
-
 def is_bitcode_format(format: CxxObjectFormat) -> bool:
     return format in [CxxObjectFormat("bitcode"), CxxObjectFormat("embedded-bitcode")]
 

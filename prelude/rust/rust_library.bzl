@@ -201,6 +201,12 @@ def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     )
 
+    # We do not provide any native link providers here, as we don't have a great way to ensure that
+    # the prebuilt rlibs in our build tree are compatible with direct linkage to non-rust targets.
+    #
+    # Today, we only use prebuilt_rust_library for sysroot targets; we will need to revisit this in
+    # the future if we wish to expand their utility.
+
     return providers
 
 def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:

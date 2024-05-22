@@ -262,14 +262,29 @@ impl<'d> ModernComputeCtx<'d> {
 
     pub(crate) fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
         &'a mut self,
-        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
     ) -> impl Future<Output = T> + 'a {
-        func(LinearRecomputeDiceComputations(
+        let (ctx_data, self_dep_trackers) = self.unpack();
+        let dep_trackers = Arc::new(Mutex::new(RecordingDepsTracker::new()));
+        let fut = func(LinearRecomputeDiceComputations(
             LinearRecomputeDiceComputationsImpl::Modern(LinearRecomputeModern {
-                ctx_data: self.ctx_data(),
-                dep_trackers: Mutex::new(RecordingDepsTracker::new()),
+                ctx_data,
+                dep_trackers: dep_trackers.dupe(),
             }),
-        ))
+        ));
+
+        fut.map(move |v| {
+            let mut self_dep_trackers = self_dep_trackers.lock();
+            let dep_trackers = Arc::into_inner(dep_trackers)
+                .unwrap()
+                .into_inner()
+                .collect_deps();
+            let validity = dep_trackers.deps_validity;
+            for k in dep_trackers.deps.iter_keys() {
+                self_dep_trackers.record(k, validity)
+            }
+            v
+        })
     }
 
     pub(crate) fn opaque_into_value<K: Key>(&mut self, opaque: OpaqueValueModern<K>) -> K::Value {
@@ -299,7 +314,7 @@ impl<'a> From<ModernComputeCtx<'a>> for DiceComputations<'a> {
 
 pub(crate) struct LinearRecomputeModern<'a> {
     ctx_data: &'a CoreCtx,
-    dep_trackers: Mutex<RecordingDepsTracker>,
+    dep_trackers: Arc<Mutex<RecordingDepsTracker>>,
 }
 
 impl LinearRecomputeModern<'_> {

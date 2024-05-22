@@ -510,9 +510,12 @@ async fn build_launch_installer<'a>(
         })
         .await
         .context("Failed to build installer")?;
+
+        let build_id: &str = &get_dispatcher().trace_id().to_string();
         background_command(&run_args[0])
             .args(&run_args[1..])
             .args(installer_run_args)
+            .env("BUCK2_UUID", build_id)
             .stderr(get_stdio(installer_log_console)?)
             .spawn()
             .context("Failed to spawn installer")?;

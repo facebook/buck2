@@ -45,9 +45,15 @@ class WheelBuilder(contextlib.AbstractContextManager):
     def _dist_info(self, *path: str) -> str:
         return os.path.join(f"{self._name}-{self._version}.dist-info", *path)
 
+    def _data(self, *path: str) -> str:
+        return os.path.join(f"{self._name}-{self._version}.data", *path)
+
     def write(self, dst: str, src: str) -> None:
         self._record.append(dst)
         self._outf.write(filename=src, arcname=dst)
+
+    def write_data(self, dst: str, src: str) -> None:
+        self.write(self._data(dst), src)
 
     def writestr(self, dst: str, contents: str) -> None:
         self._record.append(dst)
@@ -101,6 +107,7 @@ def main(argv: List[str]) -> None:
     parser.add_argument("--entry-points", default=None)
     parser.add_argument("--srcs", action="append", default=[])
     parser.add_argument("--metadata", nargs=2, action="append", default=[])
+    parser.add_argument("--data", nargs=2, action="append", default=[])
     args = parser.parse_args(argv[1:])
 
     pkgs: Set[str] = set()
@@ -131,6 +138,9 @@ def main(argv: List[str]) -> None:
                     if os.path.basename(dst) == "__init__.py":
                         pkgs_with_init.add(pkg)
                 whl.write(dst, src)
+
+            for dst, src in args.data:
+                whl.write_data(dst, src)
 
         for pkg in pkgs - pkgs_with_init:
             whl.writestr(os.path.join(pkg, "__init__.py"), "")

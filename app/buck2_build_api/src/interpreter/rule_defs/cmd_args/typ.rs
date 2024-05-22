@@ -733,23 +733,6 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// Replaces all parts matching pattern regular expression in each argument with replacement string.
-    /// Several replacements can be added by multiple replace_regex calls.
-    fn replace_regex<'v>(
-        mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(require = pos)] pattern: CmdArgsRegex<'v>,
-        #[starlark(require = pos)] replacement: StringValue<'v>,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        let options = this.borrow.options_mut();
-        pattern.validate()?;
-        if let Some(replacements) = &mut options.replacements {
-            replacements.push((pattern, replacement));
-        } else {
-            options.replacements = Some(Box::new(vec![(pattern, replacement)]));
-        }
-        Ok(this)
-    }
-
     /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other.
     /// Note that this is a shallow copy, so any inner `cmd_args` can still be modified.
     fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCmdArgs<'v>> {

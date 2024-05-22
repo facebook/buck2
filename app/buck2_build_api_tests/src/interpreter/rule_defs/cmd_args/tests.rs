@@ -719,13 +719,19 @@ fn test_replace_regex() -> anyhow::Result<()> {
     let contents = indoc!(
         r#"
         def test():
-            args = cmd_args("$OUT", "$OUTPUT", "$SRCS", format="$OUT: {}")
-            args.replace_regex("\\$OUT\\b", "%OUT%")
-            args.replace_regex("\\$SRCS\\b", "%SRCS%")
+            args = cmd_args(
+                "$OUT",
+                "$OUTPUT",
+                "$SRCS",
+                format="$OUT: {}",
+                replace_regex=[("\\$OUT\\b", "%OUT%"), ("\\$SRCS\\b", "%SRCS%")],
+            )
             assert_eq(["$OUT: %OUT%", "$OUT: $OUTPUT", "$OUT: %SRCS%"], get_args(args))
 
-            args = cmd_args("\\n\n")
-            args.replace_regex("\\\\n", "\\\n").replace_regex("\\n", "\\n")
+            args = cmd_args(
+                "\\n\n",
+                replace_regex=[("\\\\n", "\\\n"), ("\\n", "\\n")],
+            )
             assert_eq(["\\\\n\\n"], get_args(args))
         "#
     );
@@ -739,13 +745,19 @@ fn test_replace_regex_old() -> anyhow::Result<()> {
     let contents = indoc!(
         r#"
         def test():
-            args = cmd_args("$OUT", "$OUTPUT", "$SRCS", format="$OUT: {}")
-            args.replace_regex(regex("\\$OUT\\b"), "%OUT%")
-            args.replace_regex(regex("\\$SRCS\\b"), "%SRCS%")
+            args = cmd_args(
+                "$OUT",
+                "$OUTPUT",
+                "$SRCS",
+                format="$OUT: {}",
+                replace_regex=[("\\$OUT\\b", "%OUT%"), ("\\$SRCS\\b", "%SRCS%")],
+            )
             assert_eq(["$OUT: %OUT%", "$OUT: $OUTPUT", "$OUT: %SRCS%"], get_args(args))
 
-            args = cmd_args("\\n\n")
-            args.replace_regex(regex("\\\\n"), "\\\n").replace_regex("\\n", "\\n")
+            args = cmd_args(
+                "\\n\n",
+                replace_regex=[("\\\\n", "\\\n"), ("\\n", "\\n")],
+            )
             assert_eq(["\\\\n\\n"], get_args(args))
         "#
     );

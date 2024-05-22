@@ -72,7 +72,7 @@ def _create_kotlin_sources(
     kotlinc_cmd_args = cmd_args([kotlinc])
 
     compiling_classpath = [] + additional_classpath_entries
-    compiling_deps_tset = derive_compiling_deps(ctx.actions, None, deps + kotlin_toolchain.kotlinc_classpath)
+    compiling_deps_tset = derive_compiling_deps(ctx.actions, None, deps + [kotlin_toolchain.kotlin_stdlib])
     if compiling_deps_tset:
         compiling_classpath.extend(
             [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse())],

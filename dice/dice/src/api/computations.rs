@@ -117,7 +117,7 @@ impl<'d> DiceComputations<'d> {
     /// In this example, the recomputation of all of keys2 and keys3 would be done linearly, but keys1 and keys4 would be recomputed in parallel.
     pub fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
         &'a mut self,
-        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
     ) -> impl Future<Output = T> + 'a {
         self.0.with_linear_recompute(func)
     }

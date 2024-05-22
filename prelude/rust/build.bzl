@@ -1389,7 +1389,13 @@ def _process_env(
             # Will be unescaped in rustc_action.
             # Variable may have "\\n" as well.
             # Example: \\n\n -> \\\n\n -> \\\\n\\n
-            plain_env[k] = v.replace_regex(_DOUBLE_ESCAPED_NEWLINE_RE, "\\\n").replace_regex(_ESCAPED_NEWLINE_RE, "\\n")
+            plain_env[k] = cmd_args(
+                v,
+                replace_regex = [
+                    (_DOUBLE_ESCAPED_NEWLINE_RE, "\\\n"),
+                    (_ESCAPED_NEWLINE_RE, "\\n"),
+                ],
+            )
 
     # If CARGO_MANIFEST_DIR is not already expressed in terms of $(location ...)
     # of some target, then interpret it as a relative path inside of the crate's
