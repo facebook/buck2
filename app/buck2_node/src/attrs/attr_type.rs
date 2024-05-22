@@ -374,7 +374,7 @@ impl AttrType {
         }))
     }
 
-    pub(crate) fn within_view() -> Self {
+    pub fn within_view() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::WithinView(WithinViewAttrType),
             may_have_queries: false,

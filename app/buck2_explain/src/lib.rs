@@ -27,7 +27,6 @@ use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
@@ -160,10 +159,6 @@ fn target_to_fbs<'a>(
         builder,
         list_of_strings_attr(node, EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
     );
-    let within_view = list_of_strings_to_fbs(
-        builder,
-        list_of_strings_attr(node, WITHIN_VIEW_ATTRIBUTE_FIELD),
-    );
     let tests = list_of_strings_to_fbs(builder, list_of_strings_attr(node, TESTS_ATTRIBUTE_FIELD));
 
     // defined attrs
@@ -212,7 +207,13 @@ fn target_to_fbs<'a>(
             }
             // ConfiguredAttr::Dict(v) => {}
             // ConfiguredAttr::OneOf(v, _) => {}
-            // ConfiguredAttr::WithinView(v) => {}
+            ConfiguredAttr::WithinView(v) => {
+                let list = match v.0 {
+                    VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
+                    VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
+                };
+                list_of_strings.push((a.name, list));
+            }
             // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
             // ConfiguredAttr::SplitTransitionDep(v) => {}
             // ConfiguredAttr::ConfigurationDep(v) => {}
@@ -284,7 +285,6 @@ fn target_to_fbs<'a>(
             target_compatible_with,
             compatible_with,
             exec_compatible_with,
-            within_view,
             tests,
             // defined attrs
             bool_attrs,
@@ -346,8 +346,10 @@ mod tests {
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
+    use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
     use buck2_node::provider_id_set::ProviderIdSet;
     use buck2_node::visibility::VisibilitySpecification;
+    use buck2_node::visibility::WithinViewSpecification;
     use buck2_util::arc_str::ArcSlice;
     use dupe::Dupe;
 
@@ -548,6 +550,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_within_view() {
+        let data = gen_data(
+            vec![],
+            vec![(
+                WITHIN_VIEW_ATTRIBUTE_FIELD,
+                Attribute::new(None, "", AttrType::within_view()),
+                CoercedAttr::WithinView(WithinViewSpecification(VisibilityPatternList::Public)),
+            )],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.list_of_strings_attrs().unwrap().get(0).key(),
+            Some(WITHIN_VIEW_ATTRIBUTE_FIELD)
+        );
+        assert_eq!(
+            target
+                .list_of_strings_attrs()
+                .unwrap()
+                .get(0)
+                .value()
+                .unwrap()
+                .get(0),
+            "PUBLIC"
+        );
+    }
+
     fn assert_things(target: fbs::ConfiguredTargetNode<'_>, build: fbs::Build<'_>) {
         // special attrs
         assert_eq!(
@@ -567,7 +602,6 @@ mod tests {
         assert!(target.target_compatible_with().unwrap().is_empty());
         assert!(target.compatible_with().unwrap().is_empty());
         assert!(target.exec_compatible_with().unwrap().is_empty());
-        assert!(target.within_view().unwrap().is_empty());
         assert!(target.tests().unwrap().is_empty());
 
         let target2 = build.targets().unwrap().get(1);
