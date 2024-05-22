@@ -17,10 +17,12 @@ def _clean_up_includes(includes):
     # Note: Sometimes the buck rule generating the includes has an excludes glob for a directory.
     #       This flattening will potentially expose excluded files in the directory.
     #       But we do it, because otherwise the performance in erlang_service parsing is too poor.
-    return _list_dedupe([paths.dirname(p) for p in includes])
+    include_paths = [_as_path(paths.dirname(p["value"])) for p in includes if p["type"] == "path"]
+    targets = [t for t in includes if t["type"] == "target"]
+    return include_paths + targets
 
 def _get_includes(ctx, includes_target):
-    return _clean_up_includes([get_path_without_materialization(inc, ctx, abs = True) for inc in includes_target.value()])
+    return _clean_up_includes([_get_absolute_path(ctx, inc) for inc in includes_target.value()])
 
 def _dep_includes(ctx, dep, target_universe):
     lookup_val = "{}:{}".format(dep.path, dep.name)
@@ -34,6 +36,15 @@ def _dep_includes(ctx, dep, target_universe):
         return []
     else:
         return _get_includes(ctx, includes)
+
+def _get_absolute_path(ctx, src) -> dict[str, str]:
+    """
+    Get the absolute path of the thing passed in, which is either an artifact or a target label.
+    """
+    if type(src) == "label":
+        return _as_target(str(src.raw_target()))
+    else:
+        return _as_path(get_path_without_materialization(src, ctx, abs = True))
 
 def _elp_config(ctx):
     cells = {
@@ -73,13 +84,13 @@ def _elp_config(ctx):
 
             if apps:
                 for app in apps.value():
-                    includes.append(str(_file_node_to_path(cells, app.path)))
+                    includes.append(_as_path(str(_file_node_to_path(cells, app.path))))
 
         srcs = target.attrs_lazy().get("srcs")
         if not srcs:
             srcs = []
         else:
-            srcs = [get_path_without_materialization(src, ctx, abs = True) for src in srcs.value()]
+            srcs = [_get_absolute_path(ctx, src) for src in srcs.value()]
 
         suite = target.attrs_lazy().get("suite")
         if not suite:
@@ -87,8 +98,14 @@ def _elp_config(ctx):
         elif suite.value() == None:
             suite = None
         else:
-            suite = str(get_path_without_materialization(suite.value(), ctx, abs = True))
+            suite_info = _get_absolute_path(ctx, suite.value())
+            if suite_info["type"] == "path":
+                suite = suite_info["value"]
+            else:
+                suite = None
 
+        includes = _build_output(includes)
+        srcs = _build_output(srcs)
         result[label_name] = dict(
             name = target.attrs_lazy().get("name"),
             suite = suite,
@@ -102,8 +119,19 @@ def _file_node_to_path(cells: dict[str, str], file_node) -> str:
     cell, path = str(file_node).split("//", 1)
     return paths.join(cells[cell], path)
 
+def _build_output(items: list[dict[str, str]]) -> list[str]:
+    # we completely ignore targets, since we don't have support for generated files in ELP
+    paths = _list_dedupe([p["value"] for p in items if p["type"] == "path"])
+    return paths
+
 def _list_dedupe(xs: list[str]) -> list[str]:
     return {x: True for x in xs}.keys()
+
+def _as_path(src):
+    return {"type": "path", "value": src}
+
+def _as_target(src):
+    return {"type": "target", "value": src}
 
 # ------------------ INTERFACE ------------------
 
