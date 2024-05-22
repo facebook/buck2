@@ -519,7 +519,7 @@ struct ChromeTraceWriter {
     unused_track_ids: HashMap<SpanCategorization, TrackIdAllocator>,
     // Wrappers to contain values from InstantEvent.Data.Snapshot as a timeseries
     snapshot_counters: SimpleCounters<u64>,
-    max_rss_gigabytes_counter: SimpleCounters<f64>,
+    process_memory_counters: SimpleCounters<f64>,
     rate_of_change_counters: AverageRateOfChangeCounters,
 }
 
@@ -543,7 +543,7 @@ impl ChromeTraceWriter {
             unused_track_ids: HashMap::new(),
             span_counters: SpanCounters::new("spans"),
             snapshot_counters: SimpleCounters::<u64>::new("snapshot_counters", 0),
-            max_rss_gigabytes_counter: SimpleCounters::<f64>::new("max_rss", 0.0),
+            process_memory_counters: SimpleCounters::<f64>::new("process_memory", 0.0),
             rate_of_change_counters: AverageRateOfChangeCounters::new("rate_of_change_counters"),
         }
     }
@@ -592,7 +592,7 @@ impl ChromeTraceWriter {
             .flush_all_to(&mut self.trace_events)?;
         self.snapshot_counters
             .flush_all_to(&mut self.trace_events)?;
-        self.max_rss_gigabytes_counter
+        self.process_memory_counters
             .flush_all_to(&mut self.trace_events)?;
         self.rate_of_change_counters
             .counters
@@ -836,7 +836,7 @@ impl ChromeTraceWriter {
                 data: Some(ref instant_data),
             }) => {
                 if let buck2_data::instant_event::Data::Snapshot(_snapshot) = instant_data {
-                    self.max_rss_gigabytes_counter.set(
+                    self.process_memory_counters.set(
                         event.timestamp(),
                         "max_rss_gigabyte",
                         (_snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
