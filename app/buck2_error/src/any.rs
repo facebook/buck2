@@ -178,38 +178,11 @@ mod tests {
 
     impl StdError for TestError {}
 
-    fn check_equal(mut a: &crate::Error, mut b: &crate::Error) {
-        loop {
-            match (&*a.0, &*b.0) {
-                (ErrorKind::Root(a), ErrorKind::Root(b)) => {
-                    // Avoid comparing vtable pointers
-                    assert!(a.test_equal(b));
-                    return;
-                }
-                (
-                    ErrorKind::WithContext(a_context, a_inner),
-                    ErrorKind::WithContext(b_context, b_inner),
-                ) => {
-                    a_context.assert_eq(b_context);
-                    a = a_inner;
-                    b = b_inner;
-                }
-                (ErrorKind::Emitted(_, a_inner), ErrorKind::Emitted(_, b_inner)) => {
-                    a = a_inner;
-                    b = b_inner;
-                }
-                (_, _) => {
-                    panic!("Left side did not match right: {:?} {:?}", a, b)
-                }
-            }
-        }
-    }
-
     #[test]
     fn test_roundtrip_no_context() {
         let e = crate::Error::new(TestError).context("context 1");
         let e2 = crate::Error::from(anyhow::Error::from(e.clone()));
-        check_equal(&e, &e2);
+        crate::Error::check_equal(&e, &e2);
     }
 
     #[test]
@@ -217,7 +190,7 @@ mod tests {
         let e = crate::Error::new(TestError).context("context 1");
         let e2 = crate::Error::from(anyhow::Error::from(e.clone()).context("context 2"));
         let e3 = e.context("context 2");
-        check_equal(&e2, &e3);
+        crate::Error::check_equal(&e2, &e3);
     }
 
     #[test]
@@ -242,7 +215,7 @@ mod tests {
         let e = crate::Error::new(TestError).context(T(1));
         let e2 = crate::Error::from(anyhow::Error::from(e.clone()).context("context 2"));
         let e3 = e.context("context 2");
-        check_equal(&e2, &e3);
+        crate::Error::check_equal(&e2, &e3);
     }
 
     #[derive(Debug, derive_more::Display)]

@@ -17,6 +17,7 @@ use smallvec::SmallVec;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::context_value::ContextValue;
+use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
 use crate::ErrorType;
@@ -207,6 +208,58 @@ impl Error {
     /// The most interesting tag among this error tags.
     pub fn best_tag(&self) -> Option<crate::ErrorTag> {
         best_tag(self.tags_unsorted())
+    }
+
+    pub(crate) fn compute_context<
+        TC: TypedContext,
+        C1: Into<ContextValue>,
+        C2: Into<ContextValue>,
+        F: FnOnce(Arc<TC>) -> C1,
+        F2: FnOnce() -> C2,
+    >(
+        self,
+        map_context: F,
+        new_context: F2,
+    ) -> anyhow::Error {
+        if let ErrorKind::WithContext(crate::context_value::ContextValue::Typed(v), err) = &*self.0
+        {
+            if let Ok(typed) = Arc::downcast(v.clone()) {
+                return Self(Arc::new(ErrorKind::WithContext(
+                    map_context(typed).into(),
+                    err.clone(),
+                )))
+                .into();
+            }
+        }
+        self.context(new_context()).into()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn check_equal(mut a: &Self, mut b: &Self) {
+        loop {
+            match (&*a.0, &*b.0) {
+                (ErrorKind::Root(a), ErrorKind::Root(b)) => {
+                    // Avoid comparing vtable pointers
+                    assert!(a.test_equal(b));
+                    return;
+                }
+                (
+                    ErrorKind::WithContext(a_context, a_inner),
+                    ErrorKind::WithContext(b_context, b_inner),
+                ) => {
+                    a_context.assert_eq(b_context);
+                    a = a_inner;
+                    b = b_inner;
+                }
+                (ErrorKind::Emitted(_, a_inner), ErrorKind::Emitted(_, b_inner)) => {
+                    a = a_inner;
+                    b = b_inner;
+                }
+                (_, _) => {
+                    panic!("Left side did not match right: {:?} {:?}", a, b)
+                }
+            }
+        }
     }
 }
 

@@ -7,10 +7,13 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use smallvec::smallvec;
 
-use crate as buck2_error;
 use crate::context_value::ContextValue;
+use crate::context_value::TypedContext;
+use crate::{self as buck2_error};
 
 /// Provides the `context` method for `Result`.
 ///
@@ -56,6 +59,21 @@ pub trait BuckErrorContext<T>: Sealed {
         self.with_buck_error_context(|| format!("{} (internal error)", f()))
             .tag(crate::ErrorTag::InternalError)
     }
+
+    /// Supports adding context to an error by either augmenting the most recent context if its
+    /// the requested type or by adding a new context.
+    #[track_caller]
+    fn compute_context<
+        TC: TypedContext,
+        C1: Into<ContextValue>,
+        C2: Into<ContextValue>,
+        F: FnOnce(Arc<TC>) -> C1,
+        F2: FnOnce() -> C2,
+    >(
+        self,
+        map_context: F,
+        new_context: F2,
+    ) -> anyhow::Result<T>;
 }
 pub trait Sealed: Sized {}
 
@@ -83,6 +101,24 @@ where
         match self {
             Ok(x) => Ok(x),
             Err(e) => Err(crate::Error::new_anyhow_with_context(e, f())),
+        }
+    }
+
+    #[track_caller]
+    fn compute_context<
+        TC: TypedContext,
+        C1: Into<ContextValue>,
+        C2: Into<ContextValue>,
+        F: FnOnce(Arc<TC>) -> C1,
+        F2: FnOnce() -> C2,
+    >(
+        self,
+        map_context: F,
+        new_context: F2,
+    ) -> anyhow::Result<T> {
+        match self {
+            Ok(x) => Ok(x),
+            Err(e) => Err(crate::Error::from(e).compute_context(map_context, new_context)),
         }
     }
 }
@@ -146,5 +182,92 @@ impl<T> BuckErrorContext<T> for Option<T> {
             Some(x) => Ok(x),
             None => Err(crate::Error::new_anyhow_with_context(NoneError, f())),
         }
+    }
+
+    #[track_caller]
+    fn compute_context<
+        TC: TypedContext,
+        C1: Into<ContextValue>,
+        C2: Into<ContextValue>,
+        F: FnOnce(Arc<TC>) -> C1,
+        F2: FnOnce() -> C2,
+    >(
+        self,
+        _map_context: F,
+        new_context: F2,
+    ) -> anyhow::Result<T> {
+        Err(crate::Error::new_anyhow_with_context(
+            NoneError,
+            new_context(),
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::any::Any;
+    use std::error::Error as StdError;
+    use std::fmt::Display;
+
+    use allocative::Allocative;
+
+    use super::*;
+
+    #[derive(Debug, derive_more::Display)]
+    struct TestError;
+
+    impl StdError for TestError {}
+
+    #[derive(Debug, Allocative, Eq, PartialEq)]
+    struct SomeContext(Vec<u32>);
+
+    impl Display for SomeContext {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{:?}", self)
+        }
+    }
+
+    impl TypedContext for SomeContext {
+        fn eq(&self, other: &dyn TypedContext) -> bool {
+            match (other as &dyn Any).downcast_ref::<Self>() {
+                Some(v) => self == v,
+                None => false,
+            }
+        }
+    }
+
+    #[test]
+    fn test_compute_context() {
+        crate::Error::check_equal(
+            &crate::Error::new(TestError).context("string"),
+            &crate::Error::from(crate::Error::from(TestError).compute_context(
+                |_t: Arc<SomeContext>| -> SomeContext { panic!() },
+                || "string",
+            )),
+        );
+
+        crate::Error::check_equal(
+            &crate::Error::new(TestError).context(SomeContext(vec![0, 1, 2])),
+            &crate::Error::from(
+                crate::Error::from(TestError)
+                    .context(SomeContext(vec![]))
+                    .compute_context(
+                        |_t: Arc<SomeContext>| -> SomeContext { SomeContext(vec![0, 1, 2]) },
+                        || "string",
+                    ),
+            ),
+        );
+
+        crate::Error::check_equal(
+            &crate::Error::from(Option::<()>::None.buck_error_context("string").unwrap_err()),
+            &crate::Error::from(
+                Option::<()>::None
+                    .compute_context(
+                        |_t: Arc<SomeContext>| -> SomeContext { panic!() },
+                        || "string",
+                    )
+                    .unwrap_err(),
+            ),
+        );
     }
 }
