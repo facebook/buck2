@@ -26,12 +26,14 @@ use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::visibility::VisibilityPattern;
+use buck2_node::visibility::VisibilityPatternList;
 use buck2_query::query::environment::QueryTarget;
 use flatbuffers::FlatBufferBuilder;
 use flatbuffers::WIPOffset;
+use gazebo::prelude::SliceExt;
 
 // use crate::explain_generated::explain::Bool;
 
@@ -155,10 +157,6 @@ fn target_to_fbs<'a>(
         builder,
         list_of_strings_attr(node, EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
     );
-    let visibility = list_of_strings_to_fbs(
-        builder,
-        list_of_strings_attr(node, VISIBILITY_ATTRIBUTE_FIELD),
-    );
     let within_view = list_of_strings_to_fbs(
         builder,
         list_of_strings_attr(node, WITHIN_VIEW_ATTRIBUTE_FIELD),
@@ -184,6 +182,13 @@ fn target_to_fbs<'a>(
                 list_of_strings.push((a.name, list));
             }
             ConfiguredAttr::None => {}
+            ConfiguredAttr::Visibility(v) => {
+                let list = match v.0 {
+                    VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
+                    VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
+                };
+                list_of_strings.push((a.name, list));
+            }
             _ => {} // TODO iguridi: implement
         }
     }
@@ -235,7 +240,6 @@ fn target_to_fbs<'a>(
             target_compatible_with,
             compatible_with,
             exec_compatible_with,
-            visibility,
             within_view,
             tests,
             // defined attrs
@@ -295,7 +299,9 @@ mod tests {
     use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
+    use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
     use buck2_node::provider_id_set::ProviderIdSet;
+    use buck2_node::visibility::VisibilitySpecification;
     use buck2_util::arc_str::ArcSlice;
     use dupe::Dupe;
 
@@ -304,11 +310,14 @@ mod tests {
 
     #[test]
     fn test_bool_attr() {
-        let data = gen_data(vec![(
-            "bool_field",
-            Attribute::new(None, "", AttrType::bool()),
-            CoercedAttr::Bool(BoolLiteral(false)),
-        )]);
+        let data = gen_data(
+            vec![(
+                "bool_field",
+                Attribute::new(None, "", AttrType::bool()),
+                CoercedAttr::Bool(BoolLiteral(false)),
+            )],
+            vec![],
+        );
 
         let fbs = gen_fbs(data).unwrap();
         let fbs = fbs.finished_data();
@@ -324,11 +333,14 @@ mod tests {
 
     #[test]
     fn test_string_attr() {
-        let data = gen_data(vec![(
-            "another_field",
-            Attribute::new(None, "", AttrType::string()),
-            CoercedAttr::String(StringLiteral("some_string".into())),
-        )]);
+        let data = gen_data(
+            vec![(
+                "another_field",
+                Attribute::new(None, "", AttrType::string()),
+                CoercedAttr::String(StringLiteral("some_string".into())),
+            )],
+            vec![],
+        );
 
         let fbs = gen_fbs(data).unwrap();
         let fbs = fbs.finished_data();
@@ -345,17 +357,20 @@ mod tests {
         let pkg = PackageLabel::testing_parse("cell//foo/bar");
         let name = TargetName::testing_new("t2");
         let label = TargetLabel::new(pkg, name.as_ref());
-        let data = gen_data(vec![(
-            "some_deps",
-            Attribute::new(
-                None,
-                "",
-                AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
-            ),
-            CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
-                ProvidersLabel::new(label, ProvidersName::Default),
-            )]))),
-        )]);
+        let data = gen_data(
+            vec![(
+                "some_deps",
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
+                ),
+                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
+                    ProvidersLabel::new(label, ProvidersName::Default),
+                )]))),
+            )],
+            vec![],
+        );
 
         let fbs = gen_fbs(data).unwrap();
         let fbs = fbs.finished_data();
@@ -366,6 +381,39 @@ mod tests {
         assert_eq!(
             target.list_of_strings_attrs().unwrap().get(0).key(),
             Some("some_deps")
+        );
+    }
+
+    #[test]
+    fn test_visibility() {
+        let data = gen_data(
+            vec![],
+            vec![(
+                VISIBILITY_ATTRIBUTE_FIELD,
+                Attribute::new(None, "", AttrType::visibility()),
+                CoercedAttr::Visibility(VisibilitySpecification(VisibilityPatternList::Public)),
+            )],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.list_of_strings_attrs().unwrap().get(0).key(),
+            Some(VISIBILITY_ATTRIBUTE_FIELD)
+        );
+        assert_eq!(
+            target
+                .list_of_strings_attrs()
+                .unwrap()
+                .get(0)
+                .value()
+                .unwrap()
+                .get(0),
+            "PUBLIC"
         );
     }
 
@@ -388,7 +436,6 @@ mod tests {
         assert!(target.target_compatible_with().unwrap().is_empty());
         assert!(target.compatible_with().unwrap().is_empty());
         assert!(target.exec_compatible_with().unwrap().is_empty());
-        assert!(target.visibility().unwrap().is_empty());
         assert!(target.within_view().unwrap().is_empty());
         assert!(target.tests().unwrap().is_empty());
 
@@ -403,6 +450,11 @@ mod tests {
 
     fn gen_data(
         attrs: Vec<(
+            &str,
+            buck2_node::attrs::attr::Attribute,
+            buck2_node::attrs::coerced_attr::CoercedAttr,
+        )>,
+        internal_attrs: Vec<(
             &str,
             buck2_node::attrs::attr::Attribute,
             buck2_node::attrs::coerced_attr::CoercedAttr,
@@ -427,7 +479,7 @@ mod tests {
             "foo_lib",
             execution_platform_resolution.dupe(),
             attrs,
-            vec![],
+            internal_attrs,
         );
 
         let target_label2 = TargetLabel::testing_parse("cell//pkg:baz");

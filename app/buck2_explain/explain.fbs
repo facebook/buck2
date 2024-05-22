@@ -23,7 +23,6 @@ table ConfiguredTargetNode {
     target_compatible_with: [string];
     compatible_with: [string];
     exec_compatible_with: [string];
-    visibility: [string];
     within_view: [string];
     // metadata: [Attribute]; // TODO iguridi
     tests: [string];

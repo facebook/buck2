@@ -134,10 +134,6 @@ export function Target(props: {target: ConfiguredTargetNode}) {
           />
         </li>
         <li>
-          <b>Visibility: </b>
-          <List attr={i => target.visibility(i)} length={target.visibilityLength()} />
-        </li>
-        <li>
           <b>Within view: </b>
           <List attr={i => target.withinView(i)} length={target.withinViewLength()} />
         </li>

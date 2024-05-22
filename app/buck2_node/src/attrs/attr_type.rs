@@ -367,7 +367,7 @@ impl AttrType {
         }))
     }
 
-    pub(crate) fn visibility() -> Self {
+    pub fn visibility() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Visibility(VisibilityAttrType),
             may_have_queries: false,
