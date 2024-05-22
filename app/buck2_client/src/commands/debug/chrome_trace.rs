@@ -841,6 +841,13 @@ impl ChromeTraceWriter {
                         "max_rss_gigabyte",
                         (_snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
                     )?;
+                    if let Some(malloc_bytes_active) = _snapshot.malloc_bytes_active {
+                        self.process_memory_counters.set(
+                            event.timestamp(),
+                            "malloc_active_gigabyte",
+                            (malloc_bytes_active) as f64 / Self::BYTES_PER_GIGABYTE,
+                        )?;
+                    }
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
