@@ -195,7 +195,17 @@ fn target_to_fbs<'a>(
             // TODO iguridi
             ConfiguredAttr::Int(v) => ints.push((a.name, v)),
             // ConfiguredAttr::EnumVariant(v) => {}
-            // ConfiguredAttr::Tuple(v) => {}
+            ConfiguredAttr::Tuple(v) => {
+                let mut list = vec![];
+                v.0.iter().for_each(|v| {
+                    match v {
+                        ConfiguredAttr::String(v) => list.push(v.0.to_string()),
+                        _ => {} // TODO iguridi: handle other types
+                    }
+                });
+                // TODO iguridi: create tuple_of_strings and use it
+                list_of_strings.push((a.name, list));
+            }
             // ConfiguredAttr::Dict(v) => {}
             // ConfiguredAttr::OneOf(v, _) => {}
             // ConfiguredAttr::WithinView(v) => {}
@@ -328,6 +338,7 @@ mod tests {
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::list::ListLiteral;
     use buck2_node::attrs::attr_type::string::StringLiteral;
+    use buck2_node::attrs::attr_type::tuple::TupleLiteral;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
@@ -402,6 +413,42 @@ mod tests {
         assert_things(target, build);
         assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("name"));
         assert_eq!(target.string_attrs().unwrap().get(0).value(), Some("foo"));
+    }
+
+    #[test]
+    fn test_tuple_attr() {
+        let data = gen_data(
+            vec![(
+                "some_tuple",
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::tuple(vec![AttrType::string(), AttrType::string()]),
+                ),
+                CoercedAttr::Tuple(TupleLiteral(ArcSlice::new([
+                    CoercedAttr::String(StringLiteral("some_string1".into())),
+                    CoercedAttr::String(StringLiteral("some_string2".into())),
+                ]))),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target
+                .list_of_strings_attrs()
+                .unwrap()
+                .get(0)
+                .value()
+                .unwrap()
+                .get(0),
+            "some_string1"
+        );
     }
 
     #[test]
