@@ -303,81 +303,73 @@ mod tests {
     pub use crate::explain_generated::explain::Build;
 
     #[test]
-    fn test_gen_fbs() {
-        // Setup data
-        let data = {
-            let target_label = TargetLabel::testing_parse("cell//pkg:foo");
-            let configured_target_label = target_label.configure(ConfigurationData::testing_new());
+    fn test_bool_attr() {
+        let data = gen_data(vec![(
+            "bool_field",
+            Attribute::new(None, "", AttrType::bool()),
+            CoercedAttr::Bool(BoolLiteral(false)),
+        )]);
 
-            let execution_platform_resolution = {
-                let platform_label = TargetLabel::testing_parse("cell//pkg:bar");
-                let platform = ExecutionPlatform::platform(
-                    platform_label,
-                    ConfigurationData::testing_new(),
-                    CommandExecutorConfig::testing_local(),
-                );
-                ExecutionPlatformResolution::new(Some(platform), Vec::new())
-            };
-
-            let attrs = {
-                let pkg = PackageLabel::testing_parse("cell//foo/bar");
-                let name = TargetName::testing_new("t2");
-                let label = TargetLabel::new(pkg, name.as_ref());
-                vec![
-                    (
-                        "bool_field",
-                        Attribute::new(None, "", AttrType::bool()),
-                        CoercedAttr::Bool(BoolLiteral(false)),
-                    ),
-                    (
-                        "another_field",
-                        Attribute::new(None, "", AttrType::string()),
-                        CoercedAttr::String(StringLiteral("some_string".into())),
-                    ),
-                    (
-                        "some_deps",
-                        Attribute::new(
-                            None,
-                            "",
-                            AttrType::list(AttrType::dep(
-                                ProviderIdSet::EMPTY,
-                                PluginKindSet::EMPTY,
-                            )),
-                        ),
-                        CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
-                            ProvidersLabel::new(label, ProvidersName::Default),
-                        )]))),
-                    ),
-                ]
-            };
-
-            let target = ConfiguredTargetNode::testing_new(
-                configured_target_label,
-                "foo_lib",
-                execution_platform_resolution.dupe(),
-                attrs,
-            );
-
-            let target_label2 = TargetLabel::testing_parse("cell//pkg:baz");
-            let configured_target_label2 =
-                target_label2.configure(ConfigurationData::testing_new());
-            let target2 = ConfiguredTargetNode::testing_new(
-                configured_target_label2,
-                "foo_lib",
-                execution_platform_resolution,
-                vec![],
-            );
-            vec![target, target2]
-        };
-
-        // Generate fbs
         let fbs = gen_fbs(data).unwrap();
         let fbs = fbs.finished_data();
-
-        // Read fbs
         let build = flatbuffers::root::<Build>(fbs).unwrap();
         let target = build.targets().unwrap().get(0);
 
+        assert_things(target, build);
+        assert_eq!(
+            target.bool_attrs().unwrap().get(0).key(),
+            Some("bool_field")
+        );
+    }
+
+    #[test]
+    fn test_string_attr() {
+        let data = gen_data(vec![(
+            "another_field",
+            Attribute::new(None, "", AttrType::string()),
+            CoercedAttr::String(StringLiteral("some_string".into())),
+        )]);
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("name"));
+        assert_eq!(target.string_attrs().unwrap().get(0).value(), Some("foo"));
+    }
+
+    #[test]
+    fn test_list_of_strings() {
+        let pkg = PackageLabel::testing_parse("cell//foo/bar");
+        let name = TargetName::testing_new("t2");
+        let label = TargetLabel::new(pkg, name.as_ref());
+        let data = gen_data(vec![(
+            "some_deps",
+            Attribute::new(
+                None,
+                "",
+                AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
+            ),
+            CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
+                ProvidersLabel::new(label, ProvidersName::Default),
+            )]))),
+        )]);
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.list_of_strings_attrs().unwrap().get(0).key(),
+            Some("some_deps")
+        );
+    }
+
+    fn assert_things(target: fbs::ConfiguredTargetNode<'_>, build: fbs::Build<'_>) {
         // special attrs
         assert_eq!(
             target.configured_target_label(),
@@ -400,32 +392,6 @@ mod tests {
         assert!(target.within_view().unwrap().is_empty());
         assert!(target.tests().unwrap().is_empty());
 
-        // defined attrs
-        // bools
-        assert_eq!(
-            target.bool_attrs().unwrap().get(0).key(),
-            Some("bool_field")
-        );
-        assert_eq!(target.bool_attrs().unwrap().get(0).value(), false);
-        // strings
-        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("name"));
-        assert_eq!(target.string_attrs().unwrap().get(0).value(), Some("foo"));
-        // list of strings
-        assert_eq!(
-            target.list_of_strings_attrs().unwrap().get(0).key(),
-            Some("some_deps")
-        );
-        assert_eq!(
-            target
-                .list_of_strings_attrs()
-                .unwrap()
-                .get(0)
-                .value()
-                .unwrap()
-                .is_empty(),
-            true
-        );
-
         let target2 = build.targets().unwrap().get(1);
         assert!(
             target2
@@ -433,5 +399,44 @@ mod tests {
                 .unwrap()
                 .contains("cell//pkg:baz (<testing>#"),
         );
+    }
+
+    fn gen_data(
+        attrs: Vec<(
+            &str,
+            buck2_node::attrs::attr::Attribute,
+            buck2_node::attrs::coerced_attr::CoercedAttr,
+        )>,
+    ) -> Vec<ConfiguredTargetNode> {
+        // Setup data
+        let target_label = TargetLabel::testing_parse("cell//pkg:foo");
+        let configured_target_label = target_label.configure(ConfigurationData::testing_new());
+
+        let execution_platform_resolution = {
+            let platform_label = TargetLabel::testing_parse("cell//pkg:bar");
+            let platform = ExecutionPlatform::platform(
+                platform_label,
+                ConfigurationData::testing_new(),
+                CommandExecutorConfig::testing_local(),
+            );
+            ExecutionPlatformResolution::new(Some(platform), Vec::new())
+        };
+
+        let target = ConfiguredTargetNode::testing_new(
+            configured_target_label,
+            "foo_lib",
+            execution_platform_resolution.dupe(),
+            attrs,
+        );
+
+        let target_label2 = TargetLabel::testing_parse("cell//pkg:baz");
+        let configured_target_label2 = target_label2.configure(ConfigurationData::testing_new());
+        let target2 = ConfiguredTargetNode::testing_new(
+            configured_target_label2,
+            "foo_lib",
+            execution_platform_resolution,
+            vec![],
+        );
+        vec![target, target2]
     }
 }
