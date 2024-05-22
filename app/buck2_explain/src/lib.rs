@@ -194,7 +194,7 @@ fn target_to_fbs<'a>(
             }
             // TODO iguridi
             ConfiguredAttr::Int(v) => ints.push((a.name, v)),
-            // ConfiguredAttr::EnumVariant(v) => {}
+            ConfiguredAttr::EnumVariant(v) => strings.push((a.name, v.0.to_string())),
             ConfiguredAttr::Tuple(v) => {
                 let mut list = vec![];
                 v.0.iter().for_each(|v| {
@@ -413,6 +413,34 @@ mod tests {
         assert_things(target, build);
         assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("name"));
         assert_eq!(target.string_attrs().unwrap().get(0).value(), Some("foo"));
+    }
+
+    #[test]
+    fn test_enum_attr() -> anyhow::Result<()> {
+        let data = gen_data(
+            vec![(
+                "enum_field",
+                Attribute::new(None, "", AttrType::enumeration(vec!["field".to_owned()])?),
+                CoercedAttr::EnumVariant(StringLiteral("some_string".into())),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.string_attrs().unwrap().get(1).key(),
+            Some("enum_field")
+        );
+        assert_eq!(
+            target.string_attrs().unwrap().get(1).value(),
+            Some("some_string")
+        );
+        Ok(())
     }
 
     #[test]
