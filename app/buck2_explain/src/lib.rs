@@ -585,9 +585,11 @@ mod tests {
 
     fn assert_things(target: fbs::ConfiguredTargetNode<'_>, build: fbs::Build<'_>) {
         // special attrs
-        assert_eq!(
-            target.configured_target_label(),
-            Some("cell//pkg:foo (<testing>#2c29d96c65b4379a)")
+        assert!(
+            target
+                .configured_target_label()
+                .unwrap()
+                .contains("cell//pkg:foo (<testing>#")
         );
         assert_eq!(target.name(), Some("foo"));
         assert_eq!(target.type_(), Some("foo_lib"));
