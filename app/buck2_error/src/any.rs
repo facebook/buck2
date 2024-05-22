@@ -110,7 +110,7 @@ pub(crate) fn recover_crate_error(
     let mut e = base;
     for context_value in context_stack.into_iter().rev() {
         // First, just add the value directly. This value is only used for formatting
-        e = e.context(context_value);
+        e = e.context(format!("{}", context_value));
         // Now add any additional information from the metadata, if it's available
         e = maybe_add_context_from_metadata(e, context_value);
     }

@@ -274,6 +274,12 @@ fn impl_enum(mut input: Enum) -> TokenStream {
                     }
                 }
             }
+
+            impl #impl_generics From<#ty #ty_generics> for buck2_error::__for_macro::ContextValue #display_where_clause  {
+                fn from(value: #ty #ty_generics) -> buck2_error::__for_macro::ContextValue {
+                    format!("{}", value).into()
+                }
+            }
         })
     } else {
         None

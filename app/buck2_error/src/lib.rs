@@ -127,6 +127,8 @@ pub mod __for_macro {
     pub use anyhow;
     pub use thiserror;
 
+    pub use crate::context_value::ContextValue;
+
     pub trait AsDynError {
         fn as_dyn_error<'a>(&'a self) -> &'a (dyn StdError + 'static);
     }

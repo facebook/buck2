@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt;
 use std::sync::Arc;
 
 use smallvec::SmallVec;
@@ -56,9 +55,15 @@ impl ContextValue {
     }
 }
 
-impl<T: fmt::Display> From<T> for ContextValue {
-    fn from(value: T) -> Self {
-        ContextValue::Dyn(format!("{}", value).into())
+impl From<String> for ContextValue {
+    fn from(value: String) -> Self {
+        ContextValue::Dyn(value.into())
+    }
+}
+
+impl<'a> From<&'a str> for ContextValue {
+    fn from(value: &str) -> Self {
+        ContextValue::Dyn(value.into())
     }
 }
 
