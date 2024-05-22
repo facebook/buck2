@@ -8,6 +8,7 @@
  */
 
 #![feature(error_generic_member_access)]
+#![feature(trait_upcasting)]
 
 pub mod calculation;
 pub mod configuration;

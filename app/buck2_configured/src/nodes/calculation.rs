@@ -37,6 +37,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
@@ -1099,6 +1100,82 @@ pub(crate) fn init_configured_target_node_calculation() {
     CONFIGURED_TARGET_NODE_CALCULATION.init(&ConfiguredTargetNodeCalculationInstance);
 }
 
+#[derive(Debug, Allocative, Eq, PartialEq)]
+struct LookingUpConfiguredNodeContext {
+    target: ConfiguredTargetLabel,
+    len: usize,
+    rest: Option<Arc<Self>>,
+}
+
+impl buck2_error::TypedContext for LookingUpConfiguredNodeContext {
+    fn eq(&self, other: &dyn buck2_error::TypedContext) -> bool {
+        match (other as &dyn std::any::Any).downcast_ref::<Self>() {
+            Some(v) => self == v,
+            None => false,
+        }
+    }
+}
+
+impl LookingUpConfiguredNodeContext {
+    fn new(target: ConfiguredTargetLabel, parent: Option<Arc<Self>>) -> Self {
+        let (len, rest) = match parent {
+            Some(v) => (v.len + 1, Some(v.clone())),
+            None => (1, None),
+        };
+        Self { target, len, rest }
+    }
+
+    fn add_context<T>(res: anyhow::Result<T>, target: ConfiguredTargetLabel) -> anyhow::Result<T> {
+        res.compute_context(
+            |parent_ctx: Arc<Self>| Self::new(target.clone(), Some(parent_ctx)),
+            || Self::new(target.clone(), None),
+        )
+    }
+}
+
+impl std::fmt::Display for LookingUpConfiguredNodeContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.len == 1 {
+            write!(f, "Error looking up configured node {}", &self.target)?;
+        } else {
+            writeln!(
+                f,
+                "Error in configured node dependency, dependency chain follows (-> indicates depends on, ^ indicates same configuration as previous):"
+            )?;
+
+            let mut curr = self;
+            let mut prev_cfg = None;
+            let mut is_first = true;
+
+            loop {
+                f.write_str("    ")?;
+                if is_first {
+                    f.write_str("   ")?;
+                } else {
+                    f.write_str("-> ")?;
+                }
+
+                write!(f, "{}", curr.target.unconfigured())?;
+                let cfg = Some(curr.target.cfg());
+                f.write_str(" (")?;
+                if cfg == prev_cfg {
+                    f.write_str("^")?;
+                } else {
+                    std::fmt::Display::fmt(curr.target.cfg(), f)?;
+                }
+                f.write_str(")\n")?;
+                is_first = false;
+                prev_cfg = Some(curr.target.cfg());
+                match &curr.rest {
+                    Some(v) => curr = &**v,
+                    None => break,
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInstance {
     async fn get_configured_target_node(
@@ -1115,7 +1192,10 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let res = compute_configured_target_node(self, ctx).await;
-                Ok(res.with_context(|| format!("Error looking up configured node {}", self.0))?)
+                Ok(LookingUpConfiguredNodeContext::add_context(
+                    res,
+                    self.0.dupe(),
+                )?)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
