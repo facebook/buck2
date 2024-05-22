@@ -39,7 +39,7 @@ pub(crate) fn into_anyhow_for_format(
                 break AnyhowWrapperForFormat::Root(root.description().to_owned());
             }
             ErrorKind::WithContext(context, inner) => {
-                context_stack.extend(context.as_display());
+                context_stack.push(context);
                 error = inner;
             }
             ErrorKind::Emitted(late_format, inner) => {
@@ -54,7 +54,9 @@ pub(crate) fn into_anyhow_for_format(
 
     let mut out: anyhow::Error = base.into();
     for context in context_stack.into_iter().rev() {
-        out = out.context(context);
+        if context.should_display() {
+            out = out.context(format!("{}", context));
+        }
     }
     (out, was_late_formatted)
 }

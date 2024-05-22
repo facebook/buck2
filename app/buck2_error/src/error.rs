@@ -129,7 +129,7 @@ impl Error {
                     writeln!(s, "EMITTED").unwrap();
                 }
                 ErrorKind::WithContext(ctx, _) => {
-                    writeln!(s, "CONTEXT: {:#}", ctx.as_display_for_debugging()).unwrap();
+                    writeln!(s, "CONTEXT: {:#}", ctx).unwrap();
                 }
             }
         }

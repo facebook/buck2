@@ -10,7 +10,7 @@
 #![feature(error_generic_member_access)]
 #![feature(let_chains)]
 #![feature(trait_alias)]
-#![cfg_attr(fbcode_build, feature(trait_upcasting))]
+#![feature(trait_upcasting)]
 
 mod any;
 pub mod classify;
@@ -36,6 +36,7 @@ pub use context::BuckErrorContext;
 /// the future.
 #[doc(inline)]
 pub use context_value::Tier;
+pub use context_value::TypedContext;
 pub use error::DynLateFormat;
 pub use error::Error;
 pub use root::UniqueRootId;
