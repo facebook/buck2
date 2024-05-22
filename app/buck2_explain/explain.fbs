@@ -6,6 +6,13 @@ table BoolAttr {
     value: bool;
 }
 
+
+table IntAttr {
+    key: string;
+    value: long;
+}
+
+
 table StringAttr {
     key: string;
     value: string;
@@ -36,6 +43,7 @@ table ConfiguredTargetNode {
     plugins: [string];
     // user attrs
     bool_attrs: [BoolAttr];
+    int_attrs: [IntAttr];
     string_attrs: [StringAttr];
     list_of_strings_attrs: [ListOfStringsAttr];
     // TODO iguridi: add other possible types

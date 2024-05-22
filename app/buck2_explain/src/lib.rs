@@ -44,6 +44,8 @@ mod fbs {
     pub use crate::explain_generated::explain::BuildArgs;
     pub use crate::explain_generated::explain::ConfiguredTargetNode;
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
+    pub use crate::explain_generated::explain::IntAttr;
+    pub use crate::explain_generated::explain::IntAttrArgs;
     pub use crate::explain_generated::explain::ListOfStringsAttr;
     pub use crate::explain_generated::explain::ListOfStringsAttrArgs;
     pub use crate::explain_generated::explain::StringAttr;
@@ -165,6 +167,7 @@ fn target_to_fbs<'a>(
 
     // defined attrs
     let mut bools = vec![];
+    let mut ints = vec![];
     let mut strings = vec![];
     let mut list_of_strings: Vec<(&str, Vec<String>)> = vec![];
     for a in node.attrs(AttrInspectOptions::DefinedOnly) {
@@ -190,7 +193,7 @@ fn target_to_fbs<'a>(
                 list_of_strings.push((a.name, list));
             }
             // TODO iguridi
-            // ConfiguredAttr::Int(v) => {}
+            ConfiguredAttr::Int(v) => ints.push((a.name, v)),
             // ConfiguredAttr::EnumVariant(v) => {}
             // ConfiguredAttr::Tuple(v) => {}
             // ConfiguredAttr::Dict(v) => {}
@@ -219,6 +222,15 @@ fn target_to_fbs<'a>(
         })
         .collect();
     let bool_attrs = Some(builder.create_vector(&list));
+
+    let list: Vec<_> = ints
+        .into_iter()
+        .map(|(key, value)| {
+            let key = Some(builder.create_shared_string(key));
+            fbs::IntAttr::create(builder, &fbs::IntAttrArgs { key, value })
+        })
+        .collect();
+    let int_attrs = Some(builder.create_vector(&list));
 
     let list: Vec<_> = strings
         .into_iter()
@@ -262,6 +274,7 @@ fn target_to_fbs<'a>(
             tests,
             // defined attrs
             bool_attrs,
+            int_attrs,
             string_attrs,
             list_of_strings_attrs,
         },
@@ -347,6 +360,27 @@ mod tests {
             target.bool_attrs().unwrap().get(0).key(),
             Some("bool_field")
         );
+    }
+
+    #[test]
+    fn test_int_attr() {
+        let data = gen_data(
+            vec![(
+                "int_field",
+                Attribute::new(None, "", AttrType::int()),
+                CoercedAttr::Int(1),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(target.int_attrs().unwrap().get(0).key(), Some("int_field"));
+        assert_eq!(target.int_attrs().unwrap().get(0).value(), 1);
     }
 
     #[test]

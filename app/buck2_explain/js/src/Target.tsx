@@ -9,7 +9,7 @@
 
 import React, {useContext} from 'react'
 import {DataContext} from './App'
-import {BoolAttr, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
+import {IntAttr, BoolAttr, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
 import {Link, TARGET_VIEW} from './Router'
 
 function List(props: {attr: (i: number) => string; length: number}): JSX.Element {
@@ -37,8 +37,8 @@ function List(props: {attr: (i: number) => string; length: number}): JSX.Element
   return <ul>{items}</ul>
 }
 
-function ListOfBoolAttrs(props: {
-  attr: (i: number) => BoolAttr | null
+function ListOfPlainAttrs(props: {
+  attr: (i: number) => IntAttr | BoolAttr | null
   length: number
 }): JSX.Element {
   const items: JSX.Element[] = []
@@ -165,7 +165,8 @@ export function Target(props: {target: ConfiguredTargetNode}) {
           <b>Execution platform: </b>
           <span>{target.executionPlatform()}</span>
         </li>
-        <ListOfBoolAttrs attr={i => target.boolAttrs(i)} length={target.boolAttrsLength()} />
+        <ListOfPlainAttrs attr={i => target.boolAttrs(i)} length={target.boolAttrsLength()} />
+        <ListOfPlainAttrs attr={i => target.intAttrs(i)} length={target.intAttrsLength()} />
         <ListOfStringAttrs attr={i => target.stringAttrs(i)} length={target.stringAttrsLength()} />
         <ListOfListOfStringAttrs
           attr={i => target.listOfStringsAttrs(i)}
