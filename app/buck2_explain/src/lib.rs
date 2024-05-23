@@ -225,7 +225,7 @@ fn target_to_fbs<'a>(
             ConfiguredAttr::SourceLabel(v) => strings.push((a.name, v.to_string())),
             ConfiguredAttr::Label(v) => strings.push((a.name, v.to_string())),
             ConfiguredAttr::Arg(v) => strings.push((a.name, v.to_string())),
-            // ConfiguredAttr::Query(v) => {}
+            ConfiguredAttr::Query(v) => strings.push((a.name, v.query.query)),
             // ConfiguredAttr::SourceFile(v) => {}
             // ConfiguredAttr::Metadata(v) => {}
             _ => {}
@@ -331,6 +331,8 @@ fn optional_string(attr: &ConfiguredAttr) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::execution_types::execution::ExecutionPlatform;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -345,6 +347,9 @@ mod tests {
     use buck2_node::attrs::attr_type::arg::StringWithMacros;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::list::ListLiteral;
+    use buck2_node::attrs::attr_type::query::QueryAttr;
+    use buck2_node::attrs::attr_type::query::QueryAttrBase;
+    use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
     use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::attr_type::tuple::TupleLiteral;
     use buck2_node::attrs::attr_type::AttrType;
@@ -476,6 +481,42 @@ mod tests {
         assert_eq!(
             target.string_attrs().unwrap().get(0).value(),
             Some("$(location :relative_path_test_file)")
+        );
+    }
+
+    #[test]
+    fn test_query_attr() {
+        let pkg = PackageLabel::testing_parse("cell//foo/bar");
+        let name = TargetName::testing_new("t2");
+        let label = TargetLabel::new(pkg, name.as_ref());
+        let mut map: BTreeMap<String, ProvidersLabel> = BTreeMap::new();
+        map.insert("key1".to_owned(), ProvidersLabel::default_for(label));
+
+        let data = gen_data(
+            vec![(
+                "bar",
+                Attribute::new(None, "", AttrType::query()),
+                CoercedAttr::Query(Box::new(QueryAttr {
+                    query: QueryAttrBase {
+                        query: "$(query_targets deps(:foo))".to_owned(),
+                        resolved_literals: ResolvedQueryLiterals(map),
+                    },
+                    providers: ProviderIdSet::EMPTY,
+                })),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(
+            target.string_attrs().unwrap().get(0).value(),
+            Some("$(query_targets deps(:foo))")
         );
     }
 
