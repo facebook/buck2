@@ -404,6 +404,8 @@ def _process_apple_resource_file_if_needed(
             action_id = destination_relative_path,
         )
     elif basename.endswith(".storyboard"):
+        if destination_relative_path:
+            destination_relative_path = paths.replace_extension(destination_relative_path, ".storyboardc")
         compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")), dir = True)
         if get_is_watch_bundle(ctx):
             output_is_contents_dir = True
@@ -414,6 +416,8 @@ def _process_apple_resource_file_if_needed(
             processed = compiled
             _compile_ui_resource(ctx, file, processed.as_output())
     elif basename.endswith(".xib"):
+        if destination_relative_path:
+            destination_relative_path = paths.replace_extension(destination_relative_path, ".nib")
         processed = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".nib")))
         _compile_ui_resource(ctx, file, processed.as_output())
     else:
