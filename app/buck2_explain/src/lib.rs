@@ -226,7 +226,7 @@ fn target_to_fbs<'a>(
             ConfiguredAttr::Label(v) => strings.push((a.name, v.to_string())),
             ConfiguredAttr::Arg(v) => strings.push((a.name, v.to_string())),
             ConfiguredAttr::Query(v) => strings.push((a.name, v.query.query)),
-            // ConfiguredAttr::SourceFile(v) => {}
+            ConfiguredAttr::SourceFile(v) => strings.push((a.name, v.path().to_string())),
             // ConfiguredAttr::Metadata(v) => {}
             _ => {}
         }
@@ -337,6 +337,7 @@ mod tests {
     use buck2_core::execution_types::execution::ExecutionPlatform;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+    use buck2_core::package::package_relative_path::PackageRelativePath;
     use buck2_core::package::PackageLabel;
     use buck2_core::plugins::PluginKindSet;
     use buck2_core::provider::label::ProvidersLabel;
@@ -354,6 +355,7 @@ mod tests {
     use buck2_node::attrs::attr_type::tuple::TupleLiteral;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
+    use buck2_node::attrs::coerced_path::CoercedPath;
     use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
     use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
     use buck2_node::provider_id_set::ProviderIdSet;
@@ -481,6 +483,32 @@ mod tests {
         assert_eq!(
             target.string_attrs().unwrap().get(0).value(),
             Some("$(location :relative_path_test_file)")
+        );
+    }
+
+    #[test]
+    fn test_source_path_attr() {
+        let data = gen_data(
+            vec![(
+                "bar",
+                Attribute::new(None, "", AttrType::source(false)),
+                CoercedAttr::SourceFile(CoercedPath::File(
+                    PackageRelativePath::new("foo/bar").unwrap().to_arc(),
+                )),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(
+            target.string_attrs().unwrap().get(0).value(),
+            Some("foo/bar")
         );
     }
 
