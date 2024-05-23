@@ -115,67 +115,7 @@ fn target_to_fbs<'a>(
     let attrs: Vec<_> = node
         .attrs(AttrInspectOptions::DefinedOnly)
         .filter(|a| a.name != NAME_ATTRIBUTE_FIELD)
-        .map(|a| {
-            match a.value {
-                ConfiguredAttr::Bool(v) => AttrField::Bool(a.name, v.0),
-                ConfiguredAttr::String(v) => AttrField::String(a.name, v.0.to_string()),
-                ConfiguredAttr::List(v) => {
-                    let mut list = vec![];
-                    v.0.iter().for_each(|v| {
-                        match v {
-                            ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                            _ => {} // TODO iguridi: handle other list types
-                        }
-                    });
-                    AttrField::StringList(a.name, list)
-                }
-                ConfiguredAttr::None => AttrField::None,
-                ConfiguredAttr::Visibility(v) => {
-                    let list = match v.0 {
-                        VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
-                        VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
-                    };
-                    AttrField::StringList(a.name, list)
-                }
-                // TODO iguridi
-                ConfiguredAttr::Int(v) => AttrField::Int(a.name, v),
-                ConfiguredAttr::EnumVariant(v) => AttrField::String(a.name, v.0.to_string()),
-                ConfiguredAttr::Tuple(v) => {
-                    let mut list = vec![];
-                    v.0.iter().for_each(|v| {
-                        match v {
-                            ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                            _ => {} // TODO iguridi: handle other types
-                        }
-                    });
-                    AttrField::StringList(a.name, list)
-                }
-                // ConfiguredAttr::Dict(v) => {}
-                // ConfiguredAttr::OneOf(v, _) => {}
-                ConfiguredAttr::WithinView(v) => {
-                    let list = match v.0 {
-                        VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
-                        VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
-                    };
-                    AttrField::StringList(a.name, list)
-                }
-                // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
-                // ConfiguredAttr::SplitTransitionDep(v) => {}
-                // ConfiguredAttr::ConfigurationDep(v) => {}
-                // ConfiguredAttr::PluginDep(v, v2) => {}
-                ConfiguredAttr::Dep(v) => {
-                    // TODO iguridi: make fbs type for labels
-                    AttrField::String(a.name, v.to_string())
-                }
-                ConfiguredAttr::SourceLabel(v) => AttrField::String(a.name, v.to_string()),
-                ConfiguredAttr::Label(v) => AttrField::String(a.name, v.to_string()),
-                ConfiguredAttr::Arg(v) => AttrField::String(a.name, v.to_string()),
-                ConfiguredAttr::Query(v) => AttrField::String(a.name, v.query.query),
-                ConfiguredAttr::SourceFile(v) => AttrField::String(a.name, v.path().to_string()),
-                // ConfiguredAttr::Metadata(v) => {}
-                _ => AttrField::None,
-            }
-        })
+        .map(|a| categorize(a.value, a.name))
         .collect();
 
     let list: Vec<_> = attrs
@@ -259,6 +199,68 @@ fn target_to_fbs<'a>(
         },
     );
     Ok(target)
+}
+
+fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
+    match a {
+        ConfiguredAttr::Bool(v) => AttrField::Bool(name, v.0),
+        ConfiguredAttr::String(v) => AttrField::String(name, v.0.to_string()),
+        ConfiguredAttr::List(v) => {
+            let mut list = vec![];
+            v.0.iter().for_each(|v| {
+                match v {
+                    ConfiguredAttr::String(v) => list.push(v.0.to_string()),
+                    _ => {} // TODO iguridi: handle other list types
+                }
+            });
+            AttrField::StringList(name, list)
+        }
+        ConfiguredAttr::None => AttrField::None,
+        ConfiguredAttr::Visibility(v) => {
+            let list = match v.0 {
+                VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
+                VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
+            };
+            AttrField::StringList(name, list)
+        }
+        // TODO iguridi
+        ConfiguredAttr::Int(v) => AttrField::Int(name, v),
+        ConfiguredAttr::EnumVariant(v) => AttrField::String(name, v.0.to_string()),
+        ConfiguredAttr::Tuple(v) => {
+            let mut list = vec![];
+            v.0.iter().for_each(|v| {
+                match v {
+                    ConfiguredAttr::String(v) => list.push(v.0.to_string()),
+                    _ => {} // TODO iguridi: handle other types
+                }
+            });
+            AttrField::StringList(name, list)
+        }
+        // ConfiguredAttr::Dict(v) => {}
+        // ConfiguredAttr::OneOf(v, _) => {}
+        ConfiguredAttr::WithinView(v) => {
+            let list = match v.0 {
+                VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
+                VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
+            };
+            AttrField::StringList(name, list)
+        }
+        // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
+        // ConfiguredAttr::SplitTransitionDep(v) => {}
+        // ConfiguredAttr::ConfigurationDep(v) => {}
+        // ConfiguredAttr::PluginDep(v, v2) => {}
+        ConfiguredAttr::Dep(v) => {
+            // TODO iguridi: make fbs type for labels
+            AttrField::String(name, v.to_string())
+        }
+        ConfiguredAttr::SourceLabel(v) => AttrField::String(name, v.to_string()),
+        ConfiguredAttr::Label(v) => AttrField::String(name, v.to_string()),
+        ConfiguredAttr::Arg(v) => AttrField::String(name, v.to_string()),
+        ConfiguredAttr::Query(v) => AttrField::String(name, v.query.query),
+        ConfiguredAttr::SourceFile(v) => AttrField::String(name, v.path().to_string()),
+        // ConfiguredAttr::Metadata(v) => {}
+        _ => AttrField::None,
+    }
 }
 
 fn list_of_strings_attr(node: &ConfiguredTargetNode, attr_name: &str) -> Vec<String> {
