@@ -241,7 +241,6 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             };
             AttrField::StringList(name, list)
         }
-        // TODO iguridi
         ConfiguredAttr::Int(v) => AttrField::Int(name, v),
         ConfiguredAttr::EnumVariant(v) => AttrField::String(name, v.0.to_string()),
         ConfiguredAttr::Tuple(v) => {
@@ -274,8 +273,8 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             };
             AttrField::StringList(name, list)
         }
-        // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
-        // ConfiguredAttr::SplitTransitionDep(v) => {}
+        ConfiguredAttr::ExplicitConfiguredDep(_v) => AttrField::None, // TODO iguridi: handle these
+        ConfiguredAttr::SplitTransitionDep(_v) => AttrField::None, //  // TODO iguridi: handle these
         ConfiguredAttr::ConfigurationDep(v) => AttrField::String(name, v.to_string()),
         ConfiguredAttr::PluginDep(v, _) => AttrField::String(name, v.to_string()),
         ConfiguredAttr::Dep(v) => {
@@ -288,7 +287,6 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
         ConfiguredAttr::Query(v) => AttrField::String(name, v.query.query),
         ConfiguredAttr::SourceFile(v) => AttrField::String(name, v.path().to_string()),
         ConfiguredAttr::Metadata(v) => AttrField::String(name, v.to_string()),
-        _ => AttrField::None,
     }
 }
 
