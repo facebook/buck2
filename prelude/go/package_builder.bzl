@@ -239,7 +239,7 @@ def _asm_args(ctx: AnalysisContext, pkg_name: str, shared: bool):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     return [
         ["-p", pkg_name],
-        ["-I", cmd_args(go_toolchain.env_go_root).absolute_suffix("/pkg/include")],
+        ["-I", cmd_args(go_toolchain.env_go_root, absolute_suffix = "/pkg/include")],
         ["-D", "GOOS_" + go_toolchain.env_go_os] if go_toolchain.env_go_os else [],
         ["-D", "GOARCH_" + go_toolchain.env_go_arch] if go_toolchain.env_go_arch else [],
         ["-shared"] if shared else [],
