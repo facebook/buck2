@@ -87,8 +87,8 @@ rest of the pack, including:
   build graph. This allows you to more cleanly support features that need graph
   introspection, like LSPs or compilation databases.
 - Support for distributed compilation, using the same Remote Execution API that
-  is supported by Bazel. Existing solutions like BuildBarn, BuildBuddy, and
-  EngFlow all work today.
+  is supported by Bazel. Existing solutions like BuildBarn, BuildBuddy,
+  EngFlow, and NativeLink all work today.
 - An efficient, robust, and sound design &mdash; inspired by modern theory of
   build systems and incremental computation.
 - And more!
