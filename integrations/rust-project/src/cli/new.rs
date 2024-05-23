@@ -16,6 +16,8 @@ use anyhow::Context;
 use clap::ValueEnum;
 use tracing::info;
 
+use crate::path::canonicalize;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub(crate) enum ProjectKind {
     Binary,
@@ -50,9 +52,7 @@ impl New {
             Some(path) => path,
             None => std::env::current_dir()?,
         };
-        let path = path
-            .canonicalize()
-            .context("Unable to canonicalize current directory")?;
+        let path = canonicalize(path).context("Unable to canonicalize current directory")?;
 
         let project_dir = Path::new(&name);
         let path = path.join(project_dir);
