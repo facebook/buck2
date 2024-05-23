@@ -276,7 +276,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
         }
         // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
         // ConfiguredAttr::SplitTransitionDep(v) => {}
-        // ConfiguredAttr::ConfigurationDep(v) => {}
+        ConfiguredAttr::ConfigurationDep(v) => AttrField::String(name, v.to_string()),
         // ConfiguredAttr::PluginDep(v, v2) => {}
         ConfiguredAttr::Dep(v) => {
             // TODO iguridi: make fbs type for labels
@@ -357,6 +357,9 @@ mod tests {
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::arg::StringWithMacros;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
+    use buck2_node::attrs::attr_type::dep::DepAttr;
+    use buck2_node::attrs::attr_type::dep::DepAttrTransition;
+    use buck2_node::attrs::attr_type::dep::DepAttrType;
     use buck2_node::attrs::attr_type::dict::DictLiteral;
     use buck2_node::attrs::attr_type::list::ListLiteral;
     use buck2_node::attrs::attr_type::query::QueryAttr;
@@ -621,6 +624,25 @@ mod tests {
                 "label_field",
                 Attribute::new(None, "", AttrType::source(false)),
                 CoercedAttr::SourceLabel(ProvidersLabel::default_for(label)),
+            )
+        };
+        check_label(f)
+    }
+
+    #[test]
+    fn test_configured_dep_attr() -> anyhow::Result<()> {
+        let f = |label: TargetLabel| {
+            (
+                "label_field",
+                Attribute::new(None, "", AttrType::label()),
+                CoercedAttr::ConfiguredDep(Box::new(DepAttr {
+                    attr_type: DepAttrType::new(
+                        ProviderIdSet::EMPTY,
+                        DepAttrTransition::Identity(PluginKindSet::EMPTY),
+                    ),
+                    label: ProvidersLabel::default_for(label)
+                        .configure(ConfigurationData::testing_new()),
+                })),
             )
         };
         check_label(f)
