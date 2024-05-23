@@ -237,7 +237,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             AttrField::StringList(name, list)
         }
         // ConfiguredAttr::Dict(v) => {}
-        // ConfiguredAttr::OneOf(v, _) => {}
+        ConfiguredAttr::OneOf(v, _) => categorize(*v, name),
         ConfiguredAttr::WithinView(v) => {
             let list = match v.0 {
                 VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
@@ -678,6 +678,30 @@ mod tests {
                 .get(0),
             "PUBLIC"
         );
+    }
+
+    #[test]
+    fn test_one_of_attr() {
+        let data = gen_data(
+            vec![(
+                "one_of_field",
+                Attribute::new(None, "", AttrType::one_of(vec![AttrType::int()])),
+                CoercedAttr::OneOf(Box::new(CoercedAttr::Int(7)), 0),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.int_attrs().unwrap().get(0).key(),
+            Some("one_of_field")
+        );
+        assert_eq!(target.int_attrs().unwrap().get(0).value(), 7);
     }
 
     #[test]
