@@ -693,34 +693,6 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// Adds a prefix to the end of start artifact. Often used if you have a `$ROOT` variable
-    /// in a shell script and want to use it to make files absolute.
-    ///
-    /// ```python
-    /// cmd_args(script).absolute_prefix("$ROOT/")
-    /// ```
-    fn absolute_prefix<'v>(
-        mut this: StarlarkCommandLineMut<'v>,
-        prefix: StringValue<'v>,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.options_mut().absolute_prefix = Some(prefix);
-        Ok(this)
-    }
-
-    /// Adds a suffix to the end of every artifact. Useful in conjunction with `absolute_prefix` to wrap
-    /// artifacts in function calls.
-    ///
-    /// ```python
-    /// cmd_args(script).absolute_prefix("call(").absolute_suffix(")")
-    /// ```
-    fn absolute_suffix<'v>(
-        mut this: StarlarkCommandLineMut<'v>,
-        suffix: StringValue<'v>,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.options_mut().absolute_suffix = Some(suffix);
-        Ok(this)
-    }
-
     /// For all the artifacts listed in this `cmd_args`, use their parent directory.
     ///
     /// Typically used when the file name is passed one way, and the directory another,
