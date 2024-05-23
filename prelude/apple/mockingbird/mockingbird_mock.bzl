@@ -11,7 +11,9 @@ load(":mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryReco
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     mockingbird_info = ctx.attrs.module[MockingbirdLibraryInfo]
 
-    json_project_description = _get_mockingbird_json_project_description(info = mockingbird_info, included_srcs = ctx.attrs.srcs, excluded_srcs = ctx.attrs.excluded_srcs)
+    dep_names = [dep[MockingbirdLibraryInfo].name for dep in ctx.attrs.deps]
+
+    json_project_description = _get_mockingbird_json_project_description(info = mockingbird_info, included_srcs = ctx.attrs.srcs, excluded_srcs = ctx.attrs.excluded_srcs, dep_names = dep_names)
     json_project_description_output = ctx.actions.declare_output("mockingbird_project.json")
     ctx.actions.write_json(json_project_description_output.as_output(), json_project_description)
 
@@ -57,6 +59,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _attrs():
     attribs = {
+        ## If the superclass for an object being mocked is in another module add it as a dep so mockingbird can find the implementation.
+        "deps": attrs.list(attrs.dep(), default = []),
         ## The list of source files to exclude. Only the name of the file, excluding the path, should be set. If set, the srcs attribute will be ignored.
         "excluded_srcs": attrs.list(attrs.string(), default = []),
         ## The module to generate mocks for.
@@ -116,12 +120,12 @@ registration_spec = RuleRegistrationSpec(
 #     }
 #   ]
 # }
-def _get_mockingbird_json_project_description(info: MockingbirdLibraryInfo, included_srcs: list[str], excluded_srcs: list[str]) -> dict:
+def _get_mockingbird_json_project_description(info: MockingbirdLibraryInfo, included_srcs: list[str], excluded_srcs: list[str], dep_names: list[str]) -> dict:
     targets = []
     for record in info.tset.traverse():
         if record.name == info.name:
             targets.append(_target_dict_for_mockingbird_record(record = record, included_srcs = included_srcs, excluded_srcs = excluded_srcs, include_non_exported_deps = True))
-        else:
+        elif record.name in dep_names:
             targets.append(_target_dict_for_mockingbird_record(record = record, included_srcs = [], excluded_srcs = [], include_non_exported_deps = False))
     json = {
         "targets": targets,
