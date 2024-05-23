@@ -112,34 +112,8 @@ export function Target(props: {target: ConfiguredTargetNode}) {
           <span>{target.name()}</span>
         </li>
         <li>
-          <b>Default target platform: </b>
-          <span>{target.defaultTargetPlatform()}</span>
-        </li>
-        <li>
-          <b>Target compatible with: </b>
-          <List
-            attr={i => target.targetCompatibleWith(i)}
-            length={target.targetCompatibleWithLength()}
-          />
-        </li>
-        <li>
-          <b>Compatible with: </b>
-          <List attr={i => target.compatibleWith(i)} length={target.compatibleWithLength()} />
-        </li>
-        <li>
-          <b>Exec compatible with: </b>
-          <List
-            attr={i => target.execCompatibleWith(i)}
-            length={target.execCompatibleWithLength()}
-          />
-        </li>
-        <li>
           <b>Within view: </b>
           <List attr={i => target.withinView(i)} length={target.withinViewLength()} />
-        </li>
-        <li>
-          <b>Tests: </b>
-          <List attr={i => target.tests(i)} length={target.testsLength()} />
         </li>
         <li>
           <b>Type: </b>

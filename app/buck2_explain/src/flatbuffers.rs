@@ -8,14 +8,8 @@
  */
 
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
@@ -96,24 +90,6 @@ fn target_to_fbs<'a>(
             .collect(),
     );
 
-    // internal attrs
-    let default_target_platform = node.map_attr(DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD, |attr| {
-        attr.and_then(|a| optional_string(a).map(|v| builder.create_shared_string(&v)))
-    });
-    let target_compatible_with = list_of_strings_to_fbs(
-        builder,
-        list_of_strings_attr(node, TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
-    );
-    let compatible_with = list_of_strings_to_fbs(
-        builder,
-        list_of_strings_attr(node, LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
-    );
-    let exec_compatible_with = list_of_strings_to_fbs(
-        builder,
-        list_of_strings_attr(node, EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD),
-    );
-    let tests = list_of_strings_to_fbs(builder, list_of_strings_attr(node, TESTS_ATTRIBUTE_FIELD));
-
     // defined attrs
     let attrs: Vec<_> = node
         .attrs(AttrInspectOptions::DefinedOnly)
@@ -192,9 +168,9 @@ fn target_to_fbs<'a>(
     let target = fbs::ConfiguredTargetNode::create(
         builder,
         &fbs::ConfiguredTargetNodeArgs {
+            name: Some(name),
             // special attrs
             configured_target_label: Some(label),
-            name: Some(name),
             type_: Some(type_),
             deps,
             package: Some(package),
@@ -202,12 +178,6 @@ fn target_to_fbs<'a>(
             target_configuration: Some(target_configuration),
             execution_platform: Some(execution_platform),
             plugins,
-            // internal attrs
-            default_target_platform,
-            target_compatible_with,
-            compatible_with,
-            exec_compatible_with,
-            tests,
             // defined attrs
             bool_attrs,
             int_attrs,
@@ -290,17 +260,6 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
     }
 }
 
-fn list_of_strings_attr(node: &ConfiguredTargetNode, attr_name: &str) -> Vec<String> {
-    // Only works on attributes that are lists of strings
-    node.map_attr(attr_name, |attr| {
-        attr.and_then(|a| a.unpack_list())
-            .into_iter()
-            .flatten()
-            .filter_map(optional_string)
-            .collect::<Vec<String>>()
-    })
-}
-
 fn list_of_strings_to_fbs<'a>(
     builder: &'_ mut FlatBufferBuilder<'static>,
     list: Vec<String>,
@@ -327,14 +286,6 @@ fn dict_of_strings_to_fbs<'a>(
         })
         .collect();
     Some(builder.create_vector(&list))
-}
-
-fn optional_string(attr: &ConfiguredAttr) -> Option<String> {
-    match attr {
-        ConfiguredAttr::None => None,
-        ConfiguredAttr::String(_v) => Some(attr.to_owned().as_display_no_ctx().to_string()),
-        _ => None, // TODO iguridi: support other types
-    }
 }
 
 #[cfg(test)]
@@ -930,16 +881,9 @@ mod tests {
         assert_eq!(target.type_(), Some("foo_lib"));
         assert_eq!(target.package(), Some("cell//pkg:BUCK"));
         assert_eq!(target.oncall(), None);
-        assert_eq!(target.default_target_platform(), None);
         assert_eq!(target.execution_platform(), Some("cell//pkg:bar"));
         assert_eq!(target.deps().unwrap().is_empty(), true);
         assert_eq!(target.plugins().unwrap().is_empty(), true);
-        // internal attrs
-        assert_eq!(target.default_target_platform(), None);
-        assert!(target.target_compatible_with().unwrap().is_empty());
-        assert!(target.compatible_with().unwrap().is_empty());
-        assert!(target.exec_compatible_with().unwrap().is_empty());
-        assert!(target.tests().unwrap().is_empty());
 
         let target2 = build.targets().unwrap().get(1);
         assert!(
