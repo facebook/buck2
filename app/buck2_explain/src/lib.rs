@@ -224,7 +224,7 @@ fn target_to_fbs<'a>(
             }
             ConfiguredAttr::SourceLabel(v) => strings.push((a.name, v.to_string())),
             ConfiguredAttr::Label(v) => strings.push((a.name, v.to_string())),
-            // ConfiguredAttr::Arg(v) => {}
+            ConfiguredAttr::Arg(v) => strings.push((a.name, v.to_string())),
             // ConfiguredAttr::Query(v) => {}
             // ConfiguredAttr::SourceFile(v) => {}
             // ConfiguredAttr::Metadata(v) => {}
@@ -342,6 +342,7 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_core::target::name::TargetName;
     use buck2_node::attrs::attr::Attribute;
+    use buck2_node::attrs::attr_type::arg::StringWithMacros;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::list::ListLiteral;
     use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -450,6 +451,32 @@ mod tests {
             Some("some_string")
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_arg_attr() {
+        let data = gen_data(
+            vec![(
+                "bar",
+                Attribute::new(None, "", AttrType::arg(false)),
+                CoercedAttr::Arg(StringWithMacros::StringPart(
+                    "$(location :relative_path_test_file)".into(),
+                )),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(
+            target.string_attrs().unwrap().get(0).value(),
+            Some("$(location :relative_path_test_file)")
+        );
     }
 
     fn check_label(
