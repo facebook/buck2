@@ -421,10 +421,12 @@ impl DeclaredArtifactKind {
 
 #[derive(buck2_error::Error, Debug)]
 pub enum ArtifactErrors {
-    #[error("artifact `{0}` was already bound, but attempted to bind to action id `{1}`")]
+    #[error(
+        "Attempted to bind an artifact which was already bound\n  Artifact: {0}\n  Attempted to bind to an action: {1}"
+    )]
     DuplicateBind(BuildArtifact, ActionKey),
     #[error(
-        "artifact `{0}` must be bound by now. If you are intending to use this artifact as the output of `run`, are you missing an `.as_output()` call?"
+        "Artifact must be bound by now. If you are intending to use this artifact as the output of `run`, are you missing an `.as_output()` call?\n  Artifact: {0}"
     )]
     UnboundArtifact(UnboundArtifact),
 }
