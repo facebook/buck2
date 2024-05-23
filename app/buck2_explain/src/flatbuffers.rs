@@ -277,7 +277,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
         // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
         // ConfiguredAttr::SplitTransitionDep(v) => {}
         ConfiguredAttr::ConfigurationDep(v) => AttrField::String(name, v.to_string()),
-        // ConfiguredAttr::PluginDep(v, v2) => {}
+        ConfiguredAttr::PluginDep(v, _) => AttrField::String(name, v.to_string()),
         ConfiguredAttr::Dep(v) => {
             // TODO iguridi: make fbs type for labels
             AttrField::String(name, v.to_string())
@@ -343,12 +343,14 @@ fn optional_string(attr: &ConfiguredAttr) -> Option<String> {
 mod tests {
     use std::collections::BTreeMap;
 
+    use buck2_core::cells::cell_path::CellPath;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::execution_types::execution::ExecutionPlatform;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
     use buck2_core::package::package_relative_path::PackageRelativePath;
     use buck2_core::package::PackageLabel;
+    use buck2_core::plugins::PluginKind;
     use buck2_core::plugins::PluginKindSet;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
@@ -564,6 +566,43 @@ mod tests {
         assert_eq!(
             target.string_attrs().unwrap().get(0).value(),
             Some("$(query_targets deps(:foo))")
+        );
+    }
+
+    #[test]
+    fn test_plugin_dep() {
+        let pkg = PackageLabel::testing_parse("cell//foo/bar");
+        let name = TargetName::testing_new("t2");
+        let label = TargetLabel::new(pkg, name.as_ref());
+        let data = gen_data(
+            vec![(
+                "plugin_dep_field",
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::plugin_dep(PluginKind::new(
+                        "foo".to_owned(),
+                        CellPath::testing_new("cell//foo/bar"),
+                    )),
+                ),
+                CoercedAttr::PluginDep(label),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.string_attrs().unwrap().get(0).key(),
+            Some("plugin_dep_field")
+        );
+        assert_eq!(
+            target.string_attrs().unwrap().get(0).value(),
+            Some("cell//foo/bar:t2")
         );
     }
 
