@@ -23,6 +23,11 @@ table ListOfStringsAttr {
     value: [string];
 }
 
+table DictOfStringsAttr {
+    key: string;
+    value: [StringAttr];
+}
+
 table ConfiguredTargetNode {
     // internal attrs
     name: string;
@@ -45,6 +50,7 @@ table ConfiguredTargetNode {
     int_attrs: [IntAttr];
     string_attrs: [StringAttr];
     list_of_strings_attrs: [ListOfStringsAttr];
+    dict_of_strings_attrs: [DictOfStringsAttr];
     // TODO iguridi: add other possible types
     // extras
     configured_target_label: string;

@@ -31,6 +31,8 @@ mod fbs {
     pub use crate::explain_generated::explain::BuildArgs;
     pub use crate::explain_generated::explain::ConfiguredTargetNode;
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
+    pub use crate::explain_generated::explain::DictOfStringsAttr;
+    pub use crate::explain_generated::explain::DictOfStringsAttrArgs;
     pub use crate::explain_generated::explain::IntAttr;
     pub use crate::explain_generated::explain::IntAttrArgs;
     pub use crate::explain_generated::explain::ListOfStringsAttr;
@@ -44,6 +46,7 @@ enum AttrField<'a> {
     Int(&'a str, i64),
     String(&'a str, String),
     StringList(&'a str, Vec<String>),
+    StringDict(&'a str, Vec<(String, String)>),
     None,
 }
 
@@ -172,6 +175,20 @@ fn target_to_fbs<'a>(
         .collect();
     let list_of_strings_attrs = Some(builder.create_vector(&list));
 
+    let list: Vec<_> = attrs
+        .iter()
+        .filter_map(|attr| match attr {
+            AttrField::StringDict(n, v) => Some((n, v)),
+            _ => None,
+        })
+        .map(|(key, value)| {
+            let key = Some(builder.create_shared_string(key));
+            let value = dict_of_strings_to_fbs(builder, value.to_vec());
+            fbs::DictOfStringsAttr::create(builder, &fbs::DictOfStringsAttrArgs { key, value })
+        })
+        .collect();
+    let dict_of_strings_attrs = Some(builder.create_vector(&list));
+
     let target = fbs::ConfiguredTargetNode::create(
         builder,
         &fbs::ConfiguredTargetNodeArgs {
@@ -196,6 +213,7 @@ fn target_to_fbs<'a>(
             int_attrs,
             string_attrs,
             list_of_strings_attrs,
+            dict_of_strings_attrs,
         },
     );
     Ok(target)
@@ -236,7 +254,18 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             });
             AttrField::StringList(name, list)
         }
-        // ConfiguredAttr::Dict(v) => {}
+        ConfiguredAttr::Dict(v) => {
+            let string_pairs: Vec<_> =
+                v.0.iter()
+                    .filter_map(|(k, v)| match (k, v) {
+                        (ConfiguredAttr::String(k), ConfiguredAttr::String(v)) => {
+                            Some((k.0.to_string(), v.0.to_string()))
+                        }
+                        _ => None, // TODO iguridi: handle other types
+                    })
+                    .collect();
+            AttrField::StringDict(name, string_pairs)
+        }
         ConfiguredAttr::OneOf(v, _) => categorize(*v, name),
         ConfiguredAttr::WithinView(v) => {
             let list = match v.0 {
@@ -285,6 +314,23 @@ fn list_of_strings_to_fbs<'a>(
     Some(builder.create_vector(&list))
 }
 
+fn dict_of_strings_to_fbs<'a>(
+    builder: &'_ mut FlatBufferBuilder<'static>,
+    dict: Vec<(String, String)>,
+) -> Option<
+    WIPOffset<flatbuffers::Vector<'static, flatbuffers::ForwardsUOffset<fbs::StringAttr<'a>>>>,
+> {
+    let list: Vec<WIPOffset<fbs::StringAttr>> = dict
+        .into_iter()
+        .map(|(key, value)| {
+            let key = Some(builder.create_shared_string(&key));
+            let value = Some(builder.create_shared_string(&value));
+            fbs::StringAttr::create(builder, &fbs::StringAttrArgs { key, value })
+        })
+        .collect();
+    Some(builder.create_vector(&list))
+}
+
 fn optional_string(attr: &ConfiguredAttr) -> Option<String> {
     match attr {
         ConfiguredAttr::None => None,
@@ -311,6 +357,7 @@ mod tests {
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::arg::StringWithMacros;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
+    use buck2_node::attrs::attr_type::dict::DictLiteral;
     use buck2_node::attrs::attr_type::list::ListLiteral;
     use buck2_node::attrs::attr_type::query::QueryAttr;
     use buck2_node::attrs::attr_type::query::QueryAttrBase;
@@ -734,6 +781,47 @@ mod tests {
                 .unwrap()
                 .get(0),
             "PUBLIC"
+        );
+    }
+
+    #[test]
+    fn test_dict_of_strings() {
+        let data = gen_data(
+            vec![(
+                "dict_field",
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::dict(AttrType::string(), AttrType::string(), false),
+                ),
+                CoercedAttr::Dict(DictLiteral(ArcSlice::new([(
+                    CoercedAttr::String(StringLiteral("foo".into())),
+                    CoercedAttr::String(StringLiteral("bar".into())),
+                )]))),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.dict_of_strings_attrs().unwrap().get(0).key(),
+            Some("dict_field")
+        );
+        assert_eq!(
+            target
+                .dict_of_strings_attrs()
+                .unwrap()
+                .get(0)
+                .value()
+                .unwrap()
+                .get(0)
+                .value(),
+            Some("bar")
         );
     }
 
