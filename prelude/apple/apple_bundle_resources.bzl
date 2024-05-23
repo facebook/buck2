@@ -352,6 +352,16 @@ def _run_ibtool(
     processing_options = get_bundle_resource_processing_options(ctx)
     ctx.actions.run(command, prefer_local = processing_options.prefer_local, allow_cache_upload = processing_options.allow_cache_upload, category = "apple_ibtool", identifier = action_identifier)
 
+def _ibtool_identifier(action: str, raw_file: Artifact) -> str:
+    "*.xib files can live in .lproj folders and have the same name, so we need to split the id"
+    identifier_parts = []
+    variant_name = _get_variant_dirname(raw_file)
+    if variant_name:
+        # variant_name is like "zh_TW.lproj", and we only want "zh_TW"
+        identifier_parts.append(variant_name)
+    identifier_parts += [raw_file.basename]
+    return "ibtool_" + action + " " + "/".join(identifier_parts)
+
 def _compile_ui_resource(
         ctx: AnalysisContext,
         raw_file: Artifact,
@@ -364,7 +374,7 @@ def _compile_ui_resource(
         output = output,
         action_flags = ["--compile"],
         target_device = target_device,
-        action_identifier = "compile_" + raw_file.basename,
+        action_identifier = _ibtool_identifier("compile", raw_file),
         output_is_dir = output_is_dir,
     )
 
@@ -380,7 +390,7 @@ def _link_ui_resource(
         output = output,
         action_flags = ["--link"],
         target_device = target_device,
-        action_identifier = "link_" + raw_file.basename,
+        action_identifier = _ibtool_identifier("link", raw_file),
         output_is_dir = output_is_dir,
     )
 
@@ -432,11 +442,15 @@ def _process_apple_resource_file_if_needed(
 # For example, given a variant file with a short path of`XX/YY.lproj/ZZ`
 # it would return `YY.lproj/ZZ`.
 def _get_dest_subpath_for_variant_file(variant_file: Artifact) -> str:
-    dir_name = paths.basename(paths.dirname(variant_file.short_path))
-    if not dir_name.endswith("lproj"):
+    dir_name = _get_variant_dirname(variant_file)
+    if not dir_name:
         fail("Variant files have to be in a directory with name ending in '.lproj' but `{}` was not.".format(variant_file.short_path))
     file_name = paths.basename(variant_file.short_path)
     return paths.join(dir_name, file_name)
+
+def _get_variant_dirname(variant_file: Artifact) -> str | None:
+    dir_name = paths.basename(paths.dirname(variant_file.short_path))
+    return dir_name if dir_name.endswith("lproj") else None
 
 def get_is_watch_bundle(ctx: AnalysisContext) -> bool:
     return ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_name.startswith("watch")
