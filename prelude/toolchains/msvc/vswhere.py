@@ -189,7 +189,7 @@ def get_sdk10_dir():
     windows_sdk_dir = os.environ.get("WindowsSdkDir")
     windows_sdk_version = os.environ.get("WindowsSDKVersion")
     if windows_sdk_dir is not None and windows_sdk_version is not None:
-        return windows_sdk_dir, windows_sdk_version.removesuffix("\\")
+        return Path(windows_sdk_dir), windows_sdk_version.removesuffix("\\")
 
     registry = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
     key_name = "SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows\\v10.0"
