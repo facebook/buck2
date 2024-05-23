@@ -16,8 +16,10 @@ rust_library(
         ":schema_rust[explain_generated.rs]": "src/explain_generated.rs",
     },
     test_deps = [
+        "fbsource//third-party/rust:serde_json",
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/gazebo/dupe:dupe",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

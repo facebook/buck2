@@ -287,7 +287,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
         ConfiguredAttr::Arg(v) => AttrField::String(name, v.to_string()),
         ConfiguredAttr::Query(v) => AttrField::String(name, v.query.query),
         ConfiguredAttr::SourceFile(v) => AttrField::String(name, v.path().to_string()),
-        // ConfiguredAttr::Metadata(v) => {}
+        ConfiguredAttr::Metadata(v) => AttrField::String(name, v.to_string()),
         _ => AttrField::None,
     }
 }
@@ -370,13 +370,18 @@ mod tests {
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_path::CoercedPath;
+    use buck2_node::attrs::internal::METADATA_ATTRIBUTE_FIELD;
     use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
     use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
+    use buck2_node::metadata::key::MetadataKey;
+    use buck2_node::metadata::map::MetadataMap;
+    use buck2_node::metadata::value::MetadataValue;
     use buck2_node::provider_id_set::ProviderIdSet;
     use buck2_node::visibility::VisibilitySpecification;
     use buck2_node::visibility::WithinViewSpecification;
     use buck2_util::arc_str::ArcSlice;
     use dupe::Dupe;
+    use starlark_map::small_map::SmallMap;
 
     use super::*;
     pub use crate::explain_generated::explain::Build;
@@ -845,6 +850,35 @@ mod tests {
                 .value(),
             Some("bar")
         );
+    }
+
+    #[test]
+    fn test_metadata_attr() -> anyhow::Result<()> {
+        let mut map = SmallMap::new();
+        map.insert(
+            MetadataKey::try_from("key.something".to_owned())?,
+            MetadataValue::new(serde_json::Value::String("foo".to_owned())),
+        );
+        let data = gen_data(
+            vec![],
+            vec![(
+                METADATA_ATTRIBUTE_FIELD,
+                Attribute::new(None, "", AttrType::metadata()),
+                CoercedAttr::Metadata(MetadataMap::new(map)),
+            )],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(
+            target.string_attrs().unwrap().get(0).value(),
+            Some("{\"key.something\":\"foo\"}")
+        );
+        Ok(())
     }
 
     fn assert_things(target: fbs::ConfiguredTargetNode<'_>, build: fbs::Build<'_>) {

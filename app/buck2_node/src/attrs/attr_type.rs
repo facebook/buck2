@@ -381,7 +381,7 @@ impl AttrType {
         }))
     }
 
-    pub(crate) fn metadata() -> Self {
+    pub fn metadata() -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Metadata(MetadataAttrType),
             may_have_queries: false,
