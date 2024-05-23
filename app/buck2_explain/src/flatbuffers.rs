@@ -39,6 +39,14 @@ mod fbs {
     pub use crate::explain_generated::explain::StringAttrArgs;
 }
 
+enum AttrField<'a> {
+    Bool(&'a str, bool),
+    Int(&'a str, i64),
+    String(&'a str, String),
+    StringList(&'a str, Vec<String>),
+    None,
+}
+
 pub(crate) fn gen_fbs(
     data: Vec<ConfiguredTargetNode>,
 ) -> anyhow::Result<FlatBufferBuilder<'static>> {
@@ -104,96 +112,104 @@ fn target_to_fbs<'a>(
     let tests = list_of_strings_to_fbs(builder, list_of_strings_attr(node, TESTS_ATTRIBUTE_FIELD));
 
     // defined attrs
-    let mut bools = vec![];
-    let mut ints = vec![];
-    let mut strings = vec![];
-    let mut list_of_strings: Vec<(&str, Vec<String>)> = vec![];
-    for a in node.attrs(AttrInspectOptions::DefinedOnly) {
-        if a.name == NAME_ATTRIBUTE_FIELD {
-            continue;
-        }
-        match a.value {
-            ConfiguredAttr::Bool(v) => bools.push((a.name, v.0)),
-            ConfiguredAttr::String(v) => strings.push((a.name, v.0.to_string())),
-            ConfiguredAttr::List(v) => {
-                let mut list = vec![];
-                v.0.iter().for_each(|v| {
-                    match v {
-                        ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                        _ => {} // TODO iguridi: handle other list types
-                    }
-                });
-                list_of_strings.push((a.name, list));
+    let attrs: Vec<_> = node
+        .attrs(AttrInspectOptions::DefinedOnly)
+        .filter(|a| a.name != NAME_ATTRIBUTE_FIELD)
+        .map(|a| {
+            match a.value {
+                ConfiguredAttr::Bool(v) => AttrField::Bool(a.name, v.0),
+                ConfiguredAttr::String(v) => AttrField::String(a.name, v.0.to_string()),
+                ConfiguredAttr::List(v) => {
+                    let mut list = vec![];
+                    v.0.iter().for_each(|v| {
+                        match v {
+                            ConfiguredAttr::String(v) => list.push(v.0.to_string()),
+                            _ => {} // TODO iguridi: handle other list types
+                        }
+                    });
+                    AttrField::StringList(a.name, list)
+                }
+                ConfiguredAttr::None => AttrField::None,
+                ConfiguredAttr::Visibility(v) => {
+                    let list = match v.0 {
+                        VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
+                        VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
+                    };
+                    AttrField::StringList(a.name, list)
+                }
+                // TODO iguridi
+                ConfiguredAttr::Int(v) => AttrField::Int(a.name, v),
+                ConfiguredAttr::EnumVariant(v) => AttrField::String(a.name, v.0.to_string()),
+                ConfiguredAttr::Tuple(v) => {
+                    let mut list = vec![];
+                    v.0.iter().for_each(|v| {
+                        match v {
+                            ConfiguredAttr::String(v) => list.push(v.0.to_string()),
+                            _ => {} // TODO iguridi: handle other types
+                        }
+                    });
+                    AttrField::StringList(a.name, list)
+                }
+                // ConfiguredAttr::Dict(v) => {}
+                // ConfiguredAttr::OneOf(v, _) => {}
+                ConfiguredAttr::WithinView(v) => {
+                    let list = match v.0 {
+                        VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
+                        VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
+                    };
+                    AttrField::StringList(a.name, list)
+                }
+                // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
+                // ConfiguredAttr::SplitTransitionDep(v) => {}
+                // ConfiguredAttr::ConfigurationDep(v) => {}
+                // ConfiguredAttr::PluginDep(v, v2) => {}
+                ConfiguredAttr::Dep(v) => {
+                    // TODO iguridi: make fbs type for labels
+                    AttrField::String(a.name, v.to_string())
+                }
+                ConfiguredAttr::SourceLabel(v) => AttrField::String(a.name, v.to_string()),
+                ConfiguredAttr::Label(v) => AttrField::String(a.name, v.to_string()),
+                ConfiguredAttr::Arg(v) => AttrField::String(a.name, v.to_string()),
+                ConfiguredAttr::Query(v) => AttrField::String(a.name, v.query.query),
+                ConfiguredAttr::SourceFile(v) => AttrField::String(a.name, v.path().to_string()),
+                // ConfiguredAttr::Metadata(v) => {}
+                _ => AttrField::None,
             }
-            ConfiguredAttr::None => {}
-            ConfiguredAttr::Visibility(v) => {
-                let list = match v.0 {
-                    VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
-                    VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
-                };
-                list_of_strings.push((a.name, list));
-            }
-            // TODO iguridi
-            ConfiguredAttr::Int(v) => ints.push((a.name, v)),
-            ConfiguredAttr::EnumVariant(v) => strings.push((a.name, v.0.to_string())),
-            ConfiguredAttr::Tuple(v) => {
-                let mut list = vec![];
-                v.0.iter().for_each(|v| {
-                    match v {
-                        ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                        _ => {} // TODO iguridi: handle other types
-                    }
-                });
-                // TODO iguridi: create tuple_of_strings and use it
-                list_of_strings.push((a.name, list));
-            }
-            // ConfiguredAttr::Dict(v) => {}
-            // ConfiguredAttr::OneOf(v, _) => {}
-            ConfiguredAttr::WithinView(v) => {
-                let list = match v.0 {
-                    VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
-                    VisibilityPatternList::List(patterns) => patterns.map(|p| p.to_string()),
-                };
-                list_of_strings.push((a.name, list));
-            }
-            // ConfiguredAttr::ExplicitConfiguredDep(v) => {}
-            // ConfiguredAttr::SplitTransitionDep(v) => {}
-            // ConfiguredAttr::ConfigurationDep(v) => {}
-            // ConfiguredAttr::PluginDep(v, v2) => {}
-            ConfiguredAttr::Dep(v) => {
-                // TODO iguridi: make fbs type for labels
-                strings.push((a.name, v.to_string()))
-            }
-            ConfiguredAttr::SourceLabel(v) => strings.push((a.name, v.to_string())),
-            ConfiguredAttr::Label(v) => strings.push((a.name, v.to_string())),
-            ConfiguredAttr::Arg(v) => strings.push((a.name, v.to_string())),
-            ConfiguredAttr::Query(v) => strings.push((a.name, v.query.query)),
-            ConfiguredAttr::SourceFile(v) => strings.push((a.name, v.path().to_string())),
-            // ConfiguredAttr::Metadata(v) => {}
-            _ => {}
-        }
-    }
+        })
+        .collect();
 
-    let list: Vec<_> = bools
-        .into_iter()
+    let list: Vec<_> = attrs
+        .iter()
+        .filter_map(|attr| match attr {
+            AttrField::Bool(n, v) => Some((n, v)),
+            _ => None,
+        })
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
-            fbs::BoolAttr::create(builder, &fbs::BoolAttrArgs { key, value })
+            fbs::BoolAttr::create(builder, &fbs::BoolAttrArgs { key, value: *value })
         })
         .collect();
     let bool_attrs = Some(builder.create_vector(&list));
 
-    let list: Vec<_> = ints
-        .into_iter()
+    let list: Vec<_> = attrs
+        .iter()
+        .filter_map(|attr| match attr {
+            AttrField::Int(n, v) => Some((n, v)),
+            _ => None,
+        })
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
-            fbs::IntAttr::create(builder, &fbs::IntAttrArgs { key, value })
+            fbs::IntAttr::create(builder, &fbs::IntAttrArgs { key, value: *value })
         })
         .collect();
     let int_attrs = Some(builder.create_vector(&list));
 
-    let list: Vec<_> = strings
-        .into_iter()
+    let list: Vec<_> = attrs
+        .iter()
+        .filter_map(|attr| match attr {
+            AttrField::String(n, v) => Some((n, v)),
+            _ => None,
+        })
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
             let value = Some(builder.create_shared_string(&value));
@@ -202,11 +218,15 @@ fn target_to_fbs<'a>(
         .collect();
     let string_attrs = Some(builder.create_vector(&list));
 
-    let list: Vec<_> = list_of_strings
-        .into_iter()
+    let list: Vec<_> = attrs
+        .iter()
+        .filter_map(|attr| match attr {
+            AttrField::StringList(n, v) => Some((n, v)),
+            _ => None,
+        })
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
-            let value = list_of_strings_to_fbs(builder, value);
+            let value = list_of_strings_to_fbs(builder, value.to_vec());
             fbs::ListOfStringsAttr::create(builder, &fbs::ListOfStringsAttrArgs { key, value })
         })
         .collect();
