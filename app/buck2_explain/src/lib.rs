@@ -218,9 +218,12 @@ fn target_to_fbs<'a>(
             // ConfiguredAttr::SplitTransitionDep(v) => {}
             // ConfiguredAttr::ConfigurationDep(v) => {}
             // ConfiguredAttr::PluginDep(v, v2) => {}
-            // ConfiguredAttr::Dep(v) => {}
-            // ConfiguredAttr::SourceLabel(v) => {}
-            // ConfiguredAttr::Label(v) => {}
+            ConfiguredAttr::Dep(v) => {
+                // TODO iguridi: make fbs type for labels
+                strings.push((a.name, v.to_string()))
+            }
+            ConfiguredAttr::SourceLabel(v) => strings.push((a.name, v.to_string())),
+            ConfiguredAttr::Label(v) => strings.push((a.name, v.to_string())),
             // ConfiguredAttr::Arg(v) => {}
             // ConfiguredAttr::Query(v) => {}
             // ConfiguredAttr::SourceFile(v) => {}
@@ -447,6 +450,73 @@ mod tests {
             Some("some_string")
         );
         Ok(())
+    }
+
+    fn check_label(
+        f: impl Fn(TargetLabel) -> (&'static str, Attribute, CoercedAttr),
+    ) -> Result<(), anyhow::Error> {
+        let pkg = PackageLabel::testing_parse("cell//foo/bar");
+        let name = TargetName::testing_new("t2");
+        let label = TargetLabel::new(pkg, name.as_ref());
+        let tuple = f(label);
+        let data = gen_data(vec![tuple], vec![]);
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert!(
+            target
+                .string_attrs()
+                .unwrap()
+                .get(0)
+                .value()
+                .unwrap()
+                .contains("cell//foo/bar:t2 (<testing>#")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_deps_attr() -> anyhow::Result<()> {
+        let f = |label| {
+            (
+                "label_field",
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY),
+                ),
+                CoercedAttr::Dep(ProvidersLabel::default_for(label)),
+            )
+        };
+        check_label(f)
+    }
+
+    #[test]
+    fn test_label_attr() -> anyhow::Result<()> {
+        let f = |label| {
+            (
+                "label_field",
+                Attribute::new(None, "", AttrType::label()),
+                CoercedAttr::Label(ProvidersLabel::default_for(label)),
+            )
+        };
+        check_label(f)
+    }
+
+    #[test]
+    fn test_source_label_attr() -> anyhow::Result<()> {
+        let f = |label| {
+            (
+                "label_field",
+                Attribute::new(None, "", AttrType::source(false)),
+                CoercedAttr::SourceLabel(ProvidersLabel::default_for(label)),
+            )
+        };
+        check_label(f)
     }
 
     #[test]
