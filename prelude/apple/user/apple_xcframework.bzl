@@ -30,6 +30,13 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         xcframework_command.add(arch)
         xcframework_command.add(framework_paths[0])
 
+        if ctx.attrs.include_dsym:
+            dsym_dep = framework_dep[DefaultInfo].sub_targets["dsym"]
+            dsym_path = dsym_dep[DefaultInfo].default_outputs
+            xcframework_command.add("--dsym-path")
+            xcframework_command.add(arch)
+            xcframework_command.add(dsym_path)
+
     ctx.actions.run(xcframework_command, category = "apple_xcframework")
     return [
         DefaultInfo(default_output = xcframework_dir),
@@ -163,6 +170,7 @@ registration_spec = RuleRegistrationSpec(
     attrs = {
         "framework": attrs.split_transition_dep(cfg = framework_split_transition),
         "framework_name": attrs.string(),
+        "include_dsym": attrs.option(attrs.bool(), default = None),
         "platforms": attrs.list(attrs.string(), default = []),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     },

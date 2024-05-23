@@ -7,6 +7,18 @@
 
 # pyre-strict
 
+"""
+Packages given input files into the correct format for an XCFramework, and generates
+the required Info.plist.
+
+Example Usage:
+xcframework_maker.py --name FooKit --output_path /tmp/FooKit.xcframework \
+        --framework_path ios-arm64 input/ios/FooKit.xcframework \
+        --dsym_path ios-arm64 input/ios/dSYM \
+        --framework_path ios-arm64_x86_64-simulator input/ios-simulator/FooKit.xcframework \
+        --dsym_path ios-arm64_x86_64-simulator input/ios-simulator/dSYM 
+"""
+
 import argparse
 import plistlib
 import shutil
@@ -89,6 +101,9 @@ def main() -> None:
     parser.add_argument("--output-path")
     parser.add_argument("--name")
     parser.add_argument("--framework-path", action="append", nargs="+")
+    parser.add_argument(
+        "--dsym-path", action="append", nargs="+", default=[], required=False
+    )
     args = parser.parse_args()
 
     out_path = Path(args.output_path)
@@ -115,6 +130,16 @@ def main() -> None:
         )
 
         binary_paths.append(_find_binary_path(framework_fullpath, args.name))
+
+    for dsym_path in args.dsym_path:
+        dsym_arch = dsym_path[0]
+        dsym_fullpath = dsym_path[1]
+        shutil.copytree(
+            dsym_fullpath,
+            out_path / dsym_arch / "dSYMs" / (args.name + ".framework.dSYM"),
+            symlinks=True,
+            dirs_exist_ok=False,
+        )
 
     library_path = args.name + ".framework"
     plist_path.write_bytes(_make_plist(items, binary_paths, library_path))
