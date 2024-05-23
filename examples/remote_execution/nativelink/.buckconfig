@@ -1,0 +1,13 @@
+[cells]
+root = .
+prelude = prelude
+
+[buck2_re_client]
+action_cache_address = grpc://localhost:50051
+engine_address = grpc://localhost:50051
+cas_address = grpc://localhost:50051
+tls = false
+instance_name = main
+
+[build]
+  execution_platforms = root//platforms:platforms
