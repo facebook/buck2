@@ -145,7 +145,7 @@ impl Develop {
         };
 
         // Include additional targets from the found buildfiles, up to max_extra_targets more.
-        let owners = self.resolve_file_owners(files);
+        let owners = self.resolve_file_owners(files)?;
         let extra_targets = owners
             .values()
             .flatten()
@@ -185,26 +185,31 @@ impl Develop {
         dedupe_targets(&file_targets)
     }
 
-    fn resolve_file_owners(&self, files: &[PathBuf]) -> FxHashMap<PathBuf, Vec<Target>> {
-        match self.buck.query_owning_buildfile(&files) {
+    pub fn resolve_file_owners(
+        &self,
+        files: &[PathBuf],
+    ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
+        let all_file_owners = match self.buck.query_owner(&files) {
             Ok(owners) => owners,
             Err(_) => {
                 let mut owners = FxHashMap::default();
 
                 for file in files {
-                    match self.buck.query_owning_buildfile(&[file.to_path_buf()]) {
+                    match self.buck.query_owner(&[file.to_path_buf()]) {
                         Ok(file_owners) => {
                             owners.extend(file_owners.into_iter());
                         }
                         Err(e) => {
-                            warn!(file = ?file, "Could not find a target that owns this file: {:#}", e);
+                            warn!(file = ?file, "Could not find a target that owns this file: {}", e);
                         }
                     }
                 }
 
                 owners
             }
-        }
+        };
+
+        Ok(all_file_owners)
     }
 
     pub(crate) fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
