@@ -20,6 +20,7 @@ use serde::Deserializer;
 use serde::Serialize;
 
 use crate::json_project::Edition;
+use crate::path::canonicalize;
 
 #[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub(crate) struct Target(String);
@@ -156,7 +157,7 @@ impl TargetInfo {
     pub(crate) fn root_module(&self) -> PathBuf {
         if let Some(crate_root) = &self.crate_root {
             // If provided with a crate_root directly, and it's valid, use it.
-            if let Ok(path) = self.source_folder.join(crate_root).canonicalize() {
+            if let Ok(path) = canonicalize(self.source_folder.join(crate_root)) {
                 return path;
             }
         }

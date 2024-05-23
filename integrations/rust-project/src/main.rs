@@ -11,6 +11,7 @@ mod buck;
 mod cli;
 mod diagnostics;
 mod json_project;
+mod path;
 mod progress;
 mod server;
 mod sysroot;
