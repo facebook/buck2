@@ -250,7 +250,7 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
         args.add(cmd_args().hidden(linkable.archive.external_objects))
     elif isinstance(linkable, SharedLibLinkable):
         if linkable.link_without_soname:
-            args.add(cmd_args(linkable.lib, format = "-L{}").parent())
+            args.add(cmd_args(linkable.lib, format = "-L{}", parent = 1))
             args.add("-l" + linkable.lib.basename.removeprefix("lib").removesuffix(linkable.lib.extension))
         else:
             args.add(linkable.lib)
