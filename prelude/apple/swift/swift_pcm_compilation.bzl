@@ -243,7 +243,7 @@ def compile_underlying_pcm(
         "-Xcc",
         "-I",
         "-Xcc",
-        cmd_args([cmd_args(modulemap_path).parent(), "exported_symlink_tree"], delimiter = "/"),
+        cmd_args([cmd_args(modulemap_path, parent = 1), "exported_symlink_tree"], delimiter = "/"),
     ])
     cmd.add(framework_search_path_flags)
 
@@ -296,7 +296,7 @@ def _get_base_pcm_flags(
         "-Xcc",
         "-I",
         "-Xcc",
-        cmd_args(modulemap_path).parent(),
+        cmd_args(modulemap_path, parent = 1),
     ])
 
     # Modular deps like `-Swift.h` have to be materialized.

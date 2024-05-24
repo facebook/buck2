@@ -77,7 +77,7 @@ SwiftCompiledModuleInfo = provider(fields = {
 
 def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
     # We need to import the containing folder, not the file itself.
-    return ["-I", cmd_args(module_info.output_artifact).parent()] if module_info.is_swiftmodule else []
+    return ["-I", cmd_args(module_info.output_artifact, parent = 1)] if module_info.is_swiftmodule else []
 
 def _add_clang_module_file_flags(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:
