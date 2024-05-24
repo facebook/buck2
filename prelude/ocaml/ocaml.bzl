@@ -353,7 +353,7 @@ def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode) 
     dep_cmdline.add([cmd_args(f, format = "\"{}\"") for f in ctx.attrs.ocamldep_flags])
 
     # These -I's are for ocamldep.
-    dep_cmdline.add(cmd_args([cmd_args(src).parent() for src in srcs], format = "-I {}"))
+    dep_cmdline.add(cmd_args([cmd_args(src, parent = 1) for src in srcs], format = "-I {}"))
     dep_cmdline.add(srcs)
     dep_script_name = "ocamldep_" + build_mode.value + ".sh"
     dep_sh, _ = ctx.actions.write(
@@ -516,7 +516,7 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) ->
                 if i != None:
                     p = paths.dirname(i.short_path)
                     if not p in seen_dirs:
-                        depends_include_paths.append(cmd_args(i).parent())
+                        depends_include_paths.append(cmd_args(i, parent = 1))
                         seen_dirs[p] = None
 
             # *All* the include paths needed to compile 'src'.
@@ -599,12 +599,12 @@ def _include_paths(cmis: list[Artifact], cmos: list[Artifact]) -> cmd_args:
     for f in cmis:
         p = paths.dirname(f.short_path)
         if not p in seen_dirs:
-            include_paths.append(cmd_args(f).parent())
+            include_paths.append(cmd_args(f, parent = 1))
             seen_dirs[p] = None
     for f in cmos:
         p = paths.dirname(f.short_path)
         if not p in seen_dirs:
-            include_paths.append(cmd_args(f).parent())
+            include_paths.append(cmd_args(f, parent = 1))
             seen_dirs[p] = None
     include_paths = cmd_args(include_paths)
     include_paths.hidden(cmis + cmos)
