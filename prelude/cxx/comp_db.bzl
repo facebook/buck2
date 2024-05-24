@@ -49,7 +49,7 @@ def create_compilation_database(
                 "gen",
                 cmd_args(entry.as_output(), format = "--output={}"),
                 src_compile_cmd.src.basename,
-                cmd_args(src_compile_cmd.src).parent(),
+                cmd_args(src_compile_cmd.src, parent = 1),
                 "--",
                 src_compile_cmd.cxx_compile_cmd.base_compile_cmd,
                 src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form,

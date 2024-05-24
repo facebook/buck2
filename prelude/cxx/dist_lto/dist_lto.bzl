@@ -361,7 +361,7 @@ def cxx_dist_link(
 
             index_cat = make_cat("thin_lto_index")
             index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
-            index_out_dir = cmd_args(index_file_out.as_output()).parent()
+            index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
 
             index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
 

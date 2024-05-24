@@ -191,7 +191,7 @@ def cxx_sanitizer_runtime_arguments(
         for runtime_shared_lib in runtime_files:
             # Rpath-relative dylibs have an install name of `@rpath/libName.dylib`,
             # which means we need to add the parent dir of the dylib as an rpath.
-            runtime_shared_lib_dir = cmd_args(runtime_shared_lib).parent()
+            runtime_shared_lib_dir = cmd_args(runtime_shared_lib, parent = 1)
 
             # The parent dir of the runtime shared lib must appear as a path
             # relative to the parent dir of the binary. `@executable_path`
