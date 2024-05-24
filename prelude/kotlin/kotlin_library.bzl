@@ -171,7 +171,7 @@ def _create_kotlin_sources(
         ksp_cmd.add(["--ksp_classpath", classpath_args])
         ksp_classes_and_resources_output = ctx.actions.declare_output("ksp_output_dir/ksp_classes_and_resources_output")
         ksp_cmd.add(["--ksp_classes_and_resources_output", ksp_classes_and_resources_output.as_output()])
-        ksp_output = cmd_args(ksp_classes_and_resources_output.as_output()).parent()
+        ksp_output = cmd_args(ksp_classes_and_resources_output.as_output(), parent = 1)
         ksp_cmd.add(["--ksp_output", ksp_output])
         ksp_sources_output = ctx.actions.declare_output("ksp_output_dir/ksp_sources_output")
         ksp_cmd.add(["--ksp_sources_output", ksp_sources_output.as_output()])
