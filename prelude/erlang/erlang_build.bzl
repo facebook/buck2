@@ -425,7 +425,7 @@ def _build_xyrl(
         [
             erlc,
             "-o",
-            cmd_args(output.as_output()).parent(),
+            cmd_args(output.as_output(), parent = 1),
             xyrl,
         ],
     )
@@ -488,7 +488,7 @@ def _build_erl(
                     _dependency_code_paths(build_environment),
                 ),
                 "-o",
-                cmd_args(outputs[output].as_output()).parent(),
+                cmd_args(outputs[output].as_output(), parent = 1),
                 src,
             ],
         )
@@ -528,7 +528,7 @@ def _build_edoc(
             "-pa",
             toolchain.utility_modules,
             "-o",
-            cmd_args(output.as_output()).parent(2),
+            cmd_args(output.as_output(), parent = 2),
         ],
     )
 
@@ -623,19 +623,19 @@ def _add_full_dependencies(erlc_cmd: cmd_args, build_environment: BuildEnvironme
 
 def _dependency_include_dirs(build_environment: BuildEnvironment) -> list[cmd_args]:
     includes = [
-        cmd_args(include_dir_anchor).parent()
+        cmd_args(include_dir_anchor, parent = 1)
         for include_dir_anchor in build_environment.private_include_dir
     ]
 
     for include_dir_anchor in build_environment.include_dirs.values():
-        includes.append(cmd_args(include_dir_anchor).parent(3))
-        includes.append(cmd_args(include_dir_anchor).parent())
+        includes.append(cmd_args(include_dir_anchor, parent = 3))
+        includes.append(cmd_args(include_dir_anchor, parent = 1))
 
     return includes
 
 def _dependency_code_paths(build_environment: BuildEnvironment) -> list[cmd_args]:
     return [
-        cmd_args(ebin_dir_anchor).parent()
+        cmd_args(ebin_dir_anchor, parent = 1)
         for ebin_dir_anchor in build_environment.ebin_dirs.values()
     ]
 
@@ -703,7 +703,7 @@ def _get_erl_opts(
     for parse_transform, (beam, resource_folder) in parse_transforms.items():
         args.add(
             "+{parse_transform, %s}" % (parse_transform,),
-            cmd_args(beam, format = "-pa{}").parent(),
+            cmd_args(beam, format = "-pa{}", parent = 1),
         )
         args.hidden(resource_folder)
 

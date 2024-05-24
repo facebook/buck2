@@ -223,7 +223,7 @@ def build_escript_bundled_trampoline(ctx: AnalysisContext, toolchain, config_fil
         cmd_args(
             toolchain.otp_binaries.erlc,
             "-o",
-            cmd_args(my_output.as_output()).parent(),
+            cmd_args(my_output.as_output(), parent = 1),
             escript_trampoline_erl,
         ),
         category = "erlc_escript_trampoline",

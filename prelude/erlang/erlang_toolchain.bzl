@@ -271,7 +271,7 @@ def _gen_parse_transform_beam(
         erlc,
         "+deterministic",
         "-o",
-        cmd_args(output.as_output()).parent(),
+        cmd_args(output.as_output(), parent = 1),
         src,
     ])
     ctx.actions.run(cmd, category = "erlc", identifier = src.short_path)
@@ -308,7 +308,7 @@ def _gen_util_beams(
                 erlc,
                 "+deterministic",
                 "-o",
-                cmd_args(output.as_output()).parent(),
+                cmd_args(output.as_output(), parent = 1),
                 src,
             ],
             category = "erlc",

@@ -198,7 +198,7 @@ def _build_boot_script(
             toolchain.otp_binaries.escript,
             script,
             spec_file,
-            cmd_args(release_resource.as_output()).parent(),
+            cmd_args(release_resource.as_output(), parent = 1),
         ],
     )
     boot_script_build_cmd.hidden(start_script.as_output())
