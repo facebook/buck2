@@ -18,6 +18,6 @@ def matlab_program_impl(ctx: AnalysisContext) -> list[Provider]:
             quote = "shell",
         ),
     )
-    cmd.add("-sd", cmd_args(ctx.attrs.main).parent())
+    cmd.add("-sd", cmd_args(ctx.attrs.main, parent = 1))
 
     return [DefaultInfo(default_output = None, other_outputs = [cmd]), RunInfo(cmd)]
