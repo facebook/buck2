@@ -724,7 +724,7 @@ def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo]:
                 append(link)
             continue
         if link.flags != None:
-            append(LinkInfo(pre_flags = link.flags))
+            append(LinkInfo(pre_flags = [link.flags]))
             continue
         fail("Unpacked invalid empty link args")
     return res
