@@ -341,7 +341,10 @@ def create_compile_cmds(
             src_args.extend(["-x", language_mode] if language_mode else [])
 
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
-        src_args.extend(["-c", src.file])
+
+        if cxx_compile_cmd.compiler_type != "nasm":
+            src_args.append("-c")
+        src_args.append(src.file)
 
         src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header)
         if src.is_header:
@@ -682,14 +685,15 @@ def _mk_argsfile(
         file_args = args
     else:
         args = cmd_args(args_list)
-        file_args = cmd_args(args, quote = "shell")
+        file_args = cmd_args(args) if compiler_info.compiler_type == "nasm" else cmd_args(args, quote = "shell")
 
     file_name = ext.value + ("-xcode.argsfile" if is_xcode_argsfile else ".argsfile")
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
 
     input_args = [args]
 
-    cmd_form = cmd_args(argsfile, format = "@{}").hidden(input_args)
+    format = "-@{}" if compiler_info.compiler_type == "nasm" else "@{}"
+    cmd_form = cmd_args(argsfile, format = format).hidden(input_args)
 
     return CompileArgsfile(
         file = argsfile,
