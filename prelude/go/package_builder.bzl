@@ -176,7 +176,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], assem
         _asm_args(ctx, pkg_name, shared),
         "-gensymabis",
         ["-o", symabis.as_output()],
-        ["-I", cmd_args(fake_asmhdr).parent(1)],
+        ["-I", cmd_args(fake_asmhdr, parent = 1)],
         s_files,
     ]
 
@@ -204,7 +204,7 @@ def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], asm
             assembler_flags,
             _asm_args(ctx, pkg_name, shared),
             ["-o", o_file.as_output()],
-            ["-I", cmd_args(asmhdr).parent(1)] if asmhdr else [],  # can it actually be None?
+            ["-I", cmd_args(asmhdr, parent = 1)] if asmhdr else [],  # can it actually be None?
             s_file,
         ]
 
