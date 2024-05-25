@@ -23,7 +23,7 @@ load("@prelude//cxx:linker.bzl", "is_pdb_generated")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
 
-NativeCompiler = provider(
+SystemCxxToolchainInfo = provider(
     fields = {
         "compiler": provider_field(typing.Any, default = None),
         "compiler_type": provider_field(typing.Any, default = None),
@@ -45,7 +45,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     A very simple toolchain that is hardcoded to the current environment.
     """
 
-    compiler = ctx.attrs.compiler[NativeCompiler]
+    compiler = ctx.attrs.compiler[SystemCxxToolchainInfo]
 
     archiver_supports_argfiles = compiler.os != "macos"
     additional_linker_flags = ["-fuse-ld=lld"] if compiler.os == "linux" and compiler.linker != "g++" and compiler.cxx_compiler != "g++" else []
@@ -176,7 +176,7 @@ def _get_default_compiler() -> str:
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
-        "compiler": attrs.exec_dep(providers = [NativeCompiler], default = _get_default_compiler()),
+        "compiler": attrs.exec_dep(providers = [SystemCxxToolchainInfo], default = _get_default_compiler()),
         "c_flags": attrs.list(attrs.string(), default = []),
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cvtres_flags": attrs.list(attrs.string(), default = []),

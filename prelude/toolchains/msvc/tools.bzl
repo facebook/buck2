@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
-load("@prelude//toolchains:cxx.bzl", "NativeCompiler")
+load("@prelude//toolchains:cxx.bzl", "SystemCxxToolchainInfo")
 
 def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     cl_exe_json = ctx.actions.declare_output("cl.exe.json")
@@ -122,7 +122,7 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
                 }),
             ],
         }),
-        NativeCompiler(
+        SystemCxxToolchainInfo(
             compiler = cl_exe_script,
             compiler_type = "windows",
             cxx_compiler = cl_exe_script,

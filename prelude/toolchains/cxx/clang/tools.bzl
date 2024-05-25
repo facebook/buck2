@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//toolchains:cxx.bzl", "NativeCompiler")
+load("@prelude//toolchains:cxx.bzl", "SystemCxxToolchainInfo")
 
 def _get_current_os() -> str:
     os = host_info().os
@@ -19,7 +19,7 @@ def _get_current_os() -> str:
 def _path_clang_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
-        NativeCompiler(
+        SystemCxxToolchainInfo(
             compiler = "clang",
             compiler_type = "clang",
             cxx_compiler = "clang++",
