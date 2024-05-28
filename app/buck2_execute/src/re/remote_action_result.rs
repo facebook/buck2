@@ -30,7 +30,7 @@ use crate::execute::result::CommandExecutionMetadata;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::streams::RemoteCommandStdStreams;
 
-pub struct RemoteDepFileResult(pub ActionResultResponse);
+pub struct ActionCacheResult(pub ActionResultResponse, pub buck2_data::CacheType);
 
 pub trait RemoteActionResult: Send + Sync {
     fn output_files(&self) -> &[TFile];
@@ -106,60 +106,22 @@ impl RemoteActionResult for ExecuteResponse {
     }
 }
 
-impl RemoteActionResult for Box<dyn RemoteActionResult> {
+impl RemoteActionResult for ActionCacheResult {
     fn output_files(&self) -> &[TFile] {
-        self.as_ref().output_files()
+        &self.0.action_result.output_files
     }
 
     fn output_directories(&self) -> &[TDirectory2] {
-        self.as_ref().output_directories()
+        &self.0.action_result.output_directories
     }
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
-        self.as_ref().execution_kind(details)
-    }
-
-    fn execution_kind_with_materialized_inputs_for_failed(
-        &self,
-        details: RemoteCommandExecutionDetails,
-        materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
-    ) -> CommandExecutionKind {
-        self.as_ref()
-            .execution_kind_with_materialized_inputs_for_failed(
-                details,
-                materialized_inputs_for_failed,
-            )
-    }
-
-    fn timing(&self) -> CommandExecutionMetadata {
-        self.as_ref().timing()
-    }
-
-    fn std_streams(
-        &self,
-        client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
-        digest_config: DigestConfig,
-    ) -> RemoteCommandStdStreams {
-        self.as_ref().std_streams(client, use_case, digest_config)
-    }
-
-    fn ttl(&self) -> i64 {
-        self.as_ref().ttl()
-    }
-}
-
-impl RemoteActionResult for ActionResultResponse {
-    fn output_files(&self) -> &[TFile] {
-        &self.action_result.output_files
-    }
-
-    fn output_directories(&self) -> &[TDirectory2] {
-        &self.action_result.output_directories
-    }
-
-    fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
-        CommandExecutionKind::ActionCache { details }
+        match self.1 {
+            buck2_data::CacheType::ActionCache => CommandExecutionKind::ActionCache { details },
+            buck2_data::CacheType::RemoteDepFileCache => {
+                CommandExecutionKind::RemoteDepFileCache { details }
+            }
+        }
     }
 
     fn execution_kind_with_materialized_inputs_for_failed(
@@ -171,7 +133,7 @@ impl RemoteActionResult for ActionResultResponse {
     }
 
     fn timing(&self) -> CommandExecutionMetadata {
-        let mut timing = timing_from_re_metadata(&self.action_result.execution_metadata);
+        let mut timing = timing_from_re_metadata(&self.0.action_result.execution_metadata);
         // This was a cache hit so we didn't wait at all
         timing.wall_time = Duration::ZERO;
         timing.input_materialization_duration = Duration::ZERO;
@@ -185,50 +147,11 @@ impl RemoteActionResult for ActionResultResponse {
         use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client, use_case, digest_config)
+        RemoteCommandStdStreams::new(&self.0.action_result, client, use_case, digest_config)
     }
 
     fn ttl(&self) -> i64 {
-        self.ttl
-    }
-}
-
-impl RemoteActionResult for RemoteDepFileResult {
-    fn output_files(&self) -> &[TFile] {
-        self.0.output_files()
-    }
-
-    fn output_directories(&self) -> &[TDirectory2] {
-        self.0.output_directories()
-    }
-
-    fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
-        CommandExecutionKind::RemoteDepFileCache { details }
-    }
-
-    fn execution_kind_with_materialized_inputs_for_failed(
-        &self,
-        details: RemoteCommandExecutionDetails,
-        _materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
-    ) -> CommandExecutionKind {
-        self.execution_kind(details)
-    }
-
-    fn timing(&self) -> CommandExecutionMetadata {
-        self.0.timing()
-    }
-
-    fn std_streams(
-        &self,
-        client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
-        digest_config: DigestConfig,
-    ) -> RemoteCommandStdStreams {
-        self.0.std_streams(client, use_case, digest_config)
-    }
-
-    fn ttl(&self) -> i64 {
-        self.0.ttl()
+        self.0.ttl
     }
 }
 

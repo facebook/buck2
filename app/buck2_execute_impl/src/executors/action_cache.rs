@@ -31,8 +31,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
-use buck2_execute::re::remote_action_result::RemoteActionResult;
-use buck2_execute::re::remote_action_result::RemoteDepFileResult;
+use buck2_execute::re::remote_action_result::ActionCacheResult;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
@@ -134,35 +133,29 @@ async fn query_action_cache_and_download_result(
 
     let action_exit_code = response.action_result.exit_code;
 
-    // Select the RemoteActionResult type so that we set the CommandExecutionKind properly.
-    let (response, dep_file_metadata): (Box<dyn RemoteActionResult>, Option<RemoteDepFile>) =
-        match &cache_type {
-            CacheType::ActionCache => (Box::new(response) as _, None),
-            CacheType::RemoteDepFileCache(_) => {
-                let metadata = response
-                    .action_result
-                    .execution_metadata
-                    .auxiliary_metadata
-                    .iter()
-                    .find(|k| k.type_url == REMOTE_DEP_FILE_KEY);
+    let dep_file_metadata: Option<RemoteDepFile> = match &cache_type {
+        CacheType::ActionCache => None,
+        CacheType::RemoteDepFileCache(_) => {
+            let metadata = response
+                .action_result
+                .execution_metadata
+                .auxiliary_metadata
+                .iter()
+                .find(|k| k.type_url == REMOTE_DEP_FILE_KEY);
 
-                if metadata.is_none() {
-                    // No entry found
-                    return ControlFlow::Continue(manager);
-                }
-                let dep_file_entry = match RemoteDepFile::decode(metadata.unwrap().value.as_slice())
-                {
-                    Ok(entry) => entry,
-                    Err(e) => {
-                        return ControlFlow::Break(manager.error("remote_dep_file", e));
-                    }
-                };
-                (
-                    Box::new(RemoteDepFileResult(response)) as _,
-                    Some(dep_file_entry),
-                )
+            if metadata.is_none() {
+                // No entry found
+                return ControlFlow::Continue(manager);
             }
-        };
+            let dep_file_entry = match RemoteDepFile::decode(metadata.unwrap().value.as_slice()) {
+                Ok(entry) => entry,
+                Err(e) => {
+                    return ControlFlow::Break(manager.error("remote_dep_file", e));
+                }
+            };
+            Some(dep_file_entry)
+        }
+    };
 
     let identity = ReActionIdentity::new(
         command.target,
@@ -170,6 +163,7 @@ async fn query_action_cache_and_download_result(
         command.request.paths(),
     );
 
+    let response = ActionCacheResult(response, cache_type.to_proto());
     let res = download_action_results(
         request,
         materializer.as_ref(),
