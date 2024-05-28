@@ -36,6 +36,12 @@ def get_apple_xctoolchain_bundle_id_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain-bundle-id")
 
+def get_enable_library_evolution():
+    return attrs.bool(default = select({
+        "DEFAULT": False,
+        "config//features/apple:swift_library_evolution_enabled": True,
+    }))
+
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -109,6 +115,7 @@ def apple_test_extra_attrs():
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        "_enable_library_evolution": get_enable_library_evolution(),
         "_ios_booted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
         "_ios_unbooted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
         "_macos_idb_companion": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:macos_idb_companion", providers = [LocalResourceInfo]),
@@ -130,6 +137,7 @@ def apple_xcuitest_extra_attrs():
         # The test bundle to package in the UI test runner app.
         "test_bundle": attrs.dep(),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        "_enable_library_evolution": get_enable_library_evolution(),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.pop("_dsymutil_extra_flags", None)

@@ -327,6 +327,10 @@ def _compile_swiftmodule(
         "-experimental-skip-non-inlinable-function-bodies-without-types",
     ])
 
+    if ctx.attrs._enable_library_evolution:
+        argfile_cmd.add(["-enable-library-evolution"])
+        argfile_cmd.add(["-emit-module-interface"])
+
     cmd = cmd_args([
         "-emit-objc-header",
         "-emit-objc-header-path",
@@ -401,6 +405,9 @@ def _compile_object(
 
         if embed_bitcode:
             cmd.add("--embed-bitcode")
+
+    if ctx.attrs._enable_library_evolution:
+        cmd.add(["-enable-library-evolution"])
 
     argsfiles = _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain)
 

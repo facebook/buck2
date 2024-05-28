@@ -40,6 +40,7 @@ load(
     "get_apple_toolchain_attr",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
+    "get_enable_library_evolution",
 )
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
@@ -94,6 +95,7 @@ def _apple_binary_extra_attrs():
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+        "_enable_library_evolution": get_enable_library_evolution(),
         "_stripped_default": attrs.bool(default = False),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
     }
@@ -123,6 +125,7 @@ def _apple_library_extra_attrs():
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+        "_enable_library_evolution": get_enable_library_evolution(),
         "_stripped_default": attrs.bool(default = False),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
