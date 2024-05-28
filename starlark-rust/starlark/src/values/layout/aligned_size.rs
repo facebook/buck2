@@ -18,6 +18,9 @@
 use std::alloc::Layout;
 use std::mem;
 use std::ops::Add;
+use std::ops::Mul;
+use std::ops::Sub;
+use std::ptr::NonNull;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -26,7 +29,18 @@ use crate::values::layout::heap::repr::AValueHeader;
 
 /// Allocations in Starlark are word-aligned, and this type represents the size of an allocation.
 #[derive(
-    Copy, Clone, Dupe, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative
+    Copy,
+    Clone,
+    Dupe,
+    Default,
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Allocative,
+    derive_more::Display
 )]
 #[repr(transparent)]
 pub(crate) struct AlignedSize {
@@ -35,6 +49,8 @@ pub(crate) struct AlignedSize {
 }
 
 impl AlignedSize {
+    pub(crate) const ZERO: AlignedSize = AlignedSize::new_bytes(0);
+
     const MAX_SIZE: AlignedSize =
         AlignedSize::new_bytes(u32::MAX as usize - AValueHeader::ALIGN + 1);
 
@@ -71,6 +87,25 @@ impl AlignedSize {
             Err(_) => panic!("Layout::from_size_align failed"),
         }
     }
+
+    #[inline]
+    pub(crate) fn checked_next_power_of_two(self) -> Option<AlignedSize> {
+        let bytes = self.bytes.checked_next_power_of_two()?;
+        Some(AlignedSize::new_bytes(bytes as usize))
+    }
+
+    #[inline]
+    pub(crate) fn unchecked_sub(self, rhs: AlignedSize) -> AlignedSize {
+        debug_assert!(self.bytes >= rhs.bytes, "{:?} - {:?}", self, rhs);
+        AlignedSize {
+            bytes: self.bytes - rhs.bytes,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn ptr_diff(begin: NonNull<usize>, end: NonNull<usize>) -> AlignedSize {
+        unsafe { AlignedSize::new_bytes(end.as_ptr().byte_offset_from(begin.as_ptr()) as usize) }
+    }
 }
 
 impl Add for AlignedSize {
@@ -79,5 +114,68 @@ impl Add for AlignedSize {
     #[inline]
     fn add(self, rhs: AlignedSize) -> AlignedSize {
         AlignedSize::new_bytes(self.bytes.checked_add(rhs.bytes).unwrap() as usize)
+    }
+}
+
+impl Sub for AlignedSize {
+    type Output = AlignedSize;
+
+    #[inline]
+    fn sub(self, rhs: AlignedSize) -> AlignedSize {
+        let bytes = self.bytes.checked_sub(rhs.bytes).unwrap();
+        AlignedSize { bytes }
+    }
+}
+
+impl Mul<u32> for AlignedSize {
+    type Output = AlignedSize;
+
+    #[inline]
+    fn mul(self, rhs: u32) -> Self::Output {
+        let bytes = self.bytes.checked_mul(rhs).unwrap();
+        AlignedSize { bytes }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::values::layout::aligned_size::AlignedSize;
+    use crate::values::layout::heap::repr::AValueHeader;
+
+    #[test]
+    fn test_checked_next_power_of_two() {
+        assert_eq!(
+            AlignedSize::new_bytes(AValueHeader::ALIGN),
+            AlignedSize::new_bytes(AValueHeader::ALIGN)
+                .checked_next_power_of_two()
+                .unwrap()
+        );
+        assert_eq!(
+            AlignedSize::new_bytes(2 * AValueHeader::ALIGN),
+            AlignedSize::new_bytes(2 * AValueHeader::ALIGN)
+                .checked_next_power_of_two()
+                .unwrap()
+        );
+        assert_eq!(
+            AlignedSize::new_bytes(4 * AValueHeader::ALIGN),
+            AlignedSize::new_bytes(3 * AValueHeader::ALIGN)
+                .checked_next_power_of_two()
+                .unwrap()
+        );
+        assert_eq!(
+            AlignedSize::new_bytes(8 * AValueHeader::ALIGN),
+            AlignedSize::new_bytes(5 * AValueHeader::ALIGN)
+                .checked_next_power_of_two()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_sub() {
+        assert_eq!(
+            AlignedSize::new_bytes(2 * AValueHeader::ALIGN),
+            AlignedSize::new_bytes(5 * AValueHeader::ALIGN)
+                - AlignedSize::new_bytes(3 * AValueHeader::ALIGN)
+        );
     }
 }

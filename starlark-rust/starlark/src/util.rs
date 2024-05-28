@@ -16,3 +16,4 @@
  */
 
 pub(crate) mod arc_or_static;
+pub(crate) mod rtabort;

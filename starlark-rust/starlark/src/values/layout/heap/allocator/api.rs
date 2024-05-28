@@ -22,7 +22,6 @@ use crate::values::layout::value_alloc_size::ValueAllocSize;
 
 pub(crate) enum ChunkAllocationDirection {
     /// Next allocation in the chunk has higher address than the previous one.
-    #[allow(dead_code)] // TODO(nga): used in the following diff D40738710.
     Up,
     /// Next allocation in the chunk has lower address than the previous one.
     Down,

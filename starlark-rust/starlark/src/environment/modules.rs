@@ -615,7 +615,6 @@ x = f(1)
         let profile_info = module.aggregated_heap_profile_info().unwrap();
         let heap_summary = profile_info.gen_summary_csv();
         // Smoke test.
-        assert!(profile_info.unused_capacity.get() > 0);
         assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
     }
 

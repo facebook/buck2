@@ -62,6 +62,7 @@ use crate::values::layout::avalue::simple;
 use crate::values::layout::avalue::tuple_avalue;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::Reservation;
@@ -138,7 +139,7 @@ impl Heap {
 #[derive(Default)]
 pub struct FrozenHeap {
     /// My memory.
-    arena: Arena<Bump>,
+    arena: Arena<ChunkAllocator>,
     /// Memory I depend on.
     refs: RefCell<SmallSet<FrozenHeapRef>>,
     /// String interner.
@@ -150,7 +151,7 @@ pub struct FrozenHeap {
 #[derive(Default, Allocative)]
 #[allow(clippy::non_send_fields_in_send_ty)]
 struct FrozenFrozenHeap {
-    arena: Arena<Bump>,
+    arena: Arena<ChunkAllocator>,
     refs: Box<[FrozenHeapRef]>,
 }
 

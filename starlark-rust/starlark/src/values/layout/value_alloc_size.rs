@@ -31,14 +31,30 @@ pub(crate) struct ValueAllocSize {
 
 impl ValueAllocSize {
     #[inline]
+    pub(crate) fn try_new(size: AlignedSize) -> Option<ValueAllocSize> {
+        if size < MIN_ALLOC {
+            None
+        } else {
+            Some(ValueAllocSize { size })
+        }
+    }
+
+    #[inline]
     pub(crate) fn new(size: AlignedSize) -> ValueAllocSize {
-        assert!(size >= MIN_ALLOC);
-        ValueAllocSize { size }
+        match ValueAllocSize::try_new(size) {
+            Some(value) => value,
+            None => panic!("{size} is too small for a value (minimum is {MIN_ALLOC})"),
+        }
     }
 
     #[inline]
     pub(crate) fn layout(self) -> Layout {
         self.size.layout()
+    }
+
+    #[inline]
+    pub(crate) fn size(self) -> AlignedSize {
+        self.size
     }
 
     #[inline]
