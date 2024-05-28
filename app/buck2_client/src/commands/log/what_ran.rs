@@ -357,9 +357,17 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                     CommandReproducer::CacheQuery(cache_hit) => JsonReproducer::CacheQuery {
                         digest: &cache_hit.action_digest,
                     },
-                    CommandReproducer::CacheHit(cache_hit) => JsonReproducer::Cache {
-                        digest: &cache_hit.action_digest,
-                        action_key: cache_hit.action_key.as_deref(),
+                    CommandReproducer::CacheHit(cache_hit) => match cache_hit.cache_type() {
+                        buck2_data::CacheType::ActionCache => JsonReproducer::Cache {
+                            digest: &cache_hit.action_digest,
+                            action_key: cache_hit.action_key.as_deref(),
+                        },
+                        buck2_data::CacheType::RemoteDepFileCache => {
+                            JsonReproducer::ReDepFileCache {
+                                digest: &cache_hit.action_digest,
+                                action_key: cache_hit.action_key.as_deref(),
+                            }
+                        }
                     },
                     CommandReproducer::ReExecute(re_execute) => JsonReproducer::Re {
                         digest: &re_execute.action_digest,
@@ -480,6 +488,11 @@ mod json_reproducer {
             digest: &'a str,
         },
         Cache {
+            digest: &'a str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            action_key: Option<&'a str>,
+        },
+        ReDepFileCache {
             digest: &'a str,
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
