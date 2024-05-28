@@ -350,16 +350,6 @@ def _compile_swiftmodule(
         argfile_cmd.add(["-enable-library-evolution"])
         argfile_cmd.add(["-emit-module-interface"])
 
-    if swift_framework_output:
-        # this is generated implicitly once we pass -emit-module
-        argfile_cmd.hidden(swift_framework_output.swiftdoc.as_output())
-        argfile_cmd.add([
-            "-emit-parseable-module-interface-path",
-            swift_framework_output.swiftinterface.as_output(),
-            "-emit-private-module-interface-path",
-            swift_framework_output.private_swiftinterface.as_output(),
-        ])
-
     cmd = cmd_args([
         "-emit-objc-header",
         "-emit-objc-header-path",
@@ -367,6 +357,16 @@ def _compile_swiftmodule(
         "-emit-module-path",
         output_swiftmodule.as_output(),
     ])
+
+    if swift_framework_output:
+        # this is generated implicitly once we pass -emit-module
+        cmd.hidden(swift_framework_output.swiftdoc.as_output())
+        cmd.add([
+            "-emit-parseable-module-interface-path",
+            swift_framework_output.swiftinterface.as_output(),
+            "-emit-private-module-interface-path",
+            swift_framework_output.private_swiftinterface.as_output(),
+        ])
 
     if should_build_swift_incrementally(ctx, len(srcs)):
         incremental_compilation_output = get_incremental_swiftmodule_compilation_flags(ctx, srcs)

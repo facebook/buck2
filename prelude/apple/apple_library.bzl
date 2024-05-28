@@ -76,7 +76,7 @@ load("@prelude//apple/mockingbird/mockingbird_types.bzl", "MockingbirdLibraryInf
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
-load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags", "get_versioned_target_triple")
+load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags", "get_unversioned_target_triple", "get_versioned_target_triple")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
 load(
     ":debug.bzl",
@@ -119,9 +119,11 @@ AppleLibraryAdditionalParams = record(
 
 AppleLibraryForDistributionInfo = provider(
     fields = {
+        "module_name": str,
         "private_swiftinterface": Artifact,
         "swiftdoc": Artifact,
         "swiftinterface": Artifact,
+        "target_triple": str,
     },
 )
 AppleLibraryInfo = provider(
@@ -144,7 +146,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             shared_library_flags_overrides = None
         else:
             fail("Unsupported `shared_library_macho_file_type` attribute value: `{}`".format(shared_type))
-        constructor_params, _ = apple_library_rule_constructor_params_and_swift_providers(
+        constructor_params, swift_library_for_distribution = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_library",
@@ -162,12 +164,23 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         swift_header = constructor_params.swift_objc_header
         output = cxx_library_parameterized(ctx, constructor_params)
 
-        return output.providers + _make_mockingbird_library_info_provider(ctx) + _make_apple_library_info_provider(ctx, swift_header)
+        return output.providers + _make_mockingbird_library_info_provider(ctx) + _make_apple_library_info_provider(ctx, swift_header) + _make_apple_library_for_distribution_info_provider(ctx, swift_library_for_distribution)
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])
+
+def _make_apple_library_for_distribution_info_provider(ctx: AnalysisContext, swift_library_for_distribution: [None, SwiftLibraryForDistributionOutput]) -> list[AppleLibraryForDistributionInfo]:
+    if not swift_library_for_distribution:
+        return []
+    return [AppleLibraryForDistributionInfo(
+        target_triple = get_unversioned_target_triple(ctx).replace("macosx", "macos"),
+        swiftinterface = swift_library_for_distribution.swiftinterface,
+        private_swiftinterface = swift_library_for_distribution.private_swiftinterface,
+        swiftdoc = swift_library_for_distribution.swiftdoc,
+        module_name = get_module_name(ctx),
+    )]
 
 def _make_apple_library_info_provider(ctx: AnalysisContext, swift_header: [None, Artifact]) -> list[AppleLibraryInfo]:
     public_framework_headers = cxx_attr_headers_list(ctx, ctx.attrs.public_framework_headers, [], get_apple_cxx_headers_layout(ctx))

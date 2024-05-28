@@ -31,7 +31,7 @@ load(
     "AppleCoreDataSpec",  # @unused Used as a type
 )
 load(":apple_info_plist.bzl", "process_info_plist", "process_plist")
-load(":apple_library.bzl", "AppleLibraryInfo")
+load(":apple_library.bzl", "AppleLibraryForDistributionInfo", "AppleLibraryInfo")
 load(
     ":apple_resource_types.bzl",
     "AppleResourceDestination",
@@ -132,6 +132,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
     parts.extend(_copy_first_level_bundles(ctx))
     parts.extend(_copy_public_headers(ctx))
     parts.extend(_copy_module_map(ctx))
+    parts.extend(_copy_swift_library_evolution_support(ctx))
 
     return AppleBundleResourcePartListOutput(
         resource_parts = parts,
@@ -177,6 +178,31 @@ def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[A
     )
     resource_graph_node_map_func = get_resource_graph_node_map_func(resource_graph)
     return get_filtered_resources(ctx.label, resource_graph_node_map_func, ctx.attrs.resource_group, resource_group_mappings)
+
+def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBundlePart]:
+    extension = get_extension_attr(ctx)
+    if not extension == "framework":
+        return []
+
+    binary_deps = getattr(ctx.attrs, "binary")
+    if binary_deps == None:
+        return []
+
+    apple_library_for_distribution_info = binary_deps.get(AppleLibraryForDistributionInfo)
+    if apple_library_for_distribution_info == None:
+        return []
+    module_name = apple_library_for_distribution_info.module_name
+    swiftmodule_files = {}
+
+    swiftmodule_files.update({
+        apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
+        apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
+        apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
+    })
+
+    framework_module_dir = ctx.actions.declare_output(module_name + "framework.swiftmodule", dir = True)
+    ctx.actions.copied_dir(framework_module_dir.as_output(), swiftmodule_files)
+    return [AppleBundlePart(source = framework_module_dir, destination = AppleBundleDestination("modules"), new_name = module_name + ".swiftmodule")]
 
 def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
     if not ctx.attrs.copy_public_framework_headers:
