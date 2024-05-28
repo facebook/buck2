@@ -76,6 +76,7 @@ def _apple_xcframework_framework_attrib_split_transition_impl(
     new_platforms = _normalize_platforms(attrs.platforms).items()
     for os_value, cpu_values in new_platforms:
         updated_constraints = _strip_os_sdk_and_runtime_constraints(platform, refs)
+        updated_constraints[refs.swift_library_evolution[ConstraintSettingInfo].label] = refs.swift_library_evolution_enabled[ConstraintValueInfo]
 
         canonical_platform_suffix = ""
 
@@ -151,6 +152,8 @@ framework_split_transition = transition(
         "os": "config//os/constraints:os",
         "runtime": "config//runtime/constraints:runtime",
         "sdk": "config//os/sdk/apple/constraints:_",
+        "swift_library_evolution": "config//features/apple/constraints:swift_library_evolution",
+        "swift_library_evolution_enabled": "config//features/apple/constraints:swift_library_evolution_enabled",
         "universal": "config//cpu/constraints:universal",
         "universal_enabled": "config//cpu/constraints:universal-enabled",
         "watchos": "config//os/constraints:watchos",
