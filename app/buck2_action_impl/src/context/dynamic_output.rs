@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -21,8 +22,11 @@ use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
+use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 
+use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
+use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 use crate::dynamic::dynamic_lambda_params::DynamicLambdaParams;
 
 #[derive(buck2_error::Error, Debug)]
@@ -108,10 +112,43 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         let attributes_plugins_lambda = heap.alloc(StarlarkAnyComplex::new(DynamicLambdaParams {
             attributes: this.attributes,
             plugins: this.plugins,
-            lambda: f,
+            lambda: f.erase(),
+            arg: None,
         }));
         let mut this = this.state();
         this.register_dynamic_output(dynamic, outputs, attributes_plugins_lambda)?;
+        Ok(NoneType)
+    }
+
+    /// New version of `dynamic_output`.
+    ///
+    /// This is work in progress, and will eventually replace the old `dynamic_output`.
+    fn dynamic_output_new<'v>(
+        this: &'v AnalysisActions<'v>,
+        #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<NoneType> {
+        let dynamic_actions = dynamic_actions
+            .data
+            .try_borrow_mut()?
+            .take()
+            .context("dynamic_action data can be used only in one `dynamic_output_new` call")?;
+        let StarlarkDynamicActionsData {
+            dynamic,
+            outputs,
+            arg,
+            callable,
+        } = dynamic_actions;
+        let attributes_plugin_lambda = heap.alloc(StarlarkAnyComplex::new(DynamicLambdaParams {
+            lambda: callable.implementation.erase().to_callable(),
+            attributes: this.attributes,
+            plugins: this.plugins,
+            arg: Some(arg),
+        }));
+
+        let mut this = this.state();
+        this.register_dynamic_output(dynamic, outputs, attributes_plugin_lambda)?;
+
         Ok(NoneType)
     }
 }

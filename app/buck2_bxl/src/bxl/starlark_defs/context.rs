@@ -630,6 +630,7 @@ impl BxlEvalContext<'_> {
                 ctx.to_value(),
                 dynamic_lambda_ctx_data.artifacts,
                 dynamic_lambda_ctx_data.outputs,
+                dynamic_lambda_ctx_data.lambda.arg(),
             )?;
 
             (

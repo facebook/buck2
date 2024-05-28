@@ -22,6 +22,10 @@ pub static REGISTER_BUCK2_BUILD_API_INTERNALS: LateBinding<fn(&mut GlobalsBuilde
 pub static REGISTER_BUCK2_TRANSITION_GLOBALS: LateBinding<fn(&mut GlobalsBuilder)> =
     LateBinding::new("REGISTER_BUCK2_TRANSITION_GLOBALS");
 
+/// Globals defined in `buck2_action_impl` crate.
+pub static REGISTER_BUCK2_ACTION_IMPL_GLOBALS: LateBinding<fn(&mut GlobalsBuilder)> =
+    LateBinding::new("REGISTER_BUCK2_ACTION_IMPL_GLOBALS");
+
 /// Globals defined in `buck2_anon_targets` crate.
 pub static REGISTER_BUCK2_ANON_TARGETS_GLOBALS: LateBinding<fn(&mut GlobalsBuilder)> =
     LateBinding::new("REGISTER_BUCK2_ANON_TARGETS_GLOBALS");

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ACTION_IMPL_GLOBALS;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ANON_TARGETS_GLOBALS;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BUILD_API_GLOBALS;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BUILD_API_INTERNALS;
@@ -49,6 +50,7 @@ fn from_late_binding(l: &LateBinding<fn(&mut GlobalsBuilder)>, builder: &mut Glo
 }
 
 fn register_buck2_natives(builder: &mut GlobalsBuilder) {
+    from_late_binding(&REGISTER_BUCK2_ACTION_IMPL_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_BUILD_API_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_TRANSITION_GLOBALS, builder);
     from_late_binding(&REGISTER_BUCK2_BXL_GLOBALS, builder);

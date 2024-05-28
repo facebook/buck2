@@ -17,6 +17,7 @@ use std::sync::Once;
 mod actions;
 mod context;
 pub mod dynamic;
+mod starlark_defs;
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
@@ -25,5 +26,6 @@ pub fn init_late_bindings() {
         actions::impls::run::dep_files::init_flush_dep_files();
         context::init_analysis_action_methods_actions();
         dynamic::registry::init_dynamic_registry_new();
+        starlark_defs::init_register_buck2_action_impl_globals();
     });
 }

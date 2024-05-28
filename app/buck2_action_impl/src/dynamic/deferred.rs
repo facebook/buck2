@@ -131,9 +131,13 @@ impl DynamicLambda {
         ctx: Value<'v>,
         artifacts: Value<'v>,
         outputs: Value<'v>,
+        arg: Option<Value<'v>>,
     ) -> anyhow::Result<()> {
+        let mut call_args = Vec::with_capacity(3 + arg.is_some() as usize);
+        call_args.extend(&[ctx, artifacts, outputs]);
+        call_args.extend(arg);
         let return_value = eval
-            .eval_function(lambda, &[ctx, artifacts, outputs], &[])
+            .eval_function(lambda, &call_args, &[])
             .map_err(BuckStarlarkError::new)?;
 
         if !return_value.is_none() {
@@ -244,6 +248,7 @@ impl Deferred for DynamicLambda {
                     ctx.to_value(),
                     dynamic_lambda_ctx_data.artifacts,
                     dynamic_lambda_ctx_data.outputs,
+                    dynamic_lambda_ctx_data.lambda.arg(),
                 )?;
 
                 ctx.assert_no_promises()?;
