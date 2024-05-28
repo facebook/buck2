@@ -70,12 +70,18 @@ def get_min_deployment_version_for_node(ctx: AnalysisContext) -> str:
     return min_version
 
 def get_versioned_target_triple(ctx: AnalysisContext) -> str:
+    target_sdk_version = get_min_deployment_version_for_node(ctx) or ""
+    return _get_target_triple(ctx, target_sdk_version)
+
+def get_unversioned_target_triple(ctx: AnalysisContext) -> str:
+    return _get_target_triple(ctx, "")
+
+def _get_target_triple(ctx: AnalysisContext, target_sdk_version: str) -> str:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     architecture = apple_toolchain_info.architecture
     if architecture == None:
         fail("Need to set `architecture` field of apple_toolchain(), target: {}".format(ctx.label))
 
-    target_sdk_version = get_min_deployment_version_for_node(ctx)
     sdk_name = apple_toolchain_info.sdk_name
     target_triple_format_str = _TARGET_TRIPLE_MAP.get(sdk_name)
     if target_triple_format_str == None:
