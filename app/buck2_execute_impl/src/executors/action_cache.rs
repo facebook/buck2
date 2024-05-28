@@ -209,6 +209,7 @@ async fn query_action_cache_and_download_result(
                 command.request.all_args_str(),
                 action_digest,
             );
+            res.action_result = Some(response.0.action_result);
         }
     }
 

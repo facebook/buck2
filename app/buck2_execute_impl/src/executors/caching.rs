@@ -582,7 +582,7 @@ impl UploadCache for CacheUploader {
             )
         } else if let Some(ref mut dep_file_entry) = dep_file_entry {
             let action_result = dep_file_entry.action_result.take();
-            if res.was_remotely_executed() && action_result.is_none() {
+            if action_result.is_none() {
                 return Err(
                     DepFileReActionResultMissingError(action_digest_and_blobs.action).into(),
                 );

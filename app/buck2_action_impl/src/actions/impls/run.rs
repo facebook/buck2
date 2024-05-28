@@ -725,7 +725,8 @@ impl IncrementalActionExecutable for RunAction {
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();
-        if result.was_executed()
+        if result.was_success()
+            && !result.was_served_by_remote_dep_file_cache()
             && (self.inner.allow_cache_upload || upload_dep_file || force_cache_upload()?)
         {
             let dep_file_entry = match &mut dep_file_bundle {

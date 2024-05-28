@@ -214,11 +214,6 @@ impl CommandExecutionResult {
         }
     }
 
-    /// Action was executed and succeeded, not retrieved from cache.
-    pub fn was_executed(&self) -> bool {
-        self.was_remotely_executed() || self.was_locally_executed()
-    }
-
     pub fn was_remotely_executed(&self) -> bool {
         match self.report.status {
             CommandExecutionStatus::Success {
