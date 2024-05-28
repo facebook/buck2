@@ -230,7 +230,7 @@ async fn build_action_no_redirect(
                     .last()
                     .and_then(|r| r.status.execution_kind())
                     .map(|e| e.as_enum());
-                wall_time = None;
+                wall_time = command_reports.last().map(|r| r.timing.wall_time);
                 output_size = 0;
                 // We define the below fields only in the instance of an action error
                 // so as to reduce Scribe traffic and log it in buck2_action_errors
@@ -325,7 +325,6 @@ async fn build_action_no_redirect(
     let (action_execution_data, spans) =
         async_record_root_spans(span_async(start_event, fut.boxed())).await;
 
-    // TODO: This wall time is rather wrong. We should report a wall time on failures too.
     ctx.store_evaluation_data(BuildKeyActivationData {
         action_with_extra_data: ActionWithExtraData {
             action: action.dupe(),
