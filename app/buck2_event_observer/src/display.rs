@@ -626,7 +626,12 @@ impl<'a> ActionErrorDisplay<'a> {
                     );
                 }
                 Some(Command::RemoteCommand(remote_command)) => {
-                    if !buck2_core::is_open_source() {
+                    if buck2_core::is_open_source() {
+                        append!(
+                            "Remote action digest: '{}'",
+                            remote_command.action_digest
+                        );
+                    } else {
                         append!(
                             "Remote action{}, reproduce with: `frecli cas download-action {}`",
                             if remote_command.cache_hit {
@@ -656,6 +661,10 @@ impl<'a> ActionErrorDisplay<'a> {
 
         append_stream("Stdout", &command_failed.stdout);
         append_stream("Stderr", &command_failed.stderr);
+
+        if let Some(ref additional_info) = command_failed.additional_message {
+            append_stream("Info", additional_info);
+        }
 
         if let Some(error_diagnostics) = self.error_diagnostics {
             match error_diagnostics.data.as_ref().unwrap() {

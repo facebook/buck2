@@ -172,6 +172,12 @@ impl ReExecutor {
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());
+        let additional_message = if response.error.message.is_empty() {
+            None
+        } else {
+            Some(response.error.message.clone())
+        };
+
         if response.error.code != TCode::OK {
             let res = if let Some(out) = as_missing_outputs_error(&response.error) {
                 // TODO: Add a dedicated report variant for this.
@@ -187,6 +193,7 @@ impl ReExecutor {
                     // We also don't get this output so don't put trash in here.
                     None,
                     Default::default(),
+                    additional_message,
                 )
             } else if is_timeout_error(&response.error) && request.timeout().is_some() {
                 manager.timeout(
@@ -200,6 +207,7 @@ impl ReExecutor {
                         digest_config,
                     )),
                     response.timing(),
+                    additional_message,
                 )
             } else {
                 manager.error(
@@ -306,6 +314,12 @@ impl PreparedCommandExecutor for ReExecutor {
             .await?;
 
         let exit_code = response.action_result.exit_code;
+        let additional_message = if response.error.message.is_empty() {
+            None
+        } else {
+            Some(response.error.message.clone())
+        };
+
         let res = download_action_results(
             request,
             &*self.materializer,
@@ -327,6 +341,7 @@ impl PreparedCommandExecutor for ReExecutor {
             exit_code,
             &self.artifact_fs,
             self.materialize_failed_inputs,
+            additional_message,
         )
         .boxed()
         .await;
