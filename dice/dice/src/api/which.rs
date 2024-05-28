@@ -15,7 +15,7 @@ use gazebo::variants::VariantName;
 use thiserror::Error;
 
 /// which dice impl to use
-#[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative)]
+#[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative, PartialEq)]
 pub enum WhichDice {
     Legacy,
     Modern,
