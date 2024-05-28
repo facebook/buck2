@@ -119,6 +119,8 @@ use derive_more::From;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
+use futures::stream::FuturesUnordered;
+use futures::stream::StreamExt;
 use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
 use indexmap::indexset;
@@ -311,6 +313,8 @@ impl<'a> BuckTestOrchestrator<'a> {
         let mut output_map = HashMap::new();
         let mut paths_to_materialize = vec![];
 
+        let remote_storage_config_update_futures = FuturesUnordered::new();
+
         for (test_path, artifact) in outputs {
             let project_relative_path = fs.buck_out_path_resolver().resolve_test(&test_path);
             let output_name = test_path.into_path().into();
@@ -319,8 +323,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 .iter()
                 .find(|&x| x.name == output_name)
                 .map_or_else(Default::default, |x| x.remote_storage_config.dupe());
-
-            let output = match (
+            match (
                 remote_storage_config.supports_remote,
                 execution_kind.as_ref(),
                 translations::convert_artifact(output_name.clone().into_string(), artifact),
@@ -333,21 +336,27 @@ impl<'a> BuckTestOrchestrator<'a> {
                 // RE? Alternatively, when we make buck upload local testing
                 // artifacts to CAS, we can remove this condition altogether.
                 (true, Some(CommandExecutionKind::Remote { .. }), Some(remote_object)) => {
-                    remote_storage::apply_config(
-                        self.dice.per_transaction_data().get_re_client(),
-                        &remote_object,
-                        &remote_storage_config,
-                    )
-                    .await?;
-                    Output::RemoteObject(remote_object)
+                    let future = async move {
+                        let _unused = remote_storage::apply_config(
+                            self.dice.per_transaction_data().get_re_client(),
+                            &remote_object,
+                            &remote_storage_config,
+                        )
+                        .await;
+                        (output_name, remote_object)
+                    };
+                    remote_storage_config_update_futures.push(future);
                 }
                 _ => {
                     paths_to_materialize.push(project_relative_path.clone());
                     let abs_path = fs.fs().resolve(&project_relative_path);
-                    Output::LocalPath(abs_path)
+                    output_map.insert(output_name, Output::LocalPath(abs_path));
                 }
             };
-            output_map.insert(output_name, output);
+        }
+        let results: Vec<_> = remote_storage_config_update_futures.collect().await;
+        for result in results {
+            output_map.insert(result.0, Output::RemoteObject(result.1));
         }
 
         // Request materialization in case this ran on RE. Eventually Tpx should be able to
