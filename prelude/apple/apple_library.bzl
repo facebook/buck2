@@ -18,6 +18,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
+    "SwiftLibraryForDistributionOutput",  # @unused Used as a type
     "compile_swift",
     "get_swift_anonymous_targets",
     "get_swift_debug_infos",
@@ -116,6 +117,13 @@ AppleLibraryAdditionalParams = record(
     force_link_group_linking = field(bool, False),
 )
 
+AppleLibraryForDistributionInfo = provider(
+    fields = {
+        "private_swiftinterface": Artifact,
+        "swiftdoc": Artifact,
+        "swiftinterface": Artifact,
+    },
+)
 AppleLibraryInfo = provider(
     fields = {
         "public_framework_headers": ArtifactTSet,
@@ -136,7 +144,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             shared_library_flags_overrides = None
         else:
             fail("Unsupported `shared_library_macho_file_type` attribute value: `{}`".format(shared_type))
-        constructor_params = apple_library_rule_constructor_params_and_swift_providers(
+        constructor_params, _ = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_library",
@@ -218,7 +226,7 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
         tset = mockingbird_tset,
     )]
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams:
+def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> (CxxRuleConstructorParams, SwiftLibraryForDistributionOutput | None):
     mockingbird_gen_sources = []
     if not "dummy_library" in ctx.attrs.labels:
         for dep in cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx):
@@ -316,8 +324,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     validation_deps_outputs = get_validation_deps_outputs(ctx)
     if swift_compile:
         swift_objc_header = swift_compile.exported_swift_header
+        swift_library_for_distribution_output = swift_compile.swift_library_for_distribution_output
     else:
         swift_objc_header = None
+        swift_library_for_distribution_output = None
 
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
@@ -390,7 +400,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         swift_objc_header = swift_objc_header,
-    )
+    ), swift_library_for_distribution_output
 
 def _get_extra_linker_flags_and_outputs(
         ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo]]):

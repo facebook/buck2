@@ -88,6 +88,12 @@ SwiftObjectOutput = record(
     output_map_artifact = field(Artifact | None),
 )
 
+SwiftLibraryForDistributionOutput = record(
+    swiftinterface = field(Artifact),
+    private_swiftinterface = field(Artifact),
+    swiftdoc = field(Artifact),
+)
+
 SwiftCompilationOutput = record(
     # The object file output from compilation.
     object_files = field(list[Artifact]),
@@ -116,6 +122,8 @@ SwiftCompilationOutput = record(
     output_map_artifact = field(Artifact | None),
     # An optional artifact of the exported symbols emitted for this module.
     exported_symbols = field(Artifact | None),
+    # An optional artifact with files that support consuming the generated library with later versions of the swift compiler.
+    swift_library_for_distribution_output = field(SwiftLibraryForDistributionOutput | None),
 )
 
 SwiftDebugInfo = record(
@@ -258,12 +266,21 @@ def compile_swift(
 
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
+
+    swift_framework_output = None
+    if ctx.attrs._enable_library_evolution:
+        swift_framework_output = SwiftLibraryForDistributionOutput(
+            swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface"),
+            private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface"),
+            swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc"),  #this is generated automatically once we pass -emit-module-info, so must have this name
+        )
+
     output_symbols = None
 
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
 
-    _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_symbols)
+    _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_symbols, swift_framework_output)
 
     object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
 
@@ -306,6 +323,7 @@ def compile_swift(
         clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
+        swift_library_for_distribution_output = swift_framework_output,
     ), swift_interface_info)
 
 # We use separate actions for swiftmodule and object file output. This
@@ -319,7 +337,8 @@ def _compile_swiftmodule(
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
         output_header: Artifact,
-        output_symbols: Artifact | None) -> CompileArgsfiles:
+        output_symbols: Artifact | None,
+        swift_framework_output: SwiftLibraryForDistributionOutput | None) -> CompileArgsfiles:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-emit-module",
@@ -330,6 +349,16 @@ def _compile_swiftmodule(
     if ctx.attrs._enable_library_evolution:
         argfile_cmd.add(["-enable-library-evolution"])
         argfile_cmd.add(["-emit-module-interface"])
+
+    if swift_framework_output:
+        # this is generated implicitly once we pass -emit-module
+        argfile_cmd.hidden(swift_framework_output.swiftdoc.as_output())
+        argfile_cmd.add([
+            "-emit-parseable-module-interface-path",
+            swift_framework_output.swiftinterface.as_output(),
+            "-emit-private-module-interface-path",
+            swift_framework_output.private_swiftinterface.as_output(),
+        ])
 
     cmd = cmd_args([
         "-emit-objc-header",
