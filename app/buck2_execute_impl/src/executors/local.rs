@@ -448,7 +448,7 @@ impl LocalExecutor {
 
                 let execution_time = execution_start.elapsed();
 
-                let timing = CommandExecutionMetadata {
+                let timing = Box::new(CommandExecutionMetadata {
                     wall_time: execution_time,
                     execution_time,
                     start_time,
@@ -457,7 +457,7 @@ impl LocalExecutor {
                     hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
                     hashed_artifacts_count: 0,
                     queue_duration: None,
-                };
+                });
 
                 (timing, r)
             },
@@ -495,7 +495,7 @@ impl LocalExecutor {
                 timing.hashed_artifacts_count = hashing_time.hashed_artifacts_count;
 
                 if exit_code == 0 {
-                    manager.success(execution_kind, outputs, std_streams, timing)
+                    manager.success(execution_kind, outputs, std_streams, *timing)
                 } else {
                     let manager = check_inputs(
                         manager,
@@ -511,7 +511,7 @@ impl LocalExecutor {
                         outputs,
                         std_streams,
                         Some(exit_code),
-                        timing,
+                        *timing,
                     )
                 }
             }
@@ -537,11 +537,11 @@ impl LocalExecutor {
                             .into_bytes(),
                     },
                     None,
-                    timing,
+                    *timing,
                 )
             }
             GatherOutputStatus::TimedOut(duration) => {
-                manager.timeout(execution_kind, duration, std_streams, timing)
+                manager.timeout(execution_kind, duration, std_streams, *timing)
             }
             GatherOutputStatus::Cancelled => manager.cancel_claim(),
         }
