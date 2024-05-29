@@ -844,7 +844,7 @@ impl RemoteExecutionClientImpl {
                 async move {
                     loop {
                         let next = futures::future::select(
-                            manager.liveliness_observer.while_alive(),
+                            manager.inner.liveliness_observer.while_alive(),
                             receiver.next(),
                         );
 

@@ -87,7 +87,7 @@ pub async fn download_action_results<'a>(
         }
     };
 
-    if action_exit_code != 0 && manager.intend_to_fallback_on_failure {
+    if action_exit_code != 0 && manager.inner.intend_to_fallback_on_failure {
         // Do not attempt to download outputs in this case so
         // as to avoid cancelling in-flight local execution:
         // either local already finished and the outputs are

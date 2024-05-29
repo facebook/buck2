@@ -41,13 +41,17 @@ trait CommandExecutionManagerLike: Sized {
     fn execution_kind(&self) -> Option<CommandExecutionKind>;
 }
 
-/// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
-pub struct CommandExecutionManager {
+pub struct CommandExecutionManagerInner {
     pub claim_manager: Box<dyn ClaimManager>,
     pub events: EventDispatcher,
     pub liveliness_observer: Arc<dyn LivelinessObserver>,
     pub intend_to_fallback_on_failure: bool,
     pub execution_kind: Option<CommandExecutionKind>,
+}
+
+/// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
+pub struct CommandExecutionManager {
+    pub inner: Box<CommandExecutionManagerInner>,
 }
 
 impl CommandExecutionManager {
@@ -57,28 +61,36 @@ impl CommandExecutionManager {
         liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Self {
         Self {
-            claim_manager,
-            events,
-            liveliness_observer,
-            intend_to_fallback_on_failure: false,
-            execution_kind: None,
+            inner: Box::new(CommandExecutionManagerInner {
+                claim_manager,
+                events,
+                liveliness_observer,
+                intend_to_fallback_on_failure: false,
+                execution_kind: None,
+            }),
         }
     }
 
     /// Acquire a claim. This might never return if the claim has been taken.
     pub fn claim(self) -> impl Future<Output = CommandExecutionManagerWithClaim> {
-        self.claim_manager
+        let events = self.inner.events;
+        let liveliness_observer = self.inner.liveliness_observer;
+        let execution_kind = self.inner.execution_kind;
+        self.inner
+            .claim_manager
             .claim()
             .map(|claim| CommandExecutionManagerWithClaim {
-                claim,
-                events: self.events,
-                liveliness_observer: self.liveliness_observer,
-                execution_kind: self.execution_kind,
+                inner: Box::new(CommandExecutionManagerWithClaimInner {
+                    claim,
+                    events,
+                    liveliness_observer,
+                    execution_kind,
+                }),
             })
     }
 
     pub fn on_result_delayed(&mut self) {
-        self.claim_manager.on_result_delayed();
+        self.inner.claim_manager.on_result_delayed();
     }
 
     pub fn cancel(self) -> CommandExecutionResult {
@@ -95,12 +107,12 @@ impl CommandExecutionManager {
         mut self,
         intend_to_fallback_on_failure: bool,
     ) -> Self {
-        self.intend_to_fallback_on_failure = intend_to_fallback_on_failure;
+        self.inner.intend_to_fallback_on_failure = intend_to_fallback_on_failure;
         self
     }
 
     pub fn with_execution_kind(mut self, execution_kind: CommandExecutionKind) -> Self {
-        self.execution_kind = Some(execution_kind);
+        self.inner.execution_kind = Some(execution_kind);
         self
     }
 }
@@ -134,15 +146,19 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
     }
 
     fn execution_kind(&self) -> Option<CommandExecutionKind> {
-        self.execution_kind.clone()
+        self.inner.execution_kind.clone()
     }
 }
 
-pub struct CommandExecutionManagerWithClaim {
+pub struct CommandExecutionManagerWithClaimInner {
     pub events: EventDispatcher,
     pub liveliness_observer: Arc<dyn LivelinessObserver>,
     pub execution_kind: Option<CommandExecutionKind>,
     claim: Box<dyn Claim>,
+}
+
+pub struct CommandExecutionManagerWithClaim {
+    pub inner: Box<CommandExecutionManagerWithClaimInner>,
 }
 
 /// Like CommandExecutionManager but provides access to things that are only allowed with a Claim;
@@ -176,7 +192,7 @@ impl CommandExecutionManagerWithClaim {
     }
 
     pub fn with_execution_kind(mut self, execution_kind: CommandExecutionKind) -> Self {
-        self.execution_kind = Some(execution_kind);
+        self.inner.execution_kind = Some(execution_kind);
         self
     }
 }
@@ -193,7 +209,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
         CommandExecutionResult {
             outputs,
             report: CommandExecutionReport {
-                claim: Some(self.claim),
+                claim: Some(self.inner.claim),
                 status,
                 timing,
                 std_streams,
@@ -210,7 +226,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
     }
 
     fn execution_kind(&self) -> Option<CommandExecutionKind> {
-        self.execution_kind.clone()
+        self.inner.execution_kind.clone()
     }
 }
 

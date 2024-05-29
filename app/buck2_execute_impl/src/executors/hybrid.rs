@@ -162,9 +162,10 @@ where
         let local_result = self.local_exec_cmd(
             command,
             Box::new(claim_manager.dupe()),
-            manager.events.dupe(),
+            manager.inner.events.dupe(),
             Arc::new(
                 manager
+                    .inner
                     .liveliness_observer
                     .dupe()
                     .and(local_execution_liveliness_observer.dupe()),
@@ -179,8 +180,8 @@ where
                 Box::new(claim_manager),
                 remote_execution_liveliness_guard,
             )),
-            manager.events.dupe(),
-            manager.liveliness_observer.dupe(),
+            manager.inner.events.dupe(),
+            manager.inner.liveliness_observer.dupe(),
             cancellations,
             fallback_on_failure,
         );

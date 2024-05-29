@@ -371,7 +371,7 @@ impl LocalExecutor {
                     StrOrOsStr::from(build_id),
                 )))
         };
-        let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
+        let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
 
         let (worker, manager) = self
             .initialize_worker(request, manager, dispatcher)
