@@ -302,10 +302,12 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
 def resolve_deps(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
+    # The `getattr`s are needed for when we're operating on
+    # `prebuilt_rust_library` rules, which don't have those attrs.
     dependencies = _do_resolve_deps(
         deps = ctx.attrs.deps,
-        named_deps = ctx.attrs.named_deps,
-        flagged_deps = ctx.attrs.flagged_deps,
+        named_deps = getattr(ctx.attrs, "named_deps", {}),
+        flagged_deps = getattr(ctx.attrs, "flagged_deps", []),
     )
 
     if dep_ctx.include_doc_deps:

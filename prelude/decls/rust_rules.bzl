@@ -10,11 +10,64 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
-load("@prelude//rust:rust_library.bzl", "rust_library_impl")
+load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
 load(":common.bzl", "buck", "prelude_rule")
 load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")
+
+prebuilt_rust_library = prelude_rule(
+    name = "prebuilt_rust_library",
+    impl = prebuilt_rust_library_impl,
+    docs = """
+        A prebuilt\\_rust\\_library() specifies a pre-built Rust crate, and any dependencies
+        it may have on other crates (typically also prebuilt).
+
+
+        Note: Buck is currently tested with (and therefore supports) version 1.32.0 of Rust.
+    """,
+    examples = """
+        ```
+
+        prebuilt_rust_library(
+          name = 'dailygreet',
+          rlib = 'libdailygreet.rlib',
+          deps = [
+            ':jinsy',
+          ],
+        )
+
+        prebuilt_rust_library(
+          name = 'jinsy',
+          rlib = 'libarbiter-6337e9cb899bd295.rlib',
+        )
+
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "rlib": attrs.source(doc = """
+                Path to the precompiled Rust crate - typically of the form 'libfoo.rlib', or
+                'libfoo-abc123def456.rlib' if it has symbol versioning metadata.
+            """),
+        } |
+        native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any")) |
+        rust_common.crate(crate_type = attrs.string(default = "")) |
+        rust_common.deps_arg(is_binary = False) |
+        {
+            "contacts": attrs.list(attrs.string(), default = []),
+            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "labels": attrs.list(attrs.string(), default = []),
+            "licenses": attrs.list(attrs.source(), default = []),
+            "proc_macro": attrs.bool(default = False),
+        } |
+        rust_common.cxx_toolchain_arg() |
+        rust_common.rust_toolchain_arg()
+    ),
+    uses_plugins = [RustProcMacroPlugin],
+)
 
 def _rust_common_attributes(is_binary: bool):
     return {
@@ -275,6 +328,7 @@ rust_test = prelude_rule(
 )
 
 rust_rules = struct(
+    prebuilt_rust_library = prebuilt_rust_library,
     rust_binary = rust_binary,
     rust_library = rust_library,
     rust_test = rust_test,
