@@ -282,15 +282,29 @@ class Buck(Executable):
         """
         xml_flag, test_output_file = self._create_xml_file()
 
+        argv_list = list(argv)
+        argv_separator_idx = (
+            argv_list.index("--") if "--" in argv_list else len(argv_list)
+        )
+        buck_argv = argv_list[0:argv_separator_idx]
+        test_argv = argv_list[argv_separator_idx + 1 :]
+
         buck2_tpx = os.environ.get("BUCK2_TPX")
         if buck2_tpx is not None:
-            patched_argv = [
+            buck_argv = [
                 "--config",
                 "test.v2_test_executor={}".format(buck2_tpx),
-                *argv,
+                *buck_argv,
             ]
-        else:
-            patched_argv = list(argv)
+
+        default_test_executor = True
+        for arg in buck_argv:
+            if "test.v2_test_executor" in arg:
+                default_test_executor = False
+
+        if default_test_executor:
+            test_argv += ["--run-disabled"]
+        patched_argv = buck_argv + ["--"] + test_argv
 
         return self._run_buck_command(
             "test",
