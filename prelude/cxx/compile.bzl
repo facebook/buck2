@@ -67,6 +67,7 @@ CxxExtension = enum(
     ".hh",
     ".h++",
     ".hxx",
+    ".bc",
     *AsmExtensions.values()
 )
 
@@ -551,7 +552,7 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
 
 def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing.Any:
     compiler_info = None
-    if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
+    if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
         compiler_info = toolchain.cxx_compiler_info
     elif ext.value in (".c", ".m"):
         compiler_info = toolchain.c_compiler_info
@@ -587,6 +588,8 @@ def _get_category(ext: CxxExtension) -> str:
         return "cuda_compile"
     elif ext.value == ".hip":
         return "hip_compile"
+    elif ext.value == ".bc":
+        return "bitcode_compile"
     else:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown extension: " + ext.value)
@@ -609,6 +612,9 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
     elif ext.value == ".hip":
         # TODO (T118797886): HipCompilerInfo doesn't have dep files processor.
         # Should it?
+        return None
+    elif ext.value == ".bc":
+        # Bitcode doesn't have depfiles
         return None
 
     # Return the file type as well
