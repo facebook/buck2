@@ -255,6 +255,13 @@ assert_eq(list(set3.traverse(ordering = "bfs")), ["qux", "foo", "bar"])
 
 ## Implementation details
 
+### Performance
+
+The performance benefits of tsets arise due to:
+
+- **Caching**: projections and reductions are cached.
+- **Lazy Evaluation**: projection traversals are evaluated lazily.
+
 ### Evaluation
 
 Projections and reductions are evaluated eagerly for each node of your
