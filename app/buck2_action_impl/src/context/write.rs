@@ -34,6 +34,7 @@ use sha1::Sha1;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -50,6 +51,12 @@ enum WriteActionError {
         "Argument type attributes detected in a content to be written into a file, but support for arguments was not turned on. Use `allow_args` parameter to turn on the support for arguments."
     )]
     ArgAttrsDetectedButNotAllowed,
+}
+
+#[derive(UnpackValue, StarlarkTypeRepr)]
+enum WriteContentArg<'v> {
+    CommandLineArg(CommandLineArg<'v>),
+    StarlarkCommandLineValueUnpack(StarlarkCommandLineValueUnpack<'v>),
 }
 
 #[starlark_module]
@@ -127,7 +134,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     fn write<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] content: Value<'v>,
+        #[starlark(require = pos)] content: WriteContentArg<'v>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] allow_args: bool,
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
@@ -207,16 +214,15 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
-        let (content_cli, written_macro_count, mut associated_artifacts) =
-            if let Some(content) = CommandLineArg::unpack_value(content) {
+        let (content_cli, written_macro_count, mut associated_artifacts) = match content {
+            WriteContentArg::CommandLineArg(content) => {
                 let content_arg = content.as_command_line_arg();
                 let count = count_write_to_file_macros(allow_args, content_arg)?;
                 let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
                 (content, count, cli_inputs)
-            } else {
-                let cli = StarlarkCmdArgs::try_from_value_typed(
-                    StarlarkCommandLineValueUnpack::unpack_value_err(content)?,
-                )?;
+            }
+            WriteContentArg::StarlarkCommandLineValueUnpack(content) => {
+                let cli = StarlarkCmdArgs::try_from_value_typed(content)?;
                 let count = count_write_to_file_macros(allow_args, &cli)?;
                 let cli_inputs = get_cli_inputs(with_inputs, &cli)?;
                 (
@@ -224,7 +230,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     count,
                     cli_inputs,
                 )
-            };
+            }
+        };
 
         let written_macro_files = if written_macro_count > 0 {
             let macro_directory_path = {
