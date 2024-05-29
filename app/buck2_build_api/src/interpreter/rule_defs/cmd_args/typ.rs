@@ -548,7 +548,10 @@ impl<'v> StarlarkCmdArgs<'v> {
 
     pub fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
         let mut builder = Self::new();
-        builder.0.get_mut().add_value(value)?;
+        builder
+            .0
+            .get_mut()
+            .add_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)?;
         Ok(builder)
     }
 }
