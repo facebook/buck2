@@ -369,39 +369,6 @@ fn test_relative_to_does_not_affect_new_artifacts() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_parent_old() -> anyhow::Result<()> {
-    // Remove this test when `.parent()` is removed.
-    let mut tester = tester()?;
-    let contents = indoc!(
-        r#"
-        def test():
-            args = cmd_args(absolute_suffix="!")
-            args.add(source_artifact("foo","bar/baz/qux.h"))
-            args.parent()
-            assert_eq(get_args(args), ["foo/bar/baz!"])
-        "#
-    );
-    tester.run_starlark_bzl_test(contents)?;
-
-    let too_many_parent_calls = indoc!(
-        r#"
-        def test():
-            args = cmd_args()
-            args.add(source_artifact("foo","qux.h"))
-            args.parent().parent().parent()
-            get_args(args)
-        "#
-    );
-    expect_error(
-        tester.run_starlark_bzl_test(too_many_parent_calls),
-        too_many_parent_calls,
-        "too many .parent() calls",
-    );
-
-    Ok(())
-}
-
-#[test]
 fn test_parent() -> anyhow::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
@@ -437,9 +404,11 @@ fn test_parent_n() -> anyhow::Result<()> {
     let contents = indoc!(
         r#"
         def test():
-            args = cmd_args(absolute_suffix="!")
-            args.add(source_artifact("foo","bar/baz/qux.h"))
-            args.parent(2)
+            args = cmd_args(
+                source_artifact("foo","bar/baz/qux.h"),
+                absolute_suffix="!",
+                parent=2,
+            )
             assert_eq(get_args(args), ["foo/bar!"])
         "#
     );
@@ -448,9 +417,10 @@ fn test_parent_n() -> anyhow::Result<()> {
     let too_many_parent_calls = indoc!(
         r#"
         def test():
-            args = cmd_args()
-            args.add(source_artifact("foo","qux.h"))
-            args.parent(3)
+            args = cmd_args(
+                source_artifact("foo","qux.h"),
+                parent=3,
+            )
             get_args(args)
         "#
     );
@@ -463,16 +433,17 @@ fn test_parent_n() -> anyhow::Result<()> {
     let bad_count = indoc!(
         r#"
         def test():
-            args = cmd_args()
-            args.add(source_artifact("foo","qux.h"))
-            args.parent(-12)
+            args = cmd_args(
+                source_artifact("foo","qux.h"),
+                parent=-12,
+            )
             get_args(args)
         "#
     );
     expect_error(
         tester.run_starlark_bzl_test(bad_count),
         bad_count,
-        "Type of parameter `count` doesn't match",
+        "Type of parameter `parent` doesn't match",
     );
 
     Ok(())

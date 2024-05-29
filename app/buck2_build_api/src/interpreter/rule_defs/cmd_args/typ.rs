@@ -693,18 +693,6 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// For all the artifacts listed in this `cmd_args`, use their parent directory.
-    ///
-    /// Typically used when the file name is passed one way, and the directory another,
-    /// e.g. `cmd_args(artifact, format="-L{}").parent()`.
-    fn parent<'v>(
-        mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(require = pos, default = 1u32)] count: u32,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.options_mut().parent += count;
-        Ok(this)
-    }
-
     /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other.
     /// Note that this is a shallow copy, so any inner `cmd_args` can still be modified.
     fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCmdArgs<'v>> {
