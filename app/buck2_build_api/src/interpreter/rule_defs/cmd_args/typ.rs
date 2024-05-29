@@ -547,17 +547,18 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 
     pub fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
+        Self::try_from_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)
+    }
+
+    pub fn try_from_value_typed(value: StarlarkCommandLineValueUnpack<'v>) -> anyhow::Result<Self> {
         let mut builder = Self::new();
-        builder
-            .0
-            .get_mut()
-            .add_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)?;
+        builder.0.get_mut().add_value_typed(value)?;
         Ok(builder)
     }
 }
 
 #[derive(UnpackValue, StarlarkTypeRepr)]
-enum StarlarkCommandLineValueUnpack<'v> {
+pub enum StarlarkCommandLineValueUnpack<'v> {
     // This should be `list[Self]`, but we cannot express it.
     List(&'v ListRef<'v>),
     CommandLineArg(CommandLineArg<'v>),

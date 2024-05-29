@@ -19,6 +19,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
@@ -213,7 +214,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
                 (content, count, cli_inputs)
             } else {
-                let cli = StarlarkCmdArgs::try_from_value(content)?;
+                let cli = StarlarkCmdArgs::try_from_value_typed(
+                    StarlarkCommandLineValueUnpack::unpack_value_err(content)?,
+                )?;
                 let count = count_write_to_file_macros(allow_args, &cli)?;
                 let cli_inputs = get_cli_inputs(with_inputs, &cli)?;
                 (
