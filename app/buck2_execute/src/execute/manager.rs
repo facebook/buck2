@@ -12,6 +12,8 @@ use std::time::Duration;
 
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_events::dispatch::EventDispatcher;
+use futures::future::Future;
+use futures::future::FutureExt;
 use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;
@@ -64,15 +66,15 @@ impl CommandExecutionManager {
     }
 
     /// Acquire a claim. This might never return if the claim has been taken.
-    pub async fn claim(self) -> CommandExecutionManagerWithClaim {
-        let claim = self.claim_manager.claim().await;
-
-        CommandExecutionManagerWithClaim {
-            claim,
-            events: self.events,
-            liveliness_observer: self.liveliness_observer,
-            execution_kind: self.execution_kind,
-        }
+    pub fn claim(self) -> impl Future<Output = CommandExecutionManagerWithClaim> {
+        self.claim_manager
+            .claim()
+            .map(|claim| CommandExecutionManagerWithClaim {
+                claim,
+                events: self.events,
+                liveliness_observer: self.liveliness_observer,
+                execution_kind: self.execution_kind,
+            })
     }
 
     pub fn on_result_delayed(&mut self) {

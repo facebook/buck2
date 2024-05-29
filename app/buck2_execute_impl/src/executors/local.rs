@@ -258,6 +258,7 @@ impl LocalExecutor {
                 anyhow::Ok((scratch_path, start.elapsed()))
             },
         )
+        .boxed()
         .await;
 
         let (scratch_path, input_materialization_duration) = match executor_stage_result {
@@ -268,7 +269,7 @@ impl LocalExecutor {
         };
 
         // TODO: Release here.
-        let manager = manager.claim().await;
+        let manager = manager.claim().boxed().await;
 
         let scratch_path = &scratch_path.0;
 
@@ -290,6 +291,7 @@ impl LocalExecutor {
                 anyhow::Ok(())
             },
         )
+        .boxed()
         .await
         {
             return manager.error("prepare_output_dirs_failed", e);
@@ -371,7 +373,10 @@ impl LocalExecutor {
         };
         let liveliness_observer = manager.liveliness_observer.dupe().and(cancellation);
 
-        let (worker, manager) = self.initialize_worker(request, manager, dispatcher).await?;
+        let (worker, manager) = self
+            .initialize_worker(request, manager, dispatcher)
+            .boxed()
+            .await?;
 
         let execution_kind = match worker {
             None => CommandExecutionKind::Local {
@@ -457,6 +462,7 @@ impl LocalExecutor {
                 (timing, r)
             },
         )
+        .boxed()
         .await;
 
         let (status, stdout, stderr) = match res {
@@ -475,6 +481,7 @@ impl LocalExecutor {
             } => {
                 let (outputs, hashing_time) = match self
                     .calculate_and_declare_output_values(request, digest_config)
+                    .boxed()
                     .await
                 {
                     Ok((output_values, hashing_time)) => (output_values, hashing_time),
@@ -496,6 +503,7 @@ impl LocalExecutor {
                         self.blocking_executor.as_ref(),
                         request,
                     )
+                    .boxed()
                     .await?;
 
                     manager.failure(
@@ -514,6 +522,7 @@ impl LocalExecutor {
                     self.blocking_executor.as_ref(),
                     request,
                 )
+                .boxed()
                 .await?;
 
                 // We are lying about the std streams here because we don't have a good mechanism
