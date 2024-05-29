@@ -14,6 +14,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_util::thin_box::ThinBoxSlice;
 use dupe::Dupe;
 use starlark_map::ordered_set::OrderedSet;
 
@@ -24,26 +25,26 @@ use crate::configuration::resolved::ConfigurationSettingKey;
 pub struct CoercedDeps {
     /// Contains the deps derived from the attributes.
     /// Does not include the transition, exec or configuration deps.
-    pub deps: Box<[TargetLabel]>,
+    pub deps: ThinBoxSlice<TargetLabel>,
 
     /// Contains the deps which are transitioned to other configuration
     /// (including split transitions).
-    pub transition_deps: Box<[(TargetLabel, Arc<TransitionId>)]>,
+    pub transition_deps: ThinBoxSlice<(TargetLabel, Arc<TransitionId>)>,
 
     /// Contains the execution deps derived from the attributes.
-    pub exec_deps: Box<[TargetLabel]>,
+    pub exec_deps: ThinBoxSlice<TargetLabel>,
 
     /// Contains the toolchain deps derived from the attributes.
-    pub toolchain_deps: Box<[TargetLabel]>,
+    pub toolchain_deps: ThinBoxSlice<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: Box<[ConfigurationSettingKey]>,
+    pub configuration_deps: ThinBoxSlice<ConfigurationSettingKey>,
 
     /// Contains platform targets of configured_alias()
-    pub platform_deps: Box<[TargetLabel]>,
+    pub platform_deps: ThinBoxSlice<TargetLabel>,
 
     /// Contains the plugin deps
-    pub plugin_deps: Box<[TargetLabel]>,
+    pub plugin_deps: ThinBoxSlice<TargetLabel>,
 }
 
 impl From<CoercedDepsCollector> for CoercedDeps {
