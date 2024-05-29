@@ -731,11 +731,8 @@ impl PreparedCommandExecutor for LocalExecutor {
         } = command;
 
         let local_resource_holders = executor_stage_async(
-            {
-                let a = buck2_data::AcquireLocalResource {};
-                buck2_data::LocalStage {
-                    stage: Some(a.into()),
-                }
+            buck2_data::LocalStage {
+                stage: Some(buck2_data::AcquireLocalResource {}.into()),
             },
             async move {
                 let mut holders = vec![];
