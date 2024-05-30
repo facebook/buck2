@@ -37,7 +37,7 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
 
     argsfile, _ = ctx.actions.write(name + ".argsfile", args, allow_args = True)
 
-    command = cmd_args(argsfile, format = "@{}", delimiter = "").hidden(args)
+    command = cmd_args(argsfile, format = "@{}", delimiter = "", hidden = args)
     llvm_cmd = cmd_args(
         llvm_link,
         command,

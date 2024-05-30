@@ -163,7 +163,7 @@ CxxExecutableOutput = record(
     dwp = field(Artifact | None),
     # Files that must be present for the executable to run successfully. These
     # are always materialized, whether the executable is the output of a build
-    # or executed as a host tool. They become .hidden() arguments when executing
+    # or executed as a host tool. They become hidden= arguments when executing
     # the executable via RunInfo().
     runtime_files = list[ArgLike],
     sub_targets = dict[str, list[DefaultInfo]],
@@ -484,7 +484,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # hidden link args.
     if impl_params.extra_hidden:
         links.append(
-            LinkArgs(flags = cmd_args().hidden(impl_params.extra_hidden)),
+            LinkArgs(flags = cmd_args(hidden = impl_params.extra_hidden)),
         )
 
     link_result = _link_into_executable(

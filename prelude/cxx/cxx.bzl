@@ -295,7 +295,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             other_outputs = other_outputs,
             sub_targets = output.sub_targets,
         ),
-        RunInfo(args = cmd_args(output.binary).hidden(output.runtime_files)),
+        RunInfo(args = cmd_args(output.binary, hidden = output.runtime_files)),
         output.compilation_db,
         output.xcode_data,
         output.dist_info,
@@ -699,7 +699,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 
-    command = [cmd_args(output.binary).hidden(output.runtime_files)] + ctx.attrs.args
+    command = [cmd_args(output.binary, hidden = output.runtime_files)] + ctx.attrs.args
 
     # Setup RE executors based on the `remote_execution` param.
     re_executor, executor_overrides = get_re_executors_from_props(ctx)

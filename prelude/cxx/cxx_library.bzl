@@ -1455,7 +1455,7 @@ def _shared_library(
     links = [LinkArgs(infos = [link_info]), dep_infos]
     if impl_params.extra_hidden:
         links.append(
-            LinkArgs(flags = cmd_args().hidden(impl_params.extra_hidden)),
+            LinkArgs(flags = cmd_args(hidden = impl_params.extra_hidden)),
         )
 
     link_result = cxx_link_shared_library(

@@ -171,8 +171,8 @@ def generate_tbd_with_symbols(ctx: AnalysisContext, soname: str, exported_symbol
     tbd_file = ctx.actions.declare_output(
         paths.join("__tbd__", ctx.attrs.name + ".merged.tbd"),
     )
-    args = cmd_args(get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf[RunInfo])
-    args.add([
+    args = cmd_args(
+        get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf[RunInfo],
         "merge",
         "-install_name",
         "@rpath/" + soname,
@@ -182,7 +182,8 @@ def generate_tbd_with_symbols(ctx: AnalysisContext, soname: str, exported_symbol
         target,
         "-o",
         tbd_file.as_output(),
-    ]).hidden(symbol_args)
+        hidden = symbol_args,
+    )
 
     # Pass through the linker args as we need to honour any flags
     # related to exported or unexported symbols.

@@ -251,7 +251,7 @@ def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Art
     if raw_headers:
         # NOTE(agallagher): It's a bit weird adding an "empty" arg, but this
         # appears to do the job (and not e.g. expand to `""`).
-        args.append(cmd_args().hidden(raw_headers))
+        args.append(cmd_args(hidden = raw_headers))
 
     # Append any extra preprocessor info passed in via the constructor params
     for pre in extra_preprocessors:
@@ -348,7 +348,7 @@ def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Arti
     if all_raw_headers:
         # NOTE(agallagher): It's a bit weird adding an "empty" arg, but this
         # appears to do the job (and not e.g. expand to `""`).
-        args.append(cmd_args().hidden(all_raw_headers))
+        args.append(cmd_args(hidden = all_raw_headers))
 
     return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args)
 

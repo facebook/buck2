@@ -494,9 +494,7 @@ def cxx_dist_link(
                         opt_object.as_output(),
                         "--from",
                         entry["path"],
-                    ])
-
-                    copy_cmd.hidden(archive.objects_dir)
+                    ], hidden = archive.objects_dir)
                     ctx.actions.run(copy_cmd, category = make_cat("thin_lto_opt_copy"), identifier = source_path)
                     output_dir[source_path] = opt_object
                     continue

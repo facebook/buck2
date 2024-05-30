@@ -238,10 +238,14 @@ def cxx_link_into(
         allow_args = True,
     )
 
-    command = cmd_args(link_cmd_parts.linker)
-    command.add(cmd_args(argfile, format = "@{}"))
-    command.hidden(link_args_output.hidden)
-    command.hidden(shell_quoted_args)
+    command = cmd_args(
+        link_cmd_parts.linker,
+        cmd_args(argfile, format = "@{}"),
+        hidden = [
+            link_args_output.hidden,
+            shell_quoted_args,
+        ],
+    )
     category = "cxx_link"
     if opts.category_suffix != None:
         category += "_" + opts.category_suffix

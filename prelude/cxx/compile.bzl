@@ -699,7 +699,7 @@ def _mk_argsfile(
     input_args = [args]
 
     format = "-@{}" if compiler_info.compiler_type == "nasm" else "@{}"
-    cmd_form = cmd_args(argsfile, format = format).hidden(input_args)
+    cmd_form = cmd_args(argsfile, format = format, hidden = input_args)
 
     return CompileArgsfile(
         file = argsfile,

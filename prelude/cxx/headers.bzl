@@ -211,7 +211,7 @@ def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str) 
         headers = {h: (a, "{}") for h, a in srcs.items()}
         hmap = _mk_hmap(ctx, output_name, headers)
         return Headers(
-            include_path = cmd_args(hmap).hidden(srcs.values()),
+            include_path = cmd_args(hmap, hidden = srcs.values()),
         )
     symlink_dir = ctx.actions.symlinked_dir(output_name, _normalize_header_srcs(srcs))
     if header_mode == HeaderMode("symlink_tree_only"):
@@ -221,7 +221,7 @@ def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str) 
         hmap = _mk_hmap(ctx, output_name, headers)
         file_prefix_args = _get_debug_prefix_args(ctx, symlink_dir)
         return Headers(
-            include_path = cmd_args(hmap).hidden(symlink_dir),
+            include_path = cmd_args(hmap, hidden = symlink_dir),
             symlink_tree = symlink_dir,
             file_prefix_args = file_prefix_args,
         )
