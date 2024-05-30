@@ -160,11 +160,10 @@ def link(
             cxx_toolchain,
             [ext_links],
         )
-        ext_link_args = cmd_args()
+        ext_link_args = cmd_args(hidden = ext_link_args_output.hidden)
         ext_link_args.add(cmd_args(executable_args.extra_link_args, quote = "shell"))
         ext_link_args.add(external_linker_flags)
         ext_link_args.add(ext_link_args_output.link_args)
-        ext_link_args.hidden(ext_link_args_output.hidden)
 
         # Delegate to C++ linker...
         # TODO: It feels a bit inefficient to generate a wrapper file for every

@@ -105,7 +105,7 @@ def build_package(
     return GoPkg(
         pkg = out,
         coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
-        srcs_list = cmd_args(srcs_list_argsfile, format = "@{}").hidden(srcs),
+        srcs_list = cmd_args(srcs_list_argsfile, format = "@{}", hidden = srcs),
         cgo_gen_dir = cgo_gen_dir,
     )
 
@@ -133,24 +133,26 @@ def _compile(
 
     asmhdr = ctx.actions.declare_output("__asmhdr__/go_asm.h") if gen_asmhdr else None
 
-    compile_cmd = cmd_args([
-        go_toolchain.compiler,
-        go_toolchain.compiler_flags,
-        compiler_flags,
-        "-buildid=",
-        "-nolocalimports",
-        ["-p", pkg_name],
-        ["-importcfg", importcfg],
-        ["-o", out.as_output()],
-        ["-race"] if race else [],
-        ["-asan"] if asan else [],
-        ["-shared"] if shared else [],
-        ["-embedcfg", embedcfg] if embedcfg else [],
-        ["-symabis", symabis] if symabis else [],
-        ["-asmhdr", asmhdr.as_output()] if asmhdr else [],
-        go_srcs,
-    ])
-    compile_cmd.hidden(embed_files)  #  files and directories should be available for embedding
+    compile_cmd = cmd_args(
+        [
+            go_toolchain.compiler,
+            go_toolchain.compiler_flags,
+            compiler_flags,
+            "-buildid=",
+            "-nolocalimports",
+            ["-p", pkg_name],
+            ["-importcfg", importcfg],
+            ["-o", out.as_output()],
+            ["-race"] if race else [],
+            ["-asan"] if asan else [],
+            ["-shared"] if shared else [],
+            ["-embedcfg", embedcfg] if embedcfg else [],
+            ["-symabis", symabis] if symabis else [],
+            ["-asmhdr", asmhdr.as_output()] if asmhdr else [],
+            go_srcs,
+        ],
+        hidden = embed_files,  #  files and directories should be available for embedding
+    )
 
     identifier = paths.basename(pkg_name)
     ctx.actions.run(compile_cmd, env = env, category = "go_compile", identifier = identifier)

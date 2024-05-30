@@ -69,6 +69,6 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             default_output = bin,
             other_outputs = other_outputs,
         ),
-        RunInfo(args = cmd_args(bin).hidden(other_outputs)),
+        RunInfo(args = cmd_args(bin, hidden = other_outputs)),
         DistInfo(nondebug_runtime_files = runtime_files),
     ]

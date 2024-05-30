@@ -44,6 +44,6 @@ def cover_srcs(ctx: AnalysisContext, pkg_name: str, mode: GoCoverageMode, srcs: 
     ctx.actions.run(cmd, category = "go_cover", identifier = path)
 
     return GoCoverResult(
-        srcs = cmd_args(out_srcs_argsfile, format = "@{}").hidden(out_covered_src_dir).hidden(srcs),
+        srcs = cmd_args(out_srcs_argsfile, format = "@{}", hidden = [out_covered_src_dir, srcs]),
         variables = cmd_args(out_coverage_vars_argsfile, format = "@{}"),
     )

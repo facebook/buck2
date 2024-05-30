@@ -121,7 +121,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = ctx.attrs._asan,
     )
 
-    run_cmd = cmd_args(bin).hidden(runtime_files, external_debug_info)
+    run_cmd = cmd_args(bin, hidden = [runtime_files, external_debug_info])
 
     # As per v1, copy in resources next to binary.
     for resource in ctx.attrs.resources:

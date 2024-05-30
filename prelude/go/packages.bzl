@@ -90,4 +90,4 @@ def make_importcfg(
         identifier = pkg_name,
     )
 
-    return cmd_args(final_importcfg).hidden(stdlib.pkgdir).hidden(own_pkgs.values())
+    return cmd_args(final_importcfg, hidden = [stdlib.pkgdir, own_pkgs.values()])
