@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use dupe::Dupe;
+
 use crate::typing::Ty;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::structs::value::FrozenStruct;
@@ -30,7 +32,7 @@ use crate::values::Value;
 ///
 /// Struct implementation (for example, memory layout) may change,
 /// this type provides implementation agnostics API to it.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Dupe)]
 pub struct StructRef<'v>(&'v Struct<'v>);
 
 impl<'v> StructRef<'v> {
