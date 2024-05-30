@@ -45,12 +45,12 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     A very simple toolchain that is hardcoded to the current environment.
     """
 
-    compiler = ctx.attrs.compiler[SystemCxxToolchainInfo]
+    toolchain_info = ctx.attrs.toolchain_info[SystemCxxToolchainInfo]
 
-    archiver_supports_argfiles = compiler.os != "macos"
-    additional_linker_flags = ["-fuse-ld=lld"] if compiler.os == "linux" and compiler.linker != "g++" and compiler.cxx_compiler != "g++" else []
+    archiver_supports_argfiles = toolchain_info.os != "macos"
+    additional_linker_flags = ["-fuse-ld=lld"] if toolchain_info.os == "linux" and toolchain_info.linker != "g++" and toolchain_info.cxx_compiler != "g++" else []
 
-    if compiler.os == "windows":
+    if toolchain_info.os == "windows":
         linker_type = "windows"
         binary_extension = "exe"
         object_file_extension = "obj"
@@ -67,14 +67,14 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         shared_library_name_format = "{}.so"
         shared_library_versioned_name_format = "{}.so.{}"
 
-        if compiler.os == "macos":
+        if toolchain_info.os == "macos":
             linker_type = "darwin"
             pic_behavior = PicBehavior("always_enabled")
         else:
             linker_type = "gnu"
             pic_behavior = PicBehavior("supported")
 
-    if compiler.compiler_type == "clang":
+    if toolchain_info.compiler_type == "clang":
         llvm_link = RunInfo(args = ["llvm-link"])
     else:
         llvm_link = None
@@ -84,11 +84,11 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         CxxToolchainInfo(
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
-                linker = _run_info(compiler.linker),
+                linker = _run_info(toolchain_info.linker),
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
                 post_linker_flags = ctx.attrs.post_link_flags,
-                archiver = _run_info(compiler.archiver),
-                archiver_type = compiler.archiver_type,
+                archiver = _run_info(toolchain_info.archiver),
+                archiver_type = toolchain_info.archiver_type,
                 archiver_supports_argfiles = archiver_supports_argfiles,
                 generate_linker_maps = False,
                 lto_mode = LtoMode("none"),
@@ -124,36 +124,36 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 bolt_msdk = None,
             ),
             cxx_compiler_info = CxxCompilerInfo(
-                compiler = _run_info(compiler.cxx_compiler),
+                compiler = _run_info(toolchain_info.cxx_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
-                compiler_type = compiler.compiler_type,
+                compiler_type = toolchain_info.compiler_type,
             ),
             c_compiler_info = CCompilerInfo(
-                compiler = _run_info(compiler.compiler),
+                compiler = _run_info(toolchain_info.compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
-                compiler_type = compiler.compiler_type,
+                compiler_type = toolchain_info.compiler_type,
             ),
             as_compiler_info = CCompilerInfo(
-                compiler = _run_info(compiler.compiler),
-                compiler_type = compiler.compiler_type,
+                compiler = _run_info(toolchain_info.compiler),
+                compiler_type = toolchain_info.compiler_type,
             ),
             asm_compiler_info = CCompilerInfo(
-                compiler = _run_info(compiler.asm_compiler),
-                compiler_type = compiler.asm_compiler_type,
+                compiler = _run_info(toolchain_info.asm_compiler),
+                compiler_type = toolchain_info.asm_compiler_type,
             ),
             cvtres_compiler_info = CvtresCompilerInfo(
-                compiler = _run_info(compiler.cvtres_compiler),
+                compiler = _run_info(toolchain_info.cvtres_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cvtres_flags,
-                compiler_type = compiler.compiler_type,
+                compiler_type = toolchain_info.compiler_type,
             ),
             rc_compiler_info = RcCompilerInfo(
-                compiler = _run_info(compiler.rc_compiler),
+                compiler = _run_info(toolchain_info.rc_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.rc_flags,
-                compiler_type = compiler.compiler_type,
+                compiler_type = toolchain_info.compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
             cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
@@ -169,7 +169,7 @@ def _run_info(args):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
-        "compiler": attrs.exec_dep(providers = [SystemCxxToolchainInfo], default = select({
+        "toolchain_info": attrs.exec_dep(providers = [SystemCxxToolchainInfo], default = select({
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
             "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
         })),
