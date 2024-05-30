@@ -22,6 +22,7 @@ use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::impls::json;
 use buck2_build_api::actions::impls::json::validate_json;
+use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -117,7 +118,7 @@ impl WriteJsonAction {
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteJsonAction,
     ) -> anyhow::Result<Self> {
-        validate_json(contents.value())?;
+        validate_json(JsonUnpack::unpack_value_err(contents.value())?)?;
 
         let mut outputs = outputs.into_iter();
 
@@ -143,7 +144,7 @@ impl WriteJsonAction {
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<Vec<u8>> {
         let mut writer = Vec::new();
         json::write_json(
-            self.contents.value(),
+            JsonUnpack::unpack_value_err(self.contents.value())?,
             Some(fs),
             &mut writer,
             self.inner.pretty,

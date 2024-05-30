@@ -47,6 +47,7 @@ use starlark::values::ValueTypedComplex;
 
 use crate::actions::impls::json::validate_json;
 use crate::actions::impls::json::visit_json_artifacts;
+use crate::actions::impls::json::JsonUnpack;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
@@ -422,7 +423,7 @@ impl<'v> TransitiveSet<'v> {
                             TransitiveSetArgsProjection::as_command_line(projected_value)?;
                         }
                         TransitiveSetProjectionKind::Json => {
-                            validate_json(projected_value)?;
+                            validate_json(JsonUnpack::unpack_value_err(projected_value)?)?;
                         }
                     }
                     anyhow::Ok(projected_value)

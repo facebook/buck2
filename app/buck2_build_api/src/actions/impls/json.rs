@@ -131,6 +131,9 @@ impl<'v> JsonArtifact<'v> {
     }
 }
 
+/// Partially unpack the value into JSON writable with `ctx.actions.write_json`.
+/// This does not help typechecker much (because it only validates top-level types),
+/// but it provides better documentation.
 #[derive(UnpackValue, StarlarkTypeRepr)]
 pub enum JsonUnpack<'v> {
     None(NoneType),
@@ -253,19 +256,19 @@ fn is_singleton_cmdargs(x: CommandLineArg) -> bool {
     }
 }
 
-pub fn validate_json(x: Value) -> anyhow::Result<()> {
+pub fn validate_json(x: JsonUnpack) -> anyhow::Result<()> {
     write_json(x, None, &mut sink(), false, false)
 }
 
 pub fn write_json(
-    x: Value,
+    value: JsonUnpack,
     fs: Option<&ExecutorFs>,
     mut writer: &mut dyn Write,
     pretty: bool,
     absolute: bool,
 ) -> anyhow::Result<()> {
     let value = SerializeValue {
-        value: JsonUnpack::unpack_value_err(x)?,
+        value,
         fs,
         absolute,
     };

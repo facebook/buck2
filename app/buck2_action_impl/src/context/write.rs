@@ -8,7 +8,7 @@
  */
 
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_build_api::actions::impls::json::validate_json;
+use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
@@ -37,7 +37,7 @@ use starlark::starlark_module;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
+use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark_map::small_set::SmallSet;
 
@@ -80,7 +80,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] content: Value<'v>,
+        #[starlark(require = pos)] content: ValueOf<'v, JsonUnpack<'v>>,
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] pretty: bool,
         #[starlark(require = named, default = false)] absolute: bool,
@@ -90,12 +90,11 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
-        validate_json(content)?;
         this.register_action(
             IndexSet::new(),
             indexset![output_artifact],
             UnregisteredWriteJsonAction::new(pretty, absolute),
-            Some(content),
+            Some(content.value),
             None,
         )?;
 
@@ -107,7 +106,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             //   is `write_json_cli_args`. We want just `cmd_args`,
             //   because users don't care about precise type.
             //   Do it when we migrate to new types not based on strings.
-            let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content)?;
+            let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
             Ok(Either::Right(cli))
         } else {
             Ok(Either::Left(value))
