@@ -2,7 +2,7 @@ def is_remote_enabled() -> bool:
     re_enabled = read_config("buck2_re_client", "enabled", "false")
     return re_enabled == "true"
 
-def _execution_platform_impl(ctx: AnalysisContext) -> list[Provider]:
+def _execution_platforms_impl(ctx: AnalysisContext) -> list[Provider]:
     is_re_enabled = is_remote_enabled()
 
     name = ctx.label.raw_target()
@@ -46,8 +46,8 @@ def _execution_platform_impl(ctx: AnalysisContext) -> list[Provider]:
         ExecutionPlatformRegistrationInfo(platforms = platforms),
     ]
 
-execution_platform = rule(
-    impl = _execution_platform_impl,
+execution_platforms = rule(
+    impl = _execution_platforms_impl,
     attrs = {
         "os_configuration_windows": attrs.dep(
             providers = [ConfigurationInfo],
