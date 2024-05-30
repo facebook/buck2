@@ -232,6 +232,15 @@ impl CommandExecutionResult {
         }
     }
 
+    pub fn was_action_cache_hit(&self) -> bool {
+        match self.report.status {
+            CommandExecutionStatus::Success {
+                execution_kind: CommandExecutionKind::ActionCache { .. },
+            } => true,
+            _ => false,
+        }
+    }
+
     pub fn resolve_outputs<'a>(
         &'a self,
         fs: &'a ArtifactFs,
