@@ -53,7 +53,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions.write("classes_jar_entries.txt", jars),
         "--output",
         classes_jar.as_output(),
-    ]).hidden(jars)
+    ], hidden = jars)
 
     if ctx.attrs.remove_classes:
         remove_classes_file = ctx.actions.write("remove_classes.txt", ctx.attrs.remove_classes)
@@ -77,7 +77,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.actions.write("combined_sources_jar_entries.txt", dependency_sources_jars),
             "--output",
             combined_sources_jar.as_output(),
-        ]).hidden(dependency_sources_jars)
+        ], hidden = dependency_sources_jars)
 
         if ctx.attrs.remove_classes:
             remove_classes_file = ctx.actions.write("sources_remove_classes.txt", ctx.attrs.remove_classes)
@@ -106,7 +106,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx.actions.write("resource_paths.txt", res_dirs),
                 "--output",
                 merged_resource_sources_dir.as_output(),
-            ]).hidden(res_dirs)
+            ], hidden = res_dirs)
 
             ctx.actions.run(merge_resource_sources_cmd, category = "merge_android_resource_sources")
 
@@ -126,19 +126,26 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     entries_file = ctx.actions.write("entries.txt", entries)
 
     aar = ctx.actions.declare_output("{}.aar".format(ctx.label.name))
-    create_aar_cmd = cmd_args([
-        android_toolchain.aar_builder,
-        "--output_path",
-        aar.as_output(),
-        "--entries_file",
-        entries_file,
-        "--on_duplicate_entry",
-        "fail",
-        "--native_libs_file",
-        native_libs_file,
-        "--native_libs_assets_file",
-        native_libs_assets_file,
-    ]).hidden(entries, android_binary_native_library_info.native_libs_for_primary_apk, android_binary_native_library_info.root_module_native_lib_assets)
+    create_aar_cmd = cmd_args(
+        [
+            android_toolchain.aar_builder,
+            "--output_path",
+            aar.as_output(),
+            "--entries_file",
+            entries_file,
+            "--on_duplicate_entry",
+            "fail",
+            "--native_libs_file",
+            native_libs_file,
+            "--native_libs_assets_file",
+            native_libs_assets_file,
+        ],
+        hidden = [
+            entries,
+            android_binary_native_library_info.native_libs_for_primary_apk,
+            android_binary_native_library_info.root_module_native_lib_assets,
+        ],
+    )
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 

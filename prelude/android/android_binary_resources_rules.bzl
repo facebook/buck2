@@ -380,7 +380,7 @@ def _maybe_generate_string_source_map(
         res_dirs_file,
         "--output",
         output.as_output(),
-    ]).hidden(res_dirs)
+    ], hidden = res_dirs)
 
     if is_voltron_string_source_map:
         generate_string_source_map_cmd.add("--is-voltron")
@@ -420,7 +420,7 @@ def _maybe_package_strings_as_assets(
         string_assets_zip.as_output(),
         "--all-locales-string-assets-zip",
         all_locales_string_assets_zip.as_output(),
-    ]).hidden(string_files_res_dirs)
+    ], hidden = string_files_res_dirs)
 
     if locales:
         package_strings_as_assets_cmd.add("--locales", ",".join(locales))

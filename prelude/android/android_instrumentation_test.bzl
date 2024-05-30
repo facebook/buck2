@@ -57,7 +57,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         env["BUCK_LD_SYMLINK_TREE"] = cxx_library_symlink_tree
     classpath_args.add(cmd_args(extra_classpath + classpath, delimiter = get_path_separator_for_exec_os(ctx)))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
-    cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
+    cmd.append(cmd_args(classpath_args_file, format = "@{}", hidden = classpath_args))
 
     cmd.append(android_toolchain.instrumentation_test_runner_main_class)
 

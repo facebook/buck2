@@ -61,8 +61,10 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
         output_jars_file,
     ]
 
-    preprocess_cmd = cmd_args(preprocess_cmd)
-    preprocess_cmd.hidden([output_jar.as_output() for output_jar in output_jars])
+    preprocess_cmd = cmd_args(
+        preprocess_cmd,
+        hidden = [output_jar.as_output() for output_jar in output_jars],
+    )
     for dep in ctx.attrs.preprocess_java_classes_deps:
         preprocess_cmd.hidden(dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs)
 

@@ -381,7 +381,7 @@ def _filter_pre_dexed_libs(
 
     filter_dex_cmd = cmd_args([
         android_toolchain.filter_dex_class_names[RunInfo],
-        cmd_args(filter_dex_cmd_argsfile, format = "@{}").hidden(filter_dex_cmd_args),
+        cmd_args(filter_dex_cmd_argsfile, format = "@{}", hidden = filter_dex_cmd_args),
     ])
     actions.run(filter_dex_cmd, category = "filter_dex", identifier = "batch_{}".format(batch_number))
 

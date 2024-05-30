@@ -698,7 +698,7 @@ def _filter_prebuilt_native_library_dir(
     else:
         output_dir = base_output_dir.project(paths.join(_get_native_libs_as_assets_dir(module), "lib"))
     ctx.actions.run(
-        cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis).hidden(native_libs_dirs),
+        cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis, hidden = native_libs_dirs),
         category = "filter_prebuilt_native_library_dir",
         identifier = identifier,
     )
@@ -797,7 +797,7 @@ def _get_native_libs_as_assets_metadata(
         native_lib_assets_file,
         "--metadata-output",
         metadata_output.as_output(),
-    ]).hidden(native_lib_assets)
+    ], hidden = native_lib_assets)
     ctx.actions.run(metadata_cmd, category = "get_native_libs_as_assets_metadata", identifier = module)
     return metadata_output
 
