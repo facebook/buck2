@@ -42,6 +42,13 @@ def get_enable_library_evolution():
         "config//features/apple:swift_library_evolution_enabled": True,
     }))
 
+def _strict_provisioning_profile_search_default_attr():
+    default_value = (read_root_config("apple", "strict_provisioning_profile_search", "").lower() == "true")
+    return attrs.bool(default = select({
+        "DEFAULT": default_value,
+        "config//features/apple:strict_provisioning_profile_search_enabled": True,
+    }))
+
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -78,6 +85,7 @@ def _apple_bundle_like_common_attrs():
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
+        "_strict_provisioning_profile_search_default": _strict_provisioning_profile_search_default_attr(),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
         APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
