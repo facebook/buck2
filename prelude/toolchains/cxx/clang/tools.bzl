@@ -5,16 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls/common.bzl", "buck")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//toolchains:cxx.bzl", "SystemCxxToolchainInfo")
-
-def _get_current_os() -> str:
-    os = host_info().os
-    if os.is_macos:
-        return "macos"
-    elif os.is_windows:
-        return "windows"
-    else:
-        return "linux"
 
 def _path_clang_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
@@ -31,13 +24,13 @@ def _path_clang_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             archiver_type = "gnu",
             linker = "clang++",
             linker_type = "gnu",
-            os = ctx.attrs.os
+            os = ctx.attrs._target_os_type[OsLookup].platform,
         ),
     ]
 
 path_clang_tools = rule(
     impl = _path_clang_tools_impl,
     attrs = {
-        "os": attrs.string(default = _get_current_os()),
-    },
+        "_target_os_type": buck.target_os_type_arg(),
+    }
 )

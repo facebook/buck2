@@ -166,17 +166,13 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
 def _run_info(args):
     return None if args == None else RunInfo(args = [args])
 
-def _get_default_compiler() -> str:
-    os = host_info().os
-    if os.is_windows:
-        return "prelude//toolchains/msvc:msvc_tools"
-    else:
-        return "prelude//toolchains/cxx/clang:path_clang_tools"
-
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
-        "compiler": attrs.exec_dep(providers = [SystemCxxToolchainInfo], default = _get_default_compiler()),
+        "compiler": attrs.exec_dep(providers = [SystemCxxToolchainInfo], default = select({
+            "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
+            "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
+        })),
         "c_flags": attrs.list(attrs.string(), default = []),
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cvtres_flags": attrs.list(attrs.string(), default = []),

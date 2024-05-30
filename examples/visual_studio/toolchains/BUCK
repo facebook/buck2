@@ -14,7 +14,6 @@ find_msvc_tools(
 
 path_clang_tools(
     name = "clang_tools",
-    os = "linux",
     target_compatible_with = ["config//os:linux"],
     visibility = ["PUBLIC"],
 )
