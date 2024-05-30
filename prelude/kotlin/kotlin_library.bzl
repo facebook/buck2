@@ -39,6 +39,7 @@ load(
 )
 load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
 load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:utils.bzl", "map_idx")
 
@@ -271,6 +272,15 @@ def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     return to_list(java_providers) + [android_packageable_info]
 
+def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
+    for exported_dep in exported_deps:
+        # TODO(navidq) add a check that the exported dep always have a JavaLibraryInfo provider
+        if JavaLibraryInfo in exported_dep:
+            expect(
+                not exported_dep[JavaLibraryInfo].may_not_be_exported,
+                "{} has 'may_not_be_exported' label and should not be present in {}.".format(exported_dep.label.raw_target(), attr_name),
+            )
+
 def build_kotlin_library(
         ctx: AnalysisContext,
         additional_classpath_entries: list[Artifact] = [],
@@ -295,6 +305,8 @@ def build_kotlin_library(
     else:
         deps_query = getattr(ctx.attrs, "deps_query", []) or []
         provided_deps_query = getattr(ctx.attrs, "provided_deps_query", []) or []
+        _check_exported_deps(ctx.attrs.exported_deps, "exported_deps")
+        _check_exported_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
         deps = (
             ctx.attrs.deps +
             deps_query +

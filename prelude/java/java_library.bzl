@@ -470,6 +470,10 @@ def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
             "Exported deps are meant to be forwarded onto the classpath for dependents, so only " +
             "make sense for a target that emits Java bytecode, {} in {} does not.".format(exported_dep, attr_name),
         )
+        expect(
+            not exported_dep[JavaLibraryInfo].may_not_be_exported,
+            "{} has 'may_not_be_exported' label and should not be present in {}.".format(exported_dep.label.raw_target(), attr_name),
+        )
 
 # TODO(T145137403) remove need for this
 def _skip_java_library_dep_checks(ctx: AnalysisContext) -> bool:

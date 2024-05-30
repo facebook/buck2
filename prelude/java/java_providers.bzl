@@ -169,6 +169,9 @@ JavaLibraryInfo = provider(
         # An output of the library. If present then already included into `compiling_deps` field.
         "library_output": provider_field(typing.Any, default = None),  # ["JavaClasspathEntry", None]
 
+        # Shows if the library can be exported or not
+        "may_not_be_exported": provider_field(typing.Any, default = None),
+
         # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
         # the right target from the given artifact).
         "output_for_classpath_macro": provider_field(typing.Any, default = None),  # "artifact"
@@ -445,6 +448,7 @@ def _create_non_template_providers(
             compiling_deps = derive_compiling_deps(ctx.actions, library_output, exported_deps + exported_provided_deps),
             library_output = library_output,
             output_for_classpath_macro = output_for_classpath_macro,
+            may_not_be_exported = "may_not_be_exported" in (ctx.attrs.labels or []),
         ),
         java_packaging_info,
         shared_library_info,
