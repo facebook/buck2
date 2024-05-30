@@ -1,0 +1,55 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//python/sourcedb/filter.bxl", "BUCK_PYTHON_RULE_KIND_QUERY")
+
+def get_owners_for_files(
+        query: bxl.UqueryContext,
+        sources: list[str]) -> dict[str, bxl.TargetSet]:
+    return {source: query.owner(source) for source in sources}
+
+def has_any_python_targets_with_typing(
+        query: bxl.UqueryContext,
+        owners: bxl.TargetSet) -> bool:
+    targets_with_typing = query.attrfilter("typing", "True", owners)
+
+    python_targets_with_typing = query.kind(
+        BUCK_PYTHON_RULE_KIND_QUERY,
+        targets_with_typing,
+    )
+
+    return len(python_targets_with_typing) != 0
+
+def get_files_per_target_typed(
+        query: bxl.UqueryContext,
+        sources: list[str]) -> dict[str, bool]:
+    files_to_owners = get_owners_for_files(query, sources)
+
+    return {
+        file: has_any_python_targets_with_typing(query, owners)
+        for file, owners in files_to_owners.items()
+    }
+
+def _do_typing_query_entry_point(ctx: bxl.Context) -> None:
+    query = ctx.uquery()
+    files_per_target_typed = get_files_per_target_typed(query, ctx.cli_args.source)
+    ctx.output.print_json(files_per_target_typed)
+
+typing_query = bxl_main(
+    doc = (
+        "Queries Buck about a given file to determine if any owning targets have typing " +
+        "in their attributes."
+    ),
+    impl = _do_typing_query_entry_point,
+    cli_args = {
+        "source": cli_args.list(
+            cli_args.string(
+                doc = "The absolute path to a file you are trying to get typing attributes of",
+            ),
+        ),
+    },
+)
