@@ -22,6 +22,7 @@ use serde::Serializer;
 use starlark::values::dict::DictRef;
 use starlark::values::enumeration::EnumValue;
 use starlark::values::list::ListRef;
+use starlark::values::none::NoneType;
 use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
@@ -40,7 +41,6 @@ use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkO
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
@@ -112,8 +112,9 @@ impl<'v> JsonArtifact<'v> {
     }
 }
 
+#[derive(UnpackValue, StarlarkTypeRepr)]
 enum JsonUnpack<'v> {
-    None,
+    None(NoneType),
     String(&'v str),
     Number(i64),
     Bool(bool),
@@ -127,50 +128,9 @@ enum JsonUnpack<'v> {
     TargetLabel(&'v StarlarkTargetLabel),
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
     Artifact(JsonArtifact<'v>),
-    CommandLine(&'v dyn CommandLineArgLike),
+    CommandLine(ValueAsCommandLineLike<'v>),
     Provider(ValueAsProviderLike<'v>),
     TaggedValue(&'v TaggedValue<'v>),
-    Unsupported,
-}
-
-fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
-    if value.is_none() {
-        JsonUnpack::None
-    } else if let Some(x) = value.unpack_str() {
-        JsonUnpack::String(x)
-    } else if let Some(x) = i64::unpack_value(value) {
-        JsonUnpack::Number(x)
-    } else if let Some(x) = value.unpack_bool() {
-        JsonUnpack::Bool(x)
-    } else if let Some(x) = ListRef::from_value(value) {
-        JsonUnpack::List(x)
-    } else if let Some(x) = TupleRef::from_value(value) {
-        JsonUnpack::Tuple(x)
-    } else if let Some(x) = DictRef::from_value(value) {
-        JsonUnpack::Dict(x)
-    } else if let Some(x) = StructRef::from_value(value) {
-        JsonUnpack::Struct(x)
-    } else if let Some(x) = Record::from_value(value) {
-        JsonUnpack::Record(x)
-    } else if let Some(x) = EnumValue::from_value(value) {
-        JsonUnpack::Enum(x)
-    } else if let Some(x) = TransitiveSetJsonProjection::from_value(value) {
-        JsonUnpack::TransitiveSetJsonProjection(x)
-    } else if let Some(x) = StarlarkTargetLabel::from_value(value) {
-        JsonUnpack::TargetLabel(x)
-    } else if let Some(x) = StarlarkConfiguredProvidersLabel::from_value(value) {
-        JsonUnpack::ConfiguredProvidersLabel(x)
-    } else if let Some(x) = JsonArtifact::unpack_value(value) {
-        JsonUnpack::Artifact(x)
-    } else if let Some(x) = ValueAsCommandLineLike::unpack_value(value) {
-        JsonUnpack::CommandLine(x.0)
-    } else if let Some(x) = ValueAsProviderLike::unpack_value(value) {
-        JsonUnpack::Provider(x)
-    } else if let Some(x) = TaggedValue::from_value(value) {
-        JsonUnpack::TaggedValue(x)
-    } else {
-        JsonUnpack::Unsupported
-    }
 }
 
 impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
@@ -178,8 +138,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
     where
         S: Serializer,
     {
-        match unpack(self.value) {
-            JsonUnpack::None => serializer.serialize_none(),
+        match err(JsonUnpack::unpack_value_err(self.value))? {
+            JsonUnpack::None(_) => serializer.serialize_none(),
             JsonUnpack::String(x) => serializer.serialize_str(x),
             JsonUnpack::Number(x) => serializer.serialize_i64(x),
             JsonUnpack::Bool(x) => serializer.serialize_bool(x),
@@ -242,7 +202,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         let mut items = Vec::<String>::new();
 
                         with_command_line_context(fs, self.absolute, |ctx| {
-                            err(x.add_to_command_line(&mut items, ctx))
+                            err(x.0.add_to_command_line(&mut items, ctx))
                         })?;
 
                         // We change the type, based on the value - singleton = String, otherwise list.
@@ -260,10 +220,6 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 serializer.collect_map(x.0.items().iter().map(|(k, v)| (k, self.with_value(*v))))
             }
             JsonUnpack::TaggedValue(x) => self.with_value(*x.value()).serialize(serializer),
-            JsonUnpack::Unsupported => Err(serde::ser::Error::custom(format!(
-                "Type `{}` is not supported by `write_json`",
-                self.value.get_type()
-            ))),
         }
     }
 }
@@ -312,8 +268,8 @@ pub fn visit_json_artifacts(
     v: Value,
     visitor: &mut dyn CommandLineArtifactVisitor,
 ) -> anyhow::Result<()> {
-    match unpack(v) {
-        JsonUnpack::None
+    match JsonUnpack::unpack_value_err(v)? {
+        JsonUnpack::None(_)
         | JsonUnpack::String(_)
         | JsonUnpack::Number(_)
         | JsonUnpack::Bool(_)
@@ -359,13 +315,7 @@ pub fn visit_json_artifacts(
                 .0
                 .visit_artifacts(visitor)?;
         }
-        JsonUnpack::CommandLine(x) => x.visit_artifacts(visitor)?,
-        JsonUnpack::Unsupported => {
-            return Err(anyhow::anyhow!(
-                "Type `{}` is not supported by `write_json` (this should be unreachable)",
-                v.get_type()
-            ));
-        }
+        JsonUnpack::CommandLine(x) => x.0.visit_artifacts(visitor)?,
         JsonUnpack::Provider(x) => {
             for (_, v) in x.0.items() {
                 visit_json_artifacts(v, visitor)?;
