@@ -286,7 +286,6 @@ SKIPPABLE_PLATFORMS = ["darwin", "linux", "windows"]
 def buck_test(
     inplace: bool,
     data_dir: Optional[str] = "",
-    skip_if_windows=False,
     # Accepted values are specified in SKIPPABLE_PLATFORMS
     skip_for_os: List[str] = [],  # noqa: B006 value is read-only
     allow_soft_errors=False,
