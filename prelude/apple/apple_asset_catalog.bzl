@@ -111,5 +111,5 @@ def _get_actool_command(ctx: AnalysisContext, info: AppleAssetCatalogSpec, catal
         ],
         allow_args = True,
     )
-    command = cmd_args(["/bin/sh", wrapper_script]).hidden([actool_command, catalog_output])
+    command = cmd_args(["/bin/sh", wrapper_script], hidden = [actool_command, catalog_output])
     return command

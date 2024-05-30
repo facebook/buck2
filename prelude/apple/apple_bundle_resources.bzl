@@ -371,7 +371,7 @@ def _run_ibtool(
             ],
             allow_args = True,
         )
-        command = cmd_args(["/bin/sh", wrapper_script]).hidden([ibtool_command, output])
+        command = cmd_args(["/bin/sh", wrapper_script], hidden = [ibtool_command, output])
     else:
         command = ibtool_command
 

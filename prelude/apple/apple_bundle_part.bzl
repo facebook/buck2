@@ -158,15 +158,18 @@ def assemble_bundle(
     else:
         fail("Code sign type `{}` not supported".format(codesign_type))
 
-    command = cmd_args([
-        tool,
-        "--output",
-        bundle.as_output(),
-        "--spec",
-        spec_file,
-    ] + codesign_args + platform_args + swift_args)
-    command.hidden([part.source for part in all_parts])
-    command.hidden([part.codesign_entitlements for part in all_parts if part.codesign_entitlements])
+    command = cmd_args(
+        [
+            tool,
+            "--output",
+            bundle.as_output(),
+            "--spec",
+            spec_file,
+        ] + codesign_args + platform_args + swift_args,
+        hidden =
+            [part.source for part in all_parts] +
+            [part.codesign_entitlements for part in all_parts if part.codesign_entitlements],
+    )
     run_incremental_args = {}
     incremental_state = ctx.actions.declare_output("incremental_state.json").as_output()
 

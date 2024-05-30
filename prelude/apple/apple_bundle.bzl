@@ -301,7 +301,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets.update(aggregated_debug_info.sub_targets)
 
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
-    primary_binary_path_arg = cmd_args(primary_binary_path).hidden(bundle)
+    primary_binary_path_arg = cmd_args(primary_binary_path, hidden = bundle)
 
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]

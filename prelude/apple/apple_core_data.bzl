@@ -54,7 +54,7 @@ def compile_apple_core_data(ctx: AnalysisContext, specs: list[AppleCoreDataSpec]
         ],
         allow_args = True,
     )
-    combined_command = cmd_args(["/bin/sh", wrapper_script]).hidden(tool_commands + [output.as_output()])
+    combined_command = cmd_args(["/bin/sh", wrapper_script], hidden = tool_commands + [output.as_output()])
     processing_options = get_bundle_resource_processing_options(ctx)
     ctx.actions.run(combined_command, prefer_local = processing_options.prefer_local, allow_cache_upload = processing_options.allow_cache_upload, category = "apple_core_data")
     return output
@@ -79,4 +79,4 @@ def _get_tool_command(ctx: AnalysisContext, core_data_spec: AppleCoreDataSpec, p
         core_data_spec.module if core_data_spec.module else product_name,
         cmd_args(core_data_spec.path, format = "./{}"),
         output,
-    ], delimiter = " ").hidden(core_data_spec.path)
+    ], delimiter = " ", hidden = core_data_spec.path)

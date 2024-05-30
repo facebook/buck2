@@ -196,7 +196,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basiclaly wants structured output for this.
 
-    xctest_bundle = cmd_args(xctest_bundle).hidden(dsym_artifact) if dsym_artifact else xctest_bundle
+    xctest_bundle = cmd_args(xctest_bundle, hidden = dsym_artifact) if dsym_artifact else xctest_bundle
     env = {"XCTEST_BUNDLE": xctest_bundle}
 
     if test_host_app_bundle == None:

@@ -200,7 +200,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
-            RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
+            RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
             AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
             AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = cxx_output.external_debug_info),
             cxx_output.xcode_data,

@@ -457,7 +457,7 @@ def _compile_with_argsfile(
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
     argsfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_args, allow_args = True)
     input_args = [shared_flags]
-    cmd_form = cmd_args(cmd_args(argsfile, format = "@{}", delimiter = "")).hidden(input_args)
+    cmd_form = cmd_args(cmd_args(argsfile, format = "@{}", delimiter = ""), hidden = input_args)
     cmd_form.add([s.file for s in srcs])
 
     cmd = cmd_args(toolchain.compiler)
@@ -889,7 +889,7 @@ def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module
         "--out",
         interface_artifact.as_output(),
         "--",
-        cmd_args(cmd_args(argsfile, format = "@{}", delimiter = "")).hidden([shared_flags]),
+        cmd_args(cmd_args(argsfile, format = "@{}", delimiter = ""), hidden = [shared_flags]),
     )
 
     ctx.actions.run(

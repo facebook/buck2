@@ -140,7 +140,7 @@ def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundl
         allow_args = True,
     )
     ctx.actions.run(
-        cmd_args(["/bin/sh", script]).hidden([stdlib_tool, bundle_output, swift_support_dir.as_output()]),
+        cmd_args(["/bin/sh", script], hidden = [stdlib_tool, bundle_output, swift_support_dir.as_output()]),
         category = "copy_swift_stdlibs",
     )
 

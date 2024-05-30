@@ -18,10 +18,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.write_json(json_project_description_output.as_output(), json_project_description)
 
     mockingbird_source = ctx.actions.declare_output(mockingbird_info.name + "Mocks.generated.swift", dir = False)
-    cmd = cmd_args()
-
-    for record in mockingbird_info.tset.traverse():
-        cmd.hidden(record.src_dir)
+    cmd = cmd_args(
+        hidden = [record.src_dir for record in mockingbird_info.tset.traverse()],
+    )
 
     params = [
         ctx.attrs._mockingbird_bin[RunInfo],
