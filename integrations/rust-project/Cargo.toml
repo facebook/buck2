@@ -12,6 +12,7 @@ anyhow = { workspace = true }
 clap = { workspace = true }
 crossbeam = { workspace = true }
 dunce = { workspace = true }
+elf = "0.7.0"
 lsp-server = { workspace = true }
 lsp-types = { workspace = true }
 rustc-hash = { workspace = true }

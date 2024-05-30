@@ -37,7 +37,10 @@ use crate::json_project::Dep;
 #[derive(Parser, Debug, PartialEq)]
 struct Opt {
     #[clap(subcommand)]
-    command: Command,
+    command: Option<Command>,
+    /// Print the current version.
+    #[arg(short = 'V', long)]
+    version: bool,
 }
 
 #[derive(Subcommand, Debug, PartialEq)]
@@ -135,7 +138,17 @@ fn main() -> Result<(), anyhow::Error> {
 
     let cli = Opt::parse();
 
-    match cli.command {
+    if cli.version {
+        println!("{}", build_info());
+        return Ok(());
+    }
+
+    let Some(command) = cli.command else {
+        eprintln!("Expected a subcommand, see --help for more information.");
+        return Ok(());
+    };
+
+    match command {
         Command::New { name, kind, path } => cli::New { name, kind, path }.run(),
         Command::Check {
             mode,
@@ -153,6 +166,39 @@ fn main() -> Result<(), anyhow::Error> {
     }
 }
 
+#[cfg(not(unix))]
+fn build_info() -> String {
+    "No build info available.".to_owned()
+}
+
+#[cfg(unix)]
+fn build_info() -> String {
+    match fb_build_info_from_elf() {
+        Ok(s) => s,
+        Err(_) => "No build info available.".to_owned(),
+    }
+}
+
+#[cfg(unix)]
+fn fb_build_info_from_elf() -> Result<String, anyhow::Error> {
+    let bin_path = std::env::current_exe()?;
+    let bin_bytes = std::fs::read(&bin_path)?;
+
+    let elf_file = elf::ElfBytes::<elf::endian::AnyEndian>::minimal_parse(&bin_bytes)?;
+    let elf_section = elf_file
+        .section_header_by_name("fb_build_info")?
+        .ok_or(anyhow::anyhow!("no header"))?;
+
+    let (section_bytes, _) = elf_file.section_data(&elf_section)?;
+    let section_cstr = std::ffi::CStr::from_bytes_with_nul(section_bytes)?;
+
+    let build_info: serde_json::Value = serde_json::from_str(&section_cstr.to_str()?)?;
+    let revision = build_info["revision"].as_str().unwrap_or("(unknown)");
+    let build_time = build_info["time"].as_str().unwrap_or("(unknown)");
+
+    Ok(format!("revision: {revision}, build time: {build_time}"))
+}
+
 #[test]
 fn test_parse_use_clippy() {
     assert!(matches!(
@@ -163,10 +209,11 @@ fn test_parse_use_clippy() {
             "fbcode/foo.rs",
         ]),
         Ok(Opt {
-            command: Command::Check {
+            command: Some(Command::Check {
                 use_clippy: true,
                 ..
-            }
+            }),
+            ..
         })
     ));
 
@@ -178,10 +225,11 @@ fn test_parse_use_clippy() {
             "fbcode/foo.rs",
         ]),
         Ok(Opt {
-            command: Command::Check {
+            command: Some(Command::Check {
                 use_clippy: false,
                 ..
-            }
+            }),
+            ..
         })
     ));
 }
