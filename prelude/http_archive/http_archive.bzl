@@ -201,7 +201,10 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     ctx.actions.run(
-        cmd_args(interpreter + [script]).hidden(exclude_hidden + [archive, script_output.as_output()]),
+        cmd_args(
+            interpreter + [script],
+            hidden = exclude_hidden + [archive, script_output.as_output()],
+        ),
         category = "http_archive",
         prefer_local = prefer_local,
     )
