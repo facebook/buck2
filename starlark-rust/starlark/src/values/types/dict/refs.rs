@@ -21,6 +21,7 @@ use std::cell::RefMut;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+use dupe::Dupe;
 use either::Either;
 
 use crate::coerce::coerce;
@@ -39,6 +40,21 @@ use crate::values::ValueLike;
 pub struct DictRef<'v> {
     pub(crate) aref: Either<Ref<'v, Dict<'v>>, &'v Dict<'v>>,
 }
+
+impl<'v> Clone for DictRef<'v> {
+    fn clone(&self) -> Self {
+        match &self.aref {
+            Either::Left(x) => DictRef {
+                aref: Either::Left(Ref::clone(x)),
+            },
+            Either::Right(x) => DictRef {
+                aref: Either::Right(*x),
+            },
+        }
+    }
+}
+
+impl<'v> Dupe for DictRef<'v> {}
 
 /// Mutably borrowed `Dict`.
 pub struct DictMut<'v> {

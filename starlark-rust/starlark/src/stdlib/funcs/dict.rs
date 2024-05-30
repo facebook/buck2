@@ -94,9 +94,9 @@ pub(crate) fn register_dict(globals: &mut GlobalsBuilder) {
         match pos {
             None => Ok(kwargs),
             Some(pos) => {
-                let mut result = match DictRef::from_value(pos) {
+                let mut result: Dict = match DictRef::from_value(pos) {
                     Some(pos) => {
-                        let mut result = pos.clone();
+                        let mut result = (*pos).clone();
                         result.reserve(kwargs.len());
                         result
                     }

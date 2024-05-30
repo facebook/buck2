@@ -486,7 +486,7 @@ where
         let rhs = DictRef::from_value(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "|", rhs), Ok)?;
         if self.0.content().is_empty() {
-            return Ok(heap.alloc(rhs.clone()));
+            return Ok(heap.alloc((*rhs).clone()));
         }
         // Might be faster if we preallocate the capacity, but then copying in the LHS
         // is more expensive and might oversize given the behaviour on duplicates.
