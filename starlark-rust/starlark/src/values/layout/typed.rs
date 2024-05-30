@@ -350,6 +350,12 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for ValueTyped<'v, T> {
     }
 }
 
+impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        FrozenValueTyped::new(value.unpack_frozen()?)
+    }
+}
+
 impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for ValueTyped<'v, T> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
         self.0
