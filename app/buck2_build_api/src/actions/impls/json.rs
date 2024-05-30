@@ -25,9 +25,12 @@ use starlark::values::list::ListRef;
 use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::FrozenValueTyped;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
@@ -91,15 +94,22 @@ where
 /// We want to deal with both normal artifacts, and .as_output() artifacts,
 /// since otherwise the .as_output ones will fall through as a cmd_args
 /// and end up getting wrapped in a list below.
-fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>> {
-    if let Some(x) = ValueAsArtifactLike::unpack_value(x) {
-        Some(Box::new(|| Ok(x.0.get_bound_artifact()?.dupe())))
-    } else if let Some(x) = x.downcast_ref::<StarlarkOutputArtifact>() {
-        Some(Box::new(|| Ok(((*x.inner()).get_bound_artifact())?.dupe())))
-    } else if let Some(x) = x.downcast_ref::<FrozenStarlarkOutputArtifact>() {
-        Some(Box::new(|| Ok(x.inner().artifact())))
-    } else {
-        None
+#[derive(UnpackValue, StarlarkTypeRepr)]
+enum JsonArtifact<'v> {
+    ValueAsArtifactLike(ValueAsArtifactLike<'v>),
+    StarlarkOutputArtifact(ValueTyped<'v, StarlarkOutputArtifact<'v>>),
+    FrozenStarlarkOutputArtifact(FrozenValueTyped<'v, FrozenStarlarkOutputArtifact>),
+}
+
+impl<'v> JsonArtifact<'v> {
+    fn artifact(&self) -> anyhow::Result<Artifact> {
+        match self {
+            JsonArtifact::ValueAsArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
+            JsonArtifact::StarlarkOutputArtifact(x) => {
+                Ok((*x.inner()).get_bound_artifact()?.dupe())
+            }
+            JsonArtifact::FrozenStarlarkOutputArtifact(x) => Ok(x.inner().artifact()),
+        }
     }
 }
 
@@ -117,7 +127,7 @@ enum JsonUnpack<'v> {
     TransitiveSetJsonProjection(&'v TransitiveSetJsonProjection<'v>),
     TargetLabel(&'v StarlarkTargetLabel),
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
-    Artifact(Box<dyn FnOnce() -> anyhow::Result<Artifact> + 'v>),
+    Artifact(JsonArtifact<'v>),
     CommandLine(&'v dyn CommandLineArgLike),
     Provider(&'v dyn ProviderLike<'v>),
     TaggedValue(&'v TaggedValue<'v>),
@@ -151,7 +161,7 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::TargetLabel(x)
     } else if let Some(x) = StarlarkConfiguredProvidersLabel::from_value(value) {
         JsonUnpack::ConfiguredProvidersLabel(x)
-    } else if let Some(x) = get_artifact(value) {
+    } else if let Some(x) = JsonArtifact::unpack_value(value) {
         JsonUnpack::Artifact(x)
     } else if let Some(x) = ValueAsCommandLineLike::unpack_value(value) {
         JsonUnpack::CommandLine(x.0)
@@ -208,7 +218,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         serializer.serialize_str("")
                     }
                     Some(fs) => {
-                        let path = err(err(x())?.resolve_path(fs.fs()))?;
+                        let path = err(err(x.artifact())?.resolve_path(fs.fs()))?;
                         let path = with_command_line_context(fs, self.absolute, |ctx| {
                             err(ctx.resolve_project_path(path)).map(|loc| loc.into_string())
                         })?;
