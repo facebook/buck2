@@ -242,6 +242,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 pre_create_dirs.clone(),
                 &test_executor.executor_fs(),
             )
+            .boxed()
             .await?;
 
         let ExpandedTestExecutable {
@@ -295,6 +296,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 required_resources,
                 worker,
             )
+            .boxed()
             .await?;
 
         let ExecuteData {
@@ -306,6 +308,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             outputs,
         } = self
             .execute_request(&test_target, metadata, &test_executor, execution_request)
+            .boxed()
             .await?;
 
         self.require_alive().await?;
