@@ -194,14 +194,19 @@ def compile_args(
     if pkgname:
         compile_args.add(["-this-unit-id", pkgname])
 
-    srcs = cmd_args()
+    arg_srcs = []
+    hidden_srcs = []
     for (path, src) in srcs_to_pairs(ctx.attrs.srcs):
         # hs-boot files aren't expected to be an argument to compiler but does need
         # to be included in the directory of the associated src file
         if is_haskell_src(path):
-            srcs.add(src)
+            arg_srcs.append(src)
         else:
-            srcs.hidden(src)
+            hidden_srcs.append(src)
+    srcs = cmd_args(
+        arg_srcs,
+        hidden = hidden_srcs,
+    )
 
     producing_indices = "-fwrite-ide-info" in ctx.attrs.compiler_flags
 

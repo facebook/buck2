@@ -101,7 +101,7 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
     )
 
     ctx.actions.run(
-        cmd_args(script).hidden(cmd),
+        cmd_args(script, hidden = cmd),
         category = "haskell_haddock",
         no_outputs_cleanup = True,
     )
@@ -152,7 +152,7 @@ def haskell_haddock_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     ctx.actions.run(
-        cmd_args(script).hidden(script_args),
+        cmd_args(script, hidden = script_args),
         category = "haskell_haddock",
         no_outputs_cleanup = True,
     )
