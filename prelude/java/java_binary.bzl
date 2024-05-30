@@ -106,8 +106,10 @@ def _create_fat_jar(
         ]
         outputs.append(classpath_args_output)
 
-    fat_jar_cmd = cmd_args(args)
-    fat_jar_cmd.hidden(jars, [native_lib.lib.output for native_lib in native_libs])
+    fat_jar_cmd = cmd_args(
+        args,
+        hidden = [jars] + [native_lib.lib.output for native_lib in native_libs],
+    )
 
     ctx.actions.run(
         fat_jar_cmd,

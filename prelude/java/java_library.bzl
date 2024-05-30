@@ -596,9 +596,10 @@ def build_java_library(
 
         # The outputs of validation_deps need to be added as hidden arguments
         # to an action for the validation_deps targets to be built and enforced.
-        extra_arguments = cmd_args(ctx.attrs.extra_arguments)
-        if validation_deps_outputs:
-            extra_arguments.hidden(validation_deps_outputs)
+        extra_arguments = cmd_args(
+            ctx.attrs.extra_arguments,
+            hidden = validation_deps_outputs or [],
+        )
 
         outputs = compile_to_jar(
             ctx,
@@ -649,7 +650,8 @@ def build_java_library(
             ctx.actions.write("gwt_entries.txt", entries),
             "--output",
             gwt_output.as_output(),
-        ).hidden(entries)
+            hidden = entries,
+        )
 
         ctx.actions.run(gwt_cmd_args, category = "gwt_module")
 

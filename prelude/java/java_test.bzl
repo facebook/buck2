@@ -105,14 +105,18 @@ def build_junit_test(
         cmd.extend(["-classpath", cmd_args(java_test_toolchain.test_runner_library_jar)])
         classpath_args.add(cmd_args(classpath))
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
-        cmd.append(cmd_args(classpath_args_file, format = "-Dbuck.classpath_file={}").hidden(classpath_args))
+        cmd.append(cmd_args(
+            classpath_args_file,
+            format = "-Dbuck.classpath_file={}",
+            hidden = classpath_args,
+        ))
     else:
         # Java 9+ supports argfiles, so just write the classpath to an argsfile. "FileClassPathRunner" will delegate
         # immediately to the junit test runner.
         classpath_args.add("-classpath")
         classpath_args.add(cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)))
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
-        cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
+        cmd.append(cmd_args(classpath_args_file, format = "@{}", hidden = classpath_args))
 
     if (ctx.attrs.test_type == "junit5"):
         cmd.extend(java_test_toolchain.junit5_test_runner_main_class_args)
@@ -137,7 +141,7 @@ def build_junit_test(
             ctx.actions.write("sources.txt", ctx.attrs.srcs),
             "--output",
             class_names.as_output(),
-        ]).hidden(ctx.attrs.srcs)
+        ], hidden = ctx.attrs.srcs)
         ctx.actions.run(list_class_names_cmd, category = "list_class_names")
 
     cmd.extend(["--test-class-names-file", class_names])
