@@ -46,7 +46,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
-use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 
@@ -129,7 +128,7 @@ enum JsonUnpack<'v> {
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
     Artifact(JsonArtifact<'v>),
     CommandLine(&'v dyn CommandLineArgLike),
-    Provider(&'v dyn ProviderLike<'v>),
+    Provider(ValueAsProviderLike<'v>),
     TaggedValue(&'v TaggedValue<'v>),
     Unsupported,
 }
@@ -165,7 +164,7 @@ fn unpack<'v>(value: Value<'v>) -> JsonUnpack<'v> {
         JsonUnpack::Artifact(x)
     } else if let Some(x) = ValueAsCommandLineLike::unpack_value(value) {
         JsonUnpack::CommandLine(x.0)
-    } else if let Some(x) = value.as_provider() {
+    } else if let Some(x) = ValueAsProviderLike::unpack_value(value) {
         JsonUnpack::Provider(x)
     } else if let Some(x) = TaggedValue::from_value(value) {
         JsonUnpack::TaggedValue(x)
@@ -258,7 +257,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 }
             }
             JsonUnpack::Provider(x) => {
-                serializer.collect_map(x.items().iter().map(|(k, v)| (k, self.with_value(*v))))
+                serializer.collect_map(x.0.items().iter().map(|(k, v)| (k, self.with_value(*v))))
             }
             JsonUnpack::TaggedValue(x) => self.with_value(*x.value()).serialize(serializer),
             JsonUnpack::Unsupported => Err(serde::ser::Error::custom(format!(
@@ -368,7 +367,7 @@ pub fn visit_json_artifacts(
             ));
         }
         JsonUnpack::Provider(x) => {
-            for (_, v) in x.items() {
+            for (_, v) in x.0.items() {
                 visit_json_artifacts(v, visitor)?;
             }
         }

@@ -45,6 +45,7 @@ use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -170,11 +171,11 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
 
         let mut providers = SmallMap::with_capacity(list.len());
         for value in list.iter() {
-            match value.as_provider() {
+            match ValueAsProviderLike::unpack_value(value) {
                 Some(provider) => {
-                    if let Some(existing_value) = providers.insert(provider.id().dupe(), value) {
+                    if let Some(existing_value) = providers.insert(provider.0.id().dupe(), value) {
                         return Err(ProviderCollectionError::CollectionSpecifiedProviderTwice {
-                            provider_name: provider.id().name.clone(),
+                            provider_name: provider.0.id().name.clone(),
                             original_repr: existing_value.to_repr(),
                             new_repr: value.to_repr(),
                         }

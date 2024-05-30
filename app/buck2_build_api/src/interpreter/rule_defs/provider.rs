@@ -60,14 +60,17 @@ use std::sync::Arc;
 use buck2_core::provider::id::ProviderId;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::MethodsBuilder;
+use starlark::typing::Ty;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfo;
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
+use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 
 pub mod builtin;
 pub mod callable;
@@ -108,12 +111,16 @@ pub(crate) fn provider_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub(crate) trait ValueAsProviderLike<'v> {
-    fn as_provider(&self) -> Option<&'v dyn ProviderLike<'v>>;
+pub(crate) struct ValueAsProviderLike<'v>(pub(crate) &'v dyn ProviderLike<'v>);
+
+impl<'v> StarlarkTypeRepr for ValueAsProviderLike<'v> {
+    fn starlark_type_repr() -> Ty {
+        AbstractProvider::starlark_type_repr()
+    }
 }
 
-impl<'v, V: ValueLike<'v>> ValueAsProviderLike<'v> for V {
-    fn as_provider(&self) -> Option<&'v dyn ProviderLike<'v>> {
-        self.to_value().request_value()
+impl<'v> UnpackValue<'v> for ValueAsProviderLike<'v> {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        Some(ValueAsProviderLike(value.request_value()?))
     }
 }
