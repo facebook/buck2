@@ -200,10 +200,12 @@ def _build_boot_script(
             spec_file,
             cmd_args(release_resource.as_output(), parent = 1),
         ],
+        hidden = [
+            start_script.as_output(),
+            boot_script.as_output(),
+            lib_dir,
+        ],
     )
-    boot_script_build_cmd.hidden(start_script.as_output())
-    boot_script_build_cmd.hidden(boot_script.as_output())
-    boot_script_build_cmd.hidden(lib_dir)
 
     erlang_build.utils.run_with_env(
         ctx,

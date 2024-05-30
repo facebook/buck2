@@ -468,8 +468,8 @@ def _build_erl(
         src,
         dep_info_file,
         final_dep_file.as_output(),
+        hidden = build_environment.deps_files.values(),
     )
-    finalize_deps_cmd.hidden(build_environment.deps_files.values())
     ctx.actions.run(
         finalize_deps_cmd,
         category = "dependency_finalizer",

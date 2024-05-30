@@ -142,10 +142,8 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     # get otp binaries
     binaries_info = ctx.attrs.otp_binaries[ErlangOTPBinariesInfo]
     erl = cmd_args([binaries_info.erl] + emu_flags)
-    erlc = cmd_args(binaries_info.erlc)
-    escript = cmd_args(binaries_info.escript)
-    erlc.hidden(binaries_info.erl)
-    escript.hidden(binaries_info.erl)
+    erlc = cmd_args(binaries_info.erlc, hidden = binaries_info.erl)
+    escript = cmd_args(binaries_info.escript, hidden = binaries_info.erl)
     tools_binaries = ToolsBinaries(
         erl = binaries_info.erl,
         erlc = binaries_info.erl,

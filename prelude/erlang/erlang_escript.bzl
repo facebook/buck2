@@ -155,9 +155,11 @@ def create_escript(
             script,
             spec_file,
         ],
+        hidden = [
+            output.as_output(),
+            files,
+        ],
     )
-    escript_build_cmd.hidden(output.as_output())
-    escript_build_cmd.hidden(files)
 
     erlang_build.utils.run_with_env(
         ctx,

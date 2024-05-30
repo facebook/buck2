@@ -56,11 +56,11 @@ def _build_run_info(
     content.add("")
 
     shell_script = ctx.actions.write("start_shell.sh", content)
-    shell_cmd = cmd_args(["/usr/bin/env", "bash", shell_script])
-
-    # depend on input paths
-    for code_path in app_paths + additional_paths:
-        shell_cmd.hidden(code_path)
+    shell_cmd = cmd_args(
+        ["/usr/bin/env", "bash", shell_script],
+        # depend on input paths
+        hidden = app_paths + additional_paths,
+    )
 
     return RunInfo(shell_cmd)
 
