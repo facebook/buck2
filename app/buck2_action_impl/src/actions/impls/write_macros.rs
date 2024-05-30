@@ -34,6 +34,7 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::internal_error;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -63,7 +64,15 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
         _error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
-        let action = WriteMacrosToFileAction::new(self.identifier, contents, inputs, outputs)?;
+
+        if !inputs.is_empty() {
+            return Err(internal_error!(
+                "Input artifacts mut be empty for write macros action"
+            ));
+        }
+
+        let action = WriteMacrosToFileAction::new(self.identifier, contents, outputs)?;
+
         Ok(Box::new(action))
     }
 }
@@ -84,7 +93,6 @@ enum WriteMacrosActionValidationError {
 struct WriteMacrosToFileAction {
     identifier: String,
     contents: OwnedFrozenValue, // StarlarkCmdArgs
-    inputs: Box<[ArtifactGroup]>,
     outputs: Box<[BuildArtifact]>,
 }
 
@@ -92,7 +100,6 @@ impl WriteMacrosToFileAction {
     fn new(
         identifier: String,
         contents: OwnedFrozenValue,
-        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
     ) -> anyhow::Result<Self> {
         if outputs.is_empty() {
@@ -109,7 +116,6 @@ impl WriteMacrosToFileAction {
             Ok(Self {
                 identifier,
                 contents,
-                inputs: inputs.into_iter().collect(),
                 outputs: outputs.into_iter().collect(),
             })
         }
@@ -123,7 +129,7 @@ impl Action for WriteMacrosToFileAction {
     }
 
     fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&self.inputs))
+        Ok(Cow::Borrowed(&[]))
     }
 
     fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
