@@ -111,7 +111,7 @@ pub(crate) fn provider_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub(crate) struct ValueAsProviderLike<'v>(pub(crate) &'v dyn ProviderLike<'v>);
+pub struct ValueAsProviderLike<'v>(pub(crate) &'v dyn ProviderLike<'v>);
 
 impl<'v> StarlarkTypeRepr for ValueAsProviderLike<'v> {
     fn starlark_type_repr() -> Ty {

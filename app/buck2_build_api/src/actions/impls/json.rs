@@ -39,6 +39,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArti
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
+use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -51,17 +52,35 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 
 /// A wrapper with a Serialize instance so we can pass down the necessary context.
 pub struct SerializeValue<'a, 'v> {
-    pub value: Value<'v>,
+    pub value: JsonUnpack<'v>,
     pub fs: Option<&'a ExecutorFs<'a>>,
     pub absolute: bool,
 }
 
+struct AnyhowResultOfSerializedValue<'a, 'v> {
+    result: anyhow::Result<SerializeValue<'a, 'v>>,
+}
+
+impl<'a, 'v> Serialize for AnyhowResultOfSerializedValue<'a, 'v> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match &self.result {
+            Ok(v) => v.serialize(serializer),
+            Err(e) => Err(serde::ser::Error::custom(format!("{:#}", e))),
+        }
+    }
+}
+
 impl<'a, 'v> SerializeValue<'a, 'v> {
-    fn with_value(&self, x: Value<'v>) -> Self {
-        Self {
-            value: x,
-            fs: self.fs,
-            absolute: self.absolute,
+    fn with_value(&self, x: Value<'v>) -> AnyhowResultOfSerializedValue<'a, 'v> {
+        AnyhowResultOfSerializedValue {
+            result: JsonUnpack::unpack_value_err(x).map(|value| SerializeValue {
+                value,
+                fs: self.fs,
+                absolute: self.absolute,
+            }),
         }
     }
 }
@@ -94,7 +113,7 @@ where
 /// since otherwise the .as_output ones will fall through as a cmd_args
 /// and end up getting wrapped in a list below.
 #[derive(UnpackValue, StarlarkTypeRepr)]
-enum JsonArtifact<'v> {
+pub enum JsonArtifact<'v> {
     ValueAsArtifactLike(ValueAsArtifactLike<'v>),
     StarlarkOutputArtifact(ValueTyped<'v, StarlarkOutputArtifact<'v>>),
     FrozenStarlarkOutputArtifact(FrozenValueTyped<'v, FrozenStarlarkOutputArtifact>),
@@ -113,7 +132,7 @@ impl<'v> JsonArtifact<'v> {
 }
 
 #[derive(UnpackValue, StarlarkTypeRepr)]
-enum JsonUnpack<'v> {
+pub enum JsonUnpack<'v> {
     None(NoneType),
     String(&'v str),
     Number(i64),
@@ -128,7 +147,7 @@ enum JsonUnpack<'v> {
     TargetLabel(&'v StarlarkTargetLabel),
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
     Artifact(JsonArtifact<'v>),
-    CommandLine(ValueAsCommandLineLike<'v>),
+    CommandLine(CommandLineArg<'v>),
     Provider(ValueAsProviderLike<'v>),
     TaggedValue(&'v TaggedValue<'v>),
 }
@@ -138,11 +157,11 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
     where
         S: Serializer,
     {
-        match err(JsonUnpack::unpack_value_err(self.value))? {
+        match &self.value {
             JsonUnpack::None(_) => serializer.serialize_none(),
             JsonUnpack::String(x) => serializer.serialize_str(x),
-            JsonUnpack::Number(x) => serializer.serialize_i64(x),
-            JsonUnpack::Bool(x) => serializer.serialize_bool(x),
+            JsonUnpack::Number(x) => serializer.serialize_i64(*x),
+            JsonUnpack::Bool(x) => serializer.serialize_bool(*x),
             JsonUnpack::List(x) => serializer.collect_seq(x.iter().map(|v| self.with_value(v))),
             JsonUnpack::Tuple(x) => serializer.collect_seq(x.iter().map(|v| self.with_value(v))),
             JsonUnpack::Dict(x) => serializer.collect_map(
@@ -186,7 +205,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 }
             }
             JsonUnpack::CommandLine(x) => {
-                let singleton = is_singleton_cmdargs(self.value);
+                let singleton = is_singleton_cmdargs(*x);
                 match self.fs {
                     None => {
                         // See a few lines up for fs == None details.
@@ -202,7 +221,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         let mut items = Vec::<String>::new();
 
                         with_command_line_context(fs, self.absolute, |ctx| {
-                            err(x.0.add_to_command_line(&mut items, ctx))
+                            err(x.as_command_line_arg().add_to_command_line(&mut items, ctx))
                         })?;
 
                         // We change the type, based on the value - singleton = String, otherwise list.
@@ -224,10 +243,10 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
     }
 }
 
-fn is_singleton_cmdargs(x: Value) -> bool {
-    if let Some(x) = x.downcast_ref::<StarlarkCmdArgs>() {
+fn is_singleton_cmdargs(x: CommandLineArg) -> bool {
+    if let Some(x) = x.to_value().downcast_ref::<StarlarkCmdArgs>() {
         x.is_concat()
-    } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCmdArgs>() {
+    } else if let Some(x) = x.to_value().downcast_ref::<FrozenStarlarkCmdArgs>() {
         x.is_concat()
     } else {
         false
@@ -246,7 +265,7 @@ pub fn write_json(
     absolute: bool,
 ) -> anyhow::Result<()> {
     let value = SerializeValue {
-        value: x,
+        value: JsonUnpack::unpack_value_err(x)?,
         fs,
         absolute,
     };
@@ -315,7 +334,7 @@ pub fn visit_json_artifacts(
                 .0
                 .visit_artifacts(visitor)?;
         }
-        JsonUnpack::CommandLine(x) => x.0.visit_artifacts(visitor)?,
+        JsonUnpack::CommandLine(x) => x.as_command_line_arg().visit_artifacts(visitor)?,
         JsonUnpack::Provider(x) => {
             for (_, v) in x.0.items() {
                 visit_json_artifacts(v, visitor)?;

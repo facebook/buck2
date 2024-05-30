@@ -11,6 +11,7 @@ use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::visit_json_artifacts;
+use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::impls::json::SerializeValue;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
@@ -21,6 +22,7 @@ use dupe::Dupe;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
@@ -63,13 +65,13 @@ fn test_tagging() -> anyhow::Result<()> {
 
         fn check_passthrough<'v>(tagged: Value<'v>, value: Value<'v>) -> anyhow::Result<Value<'v>> {
             let json1 = serde_json::to_string(&SerializeValue {
-                value: tagged,
+                value: JsonUnpack::unpack_value_err(tagged)?,
                 fs: None,
                 absolute: false,
             })?;
 
             let json2 = serde_json::to_string(&SerializeValue {
-                value,
+                value: JsonUnpack::unpack_value_err(value)?,
                 fs: None,
                 absolute: false,
             })?;
