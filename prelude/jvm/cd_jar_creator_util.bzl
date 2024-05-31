@@ -386,7 +386,7 @@ def setup_dep_files(
             "--jar-to-jar-dir-map",
             abi_to_abi_dir_map_file,
         ])
-        if type(abi_to_abi_dir_map) == "transitive_set_args_projection":
+        if isinstance(abi_to_abi_dir_map, TransitiveSetArgsProjection):
             new_cmd.hidden(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
         for hidden_artifact in hidden:
             new_cmd.hidden(classpath_jars_tag.tag_artifacts(hidden_artifact))
