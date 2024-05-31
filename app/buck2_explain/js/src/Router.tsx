@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-import React, {ReactNode, useEffect, useState} from 'react'
+import React, {ReactNode, useContext, useEffect, useState} from 'react'
 
 export const SEARCH_VIEW = 'search'
 export const TARGET_VIEW = 'target'
@@ -71,6 +71,8 @@ export function Router(props: {children: ReactNode}) {
  * Link with specified query params
  */
 export function Link(props: {to: Map<string, string>; children: ReactNode}) {
+  const {setParams} = useContext(RouterContext)
+
   const {to, children} = props
 
   const url = new URL(window.location.toString())
@@ -86,5 +88,14 @@ export function Link(props: {to: Map<string, string>; children: ReactNode}) {
 
   url.search = params.toString()
 
-  return <a href={url.toString()}>{children}</a>
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>, url: URL) => {
+    e.preventDefault()
+    setParams(url.search)
+  }
+
+  return (
+    <a href={url.toString()} onClick={e => handleClick(e, url)}>
+      {children}
+    </a>
+  )
 }
