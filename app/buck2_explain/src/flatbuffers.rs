@@ -8,6 +8,8 @@
  */
 
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -198,7 +200,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             v.0.iter().for_each(|v| {
                 match v {
                     ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                    _ => {} // TODO iguridi: handle other list types
+                    _ => list.push(v.as_display(&AttrFmtContext::NO_QUOTES).to_string()), // TODO iguridi: structure this
                 }
             });
             AttrField::StringList(name, list)
@@ -218,7 +220,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             v.0.iter().for_each(|v| {
                 match v {
                     ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                    _ => {} // TODO iguridi: handle other types
+                    _ => list.push(v.as_display(&AttrFmtContext::NO_QUOTES).to_string()), // TODO iguridi: structure this
                 }
             });
             AttrField::StringList(name, list)
@@ -226,11 +228,14 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
         ConfiguredAttr::Dict(v) => {
             let string_pairs: Vec<_> =
                 v.0.iter()
-                    .filter_map(|(k, v)| match (k, v) {
+                    .map(|(k, v)| match (k, v) {
                         (ConfiguredAttr::String(k), ConfiguredAttr::String(v)) => {
-                            Some((k.0.to_string(), v.0.to_string()))
+                            (k.0.to_string(), v.0.to_string())
                         }
-                        _ => None, // TODO iguridi: handle other types
+                        _ => (
+                            k.as_display(&AttrFmtContext::NO_QUOTES).to_string(),
+                            v.as_display(&AttrFmtContext::NO_QUOTES).to_string(),
+                        ), // TODO iguridi: structure this
                     })
                     .collect();
             AttrField::StringDict(name, string_pairs)
@@ -243,8 +248,8 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             };
             AttrField::StringList(name, list)
         }
-        ConfiguredAttr::ExplicitConfiguredDep(_v) => AttrField::None, // TODO iguridi: handle these
-        ConfiguredAttr::SplitTransitionDep(_v) => AttrField::None, //  // TODO iguridi: handle these
+        ConfiguredAttr::ExplicitConfiguredDep(v) => AttrField::String(name, v.to_string()), // TODO iguridi: structure this
+        ConfiguredAttr::SplitTransitionDep(v) => AttrField::String(name, v.to_string()), // TODO iguridi: structure this
         ConfiguredAttr::ConfigurationDep(v) => AttrField::String(name, v.to_string()),
         ConfiguredAttr::PluginDep(v, _) => AttrField::String(name, v.to_string()),
         ConfiguredAttr::Dep(v) => {
