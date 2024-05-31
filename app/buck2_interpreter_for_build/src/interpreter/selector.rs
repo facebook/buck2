@@ -69,8 +69,8 @@ impl<'v> StarlarkSelector<'v> {
         StarlarkSelector::Inner(d)
     }
 
-    fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
-        Ok(heap.alloc(StarlarkSelector::Added(left, right)))
+    fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> Value<'v> {
+        heap.alloc(StarlarkSelector::Added(left, right))
     }
 
     /// Tests that two selects are equal to each other. For testing use only.
@@ -210,21 +210,16 @@ where
                 StarlarkSelectorGen::Added(x.to_value(), y.to_value())
             }
         });
-        Some(StarlarkSelector::added(left, right, heap))
+        Some(Ok(StarlarkSelector::added(left, right, heap)))
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
         let this = match self {
             Self::Inner(ref v) => heap.alloc(StarlarkSelector::new(v.to_value())),
-            Self::Added(ref l, ref r) => {
-                match StarlarkSelector::added(l.to_value(), r.to_value(), heap) {
-                    Err(e) => return Some(Err(e)),
-                    Ok(v) => v,
-                }
-            }
+            Self::Added(ref l, ref r) => StarlarkSelector::added(l.to_value(), r.to_value(), heap),
         };
 
-        Some(StarlarkSelector::added(this, other, heap))
+        Some(Ok(StarlarkSelector::added(this, other, heap)))
     }
 }
 
