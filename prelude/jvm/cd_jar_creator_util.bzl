@@ -367,9 +367,10 @@ def setup_dep_files(
         hidden = ["artifact"]) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
-    new_cmd = cmd_args()
-    new_cmd.add(cmd)
-    new_cmd.add([
+    new_cmd_args = []
+    new_cmd_hidden = []
+    new_cmd_args.append(cmd)
+    new_cmd_args.append([
         "--used-classes",
     ] + [
         used_classes_json.as_output()
@@ -382,16 +383,16 @@ def setup_dep_files(
     if abi_to_abi_dir_map:
         abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map")
         actions.write(abi_to_abi_dir_map_file, abi_to_abi_dir_map)
-        new_cmd.add([
+        new_cmd_args.extend([
             "--jar-to-jar-dir-map",
             abi_to_abi_dir_map_file,
         ])
         if isinstance(abi_to_abi_dir_map, TransitiveSetArgsProjection):
-            new_cmd.hidden(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
+            new_cmd_hidden.append(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
         for hidden_artifact in hidden:
-            new_cmd.hidden(classpath_jars_tag.tag_artifacts(hidden_artifact))
+            new_cmd_hidden.append(classpath_jars_tag.tag_artifacts(hidden_artifact))
 
-    return new_cmd
+    return cmd_args(new_cmd_args, hidden = new_cmd_hidden)
 
 FORCE_PERSISTENT_WORKERS = read_root_config("build", "require_persistent_workers", "false").lower() == "true"
 
@@ -521,7 +522,7 @@ def prepare_final_jar(
             merged_jar.as_output(),
             "--entries-to-jar",
             files_to_merge_file,
-        ]).hidden(files_to_merge),
+        ], hidden = files_to_merge),
         category = "merge_additional_srcs",
         identifier = actions_identifier,
     )
