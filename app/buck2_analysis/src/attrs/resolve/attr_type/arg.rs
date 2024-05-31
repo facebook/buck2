@@ -44,8 +44,10 @@ enum ResolveMacroError {
     KeyedPlaceholderArgMissing(String, ConfiguredProvidersLabel, String),
     #[error("There was no mapping for {0} in the TemplatePlaceholderInfo for {1}.")]
     KeyedPlaceholderMappingMissing(String, ConfiguredProvidersLabel),
-    #[error("There was no TemplatePlaceholderInfo for {0}.")]
-    KeyedPlaceholderInfoMissing(ConfiguredProvidersLabel),
+    #[error(
+        "Macro `{0}` it not builtin, target `{1}` must provide `TemplatePlaceholderInfo` to resolve it"
+    )]
+    KeyedPlaceholderInfoMissing(String, ConfiguredProvidersLabel),
     #[error("There was no mapping for {0}.")]
     UnkeyedPlaceholderUnresolved(String),
     #[error("Expected a RunInfo provider from target `{0}`.")]
@@ -144,7 +146,12 @@ fn resolve_configured_macro(
             let placeholder_info = providers
                 .provider_collection()
                 .builtin_provider::<FrozenTemplatePlaceholderInfo>()
-                .ok_or_else(|| ResolveMacroError::KeyedPlaceholderInfoMissing(label.clone()))?;
+                .ok_or_else(|| {
+                    ResolveMacroError::KeyedPlaceholderInfoMissing(
+                        (**name).to_owned(),
+                        label.clone(),
+                    )
+                })?;
             let keyed_variables = placeholder_info.keyed_variables();
             let either_cmd_or_mapping = keyed_variables.get(&**name).ok_or_else(|| {
                 ResolveMacroError::KeyedPlaceholderMappingMissing(
