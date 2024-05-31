@@ -99,6 +99,10 @@ rust_toolchain_attrs = {
     # FIXME(JakobDegen): This should require `explicit_sysroot_deps` in the
     # future.
     "advanced_unstable_linking": provider_field(bool, default = False),
+    # Override the implicit sysroot with the provided Artifact containing a directory to
+    # a prebuilt sysroot. Will be forwarded to rustc as `--sysroot=<sysroot_path>`. Only
+    # one of this and `explicit_sysroot_deps` may be set.
+    "sysroot_path": provider_field(Artifact | None, default = None),
     # See the documentation on the type for details
     "explicit_sysroot_deps": provider_field(RustExplicitSysrootDeps | None, default = None),
     # The panic runtime to use. This is a part of the target definition and is

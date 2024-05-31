@@ -132,6 +132,8 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
         empty_sysroot = ctx.actions.copied_dir("empty_sysroot", {"lib/rustlib/" + toolchain_info.rustc_target_triple + "/lib": empty_dir})
 
         sysroot_args = cmd_args("--sysroot=", empty_sysroot, delimiter = "")
+    elif toolchain_info.sysroot_path:
+        sysroot_args = cmd_args("--sysroot=", toolchain_info.sysroot_path, delimiter = "")
     else:
         sysroot_args = cmd_args()
 
@@ -1040,7 +1042,7 @@ def _clippy_wrapper(
     if toolchain_info.rustc_target_triple:
         rustc_print_sysroot.add("--target={}".format(toolchain_info.rustc_target_triple))
 
-    skip_setting_sysroot = toolchain_info.explicit_sysroot_deps != None
+    skip_setting_sysroot = toolchain_info.explicit_sysroot_deps != None or toolchain_info.sysroot_path != None
 
     if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
         wrapper_file, _ = ctx.actions.write(
