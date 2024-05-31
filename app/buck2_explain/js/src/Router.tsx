@@ -32,7 +32,7 @@ export function Router(props: {children: ReactNode}) {
 
   useEffect(() => {
     const handlePopState = () => {
-      setParams(document.location.search)
+      setUrlParams(document.location.search)
     }
     window.addEventListener('popstate', handlePopState)
     return () => {
