@@ -112,10 +112,6 @@ export function Target(props: {target: ConfiguredTargetNode}) {
           <span>{target.name()}</span>
         </li>
         <li>
-          <b>Within view: </b>
-          <List attr={i => target.withinView(i)} length={target.withinViewLength()} />
-        </li>
-        <li>
           <b>Type: </b>
           <span>{target.type()}</span>
         </li>
