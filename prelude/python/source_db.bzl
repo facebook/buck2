@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
@@ -41,10 +42,12 @@ def create_source_db(
     dep_manifests = ctx.actions.tset(PythonLibraryManifestsTSet, children = [d.manifests for d in python_deps])
 
     dependencies = cmd_args(dep_manifests.project_as_args("source_type_manifests"), format = "--dependency={}")
-    dependencies_file = ctx.actions.write("source_db_dependencies", dependencies)
-    dependencies_file = cmd_args(dependencies_file, format = "@{}", hidden = dependencies)
+    cmd.add(at_argfile(
+        actions = ctx.actions,
+        name = "source_db_dependencies",
+        args = dependencies,
+    ))
 
-    cmd.add(dependencies_file)
     artifacts.append(dep_manifests.project_as_args("source_type_artifacts"))
 
     ctx.actions.run(cmd, category = "py_source_db")
@@ -71,9 +74,12 @@ def create_dbg_source_db(
     dep_manifests = ctx.actions.tset(PythonLibraryManifestsTSet, children = [d.manifests for d in python_deps])
 
     dependencies = cmd_args(dep_manifests.project_as_args("source_manifests"), format = "--dependency={}")
-    dependencies_file = ctx.actions.write("dbg_source_db_dependencies", dependencies)
-    dependencies_file = cmd_args(dependencies_file, format = "@{}").hidden(dependencies)
-    cmd.add(dependencies_file)
+    cmd.add(at_argfile(
+        actions = ctx.actions,
+        name = "dbg_source_db_dependencies",
+        args = dependencies,
+    ))
+
     artifacts.append(dep_manifests.project_as_args("source_artifacts"))
     ctx.actions.run(cmd, category = "py_dbg_source_db")
 

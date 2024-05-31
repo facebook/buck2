@@ -11,6 +11,7 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info"
 load("@prelude//java:dex.bzl", "DexLibraryInfo", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//paths.bzl", "paths")
@@ -377,11 +378,14 @@ def _filter_pre_dexed_libs(
         "--output",
         weight_estimate_and_filtered_class_names_file.as_output(),
     ])
-    filter_dex_cmd_argsfile = actions.write("filter_dex_cmd_args_{}".format(batch_number), filter_dex_cmd_args)
 
     filter_dex_cmd = cmd_args([
         android_toolchain.filter_dex_class_names[RunInfo],
-        cmd_args(filter_dex_cmd_argsfile, format = "@{}", hidden = filter_dex_cmd_args),
+        at_argfile(
+            actions = actions,
+            name = "filter_dex_cmd_args_{}".format(batch_number),
+            args = filter_dex_cmd_args,
+        ),
     ])
     actions.run(filter_dex_cmd, category = "filter_dex", identifier = "batch_{}".format(batch_number))
 

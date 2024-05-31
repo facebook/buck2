@@ -25,6 +25,7 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
@@ -115,8 +116,7 @@ def build_junit_test(
         # immediately to the junit test runner.
         classpath_args.add("-classpath")
         classpath_args.add(cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)))
-        classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
-        cmd.append(cmd_args(classpath_args_file, format = "@{}", hidden = classpath_args))
+        cmd.append(at_argfile(actions = ctx.actions, name = "classpath_args_file", args = classpath_args))
 
     if (ctx.attrs.test_type == "junit5"):
         cmd.extend(java_test_toolchain.junit5_test_runner_main_class_args)

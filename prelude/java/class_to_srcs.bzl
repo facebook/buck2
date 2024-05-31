@@ -9,6 +9,7 @@ load(
     "@prelude//java:java_toolchain.bzl",
     "JavaToolchainInfo",  # @unused Used as a type
 )
+load("@prelude//utils:argfile.bzl", "at_argfile")
 
 def _class_to_src_map_args(mapping: Artifact | None):
     if mapping != None:
@@ -81,9 +82,7 @@ def create_class_to_source_map_from_jar(
             cmd.add("-i", item)
     cmd.add("-o", output.as_output())
     cmd.add(jar)
-    inputs_file = actions.write("class_to_srcs_map_argsfile.txt", srcs)
-    cmd.add(cmd_args(inputs_file, format = "@{}"))
-    cmd.hidden(srcs)
+    cmd.add(at_argfile(actions = actions, name = "class_to_srcs_map_argsfile.txt", args = srcs))
     sources_jar = None
     if sources_jar_name:
         sources_jar = actions.declare_output(sources_jar_name)
@@ -104,9 +103,7 @@ def maybe_create_class_to_source_map_debuginfo(
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
     cmd.add("gen")
     cmd.add("-o", output.as_output())
-    inputs_file = actions.write("sourcefiles.txt", srcs)
-    cmd.add(cmd_args(inputs_file, format = "@{}"))
-    cmd.hidden(srcs)
+    cmd.add(at_argfile(actions = actions, name = "sourcefiles.txt", args = srcs))
     actions.run(cmd, category = "class_to_srcs_map_debuginfo")
     return output
 
@@ -148,8 +145,7 @@ def _create_merged_debug_info(
         children = [tset_debuginfo],
     )
     input_files = tset.project_as_args("class_to_src_map")
-    input_list_file = actions.write("debuginfo_list.txt", input_files)
-    cmd.add(cmd_args(input_list_file, format = "@{}"))
-    cmd.hidden(input_files)
+    cmd.add(at_argfile(actions = actions, name = "debuginfo_list.txt", args = input_files))
+
     actions.run(cmd, category = "merged_debuginfo")
     return output
