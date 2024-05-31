@@ -32,6 +32,6 @@ def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
         fail("Cannot set target_sdk_version without min_sdk_version")
     elif _version_is_greater(min_version, target_version):
         warning("Target SDK version {} is less than minimum supported version {}".format(target_version, min_version))
-        return target_version
+        return min_version
     else:
         return target_version
