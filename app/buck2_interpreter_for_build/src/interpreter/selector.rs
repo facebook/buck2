@@ -73,12 +73,6 @@ impl<'v> StarlarkSelector<'v> {
         heap.alloc(StarlarkSelector::Added(left, right))
     }
 
-    /// Tests that two selects are equal to each other. For testing use only.
-    /// We simply compare their string representations.
-    fn select_equal_internal(left: Value, right: Value) -> anyhow::Result<bool> {
-        Ok(left.to_repr() == right.to_repr())
-    }
-
     fn select_map<'a>(
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_, '_>,
@@ -270,10 +264,11 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     }
 
     /// Tests that two selects are equal to each other. For testing use only.
+    /// We simply compare their string representations.
     fn select_equal_internal<'v>(
         #[starlark(require = pos)] left: Value<'v>,
         #[starlark(require = pos)] right: Value<'v>,
     ) -> anyhow::Result<bool> {
-        StarlarkSelector::select_equal_internal(left, right)
+        Ok(left.to_repr() == right.to_repr())
     }
 }
