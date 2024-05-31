@@ -15,10 +15,6 @@ load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
 )
-load(
-    "@prelude//cxx:cxx_context.bzl",
-    "get_cxx_toolchain_info",
-)
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:linker.bzl",
@@ -64,7 +60,6 @@ load(
     "create_shared_libraries",
     "merge_shared_libraries",
 )
-load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
@@ -117,97 +112,6 @@ load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":targets.bzl", "targets")
-
-def prebuilt_rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
-    providers = []
-
-    # Default output.
-    providers.append(
-        DefaultInfo(
-            default_output = ctx.attrs.rlib,
-        ),
-    )
-
-    rust_toolchain = ctx.attrs._rust_toolchain[RustToolchainInfo]
-    dep_ctx = DepCollectionContext(
-        advanced_unstable_linking = rust_toolchain.advanced_unstable_linking,
-        include_doc_deps = False,
-        is_proc_macro = False,
-        explicit_sysroot_deps = rust_toolchain.explicit_sysroot_deps,
-        panic_runtime = rust_toolchain.panic_runtime,
-    )
-
-    cxx_toolchain = get_cxx_toolchain_info(ctx)
-    linker_info = cxx_toolchain.linker_info
-
-    archive_info = LinkInfos(
-        default = LinkInfo(
-            linkables = [
-                ArchiveLinkable(
-                    archive = Archive(artifact = ctx.attrs.rlib),
-                    linker_type = linker_info.type,
-                ),
-            ],
-        ),
-        stripped = LinkInfo(
-            linkables = [
-                ArchiveLinkable(
-                    archive = Archive(
-                        artifact = strip_debug_info(
-                            ctx = ctx,
-                            out = ctx.attrs.rlib.short_path,
-                            obj = ctx.attrs.rlib,
-                        ),
-                    ),
-                    linker_type = linker_info.type,
-                ),
-            ],
-        ),
-    )
-    link_infos = {LibOutputStyle("archive"): archive_info, LibOutputStyle("pic_archive"): archive_info}
-
-    # Rust link provider.
-    crate = attr_crate(ctx)
-    strategies = {}
-    for link_strategy in LinkStrategy:
-        tdeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
-        external_debug_info = make_artifact_tset(
-            actions = ctx.actions,
-            children = external_debug_info,
-        )
-        strategies[link_strategy] = RustLinkStrategyInfo(
-            outputs = {m: ctx.attrs.rlib for m in MetadataKind},
-            transitive_deps = tdeps,
-            transitive_proc_macro_deps = tprocmacrodeps,
-            pdb = None,
-            external_debug_info = external_debug_info,
-        )
-
-    merged_link_info, shared_libs, inherited_graphs, inherited_link_deps = _rust_link_providers(
-        ctx,
-        dep_ctx,
-        cxx_toolchain,
-        link_infos,
-        Linkage(ctx.attrs.preferred_linkage),
-    )
-    providers.append(
-        RustLinkInfo(
-            crate = crate,
-            strategies = strategies,
-            exported_link_deps = inherited_link_deps,
-            merged_link_info = merged_link_info,
-            shared_libs = shared_libs,
-            linkable_graphs = inherited_graphs,
-        ),
-    )
-
-    # We do not provide any native link providers here, as we don't have a great way to ensure that
-    # the prebuilt rlibs in our build tree are compatible with direct linkage to non-rust targets.
-    #
-    # Today, we only use prebuilt_rust_library for sysroot targets; we will need to revisit this in
-    # the future if we wish to expand their utility.
-
-    return providers
 
 def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx)
