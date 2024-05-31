@@ -247,7 +247,7 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
         # When using thin archives, object files are implicitly used as inputs
         # to the link, so make sure track them as inputs so that they're
         # materialized/tracked properly.
-        args.add(cmd_args().hidden(linkable.archive.external_objects))
+        args.add(cmd_args(hidden = linkable.archive.external_objects))
     elif isinstance(linkable, SharedLibLinkable):
         if linkable.link_without_soname:
             args.add(cmd_args(linkable.lib, format = "-L{}", parent = 1))
