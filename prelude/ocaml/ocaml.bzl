@@ -167,7 +167,7 @@ def _mk_script(ctx: AnalysisContext, file: str, args: list[typing.Any], env: dic
         is_executable = True,
         allow_args = True,
     )
-    return cmd_args(script).hidden(args, env.values())
+    return cmd_args(script, hidden = args + env.values())
 
 # An environment in which a custom `bin` is at the head of `$PATH`.
 def _mk_env(ctx: AnalysisContext) -> dict[str, cmd_args]:
@@ -321,8 +321,10 @@ def _preprocess(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMod
             parser_sig = ctx.actions.declare_output(name + ".mli")
             result.extend((parser_sig, parser))
 
-            cmd = cmd_args([menhir, "--fixed-exception", "-b", cmd_args(prefix, ignore_artifacts = True), src])
-            cmd.hidden(parser.as_output(), parser_sig.as_output())
+            cmd = cmd_args(
+                [menhir, "--fixed-exception", "-b", cmd_args(prefix, ignore_artifacts = True), src],
+                hidden = [parser.as_output(), parser_sig.as_output()],
+            )
             ctx.actions.run(cmd, category = "ocaml_yacc_" + build_mode.value, identifier = src.short_path)
 
         elif ext == ".mll":
@@ -362,7 +364,7 @@ def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode) 
         is_executable = True,
         allow_args = True,
     )
-    ctx.actions.run(cmd_args(dep_sh).hidden(dep_output.as_output(), dep_cmdline), category = "ocamldep_" + build_mode.value)
+    ctx.actions.run(cmd_args(dep_sh, hidden = [dep_output.as_output(), dep_cmdline]), category = "ocamldep_" + build_mode.value)
     return dep_output
 
 # Compile all the context's sources. If bytecode compiling, 'cmxs' & 'objs' will
@@ -606,8 +608,10 @@ def _include_paths(cmis: list[Artifact], cmos: list[Artifact]) -> cmd_args:
         if not p in seen_dirs:
             include_paths.append(cmd_args(f, parent = 1))
             seen_dirs[p] = None
-    include_paths = cmd_args(include_paths)
-    include_paths.hidden(cmis + cmos)
+    include_paths = cmd_args(
+        include_paths,
+        hidden = cmis + cmos,
+    )
     return include_paths
 
 def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
