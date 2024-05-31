@@ -106,19 +106,20 @@ def build_julia_command(ctx):
     """
     julia_toolchain = ctx.attrs._julia_toolchain[JuliaToolchainInfo]
 
-    # python processor
-    cmd = cmd_args([julia_toolchain.cmd_processor])
-
     # build out the symlink tree for libs
     symlink_dir = build_load_path_symtree(ctx)
-    cmd.hidden(symlink_dir)
 
     # build symdir for sources
     srcs_by_path = {f.short_path: f for f in ctx.attrs.srcs}
     srcs = ctx.actions.symlinked_dir("srcs_tree", srcs_by_path)
     if ctx.attrs.main not in srcs_by_path:
         fail("main should be in srcs!")
-    cmd.hidden(srcs)
+
+    # python processor
+    cmd = cmd_args(
+        [julia_toolchain.cmd_processor],
+        hidden = [symlink_dir + srcs],
+    )
 
     # prepare a json file to hold all the data the python preprocessor needs to
     # execute the julia interpreter.
