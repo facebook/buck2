@@ -360,7 +360,7 @@ def _compile_swiftmodule(
 
     if swift_framework_output:
         # this is generated implicitly once we pass -emit-module
-        cmd.hidden(swift_framework_output.swiftdoc.as_output())
+        cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
         cmd.add([
             "-emit-parseable-module-interface-path",
             swift_framework_output.swiftinterface.as_output(),
