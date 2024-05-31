@@ -52,4 +52,4 @@ def cmd_script(
     else:
         fail(os)
 
-    return cmd_args(wrapper).hidden(cmd)
+    return cmd_args(wrapper, hidden = cmd)
