@@ -118,7 +118,7 @@ def build_julia_command(ctx):
     # python processor
     cmd = cmd_args(
         [julia_toolchain.cmd_processor],
-        hidden = [symlink_dir + srcs],
+        hidden = [symlink_dir] + [srcs],
     )
 
     # prepare a json file to hold all the data the python preprocessor needs to
