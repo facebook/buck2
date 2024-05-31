@@ -43,7 +43,6 @@ enum AttrField<'a> {
     String(&'a str, String),
     StringList(&'a str, Vec<String>),
     StringDict(&'a str, Vec<(String, String)>),
-    None,
 }
 
 pub(crate) fn gen_fbs(
@@ -205,7 +204,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             });
             AttrField::StringList(name, list)
         }
-        ConfiguredAttr::None => AttrField::None,
+        ConfiguredAttr::None => AttrField::String(name, "null".to_owned()),
         ConfiguredAttr::Visibility(v) => {
             let list = match v.0 {
                 VisibilityPatternList::Public => vec![VisibilityPattern::PUBLIC.to_owned()],
