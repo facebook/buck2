@@ -116,3 +116,19 @@ def test():
         ))
         .unwrap();
 }
+
+#[test]
+fn test_failing_select_funcs() {
+    let mut tester = Tester::new().unwrap();
+    assert!(
+        tester
+            .run_starlark_test(indoc!(
+                r#"
+def test():
+    # bitwise or fails
+    expr_select = {} | select({"config/windows:x86_64": {}})
+    "#
+            ))
+            .is_err()
+    );
+}
