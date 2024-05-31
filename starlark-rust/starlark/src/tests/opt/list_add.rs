@@ -33,7 +33,6 @@ fn test_list_of_expr_add() {
     bc_golden_test(
         "opt_list_of_expr_add",
         r#"
-# TODO(nga): This is not optimized yet.
 def test():
     return [noop(), noop()] + [noop(), noop(), noop()]
 "#,

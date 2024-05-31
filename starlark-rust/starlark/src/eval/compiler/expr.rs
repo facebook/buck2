@@ -354,26 +354,6 @@ impl ExprCompiled {
         FrozenStringValue::new(self.as_value()?)
     }
 
-    /// Try to extract `[c0, c1, ..., cn]` from this expression.
-    pub(crate) fn as_short_list_of_consts(&self) -> Option<Vec<FrozenValue>> {
-        // Prevent exponential explosion during optimization.
-        const MAX_LEN: usize = 1000;
-        match self {
-            ExprCompiled::List(xs) if xs.len() <= MAX_LEN => {
-                xs.try_map(|x| x.as_value().ok_or(())).ok()
-            }
-            ExprCompiled::Value(v) => {
-                let list = FrozenListData::from_frozen_value(v)?;
-                if list.len() <= MAX_LEN {
-                    Some(list.content().to_owned())
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-
     /// Iterable produced by this expression results in empty.
     pub(crate) fn is_iterable_empty(&self) -> bool {
         match self {
@@ -464,7 +444,49 @@ impl ExprCompiled {
     }
 }
 
+enum ExprShortList<'a> {
+    Exprs(&'a [IrSpanned<ExprCompiled>]),
+    Constants(&'a [FrozenValue]),
+}
+
+impl<'a> IrSpanned<ExprShortList<'a>> {
+    fn as_exprs(&self) -> Vec<IrSpanned<ExprCompiled>> {
+        match &self.node {
+            ExprShortList::Exprs(exprs) => exprs.to_vec(),
+            ExprShortList::Constants(constants) => constants
+                .iter()
+                .map(|c| IrSpanned {
+                    node: ExprCompiled::Value(*c),
+                    span: self.span,
+                })
+                .collect(),
+        }
+    }
+}
+
 impl IrSpanned<ExprCompiled> {
+    /// Try to extract `[e0, e1, ..., en]` from this expression.
+    fn as_short_list(&self) -> Option<IrSpanned<ExprShortList>> {
+        // Prevent exponential explosion during optimization.
+        const MAX_LEN: usize = 1000;
+        match &self.node {
+            ExprCompiled::List(xs) if xs.len() <= MAX_LEN => Some(ExprShortList::Exprs(xs)),
+            ExprCompiled::Value(v) => {
+                let list = FrozenListData::from_frozen_value(v)?;
+                if list.len() <= MAX_LEN {
+                    Some(ExprShortList::Constants(list.content()))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+        .map(|node| IrSpanned {
+            node,
+            span: self.span,
+        })
+    }
+
     pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> IrSpanned<ExprCompiled> {
         let span = self.span;
         let expr = match &self.node {
@@ -675,17 +697,8 @@ impl ExprCompiled {
     }
 
     fn add(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> ExprCompiled {
-        let span = l.span.merge(&r.span);
-        if let (Some(l), Some(r)) = (l.as_short_list_of_consts(), r.as_short_list_of_consts()) {
-            let lr = l
-                .iter()
-                .chain(r.iter())
-                .map(|x| IrSpanned {
-                    node: ExprCompiled::Value(*x),
-                    span,
-                })
-                .collect();
-            return ExprCompiled::List(lr);
+        if let (Some(l), Some(r)) = (l.as_short_list(), r.as_short_list()) {
+            return ExprCompiled::List(l.as_exprs().into_iter().chain(r.as_exprs()).collect());
         }
         ExprCompiled::Builtin2(Builtin2::Add, Box::new((l, r)))
     }
