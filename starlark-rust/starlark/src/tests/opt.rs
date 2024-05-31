@@ -20,6 +20,7 @@
 mod constant_folding;
 mod def_inline;
 mod if_rand;
+mod list_add;
 mod speculative_exec;
 mod type_is;
 mod types;

@@ -1,0 +1,24 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+# TODO(nga): This is not optimized yet.
+def test():
+    return [noop(), noop()] + [noop(), noop(), noop()]
+
+# Bytecode:
+
+Max stack size: 6
+Instructions:
+  0: CallFrozenNativePos noop &0..&0 instrs.star.bzl:3:13-19 &2
+  56: CallFrozenNativePos noop &0..&0 instrs.star.bzl:3:21-27 &3
+  112: ListNPop [&2, &3] &1
+  128: CallFrozenNativePos noop &0..&0 instrs.star.bzl:3:32-38 &3
+  184: CallFrozenNativePos noop &0..&0 instrs.star.bzl:3:40-46 &4
+  240: CallFrozenNativePos noop &0..&0 instrs.star.bzl:3:48-54 &5
+  296: ListNPop [&3, &4, &5] &2
+  312: Add &1 &2 &0
+  328: Return &0
+  336: End
