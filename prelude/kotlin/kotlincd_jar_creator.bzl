@@ -26,7 +26,6 @@ load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
     "TargetType",
-    "add_output_paths_to_cmd_args",
     "base_qualified_name",
     "declare_prefixed_output",
     "define_output_paths",
@@ -34,6 +33,7 @@ load(
     "encode_jar_params",
     "generate_abi_jars",
     "get_compiling_deps_tset",
+    "output_paths_to_hidden_cmd_args",
     "prepare_cd_exe",
     "prepare_final_jar",
     "setup_dep_files",
@@ -306,7 +306,7 @@ def create_jar_artifact_kotlincd(
                 optional_dirs,
             )
 
-        args = add_output_paths_to_cmd_args(args, output_paths, path_to_class_hashes)
+        args.add(output_paths_to_hidden_cmd_args(output_paths, path_to_class_hashes))
 
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 

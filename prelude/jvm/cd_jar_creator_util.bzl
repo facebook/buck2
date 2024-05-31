@@ -131,15 +131,16 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
     )
 
 # buildifier: disable=uninitialized
-def add_output_paths_to_cmd_args(cmd: cmd_args, output_paths: OutputPaths, path_to_class_hashes: Artifact | None) -> cmd_args:
+def output_paths_to_hidden_cmd_args(output_paths: OutputPaths, path_to_class_hashes: Artifact | None) -> cmd_args:
+    hidden = []
     if path_to_class_hashes != None:
-        cmd.hidden(path_to_class_hashes.as_output())
-    cmd.hidden(output_paths.jar_parent.as_output())
-    cmd.hidden(output_paths.jar.as_output())
-    cmd.hidden(output_paths.classes.as_output())
-    cmd.hidden(output_paths.annotations.as_output())
-    cmd.hidden(output_paths.scratch.as_output())
-    return cmd
+        hidden.append(path_to_class_hashes.as_output())
+    hidden.append(output_paths.jar_parent.as_output())
+    hidden.append(output_paths.jar.as_output())
+    hidden.append(output_paths.classes.as_output())
+    hidden.append(output_paths.annotations.as_output())
+    hidden.append(output_paths.scratch.as_output())
+    return cmd_args(hidden = hidden)
 
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
     paths = struct(

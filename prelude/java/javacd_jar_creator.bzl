@@ -31,7 +31,6 @@ load(
     "OutputPaths",
     "TargetType",
     "add_java_7_8_bootclasspath",
-    "add_output_paths_to_cmd_args",
     "base_qualified_name",
     "declare_prefixed_output",
     "define_output_paths",
@@ -40,6 +39,7 @@ load(
     "generate_abi_jars",
     "get_abi_generation_mode",
     "get_compiling_deps_tset",
+    "output_paths_to_hidden_cmd_args",
     "prepare_cd_exe",
     "prepare_final_jar",
     "setup_dep_files",
@@ -246,7 +246,7 @@ def create_jar_artifact_javacd(
                 abi_dir.as_output(),
             )
 
-        args = add_output_paths_to_cmd_args(args, output_paths, path_to_class_hashes)
+        args.add(output_paths_to_hidden_cmd_args(output_paths, path_to_class_hashes))
 
         # TODO(cjhopman): make sure this works both locally and remote.
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
