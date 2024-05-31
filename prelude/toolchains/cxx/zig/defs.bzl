@@ -174,9 +174,13 @@ def _zig_distribution_impl(ctx: AnalysisContext) -> list[Provider]:
     src = cmd_args(ctx.attrs.dist[DefaultInfo].default_outputs[0], format = path_tpl)
     ctx.actions.run(["ln", "-sf", cmd_args(src).relative_to(dst, parent = 1), dst.as_output()], category = "cp_compiler")
 
-    compiler = cmd_args([dst])
-    compiler.hidden(ctx.attrs.dist[DefaultInfo].default_outputs)
-    compiler.hidden(ctx.attrs.dist[DefaultInfo].other_outputs)
+    compiler = cmd_args(
+        [dst],
+        hidden = [
+            ctx.attrs.dist[DefaultInfo].default_outputs,
+            ctx.attrs.dist[DefaultInfo].other_outputs,
+        ],
+    )
 
     return [
         ctx.attrs.dist[DefaultInfo],
@@ -227,8 +231,10 @@ def _http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         is_executable = True,
         allow_args = True,
     )
-    ctx.actions.run(cmd_args(["/bin/sh", script])
-        .hidden([archive, output.as_output()]), category = "http_archive")
+    ctx.actions.run(
+        cmd_args(["/bin/sh", script], hidden = [archive, output.as_output()]),
+        category = "http_archive",
+    )
 
     return [DefaultInfo(default_output = output)]
 
