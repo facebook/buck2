@@ -179,7 +179,7 @@ def _write_syms_file(
     symbols_file = ctx.actions.declare_output(name)
 
     objects_argsfile = ctx.actions.write(name + ".objects.argsfile", objects)
-    objects_args = cmd_args(objects_argsfile).hidden(objects)
+    objects_args = cmd_args(objects_argsfile, hidden = objects)
 
     script_env = {
         "NM": nm,

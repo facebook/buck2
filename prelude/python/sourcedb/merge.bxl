@@ -17,13 +17,14 @@ def do_merge(
 
     dependency_key = bxl_actions.exec_deps.keys()[0]
 
-    command = cmd_args(bxl_actions.exec_deps[dependency_key][RunInfo])
-    command.add(merger_input)
-    command.add("--output")
-    command.add(merger_output.as_output())
-
-    # Declare that the merger result depends on all sourcedbs
-    command.hidden(built_sourcedbs.values())
+    command = cmd_args(
+        bxl_actions.exec_deps[dependency_key][RunInfo],
+        merger_input,
+        "--output",
+        merger_output.as_output(),
+        # Declare that the merger result depends on all sourcedbs
+        hidden = built_sourcedbs.values(),
+    )
 
     actions.run(command, category = command_category)
     return ctx.output.ensure(merger_output)
