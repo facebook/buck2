@@ -121,11 +121,12 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = ctx.attrs._asan,
     )
 
-    run_cmd = cmd_args(bin, hidden = [runtime_files, external_debug_info])
-
     # As per v1, copy in resources next to binary.
+    copied_resources = []
     for resource in ctx.attrs.resources:
-        run_cmd.hidden(ctx.actions.copy_file(resource.short_path, resource))
+        copied_resources.append(ctx.actions.copy_file(resource.short_path, resource))
+
+    run_cmd = cmd_args(bin, hidden = [runtime_files, external_debug_info] + copied_resources)
 
     # Setup RE executors based on the `remote_execution` param.
     re_executor, executor_overrides = get_re_executors_from_props(ctx)

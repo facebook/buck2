@@ -183,7 +183,7 @@ def link(
             allow_args = True,
             is_executable = True,
         )
-        cmd.add("-extld", linker_wrapper).hidden(cxx_link_cmd)
+        cmd.add("-extld", linker_wrapper, cmd_args(hidden = cxx_link_cmd))
         cmd.add("-extldflags", cmd_args(
             cxx_toolchain.linker_info.linker_flags,
             go_toolchain.external_linker_flags,
