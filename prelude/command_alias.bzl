@@ -58,15 +58,18 @@ def _command_alias_impl_target_unix(ctx, exec_is_windows: bool):
         exec_is_windows,
     )
 
-    run_info_args = cmd_args()
+    run_info_args_args = []
+    run_info_args_hidden = []
     if len(ctx.attrs.env) > 0 or len(ctx.attrs.platform_exe.items()) > 0:
-        run_info_args.add(trampoline)
-        run_info_args.hidden(trampoline_args)
+        run_info_args_args.append(trampoline)
+        run_info_args_hidden.append(trampoline_args)
     else:
-        run_info_args.add(base.args)
-        run_info_args.add(ctx.attrs.args)
+        run_info_args_args.append(base.args)
+        run_info_args_args.append(ctx.attrs.args)
 
-    run_info_args.hidden(ctx.attrs.resources)
+    run_info_args_hidden.append(ctx.attrs.resources)
+
+    run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
 
     return [
         DefaultInfo(default_output = trampoline, other_outputs = [trampoline_args] + ctx.attrs.resources),
@@ -113,15 +116,18 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
         exec_is_windows,
     )
 
-    run_info_args = cmd_args()
+    run_info_args_args = []
+    run_info_args_hidden = []
     if len(ctx.attrs.env) > 0:
-        run_info_args.add(trampoline)
-        run_info_args.hidden(trampoline_args)
+        run_info_args_args.append(trampoline)
+        run_info_args_hidden.append(trampoline_args)
     else:
-        run_info_args.add(base.args)
-        run_info_args.add(ctx.attrs.args)
+        run_info_args_args.append(base.args)
+        run_info_args_args.append(ctx.attrs.args)
 
-    run_info_args.hidden(ctx.attrs.resources)
+    run_info_args_hidden.append(ctx.attrs.resources)
+
+    run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
 
     return [
         DefaultInfo(default_output = trampoline, other_outputs = [trampoline_args] + ctx.attrs.resources),
