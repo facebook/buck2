@@ -131,6 +131,6 @@ def sh_binary_impl(ctx):
         RunInfo(
             # TODO(cjhopman): Figure out if we need to specify the link targets
             # as inputs. We shouldn't need to, but need to verify it.
-            args = cmd_args(script).hidden(resources_dir),
+            args = cmd_args(script, hidden = resources_dir),
         ),
     ]
