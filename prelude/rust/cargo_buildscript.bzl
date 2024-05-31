@@ -68,7 +68,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         dep_args = cmd_args("-Zunstable-options", dep_args)
         dep_args = dep_args.relative_to(cwd)
         dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
-        sysroot_args = cmd_args("@", dep_file, delimiter = "").hidden(dep_args)
+        sysroot_args = cmd_args("@", dep_file, delimiter = "", hidden = dep_args)
     else:
         sysroot_args = cmd_args()
 
@@ -91,7 +91,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             is_executable = True,
             allow_args = True,
         )
-    return cmd_args(shim).relative_to(cwd).hidden(toolchain_info.compiler).hidden(sysroot_args)
+    return cmd_args(shim, relative_to = cwd, hidden = [toolchain_info.compiler, sysroot_args])
 
 def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]

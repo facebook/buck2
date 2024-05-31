@@ -398,12 +398,11 @@ def generate_rustdoc_test(
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
-    )
-
-    rustdoc_cmd.hidden(
-        compile_ctx.symlinked_srcs,
-        link_args_output.hidden,
-        executable_args.runtime_files,
+        hidden = [
+            compile_ctx.symlinked_srcs,
+            link_args_output.hidden,
+            executable_args.runtime_files,
+        ],
     )
 
     return _long_command(
@@ -791,7 +790,7 @@ def dynamic_symlinked_dirs(
     )
 
     compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
-    return cmd_args(transitive_dependency_dir, format = "@{}/dirs").hidden(artifacts.keys())
+    return cmd_args(transitive_dependency_dir, format = "@{}/dirs", hidden = artifacts.keys())
 
 def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:
     return cmd_args(
@@ -1071,7 +1070,7 @@ def _clippy_wrapper(
             allow_args = True,
         )
 
-    return cmd_args(wrapper_file).hidden(clippy_driver, rustc_print_sysroot)
+    return cmd_args(wrapper_file, hidden = [clippy_driver, rustc_print_sysroot])
 
 # This is a hack because we need to pass the linker to rustc
 # using -Clinker=path and there is currently no way of doing this

@@ -203,7 +203,7 @@ def _rust_binary_common(
             rust_cxx_link_group_info = rust_cxx_link_group_info,
         )
 
-        args = cmd_args(link.output).hidden(executable_args.runtime_files)
+        args = cmd_args(link.output, hidden = executable_args.runtime_files)
         external_debug_info = project_artifacts(
             actions = ctx.actions,
             tsets = [inherited_external_debug_info(
