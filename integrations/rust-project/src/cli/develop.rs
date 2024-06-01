@@ -169,7 +169,7 @@ impl Develop {
     }
 
     pub fn resolve_file_owners(&self, files: &[PathBuf]) -> FxHashMap<PathBuf, Vec<Target>> {
-        match self.buck.query_owner(&files) {
+        let owners = match self.buck.query_owner(&files) {
             Ok(owners) => owners,
             Err(_) => {
                 let mut owners = FxHashMap::default();
@@ -187,7 +187,15 @@ impl Develop {
 
                 owners
             }
+        };
+
+        for (file, targets) in owners.iter() {
+            if targets.is_empty() {
+                warn!(file = ?file, "Buck returned zero targets for this file.");
+            }
         }
+
+        owners
     }
 
     pub(crate) fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
