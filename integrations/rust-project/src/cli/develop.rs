@@ -127,7 +127,13 @@ impl Develop {
     /// For every Rust file, return the relevant buck targets that should be used to configure rust-analyzer.
     pub(crate) fn related_targets(&self, files: &[PathBuf]) -> Result<Vec<Target>, anyhow::Error> {
         // We always want the targets that directly own these Rust files.
-        let direct_owning_targets = dedupe_unittest(&self.resolve_file_targets(files));
+        let direct_owning_targets = dedupe_unittest(&dedupe_targets(
+            &self
+                .resolve_file_owners(files)
+                .into_values()
+                .flatten()
+                .collect::<Vec<_>>(),
+        ));
 
         let unique_owning_targets = direct_owning_targets
             .iter()
@@ -145,7 +151,7 @@ impl Develop {
         };
 
         // Include additional targets from the found buildfiles, up to max_extra_targets more.
-        let owners = self.resolve_file_owners(files)?;
+        let owners = self.resolve_file_owners(files);
         let extra_targets = owners
             .values()
             .flatten()
@@ -162,34 +168,8 @@ impl Develop {
         Ok(targets)
     }
 
-    fn resolve_file_targets(&self, files: &[PathBuf]) -> Vec<Target> {
-        let file_targets = match self.buck.query_owner(files) {
-            Ok(targets) => targets.into_values().flatten().collect::<Vec<_>>(),
-            Err(_) => {
-                let mut file_targets = vec![];
-                for file in files {
-                    match self.buck.query_owner(&[file.to_path_buf()]) {
-                        Ok(targets) => {
-                            file_targets.extend(targets.into_values().flatten());
-                        }
-                        Err(e) => {
-                            warn!(file = ?file, "Could not find a target that owns this file: {:#}", e);
-                        }
-                    }
-                }
-
-                file_targets
-            }
-        };
-
-        dedupe_targets(&file_targets)
-    }
-
-    pub fn resolve_file_owners(
-        &self,
-        files: &[PathBuf],
-    ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let all_file_owners = match self.buck.query_owner(&files) {
+    pub fn resolve_file_owners(&self, files: &[PathBuf]) -> FxHashMap<PathBuf, Vec<Target>> {
+        match self.buck.query_owner(&files) {
             Ok(owners) => owners,
             Err(_) => {
                 let mut owners = FxHashMap::default();
@@ -200,16 +180,14 @@ impl Develop {
                             owners.extend(file_owners.into_iter());
                         }
                         Err(e) => {
-                            warn!(file = ?file, "Could not find a target that owns this file: {}", e);
+                            warn!(file = ?file, "Could not find a target that owns this file: {:#}", e);
                         }
                     }
                 }
 
                 owners
             }
-        };
-
-        Ok(all_file_owners)
+        }
     }
 
     pub(crate) fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
