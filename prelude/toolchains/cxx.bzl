@@ -40,12 +40,45 @@ SystemCxxToolchainInfo = provider(
     },
 )
 
+def _legacy_equivalent_toolchain_info_windows(ctx: AnalysisContext, default_toolchain: SystemCxxToolchainInfo) -> SystemCxxToolchainInfo:
+    return SystemCxxToolchainInfo(
+        compiler = default_toolchain.compiler if ctx.attrs.compiler == None or ctx.attrs.compiler == "cl.exe" else ctx.attrs.compiler,
+        compiler_type = default_toolchain.compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
+        cxx_compiler = default_toolchain.cxx_compiler if ctx.attrs.compiler == None or ctx.attrs.compiler == "cl.exe" else ctx.attrs.compiler,
+        asm_compiler = default_toolchain.asm_compiler,
+        asm_compiler_type = default_toolchain.asm_compiler_type,
+        rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None or ctx.attrs.rc_compiler == "rc.exe" else ctx.attrs.rc_compiler,
+        cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None or ctx.attrs.cvtres_compiler == "cvtres.exe" else ctx.attrs.cvtres_compiler,
+        archiver = default_toolchain.archiver,
+        archiver_type = default_toolchain.archiver_type,
+        linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
+        linker_type = default_toolchain.linker_type,
+        os = default_toolchain.os,
+    )
+
+def _legacy_equivalent_toolchain_info_non_windows(ctx: AnalysisContext, default_toolchain: SystemCxxToolchainInfo) -> SystemCxxToolchainInfo:
+    return SystemCxxToolchainInfo(
+        compiler = default_toolchain.compiler if ctx.attrs.compiler == None else ctx.attrs.compiler,
+        compiler_type = default_toolchain.compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
+        cxx_compiler = default_toolchain.cxx_compiler if ctx.attrs.cxx_compiler == None else ctx.attrs.cxx_compiler,
+        asm_compiler = default_toolchain.asm_compiler if ctx.attrs.compiler == None else ctx.attrs.compiler,
+        asm_compiler_type = default_toolchain.asm_compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
+        rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None else ctx.attrs.rc_compiler,
+        cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None else ctx.attrs.cvtres_compiler,
+        archiver = default_toolchain.archiver,
+        archiver_type = default_toolchain.archiver_type,
+        linker = default_toolchain.linker if ctx.attrs.linker == None else ctx.attrs.linker,
+        linker_type = default_toolchain.linker_type,
+        os = default_toolchain.os,
+    )
+
 def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
 
     toolchain_info = ctx.attrs.toolchain_info[SystemCxxToolchainInfo]
+    toolchain_info = _legacy_equivalent_toolchain_info_windows(ctx, toolchain_info) if toolchain_info.os == "windows" else _legacy_equivalent_toolchain_info_non_windows(ctx, toolchain_info)
 
     archiver_supports_argfiles = toolchain_info.os != "macos"
     additional_linker_flags = ["-fuse-ld=lld"] if toolchain_info.os == "linux" and toolchain_info.linker != "g++" and toolchain_info.cxx_compiler != "g++" else []
@@ -183,6 +216,14 @@ system_cxx_toolchain = rule(
         "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_flags": attrs.list(attrs.string(), default = []),
+
+        #These parameters are kept for backwards compatibility. The toolchain_info parameter above is most likely a better alternative.
+        "compiler": attrs.option(attrs.string(), default = None),
+        "compiler_type": attrs.option(attrs.string(), default = None), # one of CxxToolProviderType
+        "cvtres_compiler": attrs.option(attrs.string(), default = None),
+        "cxx_compiler": attrs.option(attrs.string(), default = None),
+        "linker": attrs.option(attrs.string(), default = None),
+        "rc_compiler": attrs.option(attrs.string(), default = None),
     },
     is_toolchain_rule = True,
 )
