@@ -51,7 +51,7 @@ def get_dex_produced_from_java_library(
     else:
         desugar_deps_file = ctx.actions.write(prefix + "_desugar_deps_file.txt", desugar_deps)
         d8_cmd.add(["--classpath-files", desugar_deps_file])
-        d8_cmd.hidden(desugar_deps)
+        d8_cmd.add(cmd_args(hidden = desugar_deps))
 
     referenced_resources_file = ctx.actions.declare_output(prefix + "_referenced_resources.txt")
     d8_cmd.add(["--referenced-resources-path", referenced_resources_file.as_output()])

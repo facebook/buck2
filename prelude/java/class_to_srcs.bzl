@@ -114,10 +114,7 @@ def merge_class_to_source_map_from_jar(
         relative_to: [CellRoot, None],
         deps: list[JavaClassToSourceMapInfo]) -> Artifact:
     output = actions.declare_output(name)
-    cmd = cmd_args(java_toolchain.merge_class_to_source_maps[RunInfo])
-    cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    if relative_to != None:
-        cmd.add(cmd_args(str(relative_to), format = "--relative-to={}"))
+
     tset = actions.tset(
         JavaClassToSourceMapTset,
         value = None,
@@ -125,8 +122,14 @@ def merge_class_to_source_map_from_jar(
     )
     class_to_source_files = tset.project_as_args("class_to_src_map")
     mappings_file = actions.write("class_to_src_map.txt", class_to_source_files)
-    cmd.add(["--mappings", mappings_file])
-    cmd.hidden(class_to_source_files)
+
+    cmd = cmd_args(
+        java_toolchain.merge_class_to_source_maps[RunInfo],
+        cmd_args(output.as_output(), format = "--output={}"),
+        cmd_args(str(relative_to), format = "--relative-to={}") if relative_to != None else [],
+        ["--mappings", mappings_file],
+        hidden = class_to_source_files,
+    )
     actions.run(cmd, category = "merge_class_to_srcs_map")
     return output
 

@@ -187,11 +187,11 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if need_to_generate_wrapper:
         classpath_file = outputs[1]
-        run_cmd.hidden(
+        run_cmd.add(cmd_args(hidden = [
             java_toolchain.java[RunInfo],
             classpath_file,
             packaging_jar_args,
-        )
+        ]))
         other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
     sub_targets = get_classpath_subtarget(ctx.actions, packaging_info)

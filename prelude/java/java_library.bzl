@@ -45,8 +45,6 @@ def _process_classpath(
         classpath_args: cmd_args,
         args_file_name: str,
         option_name: str) -> cmd_args:
-    cmd = cmd_args()
-
     # write joined classpath string into args file
     classpath_args_file, _ = actions.write(
         args_file_name,
@@ -54,12 +52,13 @@ def _process_classpath(
         allow_args = True,
     )
 
-    # mark classpath artifacts as input
-    cmd.hidden(classpath_args)
-
-    # add classpath args file to cmd
-    cmd.add(option_name, classpath_args_file)
-    return cmd
+    return cmd_args(
+        option_name,
+        # add classpath args file to cmd
+        classpath_args_file,
+        # mark classpath artifacts as input
+        hidden = classpath_args,
+    )
 
 def _classpath_args(ctx: AnalysisContext, args):
     return cmd_args(args, delimiter = get_path_separator_for_exec_os(ctx))
@@ -215,16 +214,16 @@ def _append_javac_params(
         javac_args,
         allow_args = True,
     )
-    cmd.hidden(javac_args)
+    cmd.add(cmd_args(hidden = javac_args))
 
     # mark plain srcs artifacts as input
-    cmd.hidden(plain_sources)
+    cmd.add(cmd_args(hidden = plain_sources))
 
     cmd.add("--javac_args_file", args_file)
 
     if zipped_sources:
         cmd.add("--zipped_sources_file", ctx.actions.write(declare_prefixed_name("zipped_source_args", actions_identifier), zipped_sources))
-        cmd.hidden(zipped_sources)
+        cmd.add(cmd_args(hidden = zipped_sources))
 
     if remove_classes:
         cmd.add("--remove_classes", ctx.actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes))
