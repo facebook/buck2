@@ -431,21 +431,25 @@ def _conan_generate_impl(ctx: AnalysisContext) -> list[Provider]:
     trace_log = ctx.actions.declare_output("trace.log")
     targets_out = ctx.actions.declare_output(ctx.label.name + ".bzl")
 
-    cmd = cmd_args([conan_generate])
-    cmd.add(["--conan", conan_toolchain.conan])
-    cmd.add(["--conan-init", conan_init.user_home])
-    cmd.hidden(conan_init.profile.config)  # The profile is inlined in the lockfile.
-    cmd.hidden(conan_init.profile.inputs)
-    cmd.add(["--buckler", ctx.attrs._buckler])
-    cmd.add(["--install-folder", install_folder.as_output()])
-    cmd.add(["--output-folder", output_folder.as_output()])
-    cmd.add(["--user-home", user_home.as_output()])
-    cmd.add(["--manifests", manifests.as_output()])
-    cmd.add(["--install-info", install_info.as_output()])
-    cmd.add(["--trace-file", trace_log.as_output()])
-    cmd.add(["--conanfile", ctx.attrs.conanfile])
-    cmd.add(["--lockfile", ctx.attrs.lockfile])
-    cmd.add(["--targets-out", targets_out.as_output()])
+    cmd = cmd_args(
+        [conan_generate] +
+        ["--conan", conan_toolchain.conan] +
+        ["--conan-init", conan_init.user_home] +
+        ["--buckler", ctx.attrs._buckler] +
+        ["--install-folder", install_folder.as_output()] +
+        ["--output-folder", output_folder.as_output()] +
+        ["--user-home", user_home.as_output()] +
+        ["--manifests", manifests.as_output()] +
+        ["--install-info", install_info.as_output()] +
+        ["--trace-file", trace_log.as_output()] +
+        ["--conanfile", ctx.attrs.conanfile] +
+        ["--lockfile", ctx.attrs.lockfile] +
+        ["--targets-out", targets_out.as_output()],
+        hidden = [
+            conan_init.profile.config,  # The profile is inlined in the lockfile.
+            conan_init.profile.inputs,
+        ],
+    )
     ctx.actions.run(cmd, category = "conan_build")
 
     return [
@@ -482,10 +486,12 @@ def _conan_init_impl(ctx: AnalysisContext) -> list[Provider]:
     user_home = ctx.actions.declare_output("user-home")
     trace_log = ctx.actions.declare_output("trace.log")
 
-    cmd = cmd_args([conan_init])
-    cmd.add(["--conan", conan_toolchain.conan])
-    cmd.add(["--user-home", user_home.as_output()])
-    cmd.add(["--trace-file", trace_log.as_output()])
+    cmd = cmd_args(
+        [conan_init] +
+        ["--conan", conan_toolchain.conan] +
+        ["--user-home", user_home.as_output()] +
+        ["--trace-file", trace_log.as_output()],
+    )
     ctx.actions.run(cmd, category = "conan_init")
 
     return [
@@ -522,17 +528,18 @@ def _conan_lock_impl(ctx: AnalysisContext) -> list[Provider]:
     user_home = ctx.actions.declare_output("user-home")
     trace_log = ctx.actions.declare_output("trace.log")
 
-    cmd = cmd_args([conan_lock])
-    cmd.add(["--conan", conan_toolchain.conan])
-    cmd.add(["--conan-init", conan_init.user_home])
-    cmd.add(["--profile", conan_init.profile.config])
-    cmd.hidden(conan_init.profile.inputs)
-    cmd.add(["--user-home", user_home.as_output()])
-    cmd.add(["--trace-file", trace_log.as_output()])
-    cmd.add(["--conanfile", ctx.attrs.conanfile])
-    cmd.add(["--lockfile-out", lockfile_out.as_output()])
-    if ctx.attrs.lockfile:
-        cmd.add(["--lockfile", ctx.attrs.lockfile])
+    cmd = cmd_args(
+        [conan_lock] +
+        ["--conan", conan_toolchain.conan] +
+        ["--conan-init", conan_init.user_home] +
+        ["--profile", conan_init.profile.config] +
+        ["--user-home", user_home.as_output()] +
+        ["--trace-file", trace_log.as_output()] +
+        ["--conanfile", ctx.attrs.conanfile] +
+        ["--lockfile-out", lockfile_out.as_output()] +
+        (["--lockfile", ctx.attrs.lockfile] if ctx.attrs.lockfile else []),
+        hidden = conan_init.profile.inputs,
+    )
     ctx.actions.run(cmd, category = "conan_lock")
 
     return [
@@ -571,22 +578,26 @@ def _conan_package_impl(ctx: AnalysisContext) -> list[Provider]:
     cache_out = ctx.actions.declare_output("cache-out")
     package_out = ctx.actions.declare_output("package")
 
-    cmd = cmd_args([conan_package])
-    cmd.add(["--conan", conan_toolchain.conan])
-    cmd.add(["--conan-init", conan_init.user_home])
-    cmd.hidden(conan_init.profile.config)  # The profile is inlined in the lockfile.
-    cmd.hidden(conan_init.profile.inputs)
-    cmd.add(["--lockfile", ctx.attrs.lockfile])
-    cmd.add(["--reference", ctx.attrs.reference])
-    cmd.add(["--package-id", ctx.attrs.package_id])
-    cmd.add(["--install-folder", install_folder.as_output()])
-    cmd.add(["--output-folder", output_folder.as_output()])
-    cmd.add(["--user-home", user_home.as_output()])
-    cmd.add(["--manifests", manifests.as_output()])
-    cmd.add(["--install-info", install_info.as_output()])
-    cmd.add(["--trace-file", trace_log.as_output()])
-    cmd.add(["--cache-out", cache_out.as_output()])
-    cmd.add(["--package-out", package_out.as_output()])
+    cmd = cmd_args(
+        [conan_package] +
+        ["--conan", conan_toolchain.conan] +
+        ["--conan-init", conan_init.user_home] +
+        ["--lockfile", ctx.attrs.lockfile] +
+        ["--reference", ctx.attrs.reference] +
+        ["--package-id", ctx.attrs.package_id] +
+        ["--install-folder", install_folder.as_output()] +
+        ["--output-folder", output_folder.as_output()] +
+        ["--user-home", user_home.as_output()] +
+        ["--manifests", manifests.as_output()] +
+        ["--install-info", install_info.as_output()] +
+        ["--trace-file", trace_log.as_output()] +
+        ["--cache-out", cache_out.as_output()] +
+        ["--package-out", package_out.as_output()],
+        hidden = [
+            conan_init.profile.config,  # The profile is inlined in the lockfile.
+            conan_init.profile.inputs,
+        ],
+    )
 
     # TODO[AH] Do we need to separate deps and build_deps?
     #   This may become necessary for cross-compilation support.
@@ -638,7 +649,7 @@ conan_package = rule(
     doc = "Build a single Conan package.",
 )
 
-def _profile_env_var(name, value):
+def _profile_env_var(name, value) -> cmd_args:
     # TODO[AH] Do we need `quote = "shell"` here?
     #   Setting it causes Buck2 to escape the `$PROFILE_DIR` prefix set in the
     #   very end which causes failures in Conan package builds.
@@ -675,7 +686,7 @@ def _profile_env_tool(ctx, name, tool):
     that configured as full command lines.
     """
     wrapper, inputs = _make_wrapper_script(ctx, name, tool)
-    return _profile_env_var(name, wrapper).hidden(tool).hidden(inputs)
+    return cmd_args(_profile_env_var(name, wrapper), hidden = [tool, inputs])
 
 def _conan_profile_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
@@ -728,7 +739,7 @@ def _conan_profile_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [
         DefaultInfo(default_outputs = [output]),
-        ConanProfileInfo(config = output, inputs = content.hidden(args_inputs)),
+        ConanProfileInfo(config = output, inputs = cmd_args(content, hidden = args_inputs)),
     ]
 
 conan_profile = rule(
@@ -748,14 +759,16 @@ conan_profile = rule(
 def _conan_update_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_update = ctx.attrs._conan_update[RunInfo]
 
-    cmd = cmd_args([conan_update])
-    cmd.add(["--update-label", str(ctx.label.raw_target())])
-    cmd.add(["--lockfile", ctx.attrs.lockfile])
-    cmd.add(["--lock-targets", ctx.attrs.lock_generate])
-    cmd.add(["--conan-targets", ctx.attrs.conan_generate])
-    cmd.add(["--conanfile", ctx.attrs.conanfile])
-    cmd.add(["--lockfile-out", ctx.attrs.lockfile_name])
-    cmd.add(["--targets-out", ctx.attrs.targets_name])
+    cmd = cmd_args(
+        [conan_update] +
+        ["--update-label", str(ctx.label.raw_target())] +
+        ["--lockfile", ctx.attrs.lockfile] +
+        ["--lock-targets", ctx.attrs.lock_generate] +
+        ["--conan-targets", ctx.attrs.conan_generate] +
+        ["--conanfile", ctx.attrs.conanfile] +
+        ["--lockfile-out", ctx.attrs.lockfile_name] +
+        ["--targets-out", ctx.attrs.targets_name],
+    )
 
     return [
         DefaultInfo(default_outputs = []),
@@ -781,10 +794,12 @@ def _lock_generate_impl(ctx: AnalysisContext) -> list[Provider]:
 
     targets_out = ctx.actions.declare_output(ctx.label.name + ".bzl")
 
-    cmd = cmd_args([lock_generate])
-    cmd.add(["--lockfile", ctx.attrs.lockfile])
-    cmd.add(["--lockfile-label", str(ctx.attrs.lockfile.owner.raw_target())])
-    cmd.add(["--targets-out", targets_out.as_output()])
+    cmd = cmd_args(
+        [lock_generate] +
+        ["--lockfile", ctx.attrs.lockfile] +
+        ["--lockfile-label", str(ctx.attrs.lockfile.owner.raw_target())] +
+        ["--targets-out", targets_out.as_output()],
+    )
     ctx.actions.run(cmd, category = "conan_generate")
 
     return [
