@@ -228,7 +228,7 @@ def _rust_binary_common(
             for resource in resources.values():
                 resources_hidden.append(resource.default_output)
                 resources_hidden.extend(resource.other_outputs)
-            args.hidden(resources_hidden)
+            args.add(cmd_args(hidden = resources_hidden))
             runtime_files.extend(resources_hidden)
 
         sub_targets_for_link_strategy = {}

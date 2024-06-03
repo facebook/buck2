@@ -185,6 +185,7 @@ def generate_rustdoc(
         ctx.attrs.rustdoc_flags,
         common_args.args,
         cmd_args(output.as_output(), format = "--out-dir={}"),
+        hidden = [toolchain_info.rustdoc, compile_ctx.symlinked_srcs],
     )
 
     if document_private_items:
@@ -211,8 +212,6 @@ def generate_rustdoc(
                 "--extern-html-root-url={}={}/{}:{}"
                     .format(name, url_prefix, dep.label.package, dep.label.name),
             )
-
-    rustdoc_cmd.hidden(toolchain_info.rustdoc, compile_ctx.symlinked_srcs)
 
     rustdoc_cmd_action = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
@@ -522,7 +521,7 @@ def rust_compile(
         pdb_artifact = link_args_output.pdb_artifact
         dwp_inputs = [link_args_output.link_args]
         rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-        rustc_cmd.hidden(link_args_output.hidden)
+        rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))
 
     invoke = _rustc_invoke(
         ctx = ctx,
@@ -1284,6 +1283,7 @@ def _rustc_invoke(
         cmd_args(diag_txt.as_output(), format = "--diag-txt={}"),
         "--remap-cwd-prefix=.",
         "--buck-target={}".format(ctx.label.raw_target()),
+        hidden = [toolchain_info.compiler, compile_ctx.symlinked_srcs],
     )
 
     for k, v in crate_map:
@@ -1302,7 +1302,6 @@ def _rustc_invoke(
             compile_cmd.add("--required-output", out.short_path, out.as_output())
 
     compile_cmd.add(rustc_cmd)
-    compile_cmd.hidden(toolchain_info.compiler, compile_ctx.symlinked_srcs)
 
     compile_cmd = _long_command(
         ctx = ctx,
@@ -1358,7 +1357,7 @@ def _long_command(
         args: cmd_args,
         argfile_name: str) -> cmd_args:
     argfile, hidden = ctx.actions.write(argfile_name, args, allow_args = True)
-    return cmd_args(exe, cmd_args(argfile, format = "@{}")).hidden(args, hidden)
+    return cmd_args(exe, cmd_args(argfile, format = "@{}"), hidden = [args, hidden])
 
 _DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
 _ESCAPED_NEWLINE_RE = regex("\\n")
