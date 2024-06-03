@@ -6,9 +6,16 @@ source_listing()
 
 prelude = native
 
+prelude.export_file(
+    name = "win_python_wrapper.bat",
+    src = "win_python_wrapper.bat",
+    target_compatible_with = ["config//os:windows"],
+    visibility = ["PUBLIC"],
+)
+
 prelude.sh_binary(
     name = "win_python_wrapper",
-    main = "win_python_wrapper.bat",
+    main = ":win_python_wrapper.bat",
     target_compatible_with = ["config//os:windows"],
     visibility = ["PUBLIC"],
 )
