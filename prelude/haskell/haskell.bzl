@@ -467,15 +467,19 @@ def _make_package(
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
     ctx.actions.run(
-        cmd_args([
-            "sh",
-            "-c",
-            _REGISTER_PACKAGE,
-            "",
-            haskell_toolchain.packager,
-            db.as_output(),
-            pkg_conf,
-        ]).hidden(hi.values()).hidden(lib.values()),  # needs hi, because ghc-pkg checks that the .hi files exist
+        cmd_args(
+            [
+                "sh",
+                "-c",
+                _REGISTER_PACKAGE,
+                "",
+                haskell_toolchain.packager,
+                db.as_output(),
+                pkg_conf,
+            ],
+            # needs hi, because ghc-pkg checks that the .hi files exist
+            hidden = hi.values() + lib.values(),
+        ),
         category = "haskell_package_" + artifact_suffix.replace("-", "_"),
         env = {"GHC_PACKAGE_PATH": ghc_package_path},
     )
@@ -548,21 +552,22 @@ def _build_haskell_lib(
 
     if link_style == LinkStyle("shared"):
         lib = ctx.actions.declare_output(lib_short_path)
-        link = cmd_args(haskell_toolchain.linker)
-        link.add(haskell_toolchain.linker_flags)
-        link.add(ctx.attrs.linker_flags)
-        link.add("-o", lib.as_output())
-        link.add(
-            get_shared_library_flags(linker_info.type),
-            "-dynamic",
-            cmd_args(
-                _get_haskell_shared_library_name_linker_flags(linker_info.type, libfile),
-                prepend = "-optl",
-            ),
+        link = cmd_args(
+            [haskell_toolchain.linker] +
+            [haskell_toolchain.linker_flags] +
+            [ctx.attrs.linker_flags] +
+            ["-o", lib.as_output()] +
+            [
+                get_shared_library_flags(linker_info.type),
+                "-dynamic",
+                cmd_args(
+                    _get_haskell_shared_library_name_linker_flags(linker_info.type, libfile),
+                    prepend = "-optl",
+                ),
+            ] +
+            [objfiles],
+            hidden = compiled.stubs,
         )
-
-        link.add(objfiles)
-        link.hidden(compiled.stubs)
 
         infos = get_link_args_for_strategy(
             ctx,
@@ -918,12 +923,13 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
     output = ctx.actions.declare_output(ctx.attrs.name)
-    link = cmd_args(haskell_toolchain.compiler)
-    link.add("-o", output.as_output())
-    link.add(haskell_toolchain.linker_flags)
-    link.add(ctx.attrs.linker_flags)
-
-    link.hidden(compiled.stubs)
+    link = cmd_args(
+        [haskell_toolchain.compiler] +
+        ["-o", output.as_output()] +
+        [haskell_toolchain.linker_flags] +
+        [ctx.attrs.linker_flags],
+        hidden = compiled.stubs,
+    )
 
     link_args = cmd_args()
 
@@ -1083,8 +1089,6 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     link.hidden(link_args)
     ctx.actions.run(link, category = "haskell_link")
 
-    run = cmd_args(output)
-
     if link_style == LinkStyle("shared") or link_group_info != None:
         sos_dir = "__{}__shared_libs_symlink_tree".format(ctx.attrs.name)
         rpath_ref = get_rpath_origin(get_cxx_toolchain_info(ctx).linker_info.type)
@@ -1095,7 +1099,9 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             out = sos_dir,
             shared_libs = sos,
         )
-        run.hidden(symlink_dir)
+        run = cmd_args(output, hidden = symlink_dir)
+    else:
+        run = cmd_args(output)
 
     providers = [
         DefaultInfo(default_output = output),

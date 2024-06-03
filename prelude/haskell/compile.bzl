@@ -86,16 +86,17 @@ def get_packages_info(
 
     for lib in libs.traverse():
         packagedb_set[lib.db] = None
-        exposed_package_args.hidden(lib.import_dirs.values())
-        exposed_package_args.hidden(lib.stub_dirs)
+        hidden_args = cmd_args(hidden = [
+            lib.import_dirs.values(),
+            lib.stub_dirs,
+            # libs of dependencies might be needed at compile time if
+            # we're using Template Haskell:
+            lib.libs,
+        ])
 
-        # libs of dependencies might be needed at compile time if
-        # we're using Template Haskell:
-        exposed_package_args.hidden(lib.libs)
+        exposed_package_args.add(hidden_args)
 
-        packagedb_args.hidden(lib.import_dirs.values())
-        packagedb_args.hidden(lib.stub_dirs)
-        packagedb_args.hidden(lib.libs)
+        packagedb_args.add(hidden_args)
 
     # These we need to add for all the packages/dependencies, i.e.
     # direct and transitive (e.g. `fbcode-common-hs-util-hs-array`)
