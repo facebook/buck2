@@ -41,7 +41,7 @@ impl StarlarkHasher {
 
     /// Finish the hash computation and return the result.
     #[inline]
-    pub fn finish_small(self) -> StarlarkHashValue {
+    pub fn finish_small(&self) -> StarlarkHashValue {
         // NOTE: Here we throw away half the key material we are given,
         // taking only the lower 32 bits.
         // Not a problem because `DefaultHasher` produces well-swizzled bits.
