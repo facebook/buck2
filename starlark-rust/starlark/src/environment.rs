@@ -23,12 +23,14 @@
 //! [`FrozenModule`] using [`freeze`](Module::freeze) before they can be `load()`'d as a dependency.
 
 mod globals;
+mod methods;
 mod module_dump;
 mod modules;
 pub(crate) mod names;
 pub(crate) mod slots;
 
 pub use globals::*;
+pub use methods::*;
 pub use modules::*;
 use thiserror::Error;
 
