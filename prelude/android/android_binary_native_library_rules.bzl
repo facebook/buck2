@@ -63,7 +63,7 @@ load(
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:graph_utils.bzl", "GraphTraversal", "breadth_first_traversal_by", "post_order_traversal", "pre_order_traversal")
+load("@prelude//utils:graph_utils.bzl", "GraphTraversal", "depth_first_traversal_by", "post_order_traversal", "pre_order_traversal")
 load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
@@ -1424,7 +1424,7 @@ def _rust_matching_topological_traversal(
         get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
     counts = {}
 
-    for label in breadth_first_traversal_by(None, roots, get_nodes_to_traverse_func, GraphTraversal("preorder-right-to-left")):
+    for label in depth_first_traversal_by(None, roots, get_nodes_to_traverse_func, GraphTraversal("preorder-right-to-left")):
         for dep in get_nodes_to_traverse_func(label):
             if dep in counts:
                 counts[dep] += 1

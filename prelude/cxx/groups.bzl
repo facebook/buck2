@@ -14,7 +14,7 @@ load(
 )
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal_by",
+    "depth_first_traversal_by",
 )
 load(
     "@prelude//utils:strings.bzl",
@@ -273,7 +273,7 @@ def _find_targets_in_mapping(
             # We reset it for each root we visit so that we don't have results
             # from other roots.
             matching_targets = {}
-            breadth_first_traversal_by(graph_map, [root], populate_matching_targets_bfs_wrapper)
+            depth_first_traversal_by(graph_map, [root], populate_matching_targets_bfs_wrapper)
             for t in matching_targets:
                 targets_to_counter[t] = targets_to_counter.get(t, 0) + 1
 
@@ -283,7 +283,7 @@ def _find_targets_in_mapping(
             if count > 1
         ]
     else:
-        breadth_first_traversal_by(graph_map, mapping.roots, populate_matching_targets_bfs_wrapper)
+        depth_first_traversal_by(graph_map, mapping.roots, populate_matching_targets_bfs_wrapper)
 
     return matching_targets.keys()
 
@@ -340,7 +340,7 @@ def _update_target_to_group_mapping(
     if mapping.traversal in _TRAVERSALS_TO_ASSIGN_NODE:
         assign_target_to_group(target, True)
     else:  # tree
-        breadth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
+        depth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
 
 def _add_to_implicit_link_group(
         generated_group_name,  # str

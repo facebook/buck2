@@ -38,7 +38,7 @@ load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal_by",
+    "depth_first_traversal_by",
 )
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_transition")
@@ -57,7 +57,7 @@ def _link_deps(
     def find_deps(node: Label):
         return get_deps_for_link(link_infos[node], link_strategy, pic_behavior)
 
-    return breadth_first_traversal_by(link_infos, deps, find_deps)
+    return depth_first_traversal_by(link_infos, deps, find_deps)
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []

@@ -55,7 +55,7 @@ load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal_by",
+    "depth_first_traversal_by",
 )
 load(
     "@prelude//utils:set.bzl",
@@ -295,7 +295,7 @@ def _transitively_update_shared_linkage(
             link_group_preferred_linkage[node] = Linkage("shared")
         return get_deps_for_link(linkable_node, link_strategy, pic_behavior)
 
-    breadth_first_traversal_by(
+    depth_first_traversal_by(
         linkable_graph_node_map,
         shared_lib_roots,
         process_dependency,
@@ -334,7 +334,7 @@ def get_filtered_labels_to_links_map(
             return linkable_node.exported_deps
 
     # Get all potential linkable targets
-    linkables = breadth_first_traversal_by(
+    linkables = depth_first_traversal_by(
         linkable_graph_node_map,
         roots,
         get_potential_linkables,
@@ -518,7 +518,7 @@ def get_public_link_group_nodes(
 
     external_link_group_nodes.update(
         # get transitive exported deps
-        breadth_first_traversal_by(
+        depth_first_traversal_by(
             linkable_graph_node_map,
             external_link_group_nodes.list(),
             discover_link_group_linkables,
@@ -580,7 +580,7 @@ def _find_all_relevant_roots(
             relevant_roots[node_link_group].append(node_target)
         return node.all_deps
 
-    breadth_first_traversal_by(
+    depth_first_traversal_by(
         linkable_graph_node_map,
         roots,
         collect_and_traverse_roots,
@@ -614,7 +614,7 @@ def find_relevant_roots(
 
     relevant_roots = []
 
-    breadth_first_traversal_by(
+    depth_first_traversal_by(
         linkable_graph_node_map,
         roots,
         partial(collect_and_traverse_roots, relevant_roots),

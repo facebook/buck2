@@ -46,7 +46,7 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal_by",
+    "depth_first_traversal_by",
     "post_order_traversal",
 )
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
@@ -200,7 +200,7 @@ def _link_deps(
     def find_deps(node: Label):
         return get_deps_for_link(link_infos[node], LinkStrategy("shared"), pic_behavior)
 
-    return breadth_first_traversal_by(link_infos, deps, find_deps)
+    return depth_first_traversal_by(link_infos, deps, find_deps)
 
 def _create_root(
         ctx: AnalysisContext,

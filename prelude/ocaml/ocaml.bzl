@@ -92,7 +92,7 @@ load(
     "@prelude//python:python.bzl",
     "PythonLibraryInfo",
 )
-load("@prelude//utils:graph_utils.bzl", "breadth_first_traversal", "post_order_traversal")
+load("@prelude//utils:graph_utils.bzl", "depth_first_traversal", "post_order_traversal")
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 load(":makefile.bzl", "parse_makefile")
@@ -502,7 +502,7 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) ->
             # the dependency of 'src' on other files in 'srcs'.
             depends_include_paths = []
             seen_dirs = {}
-            for d in breadth_first_traversal(makefile2, makefile2.get(src, [])):
+            for d in depth_first_traversal(makefile2, makefile2.get(src, [])):
                 # 'src' depends on 'd' (e.g. src='quux.ml' depends on
                 # d='quux.mli').
                 #

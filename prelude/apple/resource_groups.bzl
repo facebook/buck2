@@ -8,7 +8,7 @@
 load("@prelude//cxx:groups_types.bzl", "Group", "MATCH_ALL_LABEL")
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal_by",
+    "depth_first_traversal_by",
 )
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
@@ -158,7 +158,7 @@ def get_filtered_resources(
         node = resource_graph_node_map[target]  # buildifier: disable=uninitialized
         return node.exported_deps + node.deps
 
-    targets = breadth_first_traversal_by(
+    targets = depth_first_traversal_by(
         resource_graph_node_map,
         get_traversed_deps(root),
         get_traversed_deps,

@@ -58,8 +58,8 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal",
-    "breadth_first_traversal_by",
+    "depth_first_traversal",
+    "depth_first_traversal_by",
 )
 load("@prelude//utils:utils.bzl", "flatten")
 
@@ -183,7 +183,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
     dep_graph[ctx.label] = all_direct_deps
 
     # Need to exclude all transitive deps of excluded deps
-    all_nodes_to_exclude = breadth_first_traversal(
+    all_nodes_to_exclude = depth_first_traversal(
         dep_graph,
         [dep.label for dep in preload_deps],
     )
@@ -228,7 +228,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
 
     # This is not the final set of body nodes, because it still includes
     # nodes that don't support omnibus (e.g. haskell_library nodes)
-    breadth_first_traversal_by(
+    depth_first_traversal_by(
         dep_graph,
         [ctx.label],
         find_deps_for_body,

@@ -14,7 +14,7 @@ load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
-    "breadth_first_traversal_by",
+    "depth_first_traversal_by",
 )
 load(
     "@prelude//utils:utils.bzl",
@@ -344,6 +344,6 @@ def get_transitive_deps(
     def find_transitive_deps(node: Label):
         return link_infos[node].all_deps
 
-    all_deps = breadth_first_traversal_by(link_infos, roots, find_transitive_deps)
+    all_deps = depth_first_traversal_by(link_infos, roots, find_transitive_deps)
 
     return all_deps
