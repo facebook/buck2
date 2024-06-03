@@ -70,6 +70,7 @@ SwiftCompiledModuleInfo = provider(fields = {
     "clang_module_file_args": provider_field(typing.Any, default = None),  # cmd_args of include flags for the clang importer.
     "clang_modulemap": provider_field(typing.Any, default = None),  # Clang modulemap file which is required for generation of swift_module_map.
     "is_framework": provider_field(typing.Any, default = None),
+    "is_sdk_module": provider_field(bool, default = False),
     "is_swiftmodule": provider_field(typing.Any, default = None),  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
     "module_name": provider_field(typing.Any, default = None),  # A real name of a module, without distinguishing suffixes.
     "output_artifact": provider_field(typing.Any, default = None),  # Compiled artifact either swiftmodule or pcm.
@@ -77,7 +78,11 @@ SwiftCompiledModuleInfo = provider(fields = {
 
 def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
     # We need to import the containing folder, not the file itself.
-    return ["-I", cmd_args(module_info.output_artifact, parent = 1)] if module_info.is_swiftmodule else []
+    # We skip SDK modules as those are found via the -sdk flag.
+    if module_info.is_swiftmodule and not module_info.is_sdk_module:
+        return ["-I", cmd_args(module_info.output_artifact, parent = 1)]
+
+    return []
 
 def _add_clang_module_file_flags(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:

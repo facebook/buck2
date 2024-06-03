@@ -111,6 +111,7 @@ def _compiled_module_info(
         clang_module_file_args = clang_deps_args,
         clang_importer_args = clang_importer_args,
         is_framework = False,
+        is_sdk_module = False,
         is_swiftmodule = False,
         module_name = module_name,
         output_artifact = pcm_output,

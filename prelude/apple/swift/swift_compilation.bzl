@@ -217,7 +217,7 @@ def compile_swift(
 
     # If a target exports ObjC headers and Swift explicit modules are enabled,
     # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
-    if objc_modulemap_pp_info and ctx.attrs.uses_explicit_modules:
+    if objc_modulemap_pp_info and uses_explicit_modules(ctx):
         underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
             ctx,
             None,
@@ -603,8 +603,6 @@ def _get_shared_flags(
         ])
 
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
-    sdk_clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, deps_providers)
-    sdk_swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, deps_providers)
 
     # If Swift Explicit Modules are enabled, a few things must be provided to a compilation job:
     # 1. Direct and transitive SDK deps from `sdk_modules` attribute.
@@ -613,6 +611,8 @@ def _get_shared_flags(
     # (This is the case, when a user-defined dep exports a type from SDK module,
     # thus such SDK module should be implicitly visible to consumers of that custom dep)
     if uses_explicit_modules(ctx):
+        sdk_clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, deps_providers)
+        sdk_swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, deps_providers)
         _add_swift_module_map_args(ctx, sdk_swift_deps_tset, pcm_deps_tset, sdk_clang_deps_tset, cmd)
 
     _add_clang_deps_flags(ctx, pcm_deps_tset, cmd)
@@ -757,6 +757,7 @@ def get_swift_dependency_info(
     if output_module:
         compiled_info = SwiftCompiledModuleInfo(
             is_framework = False,
+            is_sdk_module = False,
             is_swiftmodule = True,
             module_name = get_module_name(ctx),
             output_artifact = output_module,

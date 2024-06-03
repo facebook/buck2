@@ -210,6 +210,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         compiled_sdk = SwiftCompiledModuleInfo(
             clang_module_file_args = clang_deps_args,
             is_framework = uncompiled_sdk_module_info.is_framework,
+            is_sdk_module = True,
             is_swiftmodule = False,
             module_name = module_name,
             output_artifact = pcm_output,
