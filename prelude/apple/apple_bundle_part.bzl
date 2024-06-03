@@ -170,7 +170,9 @@ def assemble_bundle(
         ] + codesign_args + platform_args + swift_args,
         hidden =
             [part.source for part in all_parts] +
-            [part.codesign_entitlements for part in all_parts if part.codesign_entitlements],
+            [part.codesign_entitlements for part in all_parts if part.codesign_entitlements] +
+            # Ensures any genrule deps get built, such targets are used for validation
+            extra_hidden,
     )
     run_incremental_args = {}
     incremental_state = ctx.actions.declare_output("incremental_state.json").as_output()
@@ -190,7 +192,7 @@ def assemble_bundle(
         # overwrite file with incremental state so if previous and next builds are incremental
         # (as opposed to the current non-incremental one), next one won't assume there is a
         # valid incremental state.
-        command.hidden(ctx.actions.write_json(incremental_state, {}))
+        command.add(cmd_args(hidden = ctx.actions.write_json(incremental_state, {})))
         category = "apple_assemble_bundle"
 
     if ctx.attrs._profile_bundling_enabled:
@@ -213,9 +215,6 @@ def assemble_bundle(
     if ctx.attrs.versioned_macos_bundle:
         command.add("--versioned-if-macos")
     command.add(codesign_configuration_args)
-
-    # Ensures any genrule deps get built, such targets are used for validation
-    command.hidden(extra_hidden)
 
     command_json = ctx.actions.declare_output("bundling_command.json")
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)

@@ -23,14 +23,16 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
 
-    cmd = cmd_args([dsymutil] + ctx.attrs._dsymutil_extra_flags + ["-o", output.as_output()])
-    cmd.add(executable)
+    cmd = cmd_args(
+        [dsymutil] + ctx.attrs._dsymutil_extra_flags + ["-o", output.as_output()],
+        executable,
+        # Mach-O executables don't contain DWARF data.
+        # Instead, they contain paths to the object files which themselves contain DWARF data.
+        #
+        # So, those object files are needed for dsymutil to be to create the dSYM bundle.
+        hidden = debug_info,
+    )
 
-    # Mach-O executables don't contain DWARF data.
-    # Instead, they contain paths to the object files which themselves contain DWARF data.
-    #
-    # So, those object files are needed for dsymutil to be to create the dSYM bundle.
-    cmd.hidden(debug_info)
     ctx.actions.run(cmd, category = "apple_dsym", identifier = action_identifier)
 
     return output

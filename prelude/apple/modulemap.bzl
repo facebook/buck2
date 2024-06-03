@@ -78,10 +78,11 @@ def _args_for_modulemap(
         modulemap: Artifact,
         symlink_tree: Artifact,
         swift_header: Artifact | None) -> list[cmd_args]:
-    cmd = cmd_args(modulemap, format = "-fmodule-map-file={}")
-    cmd.hidden(symlink_tree)
-    if swift_header:
-        cmd.hidden(swift_header)
+    cmd = cmd_args(
+        modulemap,
+        format = "-fmodule-map-file={}",
+        hidden = [symlink_tree] + ([swift_header] if swift_header else []),
+    )
 
     return [cmd]
 

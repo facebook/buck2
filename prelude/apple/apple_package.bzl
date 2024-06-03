@@ -44,7 +44,7 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
     prepackaged_validators_artifacts = _get_prepackaged_validators_outputs(ctx, contents)
     if prepackaged_validators_artifacts:
         # Add the artifacts to packaging cmd so that they are run.
-        process_ipa_cmd.hidden(prepackaged_validators_artifacts)
+        process_ipa_cmd.add(cmd_args(hidden = prepackaged_validators_artifacts))
         sub_targets["prepackaged_validators"] = [
             DefaultInfo(default_outputs = prepackaged_validators_artifacts),
         ]
