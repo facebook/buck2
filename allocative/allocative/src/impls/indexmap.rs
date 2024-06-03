@@ -31,7 +31,7 @@ fn add_raw_table_for_len<T>(visitor: &mut Visitor, len: usize) {
     }
 }
 
-impl<T: Allocative> Allocative for IndexSet<T> {
+impl<T: Allocative, S> Allocative for IndexSet<T, S> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         {
@@ -47,7 +47,7 @@ impl<T: Allocative> Allocative for IndexSet<T> {
     }
 }
 
-impl<K: Allocative, V: Allocative> Allocative for IndexMap<K, V> {
+impl<K: Allocative, V: Allocative, S> Allocative for IndexMap<K, V, S> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         {
