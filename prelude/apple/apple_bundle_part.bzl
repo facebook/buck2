@@ -255,6 +255,7 @@ def assemble_bundle(
         prefer_local = not force_local_bundling,
         category = category,
         env = env,
+        error_handler = _apple_bundle_error_handler,
         **run_incremental_args
     )
     return AppleBundleConstructionResult(sub_targets = subtargets, providers = providers)
@@ -342,3 +343,13 @@ def _convert_bundle_manifest_to_json_object(manifest: AppleBundleManifest) -> di
             "spec": logs.spec_file,
         }
     return manifest_dict
+
+def _apple_bundle_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+    categories = []
+
+    if "CodeSignProvisioningError" in ctx.stderr:
+        categories.append(ctx.new_sub_error(
+            category = "code_sign_provisioning_error",
+        ))
+
+    return categories
