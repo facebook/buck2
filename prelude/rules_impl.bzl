@@ -595,12 +595,21 @@ inlined_extra_attributes = {
         "main": attrs.source(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
-        "_win_python_wrapper": attrs.default_only(
+        "_win_python_copied_wrapper": attrs.default_only(
             attrs.option(
                 attrs.dep(),
                 default = select({
                     "DEFAULT": None,
-                    "config//os:windows": "prelude//python_bootstrap/tools:win_python_wrapper",
+                    "config//os:windows": "prelude//python_bootstrap/tools:win_python_copied_wrapper",
+                }),
+            )
+        ),
+        "_win_python_symlinked_wrapper": attrs.default_only(
+            attrs.option(
+                attrs.dep(),
+                default = select({
+                    "DEFAULT": None,
+                    "config//os:windows": "prelude//python_bootstrap/tools:win_python_symlinked_wrapper",
                 }),
             ),
         ),
