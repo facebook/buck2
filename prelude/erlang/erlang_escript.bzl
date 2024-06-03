@@ -193,11 +193,11 @@ def build_escript_unbundled_trampoline(ctx: AnalysisContext, toolchain, config_f
     data.add("-export([main/1]).")
     data.add("main(Args) ->")
     data.add("EscriptDir = filename:dirname(escript:script_name()),")
-    _add_config_files_code_to_erl(data, config_files)
+    data.add(_config_files_code_to_erl(config_files))
     data.add('    EBinDirs = filelib:wildcard(filename:join([EscriptDir, "lib", "*", "ebin"])),')
     data.add("    code:add_paths(EBinDirs),")
     data.add("    {}:main(Args).".format(_main_module(ctx)))
-    _add_parse_bin(data)
+    data.add(_parse_bin())
 
     return ctx.actions.write(
         paths.join(erlang_build.utils.build_dir(toolchain), "run.escript"),
@@ -212,9 +212,9 @@ def build_escript_bundled_trampoline(ctx: AnalysisContext, toolchain, config_fil
     data.add("-export([main/1]).")
     data.add("main(Args) ->")
     data.add("EscriptDir = escript:script_name(),")
-    _add_config_files_code_to_erl(data, config_files)
+    data.add(_config_files_code_to_erl(config_files))
     data.add("    {}:main(Args).".format(_main_module(ctx)))
-    _add_parse_bin(data)
+    data.add(_parse_bin())
     escript_trampoline_erl = ctx.actions.write(
         paths.join(erlang_build.utils.build_dir(toolchain), "erlang_escript_trampoline.erl"),
         data,
@@ -248,24 +248,26 @@ def _escript_config_files(ctx: AnalysisContext) -> list[Artifact]:
                 config_files.append(artifact)
     return config_files
 
-def _add_config_files_code_to_erl(cmd: cmd_args, config_files: list[Artifact]) -> None:
-    cmd.add("ConfigFiles = [")
+def _config_files_code_to_erl(config_files: list[Artifact]) -> list[str]:
+    cmd = []
+    cmd.append("ConfigFiles = [")
     for i in range(0, len(config_files)):
-        cmd.add(cmd_args("\"", config_files[i].short_path, "\"", delimiter = ""))
+        cmd.append(cmd_args("\"", config_files[i].short_path, "\"", delimiter = ""))
         if i < len(config_files) - 1:
-            cmd.add(",")
-    cmd.add("],")
-    cmd.add("[begin ")
-    cmd.add("{ok, AppConfigBin, _FullName} = erl_prim_loader:get_file(filename:join(EscriptDir, ConfigFile)),")
-    cmd.add("{ok, AppConfig} = parse_bin(AppConfigBin), ")
-    cmd.add(" ok = application:set_env(AppConfig, [{persistent, true}])")
-    cmd.add("end || ConfigFile <- ConfigFiles],")
+            cmd.append(",")
+    cmd.append("],")
+    cmd.append("[begin ")
+    cmd.append("{ok, AppConfigBin, _FullName} = erl_prim_loader:get_file(filename:join(EscriptDir, ConfigFile)),")
+    cmd.append("{ok, AppConfig} = parse_bin(AppConfigBin), ")
+    cmd.append(" ok = application:set_env(AppConfig, [{persistent, true}])")
+    cmd.append("end || ConfigFile <- ConfigFiles],")
+    return cmd
 
-def _add_parse_bin(cmd: cmd_args) -> None:
-    cmd.add("""
+def _parse_bin() -> str:
+    return """
 parse_bin(<<"">>) ->
     [];
 parse_bin(Bin) ->
         {ok, Tokens, _} = erl_scan:string(binary_to_list(Bin)),
         erl_parse:parse_term(Tokens).
-        """)
+        """

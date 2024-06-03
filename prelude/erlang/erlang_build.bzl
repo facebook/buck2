@@ -492,8 +492,10 @@ def _build_erl(
                 src,
             ],
         )
-        erlc_cmd, mapping = _add_dependencies_to_args(artifacts, final_dep_file, erlc_cmd, build_environment)
-        erlc_cmd = _add_full_dependencies(erlc_cmd, build_environment)
+        deps_args, mapping = _dependencies_to_args(artifacts, final_dep_file, build_environment)
+        erlc_cmd.add(deps_args)
+        full_deps_args = _full_dependencies(build_environment)
+        erlc_cmd.add(full_deps_args)
         _run_with_env(
             ctx,
             toolchain,
@@ -554,13 +556,14 @@ def _build_edoc(
     )
     return None
 
-def _add_dependencies_to_args(
+def _dependencies_to_args(
         artifacts,
         final_dep_file: Artifact,
-        args: cmd_args,
         build_environment: BuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
     """
+    args = cmd_args()
+
     input_mapping = {}
     deps = artifacts[final_dep_file].read_json()
 
@@ -616,10 +619,11 @@ def _add_dependencies_to_args(
 
     return args, input_mapping
 
-def _add_full_dependencies(erlc_cmd: cmd_args, build_environment: BuildEnvironment) -> cmd_args:
+def _full_dependencies(build_environment: BuildEnvironment) -> cmd_args:
+    erlc_cmd_hidden = []
     for artifact in build_environment.full_dependencies:
-        erlc_cmd.hidden(artifact)
-    return erlc_cmd
+        erlc_cmd_hidden.append(artifact)
+    return cmd_args(hidden = erlc_cmd_hidden)
 
 def _dependency_include_dirs(build_environment: BuildEnvironment) -> list[cmd_args]:
     includes = [
