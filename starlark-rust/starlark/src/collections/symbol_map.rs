@@ -159,6 +159,7 @@ impl<T> SymbolMap<T> {
         }
     }
 
+    #[inline]
     pub fn get(&self, key: &Symbol) -> Option<&T> {
         self.0.get(key.hash, |x| key == &x.0).map(|x| &x.1)
     }

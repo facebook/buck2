@@ -17,10 +17,19 @@
 
 //! Handle special "unbound" globals: methods or attributes.
 
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+
+use crate::eval::runtime::frame_span::FrameSpan;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
 use crate::values::function::BoundMethodGen;
+use crate::values::function::NativeAttr;
 use crate::values::function::NativeAttribute;
+use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
-use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
@@ -28,28 +37,32 @@ use crate::values::Value;
 use crate::values::ValueLike;
 
 /// A value or an unbound method or unbound attribute.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) enum MaybeUnboundValue {
     /// A method with `this` unbound.
-    Method(FrozenValueTyped<'static, NativeMethod>),
+    Method(
+        FrozenValueTyped<'static, NativeMethod>,
+        FrozenRef<'static, dyn NativeMeth>,
+    ),
     /// An attribute with `this` unbound.
-    Attr(FrozenValueTyped<'static, NativeAttribute>),
+    Attr(
+        FrozenValueTyped<'static, NativeAttribute>,
+        FrozenRef<'static, dyn NativeAttr>,
+    ),
+}
+
+impl Debug for MaybeUnboundValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MaybeUnboundValue").finish_non_exhaustive()
+    }
 }
 
 impl MaybeUnboundValue {
     #[inline]
     pub(crate) fn to_frozen_value(&self) -> FrozenValue {
         match self {
-            MaybeUnboundValue::Method(m) => m.to_frozen_value(),
-            MaybeUnboundValue::Attr(a) => a.to_frozen_value(),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn to_frozen_value_not_special(&self) -> FrozenValueNotSpecial {
-        match self {
-            MaybeUnboundValue::Method(m) => FrozenValueNotSpecial::from_frozen_value_typed(*m),
-            MaybeUnboundValue::Attr(a) => FrozenValueNotSpecial::from_frozen_value_typed(*a),
+            MaybeUnboundValue::Method(m, _) => m.to_frozen_value(),
+            MaybeUnboundValue::Attr(a, _) => a.to_frozen_value(),
         }
     }
 
@@ -57,26 +70,30 @@ impl MaybeUnboundValue {
     #[inline]
     pub(crate) fn bind<'v>(&self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self {
-            MaybeUnboundValue::Method(m) => {
+            MaybeUnboundValue::Method(m, _) => {
                 Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), *m)))
             }
-            MaybeUnboundValue::Attr(a) => a.call(this, heap),
+            MaybeUnboundValue::Attr(_, a) => a(this, heap),
         }
     }
-}
 
-impl MaybeUnboundValue {
-    /// Split into variants.
-    #[allow(clippy::same_functions_in_if_condition)] // False positive
-    pub(crate) fn new(value: FrozenValueNotSpecial) -> MaybeUnboundValue {
-        // TODO(nga): this can be a little faster if we do downcast of `FrozenValueNotSpecial`
-        //   instead of converting it to `FrozenValue` first.
-        if let Some(method) = FrozenValueTyped::new(value.to_frozen_value()) {
-            MaybeUnboundValue::Method(method)
-        } else if let Some(attr) = FrozenValueTyped::new(value.to_frozen_value()) {
-            MaybeUnboundValue::Attr(attr)
-        } else {
-            unreachable!("not a member: {}", value);
-        }
+    #[inline]
+    pub(crate) fn invoke_method<'v>(
+        &self,
+        this: Value<'v>,
+        span: FrozenRef<'static, FrameSpan>,
+        args: &Arguments<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<Value<'v>> {
+        eval.with_call_stack(
+            self.to_frozen_value().to_value(),
+            Some(span),
+            |eval| match self {
+                MaybeUnboundValue::Method(_, m) => m.invoke(eval, this, args),
+                MaybeUnboundValue::Attr(_, a) => {
+                    NativeAttribute::invoke_method_impl(&**a, this, args, eval)
+                }
+            },
+        )
     }
 }

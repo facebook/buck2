@@ -17,15 +17,9 @@
 
 use dupe::Dupe;
 
-use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::Arguments;
-use crate::eval::Evaluator;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::stack_guard;
-use crate::values::FrozenRef;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
-use crate::values::StarlarkValue;
 use crate::values::Value;
 
 /// `FrozenValue` which is not `i32` or `str`.
@@ -40,15 +34,6 @@ impl FrozenValueNotSpecial {
         } else {
             Some(FrozenValueNotSpecial(value))
         }
-    }
-
-    #[inline]
-    pub(crate) fn from_frozen_value_typed<'v, T: StarlarkValue<'v>>(
-        value: FrozenValueTyped<'v, T>,
-    ) -> FrozenValueNotSpecial {
-        assert!(!FrozenValueTyped::<T>::is_str());
-        assert!(!FrozenValueTyped::<T>::is_pointer_i32());
-        FrozenValueNotSpecial(value.to_frozen_value())
     }
 
     #[inline]
@@ -89,17 +74,5 @@ impl FrozenValueNotSpecial {
     fn equals_not_ptr_eq(self, other: Value) -> crate::Result<bool> {
         let _guard = stack_guard::stack_guard()?;
         self.get_ref().equals(other)
-    }
-
-    pub(crate) fn invoke_method<'v>(
-        self,
-        this: Value<'v>,
-        location: FrozenRef<'static, FrameSpan>,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> crate::Result<Value<'v>> {
-        eval.with_call_stack(self.to_value(), Some(location), |eval| {
-            self.get_ref().invoke_method(this, args, eval)
-        })
     }
 }

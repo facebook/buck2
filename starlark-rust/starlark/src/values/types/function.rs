@@ -52,6 +52,7 @@ use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
@@ -358,7 +359,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
 pub(crate) struct NativeMethod {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    pub(crate) function: Box<dyn NativeMeth>,
+    pub(crate) function: FrozenRef<'static, dyn NativeMeth>,
     pub(crate) name: String,
     pub(crate) ty: Ty,
     /// Safe to evaluate speculatively.
@@ -371,16 +372,6 @@ starlark_simple_value!(NativeMethod);
 
 #[starlark_value(type = "native_method")]
 impl<'v> StarlarkValue<'v> for NativeMethod {
-    fn invoke_method(
-        &self,
-        this: Value<'v>,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-        _: Private,
-    ) -> crate::Result<Value<'v>> {
-        self.function.invoke(eval, this, args)
-    }
-
     fn documentation(&self) -> Option<DocItem> {
         Some(DocItem::Function(self.raw_docs.documentation()))
     }
@@ -396,9 +387,6 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
 #[display(fmt = "Attribute")]
 #[derivative(Debug)]
 pub(crate) struct NativeAttribute {
-    #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    pub(crate) function: Box<dyn NativeAttr>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     pub(crate) docstring: Option<String>,
@@ -408,24 +396,20 @@ pub(crate) struct NativeAttribute {
 starlark_simple_value!(NativeAttribute);
 
 impl NativeAttribute {
-    pub(crate) fn call<'v>(&self, value: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        (self.function)(value, heap)
+    #[inline]
+    pub(crate) fn invoke_method_impl<'v>(
+        function: &dyn NativeAttr,
+        this: Value<'v>,
+        args: &Arguments<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<Value<'v>> {
+        let method = function(this, eval.heap())?;
+        method.invoke(args, eval)
     }
 }
 
 #[starlark_value(type = "attribute")]
 impl<'v> StarlarkValue<'v> for NativeAttribute {
-    fn invoke_method(
-        &self,
-        this: Value<'v>,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-        _: Private,
-    ) -> crate::Result<Value<'v>> {
-        let method = self.call(this, eval.heap())?;
-        method.invoke(args, eval)
-    }
-
     fn documentation(&self) -> Option<DocItem> {
         let ds = self
             .docstring
@@ -477,7 +461,8 @@ where
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         self.method
-            .invoke_method(self.this.to_value(), args, eval, Private)
+            .function
+            .invoke(eval, self.this.to_value(), args)
     }
 
     fn documentation(&self) -> Option<DocItem> {

@@ -23,6 +23,7 @@ use crate::collections::symbol_map::SymbolMap;
 use crate::docs::DocObject;
 use crate::environment::common_documentation;
 use crate::typing::Ty;
+use crate::values::function::NativeAttr;
 use crate::values::function::NativeAttribute;
 use crate::values::function::NativeCallableRawDocs;
 use crate::values::function::NativeMeth;
@@ -31,6 +32,7 @@ use crate::values::types::unbound::MaybeUnboundValue;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
+use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
@@ -165,12 +167,14 @@ impl MethodsBuilder {
             name,
             MaybeUnboundValue::Attr(
                 FrozenValueTyped::new(self.heap.alloc(NativeAttribute {
-                    function: Box::new(f),
                     speculative_exec_safe,
                     docstring,
                     typ,
                 }))
                 .unwrap(),
+                FrozenRef::<dyn NativeAttr + 'static>::new(
+                    self.heap.alloc_any_debug_type_name(f).as_ref(),
+                ),
             ),
         );
     }
@@ -188,17 +192,21 @@ impl MethodsBuilder {
     {
         let ty = Ty::from_docs_function(&raw_docs.documentation());
 
+        let function = FrozenRef::<dyn NativeMeth + 'static>::new(
+            self.heap.alloc_any_debug_type_name(f).as_ref(),
+        );
         self.members.insert(
             name,
             MaybeUnboundValue::Method(
                 FrozenValueTyped::new(self.heap.alloc(NativeMethod {
-                    function: Box::new(f),
+                    function,
                     name: name.to_owned(),
                     speculative_exec_safe,
                     raw_docs,
                     ty,
                 }))
                 .unwrap(),
+                function,
             ),
         );
     }

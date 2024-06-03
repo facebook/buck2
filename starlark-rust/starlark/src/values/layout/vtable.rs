@@ -518,16 +518,6 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn invoke_method(
-        self,
-        this: Value<'v>,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> crate::Result<Value<'v>> {
-        (self.vtable.starlark_value.invoke_method)(self.value, this, args, eval, Private)
-    }
-
-    #[inline]
     pub(crate) fn name_for_call_stack(self, me: Value<'v>) -> String {
         (self.vtable.starlark_value.name_for_call_stack)(self.value, me)
     }

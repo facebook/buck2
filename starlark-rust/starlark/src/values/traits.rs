@@ -432,25 +432,6 @@ pub trait StarlarkValue<'v>:
         ValueError::unsupported(self, "call()")
     }
 
-    /// Invoke this object as a method (after getattr, so this object is unbound).
-    ///
-    /// This is an internal operation, it cannot be used or implemented
-    /// outside of the Starlark crate.
-    ///
-    /// # Parameters
-    ///
-    /// * `this` - the object to invoke the unbound method on
-    #[doc(hidden)]
-    fn invoke_method(
-        &self,
-        _this: Value<'v>,
-        _args: &Arguments<'v, '_>,
-        _eval: &mut Evaluator<'v, '_, '_>,
-        _sealed: Private,
-    ) -> crate::Result<Value<'v>> {
-        unreachable!("invoke_method should only be invoked for method or attribute");
-    }
-
     /// Return the result of `a[index]` if `a` is indexable.
     fn at(&self, index: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "[]", index)

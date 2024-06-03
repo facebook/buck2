@@ -62,7 +62,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::values::function::BoundMethodGen;
 use crate::values::function::FrozenBoundMethod;
-use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::list::ListRef;
 use crate::values::string::interpolation::parse_percent_s_one;
 use crate::values::types::bool::StarlarkBool;
@@ -872,10 +871,11 @@ impl ExprCompiled {
         // We assume `getattr` has no side effects.
         let v = get_attr_hashed_raw(left.to_value(), attr, ctx.heap()).ok()?;
         match v {
-            MemberOrValue::Member(m) => match MaybeUnboundValue::new(m) {
-                MaybeUnboundValue::Method(m) => {
-                    Some(ctx.frozen_heap().alloc_simple(BoundMethodGen::new(left, m)))
-                }
+            MemberOrValue::Member(m) => match m {
+                MaybeUnboundValue::Method(m, _) => Some(
+                    ctx.frozen_heap()
+                        .alloc_simple(BoundMethodGen::new(left, *m)),
+                ),
                 MaybeUnboundValue::Attr(..) => None,
             },
             MemberOrValue::Value(v) => v.unpack_frozen(),
@@ -1117,15 +1117,15 @@ fn get_attr_no_attr_error<'v>(x: Value<'v>, attribute: &Symbol) -> crate::Error 
     }
 }
 
-pub(crate) enum MemberOrValue<'v> {
-    Member(FrozenValueNotSpecial),
+pub(crate) enum MemberOrValue<'v, 'a> {
+    Member(&'a MaybeUnboundValue),
     Value(Value<'v>),
 }
 
-impl<'v> MemberOrValue<'v> {
+impl<'v, 'a> MemberOrValue<'v, 'a> {
     pub(crate) fn to_value(&self) -> Value<'v> {
         match self {
-            MemberOrValue::Member(x) => x.to_value(),
+            MemberOrValue::Member(x) => x.to_frozen_value().to_value(),
             MemberOrValue::Value(x) => *x,
         }
     }
@@ -1150,11 +1150,11 @@ pub(crate) fn get_attr_hashed_raw<'v>(
     x: Value<'v>,
     attribute: &Symbol,
     heap: &'v Heap,
-) -> crate::Result<MemberOrValue<'v>> {
+) -> crate::Result<MemberOrValue<'v, 'static>> {
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
-            return Ok(MemberOrValue::Member(v.to_frozen_value_not_special()));
+            return Ok(MemberOrValue::Member(v));
         }
     }
     match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {
