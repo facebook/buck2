@@ -540,11 +540,14 @@ def _build_edoc(
     args = _erlc_dependency_args(_dependency_include_dirs(build_environment), [], False)
     eval_cmd.add(args)
 
+    eval_cmd_hidden = []
     for include in build_environment.includes.values():
-        eval_cmd.hidden(include)
+        eval_cmd_hidden.append(include)
 
     for include in build_environment.private_includes.values():
-        eval_cmd.hidden(include)
+        eval_cmd_hidden.append(include)
+
+    eval_cmd.add(cmd_args(hidden = eval_cmd_hidden))
 
     _run_with_env(
         ctx,
@@ -562,7 +565,7 @@ def _dependencies_to_args(
         build_environment: BuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
     """
-    args = cmd_args()
+    args_hidden = []
 
     input_mapping = {}
     deps = artifacts[final_dep_file].read_json()
@@ -615,9 +618,9 @@ def _dependencies_to_args(
         else:
             fail("unrecognized dependency type %s", (dep["type"]))
 
-        args.hidden(artifact)
+        args_hidden.append(artifact)
 
-    return args, input_mapping
+    return cmd_args(hidden = args_hidden), input_mapping
 
 def _full_dependencies(build_environment: BuildEnvironment) -> cmd_args:
     erlc_cmd_hidden = []
@@ -709,7 +712,7 @@ def _get_erl_opts(
             "+{parse_transform, %s}" % (parse_transform,),
             cmd_args(beam, format = "-pa{}", parent = 1),
         )
-        args.hidden(resource_folder)
+        args.add(cmd_args(hidden = resource_folder))
 
     # add relevant compile_info manually
     args.add(cmd_args(

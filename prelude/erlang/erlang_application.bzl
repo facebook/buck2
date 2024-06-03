@@ -259,10 +259,8 @@ def _generate_app_file(
             script,
             app_info_file,
         ],
-        hidden = [output.as_output(), srcs],
+        hidden = [output.as_output(), srcs] + ([ctx.attrs.app_src] if ctx.attrs.app_src else []),
     )
-    if ctx.attrs.app_src:
-        app_build_cmd.hidden(ctx.attrs.app_src)
     erlang_build.utils.run_with_env(
         ctx,
         toolchain,

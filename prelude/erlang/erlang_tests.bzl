@@ -191,13 +191,16 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     cmd.add(test_info_file)
 
+    hidden_args = []
+
     default_info = _build_default_info(dependencies, output_dir)
     for output_artifact in default_info.other_outputs:
-        cmd.hidden(output_artifact)
+        hidden_args.append(output_artifact)
     for config_file in config_files:
-        cmd.hidden(config_file)
+        hidden_args.append(config_file)
 
-    cmd.hidden(output_dir)
+    hidden_args.append(output_dir)
+    cmd.add(cmd_args(hidden = hidden_args))
 
     # prepare shell dependencies
     additional_paths = [
