@@ -62,7 +62,9 @@ def _supported_platform_variant(item: str) -> Optional[str]:
         return None
 
 
-def _make_plist_entry(item: str, binary_path: str, library_path: str) -> dict[str, Any]:
+def _make_plist_entry(
+    item: str, binary_path: str, library_path: str, dsym_path: Optional[str]
+) -> dict[str, Any]:
     entry = {
         "BinaryPath": binary_path,
         "LibraryIdentifier": item,
@@ -74,14 +76,22 @@ def _make_plist_entry(item: str, binary_path: str, library_path: str) -> dict[st
     if variant is not None:
         entry["SupportedPlatformVariant"] = variant
 
+    if dsym_path is not None:
+        entry["DebugSymbolsPath"] = dsym_path
+
     return entry
 
 
-def _make_plist(items: list[str], binary_paths: list[str], library_path: str) -> bytes:
+def _make_plist(
+    items: list[str],
+    binary_paths: list[str],
+    library_path: str,
+    dsym_paths: list[Optional[str]],
+) -> bytes:
     d = {}
     d["AvailableLibraries"] = [
-        _make_plist_entry(item, binary_path, library_path)
-        for (item, binary_path) in zip(items, binary_paths)
+        _make_plist_entry(item, binary_path, library_path, dsym_path)
+        for (item, binary_path, dsym_path) in zip(items, binary_paths, dsym_paths)
     ]
     d["CFBundlePackageType"] = "XFWK"
     d["XCFrameworkFormatVersion"] = "1.0"
@@ -112,6 +122,7 @@ def main() -> None:
     plist_path = out_path / "Info.plist"
     items = [fp_args[0] for fp_args in args.framework_path]
     binary_paths = []
+    dsym_path_map = {}
 
     for framework_path in args.framework_path:
 
@@ -140,9 +151,12 @@ def main() -> None:
             symlinks=True,
             dirs_exist_ok=False,
         )
+        dsym_path_map[dsym_arch] = "dSYMs"
+
+    dsym_paths = [dsym_path_map.get(arch) for arch in items]
 
     library_path = args.name + ".framework"
-    plist_path.write_bytes(_make_plist(items, binary_paths, library_path))
+    plist_path.write_bytes(_make_plist(items, binary_paths, library_path, dsym_paths))
 
 
 if __name__ == "__main__":
