@@ -62,7 +62,10 @@ def _link_deps(
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
-    cmd = cmd_args(ctx.attrs._wheel[RunInfo])
+    cmd = []
+    hidden = []
+
+    cmd.append(ctx.attrs._wheel[RunInfo])
 
     name_parts = [
         ctx.attrs.dist or ctx.attrs.name,
@@ -72,24 +75,24 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.platform,
     ]
     wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
-    cmd.add(cmd_args(wheel.as_output(), format = "--output={}"))
+    cmd.append(cmd_args(wheel.as_output(), format = "--output={}"))
 
-    cmd.add("--name={}".format(ctx.attrs.dist or ctx.attrs.name))
-    cmd.add("--version={}".format(ctx.attrs.version))
+    cmd.append("--name={}".format(ctx.attrs.dist or ctx.attrs.name))
+    cmd.append("--version={}".format(ctx.attrs.version))
 
     if ctx.attrs.entry_points:
-        cmd.add("--entry-points={}".format(json.encode(ctx.attrs.entry_points)))
+        cmd.append("--entry-points={}".format(json.encode(ctx.attrs.entry_points)))
 
     for key, val in ctx.attrs.extra_metadata.items():
-        cmd.add("--metadata", key, val)
+        cmd.extend(["--metadata", key, val])
 
-    cmd.add("--metadata", "Requires-Python", "=={}.*".format(ctx.attrs.python[2:]))
+    cmd.extend(["--metadata", "Requires-Python", "=={}.*".format(ctx.attrs.python[2:])])
 
     for requires in ctx.attrs.requires:
-        cmd.add("--metadata", "Requires-Dist", requires)
+        cmd.extend(["--metadata", "Requires-Dist", requires])
 
     for name, script in ctx.attrs.scripts.items():
-        cmd.add("--data", paths.join("scripts", name), script)
+        cmd.extend(["--data", paths.join("scripts", name), script])
 
     libraries = {}
     for lib in ctx.attrs.libraries:
@@ -166,11 +169,11 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
     for manifest in srcs:
-        cmd.add(cmd_args(manifest.manifest, format = "--srcs={}"))
+        cmd.append(cmd_args(manifest.manifest, format = "--srcs={}"))
         for a, _ in manifest.artifacts:
-            cmd.hidden(a)
+            hidden.append(a)
 
-    ctx.actions.run(cmd, category = "wheel")
+    ctx.actions.run(cmd_args(cmd, hidden = hidden), category = "wheel")
     providers.append(DefaultInfo(default_output = wheel))
 
     return providers

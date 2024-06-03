@@ -27,23 +27,25 @@ def create_per_target_type_check(
         # Use empty dict to signal that no type checking was performed.
         output_file = ctx.actions.write_json(output_file_name, {})
     else:
-        cmd = cmd_args(executable)
-        cmd.add(cmd_args("check"))
+        cmd = [executable]
+        hidden = []
+
+        cmd.append(cmd_args("check"))
 
         # Source artifacts
         source_manifests = []
         if srcs != None:
             source_manifests = [srcs.manifest]
-            cmd.hidden([a for a, _ in srcs.artifacts])
+            hidden.extend([a for a, _ in srcs.artifacts])
 
         # Dep artifacts
         dep_manifest_tset = ctx.actions.tset(PythonLibraryManifestsTSet, children = [d.manifests for d in deps])
         dep_manifests = dep_manifest_tset.project_as_args("source_type_manifests")
-        cmd.hidden(dep_manifest_tset.project_as_args("source_type_artifacts"))
+        hidden.append(dep_manifest_tset.project_as_args("source_type_artifacts"))
 
         # Typeshed artifacts
         if typeshed != None:
-            cmd.hidden([a for a, _ in typeshed.artifacts])
+            hidden.extend([a for a, _ in typeshed.artifacts])
             typeshed_manifest = typeshed.manifest
         else:
             typeshed_manifest = None
@@ -58,9 +60,9 @@ def create_per_target_type_check(
 
         input_file = ctx.actions.write_json("type_check_config.json", input_config, with_inputs = True)
         output_file = ctx.actions.declare_output(output_file_name)
-        cmd.add(cmd_args(input_file))
-        cmd.add(cmd_args(output_file.as_output(), format = "--output={}"))
+        cmd.append(cmd_args(input_file))
+        cmd.append(cmd_args(output_file.as_output(), format = "--output={}"))
 
-        ctx.actions.run(cmd, category = "type_check")
+        ctx.actions.run(cmd_args(cmd, hidden = hidden), category = "type_check")
 
     return DefaultInfo(default_output = output_file)

@@ -583,11 +583,13 @@ def _pex_modules_args(
     runtime (this might be empty for e.g. a standalone pex).
     """
 
-    cmd = cmd_args()
-    cmd.add(common_args)
+    cmd = []
+    hidden = []
+
+    cmd.append(common_args)
 
     if manifest_module != None:
-        cmd.add(cmd_args(manifest_module, format = "--module-manifest={}"))
+        cmd.append(cmd_args(manifest_module, format = "--module-manifest={}"))
 
     if pex_modules.compile:
         pyc_mode = PycInvalidationMode("UNCHECKED_HASH") if symlink_tree_path == None else PycInvalidationMode("CHECKED_HASH")
@@ -601,19 +603,19 @@ def _pex_modules_args(
                 format = "--module-manifest={}",
             ),
         )
-        cmd.add(cmd_args(bytecode_manifests_path, format = "@{}"))
-        cmd.hidden(bytecode_manifests)
+        cmd.append(cmd_args(bytecode_manifests_path, format = "@{}"))
+        hidden.append(bytecode_manifests)
 
     if symlink_tree_path != None:
-        cmd.add(["--modules-dir", symlink_tree_path.as_output()])
+        cmd.extend(["--modules-dir", symlink_tree_path.as_output()])
     else:
         # Accumulate all the artifacts we depend on. Only add them to the command
         # if we are not going to create symlinks.
-        cmd.hidden(dep_artifacts)
+        hidden.append(dep_artifacts)
 
-    cmd.hidden([s for _, s in debug_artifacts])
+    hidden.extend([s for _, s in debug_artifacts])
 
-    return cmd
+    return cmd_args(cmd, hidden = hidden)
 
 def _hidden_resources_error_message(current_target: Label, hidden_resources: list[ArgLike] | None) -> str:
     """
@@ -720,11 +722,13 @@ def generate_manifest_module(
         "__module_manifests.txt",
         _srcs(src_manifests, format = "--module-manifest={}"),
     )
-    cmd = cmd_args(python_toolchain.make_py_package_manifest_module)
-    cmd.add(["--manifest-entries", entries_json])
-    cmd.add(cmd_args(src_manifests_path, format = "@{}"))
-    cmd.hidden(src_manifests)
-    cmd.add(["--output", module.as_output()])
+    cmd = cmd_args(
+        python_toolchain.make_py_package_manifest_module,
+        ["--manifest-entries", entries_json],
+        cmd_args(src_manifests_path, format = "@{}"),
+        ["--output", module.as_output()],
+        hidden = src_manifests,
+    )
     ctx.actions.run(cmd, category = "par", identifier = "manifest-module")
 
     json_entries_output = ctx.actions.declare_output("manifest/__manifest__.json")

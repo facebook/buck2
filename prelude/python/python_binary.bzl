@@ -428,12 +428,13 @@ def create_dep_report(
         main: str,
         library_info: PythonLibraryInfo) -> DefaultInfo:
     out = ctx.actions.declare_output("dep-report.json")
-    cmd = cmd_args()
-    cmd.add(python_toolchain.traverse_dep_manifest)
-    cmd.add(cmd_args(main, format = "--main={}"))
-    cmd.add(cmd_args(out.as_output(), format = "--outfile={}"))
-    cmd.add(cmd_args(library_info.manifests.project_as_args("dep_manifests")))
-    cmd.hidden(library_info.manifests.project_as_args("dep_artifacts"))
+    cmd = cmd_args(
+        python_toolchain.traverse_dep_manifest,
+        cmd_args(main, format = "--main={}"),
+        cmd_args(out.as_output(), format = "--outfile={}"),
+        cmd_args(library_info.manifests.project_as_args("dep_manifests")),
+        hidden = library_info.manifests.project_as_args("dep_artifacts"),
+    )
     ctx.actions.run(cmd, category = "write_dep_report")
     return DefaultInfo(default_output = out)
 

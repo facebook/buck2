@@ -29,11 +29,13 @@ def compile_manifests_for_mode(
         invalidation_mode: PycInvalidationMode = PycInvalidationMode("UNCHECKED_HASH")) -> ManifestInfo:
     output = ctx.actions.declare_output("bytecode_{}".format(invalidation_mode.value), dir = True)
     bytecode_manifest = ctx.actions.declare_output("bytecode_{}.manifest".format(invalidation_mode.value))
-    cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter)
-    cmd.add(ctx.attrs._python_toolchain[PythonToolchainInfo].compile)
-    cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(bytecode_manifest.as_output(), format = "--bytecode-manifest={}"))
-    cmd.add("--invalidation-mode={}".format(invalidation_mode.value))
+    cmd = [
+        ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter,
+        ctx.attrs._python_toolchain[PythonToolchainInfo].compile,
+        cmd_args(output.as_output(), format = "--output={}"),
+        cmd_args(bytecode_manifest.as_output(), format = "--bytecode-manifest={}"),
+        "--invalidation-mode={}".format(invalidation_mode.value),
+    ]
 
     env = {
         # On some platforms (e.g. linux), python hash code randomness can cause
@@ -60,11 +62,12 @@ def compile_manifests_for_mode(
         # so for those cases we support forced invalidation using this env var
         env["PYTHON312_DUMMY_PYC_CACHE_BUSTER"] = "3532"
 
+    hidden = []
     for manifest in manifests:
-        cmd.add(manifest.manifest)
-        cmd.hidden([a for a, _ in manifest.artifacts])
+        cmd.append(manifest.manifest)
+        hidden.extend([a for a, _ in manifest.artifacts])
     ctx.actions.run(
-        cmd,
+        cmd_args(cmd, hidden = hidden),
         env = env,
         category = "py_compile",
         identifier = invalidation_mode.value,
