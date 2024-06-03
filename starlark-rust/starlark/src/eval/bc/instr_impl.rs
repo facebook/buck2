@@ -57,7 +57,6 @@ use crate::eval::compiler::def::ParametersCompiled;
 use crate::eval::compiler::expr::get_attr_hashed_bind;
 use crate::eval::compiler::expr::get_attr_hashed_raw;
 use crate::eval::compiler::expr::EvalError;
-use crate::eval::compiler::expr::MemberOrValue;
 use crate::eval::compiler::expr_throw;
 use crate::eval::compiler::stmt::add_assign;
 use crate::eval::compiler::stmt::bit_or_assign;
@@ -1632,10 +1631,7 @@ fn call_method_common<'v>(
 ) -> crate::Result<()> {
     // TODO: wrong span: should be span of `object.method`, not of the whole expression
     let method = get_attr_hashed_raw(this, symbol, eval.heap())?;
-    let r = match method {
-        MemberOrValue::Member(member) => member.invoke_method(this, span, arguments, eval)?,
-        MemberOrValue::Value(value) => value.invoke_with_loc(Some(span), arguments, eval)?,
-    };
+    let r = method.invoke(this, span, arguments, eval)?;
     frame.set_bc_slot(target, r);
     Ok(())
 }

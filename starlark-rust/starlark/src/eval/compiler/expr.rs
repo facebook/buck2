@@ -58,6 +58,8 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
 use crate::values::function::BoundMethodGen;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
@@ -77,6 +79,7 @@ use crate::values::types::string::interpolation::percent_s_one;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::types::unbound::MaybeUnboundValue;
 use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
@@ -1124,6 +1127,20 @@ impl<'v> MemberOrValue<'v> {
         match self {
             MemberOrValue::Member(x) => x.to_value(),
             MemberOrValue::Value(x) => *x,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn invoke(
+        &self,
+        this: Value<'v>,
+        span: FrozenRef<'static, FrameSpan>,
+        args: &Arguments<'v, '_>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> crate::Result<Value<'v>> {
+        match self {
+            MemberOrValue::Member(member) => member.invoke_method(this, span, args, eval),
+            MemberOrValue::Value(value) => value.invoke_with_loc(Some(span), args, eval),
         }
     }
 }
