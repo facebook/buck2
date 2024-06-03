@@ -109,7 +109,7 @@ def strip_debug_with_gnu_debuglink(ctx: AnalysisContext, name: str, obj: Artifac
     ctx.actions.run(cmd, category = "extract_debuginfo", identifier = name)
 
     binary_output = ctx.actions.declare_output("__stripped_objects__", name)
-    cmd = cmd_args([objcopy, "--strip-debug", "--add-gnu-debuglink", debuginfo_output, obj, binary_output.as_output()])
+    cmd = cmd_args([objcopy, "--strip-debug", "--keep-file-symbols", "--add-gnu-debuglink", debuginfo_output, obj, binary_output.as_output()])
     ctx.actions.run(cmd, category = "strip_debug", identifier = name)
 
     return binary_output, debuginfo_output
