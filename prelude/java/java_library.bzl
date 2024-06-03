@@ -135,12 +135,9 @@ def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additiona
 
 def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo) -> list[Artifact]:
     bootclasspath_list = []
-    if source_level in [7, 8]:
+    if source_level in [8]:
         if bootclasspath_entries:
             bootclasspath_list = bootclasspath_entries
-        elif source_level == 7:
-            expect(java_toolchain.bootclasspath_7, "Must specify bootclasspath for source level 7")
-            bootclasspath_list = java_toolchain.bootclasspath_7
         elif source_level == 8:
             expect(java_toolchain.bootclasspath_8, "Must specify bootclasspath for source level 8")
             bootclasspath_list = java_toolchain.bootclasspath_8
