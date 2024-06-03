@@ -21,12 +21,14 @@ use crate::values::function::BoundMethodGen;
 use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMethod;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueLike;
 
 /// A value or an unbound method or unbound attribute.
+#[derive(Clone, Debug)]
 pub(crate) enum MaybeUnboundValue {
     /// A method with `this` unbound.
     Method(FrozenValueTyped<'static, NativeMethod>),
@@ -35,11 +37,28 @@ pub(crate) enum MaybeUnboundValue {
 }
 
 impl MaybeUnboundValue {
+    #[inline]
+    pub(crate) fn to_frozen_value(&self) -> FrozenValue {
+        match self {
+            MaybeUnboundValue::Method(m) => m.to_frozen_value(),
+            MaybeUnboundValue::Attr(a) => a.to_frozen_value(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn to_frozen_value_not_special(&self) -> FrozenValueNotSpecial {
+        match self {
+            MaybeUnboundValue::Method(m) => FrozenValueNotSpecial::from_frozen_value_typed(*m),
+            MaybeUnboundValue::Attr(a) => FrozenValueNotSpecial::from_frozen_value_typed(*a),
+        }
+    }
+
     /// Bind this object to given `this` value.
-    pub(crate) fn bind<'v>(self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    #[inline]
+    pub(crate) fn bind<'v>(&self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self {
             MaybeUnboundValue::Method(m) => {
-                Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), m)))
+                Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), *m)))
             }
             MaybeUnboundValue::Attr(a) => a.call(this, heap),
         }

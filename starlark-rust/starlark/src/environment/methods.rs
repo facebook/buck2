@@ -27,11 +27,12 @@ use crate::values::function::NativeAttribute;
 use crate::values::function::NativeCallableRawDocs;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
-use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::types::unbound::MaybeUnboundValue;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Value;
 
@@ -41,7 +42,7 @@ pub struct Methods {
     /// This field holds the objects referenced in `members`.
     #[allow(dead_code)]
     heap: FrozenHeapRef,
-    members: SymbolMap<FrozenValueNotSpecial>,
+    members: SymbolMap<MaybeUnboundValue>,
     docstring: Option<String>,
 }
 
@@ -51,26 +52,24 @@ pub struct MethodsBuilder {
     /// The heap everything is allocated in.
     heap: FrozenHeap,
     /// Members, either `NativeMethod` or `NativeAttribute`.
-    members: SymbolMap<FrozenValueNotSpecial>,
+    members: SymbolMap<MaybeUnboundValue>,
     /// The raw docstring for the main object.
     docstring: Option<String>,
 }
 
 impl Methods {
     pub(crate) fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
-        self.get_frozen(name).map(FrozenValueNotSpecial::to_value)
+        Some(self.members.get_str(name)?.to_frozen_value().to_value())
     }
 
-    pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValueNotSpecial> {
-        self.members.get_str(name).copied()
+    #[inline]
+    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<&MaybeUnboundValue> {
+        self.members.get_hashed_str(name)
     }
 
-    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<FrozenValueNotSpecial> {
-        self.members.get_hashed_str(name).copied()
-    }
-
-    pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<FrozenValueNotSpecial> {
-        self.members.get(name).copied()
+    #[inline]
+    pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<&MaybeUnboundValue> {
+        self.members.get(name)
     }
 
     pub(crate) fn names(&self) -> Vec<String> {
@@ -164,13 +163,15 @@ impl MethodsBuilder {
     {
         self.members.insert(
             name,
-            FrozenValueNotSpecial::new(self.heap.alloc(NativeAttribute {
-                function: Box::new(f),
-                speculative_exec_safe,
-                docstring,
-                typ,
-            }))
-            .unwrap(),
+            MaybeUnboundValue::Attr(
+                FrozenValueTyped::new(self.heap.alloc(NativeAttribute {
+                    function: Box::new(f),
+                    speculative_exec_safe,
+                    docstring,
+                    typ,
+                }))
+                .unwrap(),
+            ),
         );
     }
 
@@ -189,14 +190,16 @@ impl MethodsBuilder {
 
         self.members.insert(
             name,
-            FrozenValueNotSpecial::new(self.heap.alloc(NativeMethod {
-                function: Box::new(f),
-                name: name.to_owned(),
-                speculative_exec_safe,
-                raw_docs,
-                ty,
-            }))
-            .unwrap(),
+            MaybeUnboundValue::Method(
+                FrozenValueTyped::new(self.heap.alloc(NativeMethod {
+                    function: Box::new(f),
+                    name: name.to_owned(),
+                    speculative_exec_safe,
+                    raw_docs,
+                    ty,
+                }))
+                .unwrap(),
+            ),
         );
     }
 
@@ -246,7 +249,7 @@ impl MethodsStatic {
     pub fn populate(&'static self, x: impl FnOnce(&mut MethodsBuilder), out: &mut MethodsBuilder) {
         let methods = self.methods(x).unwrap();
         for (name, value) in methods.members.iter() {
-            out.members.insert(name.as_str(), *value);
+            out.members.insert(name.as_str(), value.clone());
         }
         out.docstring = methods.docstring.clone();
     }

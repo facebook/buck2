@@ -24,6 +24,8 @@ use crate::values::layout::vtable::AValueDyn;
 use crate::values::stack_guard;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
 use crate::values::Value;
 
 /// `FrozenValue` which is not `i32` or `str`.
@@ -38,6 +40,15 @@ impl FrozenValueNotSpecial {
         } else {
             Some(FrozenValueNotSpecial(value))
         }
+    }
+
+    #[inline]
+    pub(crate) fn from_frozen_value_typed<'v, T: StarlarkValue<'v>>(
+        value: FrozenValueTyped<'v, T>,
+    ) -> FrozenValueNotSpecial {
+        assert!(!FrozenValueTyped::<T>::is_str());
+        assert!(!FrozenValueTyped::<T>::is_pointer_i32());
+        FrozenValueNotSpecial(value.to_frozen_value())
     }
 
     #[inline]

@@ -1137,7 +1137,7 @@ pub(crate) fn get_attr_hashed_raw<'v>(
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
-            return Ok(MemberOrValue::Member(v));
+            return Ok(MemberOrValue::Member(v.to_frozen_value_not_special()));
         }
     }
     match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {
@@ -1154,7 +1154,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
-            return MaybeUnboundValue::new(v).bind(x, heap);
+            return v.bind(x, heap);
         }
     }
     match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {

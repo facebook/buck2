@@ -106,7 +106,6 @@ use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
-use crate::values::types::unbound::MaybeUnboundValue;
 use crate::values::Freezer;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -844,7 +843,7 @@ impl<'v> Value<'v> {
         if let Some(methods) = aref.vtable().methods() {
             let attribute = Hashed::new(attribute);
             if let Some(v) = methods.get_hashed(attribute) {
-                return Ok(Some(MaybeUnboundValue::new(v).bind(self, heap)?));
+                return Ok(Some(v.bind(self, heap)?));
             }
             Ok(aref.get_attr_hashed(attribute, heap))
         } else {

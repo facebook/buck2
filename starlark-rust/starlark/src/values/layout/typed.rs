@@ -211,6 +211,14 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
 }
 
 impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
+    pub(crate) fn is_str() -> bool {
+        T::static_type_id() == StarlarkStr::static_type_id()
+    }
+
+    pub(crate) fn is_pointer_i32() -> bool {
+        PointerI32::type_is_pointer_i32::<T>()
+    }
+
     /// Construct `FrozenValueTyped` without checking that the value is of correct type.
     #[inline]
     pub unsafe fn new_unchecked(value: FrozenValue) -> FrozenValueTyped<'v, T> {
@@ -262,9 +270,9 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     /// Get the reference to the pointed value.
     #[inline]
     pub fn as_ref(self) -> &'v T {
-        if PointerI32::type_is_pointer_i32::<T>() {
+        if Self::is_pointer_i32() {
             unsafe { transmute!(&PointerI32, &T, self.0.0.unpack_pointer_i32_unchecked()) }
-        } else if T::static_type_id() == StarlarkStr::static_type_id() {
+        } else if Self::is_str() {
             unsafe {
                 self.0
                     .0
