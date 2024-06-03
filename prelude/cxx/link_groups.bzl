@@ -56,7 +56,6 @@ load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
-    "breadth_first_traversal_with_callback",
 )
 load(
     "@prelude//utils:set.bzl",
@@ -290,13 +289,13 @@ def _transitively_update_shared_linkage(
                 shared_lib_roots.append(target)
 
     # buildifier: disable=uninitialized
-    def process_dependency(node: Label, populate_queue: typing.Callable):
+    def process_dependency(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]
         if linkable_node.preferred_linkage == Linkage("any"):
             link_group_preferred_linkage[node] = Linkage("shared")
-        populate_queue(get_deps_for_link(linkable_node, link_strategy, pic_behavior))
+        return get_deps_for_link(linkable_node, link_strategy, pic_behavior)
 
-    breadth_first_traversal_with_callback(
+    breadth_first_traversal_by(
         linkable_graph_node_map,
         shared_lib_roots,
         process_dependency,
@@ -323,20 +322,19 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    def get_potential_linkables(node: Label, populate_queue: typing.Callable):
-        linkable_node = linkable_graph_node_map[node]  # buildifier: disable=uninitialized
-
-        # Always link against exported deps
-        populate_queue(linkable_node.exported_deps)
+    def get_potential_linkables(node: Label) -> list[Label]:
+        linkable_node = linkable_graph_node_map[node]
 
         # If the preferred linkage is `static` or `any` we need to link against the deps too.
         should_traverse_private_deps = linkable_node.preferred_linkage == Linkage("static") or linkable_node.preferred_linkage == Linkage("any")
 
         if should_traverse_private_deps:
-            populate_queue(linkable_node.deps)
+            return linkable_node.all_deps
+        else:
+            return linkable_node.exported_deps
 
     # Get all potential linkable targets
-    linkables = breadth_first_traversal_with_callback(
+    linkables = breadth_first_traversal_by(
         linkable_graph_node_map,
         roots,
         get_potential_linkables,
@@ -567,12 +565,10 @@ def _find_all_relevant_roots(
             if has_empty_root:
                 link_groups_for_full_traversal.add(spec.group.name)
 
-    def collect_and_traverse_roots(node_target, populate_queue):
+    def collect_and_traverse_roots(node_target: Label) -> list[Label]:
         node = linkable_graph_node_map.get(node_target)
         if node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents:
-            populate_queue(node.deps)
-            populate_queue(node.exported_deps)
-            return
+            return node.all_deps
 
         node_link_group = link_group_mappings.get(node_target)
 
@@ -582,11 +578,9 @@ def _find_all_relevant_roots(
                 relevant_roots[link_group].append(node_target)
         elif link_groups_for_full_traversal.contains(node_link_group) and node_link_group != NO_MATCH_LABEL:
             relevant_roots[node_link_group].append(node_target)
+        return node.all_deps
 
-        populate_queue(node.deps)
-        populate_queue(node.exported_deps)
-
-    breadth_first_traversal_with_callback(
+    breadth_first_traversal_by(
         linkable_graph_node_map,
         roots,
         collect_and_traverse_roots,
@@ -602,12 +596,11 @@ def find_relevant_roots(
     # Walk through roots looking for the first node which maps to the current
     # link group.
 
-    def collect_and_traverse_roots(roots, node_target, populate_queue):
+    def collect_and_traverse_roots(roots, node_target: Label) -> list[Label] | None:
         node = linkable_graph_node_map.get(node_target)
         if node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents:
-            populate_queue(node.deps)
-            populate_queue(node.exported_deps)
-            return
+            return node.all_deps
+
         node_link_group = link_group_mappings.get(node_target)
 
         if node_link_group == MATCH_ALL_LABEL:
@@ -615,12 +608,13 @@ def find_relevant_roots(
         elif node_link_group == link_group:
             roots.append(node_target)
         else:
-            populate_queue(node.deps)
-            populate_queue(node.exported_deps)
+            return node.all_deps
+
+        return None
 
     relevant_roots = []
 
-    breadth_first_traversal_with_callback(
+    breadth_first_traversal_by(
         linkable_graph_node_map,
         roots,
         partial(collect_and_traverse_roots, relevant_roots),

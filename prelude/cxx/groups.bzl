@@ -15,7 +15,6 @@ load(
 load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
-    "breadth_first_traversal_with_callback",
 )
 load(
     "@prelude//utils:strings.bzl",
@@ -317,16 +316,14 @@ def _transitively_add_targets_to_group_mapping(
         assign_target_to_group,  # (Label, bool) -> bool
         node_traversed_targets,  #: {"label": None}
         graph_map,  # {"label": "_b"}
-        node,
-        populate_queue):  # ([Label]) -> None
+        node):  # ([Label]) -> None
     previously_processed = assign_target_to_group(node, False)
 
     # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned
     if previously_processed and node not in node_traversed_targets:
-        return
+        return None
     graph_node = graph_map[node]
-    populate_queue(graph_node.deps)
-    populate_queue(graph_node.exported_deps)
+    return graph_node.deps + graph_node.exported_deps
 
 # Types removed to avoid unnecessary type checking which degrades performance.
 def _update_target_to_group_mapping(
@@ -343,7 +340,7 @@ def _update_target_to_group_mapping(
     if mapping.traversal in _TRAVERSALS_TO_ASSIGN_NODE:
         assign_target_to_group(target, True)
     else:  # tree
-        breadth_first_traversal_with_callback(graph_map, [target], transitively_add_targets_to_group_mapping)
+        breadth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
 
 def _add_to_implicit_link_group(
         generated_group_name,  # str

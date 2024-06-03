@@ -74,6 +74,10 @@ LinkableNode = record(
     # deps and their (transitive) exported deps. This helps keep link lines smaller
     # and produces more efficient libs (for example, DT_NEEDED stays a manageable size).
     exported_deps = field(list[Label], []),
+
+    # List of both deps and exported deps. We traverse linkable graph lots of times
+    # and preallocating this list saves RAM during analysis
+    all_deps = field(list[Label], []),
     # Link infos for all supported lib output styles supported by this node. This should have a value
     # for every output_style supported by the preferred linkage.
     link_infos = field(dict[LibOutputStyle, LinkInfos], {}),
@@ -181,12 +185,15 @@ def create_linkable_node(
         )
     if not linker_flags:
         linker_flags = LinkerFlags()
+    deps = linkable_deps(deps)
+    exported_deps = linkable_deps(exported_deps)
     return LinkableNode(
         labels = ctx.attrs.labels,
         preferred_linkage = preferred_linkage,
         default_link_strategy = default_link_strategy,
-        deps = linkable_deps(deps),
-        exported_deps = linkable_deps(exported_deps),
+        deps = deps,
+        exported_deps = exported_deps,
+        all_deps = deps + exported_deps,
         link_infos = link_infos,
         shared_libs = shared_libs,
         can_be_asset = can_be_asset,
@@ -335,7 +342,7 @@ def get_transitive_deps(
     """
 
     def find_transitive_deps(node: Label):
-        return link_infos[node].deps + link_infos[node].exported_deps
+        return link_infos[node].all_deps
 
     all_deps = breadth_first_traversal_by(link_infos, roots, find_transitive_deps)
 
