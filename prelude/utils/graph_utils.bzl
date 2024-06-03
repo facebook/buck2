@@ -178,10 +178,30 @@ def breadth_first_traversal(
 
     return breadth_first_traversal_by(graph_nodes, roots, lookup)
 
+# With following graph
+#
+#          A
+#        /   \
+#      B      C
+#     / \    / \
+#    D   E  F   G
+#
+# preorder-left-to-right starting from A will go to left leg first
+#                       A-B-D-E-C-F-G
+#
+# preorder-right-to-left starting from A will go to right leg first
+#                       A-C-G-F-B-E-D
+#
+GraphTraversal = enum(
+    "preorder-right-to-left",
+    "preorder-left-to-right",
+)
+
 def breadth_first_traversal_by(
         graph_nodes: [dict[typing.Any, typing.Any], None],
         roots: list[typing.Any],
         get_nodes_to_traverse_func: typing.Callable,
+        traversal: GraphTraversal = GraphTraversal("preorder-left-to-right"),
         node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
     """
     Performs a breadth first traversal of `graph_nodes`, beginning
@@ -197,8 +217,11 @@ def breadth_first_traversal_by(
 
     # Dictify for O(1) lookup
     visited = {k: None for k in roots}
+    stride = -1 if traversal == GraphTraversal("preorder-left-to-right") else 1
 
-    queue = visited.keys()
+    queue = []
+    for node in visited.keys()[::stride]:
+        queue.append(node)
 
     for _ in range(len(graph_nodes) if graph_nodes else 2000000000):
         if not queue:
@@ -208,7 +231,7 @@ def breadth_first_traversal_by(
             fail("Expected node {} in graph nodes".format(node_formatter(node)))
         nodes_to_visit = get_nodes_to_traverse_func(node)
         if nodes_to_visit:
-            for node in nodes_to_visit:
+            for node in nodes_to_visit[::stride]:
                 if node not in visited:
                     visited[node] = None
                     queue.append(node)
