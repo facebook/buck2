@@ -181,7 +181,9 @@ def _create_kotlin_sources(
         ksp_cmd.add(["--ksp_project_base_dir", ctx.label.path])
 
         ksp_kotlinc_cmd_args = cmd_args(kotlinc_cmd_args)
-        _add_plugins(ctx, ksp_kotlinc_cmd_args, ksp_cmd, is_ksp = True)
+        plugins_cmd_args = _add_plugins(ctx, is_ksp = True)
+        ksp_kotlinc_cmd_args.add(plugins_cmd_args.kotlinc_cmd_args)
+        ksp_cmd.add(plugins_cmd_args.compile_kotlin_cmd)
 
         ksp_cmd_args_file, _ = ctx.actions.write(
             "ksp_kotlinc_cmd",
@@ -198,7 +200,9 @@ def _create_kotlin_sources(
         zipped_sources = (zipped_sources or []) + [ksp_zipped_sources_output]
         compile_kotlin_cmd.add(["--ksp_generated_classes_and_resources", ksp_classes_and_resources_output])
 
-    _add_plugins(ctx, kotlinc_cmd_args, compile_kotlin_cmd, is_ksp = False)
+    plugin_cmd_args = _add_plugins(ctx, is_ksp = False)
+    kotlinc_cmd_args.add(plugin_cmd_args.kotlinc_cmd_args)
+    compile_kotlin_cmd.add(plugin_cmd_args.compile_kotlin_cmd)
 
     if zipped_sources:
         zipped_sources_file = ctx.actions.write("kotlinc_zipped_source_args", zipped_sources)
@@ -224,11 +228,16 @@ def _create_kotlin_sources(
 def _is_ksp_plugin(plugin: str) -> bool:
     return "symbol-processing" in plugin
 
+_PluginCmdArgs = record(
+    kotlinc_cmd_args = cmd_args,
+    compile_kotlin_cmd = cmd_args,
+)
+
 def _add_plugins(
         ctx: AnalysisContext,
-        kotlinc_cmd_args: cmd_args,
-        compile_kotlin_cmd: cmd_args,
-        is_ksp: bool):
+        is_ksp: bool) -> _PluginCmdArgs:
+    kotlinc_cmd_args = cmd_args()
+    compile_kotlin_cmd = cmd_args()
     for plugin, plugin_options in ctx.attrs.kotlin_compiler_plugins.items():
         if _is_ksp_plugin(str(plugin)) != is_ksp:
             continue
@@ -246,6 +255,8 @@ def _add_plugins(
 
         if options:
             kotlinc_cmd_args.add(["-P", cmd_args(options, delimiter = ",")])
+
+    return _PluginCmdArgs(kotlinc_cmd_args = kotlinc_cmd_args, compile_kotlin_cmd = compile_kotlin_cmd)
 
 def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
