@@ -27,6 +27,7 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     they can and can't do. In particular, bootstrap binaries can only depend on
     bootstrap libraries and can only consist of a single file.
     """
+    copy_deps = ctx.attrs.copy_deps
     run_tree_inputs = {}
     run_tree_recorded_deps = {}  # For a better error message when files collide
     for dep in ctx.attrs.deps:
@@ -38,8 +39,7 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             run_tree_inputs[src.short_path] = src
             run_tree_recorded_deps[src.short_path] = dep
 
-    copy = True
-    if copy:
+    if copy_deps:
         run_tree = ctx.actions.copied_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
     else:
         run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
@@ -48,9 +48,9 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
 
-    if ctx.attrs._win_python_copied_wrapper != None and ctx.attrs._win_python_symlinked_wrapper != None:
+    if ctx.attrs._win_python_wrapper != None:
         run_args = cmd_args(
-            ctx.attrs._win_python_copied_wrapper[RunInfo] if copy else ctx.attrs._win_python_symlinked_wrapper[RunInfo],
+            ctx.attrs._win_python_wrapper[RunInfo],
             run_tree,
             interpreter,
             output,
