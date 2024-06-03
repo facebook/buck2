@@ -81,9 +81,11 @@ def _select_provisioning_profile(
     list_codesign_identities: IListCodesignIdentities,
     should_use_fast_provisioning_profile_parsing: bool,
     strict_provisioning_profile_search: bool,
-    read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory = _default_read_provisioning_profile_command_factory,
     log_file_path: Optional[Path] = None,
 ) -> SelectedProvisioningProfileInfo:
+    read_provisioning_profile_command_factory = (
+        _default_read_provisioning_profile_command_factory
+    )
     identities = list_codesign_identities.list_codesign_identities()
     _LOGGER.info(
         f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
