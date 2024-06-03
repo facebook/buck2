@@ -43,9 +43,10 @@ _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]
 def _process_classpath(
         actions: AnalysisActions,
         classpath_args: cmd_args,
-        cmd: cmd_args,
         args_file_name: str,
-        option_name: str):
+        option_name: str) -> cmd_args:
+    cmd = cmd_args()
+
     # write joined classpath string into args file
     classpath_args_file, _ = actions.write(
         args_file_name,
@@ -58,6 +59,7 @@ def _process_classpath(
 
     # add classpath args file to cmd
     cmd.add(option_name, classpath_args_file)
+    return cmd
 
 def _classpath_args(ctx: AnalysisContext, args):
     return cmd_args(args, delimiter = get_path_separator_for_exec_os(ctx))
@@ -67,8 +69,8 @@ def _process_plugins(
         actions_identifier: [str, None],
         annotation_processor_properties: AnnotationProcessorProperties,
         plugin_params: [PluginParams, None],
-        javac_args: cmd_args,
-        cmd: cmd_args):
+        javac_args: cmd_args) -> cmd_args:
+    cmd = cmd_args()
     processors_classpath_tsets = []
 
     # Process Annotation processors
@@ -111,13 +113,14 @@ def _process_plugins(
 
     if processors_classpath_tset:
         processors_classpath = _classpath_args(ctx, processors_classpath_tset.project_as_args("full_jar_args"))
-        _process_classpath(
+        cmd.add(_process_classpath(
             ctx.actions,
             processors_classpath,
-            cmd,
             declare_prefixed_name("plugin_cp_args", actions_identifier),
             "--javac_processors_classpath_file",
-        )
+        ))
+
+    return cmd
 
 def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additional_classpath_entries: list[Artifact], classpath_args_projection: str) -> [cmd_args, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
@@ -158,8 +161,8 @@ def _append_javac_params(
         extra_arguments: cmd_args,
         additional_classpath_entries: list[Artifact],
         bootclasspath_entries: list[Artifact],
-        cmd: cmd_args,
-        generated_sources_dir: Artifact):
+        generated_sources_dir: Artifact) -> cmd_args:
+    cmd = cmd_args()
     javac_args = cmd_args(
         "-encoding",
         "utf-8",
@@ -171,13 +174,12 @@ def _append_javac_params(
 
     compiling_classpath = _build_classpath(ctx.actions, deps, additional_classpath_entries, "args_for_compiling")
     if compiling_classpath:
-        _process_classpath(
+        cmd.add(_process_classpath(
             ctx.actions,
             _classpath_args(ctx, compiling_classpath),
-            cmd,
             declare_prefixed_name("classpath_args", actions_identifier),
             "--javac_classpath_file",
-        )
+        ))
     else:
         javac_args.add("-classpath ''")
 
@@ -188,22 +190,20 @@ def _append_javac_params(
 
     bootclasspath_list = _build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
     if bootclasspath_list:
-        _process_classpath(
+        cmd.add(_process_classpath(
             ctx.actions,
             _classpath_args(ctx, bootclasspath_list),
-            cmd,
             declare_prefixed_name("bootclasspath_args", actions_identifier),
             "--javac_bootclasspath_file",
-        )
+        ))
 
-    _process_plugins(
+    cmd.add(_process_plugins(
         ctx,
         actions_identifier,
         annotation_processor_properties,
         javac_plugin_params,
         javac_args,
-        cmd,
-    )
+    ))
 
     cmd.add("--generated_sources_dir", generated_sources_dir.as_output())
 
@@ -228,6 +228,8 @@ def _append_javac_params(
 
     if remove_classes:
         cmd.add("--remove_classes", ctx.actions.write(declare_prefixed_name("remove_classes_args", actions_identifier), remove_classes))
+
+    return cmd
 
 def split_on_archives_and_plain_files(
         srcs: list[Artifact],
@@ -418,7 +420,7 @@ def _create_jar_artifact(
     generated_sources_dir = None
     if not skip_javac:
         generated_sources_dir = ctx.actions.declare_output(declare_prefixed_name("generated_sources", actions_identifier), dir = True)
-        _append_javac_params(
+        compile_and_package_cmd.add(_append_javac_params(
             ctx,
             actions_identifier,
             java_toolchain,
@@ -432,9 +434,8 @@ def _create_jar_artifact(
             extra_arguments,
             additional_classpath_entries,
             bootclasspath_entries,
-            compile_and_package_cmd,
             generated_sources_dir,
-        )
+        ))
 
     ctx.actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
 
