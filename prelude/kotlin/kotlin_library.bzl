@@ -61,14 +61,16 @@ def _create_kotlin_sources(
     kotlinc = kotlin_toolchain.kotlinc[RunInfo]
     kotlinc_output = ctx.actions.declare_output("kotlinc_classes_output", dir = True)
 
-    compile_kotlin_cmd = cmd_args([
+    compile_kotlin_cmd_args = [
         compile_kotlin_tool,
         "--kotlinc_output",
         kotlinc_output.as_output(),
-    ])
+    ]
+    compile_kotlin_cmd_hidden = []
+
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     zip_scrubber_args = ["--zip_scrubber", cmd_args(java_toolchain.zip_scrubber, delimiter = " ")]
-    compile_kotlin_cmd.add(zip_scrubber_args)
+    compile_kotlin_cmd_args.append(zip_scrubber_args)
 
     kotlinc_cmd_args = cmd_args([kotlinc])
 
@@ -91,7 +93,7 @@ def _create_kotlin_sources(
         allow_args = True,
     )
 
-    compile_kotlin_cmd.hidden([compiling_classpath])
+    compile_kotlin_cmd_hidden.append([compiling_classpath])
 
     kotlinc_cmd_args.add(["-classpath"])
     kotlinc_cmd_args.add(cmd_args(classpath_args_file, format = "@{}"))
@@ -115,9 +117,9 @@ def _create_kotlin_sources(
 
     kapt_generated_sources_output = None
     if annotation_processor_properties.annotation_processors:
-        compile_kotlin_cmd.add(["--kapt_annotation_processing_jar", kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library])
-        compile_kotlin_cmd.add(["--kapt_annotation_processors", ",".join([p for ap in annotation_processor_properties.annotation_processors for p in ap.processors])])
-        compile_kotlin_cmd.add(["--kapt_annotation_processor_params", ";".join(annotation_processor_properties.annotation_processor_params)])
+        compile_kotlin_cmd_args.extend(["--kapt_annotation_processing_jar", kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library])
+        compile_kotlin_cmd_args.extend(["--kapt_annotation_processors", ",".join([p for ap in annotation_processor_properties.annotation_processors for p in ap.processors])])
+        compile_kotlin_cmd_args.extend(["--kapt_annotation_processor_params", ";".join(annotation_processor_properties.annotation_processor_params)])
 
         annotation_processor_classpath_tsets = (
             filter(None, ([ap.deps for ap in annotation_processor_properties.annotation_processors])) +
@@ -128,23 +130,23 @@ def _create_kotlin_sources(
             children = annotation_processor_classpath_tsets,
         ).project_as_args("full_jar_args")
         kapt_classpath_file = ctx.actions.write("kapt_classpath_file", annotation_processor_classpath)
-        compile_kotlin_cmd.add(["--kapt_classpath_file", kapt_classpath_file])
-        compile_kotlin_cmd.hidden(annotation_processor_classpath)
+        compile_kotlin_cmd_args.extend(["--kapt_classpath_file", kapt_classpath_file])
+        compile_kotlin_cmd_hidden.append(annotation_processor_classpath)
 
         sources_output = ctx.actions.declare_output("kapt_sources_output")
-        compile_kotlin_cmd.add(["--kapt_sources_output", sources_output.as_output()])
+        compile_kotlin_cmd_args.append(["--kapt_sources_output", sources_output.as_output()])
         classes_output = ctx.actions.declare_output("kapt_classes_output")
-        compile_kotlin_cmd.add(["--kapt_classes_output", classes_output.as_output()])
+        compile_kotlin_cmd_args.append(["--kapt_classes_output", classes_output.as_output()])
         stubs = ctx.actions.declare_output("kapt_stubs")
-        compile_kotlin_cmd.add(["--kapt_stubs", stubs.as_output()])
+        compile_kotlin_cmd_args.append(["--kapt_stubs", stubs.as_output()])
 
         kapt_generated_sources_output = ctx.actions.declare_output("kapt_generated_sources_output.src.zip")
-        compile_kotlin_cmd.add(["--kapt_generated_sources_output", kapt_generated_sources_output.as_output()])
-        compile_kotlin_cmd.add(["--kapt_base64_encoder", cmd_args(kotlin_toolchain.kapt_base64_encoder[RunInfo], delimiter = " ")])
+        compile_kotlin_cmd_args.append(["--kapt_generated_sources_output", kapt_generated_sources_output.as_output()])
+        compile_kotlin_cmd_args.append(["--kapt_base64_encoder", cmd_args(kotlin_toolchain.kapt_base64_encoder[RunInfo], delimiter = " ")])
         generated_kotlin_output = ctx.actions.declare_output("kapt_generated_kotlin_output")
-        compile_kotlin_cmd.add(["--kapt_generated_kotlin_output", generated_kotlin_output.as_output()])
+        compile_kotlin_cmd_args.append(["--kapt_generated_kotlin_output", generated_kotlin_output.as_output()])
         if jvm_target:
-            compile_kotlin_cmd.add(["--kapt_jvm_target", jvm_target])
+            compile_kotlin_cmd_args.append(["--kapt_jvm_target", jvm_target])
 
     friend_paths = ctx.attrs.friend_paths
     if friend_paths:
@@ -157,8 +159,8 @@ def _create_kotlin_sources(
 
     ksp_zipped_sources_output = None
     if ksp_annotation_processor_properties.annotation_processors:
-        ksp_cmd = cmd_args(compile_kotlin_tool)
-        ksp_cmd.add(zip_scrubber_args)
+        ksp_cmd = [compile_kotlin_tool]
+        ksp_cmd.append(zip_scrubber_args)
 
         ksp_annotation_processor_classpath_tsets = filter(None, ([ap.deps for ap in ksp_annotation_processor_properties.annotation_processors]))
         if ksp_annotation_processor_classpath_tsets:
@@ -166,24 +168,24 @@ def _create_kotlin_sources(
                 JavaPackagingDepTSet,
                 children = ksp_annotation_processor_classpath_tsets,
             ).project_as_args("full_jar_args")
-            ksp_cmd.add(["--ksp_processor_jars"])
-            ksp_cmd.add(cmd_args(ksp_annotation_processor_classpath, delimiter = ","))
+            ksp_cmd.append("--ksp_processor_jars")
+            ksp_cmd.append(cmd_args(ksp_annotation_processor_classpath, delimiter = ","))
 
-        ksp_cmd.add(["--ksp_classpath", classpath_args])
+        ksp_cmd.extend(["--ksp_classpath", classpath_args])
         ksp_classes_and_resources_output = ctx.actions.declare_output("ksp_output_dir/ksp_classes_and_resources_output")
-        ksp_cmd.add(["--ksp_classes_and_resources_output", ksp_classes_and_resources_output.as_output()])
+        ksp_cmd.extend(["--ksp_classes_and_resources_output", ksp_classes_and_resources_output.as_output()])
         ksp_output = cmd_args(ksp_classes_and_resources_output.as_output(), parent = 1)
-        ksp_cmd.add(["--ksp_output", ksp_output])
+        ksp_cmd.extend(["--ksp_output", ksp_output])
         ksp_sources_output = ctx.actions.declare_output("ksp_output_dir/ksp_sources_output")
-        ksp_cmd.add(["--ksp_sources_output", ksp_sources_output.as_output()])
+        ksp_cmd.extend(["--ksp_sources_output", ksp_sources_output.as_output()])
         ksp_zipped_sources_output = ctx.actions.declare_output("ksp_output_dir/ksp_zipped_sources_output.src.zip")
-        ksp_cmd.add(["--ksp_zipped_sources_output", ksp_zipped_sources_output.as_output()])
-        ksp_cmd.add(["--ksp_project_base_dir", ctx.label.path])
+        ksp_cmd.extend(["--ksp_zipped_sources_output", ksp_zipped_sources_output.as_output()])
+        ksp_cmd.extend(["--ksp_project_base_dir", ctx.label.path])
 
         ksp_kotlinc_cmd_args = cmd_args(kotlinc_cmd_args)
         plugins_cmd_args = _add_plugins(ctx, is_ksp = True)
         ksp_kotlinc_cmd_args.add(plugins_cmd_args.kotlinc_cmd_args)
-        ksp_cmd.add(plugins_cmd_args.compile_kotlin_cmd)
+        ksp_cmd.append(plugins_cmd_args.compile_kotlin_cmd)
 
         ksp_cmd_args_file, _ = ctx.actions.write(
             "ksp_kotlinc_cmd",
@@ -191,23 +193,24 @@ def _create_kotlin_sources(
             allow_args = True,
         )
 
-        ksp_cmd.add("--kotlinc_cmd_file")
-        ksp_cmd.add(ksp_cmd_args_file)
-        ksp_cmd.hidden(ksp_kotlinc_cmd_args)
+        ksp_cmd.extend(["--kotlinc_cmd_file", ksp_cmd_args_file])
 
-        ctx.actions.run(ksp_cmd, category = "ksp_kotlinc")
+        ctx.actions.run(
+            cmd_args(ksp_cmd, hidden = ksp_kotlinc_cmd_args),
+            category = "ksp_kotlinc",
+        )
 
         zipped_sources = (zipped_sources or []) + [ksp_zipped_sources_output]
-        compile_kotlin_cmd.add(["--ksp_generated_classes_and_resources", ksp_classes_and_resources_output])
+        compile_kotlin_cmd_args.extend(["--ksp_generated_classes_and_resources", ksp_classes_and_resources_output])
 
     plugin_cmd_args = _add_plugins(ctx, is_ksp = False)
     kotlinc_cmd_args.add(plugin_cmd_args.kotlinc_cmd_args)
-    compile_kotlin_cmd.add(plugin_cmd_args.compile_kotlin_cmd)
+    compile_kotlin_cmd_args.append(plugin_cmd_args.compile_kotlin_cmd)
 
     if zipped_sources:
         zipped_sources_file = ctx.actions.write("kotlinc_zipped_source_args", zipped_sources)
-        compile_kotlin_cmd.add(["--zipped_sources_file", zipped_sources_file])
-        compile_kotlin_cmd.hidden(zipped_sources)
+        compile_kotlin_cmd_args.append(["--zipped_sources_file", zipped_sources_file])
+        compile_kotlin_cmd_hidden.append(zipped_sources)
 
     args_file, _ = ctx.actions.write(
         "kotlinc_cmd",
@@ -215,13 +218,16 @@ def _create_kotlin_sources(
         allow_args = True,
     )
 
-    compile_kotlin_cmd.hidden([plain_sources])
+    compile_kotlin_cmd_hidden.append(plain_sources)
 
-    compile_kotlin_cmd.add("--kotlinc_cmd_file")
-    compile_kotlin_cmd.add(args_file)
-    compile_kotlin_cmd.hidden(kotlinc_cmd_args)
+    compile_kotlin_cmd_args.append("--kotlinc_cmd_file")
+    compile_kotlin_cmd_args.append(args_file)
+    compile_kotlin_cmd_hidden.append(kotlinc_cmd_args)
 
-    ctx.actions.run(compile_kotlin_cmd, category = "kotlinc")
+    ctx.actions.run(
+        cmd_args(compile_kotlin_cmd_args, hidden = compile_kotlin_cmd_hidden),
+        category = "kotlinc",
+    )
 
     return kotlinc_output, kapt_generated_sources_output, ksp_zipped_sources_output
 
@@ -365,12 +371,13 @@ def build_kotlin_library(
             return java_lib
         elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
             source_level, target_level = get_java_version_attributes(ctx)
-            extra_arguments = cmd_args(ctx.attrs.extra_arguments)
+            extra_arguments = cmd_args(
+                ctx.attrs.extra_arguments,
+                # The outputs of validation_deps need to be added as hidden arguments
+                # to an action for the validation_deps targets to be built and enforced.
+                hidden = validation_deps_outputs or [],
+            )
 
-            # The outputs of validation_deps need to be added as hidden arguments
-            # to an action for the validation_deps targets to be built and enforced.
-            if validation_deps_outputs:
-                extra_arguments.hidden(validation_deps_outputs)
             common_kotlincd_kwargs = {
                 "abi_generation_mode": get_abi_generation_mode(ctx.attrs.abi_generation_mode),
                 "actions": ctx.actions,
