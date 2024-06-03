@@ -597,9 +597,7 @@ def cxx_dist_link(
         link_cmd.add("-o", outputs[output].as_output())
         if linker_map:
             link_cmd.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
-        link_cmd_extra_inputs = cmd_args()
-        link_cmd_extra_inputs.add(final_link_inputs)
-        link_cmd.hidden(link_cmd_extra_inputs)
+        link_cmd.hidden(final_link_inputs)
         link_cmd.hidden(link_args)
         link_cmd.hidden(opt_objects)
         link_cmd.hidden(archives)
