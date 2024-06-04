@@ -33,13 +33,15 @@ def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
             "/c",
             cmd_args(out, format = "set BUCK2_BINARY_DIR_RELATIVE_TO={}&&").relative_to(buck2, parent = 1),
             out.project(buck2_binary),
-        ).hidden(out)
+            hidden = out,
+        )
     else:
         cmd = cmd_args(
             "/usr/bin/env",
             cmd_args(out, format = "BUCK2_BINARY_DIR_RELATIVE_TO={}").relative_to(buck2, parent = 1),
             out.project(buck2_binary),
-        ).hidden(out)
+            hidden = out,
+        )
 
     return [DefaultInfo(out), RunInfo(cmd)]
 
