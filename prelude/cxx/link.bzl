@@ -257,7 +257,6 @@ def cxx_link_into(
         cmd = cmd_args(["/bin/sh", "-c"])
         cmd.add(cmd_args(split_debug_output.as_output(), format = 'mkdir -p {}; "$@"'))
         cmd.add('""').add(command)
-        cmd.hidden(command)
         command = cmd
 
     link_execution_preference_info = LinkExecutionPreferenceInfo(
