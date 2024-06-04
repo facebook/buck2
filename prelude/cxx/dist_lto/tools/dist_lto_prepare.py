@@ -15,8 +15,10 @@ import argparse
 import enum
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from typing import List, Tuple
 
 
@@ -80,67 +82,58 @@ def main(argv: List[str]) -> int:
         # a long time, llvm-ar does not support --output and the change in llvm-ar
         # looks like it has stalled for years (https://reviews.llvm.org/D69418)
         # So, we need to invoke ar in the directory that we want it to extract into, and so
-        # need to adjust some paths.
-        ar_path = os.path.relpath(args.ar, start=objects_path)
-        archive_path = os.path.relpath(args.archive, start=objects_path)
+        # need absolute paths.
+        ar_path = os.path.abspath(args.ar)
+        archive_path = os.path.abspath(args.archive)
         output = subprocess.check_output(
             [ar_path, "t", archive_path], cwd=objects_path
         ).decode()
         member_list = [member for member in output.split("\n") if member]
 
-        # no duplicated filename
+        # This will extract all the members of the archive, including duplicates
+        # replacing existing duplicates. That is if first/foo.txt and second/foo.txt
+        # are placed in an archive in that order, this will leave second/foo.txt
+        # in the objects_path.
         output = subprocess.check_output(
             [ar_path, "xv", archive_path], cwd=objects_path
         ).decode()
-        for line in output.splitlines():
-            assert line.startswith("x - ")
-            obj = line[4:]
-            known_objects.append(_gen_path(objects_path, obj))
 
         # Count all members of the same name.
         counter = {}
         for member in member_list:
             counter.setdefault(member, 0)
             counter[member] += 1
+            # Insert all objects at most once into the list of known objects
+            if counter[member] == 1:
+                known_objects.append(_gen_path(objects_path, member))
 
-        for member, count in counter.items():
-            if count <= 1:
-                continue
-            for current in range(1, count + 1):
-                if current == 1:
-                    # just extract the file
-                    output = subprocess.check_output(
-                        [ar_path, "xN", str(current), archive_path, member],
-                        cwd=objects_path,
-                    ).decode()
-                    assert not output
-                    # We've already added this above.
-                else:
-                    # llvm doesn't allow --output so we need this clumsiness
-                    tmp_filename = "tmp"
-                    current_file = _gen_filename(member, current)
-                    # rename current 'member' file to tmp
-                    output = subprocess.check_output(
-                        ["mv", member, tmp_filename], cwd=objects_path
-                    ).decode()
-                    assert not output
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # For each duplicate member, rename and extract duplicates 1 through N
+            # inclusive. While N was already extracted above, we don't want to rely
+            # upon this implementation detail of llvm-ar.
+            for member, count in counter.items():
+                if count <= 1:
+                    continue
+                for current in range(1, count + 1):
                     # extract the file from archive
                     output = subprocess.check_output(
-                        [ar_path, "xN", str(current), archive_path, member],
-                        cwd=objects_path,
+                        [
+                            ar_path,
+                            "xN",
+                            str(current),
+                            archive_path,
+                            member,
+                        ],
+                        cwd=temp_dir,
                     ).decode()
-                    assert not output
-                    # rename the newly extracted file
-                    output = subprocess.check_output(
-                        ["mv", member, current_file], cwd=objects_path
-                    ).decode()
-                    assert not output
-                    # rename the tmp file back to 'member'
-                    output = subprocess.check_output(
-                        ["mv", tmp_filename, member], cwd=objects_path
-                    ).decode()
-                    assert not output
-                    known_objects.append(_gen_path(objects_path, current_file))
+                    unique_name = _gen_filename(member, current)
+                    # rename and move the newly extracted file to objects_path
+                    shutil.move(
+                        os.path.join(temp_dir, member),
+                        os.path.join(os.path.abspath(objects_path), unique_name),
+                    )
+                    if current > 1:
+                        known_objects.append(_gen_path(objects_path, unique_name))
 
     elif file_type == ArchiveKind.THIN_ARCHIVE:
         output = subprocess.check_output([args.ar, "t", args.archive]).decode()
