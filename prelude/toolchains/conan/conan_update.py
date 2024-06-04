@@ -26,7 +26,7 @@ def write_lockfile(lockfile, lockfile_out):
 
 def write_targets(update_label, lock_generate, conan_generate, targets_out):
     header = """\
-# @generated
+# {at}generated
 # Update using `buck2 run {update_label}`
 
 load(
@@ -35,7 +35,9 @@ load(
     "conan_dep",
     "conan_package",
 )
-""".format(update_label = update_label)
+""".format(
+        at="@", update_label=update_label
+    )
     os.makedirs(os.path.dirname(targets_out), exist_ok=True)
     with open(targets_out, "w") as outf:
         outf.write(header)
