@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-//! Bytecode generation tests.
+use crate::tests::bc::golden::bc_golden_test;
 
-mod and_or;
-mod call;
-mod compr;
-mod definitely_assigned;
-mod expr;
-mod for_stmt;
-pub(crate) mod golden;
-mod if_stmt;
-mod isinstance;
+#[test]
+fn test_call() {
+    bc_golden_test(
+        "call",
+        r#"
+def test(a, k):
+    noop(
+        10,
+        20,
+        p=30,
+        q=40,
+        r=50,
+        *a,
+        **k,
+    )
+"#,
+    );
+}
