@@ -1873,6 +1873,8 @@ message InvocationRecord {
   // Optional - for install commands, the time elapsed between the last
   // materialization event and the last install event.
   google.protobuf.Duration install_duration = 86;
+  // Peak process memory which is max of RSS and malloc-active bytes
+  optional uint64 peak_process_memory_bytes = 87;
 }
 
 // Record event sent directly to scribe.

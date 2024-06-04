@@ -8,6 +8,7 @@
  */
 
 use std::cmp;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
@@ -61,6 +62,16 @@ struct ErrorIntermediate {
     /// Append stderr to the message before sending the report.
     want_stderr: bool,
     best_tag: Option<ErrorTag>,
+}
+
+fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
+    // buck2_rss is the resident set size observed by daemon (exluding subprocesses).
+    // On MacOS buck2_rss is not stored and also RSS in general is not a reliable indicator due to swapping which moves pages from resident set to disk.
+    // Hence, we take max of buck2_rss and malloc_bytes_active (coming from jemalloc and is available on Macs as well).
+    let buck2_rss = snapshot.buck2_rss.unwrap_or(0);
+    snapshot
+        .malloc_bytes_active
+        .map(|malloc_bytes_active| max(buck2_rss, malloc_bytes_active))
 }
 
 pub(crate) struct InvocationRecorder<'a> {
@@ -147,6 +158,7 @@ pub(crate) struct InvocationRecorder<'a> {
     target_rule_type_names: Vec<String>,
     new_configs_used: bool,
     re_download_speeds: Vec<SlidingWindow>,
+    peak_process_memory_bytes: Option<u64>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -250,6 +262,7 @@ impl<'a> InvocationRecorder<'a> {
                 SlidingWindow::new(Duration::from_secs(5)),
                 SlidingWindow::new(Duration::from_secs(10)),
             ],
+            peak_process_memory_bytes: None,
         }
     }
 
@@ -482,6 +495,7 @@ impl<'a> InvocationRecorder<'a> {
                 .map(|w| w.max_per_second().unwrap_or_default())
                 .max(),
             install_duration: self.install_duration.take(),
+            peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
         };
 
         let event = BuckEvent::new(
@@ -907,7 +921,13 @@ impl<'a> InvocationRecorder<'a> {
         for s in self.re_download_speeds.iter_mut() {
             s.update(event.timestamp(), update.re_download_bytes);
         }
-
+        self.peak_process_memory_bytes =
+            match (self.peak_process_memory_bytes, process_memory(update)) {
+                (Some(peak_process_memory), Some(update_memory)) => {
+                    Some(max(peak_process_memory, update_memory))
+                }
+                (None, other) | (other, None) => other,
+            };
         Ok(())
     }
 
