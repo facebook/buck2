@@ -697,6 +697,7 @@ message UnstableHeapDumpRequest {
   // The path to write the heap dump to. If this path is relative, it is made
   // absolute relative to the working directory of the daemon.
   string destination_path = 1;
+  optional string test_executor_destination_path = 2;
 }
 
 message UnstableHeapDumpResponse {}

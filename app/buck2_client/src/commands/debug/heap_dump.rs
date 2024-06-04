@@ -32,6 +32,10 @@ pub struct HeapDumpCommand {
     /// The path to write the heap dump to.
     #[clap(short, long, value_name = "PATH")]
     path: PathArg,
+
+    /// The path to write the heap dump to.
+    #[clap(short, long, value_name = "TEST_PATH")]
+    test_executor_path: Option<PathArg>,
 }
 
 #[async_trait]
@@ -49,10 +53,16 @@ impl StreamingCommand for HeapDumpCommand {
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let path = self.path.resolve(&ctx.working_dir);
+        let test_executor_path = self
+            .test_executor_path
+            .map(|path| path.resolve(&ctx.working_dir));
         buckd
             .with_flushing()
             .unstable_heap_dump(UnstableHeapDumpRequest {
                 destination_path: path.to_str()?.to_owned(),
+                test_executor_destination_path: test_executor_path
+                    .map(|v| -> anyhow::Result<String> { Ok(v.to_str()?.to_owned()) })
+                    .transpose()?,
             })
             .await?;
 

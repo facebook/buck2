@@ -62,6 +62,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use buck2_server_ctx::test_command::TEST_COMMAND;
 use buck2_server_starlark_debug::run::run_dap_server_command;
+use buck2_test::executor_launcher::get_all_test_executors;
 use buck2_util::threads::thread_spawn;
 use dice::DetectCycles;
 use dice::Dice;
@@ -1108,15 +1109,28 @@ impl DaemonApi for BuckdServer {
         req: Request<UnstableHeapDumpRequest>,
     ) -> Result<Response<UnstableHeapDumpResponse>, Status> {
         self.check_if_accepting_requests()?;
+        let req = req.into_inner();
 
-        let heap_dump = memory::write_heap_to_file(&req.into_inner().destination_path);
-        match heap_dump {
-            Ok(_) => Ok(Response::new(UnstableHeapDumpResponse {})),
-            Err(e) => Err(Status::invalid_argument(format!(
-                "failed to perform heap dump: {}",
-                e
-            ))),
+        memory::write_heap_to_file(&req.destination_path)
+            .map_err(|e| Status::invalid_argument(format!("failed to perform heap dump: {}", e)))?;
+        if let Some(test_executor_destination_path) = req.test_executor_destination_path {
+            let test_executors = get_all_test_executors();
+            tracing::debug!(
+                "currently have {} test executor(s), dumping last one to {}",
+                test_executors.len(),
+                test_executor_destination_path
+            );
+            // TODO: Figure out a way to dump all of them and not just the last.
+            if let Some(test_executor) = test_executors.last() {
+                test_executor
+                    .unstable_heap_dump(&test_executor_destination_path)
+                    .await
+                    .map_err(|e| {
+                        Status::invalid_argument(format!("failed to perform heap dump: {}", e))
+                    })?;
+            }
         }
+        Ok(Response::new(UnstableHeapDumpResponse {}))
     }
 
     async fn unstable_allocator_stats(
