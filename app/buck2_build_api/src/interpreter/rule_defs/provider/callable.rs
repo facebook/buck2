@@ -11,6 +11,8 @@ use std::cell::OnceCell;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::hash::BuildHasher;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -21,6 +23,7 @@ use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
 use either::Either;
+use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
@@ -60,6 +63,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use starlark_map::StarlarkHasher;
+use starlark_map::StarlarkHasherBuilder;
 
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
@@ -86,9 +91,35 @@ enum ProviderCallableError {
     InvalidDefaultValueType(String, &'static str, Ty),
 }
 
+/// `Hashed` from starlark contains the small hash,
+/// we get it in `UserProvider::get_hashed`.
+/// To lookup in `IndexMap` we can promote it to `u64`.
+/// This is what this hasher does.
+#[derive(Default, Debug, Clone, Copy, Dupe)]
+pub(crate) struct StarlarkHasherSmallPromoteBuilder(StarlarkHasherBuilder);
+pub(crate) struct StarlarkHasherSmallPromote(StarlarkHasher);
+
+impl BuildHasher for StarlarkHasherSmallPromoteBuilder {
+    type Hasher = StarlarkHasherSmallPromote;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        StarlarkHasherSmallPromote(self.0.build_hasher())
+    }
+}
+
+impl Hasher for StarlarkHasherSmallPromote {
+    fn finish(&self) -> u64 {
+        self.0.finish_small().promote()
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.write(bytes)
+    }
+}
+
 fn create_callable_function_signature(
     function_name: &str,
-    fields: &SmallMap<String, UserProviderField>,
+    fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     ret_ty: Ty,
 ) -> (ParametersSpec<FrozenValue>, TyCallable) {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
@@ -116,7 +147,7 @@ pub(crate) struct UserProviderCallableData {
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
-    pub(crate) fields: SmallMap<String, UserProviderField>,
+    pub(crate) fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
 }
 
 /// Initialized after the name is assigned to the provider.
@@ -197,14 +228,14 @@ pub struct UserProviderCallable {
     /// The docstring for this provider
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: SmallMap<String, UserProviderField>,
+    fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     /// Field is initialized after the provider is assigned to a variable.
     callable: OnceCell<UserProviderCallableNamed>,
 }
 
 fn user_provider_callable_display(
     id: Option<&Arc<ProviderId>>,
-    fields: &SmallMap<String, UserProviderField>,
+    fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     f: &mut Formatter,
 ) -> fmt::Result {
     write!(f, "provider")?;
@@ -236,7 +267,7 @@ impl UserProviderCallable {
     fn new(
         path: CellPath,
         docs: Option<DocString>,
-        fields: SmallMap<String, UserProviderField>,
+        fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     ) -> Self {
         Self {
             callable: OnceCell::new(),
@@ -392,7 +423,7 @@ pub struct FrozenUserProviderCallable {
     /// The docstring for this provider
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: SmallMap<String, UserProviderField>,
+    fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     /// The actual callable that creates instances of `UserProvider`
     callable: UserProviderCallableNamed,
 }
@@ -407,7 +438,7 @@ impl Display for FrozenUserProviderCallable {
 impl FrozenUserProviderCallable {
     fn new(
         docs: Option<DocString>,
-        fields: SmallMap<String, UserProviderField>,
+        fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
         callable: UserProviderCallableNamed,
     ) -> Self {
         Self {
@@ -533,7 +564,11 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
 
         let fields = match fields {
             Either::Left(fields) => {
-                let new_fields: SmallMap<String, UserProviderField> = fields
+                let new_fields: IndexMap<
+                    String,
+                    UserProviderField,
+                    StarlarkHasherSmallPromoteBuilder,
+                > = fields
                     .items
                     .iter()
                     .map(|name| (name.clone(), UserProviderField::default()))
@@ -544,7 +579,10 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                 new_fields
             }
             Either::Right(fields) => {
-                let mut new_fields = SmallMap::with_capacity(fields.len());
+                let mut new_fields = IndexMap::with_capacity_and_hasher(
+                    fields.len(),
+                    StarlarkHasherSmallPromoteBuilder::default(),
+                );
                 for (name, field) in fields {
                     if let Some(field) = field.downcast_ref::<UserProviderField>() {
                         new_fields.insert(name, field.dupe());

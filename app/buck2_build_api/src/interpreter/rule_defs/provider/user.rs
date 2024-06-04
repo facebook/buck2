@@ -18,6 +18,7 @@ use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
+use indexmap::map::RawEntryApiV1;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::coerce;
@@ -101,7 +102,11 @@ where
     }
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
-        let index = self.callable.fields.get_index_of_hashed(attribute)?;
+        let index = self
+            .callable
+            .fields
+            .raw_entry_v1()
+            .index_from_hash(attribute.hash().promote(), |k| k == attribute.key())?;
         Some(self.attributes[index].to_value())
     }
 
