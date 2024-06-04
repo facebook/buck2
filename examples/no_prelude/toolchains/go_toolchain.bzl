@@ -74,12 +74,12 @@ def _download_toolchain(ctx: AnalysisContext):
         allow_args = True,
     )
 
-    if host_info().os.is_windows:
-        cmd = cmd_args([script])
-    else:
-        cmd = cmd_args(["/bin/sh", script])
+    cmd = cmd_args(
+        ([] if host_info().os.is_windows else ["/bin/sh"]) + [script],
+        hidden = [archive, output.as_output()],
+    )
 
-    ctx.actions.run(cmd.hidden([archive, output.as_output()]), category = "extract_go_toolchain")
+    ctx.actions.run(cmd, category = "extract_go_toolchain")
 
     return output
 
