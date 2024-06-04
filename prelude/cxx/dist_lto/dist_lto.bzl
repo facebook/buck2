@@ -42,6 +42,7 @@ load(
     "map_to_link_infos",
     "unpack_external_debug_info",
 )
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:lazy.bzl", "lazy")
 
 _BitcodeLinkData = record(
@@ -582,22 +583,21 @@ def cxx_dist_link(
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
         link_cmd = link_cmd_parts.link_cmd
-        final_link_argfile, final_link_inputs = ctx.actions.write(
-            outputs[linker_argsfile_out].as_output(),
-            link_args,
-            allow_args = True,
-        )
 
         # buildifier: disable=uninitialized
         for artifact in index_link_data:
             if artifact != None and artifact.data_type == _DataType("archive"):
                 link_cmd.hidden(artifact.link_data.opt_objects_dir)
-        link_cmd.add(cmd_args(final_link_argfile, format = "@{}"))
+        link_cmd.add(at_argfile(
+            actions = ctx.actions,
+            name = outputs[linker_argsfile_out],
+            args = link_args,
+            allow_args = True,
+        ))
         link_cmd.add(cmd_args(final_link_index, format = "@{}"))
         link_cmd.add("-o", outputs[output].as_output())
         if linker_map:
             link_cmd.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
-        link_cmd.hidden(final_link_inputs)
         link_cmd.hidden(link_args)
         link_cmd.hidden(opt_objects)
         link_cmd.hidden(archives)

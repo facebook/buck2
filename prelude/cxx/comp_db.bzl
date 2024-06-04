@@ -7,6 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
     ":compile.bzl",
     "CxxSrcCompileCommand",  # @unused Used as a type
@@ -62,18 +63,17 @@ def create_compilation_database(
             other_outputs.append(cmd)
             entries[cdb_path] = entry
 
-    content = cmd_args(*entries.values())
-
-    argfile = ctx.actions.declare_output(paths.join(identifier, "comp_db.argsfile"))
-    ctx.actions.write(argfile.as_output(), content)
-
     # Merge all entries into the actual compilation DB.
     db = ctx.actions.declare_output(paths.join(identifier, "compile_commands.json"))
     cmd = cmd_args(mk_comp_db)
     cmd.add("merge")
     cmd.add(cmd_args(db.as_output(), format = "--output={}"))
-    cmd.add(cmd_args(argfile, format = "@{}"))
-    cmd.hidden(entries.values())
+    cmd.add(at_argfile(
+        actions = ctx.actions,
+        name = paths.join(identifier, "comp_db.argsfile"),
+        args = entries.values(),
+    ))
+
     ctx.actions.run(cmd, category = "cxx_compilation_database_merge", identifier = identifier)
 
     return DefaultInfo(default_output = db, other_outputs = other_outputs)

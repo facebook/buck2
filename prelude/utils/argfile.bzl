@@ -13,8 +13,13 @@ def at_argfile(
         # ctx.actions
         actions,
         # name of the argument file
-        name: str,
+        name: str | Artifact,
         # the arguments to write to the argument file
-        args) -> cmd_args:
-    args_file = actions.write(name, args)
+        args,
+        # pass to `ctx.actions.write`
+        allow_args: bool = False) -> cmd_args:
+    if allow_args:
+        args_file, _ = actions.write(name, args, allow_args = True, with_inputs = True)
+    else:
+        args_file = actions.write(name, args, with_inputs = True)
     return cmd_args(args_file, format = "@{}", hidden = args)

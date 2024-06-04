@@ -31,6 +31,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
+load("@prelude//utils:argfile.bzl", "at_argfile")
 
 # The type of the return value of the `_compile()` function.
 CompileResultInfo = record(
@@ -240,13 +241,12 @@ def compile(
 
     if args.args_for_file:
         if haskell_toolchain.use_argsfile:
-            argsfile = ctx.actions.declare_output(
-                "haskell_compile_" + artifact_suffix + ".argsfile",
-            )
-            for_file = cmd_args(args.args_for_file).add(args.srcs)
-            ctx.actions.write(argsfile.as_output(), for_file, allow_args = True)
-            compile_cmd.add(cmd_args(argsfile, format = "@{}"))
-            compile_cmd.hidden(for_file)
+            compile_cmd.add(at_argfile(
+                actions = ctx.actions,
+                name = "haskell_compile_" + artifact_suffix + ".argsfile",
+                args = [args.args_for_file, args.srcs],
+                allow_args = True,
+            ))
         else:
             compile_cmd.add(args.args_for_file)
             compile_cmd.add(args.srcs)

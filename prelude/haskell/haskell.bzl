@@ -139,6 +139,7 @@ load(
     "@prelude//python:python.bzl",
     "PythonLibraryInfo",
 )
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 
@@ -1083,10 +1084,12 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link_args.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
 
-    argsfile = ctx.actions.declare_output("haskell_link.argsfile")
-    ctx.actions.write(argsfile.as_output(), link_args, allow_args = True)
-    link.add(cmd_args(argsfile, format = "@{}"))
-    link.hidden(link_args)
+    link.add(at_argfile(
+        actions = ctx.actions,
+        name = "haskell_link.argsfile",
+        args = link_args,
+        allow_args = True,
+    ))
     ctx.actions.run(link, category = "haskell_link")
 
     if link_style == LinkStyle("shared") or link_group_info != None:

@@ -38,6 +38,7 @@ load(
 )
 load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
 load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:utils.bzl", "map_idx")
@@ -85,17 +86,15 @@ def _create_kotlin_sources(
         delimiter = get_path_separator_for_exec_os(ctx),
     )
 
-    # write joined classpath string into args file
-    classpath_args_file, _ = ctx.actions.write(
-        "kotlinc_classpath",
-        classpath_args,
-        allow_args = True,
-    )
-
     compile_kotlin_cmd_hidden.append([compiling_classpath])
 
     kotlinc_cmd_args.add(["-classpath"])
-    kotlinc_cmd_args.add(cmd_args(classpath_args_file, format = "@{}"))
+    kotlinc_cmd_args.add(at_argfile(
+        actions = ctx.actions,
+        name = "kotlinc_classpath",
+        args = classpath_args,
+        allow_args = True,
+    ))
 
     module_name = ctx.label.package.replace("/", ".") + "." + ctx.label.name
     kotlinc_cmd_args.add(

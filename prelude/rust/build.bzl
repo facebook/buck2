@@ -40,6 +40,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "flatten_dict")
@@ -1356,8 +1357,15 @@ def _long_command(
         exe: RunInfo,
         args: cmd_args,
         argfile_name: str) -> cmd_args:
-    argfile, hidden = ctx.actions.write(argfile_name, args, allow_args = True)
-    return cmd_args(exe, cmd_args(argfile, format = "@{}"), hidden = [args, hidden])
+    return cmd_args(
+        exe,
+        at_argfile(
+            actions = ctx.actions,
+            name = argfile_name,
+            args = args,
+            allow_args = True,
+        ),
+    )
 
 _DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
 _ESCAPED_NEWLINE_RE = regex("\\n")
