@@ -146,7 +146,7 @@ class BuckException(Exception, BuckResult):
 class BuildReport:
     """
     A parsed JSON representation of buck v2 build output on stdout.
-    Build report is invoked on v2 builds by passing --print-build-report flag.
+    Build report is invoked on v2 builds by passing --build-report flag.
     Does not support buck v1.
 
     Attributes:
@@ -261,8 +261,8 @@ class BuildResult(BuckResult):
             "--show-output" in self.args or "--show-full-output" in self.args
         ), "Must add --show-output or --show-full-output arg to get build output"
         show_output = self.stdout.strip().splitlines()
-        if "--print-build-report" in self.args:
-            # When mixing --show-output with --print-build-report, the first line is
+        if "--build-report" in self.args:
+            # When mixing --show-output with --build-report, the first line is
             # the build report, and the remaining ones are the results
             show_output = show_output[1:]
         for line in show_output:
@@ -277,14 +277,14 @@ class BuildResult(BuckResult):
 
     def get_build_report(self) -> BuildReport:
         """
-        Returns a BuildReport object for a buck v2 build invoked with --print-build-report.
+        Returns a BuildReport object for a buck v2 build invoked with --build-report.
         Looks for a '{' and parses the build stdout starting from '{' as a json.
         """
         try:
             assert self.executable_type in (
                 ExecutableType.buck2,
                 ExecutableType.buck2_build_api_binary,
-            ), "--print-build-report only works in v2"
+            ), "--build-report only works in v2"
             start = self.stdout.index("{")
             end = self.stdout.index("\n", start)
             parsed = json.loads(self.stdout[start:end])

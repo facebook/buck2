@@ -86,9 +86,9 @@ class Buck(Executable):
         if (
             self.executable_type
             in (ExecutableType.buck2, ExecutableType.buck2_build_api_binary)
-            and "--print-build-report" not in args
+            and "--build-report" not in args
         ):
-            args.append("--print-build-report")
+            args.append("--build-report=-")
 
         return self._run_buck_command(
             "build",
