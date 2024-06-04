@@ -6,11 +6,13 @@
 # of this source tree.
 
 load("//:cfg_rules.bzl", _config_setting = "config_setting", _constraint_setting = "constraint_setting", _constraint_value = "constraint_value", _platform = "platform")
+load("//:execution_platforms.bzl", _execution_platforms = "execution_platforms")
 load("//:stub_rules.bzl", _stub = "stub", _trivial_build = "trivial_build")
 
 platform = _platform
 config_setting = _config_setting
 constraint_setting = _constraint_setting
 constraint_value = _constraint_value
+execution_platforms = _execution_platforms
 stub = _stub
 trivial_build = _trivial_build
