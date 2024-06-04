@@ -398,11 +398,11 @@ mod tests {
         let bc = bc.finish(Vec::new(), BcStatementLocations::new(), local_names);
         if mem::size_of::<usize>() == 8 {
             assert_eq!(
-                "0: Const True &abc; 24: Return &abc; 32: End",
+                "0: Const True ->&abc; 24: Return &abc; 32: End",
                 bc.to_string()
             );
             assert_eq!(
-                "0: Const True &abc\n24: Return &abc\n32: End\n",
+                "0: Const True ->&abc\n24: Return &abc\n32: End\n",
                 bc.dump_debug()
             );
         } else if mem::size_of::<usize>() == 4 {

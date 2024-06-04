@@ -11,11 +11,11 @@ def test():
 
 Max stack size: 6
 Instructions:
-  0: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:13-19 &1
-  56: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:21-27 &2
-  112: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:32-38 &3
-  168: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:40-46 &4
-  224: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:48-54 &5
-  280: ListNPop [&1, &2, &3, &4, &5] &0
+  0: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:13-19 ->&1
+  56: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:21-27 ->&2
+  112: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:32-38 ->&3
+  168: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:40-46 ->&4
+  224: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:48-54 ->&5
+  280: ListNPop [&1, &2, &3, &4, &5] ->&0
   296: Return &0
   304: End

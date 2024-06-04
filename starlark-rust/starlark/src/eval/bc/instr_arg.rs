@@ -486,7 +486,7 @@ impl BcInstrArg for BcSlotOut {
         end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
-        write!(f, " {}", BcSlotDisplay(param.get(), end_arg))
+        write!(f, " ->{}", BcSlotDisplay(param.get(), end_arg))
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}

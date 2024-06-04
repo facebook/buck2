@@ -11,6 +11,6 @@ D = {}
 
 Max stack size: 1
 Instructions:
-  0: ListNew &1
+  0: ListNew ->&1
   8: Return &1
   16: End

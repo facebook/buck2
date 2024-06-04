@@ -10,6 +10,6 @@ def test() -> str: return 'x'
 
 Max stack size: 1
 Instructions:
-  0: Const "x" &0
+  0: Const "x" ->&0
   24: ReturnCheckType &0
   32: End
