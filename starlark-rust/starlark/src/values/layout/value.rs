@@ -1388,6 +1388,12 @@ mod tests {
     }
 
     #[test]
+    fn test_unpack_frozen() {
+        assert!(Value::new_none().unpack_frozen().is_some());
+        assert!(Value::testing_new_int(10).unpack_frozen().is_some());
+    }
+
+    #[test]
     fn test_unpack_bigint() {
         let heap = Heap::new();
         let value = heap.alloc(BigInt::from(i64::MAX));

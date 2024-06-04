@@ -89,18 +89,23 @@ impl RawPointer {
     }
 
     #[inline]
+    pub(crate) fn tags(self) -> PointerTags {
+        PointerTags::from_pointer(self)
+    }
+
+    #[inline]
     pub(crate) fn is_str(self) -> bool {
-        (self.0.get() & TAG_STR) != 0
+        self.tags().is_str()
     }
 
     #[inline]
     pub(crate) fn is_int(self) -> bool {
-        (self.0.get() & TAG_INT) != 0
+        self.tags().is_int()
     }
 
     #[inline]
     pub(crate) fn is_unfrozen(self) -> bool {
-        (self.0.get() & TAG_UNFROZEN) != 0
+        self.tags().is_unfrozen()
     }
 
     #[inline]
@@ -176,6 +181,68 @@ const TAG_STR: usize = 0b100;
 // Note, an object can be changed from unfrozen to frozen, not vice versa.
 const TAG_UNFROZEN: usize = 0b001;
 
+/// All possible tag values, three least significant bits of a pointer.
+#[repr(usize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub(crate) enum PointerTags {
+    Int = TAG_INT,
+    StrUnfrozen = TAG_STR | TAG_UNFROZEN,
+    StrFrozen = TAG_STR,
+    OtherUnfrozen = TAG_UNFROZEN,
+    OtherFrozen = 0,
+}
+
+impl PointerTags {
+    #[inline]
+    unsafe fn from_usize_unchecked(x: usize) -> Self {
+        debug_assert!(
+            x == PointerTags::Int as usize
+                || x == PointerTags::StrUnfrozen as usize
+                || x == PointerTags::StrFrozen as usize
+                || x == PointerTags::OtherUnfrozen as usize
+                || x == PointerTags::OtherFrozen as usize
+        );
+        unsafe { mem::transmute(x) }
+    }
+
+    #[inline]
+    fn from_pointer(ptr: RawPointer) -> Self {
+        unsafe { Self::from_usize_unchecked(ptr.0.get() & TAG_MASK) }
+    }
+
+    #[inline]
+    fn to_usize(self) -> usize {
+        self as usize
+    }
+
+    /// String value, frozen or not.
+    #[inline]
+    fn is_str(self) -> bool {
+        self.to_usize() & TAG_STR != 0
+    }
+
+    /// Inline integer.
+    #[inline]
+    fn is_int(self) -> bool {
+        self == PointerTags::Int
+    }
+
+    /// Not frozen, not an integer.
+    #[inline]
+    fn is_unfrozen(self) -> bool {
+        self.to_usize() & TAG_UNFROZEN != 0
+    }
+}
+
+/// All possible tag values for frozen pointers, three least significant bits of a pointer.
+#[repr(usize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum _FrozenPointerTags {
+    Int = TAG_INT,
+    Str = TAG_STR,
+    Other = 0,
+}
+
 /// `InlineInt` is shift by this number of bits to the left to be stored in a pointer.
 const INT_SHIFT: usize = mem::size_of::<usize>() * 8 - InlineInt::BITS;
 const INT_DATA_MASK: usize = ((1usize << InlineInt::BITS) - 1) << INT_SHIFT;
@@ -233,9 +300,8 @@ impl<'p> Pointer<'p> {
 
     #[inline]
     pub fn unpack_ptr(self) -> Option<&'p AValueOrForward> {
-        let p = self.ptr.0.get();
-        if p & TAG_INT == 0 {
-            Some(unsafe { untag_pointer(p) })
+        if !self.ptr.is_int() {
+            Some(unsafe { untag_pointer(self.ptr.0.get()) })
         } else {
             None
         }
@@ -245,7 +311,7 @@ impl<'p> Pointer<'p> {
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueOrForward {
         let p = self.ptr.0.get();
-        debug_assert!(p & TAG_INT == 0);
+        debug_assert!(!self.ptr.is_int());
         untag_pointer(p)
     }
 
@@ -336,12 +402,11 @@ impl<'p> FrozenPointer<'p> {
         self.ptr.unpack_pointer_i32_unchecked()
     }
 
-    /// Unpack pointer when it is known to be not an integer, not a string, and not frozen.
+    /// Unpack pointer when it is known to be frozen, not an integer, not a string.
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueOrForward {
-        let p = self.ptr.0.get();
-        debug_assert!(p & TAG_MASK == 0);
-        cast::usize_to_ptr(p)
+        debug_assert!(self.ptr.tags() == PointerTags::OtherFrozen);
+        cast::usize_to_ptr(self.ptr.0.get())
     }
 }
 
