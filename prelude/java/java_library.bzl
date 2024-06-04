@@ -529,7 +529,6 @@ def build_java_library(
         bootclasspath_entries: list[Artifact] = [],
         additional_compiled_srcs: Artifact | None = None,
         generated_sources: list[Artifact] = [],
-        override_abi_generation_mode: [AbiGenerationMode, None] = None,
         extra_sub_targets: dict = {},
         validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
     expect(
@@ -572,7 +571,7 @@ def build_java_library(
     common_compile_kwargs = None
     has_srcs = bool(srcs) or bool(additional_compiled_srcs)
     if has_srcs or resources or manifest_file:
-        abi_generation_mode = override_abi_generation_mode or get_abi_generation_mode(ctx.attrs.abi_generation_mode)
+        abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode)
 
         common_compile_kwargs = {
             "abi_generation_mode": abi_generation_mode,
