@@ -7,8 +7,11 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
 
@@ -20,18 +23,49 @@ use buck2_grpc::DuplexChannel;
 use buck2_grpc::ServerHandle;
 use buck2_test_api::grpc::spawn_orchestrator_server;
 use buck2_test_api::grpc::TestExecutorClient;
+use buck2_test_api::protocol::TestExecutor;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::try_join3;
 use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
+use once_cell::sync::Lazy;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::process::Child;
 
 use crate::downward_api::BuckTestDownwardApi;
 use crate::orchestrator::BuckTestOrchestrator;
+
+static TEST_EXECUTOR_CLIENTS: Lazy<Mutex<HashMap<u16, Arc<dyn TestExecutor>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+pub struct TestExecutorClientWrapper(u16);
+impl TestExecutorClientWrapper {
+    pub fn new(client: Arc<dyn TestExecutor>) -> Self {
+        let mut clients = TEST_EXECUTOR_CLIENTS.lock().unwrap();
+        let id = clients.keys().max().unwrap_or(&0) + 1;
+        tracing::debug!(id = id, "Adding test executor");
+        clients.insert(id, client);
+        Self(id)
+    }
+}
+impl Drop for TestExecutorClientWrapper {
+    fn drop(&mut self) {
+        tracing::debug!(id = self.0, "Removing test executor");
+        TEST_EXECUTOR_CLIENTS.lock().unwrap().remove(&self.0);
+    }
+}
+
+pub fn get_all_test_executors() -> Vec<Arc<dyn TestExecutor>> {
+    TEST_EXECUTOR_CLIENTS
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|(_, exe)| exe.clone())
+        .collect()
+}
 
 pub struct ExecutorLaunch {
     pub handle: ExecutorFuture,

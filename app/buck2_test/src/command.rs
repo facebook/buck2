@@ -93,6 +93,7 @@ use crate::downward_api::BuckTestDownwardApi;
 use crate::executor_launcher::ExecutorLaunch;
 use crate::executor_launcher::ExecutorLauncher;
 use crate::executor_launcher::OutOfProcessTestExecutor;
+use crate::executor_launcher::TestExecutorClientWrapper;
 use crate::local_resource_registry::LocalResourceRegistry;
 use crate::orchestrator::BuckTestOrchestrator;
 use crate::orchestrator::ExecutorMessage;
@@ -484,6 +485,7 @@ async fn test_targets(
     } = res;
 
     let test_executor = Arc::new(test_executor) as Arc<dyn TestExecutor>;
+    let test_executor_wrapper = TestExecutorClientWrapper::new(test_executor.dupe());
 
     let (test_status_sender, test_status_receiver) = mpsc::unbounded();
 
@@ -497,6 +499,9 @@ async fn test_targets(
                 // Spawn our server to listen to the test runner's requests for execution.
 
                 let local_resource_registry = Arc::new(LocalResourceRegistry::new());
+
+                // Keep wrapper alive for the lifetime of the executor to ensure it stays registered.
+                let _test_executor_wrapper = test_executor_wrapper;
 
                 let orchestrator = BuckTestOrchestrator::new(
                     ctx.dupe(),
