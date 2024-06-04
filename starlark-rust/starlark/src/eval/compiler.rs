@@ -68,6 +68,19 @@ pub(crate) fn expr_throw<'v, T>(
     }
 }
 
+/// Convert syntax error to spanned evaluation exception
+#[inline(always)]
+pub(crate) fn expr_throw_starlark_result<'v, T>(
+    r: crate::Result<T>,
+    span: FrameSpan,
+    eval: &Evaluator<'v, '_, '_>,
+) -> Result<T, EvalException> {
+    match r {
+        Ok(v) => Ok(v),
+        Err(e) => Err(add_span_to_expr_error(e, span, eval)),
+    }
+}
+
 pub(crate) struct Compiler<'v, 'a, 'e, 'x> {
     pub(crate) eval: &'x mut Evaluator<'v, 'a, 'e>,
     pub(crate) scope_data: ModuleScopeData<'v>,

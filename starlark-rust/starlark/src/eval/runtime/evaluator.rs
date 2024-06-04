@@ -508,11 +508,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.module_env.frozen_heap()
     }
 
-    pub(crate) fn get_slot_module(&self, slot: ModuleSlotId) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn get_slot_module(&self, slot: ModuleSlotId) -> crate::Result<Value<'v>> {
         // Make sure the error-path doesn't get inlined into the normal-path execution
         #[cold]
         #[inline(never)]
-        fn error<'v>(eval: &Evaluator<'v, '_, '_>, slot: ModuleSlotId) -> anyhow::Error {
+        fn error<'v>(eval: &Evaluator<'v, '_, '_>, slot: ModuleSlotId) -> crate::Error {
             let name = match &eval.module_variables {
                 None => eval
                     .module_env
@@ -522,7 +522,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                 Some(e) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
-            EvaluatorError::LocalVariableReferencedBeforeAssignment(name).into()
+            crate::Error::new_other(EvaluatorError::LocalVariableReferencedBeforeAssignment(
+                name,
+            ))
         }
 
         match &self.module_variables {
@@ -535,17 +537,16 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     // Make sure the error-path doesn't get inlined into the normal-path execution
     #[cold]
     #[inline(never)]
-    pub(crate) fn local_var_referenced_before_assignment(
-        &self,
-        slot: LocalSlotId,
-    ) -> anyhow::Error {
+    pub(crate) fn local_var_referenced_before_assignment(&self, slot: LocalSlotId) -> crate::Error {
         let def_info = match self.top_frame_def_info() {
             Ok(def_info) => def_info,
             Err(e) => return e,
         };
         let names = &def_info.used;
         let name = names[slot.0 as usize].as_str().to_owned();
-        EvaluatorError::LocalVariableReferencedBeforeAssignment(name).into()
+        crate::Error::new_other(EvaluatorError::LocalVariableReferencedBeforeAssignment(
+            name,
+        ))
     }
 
     #[inline(always)]
@@ -553,7 +554,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         &self,
         frame: BcFramePtr<'v>,
         slot: LocalSlotId,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         // We access locals from explicitly passed frame because it is faster.
         debug_assert!(self.current_frame == frame);
 
@@ -565,7 +566,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     pub(crate) fn get_slot_local_captured(
         &self,
         slot: LocalCapturedSlotId,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         let value_captured = self.get_slot_local(self.current_frame, LocalSlotId(slot.0))?;
         let value_captured = value_captured_get(value_captured);
         value_captured
@@ -658,18 +659,18 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             .set_slot(slot.to_captured_or_not(), value_captured);
     }
 
-    pub(crate) fn check_return_type(&mut self, ret: Value<'v>) -> anyhow::Result<()> {
+    pub(crate) fn check_return_type(&mut self, ret: Value<'v>) -> crate::Result<()> {
         let func = self.call_stack.top_nth_function(0)?;
         if let Some(func) = func.downcast_ref::<Def>() {
             func.check_return_type(ret, self)
         } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
             func.check_return_type(ret, self)
         } else {
-            Err(EvaluatorError::TopFrameNotDef.into())
+            Err(crate::Error::new_other(EvaluatorError::TopFrameNotDef))
         }
     }
 
-    fn func_to_def_info(&self, func: Value<'_>) -> anyhow::Result<FrozenRef<DefInfo>> {
+    fn func_to_def_info(&self, func: Value<'_>) -> crate::Result<FrozenRef<DefInfo>> {
         if let Some(func) = func.downcast_ref::<Def>() {
             Ok(func.def_info)
         } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
@@ -678,18 +679,18 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             // For module, it is `None`.
             Ok(self.module_def_info)
         } else {
-            Err(EvaluatorError::TopFrameNotDef.into())
+            Err(crate::Error::new_other(EvaluatorError::TopFrameNotDef))
         }
     }
 
-    pub(crate) fn top_frame_def_info(&self) -> anyhow::Result<FrozenRef<DefInfo>> {
+    pub(crate) fn top_frame_def_info(&self) -> crate::Result<FrozenRef<DefInfo>> {
         let func = self.call_stack.top_nth_function(0)?;
         self.func_to_def_info(func)
     }
 
     /// Gets the "top frame" for debugging. If the real top frame is `breakpoint` or `debug_evaluate`
     /// it will be skipped. This should only be used for the starlark debugger.
-    pub(crate) fn top_frame_def_info_for_debugger(&self) -> anyhow::Result<FrozenRef<DefInfo>> {
+    pub(crate) fn top_frame_def_info_for_debugger(&self) -> crate::Result<FrozenRef<DefInfo>> {
         let func = {
             let top = self.call_stack.top_nth_function(0)?;
             if top.downcast_ref::<NativeFunction>().is_some() {

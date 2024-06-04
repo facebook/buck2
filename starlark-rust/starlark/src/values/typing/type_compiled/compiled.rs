@@ -298,20 +298,21 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
 
     #[cold]
     #[inline(never)]
-    fn check_type_error(self, value: Value<'v>, arg_name: Option<&str>) -> anyhow::Result<()> {
-        Err(TypingError::TypeAnnotationMismatch(
-            value.to_str(),
-            value.get_type().to_owned(),
-            self.to_string(),
-            match arg_name {
-                None => "return type".to_owned(),
-                Some(x) => format!("argument `{}`", x),
-            },
-        )
-        .into())
+    fn check_type_error(self, value: Value<'v>, arg_name: Option<&str>) -> crate::Result<()> {
+        Err(crate::Error::new_other(
+            TypingError::TypeAnnotationMismatch(
+                value.to_str(),
+                value.get_type().to_owned(),
+                self.to_string(),
+                match arg_name {
+                    None => "return type".to_owned(),
+                    Some(x) => format!("argument `{}`", x),
+                },
+            ),
+        ))
     }
 
-    pub(crate) fn check_type(self, value: Value<'v>, arg_name: Option<&str>) -> anyhow::Result<()> {
+    pub(crate) fn check_type(self, value: Value<'v>, arg_name: Option<&str>) -> crate::Result<()> {
         if self.matches(value) {
             Ok(())
         } else {

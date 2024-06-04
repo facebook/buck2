@@ -673,7 +673,7 @@ where
         }
     }
 
-    fn check_parameter_types(&self, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<()> {
+    fn check_parameter_types(&self, eval: &mut Evaluator<'v, '_, '_>) -> crate::Result<()> {
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {
@@ -698,9 +698,10 @@ where
         &self,
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<()> {
-        let return_type_ty: TypeCompiled<FrozenValue> =
-            self.return_type.ok_or(DefError::CheckReturnTypeNoType)?;
+    ) -> crate::Result<()> {
+        let return_type_ty: TypeCompiled<FrozenValue> = self
+            .return_type
+            .ok_or_else(|| crate::Error::new_other(DefError::CheckReturnTypeNoType))?;
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {

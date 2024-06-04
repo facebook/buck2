@@ -88,7 +88,7 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] typ: Value<'v>,
         default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Field<'v>> {
+    ) -> starlark::Result<Field<'v>> {
         // We compile the type even if we don't have a default to raise the error sooner
         let compiled = TypeCompiled::new_with_deprecation(typ, eval)?;
         if let Some(d) = default {

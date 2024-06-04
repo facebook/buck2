@@ -57,7 +57,7 @@ use crate::eval::compiler::def::ParametersCompiled;
 use crate::eval::compiler::expr::get_attr_hashed_bind;
 use crate::eval::compiler::expr::get_attr_hashed_raw;
 use crate::eval::compiler::expr::EvalError;
-use crate::eval::compiler::expr_throw;
+use crate::eval::compiler::expr_throw_starlark_result;
 use crate::eval::compiler::stmt::add_assign;
 use crate::eval::compiler::stmt::bit_or_assign;
 use crate::eval::compiler::stmt::possible_gc;
@@ -343,7 +343,7 @@ impl InstrNoFlowImpl for InstrSetArrayIndexImpl {
         let value = frame.get_bc_slot(*source);
         let array = frame.get_bc_slot(*array);
         let index = frame.get_bc_slot(*index);
-        array.set_at(index, value).map_err(Into::into)
+        array.set_at(index, value)
     }
 }
 
@@ -360,7 +360,7 @@ impl InstrNoFlowImpl for InstrArrayIndexSetImpl {
         let value = frame.get_bc_slot(*source);
         let array = frame.get_bc_slot(*array);
         let index = frame.get_bc_slot(*index);
-        array.set_at(index, value).map_err(Into::into)
+        array.set_at(index, value)
     }
 }
 
@@ -413,7 +413,7 @@ impl InstrNoFlowImpl for InstrSetObjectFieldImpl {
     ) -> crate::Result<()> {
         let v = frame.get_bc_slot(*source);
         let object = frame.get_bc_slot(*object);
-        object.set_attr(field.as_str(), v).map_err(Into::into)
+        object.set_attr(field.as_str(), v)
     }
 }
 
@@ -1450,8 +1450,12 @@ impl InstrNoFlowImpl for InstrDefImpl {
                     if ty.is_some() {
                         // Check the type of the default
                         let (_, _, ty_compiled) = parameter_types.last().unwrap();
-                        expr_throw(ty_compiled.check_type(value, Some(&n.name)), x.span, eval)
-                            .map_err(EvalException::into_error)?;
+                        expr_throw_starlark_result(
+                            ty_compiled.check_type(value, Some(&n.name)),
+                            x.span,
+                            eval,
+                        )
+                        .map_err(EvalException::into_error)?;
                     }
                     parameters.defaulted(&n.name, value);
                 }

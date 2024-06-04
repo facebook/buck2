@@ -35,16 +35,19 @@ pub struct Error(pub(crate) WithDiagnostic<ErrorKind>);
 
 impl Error {
     /// Create a new error
+    #[cold]
     pub fn new(kind: ErrorKind) -> Self {
         Self(WithDiagnostic::new_empty(kind))
     }
 
     /// Create a new error with a span
+    #[cold]
     pub fn new_spanned(kind: ErrorKind, span: Span, codemap: &CodeMap) -> Self {
         Self(WithDiagnostic::new_spanned(kind, span, codemap))
     }
 
     /// Create a new error with no diagnostic and of kind [`ErrorKind::Other`]
+    #[cold]
     pub fn new_other(e: impl std::error::Error + Send + Sync + 'static) -> Self {
         Self(WithDiagnostic::new_empty(ErrorKind::Other(
             anyhow::Error::new(e),
@@ -66,6 +69,7 @@ impl Error {
     }
 
     /// Convert this error into an `anyhow::Error`
+    #[cold]
     pub fn into_anyhow(self) -> anyhow::Error {
         struct Wrapped(Error);
 
@@ -226,6 +230,7 @@ impl fmt::Display for ErrorKind {
 }
 
 impl From<anyhow::Error> for Error {
+    #[cold]
     fn from(e: anyhow::Error) -> Self {
         Self(WithDiagnostic::new_empty(ErrorKind::Other(e)))
     }

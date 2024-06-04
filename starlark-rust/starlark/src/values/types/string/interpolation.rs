@@ -386,15 +386,23 @@ pub(crate) fn percent_s_one<'v>(
     arg: Value<'v>,
     after: &str,
     heap: &'v Heap,
-) -> anyhow::Result<StringValue<'v>> {
+) -> crate::Result<StringValue<'v>> {
     Ok(match StringValue::new(arg) {
         Some(arg) => heap.alloc_str_concat3(before, &arg, after),
         None => {
             let one = match Tuple::from_value(arg) {
                 Some(tuple) => match tuple.content() {
-                    [] => return Err(StringInterpolationError::NotEnoughParameters.into()),
+                    [] => {
+                        return Err(crate::Error::new_other(
+                            StringInterpolationError::NotEnoughParameters,
+                        ));
+                    }
                     [value] => *value,
-                    [_, _, ..] => return Err(StringInterpolationError::TooManyParameters.into()),
+                    [_, _, ..] => {
+                        return Err(crate::Error::new_other(
+                            StringInterpolationError::TooManyParameters,
+                        ));
+                    }
                 },
                 None => arg,
             };

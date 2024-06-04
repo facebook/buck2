@@ -197,14 +197,16 @@ impl<'v> CheapCallStack<'v> {
     }
 
     /// `n`-th element from the top of the stack.
-    pub(crate) fn top_nth_function(&self, n: usize) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn top_nth_function(&self, n: usize) -> crate::Result<Value<'v>> {
         let index = self
             .count
             .checked_sub(1)
             .and_then(|x| x.checked_sub(n))
-            .ok_or(CallStackError::StackIsTooShallowForNthTopFrame(
-                n, self.count,
-            ))?;
+            .ok_or_else(|| {
+                crate::Error::new_other(CallStackError::StackIsTooShallowForNthTopFrame(
+                    n, self.count,
+                ))
+            })?;
         Ok(self.stack[index].function)
     }
 
