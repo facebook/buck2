@@ -341,7 +341,7 @@ impl KillProcess for DefaultKillProcess {
 
 /// Unify the the behavior of using a relative path for the executable between Unix and Windows. On
 /// UNIX, the path is understood to be relative to the cwd of the *spawned process*, whereas on
-/// Windows, it's relative ot the cwd of the *spawning* process.
+/// Windows, it's relative to the cwd of the *spawning* process.
 ///
 /// Here, we unify the two behaviors since we always run our subprocesses with a known cwd: we
 /// check if the executable actually exists relative to said cwd, and if it does, we use that.
