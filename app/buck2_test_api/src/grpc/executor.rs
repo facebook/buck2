@@ -16,6 +16,8 @@ use buck2_test_proto::test_executor_client;
 use buck2_test_proto::test_executor_server;
 use buck2_test_proto::Empty;
 use buck2_test_proto::ExternalRunnerSpecRequest;
+use buck2_test_proto::UnstableHeapDumpRequest;
+use buck2_test_proto::UnstableHeapDumpResponse;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
@@ -57,6 +59,16 @@ impl TestExecutor for TestExecutorClient {
 
     async fn end_of_test_requests(&self) -> anyhow::Result<()> {
         self.client.clone().end_of_test_requests(Empty {}).await?;
+        Ok(())
+    }
+
+    async fn unstable_heap_dump(&self, path: &str) -> anyhow::Result<()> {
+        self.client
+            .clone()
+            .unstable_heap_dump(UnstableHeapDumpRequest {
+                destination_path: path.into(),
+            })
+            .await?;
         Ok(())
     }
 }
@@ -103,6 +115,20 @@ where
                 .context("Failed to report end-of-tests")?;
 
             Ok(Empty {})
+        })
+        .await
+    }
+
+    async fn unstable_heap_dump(
+        &self,
+        req: tonic::Request<UnstableHeapDumpRequest>,
+    ) -> Result<tonic::Response<UnstableHeapDumpResponse>, tonic::Status> {
+        to_tonic(async move {
+            self.inner
+                .unstable_heap_dump(&req.into_inner().destination_path)
+                .await
+                .context("Failed to dispatch unstable_heap_dump")?;
+            Ok(UnstableHeapDumpResponse {})
         })
         .await
     }

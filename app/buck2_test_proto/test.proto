@@ -347,6 +347,13 @@ message AttachInfoMessageRequest {
   string message = 1;
 }
 
+message UnstableHeapDumpRequest {
+  // The path to write the heap dump to. If this path is relative, it is made
+  // absolute relative to the working directory of the daemon.
+  string destination_path = 1;
+}
+message UnstableHeapDumpResponse {}
+
 service TestOrchestrator {
   rpc EndOfTestResults(EndOfTestResultsRequest) returns (Empty);
   rpc ReportTestResult(ReportTestResultRequest) returns (Empty);
@@ -361,4 +368,8 @@ service TestOrchestrator {
 service TestExecutor {
   rpc ExternalRunnerSpec(ExternalRunnerSpecRequest) returns (Empty);
   rpc EndOfTestRequests(Empty) returns (Empty);
+  // Requests the test server to perform a heap dump and save the dump to a
+  // file.
+  rpc Unstable_HeapDump(UnstableHeapDumpRequest)
+      returns (UnstableHeapDumpResponse);
 }

@@ -39,6 +39,11 @@ pub trait TestExecutor: Send + Sync {
 
     // report that there are no more test specs to send
     async fn end_of_test_requests(&self) -> anyhow::Result<()>;
+
+    /// performs a heap dump and saves the dump to a file.
+    async fn unstable_heap_dump(&self, _: &str) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("Unimplemented!"))
+    }
 }
 
 // available to the test executor to interact with the orchestrator
