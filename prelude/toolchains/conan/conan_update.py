@@ -42,11 +42,11 @@ load(
     with open(targets_out, "w") as outf:
         outf.write(header)
         with open(lock_generate, "r") as inf:
-            for l in inf:
-                outf.write(l)
+            for x in inf:
+                outf.write(x)
         with open(conan_generate, "r") as inf:
-            for l in inf:
-                outf.write(l)
+            for x in inf:
+                outf.write(x)
 
 
 def main():
