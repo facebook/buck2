@@ -22,6 +22,8 @@
 //! source code will not exceed 4GiB. The `CodeMap` can look up the source file, line, and column
 //! of a `Pos` or `Span`, as well as provide source code snippets for error reporting.
 use std::cmp;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -185,8 +187,8 @@ impl<T> DerefMut for Spanned<T> {
 // A cheap unowned unique identifier per file/CodeMap,
 // somewhat delving into internal details.
 // Remains unique because we take a reference to the CodeMap.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Dupe)]
-pub struct CodeMapId(*const ());
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Dupe, Allocative)]
+pub struct CodeMapId(#[allocative(skip)] *const ());
 
 impl CodeMapId {
     pub const EMPTY: CodeMapId = CodeMapId(ptr::null());
@@ -202,6 +204,29 @@ enum CodeMapImpl {
 /// A data structure recording a source code file for position lookup.
 #[derive(Clone, Dupe, Allocative)]
 pub struct CodeMap(CodeMapImpl);
+
+/// Multiple [`CodeMap`].
+#[derive(Clone, Default, Allocative)]
+pub struct CodeMaps {
+    codemaps: HashMap<CodeMapId, CodeMap>,
+}
+
+impl CodeMaps {
+    /// Lookup by id.
+    pub fn get(&self, id: CodeMapId) -> Option<&CodeMap> {
+        self.codemaps.get(&id)
+    }
+
+    /// Add codemap if not already present.
+    pub fn add(&mut self, codemap: &CodeMap) {
+        match self.codemaps.entry(codemap.id()) {
+            Entry::Occupied(_) => {}
+            Entry::Vacant(e) => {
+                e.insert(codemap.dupe());
+            }
+        }
+    }
+}
 
 /// A `CodeMap`'s record of a source file.
 #[derive(Allocative)]

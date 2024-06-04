@@ -21,7 +21,7 @@ use std::collections::HashSet;
 use std::iter;
 use std::time::Instant;
 
-use dupe::Dupe;
+use starlark_syntax::codemap::CodeMaps;
 
 use crate::codemap::CodeMap;
 use crate::codemap::CodeMapId;
@@ -47,7 +47,7 @@ pub(crate) struct StmtProfile(Option<Box<StmtProfileData>>);
 // we have a special FileId of empty that we ignore when printing
 #[derive(Clone)]
 struct StmtProfileData {
-    files: HashMap<CodeMapId, CodeMap>,
+    files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
     next_file: CodeMapId,
     last_span: (CodeMapId, Span),
@@ -57,7 +57,7 @@ struct StmtProfileData {
 impl StmtProfileData {
     fn new() -> Self {
         StmtProfileData {
-            files: HashMap::new(),
+            files: CodeMaps::default(),
             stmts: HashMap::new(),
             next_file: CodeMapId::EMPTY,
             last_span: (CodeMapId::EMPTY, Span::default()),
@@ -93,14 +93,7 @@ impl StmtProfileData {
     fn add_codemap(&mut self, codemap: &CodeMap) {
         let id = codemap.id();
         self.next_file = id;
-        match self.files.entry(id) {
-            Entry::Occupied(_) => {
-                // Nothing to do, we have already got an owned version of this CodeMap
-            }
-            Entry::Vacant(x) => {
-                x.insert(codemap.dupe());
-            }
-        }
+        self.files.add(codemap);
     }
 
     fn write_to_string(&self, now: Instant) -> String {
@@ -125,7 +118,7 @@ impl StmtProfileData {
         for ((file, span), (count, time)) in data.stmts {
             // EMPTY represents the first time special-case
             if file != CodeMapId::EMPTY {
-                let span = data.files[&file].file_span(span);
+                let span = data.files.get(file).unwrap().file_span(span);
                 total_time += time;
                 total_count += count;
                 items.push(Item { span, time, count })
@@ -158,7 +151,7 @@ impl StmtProfileData {
             .chain(iter::once(&self.last_span))
             .map(|(code_map_id, span)| {
                 self.files
-                    .get(code_map_id)
+                    .get(*code_map_id)
                     .unwrap()
                     .file_span(*span)
                     .resolve()
