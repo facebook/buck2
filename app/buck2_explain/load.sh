@@ -9,6 +9,6 @@
 # $1: buck2 executable
 # $2: target
 
-$1 --isolation-dir aaa explain --target "$2" --output /dev/null --fbs-dump /tmp/fbs
+$1 explain --target "$2" --output /dev/null --fbs-dump /tmp/fbs
 echo "export const DATA = '$(cat /tmp/fbs)';" > js/src/data.ts
 buck2 build :schema_ts --out js/src/fbs
