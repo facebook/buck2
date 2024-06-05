@@ -201,7 +201,7 @@ def depth_first_traversal_by(
         graph_nodes: [dict[typing.Any, typing.Any], None],
         roots: list[typing.Any],
         get_nodes_to_traverse_func: typing.Callable,
-        traversal: GraphTraversal = GraphTraversal("preorder-right-to-left"),
+        traversal: GraphTraversal = GraphTraversal("preorder-left-to-right"),
         node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
     """
     Performs a depth first traversal of `graph_nodes`, beginning
