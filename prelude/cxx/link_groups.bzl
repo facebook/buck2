@@ -13,6 +13,8 @@ load(
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",
+    "LinkGroupsDebugLinkableEntry",
+    "LinkGroupsDebugLinkableItem",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -125,6 +127,10 @@ LINK_GROUP_MAPPINGS_FILENAME_SUFFIX = ".link_group_map.json"
 LinkGroupLinkInfo = record(
     link_info = field(LinkInfo),
     output_style = field(LibOutputStyle),
+
+    # Where this link info is originated from.
+    # Either target label or link group name
+    link_name = field(Label | str),
 )
 
 LinkGroupLibSpec = record(
@@ -152,6 +158,7 @@ _LinkedLinkGroup = record(
 _LinkedLinkGroups = record(
     libs = field(dict[str, _LinkedLinkGroup]),
     symbol_ldflags = field(list[typing.Any], []),
+    libs_debug_info = field(dict[typing.Any, typing.Any]),
 )
 
 def get_link_group(ctx: AnalysisContext) -> [str, None]:
@@ -301,6 +308,18 @@ def _transitively_update_shared_linkage(
         process_dependency,
     )
 
+def create_debug_linkable_entries(
+        labels_to_links_map: dict[Label, LinkGroupLinkInfo]) -> list[LinkGroupsDebugLinkableEntry]:
+    entries = []
+    for link_info in labels_to_links_map.values():
+        link_groups_linkable_info = LinkGroupsDebugLinkableEntry(
+            name = link_info.link_name,
+            output_style = link_info.output_style,
+        )
+        entries.append(link_groups_linkable_info)
+
+    return entries
+
 def get_filtered_labels_to_links_map(
         public_nodes: [set_record, None],
         linkable_graph_node_map: dict[Label, LinkableNode],
@@ -371,7 +390,8 @@ def get_filtered_labels_to_links_map(
         linkable_map[target] = LinkGroupLinkInfo(
             link_info = get_link_info(linkable_graph_node_map[target], output_style, prefer_stripped),
             output_style = output_style,
-        )  # buildifier: disable=uninitialized
+            link_name = target,
+        )
 
     def add_link_group(target: Label, target_group: str):
         # If we've already added this link group to the link line, we're done.
@@ -412,7 +432,8 @@ def get_filtered_labels_to_links_map(
         linkable_map[target] = LinkGroupLinkInfo(
             link_info = get_link_info_from_link_infos(shared_link_infos),
             output_style = LibOutputStyle("shared_lib"),
-        )  # buildifier: disable=uninitialized
+            link_name = target_group,
+        )
 
     filtered_groups = [None, NO_MATCH_LABEL, MATCH_ALL_LABEL]
 
@@ -640,6 +661,11 @@ def _get_roots_from_mappings(
             roots.extend([root for root in mapping.roots if root in linkable_graph_node_map])
     return (roots, has_empty_root)
 
+_CreatedLinkGroup = record(
+    linked_object = field(LinkedObject),
+    labels_to_links_map = field(dict[Label, LinkGroupLinkInfo] | None),
+)
+
 def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec,
@@ -655,7 +681,7 @@ def _create_link_group(
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
         anonymous: bool = False,
-        allow_cache_upload = False) -> [LinkedObject, None]:
+        allow_cache_upload = False) -> _CreatedLinkGroup | None:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
@@ -721,7 +747,10 @@ def _create_link_group(
         ),
         anonymous = anonymous,
     )
-    return link_result.linked_object
+    return _CreatedLinkGroup(
+        linked_object = link_result.linked_object,
+        labels_to_links_map = filtered_labels_to_links_map,
+    )
 
 def _stub_library(
         ctx: AnalysisContext,
@@ -859,6 +888,7 @@ def create_link_groups(
             )
 
     linked_link_groups = {}
+    link_groups_debug_info = {}
     undefined_symfiles = []
     global_symfiles = []
     roots = _find_all_relevant_roots(
@@ -872,7 +902,7 @@ def create_link_groups(
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
         # handle the case when a link group can depend on the executable.
-        link_group_lib = _create_link_group(
+        created_link_group = _create_link_group(
             ctx = ctx,
             spec = link_group_spec,
             roots = roots[link_group_spec.group.name],
@@ -898,9 +928,16 @@ def create_link_groups(
             allow_cache_upload = allow_cache_upload,
         )
 
-        if link_group_lib == None:
+        if created_link_group == None:
             # the link group did not match anything, don't create shlib interface
             continue
+
+        link_group_lib = created_link_group.linked_object
+
+        if created_link_group.labels_to_links_map:
+            link_groups_debug_info[link_group_spec.name] = LinkGroupsDebugLinkableItem(
+                ordered_linkables = create_debug_linkable_entries(created_link_group.labels_to_links_map),
+            )
 
         # On GNU, use shlib interfaces.
         if cxx_is_gnu(ctx):
@@ -962,6 +999,7 @@ def create_link_groups(
     return _LinkedLinkGroups(
         libs = linked_link_groups,
         symbol_ldflags = symbol_ldflags,
+        libs_debug_info = link_groups_debug_info,
     )
 
 def get_transitive_deps_matching_labels(

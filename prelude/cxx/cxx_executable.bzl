@@ -28,6 +28,11 @@ load(
     "cxx_use_bolt",
 )
 load(
+    "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupsDebugLinkInfo",
+    "LinkGroupsDebugLinkableItem",
+)
+load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
 )
@@ -124,6 +129,7 @@ load(
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "LinkGroupContext",
+    "create_debug_linkable_entries",
     "create_link_groups",
     "find_relevant_roots",
     "get_filtered_labels_to_links_map",
@@ -315,6 +321,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             exec_dep_roots + link_group_extra_link_roots,
             link_group,
         )
+        link_group_libs_debug_info = {}
         if impl_params.auto_link_group_specs != None:
             linked_link_groups = create_link_groups(
                 ctx = ctx,
@@ -331,6 +338,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 allow_cache_upload = impl_params.exe_allow_cache_upload,
                 public_nodes = public_link_group_nodes,
             )
+            link_group_libs_debug_info = linked_link_groups.libs_debug_info
             for name, linked_link_group in linked_link_groups.libs.items():
                 auto_link_groups[name] = linked_link_group.artifact
                 if linked_link_group.library != None:
@@ -376,6 +384,19 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             prefer_stripped = impl_params.prefer_stripped_objects,
             force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
         )
+
+        link_groups_debug_info = LinkGroupsDebugLinkInfo(
+            binary = LinkGroupsDebugLinkableItem(
+                ordered_linkables = create_debug_linkable_entries(labels_to_links_map),
+            ),
+            libs = link_group_libs_debug_info,
+        )
+        sub_targets["link-groups-info"] = [DefaultInfo(
+            default_output = ctx.actions.write_json(
+                ctx.label.name + ".link-groups-info.json",
+                link_groups_debug_info,
+            ),
+        )]
 
         if is_cxx_test and link_group != None:
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
@@ -669,6 +690,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         with_inputs = True,
     )
     sub_targets["debuginfo"] = [DefaultInfo(
+        default_output = materialize_external_debug_info,
+    )]
+    sub_targets["debug_coverage_instrumentation"] = [DefaultInfo(
         default_output = materialize_external_debug_info,
     )]
 
