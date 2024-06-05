@@ -24,7 +24,7 @@ load(
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeWatchApp")
-load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_extension_attr", "get_product_name")
+load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_product_name")
 load(":apple_core_data.bzl", "compile_apple_core_data")
 load(
     ":apple_core_data_types.bzl",
@@ -85,7 +85,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
             ),
         )
 
-    cxx_sanitizer_runtime_info = ctx.attrs.binary.get(CxxSanitizerRuntimeInfo) if ctx.attrs.binary else None
+    cxx_sanitizer_runtime_info = get_default_binary_dep(ctx.attrs.binary).get(CxxSanitizerRuntimeInfo) if ctx.attrs.binary else None
     if cxx_sanitizer_runtime_info:
         runtime_resource_spec = AppleResourceSpec(
             files = cxx_sanitizer_runtime_info.runtime_files,
@@ -172,7 +172,7 @@ def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[A
     resource_graph = create_resource_graph(
         ctx = ctx,
         labels = [],
-        bundle_binary = ctx.attrs.binary,
+        bundle_binary = get_default_binary_dep(ctx.attrs.binary),
         deps = ctx.attrs.deps + resource_groups_deps,
         exported_deps = [],
     )
@@ -188,32 +188,42 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
     if binary_deps == None:
         return []
 
-    apple_library_for_distribution_info = binary_deps.get(AppleLibraryForDistributionInfo)
-    if apple_library_for_distribution_info == None:
-        return []
-    module_name = apple_library_for_distribution_info.module_name
     swiftmodule_files = {}
 
-    swiftmodule_files.update({
-        apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
-        apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
-        apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
-    })
+    module_name = None
+    for binary in get_flattened_binary_deps(binary_deps):
+        apple_library_for_distribution_info = binary.get(AppleLibraryForDistributionInfo)
+        if apple_library_for_distribution_info == None:
+            continue
+        module_name = apple_library_for_distribution_info.module_name
+        swiftmodule_files.update({
+            apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
+            apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
+            apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
+        })
+
+    if len(swiftmodule_files) == 0 or module_name == None:
+        return []
 
     framework_module_dir = ctx.actions.declare_output(module_name + "framework.swiftmodule", dir = True)
     ctx.actions.copied_dir(framework_module_dir.as_output(), swiftmodule_files)
     return [AppleBundlePart(source = framework_module_dir, destination = AppleBundleDestination("modules"), new_name = module_name + ".swiftmodule")]
 
 def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
+    print(1)
     if not ctx.attrs.copy_public_framework_headers:
         return []
-    binary = getattr(ctx.attrs, "binary")
-    if binary == None:
+    binary_deps = getattr(ctx.attrs, "binary")
+    if binary_deps == None:
         return []
+
+    binary = get_default_binary_dep(binary_deps)
     apple_library_info = binary.get(AppleLibraryInfo)
+    print(apple_library_info)
     if apple_library_info == None:
         return []
     tset = apple_library_info.public_framework_headers
+    print(tset)
 
     bundle_parts = []
     if tset._tset:

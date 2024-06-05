@@ -644,6 +644,7 @@ extra_attributes = struct(**all_extra_attributes)
 # Configuration transitions to pass `cfg` for builtin rules.
 transitions = {
     "android_binary": constraint_overrides_transition,
+    "apple_asset_catalog": apple_resource_transition,
     "apple_resource": apple_resource_transition,
     "cxx_binary": constraint_overrides_transition,
     "cxx_test": constraint_overrides_transition,

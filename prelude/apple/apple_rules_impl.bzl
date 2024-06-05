@@ -149,6 +149,7 @@ def _apple_universal_executable_extra_attrs():
 extra_attributes = {
     "apple_asset_catalog": {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
+        "skip_universal_resource_dedupe": attrs.bool(default = False),
     },
     "apple_binary": _apple_binary_extra_attrs(),
     "apple_bundle": apple_bundle_extra_attrs(),
