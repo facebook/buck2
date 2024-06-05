@@ -850,11 +850,7 @@ fn convert_algorithm_kind(kind: DigestAlgorithmKind) -> anyhow::Result<DigestAlg
         DigestAlgorithmKind::Blake3Keyed => {
             #[cfg(fbcode_build)]
             {
-                let key = blake3_constants::BLAKE3_HASH_KEY
-                    .as_bytes()
-                    .try_into()
-                    .context("BLAKE3_HASH_KEY is the wrong size")?;
-
+                let key = blake3_constants::BLAKE3_HASH_KEY;
                 DigestAlgorithm::Blake3Keyed { key }
             }
 
