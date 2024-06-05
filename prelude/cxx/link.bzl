@@ -254,10 +254,13 @@ def cxx_link_into(
     # generate a DWO directory, so make sure we at least `mkdir` and empty
     # one to make v2/RE happy.
     if split_debug_output != None:
-        cmd = cmd_args(["/bin/sh", "-c"])
-        cmd.add(cmd_args(split_debug_output.as_output(), format = 'mkdir -p {}; "$@"'))
-        cmd.add('""').add(command)
-        command = cmd
+        command = cmd_args(
+            "/bin/sh",
+            "-c",
+            cmd_args(split_debug_output.as_output(), format = 'mkdir -p {}; "$@"'),
+            '""',
+            command,
+        )
 
     link_execution_preference_info = LinkExecutionPreferenceInfo(
         preference = opts.link_execution_preference,
