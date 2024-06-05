@@ -120,10 +120,10 @@ def create_jar_artifact_kotlincd(
             if "-language-version" in arg:
                 current_language_version = arg.split("=")[1].strip()
 
-        if k2 == True:
+        if k2 == True and kotlin_toolchain.allow_k2_usage:
             if not current_language_version or current_language_version < "2.0":
                 extra_kotlinc_arguments.append("-language-version=2.0")
-        elif k2 == False:
+        else:  # use K1
             if not current_language_version or current_language_version >= "2.0":
                 extra_kotlinc_arguments.append("-language-version=1.9")
 
