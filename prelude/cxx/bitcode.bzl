@@ -76,7 +76,7 @@ def make_bitcode_bundle(
     if override and len(objects) > 1:
         args.add(objects[0])
         overrides = cmd_args(objects[1:], format = "--override={}")
-        args.add(overrides).hidden(objects)
+        args.add(overrides)
     else:
         args.add(objects)
 
