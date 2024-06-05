@@ -40,7 +40,8 @@ use superconsole::SuperConsole;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
-
+use crate::subscribers::system_warning::check_memory_pressure;
+use crate::subscribers::system_warning::system_memory_exceeded_msg;
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
@@ -517,7 +518,11 @@ where
                         child,
                         remaining
                     )?;
-
+                    if let Some((_, snapshot)) = &self.observer().two_snapshots().last {
+                        if let Some(memory_pressure) = check_memory_pressure(snapshot) {
+                            echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;
+                        }
+                    }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }
                 None => {
