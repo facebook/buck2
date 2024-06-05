@@ -18,7 +18,6 @@ load(
 load(
     "@prelude//cxx:linker.bzl",
     "PDB_SUB_TARGET",
-    "get_default_shared_library_name",
     "get_pdb_providers",
 )
 load(
@@ -92,6 +91,7 @@ load(
     "RustLinkStrategyInfo",
     "RustProcMacroMarker",  # @unused Used as a type
     "attr_crate",
+    "attr_soname",
     "inherited_exported_link_deps",
     "inherited_link_group_lib_infos",
     "inherited_linkable_graphs",
@@ -599,7 +599,7 @@ def _advanced_unstable_link_providers(
     solibs = {}
 
     # Add the shared library to the list of shared libs.
-    shlib_name = get_default_shared_library_name(linker_info, ctx.label)
+    shlib_name = attr_soname(ctx)
 
     shared_lib_params = lang_style_param[(LinkageLang("native-unbundled"), LibOutputStyle("shared_lib"))]
     shared_lib_output = native_param_artifact[shared_lib_params].output
@@ -786,7 +786,7 @@ def _native_link_providers(
     solibs = {}
 
     # Add the shared library to the list of shared libs.
-    shlib_name = get_default_shared_library_name(linker_info, ctx.label)
+    shlib_name = attr_soname(ctx)
 
     # Only add a shared library if we generated one.
     # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have

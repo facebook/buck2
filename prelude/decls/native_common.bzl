@@ -46,10 +46,22 @@ def _link_group_public_deps_label():
 """),
     }
 
+def _soname():
+    return {
+        "soname": attrs.option(attrs.string(), default = None, doc = """
+    Sets the soname ("shared object name") of any shared library produced from this rule.
+     The default value is based on the full rule name.
+     The macro `$(ext)` will be replaced with a platform-appropriate extension.
+     An argument can be provided, which is a library version.
+     For example `soname = 'libfoo.$(ext 2.3)'` will be `libfoo.2.3.dylib` on Mac and `libfoo.so.2.3` on Linux.
+"""),
+    }
+
 native_common = struct(
     link_group_deps = _link_group_deps,
     link_group_public_deps_label = _link_group_public_deps_label,
     link_style = _link_style,
     link_whole = _link_whole,
     preferred_linkage = _preferred_linkage,
+    soname = _soname,
 )

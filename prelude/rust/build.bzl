@@ -24,7 +24,6 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
     "@prelude//cxx:linker.bzl",
-    "get_default_shared_library_name",
     "get_shared_library_name_linker_flags",
 )
 load(
@@ -75,6 +74,7 @@ load(
     "RustLinkInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
+    "attr_soname",
     "get_available_proc_macros",
     "inherited_external_debug_info",
     "inherited_merged_link_infos",
@@ -895,7 +895,7 @@ def _compute_common_args(
 
     if crate_type in [CrateType("cdylib"), CrateType("dylib")] and not is_check:
         linker_info = compile_ctx.cxx_toolchain_info.linker_info
-        shlib_name = get_default_shared_library_name(linker_info, ctx.label)
+        shlib_name = attr_soname(ctx)
         dep_args.add(cmd_args(
             get_shared_library_name_linker_flags(linker_info.type, shlib_name),
             format = "-Clink-arg={}",

@@ -519,18 +519,12 @@ cxx_library = prelude_rule(
         cxx_common.exported_post_platform_linker_flags_arg() |
         native_common.link_style() |
         native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
+        native_common.soname() |
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
         cxx_common.public_include_directories_arg() |
         cxx_common.public_system_include_directories_arg() |
         {
-            "soname": attrs.option(attrs.string(), default = None, doc = """
-                Sets the soname ("shared object name") of any shared library produced from this rule.
-                 The default value is based on the full rule name.
-                 The macro `$(ext)` will be replaced with a platform-appropriate extension.
-                 An argument can be provided, which is a library version.
-                 For example `soname = 'libfoo.$(ext 2.3)'` will be `libfoo.2.3.dylib` on Mac and `libfoo.so.2.3` on Linux.
-            """),
             "used_by_wrap_script": attrs.bool(default = False, doc = """
                 When using an exopackage
                  Android, if this parameter is set to `True`, then the library is

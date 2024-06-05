@@ -16,6 +16,7 @@ load(
     "@prelude//cxx:cxx.bzl",
     "get_auto_link_group_specs",
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
@@ -36,6 +37,11 @@ load(
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
+)
+load(
+    "@prelude//cxx:linker.bzl",
+    "get_default_shared_library_name",
+    "get_shared_library_name_for_param",
 )
 load(
     "@prelude//linking:link_groups.bzl",
@@ -584,3 +590,12 @@ def attr_crate(ctx: AnalysisContext) -> CrateName:
         simple = normalize_crate(ctx.attrs.crate or ctx.label.name),
         dynamic = dynamic,
     )
+
+def attr_soname(ctx: AnalysisContext) -> str:
+    """
+    Get the shared library name to set for the given rust library.
+    """
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    if ctx.attrs.soname != None:
+        return get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
+    return get_default_shared_library_name(linker_info, ctx.label)
