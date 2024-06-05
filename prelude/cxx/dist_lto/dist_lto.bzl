@@ -350,8 +350,6 @@ def cxx_dist_link(
                         if not link_data.link_whole:
                             archive_args.add("-Wl,--end-lib")
 
-                        archive_args.hidden(link_data.objects_dir)
-
                 add_post_flags(idx)
 
             index_argfile, _ = ctx.actions.write(
