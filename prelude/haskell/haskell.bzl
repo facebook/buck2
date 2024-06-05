@@ -482,7 +482,7 @@ def _make_package(
             hidden = hi.values() + lib.values(),
         ),
         category = "haskell_package_" + artifact_suffix.replace("-", "_"),
-        env = {"GHC_PACKAGE_PATH": ghc_package_path},
+        env = {"GHC_PACKAGE_PATH": ghc_package_path} if db_deps else {},
     )
 
     return db
