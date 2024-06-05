@@ -86,8 +86,7 @@ class Buck(Executable):
         if (
             self.executable_type
             in (ExecutableType.buck2, ExecutableType.buck2_build_api_binary)
-            and "--build-report" not in args
-        ):
+        ) and not any(arg.startswith("--build-report") for arg in args):
             args.append("--build-report=-")
 
         return self._run_buck_command(

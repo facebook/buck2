@@ -261,9 +261,10 @@ class BuildResult(BuckResult):
             "--show-output" in self.args or "--show-full-output" in self.args
         ), "Must add --show-output or --show-full-output arg to get build output"
         show_output = self.stdout.strip().splitlines()
-        if "--build-report" in self.args:
-            # When mixing --show-output with --build-report, the first line is
-            # the build report, and the remaining ones are the results
+        if "--build-report=-" in self.args:
+            # When mixing --show-output with --build-report=-, the first line is
+            # the build report, and the remaining ones are the results, we only
+            # want the results for the purpose of this function so we skip the report
             show_output = show_output[1:]
         for line in show_output:
             output_mapping = line.split()
