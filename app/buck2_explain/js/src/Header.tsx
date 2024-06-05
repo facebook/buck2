@@ -56,8 +56,8 @@ export function Header() {
   return (
     <>
       {rootTarget ? (
-        <Link to={new Map()}>
-          <i>{rootTarget.configuredTargetLabel()}</i>
+        <Link className="bold no-underline" to={new Map()}>
+          {rootTarget.configuredTargetLabel()}
         </Link>
       ) : null}
       <br /> {/* TODO iguridi: use CSS here */}

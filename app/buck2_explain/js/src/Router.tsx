@@ -70,7 +70,7 @@ export function Router(props: {children: ReactNode}) {
 /**
  * Link with specified query params
  */
-export function Link(props: {to: Map<string, string>; children: ReactNode}) {
+export function Link(props: {to: Map<string, string>; children: ReactNode; className?: string}) {
   const {setParams} = useContext(RouterContext)
 
   const {to, children} = props
@@ -94,7 +94,7 @@ export function Link(props: {to: Map<string, string>; children: ReactNode}) {
   }
 
   return (
-    <a href={url.toString()} onClick={e => handleClick(e, url)}>
+    <a className={props.className} href={url.toString()} onClick={e => handleClick(e, url)}>
       {children}
     </a>
   )
