@@ -16,3 +16,27 @@ body {
 li {
   padding: 3px 0.3vw;
 }
+
+button {
+    cursor: pointer;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: #a6c1d6;
+    outline: none
+}
+
+input {
+    padding: 8px 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    outline: none;
+    width: 250px
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    gap: 10px
+}

@@ -30,7 +30,7 @@ function SearchBox() {
     setParams(params.toString())
   }
   return (
-    <div>
+    <div className="search-box">
       <input
         type="text"
         value={searchTerm}
@@ -40,7 +40,7 @@ function SearchBox() {
           event.key == 'Enter' ? goSearch() : null
         }}
       />
-      <button style={{cursor: 'pointer'}} type="submit" onPointerDown={goSearch}>
+      <button type="submit" onPointerDown={goSearch}>
         Go
       </button>
     </div>
