@@ -513,6 +513,13 @@ def _default_providers(
             default_output = artifact.output,
         )]
 
+    lang_style_for_cdylib = (LinkageLang("native"), LibOutputStyle("shared_lib"))
+    if lang_style_for_cdylib in lang_style_param:
+        artifact = native_param_artifact[lang_style_param[lang_style_for_cdylib]]
+        sub_targets["cdylib"] = [DefaultInfo(
+            default_output = artifact.output,
+        )]
+
     providers = []
 
     rustdoc_test_info = ExternalRunnerTestInfo(
