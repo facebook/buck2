@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_providers.bzl", "get_java_packaging_info")
+load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load(":android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
@@ -129,10 +130,9 @@ def get_text_symbols(
     dep_symbols = _get_dep_symbols(deps)
     dep_symbol_paths.add(dep_symbols)
 
-    dep_symbol_paths_file, _ = ctx.actions.write("{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file", dep_symbol_paths, allow_args = True)
+    dep_symbol_paths_file = argfile(actions = ctx.actions, name = "{}_dep_symbol_paths_file".format(identifier) if identifier else "dep_symbol_paths_file", args = dep_symbol_paths, allow_args = True)
 
     mini_aapt_cmd.add(["--dep-symbol-paths", dep_symbol_paths_file])
-    mini_aapt_cmd.hidden(dep_symbols)
 
     text_symbols = ctx.actions.declare_output("{}_R.txt".format(identifier) if identifier else "R.txt")
     mini_aapt_cmd.add(["--output-path", text_symbols.as_output()])

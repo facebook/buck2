@@ -62,6 +62,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:graph_utils.bzl", "GraphTraversal", "depth_first_traversal_by", "post_order_traversal", "pre_order_traversal")
 load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
@@ -688,8 +689,7 @@ def _filter_prebuilt_native_library_dir(
     cpu_filters = ctx.attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
     abis = [CPU_FILTER_TO_ABI_DIRECTORY[cpu] for cpu in cpu_filters]
     filter_tool = ctx.attrs._android_toolchain[AndroidToolchainInfo].filter_prebuilt_native_library_dir[RunInfo]
-    native_libs_dirs = [native_lib.dir for native_lib in native_libs]
-    native_libs_dirs_file = ctx.actions.write("{}_list.txt".format(identifier), native_libs_dirs)
+    native_libs_dirs_file = argfile(actions = ctx.actions, name = "{}_list.txt".format(identifier), args = [native_lib.dir for native_lib in native_libs])
     base_output_dir = ctx.actions.declare_output(identifier, dir = True)
     if module == ROOT_MODULE:
         output_dir = base_output_dir.project(_get_native_libs_as_assets_dir(module)) if package_as_assets else base_output_dir
@@ -698,7 +698,7 @@ def _filter_prebuilt_native_library_dir(
     else:
         output_dir = base_output_dir.project(paths.join(_get_native_libs_as_assets_dir(module), "lib"))
     ctx.actions.run(
-        cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis, hidden = native_libs_dirs),
+        cmd_args([filter_tool, native_libs_dirs_file, output_dir.as_output(), "--abis"] + abis),
         category = "filter_prebuilt_native_library_dir",
         identifier = identifier,
     )
@@ -789,7 +789,11 @@ def _get_native_libs_as_assets_metadata(
         ctx: AnalysisContext,
         native_lib_assets: list[Artifact],
         module: str) -> Artifact:
-    native_lib_assets_file = ctx.actions.write("{}/native_lib_assets".format(module), [cmd_args([native_lib_asset, _get_native_libs_as_assets_dir(module)], delimiter = "/") for native_lib_asset in native_lib_assets])
+    native_lib_assets_file = argfile(
+        actions = ctx.actions,
+        name = "{}/native_lib_assets".format(module),
+        args = [cmd_args([native_lib_asset, _get_native_libs_as_assets_dir(module)], delimiter = "/") for native_lib_asset in native_lib_assets],
+    )
     metadata_output = ctx.actions.declare_output("{}/native_libs_as_assets_metadata.txt".format(module))
     metadata_cmd = cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].native_libs_as_assets_metadata[RunInfo],
@@ -797,7 +801,7 @@ def _get_native_libs_as_assets_metadata(
         native_lib_assets_file,
         "--metadata-output",
         metadata_output.as_output(),
-    ], hidden = native_lib_assets)
+    ])
     ctx.actions.run(metadata_cmd, category = "get_native_libs_as_assets_metadata", identifier = module)
     return metadata_output
 

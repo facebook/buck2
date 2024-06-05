@@ -11,7 +11,7 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info"
 load("@prelude//java:dex.bzl", "DexLibraryInfo", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
-load("@prelude//utils:argfile.bzl", "at_argfile")
+load("@prelude//utils:argfile.bzl", "argfile", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//paths.bzl", "paths")
@@ -103,9 +103,8 @@ def get_single_primary_dex(
     output_dex_file = ctx.actions.declare_output("classes.dex")
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
-    jar_to_dex_file = ctx.actions.write("jar_to_dex_file.txt", java_library_jars)
+    jar_to_dex_file = argfile(actions = ctx.actions, name = "jar_to_dex_file.txt", args = java_library_jars)
     d8_cmd.add(["--files-to-dex-list", jar_to_dex_file])
-    d8_cmd.hidden(java_library_jars)
 
     d8_cmd.add(["--android-jar", android_toolchain.android_jar])
     if not is_optimized:
@@ -155,7 +154,7 @@ def get_multi_dex(
 
         secondary_dex_dir_srcs = {}
         all_jars = flatten(module_to_jars.values())
-        all_jars_list = ctx.actions.write("all_jars_classpath.txt", all_jars)
+        all_jars_list = argfile(actions = ctx.actions, name = "all_jars_classpath.txt", args = all_jars)
         for module, jars in module_to_jars.items():
             multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
             secondary_dex_compression_cmd = cmd_args(android_toolchain.secondary_dex_compression_command[RunInfo])
@@ -176,9 +175,8 @@ def get_multi_dex(
                         android_toolchain,
                     )
 
-                    primary_dex_jar_to_dex_file = ctx.actions.write("primary_dex_jars_to_dex_file_for_root_module.txt", primary_dex_jars)
+                    primary_dex_jar_to_dex_file = argfile(actions = ctx.actions, name = "primary_dex_jars_to_dex_file_for_root_module.txt", args = primary_dex_jars)
                     multi_dex_cmd.add("--primary-dex-files-to-dex-list", primary_dex_jar_to_dex_file)
-                    multi_dex_cmd.hidden(primary_dex_jars)
                     multi_dex_cmd.add("--minimize-primary-dex")
                 else:
                     jars_to_dex = jars
@@ -195,16 +193,14 @@ def get_multi_dex(
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
                 jars_to_dex = jars
                 multi_dex_cmd.add("--classpath-files", all_jars_list)
-                multi_dex_cmd.hidden(all_jars)
 
             multi_dex_cmd.add("--module", module)
             multi_dex_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
             secondary_dex_compression_cmd.add("--module", module)
             secondary_dex_compression_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
 
-            jar_to_dex_file = ctx.actions.write("jars_to_dex_file_for_module_{}.txt".format(module), jars_to_dex)
+            jar_to_dex_file = argfile(actions = ctx.actions, name = "jars_to_dex_file_for_module_{}.txt".format(module), args = jars_to_dex)
             multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
-            multi_dex_cmd.hidden(jars_to_dex)
 
             multi_dex_cmd.add("--android-jar", android_toolchain.android_jar)
             if not is_optimized:
@@ -602,9 +598,8 @@ def _merge_dexes(
     d8_cmd = cmd_args(android_toolchain.d8_command[RunInfo])
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
-    pre_dexed_artifacts_to_dex_file = ctx.actions.write(pre_dexed_artifacts_file.as_output(), pre_dexed_artifacts)
+    pre_dexed_artifacts_to_dex_file = argfile(actions = ctx.actions, name = pre_dexed_artifacts_file, args = pre_dexed_artifacts)
     d8_cmd.add(["--files-to-dex-list", pre_dexed_artifacts_to_dex_file])
-    d8_cmd.hidden(pre_dexed_artifacts)
 
     d8_cmd.add(["--android-jar", android_toolchain.android_jar])
     d8_cmd.add(_DEX_MERGE_OPTIONS)

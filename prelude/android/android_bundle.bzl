@@ -12,6 +12,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
+load("@prelude//utils:argfile.bzl", "argfile")
 
 def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = True)
@@ -90,22 +91,16 @@ def build_bundle(
         bundle_builder_args.add("--package-meta-inf-version-files")
 
     root_module_asset_directories = native_library_info.root_module_native_lib_assets + dex_files_info.root_module_secondary_dex_dirs
-    root_module_asset_directories_file = actions.write("root_module_asset_directories.txt", root_module_asset_directories)
-    bundle_builder_args.hidden(root_module_asset_directories)
+    root_module_asset_directories_file = argfile(actions = actions, name = "root_module_asset_directories.txt", args = root_module_asset_directories)
 
     non_root_module_asset_directories = resources_info.module_manifests + dex_files_info.non_root_module_secondary_dex_dirs
-    non_root_module_asset_directories_file = actions.write("non_root_module_asset_directories.txt", non_root_module_asset_directories)
-    bundle_builder_args.hidden(non_root_module_asset_directories)
-    non_root_module_asset_native_lib_directories = actions.write("non_root_module_asset_native_lib_directories.txt", native_library_info.non_root_module_native_lib_assets)
-    bundle_builder_args.hidden(native_library_info.non_root_module_native_lib_assets)
+    non_root_module_asset_directories_file = argfile(actions = actions, name = "non_root_module_asset_directories.txt", args = non_root_module_asset_directories)
+    non_root_module_asset_native_lib_directories = argfile(actions = actions, name = "non_root_module_asset_native_lib_directories.txt", args = native_library_info.non_root_module_native_lib_assets)
 
-    native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)
-    bundle_builder_args.hidden(native_library_info.native_libs_for_primary_apk)
+    native_library_directories = argfile(actions = actions, name = "native_library_directories", args = native_library_info.native_libs_for_primary_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
-    zip_files = actions.write("zip_files", all_zip_files)
-    bundle_builder_args.hidden(all_zip_files)
-    jar_files_that_may_contain_resources = actions.write("jar_files_that_may_contain_resources", resources_info.jar_files_that_may_contain_resources)
-    bundle_builder_args.hidden(resources_info.jar_files_that_may_contain_resources)
+    zip_files = argfile(actions = actions, name = "zip_files", args = all_zip_files)
+    jar_files_that_may_contain_resources = argfile(actions = actions, name = "jar_files_that_may_contain_resources", args = resources_info.jar_files_that_may_contain_resources)
 
     if resources_info.module_assets:
         bundle_builder_args.add(["--module-assets-dir", resources_info.module_assets])

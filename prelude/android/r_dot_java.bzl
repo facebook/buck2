@@ -9,6 +9,7 @@ load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RDotJava
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
+load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:set.bzl", "set")
 
 RDotJavaSourceCode = record(
@@ -150,14 +151,12 @@ def _generate_r_dot_java_source_code(
         merge_resources_cmd.add(["--banned-duplicate-resource-types", banned_duplicate_resource_types_file])
 
     if len(uber_r_dot_txt_files) > 0:
-        uber_r_dot_txt_files_list = ctx.actions.write("uber_r_dot_txt_files_list", uber_r_dot_txt_files)
+        uber_r_dot_txt_files_list = argfile(actions = ctx.actions, name = "uber_r_dot_txt_files_list", args = uber_r_dot_txt_files)
         merge_resources_cmd.add(["--uber-r-dot-txt", uber_r_dot_txt_files_list])
-        merge_resources_cmd.hidden(uber_r_dot_txt_files)
 
     if len(override_symbols_paths) > 0:
-        override_symbols_paths_list = ctx.actions.write("override_symbols_paths_list", override_symbols_paths)
+        override_symbols_paths_list = argfile(actions = ctx.actions, name = "override_symbols_paths_list", args = override_symbols_paths)
         merge_resources_cmd.add(["--override-symbols", override_symbols_paths_list])
-        merge_resources_cmd.hidden(override_symbols_paths)
 
     if duplicate_resources_allowlist != None:
         merge_resources_cmd.add(["--duplicate-resource-allowlist-path", duplicate_resources_allowlist])
@@ -166,9 +165,8 @@ def _generate_r_dot_java_source_code(
         merge_resources_cmd.add(["--union-package", union_package])
 
     if referenced_resources_lists:
-        referenced_resources_file = ctx.actions.write("referenced_resources_lists", referenced_resources_lists)
+        referenced_resources_file = argfile(actions = ctx.actions, name = "referenced_resources_lists", args = referenced_resources_lists)
         merge_resources_cmd.add(["--referenced-resources-lists", referenced_resources_file])
-        merge_resources_cmd.hidden(referenced_resources_lists)
 
     ctx.actions.run(merge_resources_cmd, category = "r_dot_java_merge_resources", identifier = identifier)
 

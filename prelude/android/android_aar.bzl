@@ -16,6 +16,7 @@ load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CP
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:set.bzl", "set")
 
 def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -50,10 +51,10 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     classes_jar_cmd = cmd_args([
         java_toolchain.jar_builder,
         "--entries-to-jar",
-        ctx.actions.write("classes_jar_entries.txt", jars),
+        argfile(actions = ctx.actions, name = "classes_jar_entries.txt", args = jars),
         "--output",
         classes_jar.as_output(),
-    ], hidden = jars)
+    ])
 
     if ctx.attrs.remove_classes:
         remove_classes_file = ctx.actions.write("remove_classes.txt", ctx.attrs.remove_classes)
@@ -74,10 +75,10 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         combined_sources_jar_cmd = cmd_args([
             java_toolchain.jar_builder,
             "--entries-to-jar",
-            ctx.actions.write("combined_sources_jar_entries.txt", dependency_sources_jars),
+            argfile(actions = ctx.actions, name = "combined_sources_jar_entries.txt", args = dependency_sources_jars),
             "--output",
             combined_sources_jar.as_output(),
-        ], hidden = dependency_sources_jars)
+        ])
 
         if ctx.attrs.remove_classes:
             remove_classes_file = ctx.actions.write("sources_remove_classes.txt", ctx.attrs.remove_classes)
@@ -103,10 +104,10 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
             merge_resource_sources_cmd = cmd_args([
                 android_toolchain.merge_android_resource_sources[RunInfo],
                 "--resource-paths",
-                ctx.actions.write("resource_paths.txt", res_dirs),
+                argfile(actions = ctx.actions, name = "resource_paths.txt", args = res_dirs),
                 "--output",
                 merged_resource_sources_dir.as_output(),
-            ], hidden = res_dirs)
+            ])
 
             ctx.actions.run(merge_resource_sources_cmd, category = "merge_android_resource_sources")
 
@@ -120,8 +121,8 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     if cxx_resources:
         entries.append(cxx_resources)
 
-    native_libs_file = ctx.actions.write("native_libs_entries.txt", android_binary_native_library_info.native_libs_for_primary_apk)
-    native_libs_assets_file = ctx.actions.write("native_libs_assets_entries.txt", android_binary_native_library_info.root_module_native_lib_assets)
+    native_libs_file = argfile(actions = ctx.actions, name = "native_libs_entries.txt", args = android_binary_native_library_info.native_libs_for_primary_apk)
+    native_libs_assets_file = argfile(actions = ctx.actions, name = "native_libs_assets_entries.txt", args = android_binary_native_library_info.root_module_native_lib_assets)
 
     entries_file = ctx.actions.write("entries.txt", entries)
 
@@ -142,8 +143,6 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         ],
         hidden = [
             entries,
-            android_binary_native_library_info.native_libs_for_primary_apk,
-            android_binary_native_library_info.root_module_native_lib_assets,
         ],
     )
 

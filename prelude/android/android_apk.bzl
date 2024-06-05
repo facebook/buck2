@@ -14,6 +14,7 @@ load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
+load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:set.bzl", "set")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -147,15 +148,11 @@ def build_apk(
         dex_files_info.non_root_module_secondary_dex_dirs +
         resources_info.module_manifests
     )
-    asset_directories_file = actions.write("asset_directories.txt", asset_directories)
-    apk_builder_args.hidden(asset_directories)
-    native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)
-    apk_builder_args.hidden(native_library_info.native_libs_for_primary_apk)
+    asset_directories_file = argfile(actions = actions, name = "asset_directories.txt", args = asset_directories)
+    native_library_directories = argfile(actions = actions, name = "native_library_directories", args = native_library_info.native_libs_for_primary_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
-    zip_files = actions.write("zip_files", all_zip_files)
-    apk_builder_args.hidden(all_zip_files)
-    jar_files_that_may_contain_resources = actions.write("jar_files_that_may_contain_resources", resources_info.jar_files_that_may_contain_resources)
-    apk_builder_args.hidden(resources_info.jar_files_that_may_contain_resources)
+    zip_files = argfile(actions = actions, name = "zip_files", args = all_zip_files)
+    jar_files_that_may_contain_resources = argfile(actions = actions, name = "jar_files_that_may_contain_resources", args = resources_info.jar_files_that_may_contain_resources)
 
     apk_builder_args.add([
         "--asset-directories-list",

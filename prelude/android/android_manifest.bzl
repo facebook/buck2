@@ -13,6 +13,7 @@ load(
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE")
+load("@prelude//utils:argfile.bzl", "argfile")
 
 def android_manifest_impl(ctx: AnalysisContext) -> list[Provider]:
     output, merge_report = generate_android_manifest(
@@ -49,10 +50,9 @@ def generate_android_manifest(
     elif type(manifests) == "transitive_set":
         manifests = manifests.project_as_args("artifacts", ordering = "bfs")
 
-    library_manifest_paths_file = ctx.actions.write("{}/library_manifest_paths_file".format(module_name), manifests)
+    library_manifest_paths_file = argfile(actions = ctx.actions, name = "{}/library_manifest_paths_file".format(module_name), args = manifests)
 
     generate_manifest_cmd.add(["--library-manifests-list", library_manifest_paths_file])
-    generate_manifest_cmd.hidden(manifests)
 
     placeholder_entries_args = cmd_args()
     for key, val in placeholder_entries.items():
