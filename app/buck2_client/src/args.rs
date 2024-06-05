@@ -59,7 +59,7 @@ pub fn log_relative_path_from_cell_root(requested_path: &str) -> anyhow::Result<
         requested_path
     )?;
     buck2_client_ctx::eprintln!(
-        "This behavior is being deprecated. Please use `@//{}` instead{}",
+        "This behavior is being deprecated. Please use `\"@//{}\"` instead{}",
         requested_path,
         reset
     )?;
