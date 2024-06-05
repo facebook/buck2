@@ -127,6 +127,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 lto_mode = LtoMode("none"),
                 type = linker_type,
                 link_binaries_locally = True,
+                link_libraries_locally = True,
                 archive_objects_locally = True,
                 use_archiver_flags = True,
                 static_dep_runtime_ld_flags = [],
