@@ -7,6 +7,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
 load("@prelude//linking:link_info.bzl", "Archive")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
@@ -67,9 +68,13 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
         shell_quoted_args = cmd_args(args, quote = "shell")
         if toolchain.linker_info.use_archiver_flags and toolchain.linker_info.archiver_flags != None:
             shell_quoted_args.add(toolchain.linker_info.archiver_flags)
-        argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
-        command.hidden([shell_quoted_args])
-        command.add(cmd_args(["@", argfile], delimiter = ""))
+
+        command.add(at_argfile(
+            actions = ctx.actions,
+            name = name + ".argsfile",
+            args = shell_quoted_args,
+            allow_args = True,
+        ))
     else:
         command.add(args)
 
