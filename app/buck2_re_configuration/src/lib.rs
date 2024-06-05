@@ -14,6 +14,7 @@ use std::str::FromStr;
 use allocative::Allocative;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::rollout_percentage::RolloutPercentage;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 
@@ -192,11 +193,12 @@ mod fbcode {
                     property: "minimal_blob_ttl_seconds",
                 })?,
                 disable_fallocate: legacy_config
-                    .parse(BuckconfigKeyRef {
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
                         property: "disable_fallocate",
                     })?
-                    .unwrap_or(false),
+                    .unwrap_or(RolloutPercentage::never())
+                    .roll(),
             })
         }
 

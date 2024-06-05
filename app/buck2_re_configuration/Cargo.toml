@@ -10,3 +10,4 @@ version = "0.1.0"
 allocative = { workspace = true }
 anyhow = { workspace = true }
 buck2_common = { workspace = true }
+buck2_core = { workspace = true }

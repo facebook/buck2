@@ -10,5 +10,6 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
     ],
 )
