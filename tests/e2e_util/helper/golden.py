@@ -18,6 +18,16 @@ def _prepend_header(content: str) -> str:
     )
 
 
+def _remove_ci_labels(content: str) -> str:
+    # this label is only added for CI jobs, causing inconsistenty between local test and ci test.
+    new_content = []
+    for line in content.splitlines():
+        if "ci:overwrite" in line:
+            continue
+        new_content.append(line)
+    return "\n".join(new_content)
+
+
 def _replace_windows_newlines(content: str) -> str:
     """
     We use golden() with text data so in the interest of being a bit more
@@ -51,7 +61,7 @@ def golden(*, output: str, rel_path: str) -> None:
     with open(path_in_src, "r") as f:
         expected = f.read()
 
-    if expected != output:
+    if _remove_ci_labels(expected) != _remove_ci_labels(output):
         raise AssertionError(
             f"Expected golden file {path_in_src} to match actual\n"
             f"Expected:\n\n{expected}\n\n"
