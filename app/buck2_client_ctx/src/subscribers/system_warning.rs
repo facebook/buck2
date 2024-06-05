@@ -32,17 +32,25 @@ pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -
     )
 }
 
-pub(crate) fn check_memory_pressure(snapshot: &buck2_data::Snapshot) -> Option<MemoryPressureHigh> {
-    process_memory(snapshot).and_then(|process_memory| {
-        // TODO(ezgi): We should check the recorded system memory, not the real one so that replay would show the warnings properly.
-        let system_total_memory = system_memory_stats();
-        if process_memory as f64 / system_total_memory as f64 >= 0.75 {
-            Some(MemoryPressureHigh {
-                system_total_memory,
-                process_memory,
+pub(crate) fn check_memory_pressure<T>(
+    snapshot_tuple: &Option<(T, buck2_data::Snapshot)>,
+    memory_pressure_threshold_percent: Option<u64>,
+) -> Option<MemoryPressureHigh> {
+    memory_pressure_threshold_percent.and_then(|memory_pressure_threshold_percent| {
+        snapshot_tuple.as_ref().and_then(|(_, snapshot)| {
+            process_memory(snapshot).and_then(|process_memory| {
+                // TODO(ezgi): We should check the recorded system memory, not the real one so that replay would show the warnings properly.
+                let system_total_memory = system_memory_stats();
+                if (process_memory * 100 / system_total_memory) >= memory_pressure_threshold_percent
+                {
+                    Some(MemoryPressureHigh {
+                        system_total_memory,
+                        process_memory,
+                    })
+                } else {
+                    None
+                }
             })
-        } else {
-            None
-        }
+        })
     })
 }

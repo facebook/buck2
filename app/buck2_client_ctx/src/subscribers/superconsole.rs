@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::legacy_configs::init::SystemWarningConfig;
 use buck2_data::CommandExecutionDetails;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -128,6 +129,7 @@ pub struct SuperConsoleConfig {
     /// Two lines for root events with single child event.
     pub two_lines: bool,
     pub max_lines: usize,
+    pub system_warning_config: SystemWarningConfig,
 }
 
 impl Default for SuperConsoleConfig {
@@ -141,6 +143,7 @@ impl Default for SuperConsoleConfig {
             display_platform: false,
             two_lines: false,
             max_lines: 10,
+            system_warning_config: SystemWarningConfig::default(),
         }
     }
 }
@@ -160,15 +163,15 @@ impl<'s> Component for BuckRootComponent<'s> {
 
         let mut draw = DrawVertical::new(dimensions);
 
-        if let Some((_, last_snapshot)) = self
-            .state
-            .simple_console
-            .observer
-            .two_snapshots()
-            .last
-            .as_ref()
+        let last_snapshot_tuple = &self.state.simple_console.observer.two_snapshots().last;
         {
-            draw.draw(&SystemWarningComponent { last_snapshot }, mode)?;
+            draw.draw(
+                &SystemWarningComponent {
+                    last_snapshot_tuple,
+                    system_warning_config: &self.state.config.system_warning_config,
+                },
+                mode,
+            )?;
         }
 
         draw.draw(
@@ -352,7 +355,12 @@ impl SuperConsoleState {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
             time_speed: TimeSpeed::new(replay_speed)?,
-            simple_console: SimpleConsole::with_tty(trace_id, verbosity, expect_spans),
+            simple_console: SimpleConsole::with_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                config.system_warning_config.clone(),
+            ),
             config,
         })
     }

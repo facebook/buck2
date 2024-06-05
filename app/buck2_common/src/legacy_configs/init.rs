@@ -127,6 +127,43 @@ impl HttpConfig {
     PartialEq,
     Eq
 )]
+pub struct SystemWarningConfig {
+    /// A threshold that is used to determine the percent of memory buck2 uses to display memory pressure warnings.
+    /// If None, we don't warn the user.
+    /// The corresponding buckconfig is `buck2_system_warning.memory_pressure_threshold_percent`.
+    pub memory_pressure_threshold_percent: Option<u64>,
+}
+
+impl SystemWarningConfig {
+    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        let memory_pressure_threshold_percent = config.parse(BuckconfigKeyRef {
+            section: "buck2_system_warning",
+            property: "memory_pressure_threshold_percent",
+        })?;
+        Ok(Self {
+            memory_pressure_threshold_percent,
+        })
+    }
+
+    pub fn serialize(&self) -> anyhow::Result<String> {
+        serde_json::to_string(&self).context("Error serializing SystemWarningConfig")
+    }
+
+    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
+        serde_json::from_str::<Self>(s).context("Error deserializing SystemWarningConfig")
+    }
+}
+
+#[derive(
+    Allocative,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
 pub struct ResourceControlConfig {
     /// A config to determine if the resource control should be activated or not.
     /// The corresponding buckconfig is `buck2_resource_control.status` that can take
@@ -224,6 +261,7 @@ pub struct DaemonStartupConfig {
     pub materializations: Option<String>,
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
+    pub system_warning_config: SystemWarningConfig,
 }
 
 impl DaemonStartupConfig {
@@ -265,6 +303,7 @@ impl DaemonStartupConfig {
                 .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
+            system_warning_config: SystemWarningConfig::from_config(config)?,
         })
     }
 
@@ -286,6 +325,7 @@ impl DaemonStartupConfig {
             materializations: None,
             http: HttpConfig::default(),
             resource_control: ResourceControlConfig::default(),
+            system_warning_config: SystemWarningConfig::default(),
         }
     }
 }

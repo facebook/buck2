@@ -50,6 +50,11 @@ fn default_subscribers<'a, T: StreamingCommand>(
     // and log it in another (invocation_recorder)
     let log_size_counter_bytes = Some(Arc::new(AtomicU64::new(0)));
 
+    let system_warning_config = &ctx
+        .immediate_config
+        .daemon_startup_config()?
+        .system_warning_config;
+
     subscribers.push(get_console_with_root(
         ctx.trace_id.dupe(),
         console_opts.console_type,
@@ -57,7 +62,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
         expect_spans,
         None,
         T::COMMAND_NAME,
-        console_opts.superconsole_config(),
+        console_opts.superconsole_config(system_warning_config.clone()),
     )?);
 
     if let Some(event_log) = try_get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone())?

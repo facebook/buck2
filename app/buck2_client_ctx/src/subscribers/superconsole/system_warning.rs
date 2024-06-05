@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_common::legacy_configs::init::SystemWarningConfig;
 use crossterm::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
@@ -19,8 +20,9 @@ use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
 /// This component is used to display system warnings for a command e.g. memory pressure, low disk space etc.
-pub(crate) struct SystemWarningComponent<'a> {
-    pub(crate) last_snapshot: &'a buck2_data::Snapshot,
+pub(crate) struct SystemWarningComponent<'a, T> {
+    pub(crate) last_snapshot_tuple: &'a Option<(T, buck2_data::Snapshot)>,
+    pub(crate) system_warning_config: &'a SystemWarningConfig,
 }
 
 fn warning_styled(text: &str) -> anyhow::Result<Line> {
@@ -29,10 +31,14 @@ fn warning_styled(text: &str) -> anyhow::Result<Line> {
     )?]))
 }
 
-impl<'s> Component for SystemWarningComponent<'s> {
+impl<'a, T> Component for SystemWarningComponent<'a, T> {
     fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let mut lines = Vec::new();
-        if let Some(memory_pressure) = check_memory_pressure(&self.last_snapshot) {
+
+        if let Some(memory_pressure) = check_memory_pressure(
+            self.last_snapshot_tuple,
+            self.system_warning_config.memory_pressure_threshold_percent,
+        ) {
             lines.push(warning_styled(&system_memory_exceeded_msg(
                 &memory_pressure,
             ))?);
