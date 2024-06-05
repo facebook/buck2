@@ -115,7 +115,7 @@ def build_apk(
         packaging_options: dict | None = None) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(label.name))
 
-    apk_builder_args = cmd_args([
+    apk_builder_args = cmd_args(
         android_toolchain.apk_builder[RunInfo],
         "--output-apk",
         output_apk.as_output(),
@@ -129,17 +129,12 @@ def build_apk(
         keystore.properties,
         "--zipalign_tool",
         android_toolchain.zipalign[RunInfo],
-    ])
-
-    # The outputs of validation_deps need to be added as hidden arguments
-    # to an action for the validation_deps targets to be built and enforced.
-    if validation_deps_outputs:
-        apk_builder_args.hidden(validation_deps_outputs)
-
-    if android_toolchain.package_meta_inf_version_files:
-        apk_builder_args.add("--package-meta-inf-version-files")
-    if compress_resources_dot_arsc:
-        apk_builder_args.add("--compress-resources-dot-arsc")
+        "--package-meta-inf-version-files" if android_toolchain.package_meta_inf_version_files else [],
+        "--compress-resources-dot-arsc" if compress_resources_dot_arsc else [],
+        # The outputs of validation_deps need to be added as hidden arguments
+        # to an action for the validation_deps targets to be built and enforced.
+        hidden = validation_deps_outputs or [],
+    )
 
     asset_directories = (
         native_library_info.root_module_native_lib_assets +

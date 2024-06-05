@@ -89,8 +89,9 @@ def run_proguard(
         "-jar",
         android_toolchain.proguard_jar,
     )
-    run_proguard_cmd.add(cmd_args(command_line_args_file, format = "@{}"))
-    run_proguard_cmd.hidden(command_line_args)
+    run_proguard_cmd.add(
+        cmd_args(command_line_args_file, format = "@{}", hidden = command_line_args),
+    )
 
     output_jars_file = ctx.actions.write("proguard/output_jars.txt", output_jars)
 

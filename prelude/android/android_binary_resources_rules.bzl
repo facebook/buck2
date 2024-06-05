@@ -241,15 +241,17 @@ def _maybe_filter_resources(
 
     filter_resources_cmd = cmd_args(android_toolchain.filter_resources[RunInfo])
     in_res_dirs = res_to_out_res_dir.keys()
-    filter_resources_cmd.hidden(in_res_dirs)
-    filter_resources_cmd.hidden([out_res.as_output() for out_res in res_to_out_res_dir.values()])
+    filter_resources_cmd.add(cmd_args(
+        hidden =
+            in_res_dirs + [out_res.as_output() for out_res in res_to_out_res_dir.values()],
+    ))
     filter_resources_cmd.add([
         "--in-res-dir-to-out-res-dir-map",
         ctx.actions.write_json("in_res_dir_to_out_res_dir_map", {"res_dir_map": res_to_out_res_dir}),
     ])
 
     if is_voltron_language_pack_enabled:
-        filter_resources_cmd.hidden([out_res.as_output() for out_res in voltron_res_to_out_res_dir.values()])
+        filter_resources_cmd.add(cmd_args(hidden = [out_res.as_output() for out_res in voltron_res_to_out_res_dir.values()]))
         filter_resources_cmd.add([
             "--voltron-in-res-dir-to-out-res-dir-map",
             ctx.actions.write_json("voltron_in_res_dir_to_out_res_dir_map", {"res_dir_map": voltron_res_to_out_res_dir}),
@@ -610,7 +612,7 @@ def _merge_assets(
 
             assets_dirs_file = ctx.actions.write_json("assets_dirs.json", module_to_assets_dirs)
             merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
-            merge_assets_cmd.hidden([resource_info.assets for resource_info in asset_resource_infos])
+            merge_assets_cmd.add(cmd_args(hidden = [resource_info.assets for resource_info in asset_resource_infos]))
 
             ctx.actions.run(merge_assets_cmd, category = "merge_assets")
 
@@ -631,7 +633,7 @@ def _merge_assets(
             assets_dirs.extend([cxx_resources])
         assets_dirs_file = ctx.actions.write_json("assets_dirs.json", {ROOT_MODULE: assets_dirs})
         merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
-        merge_assets_cmd.hidden(assets_dirs)
+        merge_assets_cmd.add(cmd_args(hidden = assets_dirs))
 
         ctx.actions.run(merge_assets_cmd, category = "merge_assets")
 

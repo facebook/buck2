@@ -69,7 +69,7 @@ def build_bundle(
         packaging_options: dict | None = None) -> Artifact:
     output_bundle = actions.declare_output("{}.aab".format(label.name))
 
-    bundle_builder_args = cmd_args([
+    bundle_builder_args = cmd_args(
         android_toolchain.bundle_builder[RunInfo],
         "--output-bundle",
         output_bundle.as_output(),
@@ -77,12 +77,10 @@ def build_bundle(
         resources_info.primary_resources_apk,
         "--dex-file",
         dex_files_info.primary_dex,
-    ])
-
-    # The outputs of validation_deps need to be added as hidden arguments
-    # to an action for the validation_deps targets to be built and enforced.
-    if validation_deps_outputs:
-        bundle_builder_args.hidden(validation_deps_outputs)
+        # The outputs of validation_deps need to be added as hidden arguments
+        # to an action for the validation_deps targets to be built and enforced.
+        hidden = validation_deps_outputs or [],
+    )
 
     if bundle_config:
         bundle_builder_args.add(["--path-to-bundle-config-file", bundle_config])

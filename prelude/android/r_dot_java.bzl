@@ -120,8 +120,11 @@ def _generate_r_dot_java_source_code(
 
     r_dot_txt_info_file = ctx.actions.write("r_dot_txt_info_file_for_{}.txt".format(identifier), r_dot_txt_info)
     merge_resources_cmd.add(["--symbol-file-info", r_dot_txt_info_file])
-    merge_resources_cmd.hidden([android_resource.r_dot_java_package for android_resource in android_resources])
-    merge_resources_cmd.hidden([android_resource.text_symbols for android_resource in android_resources])
+    merge_resources_cmd.add(cmd_args(
+        hidden =
+            [android_resource.r_dot_java_package for android_resource in android_resources] +
+            [android_resource.text_symbols for android_resource in android_resources],
+    ))
 
     output_dir = ctx.actions.declare_output("{}_source_code".format(identifier), dir = True)
     merge_resources_cmd.add(["--output-dir", output_dir.as_output()])
