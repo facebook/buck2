@@ -158,9 +158,12 @@ command_alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "exe": attrs.option(attrs.dep(), default = None, doc = """
-                A `build target`for a rule that outputs
-                 an executable, such as an `sh\\_binary()`.
+            # Match `dep` before `source` so that we can support extracting the
+            # `RunInfo` provider of it, if one exists.
+            "exe": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None, doc = """
+                A `build target` for a rule that outputs
+                 an executable, such as an `sh\\_binary()`,
+                 or an executable source file.
             """),
             "platform_exe": attrs.dict(key = attrs.enum(Platform), value = attrs.dep(), sorted = False, default = {}, doc = """
                 A mapping from platforms to `build target`.

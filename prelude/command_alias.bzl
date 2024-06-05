@@ -223,7 +223,10 @@ def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: Ru
 
     trampoline_args.add(")")
 
-def _get_run_info_from_exe(exe: Dependency) -> RunInfo:
+def _get_run_info_from_exe(exe: Dependency | Artifact) -> RunInfo:
+    if isinstance(exe, Artifact):
+        return RunInfo(args = cmd_args(exe))
+
     run_info = exe.get(RunInfo)
     if run_info == None:
         run_info = RunInfo(
