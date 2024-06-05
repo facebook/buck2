@@ -55,6 +55,7 @@ use crate::subscribers::superconsole::dice::DiceComponent;
 use crate::subscribers::superconsole::io::IoHeader;
 use crate::subscribers::superconsole::re::ReHeader;
 use crate::subscribers::superconsole::session_info::SessionInfoComponent;
+use crate::subscribers::superconsole::system_warning::SystemWarningComponent;
 use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
@@ -67,6 +68,7 @@ pub(crate) mod dice;
 pub(crate) mod io;
 mod re;
 pub mod session_info;
+pub(crate) mod system_warning;
 pub mod test;
 pub mod timed_list;
 
@@ -157,6 +159,18 @@ impl<'s> Component for BuckRootComponent<'s> {
         });
 
         let mut draw = DrawVertical::new(dimensions);
+
+        if let Some((_, last_snapshot)) = self
+            .state
+            .simple_console
+            .observer
+            .two_snapshots()
+            .last
+            .as_ref()
+        {
+            draw.draw(&SystemWarningComponent { last_snapshot }, mode)?;
+        }
+
         draw.draw(
             &SessionInfoComponent {
                 session_info: self.state.session_info(),

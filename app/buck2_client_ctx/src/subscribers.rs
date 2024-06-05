@@ -23,3 +23,4 @@ pub mod subscriber_unpack;
 #[allow(clippy::module_inception)]
 pub mod subscribers;
 pub mod superconsole;
+pub(crate) mod system_warning;
