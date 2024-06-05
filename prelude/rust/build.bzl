@@ -435,6 +435,16 @@ def rust_compile(
 
     lints, clippy_lints = _lint_flags(compile_ctx)
 
+    # If we are building metadata-full for a dylib target, we want the hollow-rlib version of rmeta, not the shared lib version.
+    if compile_ctx.dep_ctx.advanced_unstable_linking and emit == Emit("metadata-full") and params.crate_type == CrateType("dylib"):
+        params = BuildParams(
+            crate_type = CrateType("rlib"),
+            reloc_model = params.reloc_model,
+            dep_link_strategy = params.dep_link_strategy,
+            prefix = "lib",
+            suffix = ".rlib",
+        )
+
     common_args = _compute_common_args(
         ctx = ctx,
         compile_ctx = compile_ctx,

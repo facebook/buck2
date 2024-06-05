@@ -201,6 +201,7 @@ RustOrNativeDependency = record(
 RustDependency = record(
     info = field(RustLinkInfo),
     label = field(ConfiguredProvidersLabel),
+    dep = field(Dependency),
     name = field([None, str]),
     flags = field(list[str]),
     proc_macro_marker = field([None, RustProcMacroMarker]),
@@ -343,6 +344,7 @@ def resolve_rust_deps_inner(
         rust_deps.append(RustDependency(
             info = info,
             label = label,
+            dep = dep.dep,
             name = dep.name,
             flags = dep.flags,
             proc_macro_marker = proc_macro_marker,
@@ -389,9 +391,15 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
     deps = {}
     for dep in _native_link_dependencies(ctx, dep_ctx):
         deps[dep.label] = dep
-    for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
-        for dep in info.exported_link_deps:
+    for dep in resolve_rust_deps(ctx, dep_ctx):
+        if dep.proc_macro_marker != None:
+            continue
+
+        if dep_ctx.advanced_unstable_linking:
+            deps[dep.label] = dep.dep
+        for dep in dep.info.exported_link_deps:
             deps[dep.label] = dep
+
     return deps.values()
 
 def inherited_rust_cxx_link_group_info(
