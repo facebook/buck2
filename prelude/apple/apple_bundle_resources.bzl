@@ -210,7 +210,6 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
     return [AppleBundlePart(source = framework_module_dir, destination = AppleBundleDestination("modules"), new_name = module_name + ".swiftmodule")]
 
 def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
-    print(1)
     if not ctx.attrs.copy_public_framework_headers:
         return []
     binary_deps = getattr(ctx.attrs, "binary")
@@ -219,11 +218,9 @@ def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
 
     binary = get_default_binary_dep(binary_deps)
     apple_library_info = binary.get(AppleLibraryInfo)
-    print(apple_library_info)
     if apple_library_info == None:
         return []
     tset = apple_library_info.public_framework_headers
-    print(tset)
 
     bundle_parts = []
     if tset._tset:
