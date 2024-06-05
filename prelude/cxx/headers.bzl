@@ -344,8 +344,6 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_a
 
 def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)]) -> Artifact:
     output = ctx.actions.declare_output(name + ".hmap")
-    cmd = cmd_args(get_cxx_toolchain_info(ctx).mk_hmap)
-    cmd.add(["--output", output.as_output()])
 
     header_args = cmd_args()
     for n, (path, fmt) in headers.items():
@@ -355,6 +353,12 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
         header_args.add(cmd_args(path, format = fmt, ignore_artifacts = True))
 
     hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, quote = "shell"))
-    cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
+
+    cmd = cmd_args(
+        [get_cxx_toolchain_info(ctx).mk_hmap] +
+        ["--output", output.as_output()] +
+        ["--mappings-file", hmap_args_file],
+        hidden = header_args,
+    )
     ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs))
     return output

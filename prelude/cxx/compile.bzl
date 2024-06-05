@@ -437,7 +437,7 @@ def _compile_single_cxx(
         clang_remarks = ctx.actions.declare_output(
             paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
         )
-        cmd.hidden(clang_remarks.as_output())
+        cmd.add(cmd_args(hidden = clang_remarks.as_output()))
 
     clang_trace = None
     if toolchain.clang_trace and compiler_type == "clang":
@@ -445,7 +445,7 @@ def _compile_single_cxx(
         clang_trace = ctx.actions.declare_output(
             paths.join("__objects__", "{}.json".format(filename_base)),
         )
-        cmd.hidden(clang_trace.as_output())
+        cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
     ctx.actions.run(
         cmd,

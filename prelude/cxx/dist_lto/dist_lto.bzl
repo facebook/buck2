@@ -338,7 +338,7 @@ def cxx_dist_link(
 
                         archive_args = prepend_index_args if link_data.prepend else index_args
 
-                        archive_args.hidden(link_data.objects_dir)
+                        archive_args.add(cmd_args(hidden = link_data.objects_dir))
 
                         if not link_data.link_whole:
                             archive_args.add("-Wl,--start-lib")
@@ -385,10 +385,10 @@ def cxx_dist_link(
             plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", outputs[link_plan].as_output(), "--final-link-index", outputs[final_link_index].as_output(), "--"])
             plan_cmd.add(index_cmd)
 
-            plan_extra_inputs = cmd_args()
-            plan_extra_inputs.add(index_meta)
-            plan_extra_inputs.add(index_args)
-            plan_cmd.hidden(plan_extra_inputs)
+            plan_cmd.add(cmd_args(hidden = [
+                index_meta,
+                index_args,
+            ]))
 
             ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = True)
 
@@ -456,7 +456,7 @@ def cxx_dist_link(
             # Create an argsfile and dump all the flags to be processed later.
             opt_argsfile = ctx.actions.declare_output(outputs[opt_object].basename + ".opt.argsfile")
             ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
-            opt_cmd.hidden(opt_common_flags)
+            opt_cmd.add(cmd_args(hidden = opt_common_flags))
             opt_cmd.add("--args", opt_argsfile)
 
             opt_cmd.add("--")
@@ -464,8 +464,7 @@ def cxx_dist_link(
 
             imports = [index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]
             archives = [index_link_data[idx].link_data.objects_dir for idx in plan_json["archive_imports"]]
-            opt_cmd.hidden(imports)
-            opt_cmd.hidden(archives)
+            opt_cmd.add(cmd_args(hidden = imports + archives))
             ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
 
         ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object.as_output()], f = optimize_object)
@@ -513,7 +512,7 @@ def cxx_dist_link(
 
                 opt_argsfile = ctx.actions.declare_output(opt_object.basename + ".opt.argsfile")
                 ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
-                opt_cmd.hidden(opt_common_flags)
+                opt_cmd.add(cmd_args(hidden = opt_common_flags))
                 opt_cmd.add("--args", opt_argsfile)
 
                 opt_cmd.add("--")
@@ -521,10 +520,9 @@ def cxx_dist_link(
 
                 imports = [index_link_data[idx].link_data.initial_object for idx in entry["imports"]]
                 archives = [index_link_data[idx].link_data.objects_dir for idx in entry["archive_imports"]]
-                opt_cmd.hidden(imports)
-                opt_cmd.hidden(archives)
-                opt_cmd.hidden(archive.indexes_dir)
-                opt_cmd.hidden(archive.objects_dir)
+                opt_cmd.add(cmd_args(
+                    hidden = imports + archives + [archive.indexes_dir, archive.objects_dir],
+                ))
                 ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_archive"), identifier = source_path)
 
             ctx.actions.symlinked_dir(outputs[archive.opt_objects_dir], output_dir)
@@ -581,11 +579,12 @@ def cxx_dist_link(
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
         link_cmd = link_cmd_parts.link_cmd
+        link_cmd_hidden = []
 
         # buildifier: disable=uninitialized
         for artifact in index_link_data:
             if artifact != None and artifact.data_type == _DataType("archive"):
-                link_cmd.hidden(artifact.link_data.opt_objects_dir)
+                link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
         link_cmd.add(at_argfile(
             actions = ctx.actions,
             name = outputs[linker_argsfile_out],
@@ -596,10 +595,13 @@ def cxx_dist_link(
         link_cmd.add("-o", outputs[output].as_output())
         if linker_map:
             link_cmd.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
-        link_cmd.hidden(link_args)
-        link_cmd.hidden(opt_objects)
-        link_cmd.hidden(archives)
+        link_cmd_hidden.extend([
+            link_args,
+            opt_objects,
+            archives,
+        ])
         link_cmd.add(link_cmd_parts.post_linker_flags)
+        link_cmd.add(cmd_args(hidden = link_cmd_hidden))
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
