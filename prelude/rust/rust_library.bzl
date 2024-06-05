@@ -15,7 +15,6 @@ load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:linker.bzl",
     "PDB_SUB_TARGET",
@@ -166,6 +165,13 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
             native_param_artifact[params] = link
 
+    rust_artifacts = _rust_artifacts(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        lang_style_param = lang_style_param,
+        rust_param_artifact = rust_param_artifact,
+    )
+
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
     # target are handled
@@ -247,13 +253,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = default_roots,
     )
 
-    link_infos = _link_infos(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        lang_style_param = lang_style_param,
-        param_artifact = native_param_artifact,
-    )
-
     check_artifacts = rust_param_artifact[check_params]
 
     providers = []
@@ -272,14 +271,38 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers += _rust_metadata_providers(
         check_artifacts = check_artifacts,
     )
-    providers += _link_providers(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        lang_style_param = lang_style_param,
-        rust_param_artifact = rust_param_artifact,
-        native_param_artifact = native_param_artifact,
-        link_infos = link_infos,
-    )
+
+    if ctx.attrs.proc_macro:
+        providers += _proc_macro_link_providers(
+            ctx = ctx,
+            rust_artifacts = rust_artifacts,
+        )
+    else:
+        link_infos = _link_infos(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            lang_style_param = lang_style_param,
+            param_artifact = native_param_artifact,
+        )
+
+        if toolchain_info.advanced_unstable_linking:
+            providers += _advanced_unstable_link_providers(
+                ctx = ctx,
+                compile_ctx = compile_ctx,
+                lang_style_param = lang_style_param,
+                rust_artifacts = rust_artifacts,
+                native_param_artifact = native_param_artifact,
+                link_infos = link_infos,
+            )
+        else:
+            providers += _stable_link_providers(
+                ctx = ctx,
+                compile_ctx = compile_ctx,
+                lang_style_param = lang_style_param,
+                rust_artifacts = rust_artifacts,
+                native_param_artifact = native_param_artifact,
+                link_infos = link_infos,
+            )
 
     deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
     providers.append(ResourceInfo(resources = gather_resources(
@@ -389,6 +412,20 @@ def _link_infos(
                 ),
             )
     return link_infos
+
+def _rust_artifacts(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
+        rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]]) -> dict[LinkStrategy, RustLinkStrategyInfo]:
+    pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
+    preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
+
+    rust_artifacts = {}
+    for link_strategy in LinkStrategy:
+        params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
+        rust_artifacts[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, rust_param_artifact[params])
+    return rust_artifacts
 
 def _handle_rust_artifact(
         ctx: AnalysisContext,
@@ -506,30 +543,171 @@ def _rust_metadata_providers(check_artifacts: dict[MetadataKind, RustcOutput]) -
         ),
     ]
 
-def _link_providers(
+def _proc_macro_link_providers(
+        ctx: AnalysisContext,
+        rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo]) -> list[Provider]:
+    # These are never accessed in the case of proc macros, so just return some dummy
+    # values
+    return [RustLinkInfo(
+        crate = attr_crate(ctx),
+        strategies = rust_artifacts,
+        merged_link_info = create_merged_link_info_for_propagation(ctx, []),
+        exported_link_deps = [],
+        shared_libs = merge_shared_libraries(ctx.actions),
+        linkable_graphs = [],
+    )]
+
+def _advanced_unstable_link_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
+        rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo],
         native_param_artifact: dict[BuildParams, RustcOutput],
         link_infos: dict[LibOutputStyle, LinkInfos]) -> list[Provider]:
-    providers = []
-
     crate = attr_crate(ctx)
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
-    strategies = {}
-    for link_strategy in LinkStrategy:
-        params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
-        strategies[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, rust_param_artifact[params])
+    providers = []
 
-    merged_link_info, shared_libs, linkable_graphs, exported_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx, compile_ctx.cxx_toolchain_info, link_infos, Linkage(ctx.attrs.preferred_linkage))
+    dep_ctx = compile_ctx.dep_ctx
+    linker_info = compile_ctx.cxx_toolchain_info.linker_info
+
+    inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
+    inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
+    inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
+    inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
+
+    # Native link provider.
+    merged_link_info = create_merged_link_info(
+        ctx,
+        pic_behavior,
+        link_infos,
+        deps = inherited_link_infos,
+        exported_deps = filter(None, [d.get(MergedLinkInfo) for d in inherited_exported_deps]),
+        preferred_linkage = preferred_linkage,
+    )
+    providers.append(merged_link_info)
+
+    solibs = {}
+
+    # Add the shared library to the list of shared libs.
+    shlib_name = get_default_shared_library_name(linker_info, ctx.label)
+
+    shared_lib_params = lang_style_param[(LinkageLang("native-unbundled"), LibOutputStyle("shared_lib"))]
+    shared_lib_output = native_param_artifact[shared_lib_params].output
+
+    # Only add a shared library if we generated one.
+    # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have
+    # a value for LibOutputStyle("shared_lib") if that were created and we could just check for that key. Given that I intend
+    # to remove the SharedLibraries provider, maybe just wait for that to resolve this.
+    if get_lib_output_style(LinkStrategy("shared"), preferred_linkage, compile_ctx.cxx_toolchain_info.pic_behavior) == LibOutputStyle("shared_lib"):
+        solibs[shlib_name] = LinkedObject(
+            output = shared_lib_output,
+            unstripped_output = shared_lib_output,
+            external_debug_info = link_infos[LibOutputStyle("shared_lib")].default.external_debug_info,
+        )
+
+    # Native shared library provider.
+    shared_libs = create_shared_libraries(ctx, solibs)
+    shared_library_info = merge_shared_libraries(
+        ctx.actions,
+        shared_libs,
+        inherited_shlibs,
+    )
+    providers.append(shared_library_info)
+
+    linkable_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                preferred_linkage = preferred_linkage,
+                deps = inherited_graphs,
+                exported_deps = inherited_exported_deps,
+                link_infos = link_infos,
+                shared_libs = shared_libs,
+                default_soname = shlib_name,
+                # Link groups have a heuristic in which they assume that a
+                # preferred_linkage = "static" library needs to be linked
+                # into every single link group, instead of just one.
+                # Applying that same heuristic to Rust seems right, but only
+                # if this target actually requested that. Opt ourselves out
+                # if it didn't.
+                ignore_force_static_follows_dependents = preferred_linkage != Linkage("static"),
+                include_in_android_mergemap = False,  # TODO(pickett): Plumb D54748362 to the macro layer
+            ),
+        ),
+        deps = inherited_graphs + inherited_exported_deps,
+    )
+
+    providers.append(linkable_graph)
+
+    # Omnibus root provider.
+    linkable_root = create_linkable_root(
+        label = ctx.label,
+        name = shlib_name,
+        link_infos = LinkInfos(
+            default = LinkInfo(
+                linkables = [ArchiveLinkable(
+                    archive = Archive(
+                        artifact = shared_lib_output,
+                    ),
+                    linker_type = linker_info.type,
+                    link_whole = True,
+                )],
+                external_debug_info = link_infos[LibOutputStyle("pic_archive")].default.external_debug_info,
+            ),
+        ),
+        deps = inherited_graphs,
+    )
+    providers.append(linkable_root)
+
+    # Mark libraries that support `dlopen`.
+    if getattr(ctx.attrs, "supports_python_dlopen", False):
+        providers.append(DlopenableLibraryInfo())
+
+    # We never need to add anything to this provider because Rust libraries
+    # cannot act as link group libs, especially given that they only support
+    # auto link groups anyway
+    providers.append(merge_link_group_lib_info(children = inherited_link_group_lib_infos(ctx, compile_ctx.dep_ctx)))
+
+    # Create rust library provider.
+    providers.append(RustLinkInfo(
+        crate = crate,
+        strategies = rust_artifacts,
+        merged_link_info = merged_link_info,
+        exported_link_deps = inherited_exported_deps,
+        shared_libs = shared_library_info,
+        # We've already reported transitive deps on the inherited graphs, so for
+        # most purposes it would be fine to just have `linkable_graph` here.
+        # However, link groups do an analysis that relies on each symbol
+        # reference having a matching edge in the link graph, and so reexports
+        # and generics mean that we have to report a dependency on all
+        # transitive Rust deps and their immediate non-Rust deps
+        linkable_graphs = inherited_graphs + [linkable_graph],
+    ))
+
+    return providers
+
+def _stable_link_providers(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
+        native_param_artifact: dict[BuildParams, RustcOutput],
+        rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo],
+        link_infos: dict[LibOutputStyle, LinkInfos]) -> list[Provider]:
+    providers = []
+
+    crate = attr_crate(ctx)
+
+    merged_link_info, shared_libs, linkable_graphs, exported_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx)
 
     # Create rust library provider.
     rust_link_info = RustLinkInfo(
         crate = crate,
-        strategies = strategies,
+        strategies = rust_artifacts,
         merged_link_info = merged_link_info,
         exported_link_deps = exported_link_deps,
         shared_libs = shared_libs,
@@ -542,106 +720,23 @@ def _link_providers(
 
 def _rust_link_providers(
         ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext,
-        cxx_toolchain: CxxToolchainInfo,
-        link_infos: dict[LibOutputStyle, LinkInfos],
-        preferred_linkage: Linkage) -> (
+        dep_ctx: DepCollectionContext) -> (
     MergedLinkInfo,
     SharedLibraryInfo,
     list[LinkableGraph],
     list[Dependency],
 ):
-    # These are never accessed in the case of proc macros, so just return some dummy
-    # values
-    if ctx.attrs.proc_macro:
-        return (
-            create_merged_link_info_for_propagation(ctx, []),
-            merge_shared_libraries(ctx.actions),
-            [],
-            [],
-        )
-
     inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
     inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
 
-    if dep_ctx.advanced_unstable_linking:
-        # We have to produce a version of the providers that are defined in such
-        # a way that native rules looking at these providers will also pick up
-        # the `force_rlib` behavior. The general approach to that will be to
-        # claim that we have `preferred_linkage = "static"`.
-        #
-        # Note that all of this code is force_rlib specific. Disabling that
-        # setting requires replacing this with the "real" native providers
-        #
-        # As an optimization, we never bother reporting exported deps here.
-        # Whichever dependent uses the providers created here will take care of
-        # that for us.
-        #
-        # TODO(pickett): Make this codepath work without force_rlib
-        merged_link_info = create_merged_link_info(
-            ctx,
-            cxx_toolchain.pic_behavior,
-            link_infos,
-            deps = inherited_link_infos,
-            preferred_linkage = Linkage("static"),
-        )
-        shared_libs = merge_shared_libraries(
-            # We never actually have any shared libraries to add
-            ctx.actions,
-            deps = inherited_shlibs,
-        )
-
-        # The link graph representation is a little bit weird, since instead of
-        # just building up a graph via tsets, it uses a flat list of labeled
-        # nodes, each with a list of labels for dependency edges. The node that
-        # we create here cannot just use this target's label, since that would
-        # conflict with the node created for the native providers. As a result,
-        # we make up a fake subtarget to get a distinct label
-        new_label = ctx.label.configured_target().with_sub_target((ctx.label.sub_target or []) + ["fake_force_rlib_subtarget"])
-        linkable_graph = create_linkable_graph(
-            ctx,
-            node = create_linkable_graph_node(
-                ctx,
-                linkable_node = create_linkable_node(
-                    ctx = ctx,
-                    preferred_linkage = Linkage("static"),
-                    deps = inherited_graphs,
-                    link_infos = link_infos,
-                    # FIXME(JakobDegen): It should be ok to set this to `None`,
-                    # but that breaks arc focus, and setting it to "" breaks
-                    # somerge
-                    default_soname = get_default_shared_library_name(cxx_toolchain.linker_info, ctx.label),
-                    # Link groups have a heuristic in which they assume that a
-                    # preferred_linkage = "static" library needs to be linked
-                    # into every single link group, instead of just one.
-                    # Applying that same heuristic to Rust seems right, but only
-                    # if this target actually requested that. Opt ourselves out
-                    # if it didn't.
-                    ignore_force_static_follows_dependents = preferred_linkage != Linkage("static"),
-                    include_in_android_mergemap = False,  # TODO(pickett): Plumb D54748362 to the macro layer
-                ),
-                label = new_label,
-            ),
-            deps = inherited_graphs,
-        )
-
-        # We've already reported transitive deps on the inherited graphs, so for
-        # most purposes it would be fine to just have `linkable_graph` here.
-        # However, link groups do an analysis that relies on each symbol
-        # reference having a matching edge in the link graph, and so reexports
-        # and generics mean that we have to report a dependency on all
-        # transitive Rust deps and their immediate non-Rust deps
-        link_graphs = inherited_graphs + [linkable_graph]
-    else:
-        merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_link_infos)
-        shared_libs = merge_shared_libraries(
-            ctx.actions,
-            deps = inherited_shlibs,
-        )
-        link_graphs = inherited_graphs
-    return (merged_link_info, shared_libs, link_graphs, inherited_exported_deps)
+    merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_link_infos)
+    shared_libs = merge_shared_libraries(
+        ctx.actions,
+        deps = inherited_shlibs,
+    )
+    return (merged_link_info, shared_libs, inherited_graphs, inherited_exported_deps)
 
 def _native_link_providers(
         ctx: AnalysisContext,
@@ -655,24 +750,6 @@ def _native_link_providers(
     (ie C/C++) code, along with relevant dependencies.
     """
 
-    if ctx.attrs.proc_macro:
-        # Proc-macros never have a native form
-        return []
-
-    # If advanced_unstable_linking is set on the the rust toolchain, then build this artifact
-    # using the "native-unbundled" linkage language. See LinkageLang docs for more details
-    advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
-    lang = LinkageLang("native-unbundled") if advanced_unstable_linking else LinkageLang("native")
-
-    if advanced_unstable_linking:
-        # The rust link providers already contain the linkables for the `archive` and `pic_archive`
-        # cases
-        link_infos = {
-            LibOutputStyle("shared_lib"): link_infos[LibOutputStyle("shared_lib")],
-            LibOutputStyle("archive"): LinkInfos(default = LinkInfo()),
-            LibOutputStyle("pic_archive"): LinkInfos(default = LinkInfo()),
-        }
-
     # We collected transitive deps in the Rust link providers
     inherited_link_infos = [rust_link_info.merged_link_info]
     inherited_shlibs = [rust_link_info.shared_libs]
@@ -684,7 +761,7 @@ def _native_link_providers(
 
     providers = []
 
-    shared_lib_params = lang_style_param[(lang, LibOutputStyle("shared_lib"))]
+    shared_lib_params = lang_style_param[(LinkageLang("native"), LibOutputStyle("shared_lib"))]
     shared_lib_output = param_artifact[shared_lib_params].output
 
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
