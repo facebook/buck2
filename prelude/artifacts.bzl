@@ -35,6 +35,26 @@ ArtifactOutputs = record(
     other_outputs = field(list[ArgLike]),
 )
 
+# Wrapper to support wrapping `Artifact`s referencing paths behind external
+# symlinks.
+ArtifactExt = record(
+    artifact = field(Artifact),
+    # If the `artifact` above is a symlink referencing an external path, this
+    # is an optional sub-path to append when accessing the path.
+    sub_path = field(str | None, None),
+    # Returns the resolved path as a `cmd_arg()`, with the optional sub-path
+    # appended.
+    as_arg = field(typing.Callable),
+)
+
+# A Provider that mirrors `DefaultInfo` for `Artifact` outputs, but allows
+# specifying an `ArtifactExt` as it's default output.
+DefaultOutputExt = provider(
+    fields = dict(
+        default_output = provider_field(ArtifactExt),
+    ),
+)
+
 def single_artifact(dep: Artifact | Dependency) -> ArtifactOutputs:
     if type(dep) == "artifact":
         return ArtifactOutputs(
@@ -123,3 +143,26 @@ def unpack_artifact_map(artifacts: dict[str, Artifact | Dependency]) -> dict[str
         out[name] = single_artifact(artifact)
 
     return out
+
+def _as_arg(artifact: Artifact, sub_path: str | None) -> ArgLike:
+    if sub_path == None:
+        return artifact
+    return cmd_args(artifact, format = "{{}}/{}".format(sub_path))
+
+def artifact_ext(
+        artifact: Artifact,
+        sub_path: str | None = None) -> ArtifactExt:
+    return ArtifactExt(
+        artifact = artifact,
+        sub_path = sub_path,
+        as_arg = lambda: _as_arg(artifact, sub_path),
+    )
+
+def to_arglike(src: Artifact | Dependency) -> ArgLike:
+    if type(src) == "dependency":
+        ext = src.get(DefaultOutputExt)
+        if ext != None:
+            src = ext.default_output.as_arg()
+        else:
+            (src,) = src[DefaultInfo].default_outputs
+    return src
