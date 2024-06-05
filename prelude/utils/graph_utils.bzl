@@ -201,7 +201,7 @@ def depth_first_traversal_by(
         graph_nodes: [dict[typing.Any, typing.Any], None],
         roots: list[typing.Any],
         get_nodes_to_traverse_func: typing.Callable,
-        traversal: GraphTraversal = GraphTraversal("preorder-left-to-right"),
+        traversal: GraphTraversal = GraphTraversal("preorder-right-to-left"),
         node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
     """
     Performs a depth first traversal of `graph_nodes`, beginning
@@ -216,7 +216,6 @@ def depth_first_traversal_by(
 
     # Dictify for O(1) lookup
     visited = {k: None for k in roots}
-    result = []
     stride = -1 if traversal == GraphTraversal("preorder-left-to-right") else 1
 
     stack = []
@@ -227,8 +226,6 @@ def depth_first_traversal_by(
         if not stack:
             break
         node = stack.pop()
-        result.append(node)
-
         if graph_nodes and node not in graph_nodes:
             fail("Expected node {} in graph nodes".format(node_formatter(node)))
         nodes_to_visit = get_nodes_to_traverse_func(node)
@@ -240,4 +237,4 @@ def depth_first_traversal_by(
 
     expect(not stack, "Expected to be done with graph traversal stack.")
 
-    return result
+    return visited.keys()
