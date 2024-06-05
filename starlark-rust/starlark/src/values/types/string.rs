@@ -257,8 +257,8 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
     }
 
     fn equals(&self, other: Value) -> crate::Result<bool> {
-        if let Some(other) = other.unpack_str() {
-            Ok(self.as_str() == other)
+        if let Some(other) = other.unpack_starlark_str() {
+            Ok(self == other)
         } else {
             Ok(false)
         }
