@@ -315,7 +315,6 @@ def _rust_binary_common(
         params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
-        designated_clippy = True,
     )
 
     meta_fast = rust_compile(
@@ -325,6 +324,7 @@ def _rust_binary_common(
         params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
+        designated_clippy = True,
     )
 
     providers = [RustcExtraOutputsInfo(
@@ -332,9 +332,7 @@ def _rust_binary_common(
         metadata_fast = meta_fast,
     )]
 
-    # Use metadata-full to ensure that we share dependencies with the link
-    # variant
-    extra_meta_targets = output_as_diag_subtargets(meta_full).items()
+    extra_meta_targets = output_as_diag_subtargets(meta_fast).items()
 
     expand = rust_compile(
         ctx = ctx,

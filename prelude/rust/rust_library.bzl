@@ -132,6 +132,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         emit = Emit("metadata-fast"),
         params = check_params,
         default_roots = ["lib.rs"],
+        designated_clippy = True,
     )
 
     # Generate the actions to build various output artifacts. Given the set of
@@ -157,7 +158,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     emit = Emit("metadata-full"),
                     params = params,
                     default_roots = ["lib.rs"],
-                    designated_clippy = params == check_params,
                 ),
                 MetadataKind("fast"): meta_fast,
             }
@@ -263,7 +263,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
-        check_artifacts = output_as_diag_subtargets(check_artifacts[MetadataKind("full")]),
+        check_artifacts = output_as_diag_subtargets(check_artifacts[MetadataKind("fast")]),
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
@@ -472,7 +472,7 @@ def _default_providers(
         rustdoc: Artifact,
         rustdoc_test: cmd_args,
         doctests_enabled: bool,
-        check_artifacts: dict[str, Artifact],
+        check_artifacts: dict[str, Artifact | None],
         expand: Artifact,
         sources: Artifact,
         rustdoc_coverage: Artifact) -> list[Provider]:
