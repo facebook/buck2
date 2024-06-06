@@ -26,11 +26,11 @@ function List(props: {attr: (i: number) => string; length: number}): JSX.Element
     if (allTargets.hasOwnProperty(value)) {
       row = (
         <li key={i}>
-          <Link to={new Map().set(TARGET_VIEW, value)}>{value}</Link>
+          "<Link to={new Map().set(TARGET_VIEW, value)}>{value}</Link>",
         </li>
       )
     } else {
-      row = <li key={i}>{value}</li>
+      row = <li key={i}>{value},</li>
     }
     items.push(row)
   }
@@ -49,8 +49,7 @@ function ListOfPlainAttrs(props: {
     }
     const row = (
       <li key={i}>
-        <b>{value.key()}: </b>
-        <span>{value?.value()?.toString()}</span>
+        {value.key()} = "{value?.value()?.toString()}"
       </li>
     )
     items.push(row)
@@ -70,8 +69,7 @@ function ListOfStringAttrs(props: {
     }
     const row = (
       <li key={i}>
-        <b>{value.key()}: </b>
-        <span>{value.value()}</span>
+        {value.key()} = "{value?.value()}"
       </li>
     )
     items.push(row)
@@ -91,8 +89,9 @@ function ListOfListOfStringAttrs(props: {
     }
     const row = (
       <li key={i}>
-        <b>{value.key()}: </b>
+        {value.key()} = [
         <List attr={i => value.value(i)} length={value.valueLength()} />
+        ],
       </li>
     )
     items.push(row)
@@ -107,34 +106,17 @@ export function Target(props: {target: ConfiguredTargetNode}) {
       <h3>{target.configuredTargetLabel()}</h3>
 
       <ul>
+        <li>name = "{target.name()}",</li>
+        <li>type = "{target.type()}",</li>
         <li>
-          <b>Name: </b>
-          <span>{target.name()}</span>
-        </li>
-        <li>
-          <b>Type: </b>
-          <span>{target.type()}</span>
-        </li>
-        <li>
-          <b>Deps: </b>
+          deps = [
           <List attr={i => target.deps(i)} length={target.depsLength()} />
+          ],
         </li>
-        <li>
-          <b>Package: </b>
-          <span>{target.package_()}</span>
-        </li>
-        <li>
-          <b>Oncall: </b>
-          <span>{target.oncall()}</span>
-        </li>
-        <li>
-          <b>Target configuration: </b>
-          <span>{target.targetConfiguration()}</span>
-        </li>
-        <li>
-          <b>Execution platform: </b>
-          <span>{target.executionPlatform()}</span>
-        </li>
+        <li>package = "{target.package_()}",</li>
+        <li>oncall = "{target.oncall()}",</li>
+        <li>target_configuration = "{target.targetConfiguration()}",</li>
+        <li>execution_platform = "{target.executionPlatform()}",</li>
         <ListOfPlainAttrs attr={i => target.boolAttrs(i)} length={target.boolAttrsLength()} />
         <ListOfPlainAttrs attr={i => target.intAttrs(i)} length={target.intAttrsLength()} />
         <ListOfStringAttrs attr={i => target.stringAttrs(i)} length={target.stringAttrsLength()} />
