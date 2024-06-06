@@ -23,11 +23,13 @@ message ExecuteCommand {
 
   repeated bytes argv = 1;
   repeated EnvironmentEntry env = 2;
+  optional uint64 timeout_s = 3;
 }
 
 message ExecuteResponse {
   int32 exit_code = 1;
   string stderr = 2;
+  optional uint64 timed_out_after_s = 3;
 }
 
 message ExecuteCancel {}

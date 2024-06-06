@@ -423,7 +423,11 @@ impl WorkerHandle {
         let argv: Vec<Vec<u8>> = args.iter().map(|s| s.as_str().into()).collect();
         let env: Vec<EnvironmentEntry> = env_entries(&env);
 
-        let request = ExecuteCommand { argv, env };
+        let request = ExecuteCommand {
+            argv,
+            env,
+            timeout_s: None,
+        };
         let response = self.client.clone().execute(request).await;
 
         match response {
