@@ -12,6 +12,7 @@ use std::future::Future;
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
+use buck2_cli_proto::client_context::PreemptibleWhen as GrpcPreemptibleWhen;
 use buck2_cli_proto::ClientContext;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -27,6 +28,7 @@ use crate::client_metadata::ClientMetadata;
 use crate::common::CommonEventLogOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
+use crate::common::PreemptibleWhen;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
@@ -125,6 +127,7 @@ impl<'a> ClientCommandContext<'a> {
         // TODO(cjhopman): Support non unicode paths?
         let config_opts = cmd.build_config_opts();
         let starlark_opts = cmd.starlark_opts();
+
         Ok(ClientContext {
             config_overrides: config_opts.config_overrides(arg_matches)?,
             host_platform: match config_opts.host_platform_override() {
@@ -147,6 +150,13 @@ impl<'a> ClientCommandContext<'a> {
             reuse_current_config: config_opts.reuse_current_config,
             sanitized_argv: cmd.sanitize_argv(self.argv.clone()).argv,
             exit_when_different_state: config_opts.exit_when_different_state,
+            preemptible: match config_opts.preemptible {
+                None => GrpcPreemptibleWhen::Never,
+                Some(PreemptibleWhen::Never) => GrpcPreemptibleWhen::Never,
+                Some(PreemptibleWhen::Always) => GrpcPreemptibleWhen::Always,
+                Some(PreemptibleWhen::OnDifferentState) => GrpcPreemptibleWhen::OnDifferentState,
+            }
+            .into(),
             argfiles: self
                 .immediate_config
                 .trace()
@@ -193,6 +203,7 @@ impl<'a> ClientCommandContext<'a> {
                 .iter()
                 .map(ClientMetadata::to_proto)
                 .collect(),
+            preemptible: Default::default(),
         })
     }
 

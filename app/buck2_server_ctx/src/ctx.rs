@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_build_signals::BuildSignalsContext;
 use buck2_build_signals::DeferredBuildSignals;
 use buck2_build_signals::HasCriticalPathBackend;
+use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -87,6 +88,7 @@ pub struct DiceAccessor {
     pub is_nested_invocation: bool,
     pub sanitized_argv: Vec<String>,
     pub exit_when_different_state: bool,
+    pub preemptible: PreemptibleWhen,
     pub build_signals: Box<dyn DeferredBuildSignals>,
 }
 
@@ -138,6 +140,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
             is_nested_invocation,
             sanitized_argv,
             exit_when_different_state,
+            preemptible,
             build_signals,
         } = self.dice_accessor(PrivateStruct(())).await?;
 
@@ -203,6 +206,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             exclusive_cmd,
                             exit_when_different_state,
                             self.cancellation_context(),
+                            preemptible,
                         )
                         .await,
                     DiceCriticalSectionEnd {},

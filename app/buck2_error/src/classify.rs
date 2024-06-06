@@ -30,6 +30,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::InterruptedByDaemonShutdown => line!(),
         ErrorTag::DaemonWontDieFromKill => line!(),
         ErrorTag::DaemonIsBusy => line!(),
+        ErrorTag::DaemonPreempted => line!(),
         ErrorTag::DaemonConnect => line!(),
         ErrorTag::GrpcResponseMessageTooLarge => line!(),
         ErrorTag::ClientGrpc => line!(),
@@ -70,6 +71,7 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
         ErrorTag::DaemonWontDieFromKill => Some(Tier::Tier0),
         ErrorTag::DaemonConnect => None,
         ErrorTag::DaemonIsBusy => Some(Tier::Input),
+        ErrorTag::DaemonPreempted => Some(Tier::Input),
         ErrorTag::InternalError => Some(Tier::Tier0),
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something

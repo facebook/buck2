@@ -32,6 +32,7 @@ use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::HasCriticalPathBackend;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
+use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
@@ -212,6 +213,7 @@ pub struct ServerCommandContext<'a> {
     cancellations: &'a ExplicitCancellationContext,
 
     exit_when_different_state: bool,
+    preemptible: PreemptibleWhen,
 }
 
 impl<'a> ServerCommandContext<'a> {
@@ -328,6 +330,7 @@ impl<'a> ServerCommandContext<'a> {
             debugger_handle,
             cancellations,
             exit_when_different_state: client_context.exit_when_different_state,
+            preemptible: client_context.preemptible(),
         })
     }
 
@@ -847,6 +850,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
             exit_when_different_state: self.exit_when_different_state,
+            preemptible: self.preemptible,
             build_signals: deferred_build_signals,
         })
     }

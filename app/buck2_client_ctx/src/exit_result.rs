@@ -151,6 +151,11 @@ impl ExitResult {
             {
                 return Self::status(ExitCode::DaemonIsBusy);
             }
+            if e.tags
+                .contains(&(buck2_data::error::ErrorTag::DaemonPreempted as i32))
+            {
+                return Self::status(ExitCode::DaemonPreempted);
+            }
             match e.tier.and_then(buck2_data::error::ErrorTier::from_i32) {
                 Some(buck2_data::error::ErrorTier::Tier0) => has_infra = true,
                 Some(buck2_data::error::ErrorTier::Input) => has_user = true,
@@ -274,6 +279,7 @@ pub enum ExitCode {
     InfraError,
     UserError,
     DaemonIsBusy,
+    DaemonPreempted,
     ConnectError,
     SignalInterrupt,
     BrokenPipe,
@@ -291,6 +297,7 @@ impl ExitCode {
             InfraError => 2,
             UserError => 3,
             DaemonIsBusy => 4,
+            DaemonPreempted => 5,
             ConnectError => 11,
             BrokenPipe => 130,
             SignalInterrupt => 141,

@@ -63,6 +63,8 @@ enum ErrorTag {
   DAEMON_CONNECT = 5;
   // Daemon is running another command.
   DAEMON_IS_BUSY = 501;
+  // Daemon was preempted during preemptible command by another command.
+  DAEMON_PREEMPTED = 502;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.

@@ -132,6 +132,18 @@ message ClientContext {
 
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;
+
+  enum PreemptibleWhen {
+    /// Default
+    NEVER = 0;
+    ALWAYS = 1;
+    ON_DIFFERENT_STATE = 2;
+  }
+  /// Whether this invocation is preemptible. If another build attempts to start
+  // that /would/ block until this build finishes, `preemptible` determines
+  // whether the new build will preempt (ie kill) the current build and take its
+  // place.
+  PreemptibleWhen preemptible = 22;
 }
 
 message TargetsRequest {

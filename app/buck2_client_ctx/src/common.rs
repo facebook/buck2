@@ -64,6 +64,24 @@ pub enum HostPlatformOverride {
     Clone,
     Dupe,
     Copy,
+    clap::ValueEnum,
+    Default
+)]
+#[clap(rename_all = "lower")]
+pub enum PreemptibleWhen {
+    #[default]
+    Never, // Read; "If I am Never, then never preempt me" (the default)
+    Always,
+    OnDifferentState, // Read; "if a command comes in, preempt me on different state"
+}
+
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    Copy,
     clap::ValueEnum
 )]
 #[clap(rename_all = "lower")]
@@ -155,6 +173,10 @@ pub struct CommonBuildConfigurationOptions {
     /// Used for exiting a concurrent command when a different state is detected.
     #[clap(long)]
     pub exit_when_different_state: bool,
+
+    /// Used to configure when this command could be preempted by another command.
+    #[clap(long, ignore_case = true, value_enum)]
+    pub preemptible: Option<PreemptibleWhen>,
 }
 
 impl CommonBuildConfigurationOptions {
@@ -256,6 +278,7 @@ impl CommonBuildConfigurationOptions {
             fake_xcode_version: None,
             reuse_current_config: false,
             exit_when_different_state: false,
+            preemptible: Some(PreemptibleWhen::Never),
         };
         &DEFAULT
     }

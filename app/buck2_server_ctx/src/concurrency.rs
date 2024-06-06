@@ -21,6 +21,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
+use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_core::soft_error;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
@@ -42,13 +43,18 @@ use dice::DiceTransaction;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
 use dupe::Dupe;
+use futures::future;
 use futures::future::BoxFuture;
+use futures::future::Either;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::Shared;
+use futures::pin_mut;
 use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tokio::sync::oneshot;
+use tokio::sync::oneshot::error::RecvError;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
@@ -66,6 +72,10 @@ enum ConcurrencyHandlerError {
     #[error("`--exit-when-different-state` was set")]
     #[buck2(tag = DaemonIsBusy)]
     ExitWhenDifferentState,
+
+    #[error("`--preemptible` was set, and buck daemon preempted this command as another came in.")]
+    #[buck2(tag = DaemonPreempted)]
+    ExitOnPreemption,
 }
 
 #[derive(Clone, Dupe, Copy, Debug)]
@@ -129,6 +139,9 @@ struct CommandData {
     trace_id: TraceId,
     argv: Vec<String>,
     dispatcher: EventDispatcher,
+    preemption_setting: PreemptibleWhen,
+    #[allocative(skip)]
+    preempt: Option<oneshot::Sender<()>>,
 }
 
 impl CommandData {
@@ -334,6 +347,7 @@ impl ConcurrencyHandler {
         exclusive_cmd: Option<String>,
         exit_when_different_state: bool,
         cancellations: &ExplicitCancellationContext,
+        preemptible: PreemptibleWhen,
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -358,7 +372,7 @@ impl ConcurrencyHandler {
             .await;
 
         let events = event_dispatcher.dupe();
-        let (_guard, transaction) = event_dispatcher
+        let (_guard, transaction, preempt_receiver) = event_dispatcher
             .span_async(DiceSynchronizeSectionStart {}, async move {
                 (
                     cancellations
@@ -370,6 +384,7 @@ impl ConcurrencyHandler {
                                 is_nested_invocation,
                                 sanitized_argv,
                                 exit_when_different_state,
+                                preemptible,
                             )
                         })
                         .await,
@@ -378,7 +393,16 @@ impl ConcurrencyHandler {
             })
             .await?;
 
-        Ok(exec(transaction).await)
+        let result = exec(transaction);
+        pin_mut!(result);
+        pin_mut!(preempt_receiver);
+
+        match future::select(result, preempt_receiver).await {
+            Either::Left((result, _)) => Ok(result),
+            Either::Right((_preemption, _)) => {
+                Err(ConcurrencyHandlerError::ExitOnPreemption.into())
+            }
+        }
     }
 
     // this is normally super unsafe, but because we are using an async condvar that takes care
@@ -393,7 +417,12 @@ impl ConcurrencyHandler {
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
         exit_when_different_state: bool,
-    ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
+        preemptible: PreemptibleWhen,
+    ) -> anyhow::Result<(
+        OnExecExit,
+        DiceTransaction,
+        impl Future<Output = Result<(), RecvError>>,
+    )> {
         // Have to put it on the function unfortunately, https://github.com/rust-lang/rust-clippy/issues/9047
         #![allow(clippy::await_holding_invalid_type)]
 
@@ -408,10 +437,14 @@ impl ConcurrencyHandler {
 
         let command_id = data.next_command_id.increment();
 
+        let (preempt_sender, preempt_receiver) = oneshot::channel::<()>();
+
         let command_data = CommandData {
             trace_id: trace.dupe(),
             argv: sanitized_argv,
             dispatcher: event_dispatcher.dupe(),
+            preemption_setting: preemptible,
+            preempt: Some(preempt_sender),
         };
 
         let (transaction, tainted) = loop {
@@ -472,6 +505,10 @@ impl ConcurrencyHandler {
                         // If we have a different state, attempt to transition to cleanup. This will
                         // succeed only if the current state is not in use.
                         if !is_same_state {
+                            // If the active commands are preemptible, preempt them.
+                            self.cancel_preemptible_commands(&mut data, is_same_state);
+
+                            // transition to cleanup == "wait until all other blocking commands finish"
                             if data.transition_to_cleanup(&self.dice) {
                                 continue;
                             }
@@ -498,6 +535,7 @@ impl ConcurrencyHandler {
                             }
                             BypassSemaphore::Run(state) => {
                                 self.emit_logs(state, &data.active_commands, &command_data)?;
+                                self.cancel_preemptible_commands(&mut data, is_same_state);
                                 break (transaction, false);
                             }
                             BypassSemaphore::Block => {
@@ -557,13 +595,32 @@ impl ConcurrencyHandler {
 
         // create the on exit drop handler, which will take care of notifying tasks.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data);
+        // This adds the task to the list of all tasks (see ::new impl)
 
-        Ok((drop_guard, transaction))
+        Ok((drop_guard, transaction, preempt_receiver))
     }
 
     /// Access dice without locking for dumps.
     pub fn unsafe_dice(&self) -> &Arc<Dice> {
         &self.dice
+    }
+
+    fn cancel_preemptible_commands(&self, data: &mut ConcurrencyHandlerData, is_same_state: bool) {
+        // If the active commands are preemptible, interrupt them.
+        for cmd in data.active_commands.values_mut() {
+            if cmd.preemption_setting == PreemptibleWhen::Never {
+                continue;
+            }
+            if is_same_state && cmd.preemption_setting == PreemptibleWhen::OnDifferentState {
+                continue;
+            }
+            match cmd.preempt.take() {
+                Some(preempt) => {
+                    let _ = preempt.send(());
+                }
+                None => {}
+            };
+        }
     }
 
     fn determine_bypass_semaphore(
@@ -776,6 +833,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -792,6 +850,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -808,6 +867,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -842,6 +902,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
 
         let fut2 = concurrency.enter(
@@ -859,6 +920,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -896,6 +958,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -912,6 +975,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -928,6 +992,7 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -977,6 +1042,7 @@ mod tests {
                         None,
                         false,
                         ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
                     )
                     .await
             }
@@ -1002,6 +1068,7 @@ mod tests {
                         None,
                         false,
                         ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
                     )
                     .await
             }
@@ -1029,6 +1096,7 @@ mod tests {
                         None,
                         false,
                         ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
                     )
                     .await
             }
@@ -1094,6 +1162,7 @@ mod tests {
                         None,
                         true,
                         ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
                     )
                     .await
             }
@@ -1119,6 +1188,7 @@ mod tests {
                         None,
                         true,
                         ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
                     )
                     .await
             }
@@ -1146,6 +1216,7 @@ mod tests {
                         None,
                         true,
                         ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
                     )
                     .await
             }
@@ -1171,6 +1242,129 @@ mod tests {
                 .tags()
                 .contains(&buck2_error::ErrorTag::DaemonIsBusy),
         );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn parallel_invocation_exit_when_preemptible() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        let traces1 = TraceId::new();
+        let traces2 = traces1.dupe();
+        let traces_different = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let block2 = Arc::new(RwLock::new(()));
+        let blocked2 = block2.write().await;
+
+        let barrier1 = Arc::new(Barrier::new(3));
+        let barrier2 = Arc::new(Barrier::new(2));
+
+        let arrived = Arc::new(AtomicBool::new(false));
+
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier1.dupe();
+            let b = block1.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &TestDiceDataProvider,
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        false,
+                        ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Always,
+                    )
+                    .await
+            }
+        });
+
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier1.dupe();
+            let b = block2.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &TestDiceDataProvider,
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        false,
+                        ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                    )
+                    .await
+            }
+        });
+
+        barrier1.wait().await;
+
+        let fut3 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier2.dupe();
+            let arrived = arrived.dupe();
+
+            async move {
+                barrier.wait().await;
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces_different),
+                        &TestDiceDataProvider,
+                        &CtxDifferent,
+                        |_| async move {
+                            arrived.store(true, Ordering::Relaxed);
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        false,
+                        ExplicitCancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                    )
+                    .await
+            }
+        });
+
+        barrier2.wait().await;
+
+        assert!(!arrived.load(Ordering::Relaxed));
+
+        drop(blocked1);
+        let fut1_result = fut1.await?;
+        let fut1_error: buck2_error::Error = fut1_result.unwrap_err().into();
+        assert!(
+            fut1_error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonPreempted),
+        );
+
+        assert!(!arrived.load(Ordering::Relaxed));
+
+        drop(blocked2);
+        fut2.await??;
+        fut3.await??;
 
         Ok(())
     }
@@ -1251,6 +1445,7 @@ mod tests {
                 None,
                 false,
                 ExplicitCancellationContext::testing(),
+                PreemptibleWhen::Never,
             )
             .await?;
 
@@ -1270,6 +1465,7 @@ mod tests {
                 None,
                 false,
                 ExplicitCancellationContext::testing(),
+                PreemptibleWhen::Never,
             )
             .await?;
 
@@ -1288,6 +1484,7 @@ mod tests {
                 None,
                 false,
                 ExplicitCancellationContext::testing(),
+                PreemptibleWhen::Never,
             )
             .await?;
 
@@ -1396,6 +1593,7 @@ mod tests {
                             exclusive_cmd,
                             false,
                             ExplicitCancellationContext::testing(),
+                            PreemptibleWhen::Never,
                         )
                         .await
                 }
@@ -1471,6 +1669,7 @@ mod tests {
                     None,
                     false,
                     ExplicitCancellationContext::testing(),
+                    PreemptibleWhen::Never,
                 )
                 .await
         });
@@ -1527,7 +1726,9 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
+
         pin_mut!(fut1);
 
         let updater2 = Updater {
@@ -1546,7 +1747,9 @@ mod tests {
             None,
             false,
             ExplicitCancellationContext::testing(),
+            PreemptibleWhen::Never,
         );
+
         pin_mut!(fut2);
 
         // poll once will arrive at the `yield` in updater
