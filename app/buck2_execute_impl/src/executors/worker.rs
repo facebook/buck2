@@ -414,6 +414,7 @@ impl WorkerHandle {
         &self,
         args: &[String],
         env: Vec<(OsString, OsString)>,
+        timeout: Option<Duration>,
     ) -> (GatherOutputStatus, Vec<u8>, Vec<u8>) {
         tracing::info!(
             "Sending worker command:\nExecuteCommand {{ argv: {:?}, env: {:?} }}\n",
@@ -426,7 +427,7 @@ impl WorkerHandle {
         let request = ExecuteCommand {
             argv,
             env,
-            timeout_s: None,
+            timeout_s: timeout.map(|v| v.as_secs()),
         };
         let response = self.client.clone().execute(request).await;
 
@@ -434,14 +435,22 @@ impl WorkerHandle {
             Ok(response) => {
                 let exec_response: ExecuteResponse = response.into_inner();
                 tracing::info!("Worker response:\n{:?}\n", exec_response);
-                (
-                    GatherOutputStatus::Finished {
-                        exit_code: exec_response.exit_code,
-                        execution_stats: None,
-                    },
-                    vec![],
-                    exec_response.stderr.into(),
-                )
+                if let Some(timeout) = exec_response.timed_out_after_s {
+                    (
+                        GatherOutputStatus::TimedOut(Duration::from_secs(timeout)),
+                        vec![],
+                        exec_response.stderr.into(),
+                    )
+                } else {
+                    (
+                        GatherOutputStatus::Finished {
+                            exit_code: exec_response.exit_code,
+                            execution_stats: None,
+                        },
+                        vec![],
+                        exec_response.stderr.into(),
+                    )
+                }
             }
             Err(err) => {
                 (

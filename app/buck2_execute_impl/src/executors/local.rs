@@ -431,7 +431,9 @@ impl LocalExecutor {
                         .into_iter()
                         .map(|(k, v)| (OsString::from(k), v.to_owned()))
                         .collect();
-                    Ok(worker.exec_cmd(request.args(), env).await)
+                    Ok(worker
+                        .exec_cmd(request.args(), env, request.timeout())
+                        .await)
                 } else {
                     self.exec(
                         &args[0],
