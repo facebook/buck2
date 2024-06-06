@@ -80,6 +80,7 @@ impl Develop {
             relative_paths,
             mode,
             check_cycles,
+            log_json: _,
         } = command
         {
             let out = if stdout {

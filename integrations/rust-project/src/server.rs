@@ -25,26 +25,20 @@ use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
 use tracing::warn;
-use tracing_subscriber::reload::Handle;
-use tracing_subscriber::Layer;
-use tracing_subscriber::Registry;
 
 use crate::cli::Develop;
 use crate::json_project::Crate;
 use crate::json_project::JsonProject;
-use crate::progress::ProgressLayer;
 use crate::target::Target;
 
 pub(crate) struct State {
-    server: Server,
+    pub(crate) server: Server,
     projects: Vec<JsonProject>,
     io_threads: IoThreads,
 }
 
 impl State {
-    pub(crate) fn new(
-        handle: Handle<Vec<Box<dyn Layer<Registry> + Send + Sync + 'static>>, Registry>,
-    ) -> Result<Self, anyhow::Error> {
+    pub(crate) fn new() -> Result<Self, anyhow::Error> {
         let (connection, io_threads) = Connection::stdio();
 
         // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
@@ -61,13 +55,6 @@ impl State {
             receiver,
             req_queue: ReqQueue::default(),
         };
-
-        handle
-            .modify(|layers| {
-                let progress = ProgressLayer::new(sender);
-                layers.push(progress.boxed())
-            })
-            .expect("Unable to update subscriber");
 
         let state = State {
             server,
@@ -239,8 +226,8 @@ impl NotificationDispatch<'_> {
     }
 }
 
-struct Server {
-    sender: Sender<lsp_server::Message>,
+pub(crate) struct Server {
+    pub(crate) sender: Sender<lsp_server::Message>,
     receiver: Receiver<lsp_server::Message>,
     req_queue: ReqQueue<(String, Instant), ReqHandler>,
 }

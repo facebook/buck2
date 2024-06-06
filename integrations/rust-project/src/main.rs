@@ -24,9 +24,9 @@ use std::path::PathBuf;
 use clap::ArgAction;
 use clap::Parser;
 use clap::Subcommand;
+use progress::ProgressLayer;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::reload;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
 
@@ -79,6 +79,10 @@ enum Command {
         #[clap(long = "stdout", conflicts_with = "out")]
         stdout: bool,
 
+        /// Log in a JSON format.
+        #[clap(long, default_value = "false")]
+        log_json: bool,
+
         /// Use a `rustup`-managed sysroot instead of a `.buckconfig`-managed sysroot.
         ///
         /// This option requires the presence of `rustc` in the `$PATH`, as rust-project
@@ -123,45 +127,78 @@ enum Command {
 }
 
 fn main() -> Result<(), anyhow::Error> {
+    let opt = Opt::parse();
+
     let filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env()?;
+
+    if opt.version {
+        println!("{}", build_info());
+        return Ok(());
+    }
+
+    let Some(command) = opt.command else {
+        eprintln!("Expected a subcommand, see --help for more information.");
+        return Ok(());
+    };
 
     let fmt = tracing_subscriber::fmt::layer()
         .with_ansi(io::stderr().is_terminal())
         .with_writer(io::stderr);
 
-    let (layer, reload_handle) = reload::Layer::new(vec![fmt.with_filter(filter).boxed()]);
-
-    let subscriber = tracing_subscriber::registry().with(layer);
-    tracing::subscriber::set_global_default(subscriber)?;
-
-    let cli = Opt::parse();
-
-    if cli.version {
-        println!("{}", build_info());
-        return Ok(());
-    }
-
-    let Some(command) = cli.command else {
-        eprintln!("Expected a subcommand, see --help for more information.");
-        return Ok(());
-    };
-
     match command {
-        Command::New { name, kind, path } => cli::New { name, kind, path }.run(),
+        c @ Command::Develop { log_json, .. } => {
+            if log_json {
+                let subscriber =
+                    tracing_subscriber::registry().with(fmt.json().with_filter(filter));
+                tracing::subscriber::set_global_default(subscriber)?;
+            } else {
+                let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
+                tracing::subscriber::set_global_default(subscriber)?;
+            };
+
+            let (develop, input, out) = cli::Develop::from_command(c);
+            match develop.run_as_cli(input, out) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    tracing::error!(
+                        error = <anyhow::Error as AsRef<
+                            dyn std::error::Error + Send + Sync + 'static,
+                        >>::as_ref(&e),
+                        source = e.source()
+                    );
+                    Ok(())
+                }
+            }
+        }
+        Command::LspServer => {
+            let state = server::State::new()?;
+            let sender = state.server.sender.clone();
+
+            let progress = ProgressLayer::new(sender);
+
+            let subscriber = tracing_subscriber::registry()
+                .with(fmt.with_filter(filter))
+                .with(progress);
+            tracing::subscriber::set_global_default(subscriber)?;
+
+            state.run()
+        }
+        Command::New { name, kind, path } => {
+            let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
+            tracing::subscriber::set_global_default(subscriber)?;
+
+            cli::New { name, kind, path }.run()
+        }
         Command::Check {
             mode,
             use_clippy,
             saved_file,
-        } => cli::Check::new(mode, use_clippy, saved_file).run(),
-        c @ Command::Develop { .. } => {
-            let (develop, input, out) = cli::Develop::from_command(c);
-            develop.run_as_cli(input, out)
-        }
-        Command::LspServer => {
-            let state = server::State::new(reload_handle)?;
-            state.run()
+        } => {
+            let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
+            tracing::subscriber::set_global_default(subscriber)?;
+            cli::Check::new(mode, use_clippy, saved_file).run()
         }
     }
 }
