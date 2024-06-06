@@ -349,8 +349,9 @@ fn handle_did_save_buck_file(
     };
 
     let targets = crates
-        .iter()
-        .map(|krate| krate.buck_extensions.label.clone())
+        .into_iter()
+        .filter_map(|krate| krate.build.clone())
+        .map(|build| build.label)
         .collect::<Vec<Target>>();
 
     info!(?params.text_document, crates = ?targets, "got document");
@@ -404,7 +405,13 @@ fn find_changed_crate<'a>(
         let impacted_crates = project
             .crates
             .iter()
-            .filter(|krate| krate.buck_extensions.build_file == changed_file)
+            .filter(|krate| {
+                let Some(build) = &krate.build else {
+                    return false;
+                };
+
+                build.build_file == changed_file
+            })
             .collect::<Vec<&Crate>>();
         if !impacted_crates.is_empty() {
             return Some((idx, impacted_crates));

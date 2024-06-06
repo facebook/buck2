@@ -34,6 +34,7 @@ pub(crate) struct JsonProject {
     /// Must include all transitive dependencies as well as sysroot crate (libstd,
     /// libcore, etc.).
     pub(crate) crates: Vec<Crate>,
+    pub(crate) runnables: Vec<Runnable>,
     pub(crate) generated: String,
 }
 
@@ -43,7 +44,7 @@ pub(crate) struct Crate {
     pub(crate) display_name: Option<String>,
     /// The path to the root module of the crate.
     pub(crate) root_module: PathBuf,
-    pub(crate) buck_extensions: BuckExtensions,
+    pub(crate) buck_extensions: deprecated::BuckExtensions,
     pub(crate) edition: Edition,
     pub(crate) deps: Vec<Dep>,
     /// Should this crate be treated as a member of
@@ -84,7 +85,9 @@ pub(crate) struct Crate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) target: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) target_spec: Option<TargetSpec>,
+    pub(crate) build: Option<Build>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) target_spec: Option<deprecated::TargetSpec>,
     /// Environment for the crate, often used by `env!`.
     pub(crate) env: FxHashMap<String, String>,
     /// Whether the crate is a proc-macro crate/
@@ -93,18 +96,6 @@ pub(crate) struct Crate {
     /// proc-macro (.so, .dylib, or .dll. depends on the platform.)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) proc_macro_dylib_path: Option<PathBuf>,
-}
-
-/// Buck-specific extensions to the `rust-project.json` format.
-///
-/// This is needed to add support for reloading `rust-analyzer` when
-/// a `TARGETS` file is changed.
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) struct BuckExtensions {
-    /// Path corresponding to the BUCK defining the crate.
-    pub(crate) build_file: PathBuf,
-    /// A name corresponding to the Buck target of the crate.
-    pub(crate) label: Target,
 }
 
 /// Build system-specific additions the `rust-project.json`.
@@ -145,13 +136,11 @@ pub(crate) struct BuckExtensions {
 /// }
 /// ```
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) struct TargetSpec {
-    /// `manifest_file` corresponds to the `BUCK`/`TARGETS` file.
-    pub(crate) manifest_file: PathBuf,
-    pub(crate) target_label: String,
+pub(crate) struct Build {
+    pub(crate) label: Target,
+    /// `build_file` corresponds to the `BUCK`/`TARGETS` file.
+    pub(crate) build_file: PathBuf,
     pub(crate) target_kind: TargetKind,
-    pub(crate) runnables: Runnables,
-    pub(crate) flycheck_command: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
@@ -179,11 +168,22 @@ impl From<crate::target::Kind> for TargetKind {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) struct Runnables {
-    pub(crate) check: Vec<String>,
-    pub(crate) run: Vec<String>,
-    pub(crate) test: Vec<String>,
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Runnable {
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: PathBuf,
+    pub kind: RunnableKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RunnableKind {
+    Check,
+    Flycheck,
+    Run,
+    TestOne,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
@@ -244,4 +244,41 @@ pub(crate) struct Sysroot {
     /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) sysroot_src: Option<PathBuf>,
+}
+
+// FIXME: remove these structs after a few days; they're only here for backwards compability
+// and not break users.
+pub(crate) mod deprecated {
+    use super::*;
+
+    #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+    #[serde(rename = "TargetSpec")]
+    pub(crate) struct TargetSpec {
+        /// `manifest_file` corresponds to the `BUCK`/`TARGETS` file.
+        pub(crate) manifest_file: PathBuf,
+        pub(crate) target_label: String,
+        pub(crate) target_kind: TargetKind,
+        pub(crate) runnables: deprecated::Runnables,
+        pub(crate) flycheck_command: Vec<String>,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+    #[serde(rename = "Runnables")]
+    pub(crate) struct Runnables {
+        pub(crate) check: Vec<String>,
+        pub(crate) run: Vec<String>,
+        pub(crate) test: Vec<String>,
+    }
+
+    /// Buck-specific extensions to the `rust-project.json` format.
+    ///
+    /// This is needed to add support for reloading `rust-analyzer` when
+    /// a `TARGETS` file is changed.
+    #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+    pub(crate) struct BuckExtensions {
+        /// Path corresponding to the BUCK defining the crate.
+        pub(crate) build_file: PathBuf,
+        /// A name corresponding to the Buck target of the crate.
+        pub(crate) label: Target,
+    }
 }

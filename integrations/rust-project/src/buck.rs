@@ -27,13 +27,14 @@ use tracing::trace;
 use tracing::warn;
 use tracing::Level;
 
-use crate::json_project::BuckExtensions;
+use crate::json_project::deprecated::{self};
+use crate::json_project::Build;
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
-use crate::json_project::Runnables;
+use crate::json_project::Runnable;
+use crate::json_project::RunnableKind;
 use crate::json_project::Source;
 use crate::json_project::Sysroot;
-use crate::json_project::TargetSpec;
 use crate::target::AliasedTargetInfo;
 use crate::target::ExpandedAndResolved;
 use crate::target::Kind;
@@ -152,12 +153,24 @@ pub(crate) fn to_json_project(
             include_dirs.insert(parent.to_owned());
         }
 
-        let spec = if info.in_workspace {
-            let spec = TargetSpec {
+        let build = if info.in_workspace {
+            let build = Build {
+                label: target.clone(),
+                build_file: build_file.to_owned(),
+                target_kind: info.kind.clone().into(),
+            };
+            Some(build)
+        } else {
+            None
+        };
+
+        // FIXME: remove this after a few days; it is only for backwards compatibility.
+        let target_spec = if info.in_workspace {
+            let spec = deprecated::TargetSpec {
                 manifest_file: build_file.to_owned(),
                 target_label: target.to_string(),
                 target_kind: info.kind.clone().into(),
-                runnables: Runnables {
+                runnables: deprecated::Runnables {
                     check: vec!["build".to_owned(), target.to_string()],
                     run: vec!["run".to_owned(), target.to_string()],
                     test: vec![
@@ -178,7 +191,7 @@ pub(crate) fn to_json_project(
         let crate_info = Crate {
             display_name: Some(info.display_name()),
             root_module,
-            buck_extensions: BuckExtensions {
+            buck_extensions: deprecated::BuckExtensions {
                 label: target.to_owned(),
                 build_file: build_file.to_owned(),
             },
@@ -191,7 +204,8 @@ pub(crate) fn to_json_project(
             }),
             cfg: info.cfg(),
             env,
-            target_spec: spec,
+            target_spec,
+            build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
             ..Default::default()
@@ -206,6 +220,26 @@ pub(crate) fn to_json_project(
     let jp = JsonProject {
         sysroot,
         crates,
+        runnables: vec![
+            Runnable {
+                program: "buck".to_owned(),
+                args: vec!["build".to_owned(), "{label}".to_owned()],
+                cwd: project_root.to_owned(),
+                kind: RunnableKind::Check,
+            },
+            Runnable {
+                program: "buck".to_owned(),
+                args: vec![
+                    "test".to_owned(),
+                    "{label}".to_owned(),
+                    "--".to_owned(),
+                    "{test_id}".to_owned(),
+                    "--print-passing-details".to_owned(),
+                ],
+                cwd: project_root.to_owned(),
+                kind: RunnableKind::TestOne,
+            },
+        ],
         // needed to ignore the generated `rust-project.json` in diffs, but including the actual
         // string will mark this file as generated
         generated: String::from("\x40generated"),
