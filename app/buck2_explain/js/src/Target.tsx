@@ -12,27 +12,39 @@ import {DataContext} from './App'
 import {IntAttr, BoolAttr, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
 import {Link, TARGET_VIEW} from './Router'
 
-function List(props: {attr: (i: number) => string; length: number}): JSX.Element {
+/*
+ * If we have an object associated with this string, make it a link.
+ * Otherwise, just render the string.
+ */
+function PossibleLink(props: {value: string}) {
   const {allTargets} = useContext(DataContext)
+  const {value} = props
 
+  let res = null
+  if (allTargets.hasOwnProperty(value)) {
+    res = (
+      <>
+        "<Link to={new Map().set(TARGET_VIEW, value)}>{value}</Link>",
+      </>
+    )
+  } else {
+    res = <>"{value}",</>
+  }
+  return res
+}
+
+function List(props: {attr: (i: number) => string; length: number}): JSX.Element {
   if (props.length === 0) {
     return <span>[]</span>
   }
 
   const items: JSX.Element[] = []
   for (let i = 0; i < props.length; i++) {
-    const value = props.attr(i)
-    let row = null
-    if (allTargets.hasOwnProperty(value)) {
-      row = (
-        <li key={i}>
-          "<Link to={new Map().set(TARGET_VIEW, value)}>{value}</Link>",
-        </li>
-      )
-    } else {
-      row = <li key={i}>{value},</li>
-    }
-    items.push(row)
+    items.push(
+      <li key={i}>
+        <PossibleLink value={props.attr(i)} />
+      </li>,
+    )
   }
   return <ul>{items}</ul>
 }
@@ -49,7 +61,7 @@ function ListOfPlainAttrs(props: {
     }
     const row = (
       <li key={i}>
-        {value.key()} = "{value?.value()?.toString()}"
+        {value.key()} = <PossibleLink value={value?.value()?.toString()} />
       </li>
     )
     items.push(row)
@@ -69,7 +81,7 @@ function ListOfStringAttrs(props: {
     }
     const row = (
       <li key={i}>
-        {value.key()} = "{value?.value()}"
+        {value.key()} = <PossibleLink value={value.value() || 'Empty plain attr'} />
       </li>
     )
     items.push(row)
