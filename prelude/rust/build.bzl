@@ -1160,11 +1160,11 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit) -> 
         if crate_type == CrateType("rlib"):
             return "rlib" + link_strategy_suffix
         if crate_type == CrateType("dylib"):
-            return "dylib"  # always shared
+            return "dylib" + link_strategy_suffix
         if crate_type == CrateType("proc-macro"):
             return "proc-macro"  # always static_pic
         if crate_type == CrateType("cdylib"):
-            return "cdylib"  # always shared
+            return "cdylib" + link_strategy_suffix
         if crate_type == CrateType("staticlib"):
             return "staticlib" + link_strategy_suffix
 

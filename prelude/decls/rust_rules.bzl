@@ -187,6 +187,7 @@ rust_library = prelude_rule(
         rust_common.crate_root() |
         native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any")) |
         native_common.soname() |
+        native_common.link_style() |
         _rust_common_attributes(is_binary = False) |
         {
             "crate_dynamic": attrs.option(attrs.dep(), default = None),
