@@ -19,4 +19,6 @@ rustc-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+tracing-core = "0.1.32"
 tracing-subscriber = { workspace = true }
+whoami = "1.4.0"

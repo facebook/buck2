@@ -10,6 +10,9 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use tracing::info;
+use tracing::instrument;
+
 use crate::buck;
 use crate::buck::select_mode;
 use crate::diagnostics;
@@ -34,7 +37,9 @@ impl Check {
         }
     }
 
+    #[instrument(name = "check", skip_all, fields(saved_file = %self.saved_file.display()))]
     pub(crate) fn run(&self) -> Result<(), anyhow::Error> {
+        let start = std::time::Instant::now();
         let buck = &self.buck;
 
         let cell_root = buck.resolve_root_of_file(&self.saved_file)?;
@@ -83,6 +88,9 @@ impl Check {
             let out = serde_json::to_string(&diagnostic)?;
             println!("{}", out);
         }
+
+        let elapsed = start.elapsed();
+        info!(elapsed_ms = elapsed.as_millis(), "finished check");
 
         Ok(())
     }

@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use tracing::info;
+use tracing::instrument;
 use tracing::warn;
 
 use crate::buck;
@@ -81,6 +82,7 @@ impl Develop {
             mode,
             check_cycles,
             log_json: _,
+            log_scuba_to_stdout: _,
         } = command
         {
             let out = if stdout {
@@ -217,6 +219,8 @@ impl Develop {
     }
 
     pub(crate) fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
+        let start = std::time::Instant::now();
+
         let Develop {
             sysroot,
             relative_paths,
@@ -257,9 +261,17 @@ impl Develop {
             *relative_paths,
             *check_cycles,
         )?;
+
+        let elapsed = start.elapsed();
+        info!(
+            elapsed_ms = elapsed.as_millis(),
+            "finished generating rust-project"
+        );
+
         Ok(rust_project)
     }
 
+    #[instrument(name = "develop", skip_all, fields(develop_input = ?input))]
     pub(crate) fn run_as_cli(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
         let targets = match input {
             Input::Targets(targets) => targets,

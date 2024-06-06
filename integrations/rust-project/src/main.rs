@@ -13,6 +13,7 @@ mod diagnostics;
 mod json_project;
 mod path;
 mod progress;
+mod scuba;
 mod server;
 mod sysroot;
 mod target;
@@ -110,6 +111,10 @@ enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
+
+        /// Write Scuba sample to stdout instead.
+        #[clap(long, hide = true)]
+        log_scuba_to_stdout: bool,
     },
     /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
     Check {
@@ -120,6 +125,9 @@ enum Command {
         use_clippy: bool,
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
+        /// Write Scuba sample to stdout instead.
+        #[clap(long, hide = true)]
+        log_scuba_to_stdout: bool,
     },
     /// Start an LSP server whose functionality is similar to [Command::Develop].
     #[clap(hide = true)]
@@ -127,6 +135,12 @@ enum Command {
 }
 
 fn main() -> Result<(), anyhow::Error> {
+    #[cfg(fbcode_build)]
+    {
+        // SAFETY: This is as safe as using fbinit::main but with slightly less conditional compilation.
+        unsafe { fbinit::perform_init() };
+    }
+
     let opt = Opt::parse();
 
     let filter = EnvFilter::builder()
@@ -148,13 +162,20 @@ fn main() -> Result<(), anyhow::Error> {
         .with_writer(io::stderr);
 
     match command {
-        c @ Command::Develop { log_json, .. } => {
+        c @ Command::Develop {
+            log_json,
+            log_scuba_to_stdout,
+            ..
+        } => {
             if log_json {
-                let subscriber =
-                    tracing_subscriber::registry().with(fmt.json().with_filter(filter));
+                let subscriber = tracing_subscriber::registry()
+                    .with(fmt.json().with_filter(filter))
+                    .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
                 tracing::subscriber::set_global_default(subscriber)?;
             } else {
-                let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
+                let subscriber = tracing_subscriber::registry()
+                    .with(fmt.with_filter(filter))
+                    .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
                 tracing::subscriber::set_global_default(subscriber)?;
             };
 
@@ -195,8 +216,11 @@ fn main() -> Result<(), anyhow::Error> {
             mode,
             use_clippy,
             saved_file,
+            log_scuba_to_stdout,
         } => {
-            let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
+            let subscriber = tracing_subscriber::registry()
+                .with(fmt.with_filter(filter))
+                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
             tracing::subscriber::set_global_default(subscriber)?;
             cli::Check::new(mode, use_clippy, saved_file).run()
         }
