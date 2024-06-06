@@ -14,6 +14,7 @@ import {Link, RouterContext, TARGET_TAB, TARGET_VIEW} from './Router'
 
 const TARGET_ATTRS = 'target_attrs'
 const TARGET_DEPS = 'target_deps'
+const TARGET_RDEPS = 'target_rdeps'
 
 /*
  * If we have an object associated with this string, make it a link.
@@ -141,9 +142,19 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
             Dependencies
           </Link>
         </div>
+        <div className={'target-tab' + (tab === TARGET_RDEPS ? ' active' : '')}>
+          <Link
+            className="no-underline"
+            to={new Map()
+              .set(TARGET_VIEW, target.configuredTargetLabel())
+              .set(TARGET_TAB, TARGET_RDEPS)}>
+            Reverse dependencies
+          </Link>
+        </div>
       </div>
       {tab === TARGET_ATTRS ? <TargetAttrs target={target} /> : null}
       {tab === TARGET_DEPS ? <TargetDeps target={target} /> : null}
+      {tab === TARGET_RDEPS ? <TargetRdeps target={target} /> : null}
     </>
   )
 }
@@ -153,6 +164,25 @@ function TargetDeps(props: {target: ConfiguredTargetNode}) {
   return (
     <div className="target-deps-content">
       deps = [<List attr={i => target.deps(i)} length={target.depsLength()} />]
+    </div>
+  )
+}
+
+function TargetRdeps(props: {target: ConfiguredTargetNode}) {
+  const {target} = props
+  const {rdepsTargets, build} = useContext(DataContext)
+
+  const label = target?.configuredTargetLabel()
+  const rdeps = label != null ? rdepsTargets[label] ?? [] : []
+
+  return (
+    <div className="target-deps-content">
+      rdeps = [
+      <List
+        attr={i => build?.targets(rdeps[i])?.configuredTargetLabel() ?? 'Target not found'}
+        length={rdeps.length}
+      />
+      ]
     </div>
   )
 }

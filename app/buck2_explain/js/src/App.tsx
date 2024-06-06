@@ -22,12 +22,15 @@ const INITIAL_STATE = {
   build: null,
   rootTarget: null,
   allTargets: {},
+  rdepsTargets: {},
 }
 
 type STATE_TYPE = {
   build: Build | null
   rootTarget: ConfiguredTargetNode | null
   allTargets: {[key: string]: number}
+  // target index -> [rdeps target]
+  rdepsTargets: {[key: string]: [number]}
 }
 
 export const DataContext = React.createContext<STATE_TYPE>(INITIAL_STATE)
@@ -72,8 +75,24 @@ function App() {
         allTargets[label] = i
       }
 
+      let rdepsTargets: {[key: string]: [number]} = {}
+      Object.values(allTargets).forEach(i => {
+        let target = build.targets(i)
+        let depsLength = target?.depsLength() ?? 0
+        for (let i = 0; i < depsLength; i++) {
+          const dep = target?.deps(i)
+          if (dep != null) {
+            if (rdepsTargets.hasOwnProperty(dep) && !rdepsTargets[dep].includes(i)) {
+              rdepsTargets[dep].push(i)
+            } else {
+              rdepsTargets[dep] = [i]
+            }
+          }
+        }
+      })
+
       // This should run just once total
-      setData({build, allTargets, rootTarget})
+      setData({build, allTargets, rootTarget, rdepsTargets})
     }
     fetchData()
   }, [])
