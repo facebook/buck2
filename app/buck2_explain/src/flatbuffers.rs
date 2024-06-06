@@ -9,7 +9,6 @@
 
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
-use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -199,7 +198,12 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             v.0.iter().for_each(|v| {
                 match v {
                     ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                    _ => list.push(v.as_display(&AttrFmtContext::NO_QUOTES).to_string()), // TODO iguridi: structure this
+                    _ => list.push(
+                        v.as_display_no_ctx()
+                            .to_string()
+                            .trim_matches('"')
+                            .to_owned(),
+                    ), // TODO iguridi: make a "printer_for_explain" for attrs
                 }
             });
             AttrField::StringList(name, list)
@@ -219,7 +223,12 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
             v.0.iter().for_each(|v| {
                 match v {
                     ConfiguredAttr::String(v) => list.push(v.0.to_string()),
-                    _ => list.push(v.as_display(&AttrFmtContext::NO_QUOTES).to_string()), // TODO iguridi: structure this
+                    _ => list.push(
+                        v.as_display_no_ctx()
+                            .to_string()
+                            .trim_matches('"')
+                            .to_owned(),
+                    ), // TODO iguridi: make a "printer_for_explain" for attrs
                 }
             });
             AttrField::StringList(name, list)
@@ -232,9 +241,15 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
                             (k.0.to_string(), v.0.to_string())
                         }
                         _ => (
-                            k.as_display(&AttrFmtContext::NO_QUOTES).to_string(),
-                            v.as_display(&AttrFmtContext::NO_QUOTES).to_string(),
-                        ), // TODO iguridi: structure this
+                            k.as_display_no_ctx()
+                                .to_string()
+                                .trim_matches('"')
+                                .to_owned(),
+                            v.as_display_no_ctx()
+                                .to_string()
+                                .trim_matches('"')
+                                .to_owned(),
+                        ), // TODO iguridi: make a "printer_for_explain" for attrs
                     })
                     .collect();
             AttrField::StringDict(name, string_pairs)

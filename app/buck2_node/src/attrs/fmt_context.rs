@@ -27,11 +27,4 @@ impl AttrFmtContext {
             exclude_quotes: false,
         },
     };
-
-    pub const NO_QUOTES: AttrFmtContext = AttrFmtContext {
-        package: None,
-        options: AttrFmtOptions {
-            exclude_quotes: true,
-        },
-    };
 }
