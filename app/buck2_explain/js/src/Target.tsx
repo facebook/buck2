@@ -10,7 +10,10 @@
 import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {IntAttr, BoolAttr, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
-import {Link, TARGET_VIEW} from './Router'
+import {Link, RouterContext, TARGET_TAB, TARGET_VIEW} from './Router'
+
+const TARGET_ATTRS = 'target_attrs'
+const TARGET_DEPS = 'target_deps'
 
 /*
  * If we have an object associated with this string, make it a link.
@@ -111,32 +114,66 @@ function ListOfListOfStringAttrs(props: {
   return <>{items}</>
 }
 
-export function Target(props: {target: ConfiguredTargetNode}) {
+export function Target(props: {target: ConfiguredTargetNode; tab: string | null}) {
   const target = props.target
+  const tab = props.tab ?? TARGET_ATTRS
+
   return (
     <>
       <h3>{target.configuredTargetLabel()}</h3>
 
-      <ul>
-        <li>name = "{target.name()}",</li>
-        <li>type = "{target.type()}",</li>
-        <li>
-          deps = [
-          <List attr={i => target.deps(i)} length={target.depsLength()} />
-          ],
-        </li>
-        <li>package = "{target.package_()}",</li>
-        <li>oncall = "{target.oncall()}",</li>
-        <li>target_configuration = "{target.targetConfiguration()}",</li>
-        <li>execution_platform = "{target.executionPlatform()}",</li>
-        <ListOfPlainAttrs attr={i => target.boolAttrs(i)} length={target.boolAttrsLength()} />
-        <ListOfPlainAttrs attr={i => target.intAttrs(i)} length={target.intAttrsLength()} />
-        <ListOfStringAttrs attr={i => target.stringAttrs(i)} length={target.stringAttrsLength()} />
-        <ListOfListOfStringAttrs
-          attr={i => target.listOfStringsAttrs(i)}
-          length={target.listOfStringsAttrsLength()}
-        />
-      </ul>
+      <div className="target-tabs">
+        <div className={'target-tab' + (tab === TARGET_ATTRS ? ' active' : '')}>
+          <Link
+            className="no-underline"
+            to={new Map()
+              .set(TARGET_VIEW, target.configuredTargetLabel())
+              .set(TARGET_TAB, TARGET_ATTRS)}>
+            Attributes
+          </Link>
+        </div>
+        <div className={'target-tab' + (tab === TARGET_DEPS ? ' active' : '')}>
+          <Link
+            className="no-underline"
+            to={new Map()
+              .set(TARGET_VIEW, target.configuredTargetLabel())
+              .set(TARGET_TAB, TARGET_DEPS)}>
+            Dependencies
+          </Link>
+        </div>
+      </div>
+      {tab === TARGET_ATTRS ? <TargetAttrs target={target} /> : null}
+      {tab === TARGET_DEPS ? <TargetDeps target={target} /> : null}
     </>
+  )
+}
+
+function TargetDeps(props: {target: ConfiguredTargetNode}) {
+  const {target} = props
+  return (
+    <div className="target-deps-content">
+      deps = [<List attr={i => target.deps(i)} length={target.depsLength()} />]
+    </div>
+  )
+}
+
+function TargetAttrs(props: {target: ConfiguredTargetNode}) {
+  const {target} = props
+  return (
+    <ul>
+      <li>name = "{target.name()}",</li>
+      <li>type = "{target.type()}",</li>
+      <li>package = "{target.package_()}",</li>
+      <li>oncall = "{target.oncall()}",</li>
+      <li>target_configuration = "{target.targetConfiguration()}",</li>
+      <li>execution_platform = "{target.executionPlatform()}",</li>
+      <ListOfPlainAttrs attr={i => target.boolAttrs(i)} length={target.boolAttrsLength()} />
+      <ListOfPlainAttrs attr={i => target.intAttrs(i)} length={target.intAttrsLength()} />
+      <ListOfStringAttrs attr={i => target.stringAttrs(i)} length={target.stringAttrsLength()} />
+      <ListOfListOfStringAttrs
+        attr={i => target.listOfStringsAttrs(i)}
+        length={target.listOfStringsAttrsLength()}
+      />
+    </ul>
   )
 }

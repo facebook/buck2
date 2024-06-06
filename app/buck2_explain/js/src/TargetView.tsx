@@ -10,7 +10,7 @@
 import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {Target} from './Target'
-import {RouterContext} from './Router'
+import {RouterContext, TARGET_TAB} from './Router'
 
 export function TargetView(props: {view: string}) {
   const {allTargets, build} = useContext(DataContext)
@@ -20,5 +20,7 @@ export function TargetView(props: {view: string}) {
   const targetLabel = urlParams.get(props.view) ?? null
   const target = targetLabel == null ? null : build?.targets(allTargets[targetLabel])
 
-  return target == null ? <p>No target found</p> : <Target target={target} />
+  const tab = urlParams.get(TARGET_TAB)
+
+  return target == null ? <p>No target found</p> : <Target target={target} tab={tab} />
 }
