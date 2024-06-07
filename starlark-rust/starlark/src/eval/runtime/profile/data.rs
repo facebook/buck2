@@ -25,6 +25,7 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+use crate::eval::runtime::profile::stmt::StmtProfileData;
 use crate::eval::ProfileMode;
 use crate::values::AggregateHeapProfileInfo;
 
@@ -47,6 +48,7 @@ pub(crate) enum ProfileDataImpl {
     AggregateHeapProfileInfo(Box<AggregateHeapProfileInfo>),
     /// Flame graph data is in milliseconds.
     TimeFlameProfile(FlameGraphData),
+    Statement(StmtProfileData),
     Other(String),
 }
 
@@ -56,6 +58,11 @@ pub struct ProfileData {
     pub(crate) profile_mode: ProfileMode,
     /// Serialized to text (e.g. CSV or flamegraph).
     pub(crate) profile: ProfileDataImpl,
+}
+
+fn _assert_profile_data_send_sync() {
+    fn _assert_send_sync<T: Send + Sync>() {}
+    _assert_send_sync::<ProfileData>();
 }
 
 impl ProfileData {
@@ -85,6 +92,12 @@ impl ProfileData {
             }
             (ProfileDataImpl::TimeFlameProfile(data), ProfileMode::TimeFlame) => Ok(data.write()),
             (ProfileDataImpl::TimeFlameProfile(_), _) => {
+                Err(ProfileDataError::ProfileDataNotConsistent.into())
+            }
+            (ProfileDataImpl::Statement(data), ProfileMode::Statement) => {
+                Ok(data.write_to_string())
+            }
+            (ProfileDataImpl::Statement(_), _) => {
                 Err(ProfileDataError::ProfileDataNotConsistent.into())
             }
         }

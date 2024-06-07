@@ -25,6 +25,7 @@ use std::cmp;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -190,6 +191,9 @@ impl<T> DerefMut for Spanned<T> {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Dupe, Allocative)]
 pub struct CodeMapId(#[allocative(skip)] *const ());
 
+unsafe impl Send for CodeMapId {}
+unsafe impl Sync for CodeMapId {}
+
 impl CodeMapId {
     pub const EMPTY: CodeMapId = CodeMapId(ptr::null());
 }
@@ -206,7 +210,7 @@ enum CodeMapImpl {
 pub struct CodeMap(CodeMapImpl);
 
 /// Multiple [`CodeMap`].
-#[derive(Clone, Default, Allocative)]
+#[derive(Clone, Default, Debug, Allocative)]
 pub struct CodeMaps {
     codemaps: HashMap<CodeMapId, CodeMap>,
 }

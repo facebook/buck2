@@ -31,6 +31,7 @@ use crate::codemap::ResolvedFileSpan;
 use crate::codemap::Span;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileMode;
 
@@ -55,7 +56,8 @@ struct StmtProfileState {
 }
 
 /// Result of running statement profiler.
-struct StmtProfileData {
+#[derive(Clone, Debug)]
+pub(crate) struct StmtProfileData {
     files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
     last_span: (CodeMapId, Span),
@@ -123,7 +125,7 @@ impl StmtProfileState {
 }
 
 impl StmtProfileData {
-    fn write_to_string(&self) -> String {
+    pub(crate) fn write_to_string(&self) -> String {
         struct Item {
             span: FileSpan,
             time: SmallDuration,
@@ -196,10 +198,10 @@ impl StmtProfile {
     // None = not applicable because not enabled
     pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
         match &self.0 {
-            Some(data) => Ok(ProfileData::new(
-                ProfileMode::Statement,
-                data.finish().write_to_string(),
-            )),
+            Some(data) => Ok(ProfileData {
+                profile_mode: ProfileMode::Statement,
+                profile: ProfileDataImpl::Statement(data.finish()),
+            }),
             None => Err(StmtProfileError::NotEnabled.into()),
         }
     }
