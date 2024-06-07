@@ -58,6 +58,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
+use buck2_core::soft_error;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
@@ -107,6 +108,11 @@ unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderLike<'v> {
 #[starlark_module]
 pub(crate) fn provider_methods(builder: &mut MethodsBuilder) {
     fn to_json(this: Value) -> anyhow::Result<String> {
+        soft_error!(
+            "provider_to_json",
+            anyhow::anyhow!("provider.to_json is deprecated and will be removed"),
+            quiet: true,
+        )?;
         this.to_json()
     }
 }

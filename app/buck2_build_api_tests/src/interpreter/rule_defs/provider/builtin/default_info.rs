@@ -108,7 +108,7 @@ fn test_to_json() {
                 )
                 assert_eq(
                     '{"sub_targets":{"foo":{"DefaultInfo":{"sub_targets":{},"default_outputs":[],"other_outputs":[]}}},"default_outputs":[],"other_outputs":[]}',
-                    default.to_json(),
+                    json.encode(default),
                 )
             "#
         ))
