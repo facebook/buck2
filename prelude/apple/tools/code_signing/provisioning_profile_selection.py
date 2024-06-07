@@ -138,12 +138,28 @@ def _check_developer_certificates_match(
 
 def _make_multiple_matching_profiles_message(
     profiles: list[ProvisioningProfileMetadata],
+    strict_search: bool,
 ) -> str:
     messages = [f"Found MULTIPLE matching profiles: {len(profiles)}"]
     messages += [
         f"    Matching Profile = UUID:{profile.uuid}, file path: {profile.file_path}"
         for profile in profiles
     ]
+
+    if strict_search:
+        messages += [
+            "Strict provisioning profile search is ENABLED, build will FAIL due to ambiguous provisioning profile search results.",
+            "To resolve the problem, ensure only a single profile matches.",
+            "To unblock, you have two options:",
+            "Option 1: Disable strict provisioning profile search for the targets failing to build.",
+            "    If the target failing to build is an `apple_bundle()`, set the `strict_provisioning_profile_search` attribute to `False`.",
+            "    If the target failing to build is produced by `ios_binary()`, set the `bundle_strict_provisioning_profile_search` attribute to `False`.",
+            "    You can commit such a change, so that the issue can be investigated without blocking other developers.",
+            "    NB: This is a TEMPORARY WORKAROUND, as it only disables the strict checking, it does not resolve the ambiguity.",
+            "Option 2: Pass `--config apple.strict_provisioning_profile_search=false` as part of your build command.",
+            "    DO NOT COMMIT such a change by adding this to any CI configs.",
+        ]
+
     return "\n".join(messages)
 
 
@@ -277,7 +293,8 @@ def select_best_provisioning_profile(
     )
     if len(all_matching_profiles) > 1:
         multiple_profiles_message = _make_multiple_matching_profiles_message(
-            all_matching_profiles
+            all_matching_profiles,
+            strict_search,
         )
         _LOGGER.info(multiple_profiles_message)
         if strict_search:
