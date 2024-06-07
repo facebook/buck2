@@ -38,6 +38,9 @@ pub struct AnalysisResult {
     /// The actual provider collection, validated to be the correct type (`FrozenProviderCollection`)
     pub provider_collection: FrozenProviderCollectionValue,
     deferred: Arc<DeferredTable>,
+    /// Profiling data after running analysis, for this analysis only, without dependencies.
+    /// `None` when profiling is disabled.
+    /// For forward node, this value is shared with underlying analysis (including this field).
     pub profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
     promise_artifact_map: Arc<HashMap<PromiseArtifactId, Artifact>>,
 }

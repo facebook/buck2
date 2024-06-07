@@ -311,14 +311,6 @@ async fn get_analysis_result_inner(
                 .await
             }
             RuleType::Forward => {
-                match profile_mode {
-                    StarlarkProfileModeOrInstrumentation::None => {}
-                    StarlarkProfileModeOrInstrumentation::Profile(_) => {
-                        return Err(
-                            internal_error!("get_analysis_result should not be called on a forward target (`{target}`) when profiling is enabled")
-                        );
-                    }
-                }
                 assert!(dep_analysis.len() == 1);
                 Ok(MaybeCompatible::Compatible(dep_analysis.pop().unwrap().1))
             }
@@ -377,12 +369,22 @@ pub async fn profile_analysis(
 fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode> {
     let mut stack = vec![node];
     let mut visited = LabelIndexedSet::new();
+    let mut result = LabelIndexedSet::new();
     while let Some(node) = stack.pop() {
         if visited.insert(node.dupe()) {
+            match node.rule_type() {
+                RuleType::Starlark(_) => {
+                    result.insert(node.dupe());
+                }
+                RuleType::Forward => {
+                    // No starlark code ran on forward node.
+                }
+            }
+
             stack.extend(node.deps().duped());
         }
     }
-    visited
+    result
 }
 
 pub async fn profile_analysis_recursively(
