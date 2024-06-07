@@ -41,12 +41,12 @@ enum StmtProfileError {
 }
 
 // When line profiling is not enabled, we want this to be small and cheap
-pub(crate) struct StmtProfile(Option<Box<StmtProfileData>>);
+pub(crate) struct StmtProfile(Option<Box<StmtProfileState>>);
 
 // So we don't need a special case for the first time around,
 // we have a special FileId of empty that we ignore when printing
 #[derive(Clone)]
-struct StmtProfileData {
+struct StmtProfileState {
     files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
     next_file: CodeMapId,
@@ -54,9 +54,9 @@ struct StmtProfileData {
     last_start: Instant,
 }
 
-impl StmtProfileData {
+impl StmtProfileState {
     fn new() -> Self {
-        StmtProfileData {
+        StmtProfileState {
             files: CodeMaps::default(),
             stmts: HashMap::new(),
             next_file: CodeMapId::EMPTY,
@@ -166,7 +166,7 @@ impl StmtProfile {
     }
 
     pub(crate) fn enable(&mut self) {
-        self.0 = Some(Box::new(StmtProfileData::new()))
+        self.0 = Some(Box::new(StmtProfileState::new()))
     }
 
     pub(crate) fn before_stmt(&mut self, span: FileSpanRef) {
