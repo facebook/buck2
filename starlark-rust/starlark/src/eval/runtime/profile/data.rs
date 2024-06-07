@@ -27,6 +27,7 @@ use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::profile::stmt::StmtProfileData;
+use crate::eval::runtime::profile::typecheck::TypecheckProfileData;
 use crate::values::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]
@@ -49,7 +50,7 @@ pub(crate) enum ProfileDataImpl {
     /// Flame graph data is in milliseconds.
     TimeFlameProfile(FlameGraphData),
     Statement(StmtProfileData),
-    Other(String),
+    Typecheck(TypecheckProfileData),
 }
 
 /// Collected profiling data.
@@ -66,17 +67,9 @@ fn _assert_profile_data_send_sync() {
 }
 
 impl ProfileData {
-    pub(crate) fn new(profile_mode: ProfileMode, profile: String) -> ProfileData {
-        ProfileData {
-            profile_mode,
-            profile: ProfileDataImpl::Other(profile),
-        }
-    }
-
     /// Generate a string with profile data (e.g. CSV or flamegraph, depending on profile type).
     pub fn gen(&self) -> anyhow::Result<String> {
         match (&self.profile, &self.profile_mode) {
-            (ProfileDataImpl::Other(profile), _) => Ok(profile.clone()),
             (ProfileDataImpl::Bc(bc), _) => Ok(bc.gen_csv()),
             (ProfileDataImpl::BcPairs(bc_pairs), _) => Ok(bc_pairs.gen_csv()),
             (
@@ -98,6 +91,10 @@ impl ProfileData {
                 Ok(data.write_to_string())
             }
             (ProfileDataImpl::Statement(_), _) => {
+                Err(ProfileDataError::ProfileDataNotConsistent.into())
+            }
+            (ProfileDataImpl::Typecheck(data), ProfileMode::Typecheck) => Ok(data.gen_csv()),
+            (ProfileDataImpl::Typecheck(_), _) => {
                 Err(ProfileDataError::ProfileDataNotConsistent.into())
             }
         }

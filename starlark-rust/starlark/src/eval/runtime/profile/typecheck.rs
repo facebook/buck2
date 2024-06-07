@@ -22,6 +22,7 @@ use std::time::Duration;
 use crate::collections::SmallMap;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::FrozenStringValue;
@@ -32,23 +33,20 @@ enum TypecheckProfileError {
     NotEnabled,
 }
 
-#[derive(Default, Debug)]
-pub(crate) struct TypecheckProfile {
-    pub(crate) enabled: bool,
+#[derive(Default, Debug, Clone)]
+pub(crate) struct TypecheckProfileData {
     // TODO(nga): we don't need ordered map here.
     by_function: SmallMap<FrozenStringValue, SmallDuration>,
 }
 
-impl TypecheckProfile {
-    pub(crate) fn add(&mut self, function: FrozenStringValue, time: Duration) {
-        assert!(self.enabled);
-        *self
-            .by_function
-            .entry_hashed(function.get_hashed())
-            .or_default() += time;
-    }
+#[derive(Default, Debug)]
+pub(crate) struct TypecheckProfile {
+    pub(crate) enabled: bool,
+    data: TypecheckProfileData,
+}
 
-    fn gen_csv(&self) -> String {
+impl TypecheckProfileData {
+    pub(crate) fn gen_csv(&self) -> String {
         let total_time = self.by_function.values().sum::<SmallDuration>();
 
         let mut w = CsvWriter::new(["Function", "Time (s)"]);
@@ -67,12 +65,26 @@ impl TypecheckProfile {
 
         w.finish()
     }
+}
+
+impl TypecheckProfile {
+    pub(crate) fn add(&mut self, function: FrozenStringValue, time: Duration) {
+        assert!(self.enabled);
+        *self
+            .data
+            .by_function
+            .entry_hashed(function.get_hashed())
+            .or_default() += time;
+    }
 
     pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
         if !self.enabled {
             return Err(TypecheckProfileError::NotEnabled.into());
         }
-        Ok(ProfileData::new(ProfileMode::Typecheck, self.gen_csv()))
+        Ok(ProfileData {
+            profile_mode: ProfileMode::Typecheck,
+            profile: ProfileDataImpl::Typecheck(self.data.clone()),
+        })
     }
 }
 
@@ -103,7 +115,7 @@ g()
         eval.enable_profile(&ProfileMode::Typecheck)?;
         eval.eval_module(program, &Globals::extended_internal())?;
 
-        let csv = eval.typecheck_profile.gen_csv();
+        let csv = eval.typecheck_profile.data.gen_csv();
         let lines: Vec<&str> = csv.lines().collect();
         assert_eq!("Function,Time (s)", lines[0]);
         assert!(lines[1].starts_with("\"TOTAL\","), "{:?}", lines[1]);
