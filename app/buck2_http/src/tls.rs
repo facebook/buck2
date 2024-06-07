@@ -9,6 +9,7 @@
 
 use std::ffi::OsStr;
 use std::ffi::OsString;
+use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -91,30 +92,43 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     Ok(roots)
 }
 
+// Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
+fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
+    let cert = cert.as_ref();
+
+    let cert_data = fs::read(cert)
+        .with_context(|| format!("Error reading certificate file `{}`", cert.display()))?;
+
+    let certs = rustls_pemfile::certs(&mut cert_data.as_slice())
+        .with_context(|| format!("Error parsing certificate file `{}`", cert.display()))?;
+
+    Ok(certs)
+}
+
+// Load private key from the given path
+fn load_key<P: AsRef<Path>>(key: P) -> anyhow::Result<PrivateKey> {
+    let key = key.as_ref();
+
+    let key_data =
+        fs::read(key).with_context(|| format!("Error opening key file `{}`", key.display()))?;
+
+    let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_data.as_slice())
+        .with_context(|| format!("Error parsing key file `{}`", key.display()))?
+        .pop()
+        .with_context(|| format!("Found no private key in key file `{}`", key.display()))?;
+    let key = PrivateKey(private_key);
+
+    Ok(key)
+}
+
 /// Deserialize certificate pair at `cert` and `key` into structures that can
 /// be inserted into rustls CertStore.
 fn load_cert_pair<P: AsRef<Path>>(
     cert: P,
     key: P,
 ) -> anyhow::Result<(Vec<Certificate>, PrivateKey)> {
-    let cert = cert.as_ref();
-    let key = key.as_ref();
-    let cert_file = File::open(cert)
-        .with_context(|| format!("Error opening certificate file `{}`", cert.display()))?;
-    let key_file =
-        File::open(key).with_context(|| format!("Error opening key file `{}`", key.display()))?;
-    let mut cert_reader = BufReader::new(&cert_file);
-    let mut key_reader = BufReader::new(&key_file);
-
-    let certs = rustls_pemfile::certs(&mut cert_reader)
-        .with_context(|| format!("Error parsing certificate file `{}`", cert.display()))?
-        .into_map(Certificate);
-
-    let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_reader)
-        .with_context(|| format!("Error parsing key file `{}`", key.display()))?
-        .pop()
-        .with_context(|| format!("Found no private key in key file `{}`", key.display()))?;
-    let key = PrivateKey(private_key);
+    let certs = load_certs(cert)?.into_map(Certificate);
+    let key = load_key(key)?;
 
     Ok((certs, key))
 }
