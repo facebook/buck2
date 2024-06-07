@@ -280,7 +280,8 @@ def _transitively_update_shared_linkage(
         link_strategy: LinkStrategy,
         link_group_preferred_linkage: dict[Label, Linkage],
         link_group_roots: dict[Label, str],
-        pic_behavior: PicBehavior):
+        pic_behavior: PicBehavior,
+        link_group_mappings: [dict[Label, str], None]):
     # Identify targets whose shared linkage style may be propagated to
     # dependencies. Implicitly created root libraries are skipped.
     shared_lib_roots = []
@@ -296,7 +297,10 @@ def _transitively_update_shared_linkage(
                 shared_lib_roots.append(target)
 
     # buildifier: disable=uninitialized
-    def process_dependency(node: Label) -> list[Label]:
+    def process_dependency(node: Label) -> list[Label] | None:
+        if link_group_mappings and link_group_mappings.get(node) == NO_MATCH_LABEL:
+            # Do not propagate shared linkage via nodes that are excluded from link groups.
+            return None
         linkable_node = linkable_graph_node_map[node]
         if linkable_node.preferred_linkage == Linkage("any"):
             link_group_preferred_linkage[node] = Linkage("shared")
@@ -376,6 +380,7 @@ def get_filtered_labels_to_links_map(
         link_group_preferred_linkage,
         link_group_roots,
         pic_behavior,
+        link_group_mappings,
     )
 
     linkable_map = {}
