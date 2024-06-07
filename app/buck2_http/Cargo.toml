@@ -23,12 +23,14 @@ tokio = { workspace = true }
 tokio-rustls = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
+x509-parser = { workspace = true }
 
 allocative = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 
 buck2_error = { workspace = true }
+buck2_util = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 hyper-unix-connector = { workspace = true }
