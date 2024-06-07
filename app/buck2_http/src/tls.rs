@@ -22,6 +22,10 @@ use rustls::ClientConfig;
 use rustls::PrivateKey;
 use rustls::RootCertStore;
 
+#[derive(Debug, buck2_error::Error)]
+#[error("ERROR - COULD NOT FIND VALID CERTS")]
+struct InvalidCertsError;
+
 /// Find root CA certs.
 ///
 /// In OSS or non-fbcode builds, returns None; we do not support hardcoded root
@@ -93,19 +97,6 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     Ok(roots)
 }
 
-// Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
-fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
-    let cert = cert.as_ref();
-
-    let cert_data = fs::read(cert)
-        .with_context(|| format!("Error reading certificate file `{}`", cert.display()))?;
-
-    let certs = rustls_pemfile::certs(&mut cert_data.as_slice())
-        .with_context(|| format!("Error parsing certificate file `{}`", cert.display()))?;
-
-    Ok(certs)
-}
-
 // Load private key from the given path
 fn load_key<P: AsRef<Path>>(key: P) -> anyhow::Result<PrivateKey> {
     let key = key.as_ref();
@@ -156,6 +147,19 @@ pub fn tls_config_with_single_cert<P: AsRef<Path>>(
         .context("Error creating TLS config with cert and key path")
 }
 
+// Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
+pub fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
+    let cert = cert.as_ref();
+
+    let cert_data = fs::read(cert)
+        .with_context(|| format!("Error reading certificate file `{}`", cert.display()))?;
+
+    let certs = rustls_pemfile::certs(&mut cert_data.as_slice())
+        .with_context(|| format!("Error parsing certificate file `{}`", cert.display()))?;
+
+    Ok(certs)
+}
+
 /// Find TLS certs.
 ///
 /// Return `None` in Cargo or open source builds; we do not support internal certs
@@ -171,7 +175,6 @@ pub fn find_internal_cert() -> Option<OsString> {
 /// Use SKS Agent to check the status of the VPNless cert in the scenario that VPNless is supported.
 /// SKS Agent is different in Windows so we need to use the appropriate command for the OS.
 ///
-/// TODO(minglunli): Function used in next diff
 /// TODO(minglunli): Maybe this code should be moved to new crate like `buck2_certs`` or something?
 pub fn is_vpnless_cert_valid() -> bool {
     if !crate::x2p::supports_vpnless() {
@@ -197,8 +200,6 @@ pub fn is_vpnless_cert_valid() -> bool {
 }
 
 /// Check if the provided certs exists and if it is still valid at the current time.
-///
-/// TODO(minglunli): Function used in next diff
 pub fn is_cert_valid(certs: Vec<Vec<u8>>) -> bool {
     certs.iter().any(|bytes| {
         let x509_cert = match x509_parser::parse_x509_certificate(bytes) {
@@ -208,6 +209,24 @@ pub fn is_cert_valid(certs: Vec<Vec<u8>>) -> bool {
 
         x509_cert.validity().is_valid()
     })
+}
+
+pub fn validate_certs() -> anyhow::Result<()> {
+    if cfg!(fbcode_build) {
+        let tls_certs_valid = match find_internal_cert() {
+            Some(cert_path) => {
+                let certs = load_certs(cert_path)?;
+                is_cert_valid(certs)
+            }
+            None => false,
+        };
+
+        if !tls_certs_valid && !is_vpnless_cert_valid() {
+            return Err(InvalidCertsError.into());
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

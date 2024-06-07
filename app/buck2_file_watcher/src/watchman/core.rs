@@ -17,6 +17,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::buck2_env;
+use buck2_http::tls;
 use dupe::Dupe;
 use futures::future::Future;
 use serde::Deserialize;
@@ -150,8 +151,14 @@ async fn with_timeout<R>(
     }
     match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
         Ok(Ok(res)) => Ok(res),
-        Ok(Err(e)) => Err(WatchmanClientError::RequestFailed(e).into()),
-        Err(_) => Err(WatchmanClientError::Timeout(timeout).into()),
+        Ok(Err(e)) => {
+            tls::validate_certs().context("Unable to find any valid certs. Please refresh your internal or SKS certs and try again.")?;
+            Err(WatchmanClientError::RequestFailed(e).into())
+        }
+        Err(_) => {
+            tls::validate_certs().context("Unable to find any valid certs. Please refresh your internal or SKS certs and try again.")?;
+            Err(WatchmanClientError::Timeout(timeout).into())
+        }
     }
 }
 
