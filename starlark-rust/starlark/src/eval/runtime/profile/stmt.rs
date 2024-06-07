@@ -54,6 +54,13 @@ struct StmtProfileState {
     last_start: Instant,
 }
 
+/// Result of running statement profiler.
+struct StmtProfileData {
+    files: CodeMaps,
+    stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
+    last_span: (CodeMapId, Span),
+}
+
 impl StmtProfileState {
     fn new() -> Self {
         StmtProfileState {
@@ -96,29 +103,40 @@ impl StmtProfileState {
         self.files.add(codemap);
     }
 
-    fn write_to_string(&self, now: Instant) -> String {
+    fn finish(&self) -> StmtProfileData {
         // The statement that was running last won't have been properly updated.
         // However, at this point, we have probably run some post-execution code,
         // so it probably wouldn't have a "fair" timing anyway.
         // We do our best though, and give it a time of now.
         // Clone first, since we don't want to impact the real timing with our odd
         // final execution finish.
+        let now = Instant::now();
         let mut data = self.clone();
         data.add_last(now);
 
+        StmtProfileData {
+            files: data.files,
+            stmts: data.stmts,
+            last_span: data.last_span,
+        }
+    }
+}
+
+impl StmtProfileData {
+    fn write_to_string(&self) -> String {
         struct Item {
             span: FileSpan,
             time: SmallDuration,
             count: usize,
         }
         // There should be one EMPTY span entry
-        let mut items = Vec::with_capacity(data.stmts.len() - 1);
+        let mut items = Vec::with_capacity(self.stmts.len() - 1);
         let mut total_time = SmallDuration::default();
         let mut total_count = 0;
-        for ((file, span), (count, time)) in data.stmts {
+        for ((file, span), &(count, time)) in &self.stmts {
             // EMPTY represents the first time special-case
-            if file != CodeMapId::EMPTY {
-                let span = data.files.get(file).unwrap().file_span(span);
+            if *file != CodeMapId::EMPTY {
+                let span = self.files.get(*file).unwrap().file_span(*span);
                 total_time += time;
                 total_count += count;
                 items.push(Item { span, time, count })
@@ -177,11 +195,10 @@ impl StmtProfile {
 
     // None = not applicable because not enabled
     pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
-        let now = Instant::now();
         match &self.0 {
             Some(data) => Ok(ProfileData::new(
                 ProfileMode::Statement,
-                data.write_to_string(now),
+                data.finish().write_to_string(),
             )),
             None => Err(StmtProfileError::NotEnabled.into()),
         }
@@ -192,6 +209,7 @@ impl StmtProfile {
             .0
             .as_ref()
             .ok_or(StmtProfileError::NotEnabled)?
+            .finish()
             .coverage())
     }
 }
