@@ -31,7 +31,8 @@ fn make_golden(output: &str) -> String {
     writeln!(golden, "# ```").unwrap();
     writeln!(
         golden,
-        "# {REGENERATE_VAR_NAME}=1 cargo test -p starlark --lib tests"
+        // TODO(nga): fix instruction for `starlark_syntax` crate.
+        "# {REGENERATE_VAR_NAME}=1 cargo test -p starlark --lib"
     )
     .unwrap();
     writeln!(golden, "# ```").unwrap();
