@@ -32,15 +32,7 @@ fn find_root_ca_certs() -> Option<OsString> {
     return None;
 }
 
-/// Load the system root certificates using native frameworks.
-fn load_system_root_certs_native() -> anyhow::Result<Vec<Vec<u8>>> {
-    let native_certs: Vec<_> = rustls_native_certs::load_native_certs()
-        .context("Error loading system root certificates")?
-        .into_map(|cert| cert.0);
-    Ok(native_certs)
-}
-
-/// Load system root certifcates from disk.
+/// Load system root certificates from disk.
 fn load_system_root_certs_disk(path: &OsStr) -> anyhow::Result<Vec<Vec<u8>>> {
     let file = File::open(path)
         .with_context(|| format!("Opening root certs at: {}", path.to_string_lossy()))?;
@@ -56,25 +48,35 @@ fn load_system_root_certs_disk(path: &OsStr) -> anyhow::Result<Vec<Vec<u8>>> {
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
 fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
-    let mut roots = RootCertStore::empty();
-    let root_certs = if let Ok(certs) = load_system_root_certs_native() {
-        certs
-    } else if let Some(path) = find_root_ca_certs() {
-        tracing::debug!(
-            "Failed loading certs from native OS, falling back to disk at: {}",
-            path.to_string_lossy(),
-        );
-        load_system_root_certs_disk(&path)
-            .with_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
-    } else {
-        return Err(anyhow::anyhow!("Unable to load system root certificates"));
-    };
+    let native_certs = rustls_native_certs::load_native_certs()
+        .context("Error loading system root certificates native frameworks");
+
+    let root_certs =
+        // Load the system root certificates using native frameworks.
+        if let Ok(certs) = native_certs {
+            certs.into_map(|cert| cert.0)
+        }
+        else if let Some(path) = find_root_ca_certs() {
+            tracing::debug!(
+                "Failed loading certs from native OS, falling back to disk at: {}",
+                path.to_string_lossy(),
+            );
+            load_system_root_certs_disk(&path)
+                .with_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
+        } else {
+            if let Err(e) = native_certs {
+                return Err(e);
+            }
+
+            return Err(anyhow::anyhow!("Unable to load system root certificates"));
+        };
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
     // it's better to only add parseable certs when loading system certs because
     // there are typically many system certs and not all of them can be valid. This
     // is pertinent for e.g. macOS which may have a lot of old certificates that may
     // not parse correctly.
+    let mut roots = RootCertStore::empty();
     let (valid, invalid) = roots.add_parsable_certificates(root_certs.as_slice());
 
     // But make sure we get at least _one_ valid cert, otherwise we legitimately won't be
