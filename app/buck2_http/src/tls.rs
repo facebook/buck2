@@ -20,6 +20,18 @@ use rustls::ClientConfig;
 use rustls::PrivateKey;
 use rustls::RootCertStore;
 
+/// Find root CA certs.
+///
+/// In OSS or non-fbcode builds, returns None; we do not support hardcoded root
+/// certificates in non-fbcode builds and rely solely on rustls-native-certs.
+fn find_root_ca_certs() -> Option<OsString> {
+    #[cfg(fbcode_build)]
+    return find_certs::find_root_ca_certs();
+
+    #[cfg(not(fbcode_build))]
+    return None;
+}
+
 /// Load the system root certificates using native frameworks.
 fn load_system_root_certs_native() -> anyhow::Result<Vec<Vec<u8>>> {
     let native_certs: Vec<_> = rustls_native_certs::load_native_certs()
@@ -134,18 +146,6 @@ pub fn tls_config_with_single_cert<P: AsRef<Path>>(
 pub fn find_internal_cert() -> Option<OsString> {
     #[cfg(fbcode_build)]
     return find_certs::find_tls_cert();
-
-    #[cfg(not(fbcode_build))]
-    return None;
-}
-
-/// Find root CA certs.
-///
-/// In OSS or non-fbcode builds, returns None; we do not support hardcoded root
-/// certificates in non-fbcode builds and rely solely on rustls-native-certs.
-pub fn find_root_ca_certs() -> Option<OsString> {
-    #[cfg(fbcode_build)]
-    return find_certs::find_root_ca_certs();
 
     #[cfg(not(fbcode_build))]
     return None;
