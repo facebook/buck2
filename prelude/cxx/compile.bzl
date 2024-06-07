@@ -154,6 +154,7 @@ CxxCompileOutput = record(
     external_debug_info = field(Artifact | None, None),
     clang_remarks = field(Artifact | None, None),
     clang_trace = field(Artifact | None, None),
+    gcno_file = field(Artifact | None, None),
 )
 
 _XCODE_ARG_SUBSTITUTION = [
@@ -447,6 +448,13 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
+    gcno_file = None
+    if toolchain.gcno_files and src_compile_cmd.src.extension not in (".S", ".sx"):
+        args.add(["--coverage"])
+        gcno_file = ctx.actions.declare_output(
+            paths.join("__objects__", "{}.gcno".format(filename_base)),
+        )
+        cmd.hidden(gcno_file.as_output())
     ctx.actions.run(
         cmd,
         category = src_compile_cmd.cxx_compile_cmd.category,
@@ -481,6 +489,7 @@ def _compile_single_cxx(
         object_has_external_debug_info = object_has_external_debug_info,
         clang_remarks = clang_remarks,
         clang_trace = clang_trace,
+        gcno_file = gcno_file,
     )
 
 def compile_cxx(

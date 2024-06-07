@@ -171,6 +171,7 @@ def cxx_toolchain_impl(ctx):
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
         clang_remarks = ctx.attrs.clang_remarks,
+        gcno_files = value_or(ctx.attrs.gcno_files, False),
         clang_trace = value_or(ctx.attrs.clang_trace, False),
         cpp_dep_tracking_mode = DepTrackingMode(ctx.attrs.cpp_dep_tracking_mode),
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
@@ -198,6 +199,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "cvtres_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cxx_compiler": dep_type(providers = [RunInfo]),
         "dist_lto_tools": dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools"),
+        "gcno_files": attrs.bool(default = False),
         "generate_linker_maps": attrs.bool(default = False),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),

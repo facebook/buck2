@@ -116,6 +116,7 @@ load(":bitcode.bzl", "BitcodeBundle", "BitcodeBundleInfo", "BitcodeTSet", "make_
 load(
     ":comp_db.bzl",
     "CxxCompilationDbInfo",
+    "GcnoFilesInfo",
     "create_compilation_database",
     "make_compilation_db_info",
 )
@@ -276,6 +277,7 @@ _CxxLibraryCompileOutput = record(
     bitcode_objects = field([list[Artifact], None]),
     # yaml file with optimization remarks about clang compilation
     clang_remarks = field([list[Artifact], None]),
+    gcno_files = field([list[Artifact], None]),
     # json file with trace information about clang compilation
     clang_traces = field(list[Artifact]),
     # Externally referenced debug info, which doesn't get linked with the
@@ -917,6 +919,7 @@ def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_in
         bitcode_objects = bitcode_objects,
         clang_traces = [out.clang_trace for out in outs if out.clang_trace != None],
         clang_remarks = [out.clang_remarks for out in outs if out.clang_remarks != None],
+        gcno_files = [out.gcno_file for out in outs if out.gcno_file != None],
         external_debug_info = [out.external_debug_info for out in outs if out.external_debug_info != None],
         objects_have_external_debug_info = lazy.is_any(lambda out: out.object_has_external_debug_info, outs),
         objects_sub_targets = objects_sub_targets,
@@ -972,6 +975,7 @@ def _form_library_outputs(
     link_infos = {}
     providers = []
     sanitizer_runtime_files = []
+    gcno_files = []
 
     linker_flags = cxx_attr_linker_flags_all(ctx)
 
@@ -998,6 +1002,8 @@ def _form_library_outputs(
                 lib_compile_output = compiled_srcs.non_pic
                 if not lib_compile_output:
                     fail("output_style {} requires non_pic compiled srcs, but didn't have any in {}".format(output_style, compiled_srcs))
+
+            gcno_files += lib_compile_output.gcno_files
 
             # Only generate an archive if we have objects to include
             if lib_compile_output.objects:
@@ -1048,6 +1054,8 @@ def _form_library_outputs(
                     artifacts = external_debug_artifacts,
                     children = impl_params.additional.shared_external_debug_info,
                 )
+
+                gcno_files += compiled_srcs.pic.gcno_files
 
                 extra_linker_flags, extra_linker_outputs = impl_params.extra_linker_outputs_factory(ctx)
 
@@ -1116,6 +1124,16 @@ def _form_library_outputs(
             default = ldflags(info),
             stripped = ldflags(stripped) if stripped != None else None,
         )
+
+    if get_cxx_toolchain_info(ctx).gcno_files:
+        deps_gcno_files = [
+            x[GcnoFilesInfo].gcno_files
+            for x in ctx.attrs.deps + ctx.attrs.exported_deps
+            if GcnoFilesInfo in x
+        ]
+        providers.append(GcnoFilesInfo(
+            gcno_files = dedupe(flatten(deps_gcno_files) + gcno_files),
+        ))
 
     return _CxxAllLibraryOutputs(
         outputs = outputs,
