@@ -25,8 +25,8 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::profile::stmt::StmtProfileData;
-use crate::eval::ProfileMode;
 use crate::values::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]
@@ -183,8 +183,8 @@ mod tests {
     use crate::eval::runtime::profile::bc::BcPairsProfileData;
     use crate::eval::runtime::profile::data::ProfileDataImpl;
     use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::ProfileData;
-    use crate::eval::ProfileMode;
 
     #[test]
     fn merge_bc() {

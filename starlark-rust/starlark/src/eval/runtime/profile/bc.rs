@@ -27,8 +27,8 @@ use dupe::Dupe;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
+use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::ProfileData;
-use crate::eval::ProfileMode;
 
 #[derive(Debug, thiserror::Error)]
 enum BcProfileError {
@@ -267,8 +267,8 @@ mod tests {
     use crate::eval::bc::opcode::BcOpcode;
     use crate::eval::runtime::profile::bc::BcPairsProfileData;
     use crate::eval::runtime::profile::bc::BcProfileData;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::Evaluator;
-    use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 

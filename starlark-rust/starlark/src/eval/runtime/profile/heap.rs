@@ -22,7 +22,7 @@ use dupe::Dupe;
 
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
-use crate::eval::ProfileMode;
+use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
@@ -124,8 +124,8 @@ mod tests {
     use crate::environment::Globals;
     use crate::environment::Module;
     use crate::eval::runtime::profile::heap::HeapProfile;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::Evaluator;
-    use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::Value;

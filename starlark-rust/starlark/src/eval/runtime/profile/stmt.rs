@@ -32,8 +32,8 @@ use crate::codemap::Span;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
+use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileMode;
 
 #[derive(Debug, thiserror::Error)]
 enum StmtProfileError {
@@ -222,8 +222,8 @@ mod tests {
     use crate::assert::test_functions;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::Evaluator;
-    use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 

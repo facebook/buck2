@@ -22,8 +22,8 @@ use std::time::Duration;
 use crate::collections::SmallMap;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
+use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileMode;
 use crate::values::FrozenStringValue;
 
 #[derive(Debug, thiserror::Error)]
@@ -80,8 +80,8 @@ impl TypecheckProfile {
 mod tests {
     use crate::environment::Globals;
     use crate::environment::Module;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::Evaluator;
-    use crate::eval::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 

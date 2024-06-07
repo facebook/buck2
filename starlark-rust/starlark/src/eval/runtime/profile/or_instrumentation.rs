@@ -17,7 +17,7 @@
 
 use dupe::Dupe;
 
-use crate::eval::ProfileMode;
+use crate::eval::runtime::profile::mode::ProfileMode;
 
 #[derive(Debug, Default, Clone, Dupe, Eq, PartialEq)]
 pub(crate) enum ProfileOrInstrumentationMode {

@@ -37,7 +37,7 @@ pub use runtime::params::ParametersParser;
 pub use runtime::params::ParametersSpec;
 pub use runtime::params::ParametersSpecBuilder;
 pub use runtime::profile::data::ProfileData;
-pub use runtime::profile::ProfileMode;
+pub use runtime::profile::mode::ProfileMode;
 pub use soft_error::SoftErrorHandler;
 pub use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::slice_vec_ext::SliceExt;
