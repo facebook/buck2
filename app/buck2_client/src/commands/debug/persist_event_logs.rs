@@ -174,7 +174,7 @@ async fn upload_task(
         return Ok(());
     }
 
-    let manifold_client = ManifoldClient::new(allow_vpnless)?;
+    let manifold_client = ManifoldClient::new(allow_vpnless).await?;
     let manifold_path = format!("flat/{}", manifold_name);
     let mut uploader = Uploader::new(file_mutex, &manifold_path, &manifold_client)?;
 

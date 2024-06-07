@@ -152,11 +152,11 @@ async fn with_timeout<R>(
     match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
         Ok(Ok(res)) => Ok(res),
         Ok(Err(e)) => {
-            tls::validate_certs().context("Unable to find any valid certs. Please refresh your internal or SKS certs and try again.")?;
+            tls::validate_certs().await.context("Unable to find any valid certs. Please refresh your internal or SKS certs and try again.")?;
             Err(WatchmanClientError::RequestFailed(e).into())
         }
         Err(_) => {
-            tls::validate_certs().context("Unable to find any valid certs. Please refresh your internal or SKS certs and try again.")?;
+            tls::validate_certs().await.context("Unable to find any valid certs. Please refresh your internal or SKS certs and try again.")?;
             Err(WatchmanClientError::Timeout(timeout).into())
         }
     }

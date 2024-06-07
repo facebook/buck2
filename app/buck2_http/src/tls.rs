@@ -9,13 +9,12 @@
 
 use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
 use anyhow::Context;
-use buck2_util::process::background_command;
+use buck2_util::process::async_background_command;
 use gazebo::prelude::VecExt;
 use rustls::Certificate;
 use rustls::ClientConfig;
@@ -98,11 +97,12 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
 }
 
 // Load private key from the given path
-fn load_key<P: AsRef<Path>>(key: P) -> anyhow::Result<PrivateKey> {
+async fn load_key<P: AsRef<Path>>(key: P) -> anyhow::Result<PrivateKey> {
     let key = key.as_ref();
 
-    let key_data =
-        fs::read(key).with_context(|| format!("Error opening key file `{}`", key.display()))?;
+    let key_data = tokio::fs::read(key)
+        .await
+        .with_context(|| format!("Error opening key file `{}`", key.display()))?;
 
     let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_data.as_slice())
         .with_context(|| format!("Error parsing key file `{}`", key.display()))?
@@ -115,12 +115,12 @@ fn load_key<P: AsRef<Path>>(key: P) -> anyhow::Result<PrivateKey> {
 
 /// Deserialize certificate pair at `cert` and `key` into structures that can
 /// be inserted into rustls CertStore.
-fn load_cert_pair<P: AsRef<Path>>(
+async fn load_cert_pair<P: AsRef<Path>>(
     cert: P,
     key: P,
 ) -> anyhow::Result<(Vec<Certificate>, PrivateKey)> {
-    let certs = load_certs(cert)?.into_map(Certificate);
-    let key = load_key(key)?;
+    let certs = load_certs(cert).await?.into_map(Certificate);
+    let key = load_key(key).await?;
 
     Ok((certs, key))
 }
@@ -133,13 +133,14 @@ pub fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
         .with_no_client_auth())
 }
 
-pub fn tls_config_with_single_cert<P: AsRef<Path>>(
+pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
     cert_path: P,
     key_path: P,
 ) -> anyhow::Result<ClientConfig> {
     let system_roots = load_system_root_certs()?;
-    let (cert, key) =
-        load_cert_pair(cert_path, key_path).context("Error loading certificate pair")?;
+    let (cert, key) = load_cert_pair(cert_path, key_path)
+        .await
+        .context("Error loading certificate pair")?;
     ClientConfig::builder()
         .with_safe_defaults()
         .with_root_certificates(system_roots)
@@ -148,10 +149,11 @@ pub fn tls_config_with_single_cert<P: AsRef<Path>>(
 }
 
 // Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
-pub fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
+pub async fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
     let cert = cert.as_ref();
 
-    let cert_data = fs::read(cert)
+    let cert_data = tokio::fs::read(cert)
+        .await
         .with_context(|| format!("Error reading certificate file `{}`", cert.display()))?;
 
     let certs = rustls_pemfile::certs(&mut cert_data.as_slice())
@@ -176,7 +178,7 @@ pub fn find_internal_cert() -> Option<OsString> {
 /// SKS Agent is different in Windows so we need to use the appropriate command for the OS.
 ///
 /// TODO(minglunli): Maybe this code should be moved to new crate like `buck2_certs`` or something?
-pub fn is_vpnless_cert_valid() -> bool {
+pub async fn is_vpnless_cert_valid() -> bool {
     if !crate::x2p::supports_vpnless() {
         return false;
     }
@@ -189,9 +191,10 @@ pub fn is_vpnless_cert_valid() -> bool {
 
     // Post suggests using the following for VPN-less scenario
     // https://fb.workplace.com/groups/382932749004606/permalink/1473311023300101/
-    let cmd_result = background_command(sks_agent)
+    let cmd_result = async_background_command(sks_agent)
         .args(["renew", "--status", "--corp-x509"])
-        .output();
+        .output()
+        .await;
 
     match cmd_result {
         Ok(cmd_output) => String::from_utf8_lossy(&cmd_output.stdout).starts_with("true"),
@@ -211,17 +214,17 @@ pub fn is_cert_valid(certs: Vec<Vec<u8>>) -> bool {
     })
 }
 
-pub fn validate_certs() -> anyhow::Result<()> {
+pub async fn validate_certs() -> anyhow::Result<()> {
     if cfg!(fbcode_build) {
         let tls_certs_valid = match find_internal_cert() {
             Some(cert_path) => {
-                let certs = load_certs(cert_path)?;
+                let certs = load_certs(cert_path).await?;
                 is_cert_valid(certs)
             }
             None => false,
         };
 
-        if !tls_certs_valid && !is_vpnless_cert_valid() {
+        if !tls_certs_valid && !is_vpnless_cert_valid().await {
             return Err(InvalidCertsError.into());
         }
     }

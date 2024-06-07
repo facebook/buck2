@@ -75,7 +75,7 @@ impl HttpClientBuilder {
     }
 
     /// Builds an http client compatible with internal Meta usage.
-    pub fn internal(allow_vpnless: bool) -> anyhow::Result<Self> {
+    pub async fn internal(allow_vpnless: bool) -> anyhow::Result<Self> {
         let mut builder = Self::https_with_system_roots()?;
         if allow_vpnless && x2p::supports_vpnless() {
             tracing::debug!("Using vpnless client");
@@ -83,7 +83,7 @@ impl HttpClientBuilder {
             builder.with_x2p_proxy(proxy);
         } else if let Some(cert_path) = tls::find_internal_cert() {
             tracing::debug!("Using internal https client");
-            builder.with_client_auth_cert(cert_path)?;
+            builder.with_client_auth_cert(cert_path).await?;
         } else {
             tracing::debug!("Using default https client");
         }
@@ -109,8 +109,11 @@ impl HttpClientBuilder {
         self
     }
 
-    pub fn with_client_auth_cert<P: AsRef<Path>>(&mut self, path: P) -> anyhow::Result<&mut Self> {
-        let tls_config = tls::tls_config_with_single_cert(path.as_ref(), path.as_ref())?;
+    pub async fn with_client_auth_cert<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+    ) -> anyhow::Result<&mut Self> {
+        let tls_config = tls::tls_config_with_single_cert(path.as_ref(), path.as_ref()).await?;
         Ok(self.with_tls_config(tls_config))
     }
 

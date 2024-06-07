@@ -57,7 +57,7 @@ pub async fn main(
     if let Some(p) = manifold_path {
         // TODO iguridi: compress before upload
         // TODO iguridi: write and upload concurrently
-        let manifold = ManifoldClient::new(allow_vpnless)?;
+        let manifold = ManifoldClient::new(allow_vpnless).await?;
 
         manifold
             .read_and_upload(Bucket::EVENT_LOGS, &p, Default::default(), &mut cursor)

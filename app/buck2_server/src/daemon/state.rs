@@ -443,6 +443,7 @@ impl DaemonState {
             .await?;
 
             let http_client = http_client_from_startup_config(&init_ctx.daemon_startup_config)
+                .await
                 .context("Error creating HTTP client")?
                 .build();
 
@@ -878,13 +879,13 @@ const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 5000;
 const DEFAULT_READ_TIMEOUT_MS: u64 = 10000;
 
 /// Customize an http client based on http.* legacy buckconfigs.
-fn http_client_from_startup_config(
+async fn http_client_from_startup_config(
     config: &DaemonStartupConfig,
 ) -> anyhow::Result<HttpClientBuilder> {
     let mut builder = if is_open_source() {
         HttpClientBuilder::oss()?
     } else {
-        HttpClientBuilder::internal(config.allow_vpnless)?
+        HttpClientBuilder::internal(config.allow_vpnless).await?
     };
     builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
     builder.with_http2(config.http.http2);
@@ -924,9 +925,10 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_from_startup_config_defaults_internal() -> anyhow::Result<()> {
-        let builder = http_client_from_startup_config(&DaemonStartupConfig::testing_empty())?;
+    #[tokio::test]
+    async fn test_from_startup_config_defaults_internal() -> anyhow::Result<()> {
+        let builder =
+            http_client_from_startup_config(&DaemonStartupConfig::testing_empty()).await?;
         assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects().unwrap());
         assert!(!builder.supports_vpnless());
         assert_eq!(
@@ -942,8 +944,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_from_startup_config_overrides() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_from_startup_config_overrides() -> anyhow::Result<()> {
         let config = parse(
             &[(
                 "/config",
@@ -959,7 +961,7 @@ mod tests {
             "/config",
         )?;
         let startup_config = DaemonStartupConfig::new(&config)?;
-        let builder = http_client_from_startup_config(&startup_config)?;
+        let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(5, builder.max_redirects().unwrap());
         assert_eq!(Some(Duration::from_millis(10)), builder.connect_timeout());
         assert_eq!(
@@ -971,8 +973,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_from_startup_config_zero_for_unset() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_from_startup_config_zero_for_unset() -> anyhow::Result<()> {
         let config = parse(
             &[(
                 "/config",
@@ -986,7 +988,7 @@ mod tests {
             "/config",
         )?;
         let startup_config = DaemonStartupConfig::new(&config)?;
-        let builder = http_client_from_startup_config(&startup_config)?;
+        let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(None, builder.connect_timeout());
         assert_eq!(
             Some(Duration::from_millis(DEFAULT_READ_TIMEOUT_MS)),
