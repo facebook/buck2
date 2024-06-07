@@ -10,10 +10,10 @@
 use std::fmt;
 
 use rustc_hash::FxHashMap;
+use serde::Serialize;
 use tracing::field::Visit;
 use tracing_core::span::Attributes;
 use tracing_core::span::Id;
-use tracing_core::Field;
 use tracing_core::Subscriber;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::layer::Layer;
@@ -32,15 +32,22 @@ const ALLOWED_FIELDS: &[&str] = &[
     "use_clippy",
 ];
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
+enum Field {
+    String(String),
+    Int(i64),
+}
+
 #[derive(Clone, Debug)]
-struct Fields(FxHashMap<&'static str, String>);
+struct Fields(FxHashMap<&'static str, Field>);
 
 impl Fields {
     fn new() -> Self {
         Self(FxHashMap::default())
     }
 
-    fn record(&mut self, name: &'static str, value: String) {
+    fn record(&mut self, name: &'static str, value: Field) {
         if ALLOWED_FIELDS.contains(&name) {
             self.0.insert(name, value);
         }
@@ -48,12 +55,34 @@ impl Fields {
 }
 
 impl Visit for Fields {
-    fn record_str(&mut self, field: &Field, value: &str) {
-        self.record(field.name(), value.to_owned());
+    fn record_str(&mut self, field: &tracing_core::Field, value: &str) {
+        self.record(field.name(), Field::String(value.to_owned()));
     }
 
-    fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
-        self.record(field.name(), format!("{:?}", value));
+    fn record_i64(&mut self, field: &tracing_core::Field, value: i64) {
+        self.record(field.name(), Field::Int(value));
+    }
+
+    fn record_u64(&mut self, field: &tracing_core::Field, value: u64) {
+        if let Ok(value) = i64::try_from(value) {
+            self.record(field.name(), Field::Int(value));
+        }
+    }
+
+    fn record_i128(&mut self, field: &tracing_core::Field, value: i128) {
+        if let Ok(value) = i64::try_from(value) {
+            self.record(field.name(), Field::Int(value));
+        }
+    }
+
+    fn record_u128(&mut self, field: &tracing_core::Field, value: u128) {
+        if let Ok(value) = i64::try_from(value) {
+            self.record(field.name(), Field::Int(value));
+        }
+    }
+
+    fn record_debug(&mut self, field: &tracing_core::Field, value: &dyn fmt::Debug) {
+        self.record(field.name(), Field::String(format!("{:?}", value)));
     }
 }
 
@@ -142,11 +171,11 @@ where
             }
             None => {
                 let mut extensions = span.extensions_mut();
-                let fields = extensions
-                    .get_mut::<Fields>()
+                let mut fields = extensions
+                    .remove::<Fields>()
                     .expect("Missing extensions; this is a bug");
 
-                fields.record("root_span", span.name().to_owned());
+                fields.record("root_span", Field::String(span.name().to_owned()));
 
                 match self.writer {
                     FieldsWriter::Scuba => write_to_scuba(fields),
@@ -160,15 +189,19 @@ where
 }
 
 #[cfg(fbcode_build)]
-fn write_to_scuba(fields: &Fields) {
+fn write_to_scuba(fields: Fields) {
     let fb = fbinit::expect_init();
     let mut sample = scuba::ScubaSampleBuilder::new(fb, "rust_project");
-    for (k, v) in &fields.0 {
-        sample.add(k.to_owned(), v.to_owned());
+    for (k, v) in fields.0 {
+        let v = match v {
+            Field::String(s) => scuba::ScubaValue::Normal(s),
+            Field::Int(i) => scuba::ScubaValue::Int(i),
+        };
+        sample.add(k, v);
     }
     sample.add("unixname", whoami::username());
     sample.log();
 }
 
 #[cfg(not(fbcode_build))]
-fn write_to_scuba(_fields: &Fields) {}
+fn write_to_scuba(_fields: Fields) {}
