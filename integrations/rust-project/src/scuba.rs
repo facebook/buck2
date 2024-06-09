@@ -22,7 +22,7 @@ use tracing_subscriber::registry::LookupSpan;
 const ALLOWED_FIELDS: &[&str] = &[
     // common
     "root_span",
-    "elapsed_ms",
+    "duration_ms",
     // develop
     "develop_input",
     "project_root",

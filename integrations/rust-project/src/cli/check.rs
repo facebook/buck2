@@ -89,8 +89,8 @@ impl Check {
             println!("{}", out);
         }
 
-        let elapsed = start.elapsed();
-        info!(elapsed_ms = elapsed.as_millis(), "finished check");
+        let duration = start.elapsed();
+        info!(duration_ms = duration.as_millis(), "finished check");
 
         Ok(())
     }

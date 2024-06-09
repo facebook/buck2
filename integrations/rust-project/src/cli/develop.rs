@@ -264,9 +264,9 @@ impl Develop {
             *check_cycles,
         )?;
 
-        let elapsed = start.elapsed();
+        let duration = start.elapsed();
         info!(
-            elapsed_ms = elapsed.as_millis(),
+            duration_ms = duration.as_millis(),
             "finished generating rust-project"
         );
 
