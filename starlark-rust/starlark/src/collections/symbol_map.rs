@@ -40,7 +40,7 @@ use std::slice;
 use std::str;
 
 use allocative::Allocative;
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 
 use crate as starlark;
 use crate::coerce::Coerce;
@@ -52,7 +52,7 @@ use crate::values::Trace;
 // We use a RawTable (the thing that underlies HashMap) so we can look up efficiently
 // and easily by Symbol and str, without being limited by `Borrow` traits.
 #[derive(Clone, Trace, Allocative)]
-pub(crate) struct SymbolMap<T>(RawTable<(Symbol, T)>);
+pub(crate) struct SymbolMap<T>(HashTable<(Symbol, T)>);
 
 impl<T: Debug> Debug for SymbolMap<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -141,27 +141,27 @@ impl Symbol {
 
 impl<T> SymbolMap<T> {
     pub fn new() -> Self {
-        Self(RawTable::new())
+        SymbolMap::with_capacity(0)
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(RawTable::with_capacity(capacity))
+        SymbolMap(HashTable::with_capacity(capacity))
     }
 
     pub fn insert(&mut self, key: &str, value: T) -> Option<T> {
         let s = Symbol::new(key);
-        if let Some((_, item)) = self.0.get_mut(s.hash, |x| s == x.0) {
+        if let Some((_, item)) = self.0.find_mut(s.hash, |x| s == x.0) {
             Some(mem::replace(item, value))
         } else {
             // This insert doesn't remove old values, so do that manually first
-            self.0.insert(s.hash, (s, value), |x| x.0.hash);
+            self.0.insert_unique(s.hash, (s, value), |x| x.0.hash);
             None
         }
     }
 
     #[inline]
     pub fn get(&self, key: &Symbol) -> Option<&T> {
-        self.0.get(key.hash, |x| key == &x.0).map(|x| &x.1)
+        self.0.find(key.hash, |x| key == &x.0).map(|x| &x.1)
     }
 
     pub fn get_str(&self, key: &str) -> Option<&T> {
@@ -170,13 +170,13 @@ impl<T> SymbolMap<T> {
 
     pub fn get_hashed_str(&self, key: Hashed<&str>) -> Option<&T> {
         self.0
-            .get(key.hash().promote(), |x| x.0.as_str() == *key.key())
+            .find(key.hash().promote(), |x| x.0.as_str() == *key.key())
             .map(|x| &x.1)
     }
 
     pub(crate) fn get_hashed_string_value(&self, key: Hashed<StringValue>) -> Option<&T> {
         self.0
-            .get(key.hash().promote(), |x| x.0.as_str() == key.key().as_str())
+            .find(key.hash().promote(), |x| x.0.as_str() == key.key().as_str())
             .map(|x| &x.1)
     }
 
@@ -185,8 +185,7 @@ impl<T> SymbolMap<T> {
     }
 
     pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a (Symbol, T)> + 'a {
-        // Unsafe because it doesn't have a lifetime, but we added one in the type signature
-        unsafe { self.0.iter().map(|x| x.as_ref()) }
+        self.0.iter()
     }
 
     pub fn keys<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a Symbol> + 'a {
