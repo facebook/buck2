@@ -240,9 +240,9 @@ impl<'v> TimeFlameProfile<'v> {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
+    pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
         match &self.0 {
-            None => Err(FlameProfileError::NotEnabled.into()),
+            None => Err(crate::Error::new_other(FlameProfileError::NotEnabled)),
             Some(x) => Ok(Self::gen_profile(x)),
         }
     }

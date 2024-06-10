@@ -20,6 +20,7 @@ use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
+use starlark::StarlarkResultExt;
 
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkProfilerError {
@@ -81,7 +82,8 @@ impl StarlarkProfileDataAndStats {
             total_retained_bytes += data.total_retained_bytes;
         }
 
-        let profile_data = ProfileData::merge(datas.into_iter().map(|data| &data.profile_data))?;
+        let profile_data = ProfileData::merge(datas.into_iter().map(|data| &data.profile_data))
+            .into_anyhow_result()?;
 
         Ok(StarlarkProfileDataAndStats {
             profile_mode,
@@ -151,7 +153,7 @@ impl StarlarkProfiler {
             self.profile_mode,
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
         ) {
-            self.profile_data = Some(eval.gen_profile()?);
+            self.profile_data = Some(eval.gen_profile().into_anyhow_result()?);
         }
         Ok(())
     }

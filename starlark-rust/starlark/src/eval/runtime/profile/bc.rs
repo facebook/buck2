@@ -227,21 +227,25 @@ impl BcProfile {
         }
     }
 
-    pub(crate) fn gen_bc_profile(&mut self) -> anyhow::Result<ProfileData> {
+    pub(crate) fn gen_bc_profile(&mut self) -> crate::Result<ProfileData> {
         match mem::replace(&mut self.data, BcProfileDataMode::Disabled) {
             BcProfileDataMode::Bc(bc) => Ok(ProfileData {
                 profile: ProfileDataImpl::Bc(bc),
             }),
-            _ => Err(BcProfileError::BcProfilingNotEnabled.into()),
+            _ => Err(crate::Error::new_other(
+                BcProfileError::BcProfilingNotEnabled,
+            )),
         }
     }
 
-    pub(crate) fn gen_bc_pairs_profile(&mut self) -> anyhow::Result<ProfileData> {
+    pub(crate) fn gen_bc_pairs_profile(&mut self) -> crate::Result<ProfileData> {
         match mem::replace(&mut self.data, BcProfileDataMode::Disabled) {
             BcProfileDataMode::BcPairs(bc_pairs) => Ok(ProfileData {
                 profile: ProfileDataImpl::BcPairs(*bc_pairs),
             }),
-            _ => Err(BcProfileError::BcProfilingNotEnabled.into()),
+            _ => Err(crate::Error::new_other(
+                BcProfileError::BcProfilingNotEnabled,
+            )),
         }
     }
 

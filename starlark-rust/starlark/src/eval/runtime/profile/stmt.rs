@@ -198,20 +198,20 @@ impl StmtProfile {
     }
 
     // None = not applicable because not enabled
-    pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
+    pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
         match &self.0 {
             Some(data) => Ok(ProfileData {
                 profile: ProfileDataImpl::Statement(data.finish()),
             }),
-            None => Err(StmtProfileError::NotEnabled.into()),
+            None => Err(crate::Error::new_other(StmtProfileError::NotEnabled)),
         }
     }
 
-    pub(crate) fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {
+    pub(crate) fn coverage(&self) -> crate::Result<HashSet<ResolvedFileSpan>> {
         Ok(self
             .0
             .as_ref()
-            .ok_or(StmtProfileError::NotEnabled)?
+            .ok_or_else(|| crate::Error::new_other(StmtProfileError::NotEnabled))?
             .finish()
             .coverage())
     }

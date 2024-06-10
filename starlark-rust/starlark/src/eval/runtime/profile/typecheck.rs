@@ -76,9 +76,9 @@ impl TypecheckProfile {
             .or_default() += time;
     }
 
-    pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
+    pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
         if !self.enabled {
-            return Err(TypecheckProfileError::NotEnabled.into());
+            return Err(crate::Error::new_other(TypecheckProfileError::NotEnabled));
         }
         Ok(ProfileData {
             profile: ProfileDataImpl::Typecheck(self.data.clone()),

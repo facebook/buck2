@@ -334,19 +334,21 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     /// Write a profile to a file.
     /// Only valid if corresponding profiler was enabled.
-    pub fn write_profile<P: AsRef<Path>>(&mut self, filename: P) -> anyhow::Result<()> {
+    pub fn write_profile<P: AsRef<Path>>(&mut self, filename: P) -> crate::Result<()> {
         self.gen_profile()?.write(filename.as_ref())
     }
 
     /// Generate profile for a given mode.
     /// Only valid if corresponding profiler was enabled.
-    pub fn gen_profile(&mut self) -> anyhow::Result<ProfileData> {
+    pub fn gen_profile(&mut self) -> crate::Result<ProfileData> {
         let mode = match &self.profile_or_instrumentation_mode {
             ProfileOrInstrumentationMode::None => {
-                return Err(EvaluatorError::ProfilingNotEnabled.into());
+                return Err(crate::Error::new_other(EvaluatorError::ProfilingNotEnabled));
             }
             ProfileOrInstrumentationMode::Collected => {
-                return Err(EvaluatorError::ProfileDataAlreadyCollected.into());
+                return Err(crate::Error::new_other(
+                    EvaluatorError::ProfileDataAlreadyCollected,
+                ));
             }
             ProfileOrInstrumentationMode::Profile(mode) => mode.dupe(),
         };
@@ -359,10 +361,14 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                 .heap_profile
                 .gen(self.heap(), HeapProfileFormat::FlameGraph),
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
-                Err(EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator.into())
+                Err(crate::Error::new_other(
+                    EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
+                ))
             }
             ProfileMode::Statement => self.stmt_profile.gen(),
-            ProfileMode::Coverage => Err(EvaluatorError::CoverageNotImplemented.into()),
+            ProfileMode::Coverage => Err(crate::Error::new_other(
+                EvaluatorError::CoverageNotImplemented,
+            )),
             ProfileMode::Bytecode => self.gen_bc_profile(),
             ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
             ProfileMode::TimeFlame => self.time_flame_profile.gen(),
@@ -377,12 +383,12 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// Note coverage is not precise, because
     /// * some optimizer transformations may create incorrect spans
     /// * some optimizer transformations may remove statements
-    pub fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {
+    pub fn coverage(&self) -> crate::Result<HashSet<ResolvedFileSpan>> {
         match self.profile_or_instrumentation_mode {
             ProfileOrInstrumentationMode::Profile(ProfileMode::Coverage) => {
                 self.stmt_profile.coverage()
             }
-            _ => Err(EvaluatorError::CoverageNotEnabled.into()),
+            _ => Err(crate::Error::new_other(EvaluatorError::CoverageNotEnabled)),
         }
     }
 
@@ -780,11 +786,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         alloca.alloca_concat(x, y, |xs| k(xs, self))
     }
 
-    pub(crate) fn gen_bc_profile(&mut self) -> anyhow::Result<ProfileData> {
+    pub(crate) fn gen_bc_profile(&mut self) -> crate::Result<ProfileData> {
         self.eval_instrumentation.bc_profile.gen_bc_profile()
     }
 
-    pub(crate) fn gen_bc_pairs_profile(&mut self) -> anyhow::Result<ProfileData> {
+    pub(crate) fn gen_bc_pairs_profile(&mut self) -> crate::Result<ProfileData> {
         self.eval_instrumentation.bc_profile.gen_bc_pairs_profile()
     }
 

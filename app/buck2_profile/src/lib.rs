@@ -19,6 +19,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use starlark::eval::ProfileMode;
+use starlark::StarlarkResultExt;
 
 pub fn starlark_profiler_configuration_from_request(
     req: &buck2_cli_proto::ProfileRequest,
@@ -73,7 +74,7 @@ pub fn get_profile_response(
 
     match command_profile_mode {
         Profiler::HeapFlameAllocated | Profiler::HeapFlameRetained | Profiler::TimeFlame => {
-            let mut profile = profile_data.profile_data.gen()?;
+            let mut profile = profile_data.profile_data.gen().into_anyhow_result()?;
             if profile.is_empty() {
                 // inferno does not like empty flamegraphs.
                 profile = "empty 1\n".to_owned();
@@ -93,7 +94,7 @@ pub fn get_profile_response(
             fs_util::write(output.join("flame.svg"), &svg).context("Failed to write profile")?;
         }
         _ => {
-            let profile = profile_data.profile_data.gen()?;
+            let profile = profile_data.profile_data.gen().into_anyhow_result()?;
             fs_util::write(output, profile).context("Failed to write profile")?;
         }
     };
