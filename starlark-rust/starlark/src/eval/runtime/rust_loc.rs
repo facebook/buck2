@@ -40,6 +40,7 @@ pub(crate) use rust_loc;
 #[cfg(test)]
 mod tests {
     use starlark_derive::starlark_module;
+    use starlark_syntax::error::StarlarkResultExt;
 
     use crate as starlark;
     use crate::assert::Assert;
@@ -52,7 +53,7 @@ mod tests {
     fn rust_loc_globals(globals: &mut GlobalsBuilder) {
         fn invoke<'v>(f: Value<'v>, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<Value<'v>> {
             f.invoke_with_loc(Some(rust_loc!()), &Arguments::default(), eval)
-                .map_err(crate::Error::into_anyhow)
+                .into_anyhow_result()
         }
     }
 

@@ -432,6 +432,7 @@ pub use starlark_syntax::codemap;
 pub use starlark_syntax::Error;
 pub use starlark_syntax::ErrorKind;
 pub use starlark_syntax::Result;
+pub use starlark_syntax::StarlarkResultExt;
 pub use stdlib::PrintHandler;
 
 pub mod analysis;

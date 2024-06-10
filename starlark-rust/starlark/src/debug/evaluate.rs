@@ -109,6 +109,7 @@ impl<'v> Evaluator<'v, '_, '_> {
 mod tests {
     use itertools::Itertools;
     use starlark_derive::starlark_module;
+    use starlark_syntax::error::StarlarkResultExt;
 
     use super::*;
     use crate as starlark;
@@ -123,9 +124,9 @@ mod tests {
             code: String,
             eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<Value<'v>> {
-            let ast = AstModule::parse("interactive", code, &Dialect::Extended)
-                .map_err(crate::Error::into_anyhow)?;
-            eval.eval_statements(ast).map_err(crate::Error::into_anyhow)
+            let ast =
+                AstModule::parse("interactive", code, &Dialect::Extended).into_anyhow_result()?;
+            eval.eval_statements(ast).into_anyhow_result()
         }
     }
 

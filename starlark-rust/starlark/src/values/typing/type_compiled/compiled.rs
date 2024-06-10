@@ -30,6 +30,7 @@ use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
+use starlark_syntax::StarlarkResultExt;
 use thiserror::Error;
 
 use crate as starlark;
@@ -477,7 +478,7 @@ impl<'v> TypeCompiled<Value<'v>> {
                                     ),
                                 ),
                             )
-                            .map_err(|e| e.into_anyhow())?;
+                            .into_anyhow_result()?;
                         Ok(ty)
                     }
                     Err(_) => Err(e),

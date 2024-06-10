@@ -235,3 +235,14 @@ impl From<anyhow::Error> for Error {
         Self(WithDiagnostic::new_empty(ErrorKind::Other(e)))
     }
 }
+
+pub trait StarlarkResultExt<T> {
+    fn into_anyhow_result(self) -> anyhow::Result<T>;
+}
+
+impl<T> StarlarkResultExt<T> for crate::Result<T> {
+    #[inline]
+    fn into_anyhow_result(self) -> anyhow::Result<T> {
+        self.map_err(Error::into_anyhow)
+    }
+}

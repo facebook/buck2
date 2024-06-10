@@ -27,6 +27,7 @@ use std::sync::Mutex;
 
 use debugserver_types::*;
 use dupe::Dupe;
+use starlark_syntax::error::StarlarkResultExt;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
 use super::EvaluateExprInfo;
@@ -101,7 +102,7 @@ fn evaluate_expr<'v>(
     // anyway.
     let res = ast
         .and_then(|ast| eval.eval_statements(ast))
-        .map_err(crate::Error::into_anyhow);
+        .into_anyhow_result();
     state.disable_breakpoints.fetch_sub(1, Ordering::SeqCst);
     res
 }
@@ -343,12 +344,9 @@ impl DapAdapter for DapAdapterImpl {
             }?;
 
             for p in access_path.iter() {
-                value = p
-                    .get(&value, eval.heap())
-                    .map_err(crate::Error::into_anyhow)?;
+                value = p.get(&value, eval.heap()).into_anyhow_result()?;
             }
-            InspectVariableInfo::try_from_value(value, eval.heap())
-                .map_err(crate::Error::into_anyhow)
+            InspectVariableInfo::try_from_value(value, eval.heap()).into_anyhow_result()
         }))
     }
 

@@ -37,6 +37,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::StarlarkResultExt;
 
 mod library;
 
@@ -74,17 +75,14 @@ impl Backend {
 
         let go = move || -> anyhow::Result<String> {
             client.log(&format!("EVALUATION PREPARE: {}", path.display()));
-            let ast =
-                AstModule::parse_file(&path, &dialect).map_err(starlark::Error::into_anyhow)?;
+            let ast = AstModule::parse_file(&path, &dialect).into_anyhow_result()?;
             let module = Module::new();
             let mut eval = Evaluator::new(&module);
             wrapper.add_dap_hooks(&mut eval);
 
             // No way to pass back success/failure to the caller
             client.log(&format!("EVALUATION START: {}", path.display()));
-            let v = eval
-                .eval_module(ast, &globals)
-                .map_err(starlark::Error::into_anyhow)?;
+            let v = eval.eval_module(ast, &globals).into_anyhow_result()?;
             let s = v.to_string();
             client.log(&format!("EVALUATION FINISHED: {}", path.display()));
             Ok(s)
@@ -114,8 +112,7 @@ impl Backend {
 
     fn get_ast(&self, source: &str) -> anyhow::Result<Arc<AstModule>> {
         Ok(Arc::new(
-            AstModule::parse_file(Path::new(source), &self.dialect)
-                .map_err(starlark::Error::into_anyhow)?,
+            AstModule::parse_file(Path::new(source), &self.dialect).into_anyhow_result()?,
         ))
     }
 }

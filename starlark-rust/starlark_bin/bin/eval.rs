@@ -38,6 +38,7 @@ use starlark::errors::EvalMessage;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::StarlarkResultExt;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
@@ -112,10 +113,8 @@ impl Context {
                 let env = Module::new();
                 {
                     let mut eval = Evaluator::new(&env);
-                    let module =
-                        AstModule::parse_file(x, &dialect).map_err(starlark::Error::into_anyhow)?;
-                    eval.eval_module(module, &globals)
-                        .map_err(starlark::Error::into_anyhow)?;
+                    let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
+                    eval.eval_module(module, &globals).into_anyhow_result()?;
                 }
                 env.freeze()
             })

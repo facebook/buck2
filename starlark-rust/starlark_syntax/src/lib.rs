@@ -24,8 +24,9 @@
 #![allow(clippy::new_ret_no_self)]
 #![allow(clippy::should_implement_trait)]
 
-pub use error::Error;
-pub use error::ErrorKind;
+pub use crate::error::Error;
+pub use crate::error::ErrorKind;
+pub use crate::error::StarlarkResultExt;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
