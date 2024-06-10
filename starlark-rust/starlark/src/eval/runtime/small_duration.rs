@@ -25,7 +25,9 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 /// Slightly faster than `Duration`.
-#[derive(Copy, Clone, Dupe, Default, Debug, Allocative)]
+#[derive(
+    Copy, Clone, Dupe, Default, Eq, PartialEq, Ord, PartialOrd, Debug, Allocative
+)]
 pub(crate) struct SmallDuration {
     /// `u64::MAX` nanos is 500 years.
     pub(crate) nanos: u64,

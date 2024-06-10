@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
+use std::cmp::Reverse;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter;
 use std::time::Instant;
 
+use dupe::Dupe;
 use starlark_syntax::codemap::CodeMaps;
 
 use crate::codemap::CodeMap;
@@ -144,7 +146,8 @@ impl StmtProfileData {
                 items.push(Item { span, time, count })
             }
         }
-        items.sort_by_key(|x| -(x.time.nanos as i128));
+
+        items.sort_by_key(|x| (Reverse(x.time), Reverse(x.count), x.span.dupe()));
 
         let mut csv = CsvWriter::new(["File", "Span", "Duration(s)", "Count"]);
         csv.write_value("TOTAL");

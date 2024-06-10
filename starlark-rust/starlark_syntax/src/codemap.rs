@@ -22,6 +22,7 @@
 //! source code will not exceed 4GiB. The `CodeMap` can look up the source file, line, and column
 //! of a `Pos` or `Span`, as well as provide source code snippets for error reporting.
 use std::cmp;
+use std::cmp::Ordering;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt;
@@ -82,7 +83,9 @@ impl AddAssign<u32> for Pos {
 }
 
 /// A range of text within a CodeMap.
-#[derive(Copy, Dupe, Clone, Hash, Eq, PartialEq, Debug, Default, Allocative)]
+#[derive(
+    Copy, Dupe, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug, Default, Allocative
+)]
 pub struct Span {
     /// The position in the codemap representing the first byte of the span.
     begin: Pos,
@@ -503,6 +506,21 @@ pub struct FileSpanRef<'a> {
 pub struct FileSpan {
     pub file: CodeMap,
     pub span: Span,
+}
+
+impl PartialOrd for FileSpan {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FileSpan {
+    fn cmp(&self, that: &Self) -> Ordering {
+        Ord::cmp(
+            &(self.filename(), self.span, self.file.id().0 as usize),
+            &(that.filename(), that.span, that.file.id().0 as usize),
+        )
+    }
 }
 
 impl<'a> fmt::Display for FileSpanRef<'a> {
