@@ -29,6 +29,14 @@ pub(crate) struct AllocCounts {
     pub(crate) count: usize,
 }
 
+impl AllocCounts {
+    #[cfg(test)]
+    pub(crate) fn normalize_for_golden_tests(&mut self) {
+        // Value sizes depend on compiler version, so normalize them.
+        self.bytes = self.count * 8;
+    }
+}
+
 impl AddAssign for AllocCounts {
     fn add_assign(&mut self, other: AllocCounts) {
         self.bytes += other.bytes;

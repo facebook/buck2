@@ -24,5 +24,6 @@ pub(crate) mod instant;
 pub(crate) mod mode;
 pub(crate) mod or_instrumentation;
 pub(crate) mod stmt;
+pub(crate) mod tests;
 pub(crate) mod time_flame;
 pub(crate) mod typecheck;

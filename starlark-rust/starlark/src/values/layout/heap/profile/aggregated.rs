@@ -257,6 +257,14 @@ impl StackFrame {
             calls_x2,
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn normalize_for_golden_tests(&mut self) {
+        for (_, v) in &mut self.callees {
+            v.normalize_for_golden_tests();
+        }
+        self.allocs.normalize_for_golden_tests();
+    }
 }
 
 struct StackFrameWithContext<'c> {
@@ -403,6 +411,13 @@ impl AggregateHeapProfileInfo {
     /// Write per-function summary in CSV format.
     pub fn gen_summary_csv(&self) -> String {
         HeapSummaryByFunction::init(self).gen_csv()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn normalize_for_golden_tests(&mut self) {
+        self.root.normalize_for_golden_tests();
+        // Value sizes depend on compiler version.
+        self.unused_capacity.set(2222);
     }
 }
 

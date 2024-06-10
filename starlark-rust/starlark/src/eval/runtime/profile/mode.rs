@@ -58,7 +58,7 @@ impl Display for ProfileMode {
 }
 
 impl ProfileMode {
-    fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         match self {
             ProfileMode::HeapSummaryAllocated => "heap-summary-allocated",
             ProfileMode::HeapSummaryRetained => "heap-summary-retained",

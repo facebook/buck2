@@ -64,4 +64,11 @@ impl HeapSummary {
         }
         HeapSummary { summary }
     }
+
+    #[cfg(test)]
+    pub(crate) fn normalize_for_golden_tests(&mut self) {
+        for v in self.summary.values_mut() {
+            v.normalize_for_golden_tests();
+        }
+    }
 }
