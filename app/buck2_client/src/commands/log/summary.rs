@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
+use std::cmp::max;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::subscribers::recorder::process_memory;
 use buck2_data::ActionExecutionKind;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_event_observer::humanized::HumanizedBytes;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -29,6 +32,7 @@ struct Stats {
     total_remote_actions: u64,
     total_other_actions: u64,
     total_targets_analysed: u64,
+    peak_process_memory_bytes: Option<u64>,
 }
 
 impl Stats {
@@ -55,6 +59,21 @@ impl Stats {
                 }
                 _ => {}
             },
+            Some(buck2_data::buck_event::Data::Instant(instant_event)) => {
+                match instant_event.data.as_ref() {
+                    Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
+                        self.peak_process_memory_bytes =
+                            match (self.peak_process_memory_bytes, process_memory(snapshot)) {
+                                (Some(peak_process_memory), Some(update_memory)) => {
+                                    Some(max(peak_process_memory, update_memory))
+                                }
+                                (None, other) | (other, None) => other,
+                            };
+                    }
+                    _ => {}
+                }
+            }
+
             _ => {}
         }
     }
@@ -76,7 +95,16 @@ impl Display for Stats {
         writeln!(f, "local actions: {}", self.total_local_actions)?;
         writeln!(f, "remote actions: {}", self.total_remote_actions)?;
         writeln!(f, "other actions: {}", self.total_other_actions)?;
-        writeln!(f, "targets analysed: {}", self.total_targets_analysed)
+        writeln!(f, "targets analysed: {}", self.total_targets_analysed)?;
+        if let Some(peak_process_memory_bytes) = self.peak_process_memory_bytes {
+            writeln!(
+                f,
+                "peak process memory: {}",
+                HumanizedBytes::fixed_width(peak_process_memory_bytes)
+            )
+        } else {
+            Ok(())
+        }
     }
 }
 
