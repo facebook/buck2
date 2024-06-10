@@ -64,6 +64,7 @@ pub async fn build_entry_from_disk(
     HashingInfo,
 )> {
     // Get file metadata. If the file is missing, ignore it.
+    // TODO(nga): explain why we ignore missing files.
     let m = match std::fs::symlink_metadata(&path) {
         Ok(m) => m,
         Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
