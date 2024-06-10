@@ -102,11 +102,11 @@ impl PartialEq for Symbol {
 impl Eq for Symbol {}
 
 impl Symbol {
-    pub fn new(x: &str) -> Self {
+    pub(crate) fn new(x: &str) -> Self {
         Self::new_hashed(Hashed::new(x))
     }
 
-    pub fn new_hashed(x: Hashed<&str>) -> Self {
+    pub(crate) fn new_hashed(x: Hashed<&str>) -> Self {
         let small_hash = x.hash();
         let hash = small_hash.promote();
         let len = x.key().len();
@@ -123,7 +123,7 @@ impl Symbol {
         }
     }
 
-    pub fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         // All safe because we promise we started out with a str
         unsafe {
             let s = slice::from_raw_parts(self.payload.as_ptr() as *const u8, self.len as usize);
@@ -140,21 +140,21 @@ impl Symbol {
         Hashed::new_unchecked(self.small_hash, self.as_str())
     }
 
-    pub fn small_hash(&self) -> StarlarkHashValue {
+    pub(crate) fn small_hash(&self) -> StarlarkHashValue {
         self.small_hash
     }
 }
 
 impl<T> SymbolMap<T> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         SymbolMap::with_capacity(0)
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
         SymbolMap(HashTable::with_capacity(capacity))
     }
 
-    pub fn insert(&mut self, key: &str, value: T) -> Option<T> {
+    pub(crate) fn insert(&mut self, key: &str, value: T) -> Option<T> {
         let s = Symbol::new(key);
         if let Some((_, item)) = self.0.find_mut(s.hash, |x| s == x.0) {
             Some(mem::replace(item, value))
@@ -166,15 +166,15 @@ impl<T> SymbolMap<T> {
     }
 
     #[inline]
-    pub fn get(&self, key: &Symbol) -> Option<&T> {
+    pub(crate) fn get(&self, key: &Symbol) -> Option<&T> {
         self.0.find(key.hash, |x| key == &x.0).map(|x| &x.1)
     }
 
-    pub fn get_str(&self, key: &str) -> Option<&T> {
+    pub(crate) fn get_str(&self, key: &str) -> Option<&T> {
         self.get_hashed_str(Hashed::new(key))
     }
 
-    pub fn get_hashed_str(&self, key: Hashed<&str>) -> Option<&T> {
+    pub(crate) fn get_hashed_str(&self, key: Hashed<&str>) -> Option<&T> {
         self.0
             .find(key.hash().promote(), |x| x.0.as_str() == *key.key())
             .map(|x| &x.1)
@@ -188,19 +188,19 @@ impl<T> SymbolMap<T> {
             .map(|x| &x.1)
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.0.len()
     }
 
-    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a (Symbol, T)> + 'a {
+    pub(crate) fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a (Symbol, T)> + 'a {
         self.0.iter()
     }
 
-    pub fn keys<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a Symbol> + 'a {
+    pub(crate) fn keys<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a Symbol> + 'a {
         self.iter().map(|x| &x.0)
     }
 
-    pub fn values<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + 'a {
+    pub(crate) fn values<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + 'a {
         self.iter().map(|x| &x.1)
     }
 }
