@@ -147,6 +147,10 @@ impl StackCollector {
 }
 
 impl<'v> ArenaVisitor<'v> for StackCollector {
+    fn enter_bump(&mut self) {
+        self.last_time = None;
+    }
+
     fn regular_value(&mut self, value: &'v AValueOrForward) {
         let value = match (value.unpack(), self.retained) {
             (AValueOrForwardUnpack::Header(header), None) => unsafe {
@@ -178,8 +182,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
     fn call_enter(&mut self, function: Value<'v>, time: ProfilerInstant) {
         if let Some(last_time) = self.last_time {
             self.current.last_mut().unwrap().0.borrow_mut().time_x2 +=
-                // TODO(nga): this should be non-saturating sub, but tests fail.
-                time.saturating_duration_since(last_time);
+                time.duration_since(last_time);
             self.current.last_mut().unwrap().0.borrow_mut().calls_x2 += 1;
         }
 
@@ -199,7 +202,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
     fn call_exit(&mut self, time: ProfilerInstant) {
         if let Some(last_time) = self.last_time {
             self.current.last_mut().unwrap().0.borrow_mut().time_x2 +=
-                time.saturating_duration_since(last_time);
+                time.duration_since(last_time);
         }
         self.current.pop().unwrap();
         self.last_time = Some(time);

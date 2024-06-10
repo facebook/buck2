@@ -60,18 +60,6 @@ impl ProfilerInstant {
     }
 
     #[inline]
-    pub(crate) fn saturating_duration_since(&self, earlier: ProfilerInstant) -> Duration {
-        #[cfg(not(test))]
-        {
-            self.0.saturating_duration_since(earlier.0)
-        }
-        #[cfg(test)]
-        {
-            Duration::from_millis(self.0.saturating_sub(earlier.0))
-        }
-    }
-
-    #[inline]
     pub(crate) fn elapsed(&self) -> Duration {
         #[cfg(not(test))]
         {

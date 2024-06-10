@@ -111,6 +111,7 @@ impl<'v, T: AValue<'v>> Reservation<'v, T> {
 }
 
 pub(crate) trait ArenaVisitor<'v> {
+    fn enter_bump(&mut self);
     fn regular_value(&mut self, value: &'v AValueOrForward);
     fn call_enter(&mut self, function: Value<'v>, time: ProfilerInstant);
     fn call_exit(&mut self, time: ProfilerInstant);
@@ -190,6 +191,13 @@ impl<'v, T: AValue<'v>> ArenaUninit<'v, T> {
         self.debug_assert_extra_is_empty();
         self.write(x).0
     }
+}
+
+enum ArenaVisitEvent<'a> {
+    /// Called when entering new bump.
+    EnterBump,
+    /// Visiting a value in the bump.
+    Value(&'a AValueOrForward),
 }
 
 impl<A: ArenaAllocator> Arena<A> {
@@ -324,11 +332,12 @@ impl<A: ArenaAllocator> Arena<A> {
 
     // Iterate over the values in the heap in the order they
     // were added.
-    pub(crate) fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueOrForward)) {
+    fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(ArenaVisitEvent<'a>)) {
         // We get the chunks from most newest to oldest as per the bumpalo spec.
         // And within each chunk, the values are filled newest to oldest.
         // So need to do two sets of reversing.
         for bump in [&mut self.drop, &mut self.non_drop] {
+            f(ArenaVisitEvent::EnterBump);
             let chunks = unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() };
             // Use a single buffer to reduce allocations, but clear it after use
             let mut buffer = Vec::new();
@@ -337,13 +346,13 @@ impl<A: ArenaAllocator> Arena<A> {
                     ChunkAllocationDirection::Down => {
                         buffer.extend(Arena::<A>::iter_chunk(chunk));
                         for x in buffer.iter().rev() {
-                            f(x);
+                            f(ArenaVisitEvent::Value(x));
                         }
                         buffer.clear();
                     }
                     ChunkAllocationDirection::Up => {
                         for x in Arena::<A>::iter_chunk(chunk) {
-                            f(x);
+                            f(ArenaVisitEvent::Value(x));
                         }
                     }
                 }
@@ -375,30 +384,31 @@ impl<A: ArenaAllocator> Arena<A> {
             }
         }
 
-        self.for_each_ordered(|x| match x.unpack() {
-            AValueOrForwardUnpack::Header(header) => {
-                let value = header.unpack_value(heap_kind);
-                if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
-                    visitor.call_enter(
-                        fix_function(call_enter.function, forward_heap_kind),
-                        call_enter.time,
-                    );
-                } else if let Some(call_enter) = value.downcast_ref::<CallEnter<NoDrop>>() {
-                    visitor.call_enter(
-                        fix_function(call_enter.function, forward_heap_kind),
-                        call_enter.time,
-                    );
-                } else if let Some(call_exit) = value.downcast_ref::<CallExit<NeedsDrop>>() {
-                    visitor.call_exit(call_exit.time);
-                } else if let Some(call_exit) = value.downcast_ref::<CallExit<NoDrop>>() {
-                    visitor.call_exit(call_exit.time);
-                } else {
-                    visitor.regular_value(x);
+        self.for_each_ordered(|x| match x {
+            ArenaVisitEvent::EnterBump => visitor.enter_bump(),
+            ArenaVisitEvent::Value(x) => match x.unpack() {
+                AValueOrForwardUnpack::Header(header) => {
+                    let value = header.unpack_value(heap_kind);
+                    if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
+                        visitor.call_enter(
+                            fix_function(call_enter.function, forward_heap_kind),
+                            call_enter.time,
+                        );
+                    } else if let Some(call_enter) = value.downcast_ref::<CallEnter<NoDrop>>() {
+                        visitor.call_enter(
+                            fix_function(call_enter.function, forward_heap_kind),
+                            call_enter.time,
+                        );
+                    } else if let Some(call_exit) = value.downcast_ref::<CallExit<NeedsDrop>>() {
+                        visitor.call_exit(call_exit.time);
+                    } else if let Some(call_exit) = value.downcast_ref::<CallExit<NoDrop>>() {
+                        visitor.call_exit(call_exit.time);
+                    } else {
+                        visitor.regular_value(x);
+                    }
                 }
-            }
-            AValueOrForwardUnpack::Forward(_forward) => {
-                visitor.regular_value(x);
-            }
+                AValueOrForwardUnpack::Forward(_forward) => visitor.regular_value(x),
+            },
         });
     }
 
@@ -569,10 +579,13 @@ mod tests {
             "Didn't allocate enough to test properly"
         );
         let mut j = 0;
-        arena.for_each_ordered(|i| {
-            if let Some(i) = i.unpack_header() {
-                assert_eq!(to_repr(i), format!("{:?}", j.to_string()));
-                j += 1;
+        arena.for_each_ordered(|i| match i {
+            ArenaVisitEvent::EnterBump => {}
+            ArenaVisitEvent::Value(i) => {
+                if let Some(i) = i.unpack_header() {
+                    assert_eq!(to_repr(i), format!("{:?}", j.to_string()));
+                    j += 1;
+                }
             }
         });
         assert_eq!(j, LIMIT);
@@ -590,9 +603,12 @@ mod tests {
         reserve_str(&arena, &mk_str(""));
         arena.alloc(mk_str("hello"));
         let mut res = Vec::new();
-        arena.for_each_ordered(|x| {
-            if let Some(x) = x.unpack_header() {
-                res.push(x);
+        arena.for_each_ordered(|x| match x {
+            ArenaVisitEvent::EnterBump => {}
+            ArenaVisitEvent::Value(x) => {
+                if let Some(x) = x.unpack_header() {
+                    res.push(x);
+                }
             }
         });
         assert_eq!(res.len(), 3);
