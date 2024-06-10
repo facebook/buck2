@@ -1142,19 +1142,23 @@ def _crate_root(
          "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates.list()))
 
 def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit) -> str:
-    link_strategy_suffix = {
-        LinkStrategy("static"): "",
-        LinkStrategy("static_pic"): " [pic]",
-        LinkStrategy("shared"): " [shared]",
-    }[link_strategy]
-
     if emit == Emit("metadata-full"):
-        return "check" + link_strategy_suffix
+        link_strategy_suffix = {
+            LinkStrategy("static"): " [static]",
+            LinkStrategy("static_pic"): " [pic]",
+            LinkStrategy("shared"): " [shared]",
+        }[link_strategy]
+        return "metadata" + link_strategy_suffix
 
     if emit == Emit("metadata-fast"):
-        return "check [fast]"
+        return "check"
 
     if emit == Emit("link"):
+        link_strategy_suffix = {
+            LinkStrategy("static"): "",
+            LinkStrategy("static_pic"): " [pic]",
+            LinkStrategy("shared"): " [shared]",
+        }[link_strategy]
         if crate_type == CrateType("bin"):
             return "link" + link_strategy_suffix
         if crate_type == CrateType("rlib"):
