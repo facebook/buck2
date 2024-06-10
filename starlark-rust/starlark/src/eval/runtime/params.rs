@@ -30,6 +30,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
 
 use crate as starlark;
+use crate::cast::transmute;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::symbol_map::SymbolMap;
@@ -122,9 +123,6 @@ pub struct ParametersSpec<V> {
     /// The index at which **kwargs should go
     kwargs: Option<u32>,
 }
-
-// Can't derive this since we don't want ParameterKind to be public
-unsafe impl<From: Coerce<To>, To> Coerce<ParametersSpec<To>> for ParametersSpec<From> {}
 
 impl<V: Copy> ParametersSpecBuilder<V> {
     fn add(&mut self, name: &str, val: ParameterKind<V>) {
@@ -347,6 +345,11 @@ impl<V> ParametersSpec<V> {
 }
 
 impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
+    pub(crate) fn as_value(&self) -> &ParametersSpec<Value<'v>> {
+        // Everything is `repr(C)` and `Value` and `FrozenValue` have the same layout.
+        unsafe { transmute!(&ParametersSpec<V>, &ParametersSpec<Value>, self) }
+    }
+
     /// Number of function parameters.
     pub fn len(&self) -> usize {
         self.param_kinds.len()

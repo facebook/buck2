@@ -49,7 +49,6 @@ use crate as starlark;
 use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
@@ -644,7 +643,7 @@ impl<'v> Value<'v> {
         if let Some(def) = self.downcast_ref::<Def>() {
             Some(&def.parameters)
         } else if let Some(def) = self.downcast_ref::<FrozenDef>() {
-            Some(coerce(&def.parameters))
+            Some(def.parameters.as_value())
         } else {
             None
         }
