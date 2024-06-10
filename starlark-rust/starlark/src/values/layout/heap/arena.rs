@@ -31,7 +31,6 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::slice;
-use std::time::Instant;
 
 use allocative::Allocative;
 use allocative::Visitor;
@@ -40,6 +39,7 @@ use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
@@ -112,8 +112,8 @@ impl<'v, T: AValue<'v>> Reservation<'v, T> {
 
 pub(crate) trait ArenaVisitor<'v> {
     fn regular_value(&mut self, value: &'v AValueOrForward);
-    fn call_enter(&mut self, function: Value<'v>, time: Instant);
-    fn call_exit(&mut self, time: Instant);
+    fn call_enter(&mut self, function: Value<'v>, time: ProfilerInstant);
+    fn call_exit(&mut self, time: ProfilerInstant);
 }
 
 /// Iterate over chunk contents.

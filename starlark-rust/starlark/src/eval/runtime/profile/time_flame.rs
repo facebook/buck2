@@ -18,7 +18,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::slice;
-use std::time::Instant;
 
 use dupe::Dupe;
 use starlark_map::StarlarkHasherBuilder;
@@ -29,6 +28,7 @@ use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
@@ -136,7 +136,7 @@ pub(crate) struct TimeFlameProfile<'v>(
 #[derive(Default, Trace)]
 struct FlameData<'v> {
     /// All events in the profile, i.e. function entry or exit with timestamp.
-    frames: Vec<(Frame, Instant)>,
+    frames: Vec<(Frame, ProfilerInstant)>,
     index: ValueIndex<'v>,
 }
 
@@ -158,7 +158,7 @@ impl<'a> Stacks<'a> {
     fn new(
         mutable_names: &'a [String],
         frozen_names: &'a [String],
-        frames: &[(Frame, Instant)],
+        frames: &[(Frame, ProfilerInstant)],
     ) -> Self {
         let mut res = Stacks::blank("root");
         let Some(mut last_time) = frames.first().map(|x| x.1) else {
@@ -177,8 +177,8 @@ impl<'a> Stacks<'a> {
         &mut self,
         mutable_names: &'a [String],
         frozen_names: &'a [String],
-        frames: &mut slice::Iter<(Frame, Instant)>,
-        last_time: &mut Instant,
+        frames: &mut slice::Iter<(Frame, ProfilerInstant)>,
+        last_time: &mut ProfilerInstant,
     ) {
         while let Some((frame, time)) = frames.next() {
             self.time += time.duration_since(*last_time);
@@ -230,13 +230,13 @@ impl<'v> TimeFlameProfile<'v> {
     pub(crate) fn record_call_enter(&mut self, function: Value<'v>) {
         if let Some(x) = &mut self.0 {
             let ind = x.index.index(function);
-            x.frames.push((Frame::Push(ind), Instant::now()))
+            x.frames.push((Frame::Push(ind), ProfilerInstant::now()))
         }
     }
 
     pub(crate) fn record_call_exit(&mut self) {
         if let Some(x) = &mut self.0 {
-            x.frames.push((Frame::Pop, Instant::now()))
+            x.frames.push((Frame::Pop, ProfilerInstant::now()))
         }
     }
 

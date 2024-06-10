@@ -20,7 +20,6 @@
 use std::cmp::Ordering;
 use std::marker;
 use std::ptr;
-use std::time::Instant;
 
 use starlark_syntax::eval_exception::EvalException;
 
@@ -64,6 +63,7 @@ use crate::eval::compiler::stmt::possible_gc;
 use crate::eval::compiler::stmt::AssignError;
 use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::Arguments;
@@ -1163,7 +1163,7 @@ impl InstrNoFlowImpl for InstrCheckTypeImpl {
     ) -> crate::Result<()> {
         let expr = frame.get_bc_slot(*expr);
         let start = if eval.typecheck_profile.enabled {
-            Some(Instant::now())
+            Some(ProfilerInstant::now())
         } else {
             None
         };

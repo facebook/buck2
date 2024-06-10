@@ -23,7 +23,6 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
 use std::ptr;
-use std::time::Instant;
 
 use allocative::Allocative;
 use derivative::Derivative;
@@ -76,6 +75,7 @@ use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::params::ParametersSpec;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
@@ -675,7 +675,7 @@ where
 
     fn check_parameter_types(&self, eval: &mut Evaluator<'v, '_, '_>) -> crate::Result<()> {
         let start = if eval.typecheck_profile.enabled {
-            Some(Instant::now())
+            Some(ProfilerInstant::now())
         } else {
             None
         };
@@ -703,7 +703,7 @@ where
             .return_type
             .ok_or_else(|| crate::Error::new_other(DefError::CheckReturnTypeNoType))?;
         let start = if eval.typecheck_profile.enabled {
-            Some(Instant::now())
+            Some(ProfilerInstant::now())
         } else {
             None
         };

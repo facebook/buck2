@@ -24,7 +24,6 @@ use std::fmt::Formatter;
 use std::rc::Rc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::time::Instant;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -34,6 +33,7 @@ use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileData;
 use crate::values::layout::heap::arena::ArenaVisitor;
@@ -126,7 +126,7 @@ impl StackFrameBuilder {
 /// An accumulator for stack frames that lets us visit the heap.
 pub(crate) struct StackCollector {
     /// Timestamp of last call enter or exit.
-    last_time: Option<Instant>,
+    last_time: Option<ProfilerInstant>,
     ids: FunctionIds,
     current: Vec<StackFrameBuilder>,
     /// What we are collecting.
@@ -175,9 +175,10 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
         );
     }
 
-    fn call_enter(&mut self, function: Value<'v>, time: Instant) {
+    fn call_enter(&mut self, function: Value<'v>, time: ProfilerInstant) {
         if let Some(last_time) = self.last_time {
             self.current.last_mut().unwrap().0.borrow_mut().time_x2 +=
+                // TODO(nga): this should be non-saturating sub, but tests fail.
                 time.saturating_duration_since(last_time);
             self.current.last_mut().unwrap().0.borrow_mut().calls_x2 += 1;
         }
@@ -195,7 +196,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
         self.last_time = Some(time)
     }
 
-    fn call_exit(&mut self, time: Instant) {
+    fn call_exit(&mut self, time: ProfilerInstant) {
         if let Some(last_time) = self.last_time {
             self.current.last_mut().unwrap().0.borrow_mut().time_x2 +=
                 time.saturating_duration_since(last_time);

@@ -33,7 +33,6 @@ use std::ops::Deref;
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
-use std::time::Instant;
 use std::usize;
 
 use allocative::Allocative;
@@ -49,6 +48,7 @@ use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::eval::compiler::def::FrozenDef;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::any::StarlarkAny;
 use crate::values::array::Array;
 use crate::values::array::VALUE_EMPTY_ARRAY;
@@ -893,7 +893,7 @@ impl Heap {
     }
 
     pub(crate) fn record_call_enter<'v>(&'v self, function: Value<'v>) {
-        let time = Instant::now();
+        let time = ProfilerInstant::now();
         assert!(mem::needs_drop::<CallEnter<NeedsDrop>>());
         assert!(!mem::needs_drop::<CallEnter<NoDrop>>());
         self.alloc_complex_no_freeze(CallEnter {
@@ -909,7 +909,7 @@ impl Heap {
     }
 
     pub(crate) fn record_call_exit<'v>(&'v self) {
-        let time = Instant::now();
+        let time = ProfilerInstant::now();
         assert!(mem::needs_drop::<CallExit<NeedsDrop>>());
         assert!(!mem::needs_drop::<CallExit<NoDrop>>());
         self.alloc_simple(CallExit {

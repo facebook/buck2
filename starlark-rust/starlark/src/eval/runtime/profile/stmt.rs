@@ -20,7 +20,6 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter;
-use std::time::Instant;
 
 use dupe::Dupe;
 use starlark_syntax::codemap::CodeMaps;
@@ -34,6 +33,7 @@ use crate::codemap::Span;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
+use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
 
@@ -54,7 +54,7 @@ struct StmtProfileState {
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
     next_file: CodeMapId,
     last_span: (CodeMapId, Span),
-    last_start: Instant,
+    last_start: ProfilerInstant,
 }
 
 /// Result of running statement profiler.
@@ -72,12 +72,12 @@ impl StmtProfileState {
             stmts: HashMap::new(),
             next_file: CodeMapId::EMPTY,
             last_span: (CodeMapId::EMPTY, Span::default()),
-            last_start: Instant::now(),
+            last_start: ProfilerInstant::now(),
         }
     }
 
     // Add the data from last_span into the entries
-    fn add_last(&mut self, now: Instant) {
+    fn add_last(&mut self, now: ProfilerInstant) {
         let time = now - self.last_start;
         match self.stmts.entry(self.last_span) {
             Entry::Occupied(mut x) => {
@@ -92,7 +92,7 @@ impl StmtProfileState {
     }
 
     fn before_stmt(&mut self, span: Span, codemap: &CodeMap) {
-        let now = Instant::now();
+        let now = ProfilerInstant::now();
         self.add_last(now);
         if self.last_span.0 != codemap.id() {
             self.add_codemap(codemap);
@@ -114,7 +114,7 @@ impl StmtProfileState {
         // We do our best though, and give it a time of now.
         // Clone first, since we don't want to impact the real timing with our odd
         // final execution finish.
-        let now = Instant::now();
+        let now = ProfilerInstant::now();
         let mut data = self.clone();
         data.add_last(now);
 
