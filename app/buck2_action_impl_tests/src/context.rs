@@ -30,6 +30,7 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
+use starlark::StarlarkResultExt;
 
 fn run_ctx_test(
     content: &str,
@@ -85,7 +86,7 @@ fn run_ctx_test(
 
     let returned = eval
         .eval_function(test_function, &[ctx], &[])
-        .map_err(starlark::Error::into_anyhow);
+        .into_anyhow_result();
     result_handler(returned)
 }
 

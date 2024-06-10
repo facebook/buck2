@@ -36,6 +36,7 @@ use starlark::debug::VariablePath;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 use starlark::syntax::DialectTypes;
+use starlark::StarlarkResultExt;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -882,7 +883,7 @@ impl ServerState {
                 ..Dialect::Standard
             },
         )
-        .map_err(starlark::Error::into_anyhow)
+        .into_anyhow_result()
     }
 }
 

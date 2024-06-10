@@ -344,6 +344,7 @@ mod tests {
     use starlark::syntax::Dialect;
     use starlark::values::none::NoneType;
     use starlark::values::tuple::TupleRef;
+    use starlark::StarlarkResultExt;
 
     use super::*;
 
@@ -407,11 +408,9 @@ mod tests {
         alloc_promises(modu);
         let globals = GlobalsBuilder::standard().with(helpers).build();
         let ast = AstModule::parse("test.bzl", content.to_owned(), &Dialect::Extended)
-            .map_err(starlark::Error::into_anyhow)?;
+            .into_anyhow_result()?;
         let mut eval = Evaluator::new(modu);
-        let res = eval
-            .eval_module(ast, &globals)
-            .map_err(starlark::Error::into_anyhow)?;
+        let res = eval.eval_module(ast, &globals).into_anyhow_result()?;
         let promises = get_promises(modu);
         for (key, promise) in promises.0.borrow().iter() {
             promise.resolve(modu.heap().alloc(key), &mut eval)?;
