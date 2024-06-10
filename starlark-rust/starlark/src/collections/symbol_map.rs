@@ -44,6 +44,7 @@ use hashbrown::HashTable;
 
 use crate as starlark;
 use crate::coerce::Coerce;
+use crate::collections::aligned_padded_str::AlignedPaddedStr;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::values::StringValue;
@@ -130,6 +131,11 @@ impl Symbol {
         }
     }
 
+    #[inline]
+    pub(crate) fn as_aligned_padded_str(&self) -> AlignedPaddedStr {
+        unsafe { AlignedPaddedStr::new(self.len as usize, self.payload.as_ptr()) }
+    }
+
     pub(crate) fn as_str_hashed(&self) -> Hashed<&str> {
         Hashed::new_unchecked(self.small_hash, self.as_str())
     }
@@ -176,7 +182,9 @@ impl<T> SymbolMap<T> {
 
     pub(crate) fn get_hashed_string_value(&self, key: Hashed<StringValue>) -> Option<&T> {
         self.0
-            .find(key.hash().promote(), |x| x.0.as_str() == key.key().as_str())
+            .find(key.hash().promote(), |x| {
+                x.0.as_aligned_padded_str() == key.key().as_aligned_padded_str()
+            })
             .map(|x| &x.1)
     }
 
