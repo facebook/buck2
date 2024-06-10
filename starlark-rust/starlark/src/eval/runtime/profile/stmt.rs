@@ -34,7 +34,6 @@ use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
-use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
 
 #[derive(Debug, thiserror::Error)]
@@ -202,7 +201,6 @@ impl StmtProfile {
     pub(crate) fn gen(&self) -> anyhow::Result<ProfileData> {
         match &self.0 {
             Some(data) => Ok(ProfileData {
-                profile_mode: ProfileMode::Statement,
                 profile: ProfileDataImpl::Statement(data.finish()),
             }),
             None => Err(StmtProfileError::NotEnabled.into()),

@@ -29,7 +29,6 @@ use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
-use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::pointer::RawPointer;
@@ -255,7 +254,6 @@ impl<'v> TimeFlameProfile<'v> {
         let mutable_names = x.index.mutable_values.map(|x| x.to_repr());
         let frozen_names = x.index.frozen_values.map(|x| x.to_value().to_repr());
         ProfileData {
-            profile_mode: ProfileMode::TimeFlame,
             profile: ProfileDataImpl::TimeFlameProfile(
                 Stacks::new(&mutable_names, &frozen_names, &x.frames).render(),
             ),

@@ -23,7 +23,6 @@ use crate::collections::SmallMap;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
-use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::FrozenStringValue;
 
@@ -82,7 +81,6 @@ impl TypecheckProfile {
             return Err(TypecheckProfileError::NotEnabled.into());
         }
         Ok(ProfileData {
-            profile_mode: ProfileMode::Typecheck,
             profile: ProfileDataImpl::Typecheck(self.data.clone()),
         })
     }

@@ -73,7 +73,11 @@ R = test()
         _ => eval.gen_profile().unwrap(),
     };
 
-    if let ProfileDataImpl::AggregateHeapProfileInfo(profile) = &mut profile_data.profile {
+    if let ProfileDataImpl::HeapFlameRetained(profile)
+    | ProfileDataImpl::HeapFlameAllocated(profile)
+    | ProfileDataImpl::HeapSummaryRetained(profile)
+    | ProfileDataImpl::HeapSummaryAllocated(profile) = &mut profile_data.profile
+    {
         profile.normalize_for_golden_tests();
     }
 

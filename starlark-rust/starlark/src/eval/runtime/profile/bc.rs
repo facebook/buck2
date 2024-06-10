@@ -27,7 +27,6 @@ use dupe::Dupe;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
-use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::ProfileData;
 
 #[derive(Debug, thiserror::Error)]
@@ -231,7 +230,6 @@ impl BcProfile {
     pub(crate) fn gen_bc_profile(&mut self) -> anyhow::Result<ProfileData> {
         match mem::replace(&mut self.data, BcProfileDataMode::Disabled) {
             BcProfileDataMode::Bc(bc) => Ok(ProfileData {
-                profile_mode: ProfileMode::Bytecode,
                 profile: ProfileDataImpl::Bc(bc),
             }),
             _ => Err(BcProfileError::BcProfilingNotEnabled.into()),
@@ -241,7 +239,6 @@ impl BcProfile {
     pub(crate) fn gen_bc_pairs_profile(&mut self) -> anyhow::Result<ProfileData> {
         match mem::replace(&mut self.data, BcProfileDataMode::Disabled) {
             BcProfileDataMode::BcPairs(bc_pairs) => Ok(ProfileData {
-                profile_mode: ProfileMode::BytecodePairs,
                 profile: ProfileDataImpl::BcPairs(*bc_pairs),
             }),
             _ => Err(BcProfileError::BcProfilingNotEnabled.into()),

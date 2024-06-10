@@ -22,7 +22,6 @@ use dupe::Dupe;
 
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
-use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
@@ -31,15 +30,6 @@ use crate::values::Value;
 pub(crate) enum RetainedHeapProfileMode {
     Flame,
     Summary,
-}
-
-impl RetainedHeapProfileMode {
-    pub(crate) fn to_profile_mode(self) -> ProfileMode {
-        match self {
-            RetainedHeapProfileMode::Flame => ProfileMode::HeapFlameRetained,
-            RetainedHeapProfileMode::Summary => ProfileMode::HeapSummaryRetained,
-        }
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -105,16 +95,14 @@ impl HeapProfile {
     fn write_flame_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
         ProfileData {
-            profile_mode: ProfileMode::HeapFlameAllocated,
-            profile: ProfileDataImpl::AggregateHeapProfileInfo(Box::new(stacks)),
+            profile: ProfileDataImpl::HeapFlameAllocated(Box::new(stacks)),
         }
     }
 
     fn write_summarized_heap_profile(heap: &Heap) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
         ProfileData {
-            profile_mode: ProfileMode::HeapSummaryAllocated,
-            profile: ProfileDataImpl::AggregateHeapProfileInfo(Box::new(stacks)),
+            profile: ProfileDataImpl::HeapSummaryAllocated(Box::new(stacks)),
         }
     }
 }

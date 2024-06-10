@@ -430,8 +430,14 @@ pub(crate) struct RetainedHeapProfile {
 impl RetainedHeapProfile {
     pub(crate) fn to_profile(&self) -> ProfileData {
         ProfileData {
-            profile: ProfileDataImpl::AggregateHeapProfileInfo(Box::new(self.info.clone())),
-            profile_mode: self.mode.to_profile_mode(),
+            profile: match self.mode {
+                RetainedHeapProfileMode::Flame => {
+                    ProfileDataImpl::HeapFlameRetained(Box::new(self.info.clone()))
+                }
+                RetainedHeapProfileMode::Summary => {
+                    ProfileDataImpl::HeapSummaryRetained(Box::new(self.info.clone()))
+                }
+            },
         }
     }
 }
