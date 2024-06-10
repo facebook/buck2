@@ -224,29 +224,27 @@ impl PluginLists {
         }
     }
 
-    pub fn iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = (&'a PluginKind, &'a TargetLabel, &'a PluginListElemKind)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&PluginKind, &TargetLabel, &PluginListElemKind)> {
         self.0
             .iter()
             .flat_map(|(k, v)| v.iter().map(move |t| (k, t.0, t.1)))
     }
 
-    pub fn iter_by_kind<'a>(
-        &'a self,
+    pub fn iter_by_kind(
+        &self,
     ) -> impl Iterator<
         Item = (
-            &'a PluginKind,
-            impl Iterator<Item = (&'a TargetLabel, &'a PluginListElemKind)>,
+            &PluginKind,
+            impl Iterator<Item = (&TargetLabel, &PluginListElemKind)>,
         ),
     > {
         self.0.iter().map(|(k, v)| (k, v.iter()))
     }
 
-    pub fn iter_for_kind<'a>(
-        &'a self,
+    pub fn iter_for_kind(
+        &self,
         kind: &PluginKind,
-    ) -> impl Iterator<Item = (&'a TargetLabel, &'a PluginListElemKind)> {
+    ) -> impl Iterator<Item = (&TargetLabel, &PluginListElemKind)> {
         self.0.get(kind).into_iter().flatten()
     }
 }
