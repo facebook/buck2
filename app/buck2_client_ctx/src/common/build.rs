@@ -74,11 +74,6 @@ pub struct CommonBuildOptions {
     )]
     build_report_options: Vec<BuildReportOption>,
 
-    /// Deprecated. Use --build-report=-
-    // TODO(cjhopman): this is probably only used by the e2e framework. remove it from there
-    #[clap(long = "print-build-report", hide = true)]
-    print_build_report: bool,
-
     /// Number of threads to use during execution (default is # cores)
     // TODO(cjhopman): This only limits the threads used for action execution and it doesn't work correctly with concurrent commands.
     #[clap(short = 'j', long = "num-threads", value_name = "THREADS")]
@@ -172,9 +167,9 @@ pub struct CommonBuildOptions {
 
 impl CommonBuildOptions {
     fn build_report(&self) -> (bool, String) {
-        match (self.print_build_report, &self.build_report) {
-            (false, None) => (false, "".to_owned()),
-            (_, Some(path)) if path != "-" => (true, path.to_owned()),
+        match &self.build_report {
+            None => (false, "".to_owned()),
+            Some(path) if path != "-" => (true, path.to_owned()),
             _ => (true, "".to_owned()),
         }
     }
