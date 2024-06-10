@@ -135,11 +135,13 @@ impl QueryEnvironmentDescription {
 }
 
 fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> String {
-    let mut rendered = if options.include_alt_text {
-        format!("*[{}]: {}\n", v.repr(), v.short_description(),)
-    } else {
-        String::new()
+    let mut rendered = format!("- *{}*: ", v.repr());
+    match (options.include_alt_text, v.short_description()) {
+        (true, Some(short_description)) => {
+            rendered.push_str(short_description);
+        }
+        _ => {}
     };
-    rendered.push_str(&format!("- *{}*: {}", v.repr(), v.description()));
+    rendered.push_str(&format!("\n\n  {}", v.description()));
     rendered
 }

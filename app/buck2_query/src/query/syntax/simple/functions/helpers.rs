@@ -58,21 +58,21 @@ impl QueryArgType {
         }
     }
 
-    pub fn short_description(self) -> &'static str {
+    pub fn short_description(self) -> Option<&'static str> {
         match self {
             QueryArgType::TargetSet => {
-                "a target expression, either a literal or the return value of a function"
+                Some("a target expression, either a literal or the return value of a function")
             }
             QueryArgType::FileSet => {
-                "a file expression, either a literal or the return value of a function"
+                Some("a file expression, either a literal or the return value of a function")
             }
-            QueryArgType::Set => {
-                "a file or target expression, either a literal or the return value of a function"
-            }
+            QueryArgType::Set => Some(
+                "a file or target expression, either a literal or the return value of a function",
+            ),
             QueryArgType::Expression => {
-                "a valid query expression, evaluated in a function-specific context"
+                Some("a valid query expression, evaluated in a function-specific context")
             }
-            _ => self.description(),
+            _ => None,
         }
     }
 
