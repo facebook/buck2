@@ -57,7 +57,6 @@ pub(crate) enum ProfileDataImpl {
 #[derive(Clone, Debug)]
 pub struct ProfileData {
     pub(crate) profile_mode: ProfileMode,
-    /// Serialized to text (e.g. CSV or flamegraph).
     pub(crate) profile: ProfileDataImpl,
 }
 
