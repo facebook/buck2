@@ -60,15 +60,8 @@ impl QueryArgType {
 
     pub fn short_description(self) -> Option<&'static str> {
         match self {
-            QueryArgType::TargetSet => {
-                Some("a target expression, either a literal or the return value of a function")
-            }
-            QueryArgType::FileSet => {
-                Some("a file expression, either a literal or the return value of a function")
-            }
-            QueryArgType::Set => Some(
-                "a file or target expression, either a literal or the return value of a function",
-            ),
+            QueryArgType::TargetSet => Some("either a literal or the return value of a function"),
+            QueryArgType::FileSet => Some("either a literal or the return value of a function"),
             QueryArgType::Expression => {
                 Some("a valid query expression, evaluated in a function-specific context")
             }
@@ -79,27 +72,27 @@ impl QueryArgType {
     pub fn description(self) -> &'static str {
         match self {
             QueryArgType::String => {
-                "a string. For example `non_quoted_string` or `\"quoted string\"`"
+                "For example, `non_quoted_string` or `\"quoted string\"`."
             }
             QueryArgType::Integer => {
-                "an integer. query integers must be positive and fit in a `u32`"
+                "Must be positive and fit in `u32`."
             }
             QueryArgType::TargetSet => {
-                "A target set expression. This could be a literal build target (`\"cell//some:target\"`), a literal build target pattern \
-                (`\"cell//package:\"` or `\"cell//recursive/...\"`) or the result of another function that returns a target set. For \
-                queries in cli commands (like `buck2 query`), literals can be relative to the current working dir (like `some:target` \
+                "This could be a literal build target (`\"cell//some:target\"`) or a pattern \
+                (`\"cell//package:\"` or `\"cell//recursive/...\"`) or the result of another function that returns a target expression. For \
+                queries in CLI commands (like `buck2 query`), literals can be relative to the current working dir (like `some:target` \
                 or `...`)."
             }
             QueryArgType::FileSet => {
-                "A file set expression. This could be a file literal like `path/to/a.file` or the return value of a function that \
+                "This could be a file literal like `path/to/a.file` or the return value of a function that \
                 returns files (for example, the `buildfile()` function)."
             }
             QueryArgType::Set => {
-                "A file set or target set expression. This could be a literal like `path/to/a.file` or `\"cell//some:target\"`,
+                "Either a *file expression* or *target expression*. This could be a literal like `path/to/a.file` or `\"cell//some:target\"`,
                 or the return value of a function that returns files or targets."
             }
             QueryArgType::Expression => {
-                "A query expression. This is used for functions that capture an expression and evaluate it in another context. \
+                "This is used for functions that capture an expression and evaluate it in another context. \
                 For example, the `deps()` function can accept an expression that it uses to find the children of a node to \
                 customize the deps traversal."
             }
