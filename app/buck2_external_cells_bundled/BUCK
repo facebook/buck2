@@ -5,15 +5,6 @@ load(":bundled_cell.bzl", "bundled_cell")
 
 oncall("build_infra")
 
-# @oss-disable: _PKG_PREFIX = "//buck2/" 
-_PKG_PREFIX = "//" # @oss-enable
-
-bundled_cell(
-    name = "nano_prelude",
-    include_from_file = "src/lib.rs",
-    source_listing = _PKG_PREFIX + "tests/e2e_util/nano_prelude:source_listing",
-)
-
 bundled_cell(
     name = "prelude",
     include_from_file = "src/lib.rs",
@@ -28,7 +19,6 @@ rust_library(
         "test_data/**/.*",
     ]),
     mapped_srcs = {
-        ":nano_prelude": "src/nano_prelude",
         ":prelude": "src/prelude",
     },
     # Do not add non-third party deps. This should store the data only, so that

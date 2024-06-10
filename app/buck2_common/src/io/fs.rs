@@ -380,7 +380,7 @@ fn read_unchecked<P: AsRef<AbsPath>>(
 }
 
 #[cfg(unix)]
-fn is_executable(meta: &std::fs::Metadata) -> bool {
+pub fn is_executable(meta: &std::fs::Metadata) -> bool {
     use std::os::unix::fs::PermissionsExt;
     // We check 0o111 (user,group,other) instead of 0o100 (user) because even if the user
     // doesn't have permission, if ANYONE does we assume the file is an executable
@@ -388,7 +388,7 @@ fn is_executable(meta: &std::fs::Metadata) -> bool {
 }
 
 #[cfg(not(unix))]
-fn is_executable(_meta: &std::fs::Metadata) -> bool {
+pub fn is_executable(_meta: &std::fs::Metadata) -> bool {
     false
 }
 

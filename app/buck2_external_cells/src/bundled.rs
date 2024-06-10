@@ -7,8 +7,13 @@
  * of this source tree.
  */
 
+use std::env;
+use std::fs;
+use std::path::Path;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
+use anyhow::Context;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::FileMetadata;
@@ -16,6 +21,7 @@ use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::io::fs::is_executable;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;
@@ -30,7 +36,11 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::ImmutableDirectory;
 use buck2_core::directory::NoDigest;
 use buck2_core::directory::NoDigestDigester;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
@@ -39,10 +49,61 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_external_cells_bundled::get_bundled_data;
 use buck2_external_cells_bundled::BundledCell;
+use buck2_external_cells_bundled::BundledFile;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+
+fn load_nano_prelude() -> anyhow::Result<BundledCell> {
+    let path = env::var("NANO_PRELUDE").context(
+        "NANO_PRELUDE env var must be set to the location of nano prelude\n\
+        Consider `export NANO_PRELUDE=$HOME/fbsource/fbcode/buck2/tests/e2e_util/nano_prelude`",
+    )?;
+    if path.is_empty() {
+        return Err(anyhow::anyhow!("NANO_PRELUDE env var must not be empty"));
+    }
+    let path = AbsPathBuf::new(Path::new(&path))
+        .context("NANO_PRELUDE env var must point to absolute path")?;
+
+    let mut files = Vec::new();
+    let mut dir_stack = Vec::new();
+    dir_stack.push((path, ForwardRelativePathBuf::empty()));
+    while let Some((dir, rel_path)) = dir_stack.pop() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let entry_path = AbsPathBuf::new(entry.path())?;
+            let entry_rel_path = rel_path.join(FileName::new(
+                entry.file_name().to_str().context("not UTF-8 string")?,
+            )?);
+            match FileType::from(entry.file_type()?) {
+                FileType::Directory => dir_stack.push((entry_path, entry_rel_path)),
+                FileType::File => {
+                    let contents = fs_util::read(&entry_path)?;
+                    files.push(BundledFile {
+                        path: entry_rel_path.as_str().to_owned().leak(),
+                        contents: contents.leak(),
+                        is_executable: is_executable(&entry.metadata()?),
+                    });
+                }
+                FileType::Symlink | FileType::Unknown => {
+                    // We don't have these in nano-prelude.
+                }
+            }
+        }
+    }
+
+    Ok(BundledCell {
+        name: "nano_prelude",
+        files: files.leak(),
+        is_testing: true,
+    })
+}
+
+fn nano_prelude() -> anyhow::Result<BundledCell> {
+    static NANO_PRELUDE: OnceLock<BundledCell> = OnceLock::new();
+    Ok(*NANO_PRELUDE.get_or_try_init(|| load_nano_prelude().context("loading nano_prelude"))?)
+}
 
 pub(crate) fn find_bundled_data(cell_name: CellName) -> anyhow::Result<BundledCell> {
     #[derive(buck2_error::Error, Debug)]
@@ -50,6 +111,10 @@ pub(crate) fn find_bundled_data(cell_name: CellName) -> anyhow::Result<BundledCe
     struct CellNotBundled(String, Vec<&'static str>);
 
     let cell_name = cell_name.as_str();
+
+    if cell_name == "nano_prelude" {
+        return nano_prelude();
+    }
 
     get_bundled_data()
         .iter()
