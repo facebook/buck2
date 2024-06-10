@@ -27,7 +27,54 @@ use dupe::Dupe;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
+use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::ProfileData;
+use crate::eval::ProfileMode;
+
+pub(crate) struct BcProfilerType;
+pub(crate) struct BcPairsProfilerType;
+
+impl ProfilerType for BcProfilerType {
+    type Data = Box<BcProfileData>;
+    const PROFILE_MODE: ProfileMode = ProfileMode::Bytecode;
+
+    fn data_from_generic(profile_data: &ProfileDataImpl) -> Option<&Self::Data> {
+        match profile_data {
+            ProfileDataImpl::Bc(bc) => Some(bc),
+            _ => None,
+        }
+    }
+
+    fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
+        ProfileDataImpl::Bc(data)
+    }
+
+    fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
+        Ok(Box::new(BcProfileData::merge(
+            profiles.iter().map(|x| &***x),
+        )))
+    }
+}
+
+impl ProfilerType for BcPairsProfilerType {
+    type Data = BcPairsProfileData;
+    const PROFILE_MODE: ProfileMode = ProfileMode::BytecodePairs;
+
+    fn data_from_generic(profile_data: &ProfileDataImpl) -> Option<&Self::Data> {
+        match profile_data {
+            ProfileDataImpl::BcPairs(bc) => Some(bc),
+            _ => None,
+        }
+    }
+
+    fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
+        ProfileDataImpl::BcPairs(data)
+    }
+
+    fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
+        Ok(BcPairsProfileData::merge(profiles.iter().map(|x| &**x)))
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 enum BcProfileError {
@@ -141,7 +188,7 @@ impl BcProfileData {
         csv.finish()
     }
 
-    pub(crate) fn merge<'a>(iter: impl IntoIterator<Item = &'a BcProfileData>) -> BcProfileData {
+    fn merge<'a>(iter: impl IntoIterator<Item = &'a BcProfileData>) -> BcProfileData {
         let mut sum = BcProfileData::default();
         for profile in iter {
             sum += profile;
@@ -183,9 +230,7 @@ impl BcPairsProfileData {
         csv.finish()
     }
 
-    pub(crate) fn merge<'a>(
-        iter: impl IntoIterator<Item = &'a BcPairsProfileData>,
-    ) -> BcPairsProfileData {
+    fn merge<'a>(iter: impl IntoIterator<Item = &'a BcPairsProfileData>) -> BcPairsProfileData {
         let mut sum = BcPairsProfileData::default();
         for profile in iter {
             sum += profile;

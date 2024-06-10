@@ -23,6 +23,7 @@ pub(crate) mod heap;
 pub(crate) mod instant;
 pub(crate) mod mode;
 pub(crate) mod or_instrumentation;
+pub(crate) mod profiler_type;
 pub(crate) mod stmt;
 pub(crate) mod tests;
 pub(crate) mod time_flame;

@@ -29,13 +29,37 @@ use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::eval::ProfileMode;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::FrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
+
+pub(crate) struct TimeFlameProfilerType;
+
+impl ProfilerType for TimeFlameProfilerType {
+    type Data = FlameGraphData;
+    const PROFILE_MODE: ProfileMode = ProfileMode::TimeFlame;
+
+    fn data_from_generic(profile_data: &ProfileDataImpl) -> Option<&Self::Data> {
+        match profile_data {
+            ProfileDataImpl::TimeFlameProfile(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
+        ProfileDataImpl::TimeFlameProfile(data)
+    }
+
+    fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
+        Ok(FlameGraphData::merge(profiles.iter().copied()))
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 enum FlameProfileError {

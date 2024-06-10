@@ -20,20 +20,25 @@ use std::path::Path;
 
 use anyhow::Context;
 use dupe::Dupe;
-use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
+use crate::eval::runtime::profile::bc::BcPairsProfilerType;
 use crate::eval::runtime::profile::bc::BcProfileData;
+use crate::eval::runtime::profile::bc::BcProfilerType;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+use crate::eval::runtime::profile::heap::HeapFlameAllocatedProfilerType;
+use crate::eval::runtime::profile::heap::HeapFlameRetainedProfilerType;
+use crate::eval::runtime::profile::heap::HeapSummaryAllocatedProfilerType;
+use crate::eval::runtime::profile::heap::HeapSummaryRetainedProfilerType;
 use crate::eval::runtime::profile::mode::ProfileMode;
+use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::profile::stmt::StmtProfileData;
+use crate::eval::runtime::profile::time_flame::TimeFlameProfilerType;
 use crate::eval::runtime::profile::typecheck::TypecheckProfileData;
 use crate::values::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]
 enum ProfileDataError {
-    #[error("Profile data is not consistent with profile mode (internal error)")]
-    ProfileDataNotConsistent,
     #[error("Empty profile list cannot be merged")]
     EmptyProfileList,
     #[error("Different profile modes in profile")]
@@ -128,76 +133,21 @@ impl ProfileData {
             }
         }
         let profile = match &profile_mode {
-            ProfileMode::Bytecode => {
-                let profiles = profiles.try_map(|p| match &p.profile {
-                    ProfileDataImpl::Bc(bc) => Ok(&**bc),
-                    _ => Err(crate::Error::new_other(
-                        ProfileDataError::ProfileDataNotConsistent,
-                    )),
-                })?;
-                let profile = BcProfileData::merge(profiles);
-                ProfileDataImpl::Bc(Box::new(profile))
-            }
-            ProfileMode::BytecodePairs => {
-                let profiles = profiles.try_map(|p| match &p.profile {
-                    ProfileDataImpl::BcPairs(bc_pairs) => Ok(bc_pairs),
-                    _ => Err(crate::Error::new_other(
-                        ProfileDataError::ProfileDataNotConsistent,
-                    )),
-                })?;
-                let profile = BcPairsProfileData::merge(profiles);
-                ProfileDataImpl::BcPairs(profile)
-            }
+            ProfileMode::Bytecode => BcProfilerType::merge_profiles(&profiles)?.profile,
+            ProfileMode::BytecodePairs => BcPairsProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::HeapSummaryAllocated => {
-                let profiles = profiles.try_map(|p| match &p.profile {
-                    ProfileDataImpl::HeapSummaryAllocated(profile) => Ok(&**profile),
-                    _ => Err(crate::Error::new_other(
-                        ProfileDataError::ProfileDataNotConsistent,
-                    )),
-                })?;
-                let profile = AggregateHeapProfileInfo::merge(profiles);
-                ProfileDataImpl::HeapSummaryAllocated(Box::new(profile))
+                HeapSummaryAllocatedProfilerType::merge_profiles(&profiles)?.profile
             }
             ProfileMode::HeapSummaryRetained => {
-                let profiles = profiles.try_map(|p| match &p.profile {
-                    ProfileDataImpl::HeapSummaryRetained(profile) => Ok(&**profile),
-                    _ => Err(crate::Error::new_other(
-                        ProfileDataError::ProfileDataNotConsistent,
-                    )),
-                })?;
-                let profile = AggregateHeapProfileInfo::merge(profiles);
-                ProfileDataImpl::HeapSummaryRetained(Box::new(profile))
+                HeapSummaryRetainedProfilerType::merge_profiles(&profiles)?.profile
             }
             ProfileMode::HeapFlameAllocated => {
-                let profiles = profiles.try_map(|p| match &p.profile {
-                    ProfileDataImpl::HeapFlameAllocated(profile) => Ok(&**profile),
-                    _ => Err(crate::Error::new_other(
-                        ProfileDataError::ProfileDataNotConsistent,
-                    )),
-                })?;
-                let profile = AggregateHeapProfileInfo::merge(profiles);
-                ProfileDataImpl::HeapFlameAllocated(Box::new(profile))
+                HeapFlameAllocatedProfilerType::merge_profiles(&profiles)?.profile
             }
             ProfileMode::HeapFlameRetained => {
-                let profiles = profiles.try_map(|p| match &p.profile {
-                    ProfileDataImpl::HeapFlameRetained(profile) => Ok(&**profile),
-                    _ => Err(crate::Error::new_other(
-                        ProfileDataError::ProfileDataNotConsistent,
-                    )),
-                })?;
-                let profile = AggregateHeapProfileInfo::merge(profiles);
-                ProfileDataImpl::HeapFlameRetained(Box::new(profile))
+                HeapFlameRetainedProfilerType::merge_profiles(&profiles)?.profile
             }
-            ProfileMode::TimeFlame => {
-                let profiles = profiles.try_map(|p| match &p.profile {
-                    ProfileDataImpl::TimeFlameProfile(data) => Ok(data),
-                    _ => Err(crate::Error::new_other(
-                        ProfileDataError::ProfileDataNotConsistent,
-                    )),
-                })?;
-                let profile = FlameGraphData::merge(profiles);
-                ProfileDataImpl::TimeFlameProfile(profile)
-            }
+            ProfileMode::TimeFlame => TimeFlameProfilerType::merge_profiles(&profiles)?.profile,
             profile_mode => {
                 return Err(crate::Error::new_other(
                     ProfileDataError::MergeNotImplemented(profile_mode.dupe()),
