@@ -309,7 +309,7 @@ async fn build_configured_label_inner<'a>(
             MaybeCompatible::Compatible(v) => v,
         };
 
-        // Important we use an an ordered collections, so the order matches the order the rule
+        // Important we use an ordered collections, so the order matches the order the rule
         // author wrote.
         let mut outputs = Vec::new();
         // Providers that produced each output, in the order of outputs above. We use a separate collection
