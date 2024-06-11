@@ -2079,6 +2079,7 @@ message ErrorReport {
   // source file, but the exact format is not guaranteed.
   optional string source_location = 5;
   repeated buck.data.error.ErrorTag tags = 6;
+  repeated string sub_error_categories = 7;
 }
 
 // Identical to `ErrorReport`, but with the typ and tags converted to strings.
@@ -2095,6 +2096,7 @@ message ProcessedErrorReport {
   // `buck2_error` crate has logic of selecting the most interesting error tag
   // among all error tags. This is such tag.
   optional string best_tag = 7;
+  repeated string sub_error_categories = 8;
 }
 
 message MaterializerStateInfo {

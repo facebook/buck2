@@ -1182,6 +1182,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
             .map(|t| t.as_str_name().to_owned())
             .collect(),
         best_tag: Some(best_tag.to_owned()),
+        sub_error_categories: error.sub_error_categories,
     }
 }
 
