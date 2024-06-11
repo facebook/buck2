@@ -46,7 +46,6 @@ impl StarlarkProfilerInstrumentation {
 
 #[derive(Debug, Clone, Allocative)]
 pub struct StarlarkProfileDataAndStats {
-    profile_mode: ProfileMode,
     #[allocative(skip)] // OK to skip because used only when profiling enabled.
     pub profile_data: ProfileData,
     initialized_at: Instant,
@@ -69,15 +68,11 @@ impl StarlarkProfileDataAndStats {
         let datas = Vec::from_iter(datas);
         let mut iter = datas.iter().copied();
         let first = iter.next().context("empty collection of profile data")?;
-        let profile_mode = first.profile_mode.dupe();
         let mut total_retained_bytes = first.total_retained_bytes;
         let mut initialized_at = first.initialized_at;
         let mut finalized_at = first.finalized_at;
 
         for data in iter {
-            if data.profile_mode != profile_mode {
-                return Err(internal_error!("profile mode are inconsistent"));
-            }
             initialized_at = cmp::min(initialized_at, data.initialized_at);
             finalized_at = cmp::max(finalized_at, data.finalized_at);
             total_retained_bytes += data.total_retained_bytes;
@@ -87,7 +82,6 @@ impl StarlarkProfileDataAndStats {
             ProfileData::merge(datas.iter().map(|data| &data.profile_data)).into_anyhow_result()?;
 
         Ok(StarlarkProfileDataAndStats {
-            profile_mode,
             profile_data,
             initialized_at,
             finalized_at,
@@ -123,7 +117,6 @@ impl StarlarkProfiler {
     /// Collect all profiling data.
     pub fn finish(self) -> anyhow::Result<StarlarkProfileDataAndStats> {
         Ok(StarlarkProfileDataAndStats {
-            profile_mode: self.profile_mode,
             initialized_at: self.initialized_at.internal_error("did not initialize")?,
             finalized_at: self.finalized_at.internal_error("did not finalize")?,
             total_retained_bytes: self
