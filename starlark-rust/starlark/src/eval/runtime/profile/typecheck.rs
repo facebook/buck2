@@ -17,13 +17,18 @@
 
 //! Runtime typecheck profile.
 
+use std::collections::HashMap;
 use std::time::Duration;
+
+use starlark_map::Hashed;
+use starlark_map::StarlarkHasherBuilder;
 
 use crate::collections::SmallMap;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::FrozenStringValue;
 
 #[derive(Debug, thiserror::Error)]
@@ -34,14 +39,13 @@ enum TypecheckProfileError {
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct TypecheckProfileData {
-    // TODO(nga): we don't need ordered map here.
-    by_function: SmallMap<FrozenStringValue, SmallDuration>,
+    by_function: SmallMap<ArcStr, SmallDuration>,
 }
 
 #[derive(Default, Debug)]
 pub(crate) struct TypecheckProfile {
     pub(crate) enabled: bool,
-    data: TypecheckProfileData,
+    by_function: HashMap<Hashed<FrozenStringValue>, SmallDuration, StarlarkHasherBuilder>,
 }
 
 impl TypecheckProfileData {
@@ -69,11 +73,7 @@ impl TypecheckProfileData {
 impl TypecheckProfile {
     pub(crate) fn add(&mut self, function: FrozenStringValue, time: Duration) {
         assert!(self.enabled);
-        *self
-            .data
-            .by_function
-            .entry_hashed(function.get_hashed())
-            .or_default() += time;
+        *self.by_function.entry(function.get_hashed()).or_default() += time;
     }
 
     pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
@@ -81,7 +81,13 @@ impl TypecheckProfile {
             return Err(crate::Error::new_other(TypecheckProfileError::NotEnabled));
         }
         Ok(ProfileData {
-            profile: ProfileDataImpl::Typecheck(self.data.clone()),
+            profile: ProfileDataImpl::Typecheck(TypecheckProfileData {
+                by_function: self
+                    .by_function
+                    .iter()
+                    .map(|(k, v)| (ArcStr::from(k.as_str()), *v))
+                    .collect(),
+            }),
         })
     }
 }
@@ -113,7 +119,7 @@ g()
         eval.enable_profile(&ProfileMode::Typecheck)?;
         eval.eval_module(program, &Globals::extended_internal())?;
 
-        let csv = eval.typecheck_profile.data.gen_csv();
+        let csv = eval.typecheck_profile.gen()?.gen()?;
         let lines: Vec<&str> = csv.lines().collect();
         assert_eq!("Function,Time (s)", lines[0]);
         assert!(lines[1].starts_with("\"TOTAL\","), "{:?}", lines[1]);
