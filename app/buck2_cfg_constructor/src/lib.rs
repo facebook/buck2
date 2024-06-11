@@ -65,6 +65,7 @@ pub(crate) struct CfgConstructor {
     pub(crate) cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
     pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
     pub(crate) key: MetadataKey,
+    pub(crate) aliases: Option<OwnedFrozenValue>,
 }
 
 async fn eval_pre_constraint_analysis<'v>(
@@ -75,6 +76,7 @@ async fn eval_pre_constraint_analysis<'v>(
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
+    aliases: Option<&'v OwnedFrozenValue>,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
 ) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
@@ -101,6 +103,10 @@ async fn eval_pre_constraint_analysis<'v>(
             let target_cfg_modifiers = eval.heap().alloc(target_cfg_modifiers.map(|m| m.as_json()));
             let cli_modifiers = eval.heap().alloc(cli_modifiers);
             let rule_name = eval.heap().alloc(rule_type.name());
+            let aliases = match aliases {
+                Some(v) => v.value(),
+                None => Value::new_none(),
+            };
 
             // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
             let pre_constraint_analysis_args = vec![
@@ -109,6 +115,7 @@ async fn eval_pre_constraint_analysis<'v>(
                 ("target_modifiers", target_cfg_modifiers),
                 ("cli_modifiers", cli_modifiers),
                 ("rule_name", rule_name),
+                ("aliases", aliases),
             ];
 
             // Type check + unpack
@@ -235,6 +242,7 @@ async fn eval_underlying(
         target_cfg_modifiers,
         cli_modifiers,
         rule_type,
+        cfg_constructor.aliases.as_ref(),
         &module,
         &print,
     )

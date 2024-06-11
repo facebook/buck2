@@ -111,10 +111,17 @@ fn make_cfg_constructor(
     cfg_constructor: OwnedFrozenValue,
 ) -> anyhow::Result<Arc<dyn CfgConstructorImpl>> {
     let cfg_constructor = cfg_constructor.downcast_anyhow::<FrozenStarlarkCfgConstructor>()?;
-    let (cfg_constructor_pre_constraint_analysis, cfg_constructor_post_constraint_analysis) = unsafe {
+    let (
+        cfg_constructor_pre_constraint_analysis,
+        cfg_constructor_post_constraint_analysis,
+        aliases,
+    ) = unsafe {
         (
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage0),
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage1),
+            cfg_constructor
+                .aliases
+                .map(|v| OwnedFrozenValue::new(cfg_constructor.owner().dupe(), v)),
         )
     };
     let key = MetadataKeyRef::new(&cfg_constructor.key)?.to_owned();
@@ -122,6 +129,7 @@ fn make_cfg_constructor(
         cfg_constructor_pre_constraint_analysis,
         cfg_constructor_post_constraint_analysis,
         key,
+        aliases,
     }))
 }
 
