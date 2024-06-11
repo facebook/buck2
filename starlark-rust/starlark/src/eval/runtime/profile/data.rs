@@ -91,6 +91,11 @@ fn _assert_profile_data_send_sync() {
 }
 
 impl ProfileData {
+    /// Profile mode used to collect this data.
+    pub fn profile_mode(&self) -> ProfileMode {
+        self.profile.profile_mode()
+    }
+
     /// Generate a string with profile data (e.g. CSV or flamegraph, depending on profile type).
     pub fn gen(&self) -> crate::Result<String> {
         match &self.profile {
