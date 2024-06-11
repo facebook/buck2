@@ -41,6 +41,7 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use gazebo::prelude::*;
+use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
@@ -663,6 +664,33 @@ fn push_all_files_from_a_directory<'a>(
     .boxed()
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConfigDiffEntry {
+    Added(String),
+    Removed(String),
+    Changed { new: String, old: String },
+}
+
+// config name to config diff
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SectionConfigDiff(pub SmallMap<String, ConfigDiffEntry>);
+
+// section name to config diffs
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CellConfigDiff(pub SmallMap<String, SectionConfigDiff>);
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ConfigDiffMetrics {
+    // count of changed/removed/added config antries
+    pub count: usize,
+    // key + old value + new value
+    pub size_bytes: usize,
+    // if diff map is complete or partial due to size limit
+    pub diff_size_exceeded: bool,
+    // cell to config diffs
+    pub diff: SmallMap<CellName, CellConfigDiff>,
+}
+
 pub mod testing {
     use std::cmp::min;
 
@@ -769,6 +797,7 @@ mod tests {
     use buck2_core::fs::paths::abs_path::AbsPath;
     use indoc::indoc;
     use itertools::Itertools;
+    use starlark_map::smallmap;
 
     use super::testing::*;
     use super::*;
@@ -1249,6 +1278,176 @@ mod tests {
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
         assert_config_value(&config, "apple", "key", "foo//value1");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_diff_metrics_equal_configs() -> anyhow::Result<()> {
+        let cell = CellName::testing_new("root");
+        let config_args = vec![
+            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=10000")?,
+            LegacyConfigCmdArg::flag("apple.key=value1")?,
+        ];
+        let config =
+            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
+
+        let configs = LegacyBuckConfigs::new(hashmap![
+            CellName::testing_new("root") =>
+            config
+        ]);
+
+        let metrics = ConfigDiffMetrics::new(cell, &configs, &configs);
+
+        assert_eq!(metrics.count, 0);
+        assert_eq!(metrics.has_changed(), false);
+        assert_eq!(metrics.size_bytes, 0);
+        assert_eq!(metrics.diff, SmallMap::new());
+        assert_eq!(metrics.diff_size_exceeded, false);
+        Ok(())
+    }
+
+    #[test]
+    fn test_diff_metrics_with_empty() -> anyhow::Result<()> {
+        let cell = CellName::testing_new("root");
+
+        let key = "key";
+        let value = "value1";
+        let limit_key = "config_diff_size_limit";
+        let limit_value = "10000";
+        let config_args = vec![
+            LegacyConfigCmdArg::flag(&format!("buck2.{limit_key}={limit_value}"))?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key}={value}"))?,
+        ];
+        let config =
+            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
+
+        let configs1 = LegacyBuckConfigs::new(hashmap![
+            cell => config
+        ]);
+        let empty = LegacyBuckConfigs::new(hashmap![]);
+        let metrics = ConfigDiffMetrics::new(cell, &configs1, &empty);
+
+        assert_eq!(metrics.count, 2);
+        assert_eq!(metrics.has_changed(), true);
+        assert_eq!(
+            metrics.size_bytes,
+            key.len() + value.len() + limit_key.len() + limit_value.len()
+        );
+        let expected = smallmap![
+            cell => CellConfigDiff(smallmap![
+                "apple".to_owned() => SectionConfigDiff(smallmap![
+                    key.to_owned() => ConfigDiffEntry::Added(value.to_owned())
+                ]),
+                "buck2".to_owned() => SectionConfigDiff(smallmap![
+                    limit_key.to_owned() => ConfigDiffEntry::Added(limit_value.to_owned())
+                ]),
+            ])
+        ];
+        assert_eq!(metrics.diff, expected);
+        assert_eq!(metrics.diff_size_exceeded, false);
+        Ok(())
+    }
+
+    #[test]
+    fn test_diff_metrics_only_changed() -> anyhow::Result<()> {
+        let cell = CellName::testing_new("root");
+
+        let key1 = "key1";
+        let value1 = "value1";
+        let key2 = "key2";
+        let value2_1 = "value2";
+        let value2_2 = "value3";
+        let key3 = "key3";
+        let value3 = "value3";
+
+        let config_args1 = vec![
+            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=10000")?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key1}={value1}"))?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key2}={value2_1}"))?,
+        ];
+        let config1 =
+            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args1)?;
+
+        let config_args2 = vec![
+            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=10000")?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key1}={value1}"))?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key2}={value2_2}"))?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key3}={value3}"))?,
+        ];
+        let config2 =
+            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args2)?;
+
+        let configs1 = LegacyBuckConfigs::new(hashmap![cell => config1]);
+        let configs2 = LegacyBuckConfigs::new(hashmap![cell => config2]);
+        let metrics = ConfigDiffMetrics::new(cell, &configs1, &configs2);
+
+        assert_eq!(metrics.count, 2);
+        assert_eq!(metrics.has_changed(), true);
+        assert_eq!(
+            metrics.size_bytes,
+            key2.len() + value2_1.len() + value2_2.len() + key3.len() + value3.len()
+        );
+
+        let expected = smallmap![
+            cell => CellConfigDiff(smallmap![
+                "apple".to_owned() => SectionConfigDiff(smallmap![
+                    key2.to_owned() => ConfigDiffEntry::Changed {
+                        new: value2_1.to_owned(),
+                        old: value2_2.to_owned()
+                    },
+                    key3.to_owned() => ConfigDiffEntry::Removed(value3.to_owned())
+                ])
+            ])
+        ];
+        assert_eq!(metrics.diff, expected);
+        assert_eq!(metrics.diff_size_exceeded, false);
+        Ok(())
+    }
+
+    #[test]
+    fn test_diff_metrics_size_exceeded() -> anyhow::Result<()> {
+        let cell = CellName::testing_new("root");
+
+        let key1 = "key1";
+        let value1 = "value1";
+        let key2 = "key2";
+        let value2 = "value2";
+
+        let config_args1 = vec![
+            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=12")?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key1}={value1}"))?,
+        ];
+        let config1 =
+            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args1)?;
+
+        let config_args2 = vec![
+            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=12")?,
+            LegacyConfigCmdArg::flag(&format!("apple.{key2}={value2}"))?,
+        ];
+        let config2 =
+            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args2)?;
+
+        let configs1 = LegacyBuckConfigs::new(hashmap![cell => config1]);
+        let configs2 = LegacyBuckConfigs::new(hashmap![cell => config2]);
+        let metrics = ConfigDiffMetrics::new(cell, &configs1, &configs2);
+
+        assert_eq!(metrics.count, 2);
+        assert_eq!(metrics.has_changed(), true);
+        assert_eq!(
+            metrics.size_bytes,
+            key1.len() + value1.len() + key2.len() + value2.len()
+        );
+
+        let expected = smallmap![
+            cell => CellConfigDiff(smallmap![
+                "apple".to_owned() => SectionConfigDiff(smallmap![
+                    key1.to_owned() => ConfigDiffEntry::Added(value1.to_owned())
+                ])
+            ])
+        ];
+        assert_eq!(metrics.diff, expected);
+        assert_eq!(metrics.diff_size_exceeded, true);
 
         Ok(())
     }
