@@ -7,5 +7,6 @@
     "tabWidth": 2,
     "printWidth": 100,
     "trailingComma": "all",
-    "semi": false
+    "semi": false,
+    "singleLine": true
 }
