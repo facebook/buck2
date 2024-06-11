@@ -227,12 +227,6 @@ async fn generate_profile(
                 }))
                 .await?;
 
-            // We expect that some profile modes cannot be merged here, so we only attempt to merge
-            // if > 1 profile.
-            if profiles.len() == 1 {
-                return Ok(Arc::new(profiles.into_iter().next().unwrap()));
-            }
-
             StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)
         }
     }

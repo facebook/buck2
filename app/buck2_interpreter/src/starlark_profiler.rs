@@ -44,7 +44,7 @@ impl StarlarkProfilerInstrumentation {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Clone, Allocative)]
 pub struct StarlarkProfileDataAndStats {
     profile_mode: ProfileMode,
     #[allocative(skip)] // OK to skip because used only when profiling enabled.
