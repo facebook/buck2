@@ -19,7 +19,6 @@ use std::cmp::Reverse;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::iter;
 
 use dupe::Dupe;
 use starlark_syntax::codemap::CodeMaps;
@@ -61,7 +60,6 @@ struct StmtProfileState {
 pub(crate) struct StmtProfileData {
     files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
-    last_span: (CodeMapId, Span),
 }
 
 impl StmtProfileState {
@@ -120,7 +118,6 @@ impl StmtProfileState {
         StmtProfileData {
             files: data.files,
             stmts: data.stmts,
-            last_span: data.last_span,
         }
     }
 }
@@ -170,7 +167,6 @@ impl StmtProfileData {
         self.stmts
             .keys()
             .filter(|(file, _)| *file != CodeMapId::EMPTY)
-            .chain(iter::once(&self.last_span))
             .map(|(code_map_id, span)| {
                 self.files
                     .get(*code_map_id)
