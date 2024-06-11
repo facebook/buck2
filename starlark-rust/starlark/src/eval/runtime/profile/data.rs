@@ -19,7 +19,6 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::Context;
-use dupe::Dupe;
 
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcPairsProfilerType;
@@ -32,7 +31,9 @@ use crate::eval::runtime::profile::heap::HeapSummaryAllocatedProfilerType;
 use crate::eval::runtime::profile::heap::HeapSummaryRetainedProfilerType;
 use crate::eval::runtime::profile::mode::ProfileMode;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
+use crate::eval::runtime::profile::stmt::CoverageProfileType;
 use crate::eval::runtime::profile::stmt::StmtProfileData;
+use crate::eval::runtime::profile::stmt::StmtProfilerType;
 use crate::eval::runtime::profile::time_flame::TimeFlameProfilerType;
 use crate::eval::runtime::profile::typecheck::TypecheckProfileData;
 use crate::eval::runtime::profile::typecheck::TypecheckProfilerType;
@@ -44,8 +45,6 @@ enum ProfileDataError {
     EmptyProfileList,
     #[error("Different profile modes in profile")]
     DifferentProfileModes,
-    #[error("Merge of profile data for profile mode `{0}` is not implemented")]
-    MergeNotImplemented(ProfileMode),
 }
 
 #[derive(Clone, Debug)]
@@ -153,68 +152,9 @@ impl ProfileData {
             }
             ProfileMode::TimeFlame => TimeFlameProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::Typecheck => TypecheckProfilerType::merge_profiles(&profiles)?.profile,
-            profile_mode => {
-                return Err(crate::Error::new_other(
-                    ProfileDataError::MergeNotImplemented(profile_mode.dupe()),
-                ));
-            }
+            ProfileMode::Statement => StmtProfilerType::merge_profiles(&profiles)?.profile,
+            ProfileMode::Coverage => CoverageProfileType::merge_profiles(&profiles)?.profile,
         };
         Ok(ProfileData { profile })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::eval::runtime::profile::bc::BcPairsProfileData;
-    use crate::eval::runtime::profile::data::ProfileDataImpl;
-    use crate::eval::runtime::profile::flamegraph::FlameGraphData;
-    use crate::eval::runtime::profile::mode::ProfileMode;
-    use crate::eval::ProfileData;
-
-    #[test]
-    fn test_smoke_merge() {
-        for profile_mode in ProfileMode::ALL {
-            let profile = ProfileData {
-                profile: match profile_mode {
-                    ProfileMode::Bytecode => ProfileDataImpl::Bc(Box::default()),
-                    ProfileMode::BytecodePairs => {
-                        ProfileDataImpl::BcPairs(BcPairsProfileData::default())
-                    }
-                    ProfileMode::HeapFlameRetained => {
-                        ProfileDataImpl::HeapFlameRetained(Box::default())
-                    }
-                    ProfileMode::HeapFlameAllocated => {
-                        ProfileDataImpl::HeapFlameAllocated(Box::default())
-                    }
-                    ProfileMode::HeapSummaryRetained => {
-                        ProfileDataImpl::HeapSummaryRetained(Box::default())
-                    }
-                    ProfileMode::HeapSummaryAllocated => {
-                        ProfileDataImpl::HeapSummaryAllocated(Box::default())
-                    }
-                    ProfileMode::TimeFlame => {
-                        ProfileDataImpl::TimeFlameProfile(FlameGraphData::default())
-                    }
-                    ProfileMode::Statement => ProfileDataImpl::Statement(Default::default()),
-                    ProfileMode::Coverage => ProfileDataImpl::Coverage(Default::default()),
-                    ProfileMode::Typecheck => ProfileDataImpl::Typecheck(Default::default()),
-                },
-            };
-            let result = ProfileData::merge([&profile, &profile]);
-            match profile_mode {
-                ProfileMode::Statement | ProfileMode::Coverage => {
-                    assert!(
-                        result.is_err(),
-                        "Merge for {profile_mode:?} must be not implemented yet"
-                    )
-                }
-                _ => {
-                    assert!(
-                        result.is_ok(),
-                        "Merge for {profile_mode:?} must be implemented"
-                    )
-                }
-            }
-        }
     }
 }

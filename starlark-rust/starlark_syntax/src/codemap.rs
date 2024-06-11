@@ -213,7 +213,7 @@ enum CodeMapImpl {
 pub struct CodeMap(CodeMapImpl);
 
 /// Multiple [`CodeMap`].
-#[derive(Clone, Default, Debug, Allocative)]
+#[derive(Clone, Default, Debug, PartialEq, Allocative)]
 pub struct CodeMaps {
     codemaps: HashMap<CodeMapId, CodeMap>,
 }
@@ -231,6 +231,13 @@ impl CodeMaps {
             Entry::Vacant(e) => {
                 e.insert(codemap.dupe());
             }
+        }
+    }
+
+    /// Add all codemaps.
+    pub fn add_all(&mut self, codemaps: &CodeMaps) {
+        for codemap in codemaps.codemaps.values() {
+            self.add(codemap);
         }
     }
 }

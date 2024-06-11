@@ -28,6 +28,9 @@ pub(crate) struct ProfilerInstant(
 );
 
 impl ProfilerInstant {
+    #[cfg(test)]
+    pub(crate) const TEST_TICK_MILLIS: u64 = 7;
+
     #[inline]
     pub(crate) fn now() -> Self {
         #[cfg(not(test))]
@@ -41,7 +44,7 @@ impl ProfilerInstant {
             }
             ProfilerInstant(NOW_MILLIS.with(|v| {
                 let r = v.get();
-                v.set(r + 7);
+                v.set(r + ProfilerInstant::TEST_TICK_MILLIS);
                 r
             }))
         }

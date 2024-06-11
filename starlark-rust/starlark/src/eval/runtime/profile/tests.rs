@@ -26,6 +26,7 @@ use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::Evaluator;
+use crate::eval::ProfileData;
 use crate::eval::ProfileMode;
 
 fn test_profile_golden_for_mode(mode: ProfileMode) {
@@ -88,6 +89,9 @@ R = test()
         ),
         &profile_data.gen().unwrap(),
     );
+
+    // Smoke test for profile merging.
+    ProfileData::merge([&profile_data, &profile_data]).unwrap();
 }
 
 #[test]

@@ -35,16 +35,70 @@ use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::eval::ProfileMode;
+
+pub(crate) struct StmtProfilerType;
+pub(crate) struct CoverageProfileType;
+
+impl ProfilerType for StmtProfilerType {
+    type Data = StmtProfileData;
+    const PROFILE_MODE: ProfileMode = ProfileMode::Statement;
+
+    fn data_from_generic(profile_data: &ProfileDataImpl) -> Option<&Self::Data> {
+        match profile_data {
+            ProfileDataImpl::Statement(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
+        ProfileDataImpl::Statement(data)
+    }
+
+    fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
+        Ok(StmtProfileData::merge(profiles))
+    }
+}
+
+impl ProfilerType for CoverageProfileType {
+    type Data = StmtProfileData;
+    const PROFILE_MODE: ProfileMode = ProfileMode::Coverage;
+
+    fn data_from_generic(profile_data: &ProfileDataImpl) -> Option<&Self::Data> {
+        match profile_data {
+            ProfileDataImpl::Coverage(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
+        ProfileDataImpl::Coverage(data)
+    }
+
+    fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
+        Ok(StmtProfileData::merge(profiles))
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 enum StmtProfileError {
-    #[error("Statement profiling is not enabled")]
+    #[error("Statement or coverage profiling is not enabled")]
     NotEnabled,
 }
 
-// When line profiling is not enabled, we want this to be small and cheap
-pub(crate) struct StmtProfile(Option<Box<StmtProfileState>>);
+pub(crate) struct StmtProfile(
+    // Box because when profiling is not enabled, we want this to be small and cheap
+    Option<Box<StmtProfileState>>,
+);
+
+#[derive(Clone)]
+struct Last {
+    file: CodeMapId,
+    span: Span,
+    start: ProfilerInstant,
+}
 
 // So we don't need a special case for the first time around,
 // we have a special FileId of empty that we ignore when printing
@@ -52,12 +106,11 @@ pub(crate) struct StmtProfile(Option<Box<StmtProfileState>>);
 struct StmtProfileState {
     files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration), StarlarkHasherBuilder>,
-    last_span: (CodeMapId, Span),
-    last_start: ProfilerInstant,
+    last: Option<Last>,
 }
 
-/// Result of running statement profiler.
-#[derive(Clone, Debug, Default)]
+/// Result of running statement or coverage profiler.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct StmtProfileData {
     files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration), StarlarkHasherBuilder>,
@@ -68,22 +121,23 @@ impl StmtProfileState {
         StmtProfileState {
             files: CodeMaps::default(),
             stmts: HashMap::default(),
-            last_span: (CodeMapId::EMPTY, Span::default()),
-            last_start: ProfilerInstant::now(),
+            last: None,
         }
     }
 
     // Add the data from last_span into the entries
     fn add_last(&mut self, now: ProfilerInstant) {
-        let time = now - self.last_start;
-        match self.stmts.entry(self.last_span) {
-            Entry::Occupied(mut x) => {
-                let v = x.get_mut();
-                v.0 += 1;
-                v.1 += SmallDuration::from_duration(time);
-            }
-            Entry::Vacant(x) => {
-                x.insert((1, SmallDuration::from_duration(time)));
+        if let Some(last) = &self.last {
+            let time = now - last.start;
+            match self.stmts.entry((last.file, last.span)) {
+                Entry::Occupied(mut x) => {
+                    let v = x.get_mut();
+                    v.0 += 1;
+                    v.1 += SmallDuration::from_duration(time);
+                }
+                Entry::Vacant(x) => {
+                    x.insert((1, SmallDuration::from_duration(time)));
+                }
             }
         }
     }
@@ -91,11 +145,19 @@ impl StmtProfileState {
     fn before_stmt(&mut self, span: Span, codemap: &CodeMap) {
         let now = ProfilerInstant::now();
         self.add_last(now);
-        if self.last_span.0 != codemap.id() {
-            self.files.add(codemap);
+        match &self.last {
+            None => self.files.add(codemap),
+            Some(last) => {
+                if last.file != codemap.id() {
+                    self.files.add(codemap);
+                }
+            }
         }
-        self.last_span = (codemap.id(), span);
-        self.last_start = now;
+        self.last = Some(Last {
+            file: codemap.id(),
+            span,
+            start: now,
+        });
     }
 
     fn finish(&self) -> StmtProfileData {
@@ -185,6 +247,27 @@ impl StmtProfileData {
             })
             .collect()
     }
+
+    fn merge(profiles: &[&StmtProfileData]) -> StmtProfileData {
+        let mut result = StmtProfileData::default();
+        let StmtProfileData { files, stmts } = &mut result;
+        for profile in profiles {
+            files.add_all(&profile.files);
+            for ((file, span), (count, time)) in &profile.stmts {
+                match stmts.entry((*file, *span)) {
+                    Entry::Occupied(mut x) => {
+                        let v = x.get_mut();
+                        v.0 += count;
+                        v.1 += *time;
+                    }
+                    Entry::Vacant(x) => {
+                        x.insert((*count, *time));
+                    }
+                }
+            }
+        }
+        result
+    }
 }
 
 impl StmtProfile {
@@ -233,12 +316,25 @@ impl StmtProfile {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use starlark_syntax::codemap::CodeMap;
+    use starlark_syntax::codemap::CodeMaps;
+    use starlark_syntax::codemap::FileSpanRef;
+    use starlark_syntax::codemap::Pos;
+    use starlark_syntax::codemap::Span;
 
     use crate::assert::test_functions;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
+    use crate::eval::runtime::profile::data::ProfileDataImpl;
+    use crate::eval::runtime::profile::instant::ProfilerInstant;
     use crate::eval::runtime::profile::mode::ProfileMode;
+    use crate::eval::runtime::profile::stmt::StmtProfile;
+    use crate::eval::runtime::profile::stmt::StmtProfileData;
+    use crate::eval::runtime::small_duration::SmallDuration;
     use crate::eval::Evaluator;
+    use crate::eval::ProfileData;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 
@@ -281,6 +377,77 @@ xx(*[2])
             ]
             .as_slice(),
             coverage
+        );
+    }
+
+    #[test]
+    fn test_merge() {
+        let x = CodeMap::new("x.star".to_owned(), "def a(): pass".to_owned());
+        let y = CodeMap::new("y.star".to_owned(), "def b(): pass".to_owned());
+        let z = CodeMap::new("z.star".to_owned(), "def c(): pass".to_owned());
+
+        let mut all_files = CodeMaps::default();
+        all_files.add(&x);
+        all_files.add(&y);
+        all_files.add(&z);
+
+        let mut a = StmtProfile::new();
+        a.enable();
+        a.before_stmt(FileSpanRef {
+            file: &x,
+            span: Span::new(Pos::new(1), Pos::new(2)),
+        });
+        a.before_stmt(FileSpanRef {
+            file: &y,
+            span: Span::new(Pos::new(2), Pos::new(4)),
+        });
+        let a = a.gen().unwrap();
+
+        let mut b = StmtProfile::new();
+        b.enable();
+        b.before_stmt(FileSpanRef {
+            file: &y,
+            span: Span::new(Pos::new(2), Pos::new(4)),
+        });
+        b.before_stmt(FileSpanRef {
+            file: &z,
+            span: Span::new(Pos::new(3), Pos::new(5)),
+        });
+        let b = b.gen().unwrap();
+
+        let ProfileDataImpl::Statement(merged) = ProfileData::merge([&a, &b]).unwrap().profile
+        else {
+            panic!("Expected statement profile data");
+        };
+
+        assert_eq!(
+            StmtProfileData {
+                files: all_files,
+                stmts: HashMap::from_iter([
+                    (
+                        (x.id(), Span::new(Pos::new(1), Pos::new(2))),
+                        (
+                            1,
+                            SmallDuration::from_millis(ProfilerInstant::TEST_TICK_MILLIS)
+                        )
+                    ),
+                    (
+                        (y.id(), Span::new(Pos::new(2), Pos::new(4))),
+                        (
+                            2,
+                            SmallDuration::from_millis(ProfilerInstant::TEST_TICK_MILLIS * 2)
+                        )
+                    ),
+                    (
+                        (z.id(), Span::new(Pos::new(3), Pos::new(5))),
+                        (
+                            1,
+                            SmallDuration::from_millis(ProfilerInstant::TEST_TICK_MILLIS)
+                        )
+                    ),
+                ]),
+            },
+            merged
         );
     }
 }
