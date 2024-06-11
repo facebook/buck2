@@ -92,24 +92,28 @@ _BYTECODE_PROJ_PREFIX = {
     PycInvalidationMode("UNCHECKED_HASH"): "bytecode",
 }
 
+args_projections = {
+    "dep_artifacts": _dep_artifacts,
+    "dep_manifests": _dep_manifests,
+    "hidden_resources": _hidden_resources,
+    "resource_artifacts": _resource_artifacts,
+    "resource_manifests": _resource_manifests,
+    "source_artifacts": _source_artifacts,
+    "source_manifests": _source_manifests,
+    "source_type_artifacts": _source_type_artifacts,
+    "source_type_manifests": _source_type_manifests,
+}
+args_projections.update({
+    "{}_artifacts".format(prefix): _bytecode_artifacts(mode)
+    for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
+})
+args_projections.update({
+    "{}_manifests".format(prefix): _bytecode_manifests(mode)
+    for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
+})
+
 PythonLibraryManifestsTSet = transitive_set(
-    args_projections = dict({
-        "dep_artifacts": _dep_artifacts,
-        "dep_manifests": _dep_manifests,
-        "hidden_resources": _hidden_resources,
-        "resource_artifacts": _resource_artifacts,
-        "resource_manifests": _resource_manifests,
-        "source_artifacts": _source_artifacts,
-        "source_manifests": _source_manifests,
-        "source_type_artifacts": _source_type_artifacts,
-        "source_type_manifests": _source_type_manifests,
-    }.items() + {
-        "{}_artifacts".format(prefix): _bytecode_artifacts(mode)
-        for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
-    }.items() + {
-        "{}_manifests".format(prefix): _bytecode_manifests(mode)
-        for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
-    }.items()),
+    args_projections = args_projections,
     json_projections = {
         "source_type_manifests_json": _source_type_manifest_jsons,
     },
