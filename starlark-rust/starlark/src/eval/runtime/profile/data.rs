@@ -124,6 +124,14 @@ impl ProfileData {
         profiles: impl IntoIterator<Item = &'a ProfileData>,
     ) -> crate::Result<ProfileData> {
         let profiles = Vec::from_iter(profiles);
+
+        if let [one] = profiles.as_slice() {
+            // If there's only one profile, just return it instead of invoking merge.
+            // - Merge may fail
+            // - Or may not be implemented for the profile type
+            return Ok(ProfileData::clone(one));
+        }
+
         let profile_mode = match profiles.first() {
             None => return Err(crate::Error::new_other(ProfileDataError::EmptyProfileList)),
             Some(p) => p.profile.profile_mode(),
