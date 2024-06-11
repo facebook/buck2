@@ -255,8 +255,8 @@ impl CallCompiled {
 
         let (before, after) = parse_format_one(&format)?;
 
-        let before = ctx.frozen_heap().alloc_str(&before);
-        let after = ctx.frozen_heap().alloc_str(&after);
+        let before = ctx.frozen_heap().alloc_str_intern(&before);
+        let after = ctx.frozen_heap().alloc_str_intern(&after);
         Some(ExprCompiled::format_one(before, arg.clone(), after, ctx))
     }
 

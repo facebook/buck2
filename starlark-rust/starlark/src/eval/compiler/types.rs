@@ -211,7 +211,7 @@ impl<'v> Compiler<'v, '_, '_, '_> {
                 })?;
                 Ok(TypeCompiled::from_ty(&Ty::tuple(xs), self.eval.heap()).to_inner())
             }
-            TypeExprUnpackP::Literal(s) => Ok(self.eval.heap().alloc_str(s.node).to_value()),
+            TypeExprUnpackP::Literal(s) => Ok(self.eval.heap().alloc_str_intern(s.node).to_value()),
         }
     }
 

@@ -657,8 +657,8 @@ impl ExprCompiled {
     ) -> ExprCompiled {
         if let Some(v) = l.as_string() {
             if let Some((before, after)) = parse_percent_s_one(&v) {
-                let before = ctx.frozen_heap().alloc_str(&before);
-                let after = ctx.frozen_heap().alloc_str(&after);
+                let before = ctx.frozen_heap().alloc_str_intern(&before);
+                let after = ctx.frozen_heap().alloc_str_intern(&after);
                 return ExprCompiled::percent_s_one(before, r, after, ctx);
             }
         }
@@ -675,7 +675,7 @@ impl ExprCompiled {
             if let Ok(value) =
                 percent_s_one(before.as_str(), arg.to_value(), after.as_str(), ctx.heap())
             {
-                let value = ctx.frozen_heap().alloc_str(value.as_str());
+                let value = ctx.frozen_heap().alloc_str_intern(value.as_str());
                 return ExprCompiled::Value(value.to_frozen_value());
             }
         }
@@ -691,7 +691,7 @@ impl ExprCompiled {
     ) -> ExprCompiled {
         if let Some(arg) = arg.as_value() {
             let value = format_one(&before, arg.to_value(), &after, ctx.heap());
-            let value = ctx.frozen_heap().alloc_str(value.as_str());
+            let value = ctx.frozen_heap().alloc_str_intern(value.as_str());
             return ExprCompiled::Value(value.to_frozen_value());
         }
 
@@ -811,7 +811,9 @@ impl ExprCompiled {
         } else if let Some(v) = v.unpack_str() {
             if v.len() <= 1000 {
                 // If string, copy it to frozen heap.
-                Some(ExprCompiled::Value(heap.alloc_str(v).to_frozen_value()))
+                Some(ExprCompiled::Value(
+                    heap.alloc_str_intern(v).to_frozen_value(),
+                ))
             } else {
                 // Long strings may lead to exponential explosion in the optimizer,
                 // so skips optimizations for them.

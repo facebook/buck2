@@ -174,7 +174,7 @@ impl Compiler<'_, '_, '_, '_> {
                         .eval
                         .module_env
                         .frozen_heap()
-                        .alloc_str(name.node.as_str());
+                        .alloc_str_intern(name.node.as_str());
                     res.names.push((Symbol::new(&name.node), fv));
                     res.pos_named.push(self.expr(value));
                 }

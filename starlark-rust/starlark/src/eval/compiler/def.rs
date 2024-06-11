@@ -438,7 +438,7 @@ impl Compiler<'_, '_, '_, '_> {
     ) -> ExprCompiled {
         let file = self.codemap.file_span(suite.span);
         let function_name = format!("{}.{}", file.file.filename(), name);
-        let name = self.eval.frozen_heap().alloc_str(name);
+        let name = self.eval.frozen_heap().alloc_str_intern(name);
 
         let def_params = DefParams::unpack(params, &self.codemap).expect("verified at parse time");
 
