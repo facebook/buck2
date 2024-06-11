@@ -58,6 +58,19 @@ impl Display for ProfileMode {
 }
 
 impl ProfileMode {
+    pub(crate) const ALL: [ProfileMode; 10] = [
+        ProfileMode::HeapSummaryAllocated,
+        ProfileMode::HeapSummaryRetained,
+        ProfileMode::HeapFlameAllocated,
+        ProfileMode::HeapFlameRetained,
+        ProfileMode::Statement,
+        ProfileMode::Coverage,
+        ProfileMode::Bytecode,
+        ProfileMode::BytecodePairs,
+        ProfileMode::TimeFlame,
+        ProfileMode::Typecheck,
+    ];
+
     pub(crate) fn name(&self) -> &str {
         match self {
             ProfileMode::HeapSummaryAllocated => "heap-summary-allocated",
@@ -87,18 +100,7 @@ impl FromStr for ProfileMode {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        for mode in [
-            ProfileMode::HeapSummaryAllocated,
-            ProfileMode::HeapSummaryRetained,
-            ProfileMode::HeapFlameAllocated,
-            ProfileMode::HeapFlameRetained,
-            ProfileMode::Statement,
-            ProfileMode::Coverage,
-            ProfileMode::Bytecode,
-            ProfileMode::BytecodePairs,
-            ProfileMode::TimeFlame,
-            ProfileMode::Typecheck,
-        ] {
+        for mode in Self::ALL {
             if s == mode.name() {
                 return Ok(mode);
             }

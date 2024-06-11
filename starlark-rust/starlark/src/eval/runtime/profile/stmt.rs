@@ -57,7 +57,7 @@ struct StmtProfileState {
 }
 
 /// Result of running statement profiler.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct StmtProfileData {
     files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,

@@ -170,33 +170,14 @@ mod tests {
     use crate::eval::ProfileData;
 
     #[test]
-    fn merge_bc() {
-        let profile = ProfileData {
-            profile: ProfileDataImpl::Bc(Box::default()),
-        };
-        // Smoke.
-        ProfileData::merge([&profile, &profile]).unwrap();
-    }
-
-    #[test]
-    fn merge_bc_pairs() {
-        let profile = ProfileData {
-            profile: ProfileDataImpl::BcPairs(BcPairsProfileData::default()),
-        };
-        // Smoke.
-        ProfileData::merge([&profile, &profile]).unwrap();
-    }
-
-    #[test]
-    fn merge_aggregated_heap_profile() {
-        for profile_mode in [
-            ProfileMode::HeapFlameRetained,
-            ProfileMode::HeapFlameAllocated,
-            ProfileMode::HeapSummaryRetained,
-            ProfileMode::HeapSummaryAllocated,
-        ] {
+    fn test_smoke_merge() {
+        for profile_mode in ProfileMode::ALL {
             let profile = ProfileData {
                 profile: match profile_mode {
+                    ProfileMode::Bytecode => ProfileDataImpl::Bc(Box::default()),
+                    ProfileMode::BytecodePairs => {
+                        ProfileDataImpl::BcPairs(BcPairsProfileData::default())
+                    }
                     ProfileMode::HeapFlameRetained => {
                         ProfileDataImpl::HeapFlameRetained(Box::default())
                     }
@@ -209,20 +190,29 @@ mod tests {
                     ProfileMode::HeapSummaryAllocated => {
                         ProfileDataImpl::HeapSummaryAllocated(Box::default())
                     }
-                    _ => unreachable!(),
+                    ProfileMode::TimeFlame => {
+                        ProfileDataImpl::TimeFlameProfile(FlameGraphData::default())
+                    }
+                    ProfileMode::Statement => ProfileDataImpl::Statement(Default::default()),
+                    ProfileMode::Coverage => ProfileDataImpl::Coverage(Default::default()),
+                    ProfileMode::Typecheck => ProfileDataImpl::Typecheck(Default::default()),
                 },
             };
-            // Smoke.
-            ProfileData::merge([&profile, &profile]).unwrap();
+            let result = ProfileData::merge([&profile, &profile]);
+            match profile_mode {
+                ProfileMode::Statement | ProfileMode::Coverage | ProfileMode::Typecheck => {
+                    assert!(
+                        result.is_err(),
+                        "Merge for {profile_mode:?} must be not implemented yet"
+                    )
+                }
+                _ => {
+                    assert!(
+                        result.is_ok(),
+                        "Merge for {profile_mode:?} must be implemented"
+                    )
+                }
+            }
         }
-    }
-
-    #[test]
-    fn merge_time_flame() {
-        let profile = ProfileData {
-            profile: ProfileDataImpl::TimeFlameProfile(FlameGraphData::default()),
-        };
-        // Smoke.
-        ProfileData::merge([&profile, &profile]).unwrap();
     }
 }
