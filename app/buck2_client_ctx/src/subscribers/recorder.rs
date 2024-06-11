@@ -68,10 +68,11 @@ pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
     // buck2_rss is the resident set size observed by daemon (exluding subprocesses).
     // On MacOS buck2_rss is not stored and also RSS in general is not a reliable indicator due to swapping which moves pages from resident set to disk.
     // Hence, we take max of buck2_rss and malloc_bytes_active (coming from jemalloc and is available on Macs as well).
-    let buck2_rss = snapshot.buck2_rss.unwrap_or(0);
     snapshot
         .malloc_bytes_active
-        .map(|malloc_bytes_active| max(buck2_rss, malloc_bytes_active))
+        .into_iter()
+        .chain(snapshot.buck2_rss)
+        .max()
 }
 
 pub(crate) struct InvocationRecorder<'a> {
