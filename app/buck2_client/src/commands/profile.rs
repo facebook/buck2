@@ -34,7 +34,6 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 
 use super::bxl::BxlCommandOptions;
 
@@ -193,21 +192,13 @@ impl StreamingCommand for ProfileSubcommand {
 
         let profile_opts = match &self.subcommand {
             ProfileCommand::Loading(loading) => ProfileOpts::TargetProfile(TargetProfile {
-                target_patterns: loading.buck_opts.target_patterns.map(|value| {
-                    buck2_data::TargetPattern {
-                        value: value.clone(),
-                    }
-                }),
+                target_patterns: loading.buck_opts.target_patterns.clone(),
                 action: target_profile::Action::Loading as i32,
                 target_cfg: Some(loading.profile_common_opts.target_cfg.target_cfg()),
                 recursive: loading.buck_opts.recursive,
             }),
             ProfileCommand::Analysis(analysis) => ProfileOpts::TargetProfile(TargetProfile {
-                target_patterns: analysis.buck_opts.target_patterns.map(|value| {
-                    buck2_data::TargetPattern {
-                        value: value.clone(),
-                    }
-                }),
+                target_patterns: analysis.buck_opts.target_patterns.clone(),
                 action: target_profile::Action::Analysis as i32,
                 target_cfg: Some(analysis.profile_common_opts.target_cfg.target_cfg()),
                 recursive: analysis.buck_opts.recursive,

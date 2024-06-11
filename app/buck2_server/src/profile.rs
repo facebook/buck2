@@ -181,7 +181,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
 async fn generate_profile(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
-    target_patterns: &[buck2_data::TargetPattern],
+    target_patterns: &[String],
     target_cfg: &TargetCfg,
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
@@ -191,7 +191,10 @@ async fn generate_profile(
 
     let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
         &mut ctx,
-        target_patterns,
+        &target_patterns
+            .iter()
+            .map(|p| buck2_data::TargetPattern { value: p.clone() })
+            .collect::<Vec<_>>(),
         server_ctx.working_dir(),
     )
     .await?;
