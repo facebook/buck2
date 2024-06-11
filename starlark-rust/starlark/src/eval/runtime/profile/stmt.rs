@@ -19,6 +19,7 @@ use std::cmp::Reverse;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Write;
 
 use dupe::Dupe;
 use starlark_syntax::codemap::CodeMaps;
@@ -163,6 +164,21 @@ impl StmtProfileData {
         csv.finish()
     }
 
+    pub(crate) fn write_coverage(&self) -> String {
+        let mut s = String::new();
+        let mut keys: Vec<_> = self
+            .stmts
+            .keys()
+            .filter(|(file, _)| *file != CodeMapId::EMPTY)
+            .map(|(file, span)| self.files.get(*file).unwrap().file_span(*span).resolve())
+            .collect();
+        keys.sort();
+        for key in keys {
+            writeln!(s, "{}", key).unwrap();
+        }
+        s
+    }
+
     fn coverage(&self) -> HashSet<ResolvedFileSpan> {
         self.stmts
             .keys()
@@ -210,6 +226,15 @@ impl StmtProfile {
             .ok_or_else(|| crate::Error::new_other(StmtProfileError::NotEnabled))?
             .finish()
             .coverage())
+    }
+
+    pub(crate) fn gen_coverage(&self) -> crate::Result<ProfileData> {
+        match &self.0 {
+            Some(data) => Ok(ProfileData {
+                profile: ProfileDataImpl::Coverage(data.finish()),
+            }),
+            None => Err(crate::Error::new_other(StmtProfileError::NotEnabled)),
+        }
     }
 }
 

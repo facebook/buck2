@@ -95,10 +95,6 @@ enum EvaluatorError {
     ProfileOrInstrumentationAlreadyEnabled,
     #[error("Top frame is not def (internal error)")]
     TopFrameNotDef,
-    #[error(
-        "Coverage profile generation not implemented (but can be obtained with `.coverage()` function)"
-    )]
-    CoverageNotImplemented,
     #[error("Coverage not enabled")]
     CoverageNotEnabled,
     #[error("Local variable `{0}` referenced before assignment")]
@@ -366,9 +362,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                 ))
             }
             ProfileMode::Statement => self.stmt_profile.gen(),
-            ProfileMode::Coverage => Err(crate::Error::new_other(
-                EvaluatorError::CoverageNotImplemented,
-            )),
+            ProfileMode::Coverage => self.stmt_profile.gen_coverage(),
             ProfileMode::Bytecode => self.gen_bc_profile(),
             ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
             ProfileMode::TimeFlame => self.time_flame_profile.gen(),

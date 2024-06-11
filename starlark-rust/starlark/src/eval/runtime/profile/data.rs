@@ -58,6 +58,7 @@ pub(crate) enum ProfileDataImpl {
     /// Flame graph data is in milliseconds.
     TimeFlameProfile(FlameGraphData),
     Statement(StmtProfileData),
+    Coverage(StmtProfileData),
     Typecheck(TypecheckProfileData),
 }
 
@@ -72,6 +73,7 @@ impl ProfileDataImpl {
             ProfileDataImpl::HeapSummaryAllocated(_) => ProfileMode::HeapSummaryAllocated,
             ProfileDataImpl::TimeFlameProfile(_) => ProfileMode::TimeFlame,
             ProfileDataImpl::Statement(_) => ProfileMode::Statement,
+            ProfileDataImpl::Coverage(_) => ProfileMode::Coverage,
             ProfileDataImpl::Typecheck(_) => ProfileMode::Typecheck,
         }
     }
@@ -100,6 +102,7 @@ impl ProfileData {
             | ProfileDataImpl::HeapSummaryAllocated(profile) => Ok(profile.gen_summary_csv()),
             ProfileDataImpl::TimeFlameProfile(data) => Ok(data.write()),
             ProfileDataImpl::Statement(data) => Ok(data.write_to_string()),
+            ProfileDataImpl::Coverage(data) => Ok(data.write_coverage()),
             ProfileDataImpl::Typecheck(data) => Ok(data.gen_csv()),
         }
     }

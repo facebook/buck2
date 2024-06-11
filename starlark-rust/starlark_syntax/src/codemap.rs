@@ -469,7 +469,9 @@ impl CodeMap {
 }
 
 /// All are 0-based, but print out with 1-based.
-#[derive(Copy, Clone, Dupe, Hash, Eq, PartialEq, Debug, Default)]
+#[derive(
+    Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Debug, Default
+)]
 pub struct ResolvedPos {
     /// The line number within the file (0-indexed).
     pub line: usize,
@@ -606,7 +608,9 @@ impl FileSpan {
 
 /// The locations of values within a span.
 /// All are 0-based, but print out with 1-based.
-#[derive(Debug, Dupe, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Dupe, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, Default
+)]
 pub struct ResolvedSpan {
     /// Beginning of the span.
     pub begin: ResolvedPos,
@@ -689,7 +693,7 @@ pub struct ResolvedFileLine {
 }
 
 /// File name and line and column pairs for a span.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Clone)]
 pub struct ResolvedFileSpan {
     /// File name.
     pub file: String,

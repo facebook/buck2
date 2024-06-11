@@ -115,7 +115,10 @@ fn test_profile_golden_statement() {
     test_profile_golden_for_mode(ProfileMode::Statement);
 }
 
-// TODO(nga): add coverage.
+#[test]
+fn test_profile_golden_coverage() {
+    test_profile_golden_for_mode(ProfileMode::Coverage);
+}
 
 #[test]
 fn test_profile_golden_bytecode() {
