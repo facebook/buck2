@@ -24,6 +24,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
@@ -60,6 +61,7 @@ struct StarlarkCfgConstructor<'v> {
     stage0: Value<'v>,
     stage1: Value<'v>,
     key: String,
+    aliases: Option<Value<'v>>,
 }
 
 #[derive(
@@ -74,6 +76,7 @@ struct FrozenStarlarkCfgConstructor {
     stage0: FrozenValue,
     stage1: FrozenValue,
     key: String,
+    aliases: Option<FrozenValue>,
 }
 
 #[starlark_value(type = "StarlarkCfgConstructor")]
@@ -92,12 +95,14 @@ impl<'v> Freeze for StarlarkCfgConstructor<'v> {
             stage0,
             stage1,
             key,
+            aliases,
         } = self;
-        let (stage0, stage1) = (stage0, stage1).freeze(freezer)?;
+        let (stage0, stage1, aliases) = (stage0, stage1, aliases).freeze(freezer)?;
         Ok(FrozenStarlarkCfgConstructor {
             stage0,
             stage1,
             key,
+            aliases,
         })
     }
 }
@@ -134,6 +139,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
         #[starlark(require=named)] stage0: Value<'v>,
         #[starlark(require=named)] stage1: Value<'v>,
         #[starlark(require=named)] key: &str,
+        #[starlark(require = named, default = NoneOr::None)] aliases: NoneOr<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
@@ -158,6 +164,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
                 stage0,
                 stage1,
                 key: key.to_owned(),
+                aliases: aliases.into_option(),
             })
         });
         Ok(NoneType)
