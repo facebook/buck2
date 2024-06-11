@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write;
 
+use anyhow::Context;
 use dupe::Dupe;
 use starlark_map::StarlarkHasherBuilder;
 use starlark_syntax::codemap::CodeMaps;
@@ -112,8 +113,7 @@ struct StmtProfileState {
 /// Result of running statement or coverage profiler.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct StmtProfileData {
-    files: CodeMaps,
-    stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration), StarlarkHasherBuilder>,
+    stmts: HashMap<FileSpan, (usize, SmallDuration), StarlarkHasherBuilder>,
 }
 
 impl StmtProfileState {
@@ -160,7 +160,7 @@ impl StmtProfileState {
         });
     }
 
-    fn finish(&self) -> StmtProfileData {
+    fn finish(&self) -> crate::Result<StmtProfileData> {
         // The statement that was running last won't have been properly updated.
         // However, at this point, we have probably run some post-execution code,
         // so it probably wouldn't have a "fair" timing anyway.
@@ -171,10 +171,25 @@ impl StmtProfileState {
         let mut data = self.clone();
         data.add_last(now);
 
-        StmtProfileData {
-            files: data.files,
-            stmts: data.stmts,
-        }
+        Ok(StmtProfileData {
+            stmts: data
+                .stmts
+                .iter()
+                .map(|((file, span), v)| {
+                    Ok::<_, crate::Error>((
+                        FileSpan {
+                            file: data
+                                .files
+                                .get(*file)
+                                .context("no file corresponding to file id (internal error)")?
+                                .dupe(),
+                            span: *span,
+                        },
+                        *v,
+                    ))
+                })
+                .collect::<crate::Result<_>>()?,
+        })
     }
 }
 
@@ -189,13 +204,16 @@ impl StmtProfileData {
         let mut items = Vec::with_capacity(self.stmts.len() - 1);
         let mut total_time = SmallDuration::default();
         let mut total_count = 0;
-        for ((file, span), &(count, time)) in &self.stmts {
+        for (file_span, &(count, time)) in &self.stmts {
             // EMPTY represents the first time special-case
-            if *file != CodeMapId::EMPTY {
-                let span = self.files.get(*file).unwrap().file_span(*span);
+            if file_span.file.id() != CodeMapId::EMPTY {
                 total_time += time;
                 total_count += count;
-                items.push(Item { span, time, count })
+                items.push(Item {
+                    span: file_span.dupe(),
+                    time,
+                    count,
+                })
             }
         }
 
@@ -224,8 +242,8 @@ impl StmtProfileData {
         let mut keys: Vec<_> = self
             .stmts
             .keys()
-            .filter(|(file, _)| *file != CodeMapId::EMPTY)
-            .map(|(file, span)| self.files.get(*file).unwrap().file_span(*span).resolve())
+            .filter(|file_span| file_span.file.id() != CodeMapId::EMPTY)
+            .map(|file_span| file_span.resolve())
             .collect();
         keys.sort();
         for key in keys {
@@ -237,24 +255,17 @@ impl StmtProfileData {
     fn coverage(&self) -> HashSet<ResolvedFileSpan> {
         self.stmts
             .keys()
-            .filter(|(file, _)| *file != CodeMapId::EMPTY)
-            .map(|(code_map_id, span)| {
-                self.files
-                    .get(*code_map_id)
-                    .unwrap()
-                    .file_span(*span)
-                    .resolve()
-            })
+            .filter(|file_span| file_span.file.id() != CodeMapId::EMPTY)
+            .map(|file_span| file_span.resolve())
             .collect()
     }
 
     fn merge(profiles: &[&StmtProfileData]) -> StmtProfileData {
         let mut result = StmtProfileData::default();
-        let StmtProfileData { files, stmts } = &mut result;
+        let StmtProfileData { stmts } = &mut result;
         for profile in profiles {
-            files.add_all(&profile.files);
-            for ((file, span), (count, time)) in &profile.stmts {
-                match stmts.entry((*file, *span)) {
+            for (file_span, (count, time)) in &profile.stmts {
+                match stmts.entry(file_span.dupe()) {
                     Entry::Occupied(mut x) => {
                         let v = x.get_mut();
                         v.0 += count;
@@ -289,7 +300,7 @@ impl StmtProfile {
     pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
         match &self.0 {
             Some(data) => Ok(ProfileData {
-                profile: ProfileDataImpl::Statement(data.finish()),
+                profile: ProfileDataImpl::Statement(data.finish()?),
             }),
             None => Err(crate::Error::new_other(StmtProfileError::NotEnabled)),
         }
@@ -300,14 +311,14 @@ impl StmtProfile {
             .0
             .as_ref()
             .ok_or_else(|| crate::Error::new_other(StmtProfileError::NotEnabled))?
-            .finish()
+            .finish()?
             .coverage())
     }
 
     pub(crate) fn gen_coverage(&self) -> crate::Result<ProfileData> {
         match &self.0 {
             Some(data) => Ok(ProfileData {
-                profile: ProfileDataImpl::Coverage(data.finish()),
+                profile: ProfileDataImpl::Coverage(data.finish()?),
             }),
             None => Err(crate::Error::new_other(StmtProfileError::NotEnabled)),
         }
@@ -320,6 +331,7 @@ mod tests {
 
     use starlark_syntax::codemap::CodeMap;
     use starlark_syntax::codemap::CodeMaps;
+    use starlark_syntax::codemap::FileSpan;
     use starlark_syntax::codemap::FileSpanRef;
     use starlark_syntax::codemap::Pos;
     use starlark_syntax::codemap::Span;
@@ -422,24 +434,32 @@ xx(*[2])
 
         assert_eq!(
             StmtProfileData {
-                files: all_files,
                 stmts: HashMap::from_iter([
                     (
-                        (x.id(), Span::new(Pos::new(1), Pos::new(2))),
+                        FileSpan {
+                            file: x,
+                            span: Span::new(Pos::new(1), Pos::new(2))
+                        },
                         (
                             1,
                             SmallDuration::from_millis(ProfilerInstant::TEST_TICK_MILLIS)
                         )
                     ),
                     (
-                        (y.id(), Span::new(Pos::new(2), Pos::new(4))),
+                        FileSpan {
+                            file: y,
+                            span: Span::new(Pos::new(2), Pos::new(4))
+                        },
                         (
                             2,
                             SmallDuration::from_millis(ProfilerInstant::TEST_TICK_MILLIS * 2)
                         )
                     ),
                     (
-                        (z.id(), Span::new(Pos::new(3), Pos::new(5))),
+                        FileSpan {
+                            file: z,
+                            span: Span::new(Pos::new(3), Pos::new(5))
+                        },
                         (
                             1,
                             SmallDuration::from_millis(ProfilerInstant::TEST_TICK_MILLIS)
