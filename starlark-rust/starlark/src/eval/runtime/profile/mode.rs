@@ -72,6 +72,15 @@ impl ProfileMode {
             ProfileMode::Typecheck => "typecheck",
         }
     }
+
+    /// Profile data for this mode can be obtained from
+    /// [`FrozenModule::heap_profile`](crate::environment::FrozenModule::heap_profile).
+    pub fn requires_frozen_module(&self) -> bool {
+        match self {
+            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => true,
+            _ => false,
+        }
+    }
 }
 
 impl FromStr for ProfileMode {
