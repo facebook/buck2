@@ -52,7 +52,6 @@ pub(crate) struct StmtProfile(Option<Box<StmtProfileState>>);
 struct StmtProfileState {
     files: CodeMaps,
     stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration), StarlarkHasherBuilder>,
-    next_file: CodeMapId,
     last_span: (CodeMapId, Span),
     last_start: ProfilerInstant,
 }
@@ -69,7 +68,6 @@ impl StmtProfileState {
         StmtProfileState {
             files: CodeMaps::default(),
             stmts: HashMap::default(),
-            next_file: CodeMapId::EMPTY,
             last_span: (CodeMapId::EMPTY, Span::default()),
             last_start: ProfilerInstant::now(),
         }
@@ -94,16 +92,10 @@ impl StmtProfileState {
         let now = ProfilerInstant::now();
         self.add_last(now);
         if self.last_span.0 != codemap.id() {
-            self.add_codemap(codemap);
+            self.files.add(codemap);
         }
-        self.last_span = (self.next_file, span);
+        self.last_span = (codemap.id(), span);
         self.last_start = now;
-    }
-
-    fn add_codemap(&mut self, codemap: &CodeMap) {
-        let id = codemap.id();
-        self.next_file = id;
-        self.files.add(codemap);
     }
 
     fn finish(&self) -> StmtProfileData {
