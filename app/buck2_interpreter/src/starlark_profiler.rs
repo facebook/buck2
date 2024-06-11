@@ -149,10 +149,7 @@ impl StarlarkProfiler {
     /// Post-analysis, produce the output of this profiler.
     fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         self.finalized_at = Some(Instant::now());
-        if !matches!(
-            self.profile_mode,
-            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
-        ) {
+        if !self.profile_mode.requires_frozen_module() {
             self.profile_data = Some(eval.gen_profile().into_anyhow_result()?);
         }
         Ok(())
@@ -165,13 +162,10 @@ impl StarlarkProfiler {
             ));
         }
 
-        match self.profile_mode {
-            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
-                let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
-                let profile = module.heap_profile()?;
-                self.profile_data = Some(profile);
-            }
-            _ => {}
+        if self.profile_mode.requires_frozen_module() {
+            let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
+            let profile = module.heap_profile()?;
+            self.profile_data = Some(profile);
         }
 
         let total_retained_bytes = module.map_or(0, |module| {
