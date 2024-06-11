@@ -35,6 +35,7 @@ use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::profile::stmt::StmtProfileData;
 use crate::eval::runtime::profile::time_flame::TimeFlameProfilerType;
 use crate::eval::runtime::profile::typecheck::TypecheckProfileData;
+use crate::eval::runtime::profile::typecheck::TypecheckProfilerType;
 use crate::values::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]
@@ -151,6 +152,7 @@ impl ProfileData {
                 HeapFlameRetainedProfilerType::merge_profiles(&profiles)?.profile
             }
             ProfileMode::TimeFlame => TimeFlameProfilerType::merge_profiles(&profiles)?.profile,
+            ProfileMode::Typecheck => TypecheckProfilerType::merge_profiles(&profiles)?.profile,
             profile_mode => {
                 return Err(crate::Error::new_other(
                     ProfileDataError::MergeNotImplemented(profile_mode.dupe()),
@@ -200,7 +202,7 @@ mod tests {
             };
             let result = ProfileData::merge([&profile, &profile]);
             match profile_mode {
-                ProfileMode::Statement | ProfileMode::Coverage | ProfileMode::Typecheck => {
+                ProfileMode::Statement | ProfileMode::Coverage => {
                     assert!(
                         result.is_err(),
                         "Merge for {profile_mode:?} must be not implemented yet"

@@ -40,6 +40,11 @@ impl SmallDuration {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn from_millis(millis: u64) -> SmallDuration {
+        Self::from_duration(Duration::from_millis(millis))
+    }
+
     pub(crate) fn to_duration(self) -> Duration {
         Duration::from_nanos(self.nanos)
     }
