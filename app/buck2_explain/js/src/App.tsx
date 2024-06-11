@@ -14,7 +14,8 @@ import React, {useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
-import {Build, ConfiguredTargetNode} from './fbs/explain'
+import {Index} from 'flexsearch-ts'
+import {BoolAttr, Build, ConfiguredTargetNode, IntAttr, StringAttr} from './fbs/explain'
 import {ROOT_VIEW, Router, SEARCH_VIEW, TARGET_VIEW} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
@@ -26,6 +27,7 @@ const INITIAL_STATE = {
   rootTarget: null,
   allTargets: {},
   rdepsTargets: {},
+  search_index: null,
 }
 
 type STATE_TYPE = {
@@ -34,9 +36,41 @@ type STATE_TYPE = {
   allTargets: {[key: string]: number}
   // target index -> [rdeps target]
   rdepsTargets: {[key: string]: [number]}
+  search_index: Index | null
 }
 
 export const DataContext = React.createContext<STATE_TYPE>(INITIAL_STATE)
+
+function addIfExists(index: Index, key: string, element: string | null | undefined) {
+  if (element != null) {
+    index.append(key, element)
+  }
+}
+
+function addList(index: Index, key: string, attr: (i: number) => string, length: number) {
+  for (let i = 0; i < length; i++) {
+    index.append(key, attr(i))
+  }
+}
+
+function addListPlain(
+  index: Index,
+  key: string,
+  attr: (i: number) => StringAttr | IntAttr | BoolAttr | null,
+  length: number,
+) {
+  for (let i = 0; i < length; i++) {
+    const value = attr(i)
+    if (value == null) {
+      continue
+    }
+    const [k, v] = [value.key(), value.value()?.toString()]
+    if (k != null && v != null) {
+      index.append(key, k)
+      index.append(key, v)
+    }
+  }
+}
 
 function App() {
   const [data, setData] = useState<STATE_TYPE>(INITIAL_STATE)
@@ -94,8 +128,36 @@ function App() {
         }
       })
 
+      // TODO iguridi: do not block page load while building index
+      const search_index = new Index({tokenize: 'forward', stemmer: 'false'})
+      for (let i = 0; i < build.targetsLength(); i++) {
+        let target = build.targets(i)
+        const label = target?.configuredTargetLabel()
+        if (target == null || label == null) {
+          continue
+        }
+        addIfExists(search_index, label, target.name())
+        addIfExists(search_index, label, target.oncall())
+        addIfExists(search_index, label, target.executionPlatform())
+        addIfExists(search_index, label, target.package_())
+        addIfExists(search_index, label, target.targetConfiguration())
+        addIfExists(search_index, label, target.type())
+        addIfExists(search_index, label, label)
+        addList(search_index, label, i => target.deps(i), target.depsLength())
+        addListPlain(search_index, label, i => target.boolAttrs(i), target.boolAttrsLength())
+        addListPlain(search_index, label, i => target.intAttrs(i), target.intAttrsLength())
+        addListPlain(search_index, label, i => target.stringAttrs(i), target.stringAttrsLength())
+        for (let i = 0; i < target.listOfStringsAttrsLength(); i++) {
+          let value = target.listOfStringsAttrs(i)
+          if (value == null) {
+            continue
+          }
+          addList(search_index, label, i => value.value(i), value.valueLength())
+        }
+      }
+
       // This should run just once total
-      setData({build, allTargets, rootTarget, rdepsTargets})
+      setData({build, allTargets, rootTarget, rdepsTargets, search_index})
     }
     fetchData()
   }, [])

@@ -12,7 +12,7 @@ import {DataContext} from './App'
 import {Link, RouterContext, TARGET_VIEW} from './Router'
 
 export function SearchView(props: {view: string}) {
-  const {allTargets} = useContext(DataContext)
+  const {search_index} = useContext(DataContext)
   const {params} = useContext(RouterContext)
 
   const urlParams = new URLSearchParams(params)
@@ -22,12 +22,11 @@ export function SearchView(props: {view: string}) {
     return <p>Invalid search "{search}", try again</p>
   }
 
-  const res: string[] = []
-  for (let k of Object.keys(allTargets)) {
-    if (k.includes(search)) {
-      res.push(k)
-    }
+  let res = search_index?.search(search)
+  if (res == null || res.length == 0) {
+    return <p>No results for search</p>
   }
+  res = res?.map(v => v.toString())
 
   return (
     <>
