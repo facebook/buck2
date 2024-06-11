@@ -22,6 +22,7 @@ use std::collections::HashSet;
 use std::fmt::Write;
 
 use dupe::Dupe;
+use starlark_map::StarlarkHasherBuilder;
 use starlark_syntax::codemap::CodeMaps;
 
 use crate::codemap::CodeMap;
@@ -50,7 +51,7 @@ pub(crate) struct StmtProfile(Option<Box<StmtProfileState>>);
 #[derive(Clone)]
 struct StmtProfileState {
     files: CodeMaps,
-    stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
+    stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration), StarlarkHasherBuilder>,
     next_file: CodeMapId,
     last_span: (CodeMapId, Span),
     last_start: ProfilerInstant,
@@ -60,14 +61,14 @@ struct StmtProfileState {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct StmtProfileData {
     files: CodeMaps,
-    stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration)>,
+    stmts: HashMap<(CodeMapId, Span), (usize, SmallDuration), StarlarkHasherBuilder>,
 }
 
 impl StmtProfileState {
     fn new() -> Self {
         StmtProfileState {
             files: CodeMaps::default(),
-            stmts: HashMap::new(),
+            stmts: HashMap::default(),
             next_file: CodeMapId::EMPTY,
             last_span: (CodeMapId::EMPTY, Span::default()),
             last_start: ProfilerInstant::now(),
