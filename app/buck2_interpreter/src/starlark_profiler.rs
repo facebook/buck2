@@ -64,9 +64,10 @@ impl StarlarkProfileDataAndStats {
     }
 
     pub fn merge<'a>(
-        datas: impl IntoIterator<Item = &'a StarlarkProfileDataAndStats> + Clone,
+        datas: impl IntoIterator<Item = &'a StarlarkProfileDataAndStats>,
     ) -> anyhow::Result<StarlarkProfileDataAndStats> {
-        let mut iter = datas.clone().into_iter();
+        let datas = Vec::from_iter(datas);
+        let mut iter = datas.iter().copied();
         let first = iter.next().context("empty collection of profile data")?;
         let profile_mode = first.profile_mode.dupe();
         let mut total_retained_bytes = first.total_retained_bytes;
@@ -82,8 +83,8 @@ impl StarlarkProfileDataAndStats {
             total_retained_bytes += data.total_retained_bytes;
         }
 
-        let profile_data = ProfileData::merge(datas.into_iter().map(|data| &data.profile_data))
-            .into_anyhow_result()?;
+        let profile_data =
+            ProfileData::merge(datas.iter().map(|data| &data.profile_data)).into_anyhow_result()?;
 
         Ok(StarlarkProfileDataAndStats {
             profile_mode,
