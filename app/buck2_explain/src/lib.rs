@@ -21,6 +21,8 @@ use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 
+const HTML_PLACEHOLDER: &str = "XXDATAXX";
+
 pub async fn main(
     data: Vec<ConfiguredTargetNode>,
     output: Option<&AbsPathBuf>,
@@ -40,12 +42,11 @@ pub async fn main(
 
     let html_out = {
         let html_in = include_str!("explain.html");
-        let html_out = html_in.replace("XXDATAXX", &base64);
-        // TODO: find a better way to assert it actually replaced something
-        if html_in == html_out {
+        if !html_in.contains(HTML_PLACEHOLDER) {
             return Err(anyhow::anyhow!("HTML template is not valid"));
         }
-        html_out
+
+        html_in.replace(HTML_PLACEHOLDER, &base64)
     };
 
     let mut cursor = &mut Cursor::new(html_out.as_bytes());
