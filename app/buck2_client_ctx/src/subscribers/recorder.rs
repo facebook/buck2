@@ -159,6 +159,8 @@ pub(crate) struct InvocationRecorder<'a> {
     new_configs_used: bool,
     re_download_speeds: Vec<SlidingWindow>,
     peak_process_memory_bytes: Option<u64>,
+    buckconfig_diff_count: Option<u64>,
+    buckconfig_diff_size: Option<u64>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -263,6 +265,8 @@ impl<'a> InvocationRecorder<'a> {
                 SlidingWindow::new(Duration::from_secs(10)),
             ],
             peak_process_memory_bytes: None,
+            buckconfig_diff_count: None,
+            buckconfig_diff_size: None,
         }
     }
 
@@ -496,6 +500,8 @@ impl<'a> InvocationRecorder<'a> {
                 .max(),
             install_duration: self.install_duration.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
+            buckconfig_diff_count: self.buckconfig_diff_count.take(),
+            buckconfig_diff_size: self.buckconfig_diff_size.take(),
         };
 
         let event = BuckEvent::new(
@@ -1138,6 +1144,8 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::instant_event::Data::BuckConfigs(conf) => {
                         self.new_configs_used = conf.new_configs_used;
+                        self.buckconfig_diff_count = conf.config_diff_count;
+                        self.buckconfig_diff_size = conf.config_diff_size;
                         Ok(())
                     }
                     buck2_data::instant_event::Data::InstallFinished(install_finished) => {

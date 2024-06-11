@@ -1899,6 +1899,10 @@ message InvocationRecord {
   google.protobuf.Duration install_duration = 86;
   // Peak process memory which is max of RSS and malloc-active bytes
   optional uint64 peak_process_memory_bytes = 87;
+  // How many buck configs changed, set only after config change
+  optional uint64 buckconfig_diff_count = 88;
+  // Approximate config change size in bytes: key + old value + new value
+  optional uint64 buckconfig_diff_size = 89;
 }
 
 // Record event sent directly to scribe.
