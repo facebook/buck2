@@ -26,7 +26,6 @@ const INITIAL_STATE = {
   build: null,
   rootTarget: null,
   allTargets: {},
-  rdepsTargets: {},
   search_index: null,
 }
 
@@ -34,8 +33,6 @@ type STATE_TYPE = {
   build: Build | null
   rootTarget: ConfiguredTargetNode | null
   allTargets: {[key: string]: number}
-  // target index -> [rdeps target]
-  rdepsTargets: {[key: string]: [number]}
   search_index: Index | null
 }
 
@@ -112,22 +109,6 @@ function App() {
         allTargets[label] = i
       }
 
-      let rdepsTargets: {[key: string]: [number]} = {}
-      Object.values(allTargets).forEach(i => {
-        let target = build.targets(i)
-        let depsLength = target?.depsLength() ?? 0
-        for (let i = 0; i < depsLength; i++) {
-          const dep = target?.deps(i)
-          if (dep != null) {
-            if (rdepsTargets.hasOwnProperty(dep) && !rdepsTargets[dep].includes(i)) {
-              rdepsTargets[dep].push(i)
-            } else {
-              rdepsTargets[dep] = [i]
-            }
-          }
-        }
-      })
-
       // TODO iguridi: do not block page load while building index
       const search_index = new Index({tokenize: 'forward', stemmer: 'false'})
       for (let i = 0; i < build.targetsLength(); i++) {
@@ -157,7 +138,7 @@ function App() {
       }
 
       // This should run just once total
-      setData({build, allTargets, rootTarget, rdepsTargets, search_index})
+      setData({build, allTargets, rootTarget, search_index})
     }
     fetchData()
   }, [])

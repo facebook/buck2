@@ -170,19 +170,31 @@ function TargetDeps(props: {target: ConfiguredTargetNode}) {
 
 function TargetRdeps(props: {target: ConfiguredTargetNode}) {
   const {target} = props
-  const {rdepsTargets, build} = useContext(DataContext)
+  const {allTargets, build} = useContext(DataContext)
+
+  if (allTargets == null || build == null) {
+    return
+  }
 
   const label = target?.configuredTargetLabel()
-  const rdeps = label != null ? rdepsTargets[label] ?? [] : []
+
+  let rdeps: Array<string> = []
+  Object.values(allTargets).forEach(i => {
+    let target2 = build?.targets(i)
+    let depsLength = target2?.depsLength() ?? 0
+    for (let i = 0; i < depsLength; i++) {
+      const dep = target2?.deps(i)
+      const rdepLabel = target2?.configuredTargetLabel()
+      if (dep === label && rdepLabel != null) {
+        rdeps.push(rdepLabel)
+      }
+    }
+  })
 
   return (
     <div className="target-deps-content">
       rdeps = [
-      <List
-        attr={i => build?.targets(rdeps[i])?.configuredTargetLabel() ?? 'Target not found'}
-        length={rdeps.length}
-      />
-      ]
+      <List attr={i => rdeps[i]} length={rdeps.length} />]
     </div>
   )
 }
