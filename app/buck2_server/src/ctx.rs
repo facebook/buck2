@@ -117,6 +117,7 @@ use tokio::sync::Mutex;
 use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
+use crate::configs;
 use crate::configs::get_legacy_config_args;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::common::parse_concurrency;
@@ -765,7 +766,7 @@ impl DiceUpdater for DiceCommandUpdater {
         let BuckConfigBasedCellsStatus {
             cells_and_configs,
             new_configs,
-            ..
+            config_metrics,
         } = self
             .cell_config_loader
             .cells_and_configs(&mut ctx.existing_state().await.clone())
@@ -803,9 +804,8 @@ impl DiceUpdater for DiceCommandUpdater {
             self.unstable_typecheck,
         )?;
 
-        self.events.instant_event(buck2_data::BuckConfigs {
-            new_configs_used: new_configs,
-        });
+        let buck_configs = configs::buck_configs(new_configs, config_metrics);
+        self.events.instant_event(buck_configs);
 
         Ok(ctx)
     }
