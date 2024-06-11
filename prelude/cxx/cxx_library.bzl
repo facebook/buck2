@@ -116,7 +116,6 @@ load(":bitcode.bzl", "BitcodeBundle", "BitcodeBundleInfo", "BitcodeTSet", "make_
 load(
     ":comp_db.bzl",
     "CxxCompilationDbInfo",
-    "GcnoFilesInfo",
     "create_compilation_database",
     "make_compilation_db_info",
 )
@@ -150,6 +149,7 @@ load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
+load(":gcno.bzl", "GcnoFilesInfo")
 load(
     ":link.bzl",
     "CxxLinkResult",  # @unused Used as a type

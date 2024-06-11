@@ -21,11 +21,6 @@ CxxCompilationDbInfo = provider(fields = {
     "toolchain": provider_field(typing.Any, default = None),  # toolchain for this compilation database
 })
 
-# Provider that exposes the .gcno files produced during compilation
-GcnoFilesInfo = provider(fields = {
-    "gcno_files": provider_field(list[Artifact]),
-})
-
 def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo, platformInfo: CxxPlatformInfo) -> CxxCompilationDbInfo:
     info = {}
     for src_compile_cmd in src_compile_cmds:
