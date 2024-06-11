@@ -21,6 +21,10 @@ import sys
 import tempfile
 from typing import List
 
+CSS_LINK = '<link href="dist/App.css" rel="stylesheet" />'
+JS_SCRIPT = '<script src="dist/App.js"></script>'
+
+
 rm_rf = functools.partial(shutil.rmtree, ignore_errors=True)
 print_err = functools.partial(print, file=sys.stderr)
 glob_r = functools.partial(glob.glob, recursive=True)
@@ -128,14 +132,19 @@ def main():
     # build
     run(yarn + ["--cwd", src_join(), "run", "build"], env={"CI": "false"})
 
-    # inline js into html file
-    with open(src_join("dist/app.js"), "r") as f:
+    # inline js and css into html file
+    with open(src_join("dist/App.js"), "r") as f:
         js_content = f.read()
+    with open(src_join("dist/App.css"), "r") as f:
+        css_content = f.read()
     with open(src_join("index.html"), "r") as f:
         html_content = f.read()
-    html_content = html_content.replace(
-        '<script src="dist/app.js"></script>', f"<script>{js_content}</script>"
-    )
+
+    assert JS_SCRIPT in html_content
+    assert CSS_LINK in html_content
+    html_content = html_content.replace(CSS_LINK, f"<style>{css_content}</style>")
+    html_content = html_content.replace(JS_SCRIPT, f"<script>{js_content}</script>")
+
     with open(out, "w") as out_file:
         out_file.write(html_content)
 

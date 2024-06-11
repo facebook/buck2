@@ -13,8 +13,8 @@
     "esbuild": "0.20.2"
   },
   "scripts": {
-    "build": "esbuild src/App.tsx --bundle --outfile=dist/app.js",
-    "watch": "esbuild src/App.tsx --bundle --outfile=dist/app.js --watch",
+    "build": "esbuild src/App.tsx --bundle --outdir=dist",
+    "watch": "esbuild src/App.tsx --bundle --outdir=dist --watch",
     "check": "tsc -noEmit -p tsconfig.json"
   }
 }

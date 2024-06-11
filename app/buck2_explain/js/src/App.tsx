@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+// Add css to the bundle
+import './app.css'
+
 import React, {useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
