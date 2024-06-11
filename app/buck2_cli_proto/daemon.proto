@@ -795,6 +795,7 @@ message ProfileRequest {
     BYTECODE = 4;
     BYTECODE_PAIRS = 5;
     TYPECHECK = 6;
+    COVERAGE = 7;
   }
 
   ClientContext context = 1;

@@ -37,6 +37,7 @@ pub fn starlark_profiler_configuration_from_request(
         Profiler::Bytecode => ProfileMode::Bytecode,
         Profiler::BytecodePairs => ProfileMode::BytecodePairs,
         Profiler::Typecheck => ProfileMode::Typecheck,
+        Profiler::Coverage => ProfileMode::Coverage,
     };
 
     match req.profile_opts.as_ref().expect("Missing profile opts") {

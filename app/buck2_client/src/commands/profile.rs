@@ -67,6 +67,7 @@ enum BuckProfileMode {
     Bytecode,
     BytecodePairs,
     Typecheck,
+    Coverage,
 }
 
 /// Profile BXL script.
@@ -155,6 +156,7 @@ fn profile_mode_to_profile(mode: BuckProfileMode) -> Profiler {
         BuckProfileMode::Bytecode => Profiler::Bytecode,
         BuckProfileMode::BytecodePairs => Profiler::BytecodePairs,
         BuckProfileMode::Typecheck => Profiler::Typecheck,
+        BuckProfileMode::Coverage => Profiler::Coverage,
     }
 }
 
