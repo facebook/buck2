@@ -47,22 +47,23 @@ mod t {
 
     #[derive(Debug)]
     struct Client {
-        breakpoints_hit: Arc<AtomicUsize>,
+        controller: BreakpointController,
     }
 
     impl Client {
-        pub fn new(breakpoints_hit: Arc<AtomicUsize>) -> Self {
-            Self { breakpoints_hit }
+        pub fn new(controller: BreakpointController) -> Self {
+            Self { controller }
         }
     }
 
     impl DapAdapterClient for Client {
         fn event_stopped(&self) {
             println!("stopped!");
-            self.breakpoints_hit.fetch_add(1, Ordering::SeqCst);
+            self.controller.eval_stopped();
         }
     }
 
+    #[derive(Debug, Clone, Dupe)]
     struct BreakpointController {
         breakpoints_hit: Arc<AtomicUsize>,
     }
@@ -75,7 +76,11 @@ mod t {
         }
 
         fn get_client(&self) -> Box<dyn DapAdapterClient> {
-            Box::new(Client::new(self.breakpoints_hit.dupe()))
+            Box::new(Client::new(self.dupe()))
+        }
+
+        fn eval_stopped(&self) {
+            self.breakpoints_hit.fetch_add(1, Ordering::SeqCst);
         }
 
         fn wait_for_eval_stopped(&self, breakpoint_count: usize, timeout: Duration) {
