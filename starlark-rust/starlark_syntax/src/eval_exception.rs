@@ -39,6 +39,14 @@ impl EvalException {
         EvalException(error)
     }
 
+    /// `EvalException` is meant to provide type-safe guard against missing span.
+    /// Sometimes we need to construct `EvalException`, but span is not available,
+    /// so this function can be used. Avoid this function if possible.
+    #[cold]
+    pub fn new_unknown_span(error: crate::Error) -> EvalException {
+        EvalException(error)
+    }
+
     #[cold]
     pub fn new_with_callstack(
         mut error: crate::Error,

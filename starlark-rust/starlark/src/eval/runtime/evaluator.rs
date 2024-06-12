@@ -23,6 +23,7 @@ use std::path::Path;
 use dupe::Dupe;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::frame::Frame;
+use starlark_syntax::internal_error;
 use thiserror::Error;
 
 use crate::any::AnyLifetime;
@@ -807,8 +808,19 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             bc.run(
                 self,
                 &mut EvalCallbacksEnabled {
-                    bc_profile: self.eval_instrumentation.bc_profile.enabled(),
-                    before_stmt: self.eval_instrumentation.before_stmt.enabled(),
+                    mode: match (
+                        self.eval_instrumentation.before_stmt.enabled(),
+                        self.eval_instrumentation.bc_profile.enabled(),
+                    ) {
+                        (true, false) => EvalCallbacksMode::BeforeStmt,
+                        (false, true) => EvalCallbacksMode::BcProfile,
+                        (true, true) => {
+                            return Err(EvalException::new_unknown_span(internal_error!(
+                                "both before_stmt and bc_profile are enabled"
+                            )));
+                        }
+                        (false, false) => EvalCallbacksMode::Disabled,
+                    },
                     stmt_locs: &bc.instrs.stmt_locs,
                     bc_start_ptr: bc.instrs.start_ptr(),
                 },
@@ -850,9 +862,15 @@ impl EvaluationCallbacks for EvalCallbacksDisabled {
     fn before_instr(&mut self, _eval: &mut Evaluator, _ip: BcPtrAddr, _opcode: BcOpcode) {}
 }
 
+pub(crate) enum EvalCallbacksMode {
+    BcProfile,
+    BeforeStmt,
+    // TODO(nga): this should not be here, but DAP tests fail without it.
+    Disabled,
+}
+
 pub(crate) struct EvalCallbacksEnabled<'a> {
-    pub(crate) bc_profile: bool,
-    pub(crate) before_stmt: bool,
+    pub(crate) mode: EvalCallbacksMode,
     pub(crate) stmt_locs: &'a BcStatementLocations,
     pub(crate) bc_start_ptr: BcPtrAddr<'a>,
 }
@@ -869,11 +887,12 @@ impl<'a> EvalCallbacksEnabled<'a> {
 impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
     #[inline(always)]
     fn before_instr(&mut self, eval: &mut Evaluator, ip: BcPtrAddr, opcode: BcOpcode) {
-        if self.bc_profile {
-            eval.eval_instrumentation.bc_profile.before_instr(opcode)
-        }
-        if self.before_stmt {
-            self.before_stmt(eval, ip);
+        match self.mode {
+            EvalCallbacksMode::BcProfile => {
+                eval.eval_instrumentation.bc_profile.before_instr(opcode)
+            }
+            EvalCallbacksMode::BeforeStmt => self.before_stmt(eval, ip),
+            EvalCallbacksMode::Disabled => {}
         }
     }
 }
