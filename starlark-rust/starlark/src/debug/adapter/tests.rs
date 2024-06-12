@@ -22,6 +22,7 @@ mod t {
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
+    use std::thread;
     use std::thread::ScopedJoinHandle;
     use std::time::Duration;
     use std::time::Instant;
@@ -136,7 +137,7 @@ mod t {
 
     fn eval_with_hook(
         ast: AstModule,
-        hook: impl DapAdapterEvalHook,
+        hook: Box<dyn DapAdapterEvalHook>,
     ) -> crate::Result<OwnedFrozenValue> {
         let modules = HashMap::new();
         let loader = ReturnFileLoader { modules: &modules };
@@ -144,7 +145,7 @@ mod t {
         let env = Module::new();
         let res = {
             let mut eval = Evaluator::new(&env);
-            Box::new(hook).add_dap_hooks(&mut eval);
+            hook.add_dap_hooks(&mut eval);
             eval.set_loader(&loader);
             eval.eval_module(ast, &globals)?
         };
@@ -169,6 +170,20 @@ mod t {
 
     static TIMEOUT: Duration = Duration::from_secs(10);
 
+    fn dap_test_template<'env, F, R>(f: F) -> crate::Result<R>
+    where
+        F: for<'scope> FnOnce(
+            &'scope thread::Scope<'scope, 'env>,
+            BreakpointController,
+            Box<dyn DapAdapter>,
+            Box<dyn DapAdapterEvalHook>,
+        ) -> crate::Result<R>,
+    {
+        let controller = BreakpointController::new();
+        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
+        thread::scope(|s| f(s, controller, Box::new(adapter), Box::new(eval_hook)))
+    }
+
     #[test]
     fn test_breakpoint() -> crate::Result<()> {
         if is_wasm() {
@@ -176,13 +191,11 @@ mod t {
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 x = [1, 2, 3]
 print(x)
         ";
-        std::thread::scope(|s| {
+        dap_test_template(|s, controller, adapter, eval_hook| {
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, None)]), &ast)?;
@@ -207,13 +220,11 @@ print(x)
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 x = [1, 2, 3]
 print(x)
         ";
-        std::thread::scope(|s| {
+        dap_test_template(|s, _, adapter, eval_hook| {
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, Some("5 in x"))]), &ast)?;
@@ -231,13 +242,11 @@ print(x)
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 x = [1, 2, 3]
 print(x)
         ";
-        std::thread::scope(|s| {
+        dap_test_template(|s, controller, adapter, eval_hook| {
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, Some("2 in x"))]), &ast)?;
@@ -261,8 +270,6 @@ print(x)
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 def adjust(y):
     y[0] += 1
@@ -273,7 +280,7 @@ adjust(x) # line 7
 adjust(x)
 print(x)
         ";
-        std::thread::scope(|s| {
+        dap_test_template(|s, controller, adapter, eval_hook| {
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
@@ -314,8 +321,6 @@ print(x)
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 def adjust(y):
     y[0] += 1
@@ -326,7 +331,7 @@ adjust(x) # line 7
 adjust(x)
 print(x)
         ";
-        std::thread::scope(|s| {
+        dap_test_template(|s, controller, adapter, eval_hook| {
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
@@ -389,8 +394,6 @@ print(x)
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 def adjust(y):
     y[0] += 1
@@ -401,7 +404,7 @@ adjust(x) # line 7
 adjust(x)
 print(x)
         ";
-        std::thread::scope(|s| {
+        dap_test_template(|s, controller, adapter, eval_hook| {
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(4, None)]), &ast)?;
@@ -448,8 +451,6 @@ print(x)
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 def do():
     a = struct(
@@ -465,7 +466,7 @@ def do():
     return d # line 13
 print(do())
         ";
-        let result = std::thread::scope(|s| {
+        let result = dap_test_template(|s, controller, adapter, eval_hook| {
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(13, None)]), &ast)?;
@@ -506,8 +507,6 @@ print(do())
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 def do():
     a = struct(
@@ -523,7 +522,7 @@ def do():
     return d # line 13
 print(do())
         ";
-        let result = std::thread::scope(|s| {
+        let result = dap_test_template(|s, controller, adapter, eval_hook| {
             let mut result = Vec::new();
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
@@ -565,8 +564,6 @@ print(do())
             return Ok(());
         }
 
-        let controller = BreakpointController::new();
-        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
 def do():
     s = struct(
@@ -581,7 +578,7 @@ def do():
     return s # line 12
 print(do())
         ";
-        let result = std::thread::scope(|s| {
+        let result = dap_test_template(|s, controller, adapter, eval_hook| {
             let mut result = Vec::new();
             let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
             let breakpoints =
