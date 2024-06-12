@@ -30,6 +30,7 @@ from .codesign_command_factory import (
     ICodesignCommandFactory,
 )
 from .fast_adhoc import is_fast_adhoc_codesign_allowed, should_skip_adhoc_signing_path
+from .identity import CodeSigningIdentity
 from .info_plist_metadata import InfoPlistMetadata
 from .list_codesign_identities import IListCodesignIdentities
 from .prepare_code_signing_entitlements import prepare_code_signing_entitlements
@@ -74,6 +75,17 @@ class CodesignedPath:
     """
 
 
+def _log_codesign_identities(identities: List[CodeSigningIdentity]) -> None:
+    if len(identities) == 0:
+        _LOGGER.warning("ZERO codesign identities available")
+    else:
+        _LOGGER.info("Listing available codesign identities")
+        for identity in identities:
+            _LOGGER.info(
+                f"    Subject Common Name: {identity.subject_common_name}, Fingerprint: {identity.fingerprint}"
+            )
+
+
 def _select_provisioning_profile(
     info_plist_metadata: InfoPlistMetadata,
     provisioning_profiles_dir: Path,
@@ -88,6 +100,7 @@ def _select_provisioning_profile(
         _default_read_provisioning_profile_command_factory
     )
     identities = list_codesign_identities.list_codesign_identities()
+    _log_codesign_identities(identities)
     _LOGGER.info(
         f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
     )
