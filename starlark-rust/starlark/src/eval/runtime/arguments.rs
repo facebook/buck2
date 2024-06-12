@@ -31,7 +31,7 @@ use crate::collections::symbol_map::Symbol;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHashValue;
-use crate::eval::runtime::params::ParametersSpec;
+use crate::eval::ParametersSpec;
 use crate::hint::unlikely;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
