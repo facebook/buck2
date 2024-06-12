@@ -38,7 +38,7 @@ mod tests;
 /// The DapAdapterClient is implemented by the user and provides functionality required by the DapAdapter.
 pub trait DapAdapterClient: Debug + Send + Sync + 'static {
     /// Indicates that the evaluation stopped at a breakpoint.
-    fn event_stopped(&self);
+    fn event_stopped(&self) -> crate::Result<()>;
 }
 
 /// Information about the variables scopes

@@ -897,8 +897,9 @@ struct BuckStarlarkDapAdapterClient {
 }
 
 impl DapAdapterClient for BuckStarlarkDapAdapterClient {
-    fn event_stopped(&self) {
-        self.handle.0.server.event_stopped(self.hook_id)
+    fn event_stopped(&self) -> starlark::Result<()> {
+        self.handle.0.server.event_stopped(self.hook_id);
+        Ok(())
     }
 }
 

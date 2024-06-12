@@ -852,14 +852,26 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 }
 
 pub(crate) trait EvaluationCallbacks {
-    fn before_instr(&mut self, _eval: &mut Evaluator, _ip: BcPtrAddr, _opcode: BcOpcode);
+    fn before_instr(
+        &mut self,
+        _eval: &mut Evaluator,
+        _ip: BcPtrAddr,
+        _opcode: BcOpcode,
+    ) -> crate::Result<()>;
 }
 
 pub(crate) struct EvalCallbacksDisabled;
 
 impl EvaluationCallbacks for EvalCallbacksDisabled {
     #[inline(always)]
-    fn before_instr(&mut self, _eval: &mut Evaluator, _ip: BcPtrAddr, _opcode: BcOpcode) {}
+    fn before_instr(
+        &mut self,
+        _eval: &mut Evaluator,
+        _ip: BcPtrAddr,
+        _opcode: BcOpcode,
+    ) -> crate::Result<()> {
+        Ok(())
+    }
 }
 
 pub(crate) enum EvalCallbacksMode {
@@ -876,23 +888,30 @@ pub(crate) struct EvalCallbacksEnabled<'a> {
 }
 
 impl<'a> EvalCallbacksEnabled<'a> {
-    fn before_stmt(&mut self, eval: &mut Evaluator, ip: BcPtrAddr) {
+    fn before_stmt(&mut self, eval: &mut Evaluator, ip: BcPtrAddr) -> crate::Result<()> {
         let offset = ip.offset_from(self.bc_start_ptr);
         if let Some(loc) = self.stmt_locs.stmt_at(offset) {
-            before_stmt(loc.span, eval);
+            before_stmt(loc.span, eval)?;
         }
+        Ok(())
     }
 }
 
 impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
     #[inline(always)]
-    fn before_instr(&mut self, eval: &mut Evaluator, ip: BcPtrAddr, opcode: BcOpcode) {
+    fn before_instr(
+        &mut self,
+        eval: &mut Evaluator,
+        ip: BcPtrAddr,
+        opcode: BcOpcode,
+    ) -> crate::Result<()> {
         match self.mode {
             EvalCallbacksMode::BcProfile => {
-                eval.eval_instrumentation.bc_profile.before_instr(opcode)
+                eval.eval_instrumentation.bc_profile.before_instr(opcode);
+                Ok(())
             }
             EvalCallbacksMode::BeforeStmt => self.before_stmt(eval, ip),
-            EvalCallbacksMode::Disabled => {}
+            EvalCallbacksMode::Disabled => Ok(()),
         }
     }
 }
@@ -901,18 +920,22 @@ impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
 // The purposes are GC, profiling and debugging.
 //
 // This function is called only if `before_stmt` is set before compilation start.
-pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) {
+pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) -> crate::Result<()> {
     assert!(
         eval.eval_instrumentation.before_stmt.enabled(),
         "this code should only be called if `before_stmt` is set"
     );
     let mut fs = mem::take(&mut eval.eval_instrumentation.before_stmt.before_stmt);
+    let mut result = Ok(());
     for f in &mut fs {
-        f.call(span.span.file_span_ref(), eval)
+        if result.is_ok() {
+            result = f.call(span.span.file_span_ref(), eval);
+        }
     }
     let added = mem::replace(&mut eval.eval_instrumentation.before_stmt.before_stmt, fs);
     assert!(
         added.is_empty(),
         "`before_stmt` cannot be modified during evaluation"
     );
+    result
 }

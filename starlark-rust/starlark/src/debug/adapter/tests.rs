@@ -58,9 +58,10 @@ mod t {
     }
 
     impl DapAdapterClient for Client {
-        fn event_stopped(&self) {
+        fn event_stopped(&self) -> crate::Result<()> {
             println!("stopped!");
             self.controller.eval_stopped();
+            Ok(())
         }
     }
 

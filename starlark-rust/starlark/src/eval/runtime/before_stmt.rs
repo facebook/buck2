@@ -40,9 +40,16 @@ pub enum BeforeStmtFunc<'a, 'e: 'a> {
 }
 
 impl<'a, 'e: 'a> BeforeStmtFunc<'a, 'e> {
-    pub(crate) fn call<'v>(&mut self, span: FileSpanRef, eval: &mut Evaluator<'v, 'a, 'e>) {
+    pub(crate) fn call<'v>(
+        &mut self,
+        span: FileSpanRef,
+        eval: &mut Evaluator<'v, 'a, 'e>,
+    ) -> crate::Result<()> {
         match self {
-            BeforeStmtFunc::Fn(f) => f(span, eval),
+            BeforeStmtFunc::Fn(f) => {
+                f(span, eval);
+                Ok(())
+            }
             BeforeStmtFunc::Dyn(d) => d.call(span, eval),
         }
     }
@@ -55,7 +62,11 @@ pub trait BeforeStmtFuncDyn<'a, 'e: 'a> {
     /// This is used by DAP, and it is not public API.
     // TODO(cjhopman): pull DAP into the crate, and hide this function.
     #[doc(hidden)]
-    fn call<'v>(&mut self, span: FileSpanRef, eval: &mut Evaluator<'v, 'a, 'e>);
+    fn call<'v>(
+        &mut self,
+        span: FileSpanRef,
+        eval: &mut Evaluator<'v, 'a, 'e>,
+    ) -> crate::Result<()>;
 }
 
 impl<'a, 'e: 'a> BeforeStmt<'a, 'e> {

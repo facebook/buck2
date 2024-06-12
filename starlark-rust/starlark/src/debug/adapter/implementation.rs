@@ -108,7 +108,11 @@ fn evaluate_expr<'v>(
 }
 
 impl<'a, 'e: 'a> BeforeStmtFuncDyn<'a, 'e> for DapAdapterEvalHookImpl {
-    fn call<'v>(&mut self, span_loc: FileSpanRef, eval: &mut Evaluator<'v, 'a, 'e>) {
+    fn call<'v>(
+        &mut self,
+        span_loc: FileSpanRef,
+        eval: &mut Evaluator<'v, 'a, 'e>,
+    ) -> crate::Result<()> {
         let stop = if self.state.disable_breakpoints.load(Ordering::SeqCst) > 0 {
             false
         } else {
@@ -139,7 +143,7 @@ impl<'a, 'e: 'a> BeforeStmtFuncDyn<'a, 'e> for DapAdapterEvalHookImpl {
 
         if stop || step_stop {
             self.step = None;
-            self.state.client.event_stopped();
+            self.state.client.event_stopped()?;
             loop {
                 let msg = self.receiver.recv();
                 match msg.map(|msg| msg(span_loc, eval)) {
@@ -156,6 +160,7 @@ impl<'a, 'e: 'a> BeforeStmtFuncDyn<'a, 'e> for DapAdapterEvalHookImpl {
                 }
             }
         }
+        Ok(())
     }
 }
 

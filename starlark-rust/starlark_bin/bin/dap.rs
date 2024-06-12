@@ -52,7 +52,7 @@ struct Backend {
 }
 
 impl DapAdapterClient for Client {
-    fn event_stopped(&self) {
+    fn event_stopped(&self) -> starlark::Result<()> {
         self.event_stopped(StoppedEventBody {
             reason: "breakpoint".to_owned(),
             thread_id: Some(0),
@@ -61,6 +61,7 @@ impl DapAdapterClient for Client {
             preserve_focus_hint: None,
             text: None,
         });
+        Ok(())
     }
 }
 

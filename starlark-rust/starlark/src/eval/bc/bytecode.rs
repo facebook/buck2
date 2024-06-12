@@ -140,7 +140,10 @@ fn step<'v, 'b, EC: EvaluationCallbacks>(
         }
     }
 
-    ec.before_instr(eval, ip, opcode);
+    match ec.before_instr(eval, ip, opcode) {
+        Ok(()) => {}
+        Err(e) => return InstrControl::Err(e),
+    }
     opcode.dispatch(HandlerImpl { eval, frame, ip })
 }
 
