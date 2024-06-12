@@ -56,14 +56,6 @@ rust_toolchain_attrs = {
     # When you `buck test` a library, also compile and run example code in its
     # documentation comments.
     "doctests": provider_field(bool, default = False),
-    # Filter out failures when we just need diagnostics. That is,
-    # a rule which fails with a compilation failure will report
-    # success as an RE action, but a "failure filter" action will
-    # report the failure if some downstream action needs one of the
-    # artifacts. If all you need is diagnostics, then it will report
-    # success. This doubles the number of actions, so it should only
-    # be explicitly enabled when needed.
-    "failure_filter": provider_field(bool, default = False),
     # The Rust compiler (rustc)
     "compiler": provider_field(RunInfo | None, default = None),
     # Rust documentation extractor (rustdoc)

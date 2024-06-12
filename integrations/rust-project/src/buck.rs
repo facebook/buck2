@@ -466,7 +466,7 @@ impl Buck {
         S: AsRef<OsStr>,
     {
         let mut cmd = self.command_without_config(subcommands);
-        cmd.args(["-c=client.id=rust-project", "-c=rust.failure_filter=true"]);
+        cmd.args(["-c=client.id=rust-project"]);
         cmd
     }
 
