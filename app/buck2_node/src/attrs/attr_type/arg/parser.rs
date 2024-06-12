@@ -99,7 +99,7 @@ impl ParsedArg {
 /// Parsed a string into a structure with macros and their types and args identified.
 pub fn parse_macros(input: &str) -> anyhow::Result<ParsedArg> {
     match read(input) {
-        Ok((remaining, value)) => {
+        Ok((value, remaining)) => {
             assert!(
                 remaining.is_empty(),
                 "somehow had remaining stuff after a successful macro parse. Had `{}` remaining.",
@@ -153,7 +153,7 @@ enum ArgParseError {
 type Error<'a> = (&'a str, ArgParseError);
 
 /// A Result includes both some parsed type and a slice of what remains to be parsed.
-type Result<'a, T> = result::Result<(&'a str, T), Error<'a>>;
+type Result<'a, T> = result::Result<(T, &'a str), Error<'a>>;
 
 // We diverge slightly from buckv1 here.
 //
@@ -227,9 +227,9 @@ fn read_unquoted_arg(input: &str) -> Result<String> {
             let (arg, rest) = (&input[0..pos], &input[pos..]);
             // The common case, by far, is that nothing is escaped.
             if !has_escapes {
-                Ok((rest, arg.to_owned()))
+                Ok((arg.to_owned(), rest))
             } else {
-                Ok((rest, unescape(arg)))
+                Ok((unescape(arg), rest))
             }
         }
     }
@@ -260,9 +260,9 @@ fn read_quoted_arg(input: &str, quote: char) -> Result<String> {
             let (arg, rest) = (&input[0..pos], &input[(pos + 1)..]);
             // The common case, by far, is that nothing is escaped.
             if !has_escapes {
-                Ok((rest, arg.to_owned()))
+                Ok((arg.to_owned(), rest))
             } else {
-                Ok((rest, unescape(arg)))
+                Ok((unescape(arg), rest))
             }
         }
     }
@@ -290,7 +290,7 @@ fn read_macro_type(input: &str) -> Result<String> {
             {
                 Err((&input[pos..], ArgParseError::MacroTypeInvalidChar))
             } else {
-                Ok((&input[pos..], macro_type.to_owned()))
+                Ok((macro_type.to_owned(), &input[pos..]))
             }
         }
     }
@@ -309,23 +309,23 @@ fn read_macro(input: &str) -> Result<ParsedMacro> {
         Some(working) => (true, working),
         None => (false, working),
     };
-    let (working, macro_type) = read_macro_type(working)?;
+    let (macro_type, working) = read_macro_type(working)?;
     let mut working = consume_whitespace(working);
 
     let mut args = Vec::new();
     while let Some(c) = working.chars().next() {
         if c == ')' {
             return Ok((
-                &working[1..],
                 ParsedMacro {
                     write_to_file,
                     macro_type,
                     args,
                 },
+                &working[1..],
             ));
         }
 
-        let (remaining, arg) = read_macro_arg(working)?;
+        let (arg, remaining) = read_macro_arg(working)?;
         working = consume_whitespace(remaining);
         args.push(arg);
     }
@@ -401,20 +401,20 @@ fn read_literal_opt(input: &str) -> Result<Option<Box<str>>> {
             literal.push_str(&input[(indices_to_drop.last().unwrap() + 1)..literal_end]);
             literal
         };
-        Ok((&input[literal_end..], Some(literal.into_boxed_str())))
+        Ok((Some(literal.into_boxed_str()), &input[literal_end..]))
     } else {
-        Ok((input, None))
+        Ok((None, input))
     }
 }
 
 fn read(input: &str) -> Result<ParsedArg> {
-    let (remaining, literal) = read_literal_opt(input)?;
+    let (literal, remaining) = read_literal_opt(input)?;
     let mut working = remaining;
 
     if working.is_empty() {
         return Ok((
-            "",
             ParsedArg(vec![ArgItem::String(literal.unwrap_or_else(|| "".into()))]),
+            "",
         ));
     }
 
@@ -424,7 +424,7 @@ fn read(input: &str) -> Result<ParsedArg> {
     }
 
     while !working.is_empty() {
-        let (remaining, literal) = read_literal_opt(working)?;
+        let (literal, remaining) = read_literal_opt(working)?;
         working = remaining;
         if let Some(literal) = literal {
             complex.push(ArgItem::String(literal));
@@ -432,13 +432,13 @@ fn read(input: &str) -> Result<ParsedArg> {
 
         if !working.is_empty() {
             // we must be at the beginning of a macro.
-            let (remaining, parsed_macro) = read_macro(working)?;
+            let (parsed_macro, remaining) = read_macro(working)?;
             working = remaining;
             complex.push(ArgItem::Macro(parsed_macro));
         }
     }
 
-    Ok(("", ParsedArg(complex)))
+    Ok((ParsedArg(complex), ""))
 }
 
 #[cfg(test)]
@@ -463,15 +463,15 @@ mod tests {
 
     #[test]
     fn test_unquoted() -> result::Result<(), OwnedError> {
-        assert_eq!(read_macro_arg("abcd ")?, (" ", "abcd".to_owned()));
-        assert_eq!(read_macro_arg("abcd)")?, (")", "abcd".to_owned()));
+        assert_eq!(read_macro_arg("abcd ")?, ("abcd".to_owned(), " "));
+        assert_eq!(read_macro_arg("abcd)")?, ("abcd".to_owned(), ")"));
         assert_eq!(
             read_macro_arg("deps(//some:target))")?,
-            (")", "deps(//some:target)".to_owned())
+            ("deps(//some:target)".to_owned(), ")")
         );
         assert_eq!(
             read_macro_arg("deps(//some:target, 3, first_order_deps()) ")?,
-            (" ", "deps(//some:target, 3, first_order_deps())".to_owned())
+            ("deps(//some:target, 3, first_order_deps())".to_owned(), " ")
         );
 
         Ok(())
@@ -479,11 +479,11 @@ mod tests {
 
     #[test]
     fn test_quoted() -> result::Result<(), OwnedError> {
-        assert_eq!(read_macro_arg("' abcd )'")?, ("", " abcd )".to_owned()));
-        assert_eq!(read_macro_arg("' ab%cd )'")?, ("", " ab%cd )".to_owned()));
+        assert_eq!(read_macro_arg("' abcd )'")?, (" abcd )".to_owned(), ""));
+        assert_eq!(read_macro_arg("' ab%cd )'")?, (" ab%cd )".to_owned(), ""));
         assert_eq!(
             read_macro_arg(r#"" \"\$\\ ")"#)?,
-            (")", r#" "$\ "#.to_owned())
+            (r#" "$\ "#.to_owned(), ")")
         );
 
         Ok(())
@@ -491,11 +491,11 @@ mod tests {
 
     #[test]
     fn test_macro_type() -> result::Result<(), OwnedError> {
-        assert_eq!(read_macro_type("name ")?, (" ", "name".to_owned()));
-        assert_eq!(read_macro_type("name)")?, (")", "name".to_owned()));
+        assert_eq!(read_macro_type("name ")?, ("name".to_owned(), " "));
+        assert_eq!(read_macro_type("name)")?, ("name".to_owned(), ")"));
         assert_eq!(
             read_macro_type("platform-name ")?,
-            (" ", "platform-name".to_owned())
+            ("platform-name".to_owned(), " ")
         );
         assert!(read_macro_type("platform%name ").is_err());
         assert!(read_macro_type("platform$name ").is_err());
