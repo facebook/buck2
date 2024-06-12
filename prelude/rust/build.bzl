@@ -168,7 +168,7 @@ def generate_rustdoc(
         dep_ctx = compile_ctx.dep_ctx,
         # to make sure we get the rmeta's generated for the crate dependencies,
         # rather than full .rlibs
-        emit = Emit("metadata-full"),
+        emit = Emit("metadata-fast"),
         params = params,
         default_roots = default_roots,
         is_rustdoc_test = False,
@@ -246,7 +246,7 @@ def generate_rustdoc_coverage(
         dep_ctx = compile_ctx.dep_ctx,
         # to make sure we get the rmeta's generated for the crate dependencies,
         # rather than full .rlibs
-        emit = Emit("metadata-full"),
+        emit = Emit("metadata-fast"),
         params = params,
         default_roots = default_roots,
         is_rustdoc_test = False,
