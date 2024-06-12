@@ -16,6 +16,7 @@
  */
 
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::internal_error;
 use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::type_expr::TypeExprUnpackP;
 use starlark_syntax::syntax::type_expr::TypePathP;
@@ -41,8 +42,6 @@ use crate::values::Value;
 
 #[derive(Debug, thiserror::Error)]
 enum TypesError {
-    #[error("Type already initialized (internal error)")]
-    TypeAlreadySet,
     #[error("Identifier is not resolved (internal error)")]
     UnresolvedIdentifier,
     #[error("Identifier is resolve as local variable (internal error)")]
@@ -220,8 +219,8 @@ impl<'v> Compiler<'v, '_, '_, '_> {
         type_expr: &mut CstTypeExpr,
     ) -> Result<(), EvalException> {
         if type_expr.payload.compiler_ty.is_some() {
-            return Err(EvalException::new_anyhow(
-                TypesError::TypeAlreadySet.into(),
+            return Err(EvalException::new(
+                internal_error!("Type already initialized"),
                 type_expr.span,
                 &self.codemap,
             ));

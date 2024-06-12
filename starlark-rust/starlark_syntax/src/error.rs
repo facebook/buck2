@@ -246,3 +246,21 @@ impl<T> StarlarkResultExt<T> for crate::Result<T> {
         self.map_err(Error::into_anyhow)
     }
 }
+
+/// Internal error of starlark.
+#[macro_export]
+macro_rules! internal_error {
+    ($format:literal) => {
+        internal_error!($format,)
+    };
+    ($format:literal, $($args:expr),*) => {
+        $crate::Error::new(
+            $crate::ErrorKind::Internal(
+                anyhow::anyhow!(
+                    $format,
+                    $($args),*
+                )
+            )
+        )
+    };
+}
