@@ -76,6 +76,21 @@ rust_toolchain_attrs = {
     "allow_lints": provider_field(list[typing.Any], default = []),
     "deny_lints": provider_field(list[typing.Any], default = []),
     "warn_lints": provider_field(list[typing.Any], default = []),
+    # Deny-on-Check lints are handled differently depending on the build.
+    #
+    # For check builds, e.g. [check], [diag.json], [clippy.json] subtargets, or the default target
+    # for `rust_library` rules, these lints will be applied as Deny Lints. Importantly, this means
+    # that when you call `buck build :rust_lib` or use tools like arc rust-check or rustfix, these
+    # lints will be surfaced as errors.
+    #
+    # However, for "regular" builds, e.g. when building tests or binaries, or building this target
+    # as a dependency of another target, these flags will be surfaced only as warnings. The primary
+    # benefit here is that you can develop + test your code as normal and will not be blocked by
+    # these lints. However, once you run rust check, or submit your code to phabricator, these
+    # lints will prevent you from landing your code. This way we can introduce lints that we'd like
+    # to deny from our codebase without slowing down your inner dev loop, or encouraging you to
+    # --cap-warns=lint for your projects.
+    "deny_on_check_lints": provider_field(list[typing.Any], default = []),
     # Clippy configuration file clippy.toml
     "clippy_toml": provider_field(Artifact | None, default = None),
     # URL prefix (e.g. /path/to/docs) where crates' docs are hosted. Used for

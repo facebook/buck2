@@ -437,7 +437,7 @@ def rust_compile(
 
     toolchain_info = compile_ctx.toolchain_info
 
-    lints, clippy_lints = _lint_flags(compile_ctx)
+    lints, clippy_lints = _lint_flags(compile_ctx, designated_clippy)
 
     # If we are building metadata-full for a dylib target, we want the hollow-rlib version of rmeta, not the shared lib version.
     if compile_ctx.dep_ctx.advanced_unstable_linking and emit == Emit("metadata-full") and params.crate_type == CrateType("dylib"):
@@ -817,18 +817,20 @@ def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> 
         format = "-{}{{}}".format(flag),
     )
 
-def _lint_flags(compile_ctx: CompileContext) -> (cmd_args, cmd_args):
+def _lint_flags(compile_ctx: CompileContext, is_check: bool) -> (cmd_args, cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
     plain = cmd_args(
         _lintify("A", False, toolchain_info.allow_lints),
         _lintify("D", False, toolchain_info.deny_lints),
+        _lintify("D" if is_check else "W", False, toolchain_info.deny_on_check_lints),
         _lintify("W", False, toolchain_info.warn_lints),
     )
 
     clippy = cmd_args(
         _lintify("A", True, toolchain_info.allow_lints),
         _lintify("D", True, toolchain_info.deny_lints),
+        _lintify("D" if is_check else "W", True, toolchain_info.deny_on_check_lints),
         _lintify("W", True, toolchain_info.warn_lints),
     )
 
