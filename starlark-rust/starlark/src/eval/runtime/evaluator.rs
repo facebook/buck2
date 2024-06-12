@@ -195,10 +195,11 @@ impl<'a, 'e: 'a> EvaluationInstrumentation<'a, 'e> {
         self.heap_or_flame_profile = true;
     }
 
-    fn change<F: FnOnce(&mut EvaluationInstrumentation<'a, 'e>)>(&mut self, f: F) {
-        f(self);
+    fn change<F: FnOnce(&mut EvaluationInstrumentation<'a, 'e>) -> R, R>(&mut self, f: F) -> R {
+        let r = f(self);
         self.enabled =
             self.bc_profile.enabled() || self.before_stmt.enabled() || self.heap_or_flame_profile;
+        r
     }
 }
 
@@ -819,7 +820,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                                 "both before_stmt and bc_profile are enabled"
                             )));
                         }
-                        (false, false) => EvalCallbacksMode::Disabled,
+                        (false, false) => {
+                            return Err(EvalException::new_unknown_span(internal_error!(
+                                "neither before_stmt nor bc_profile are enabled"
+                            )));
+                        }
                     },
                     stmt_locs: &bc.instrs.stmt_locs,
                     bc_start_ptr: bc.instrs.start_ptr(),
@@ -877,8 +882,6 @@ impl EvaluationCallbacks for EvalCallbacksDisabled {
 pub(crate) enum EvalCallbacksMode {
     BcProfile,
     BeforeStmt,
-    // TODO(nga): this should not be here, but DAP tests fail without it.
-    Disabled,
 }
 
 pub(crate) struct EvalCallbacksEnabled<'a> {
@@ -911,7 +914,6 @@ impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
                 Ok(())
             }
             EvalCallbacksMode::BeforeStmt => self.before_stmt(eval, ip),
-            EvalCallbacksMode::Disabled => Ok(()),
         }
     }
 }
@@ -925,14 +927,18 @@ pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) -> crate::Resul
         eval.eval_instrumentation.before_stmt.enabled(),
         "this code should only be called if `before_stmt` is set"
     );
-    let mut fs = mem::take(&mut eval.eval_instrumentation.before_stmt.before_stmt);
+    let mut fs = eval.eval_instrumentation.change(|eval_instrumentation| {
+        mem::take(&mut eval_instrumentation.before_stmt.before_stmt)
+    });
     let mut result = Ok(());
     for f in &mut fs {
         if result.is_ok() {
             result = f.call(span.span.file_span_ref(), eval);
         }
     }
-    let added = mem::replace(&mut eval.eval_instrumentation.before_stmt.before_stmt, fs);
+    let added = eval.eval_instrumentation.change(|eval_instrumentation| {
+        mem::replace(&mut eval_instrumentation.before_stmt.before_stmt, fs)
+    });
     assert!(
         added.is_empty(),
         "`before_stmt` cannot be modified during evaluation"
