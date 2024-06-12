@@ -339,7 +339,6 @@ impl ProviderCodegen {
                             starlark::environment::MethodsStatic::new();
 
                         RES.methods(|x| {
-                            crate::interpreter::rule_defs::provider::provider_methods(x);
                             #provider_methods_func_name(x);
                         })
                     }

@@ -25,8 +25,6 @@ use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
 use starlark::collections::Hashed;
 use starlark::collections::StarlarkHasher;
-use starlark::environment::Methods;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
 use starlark::typing::Ty;
@@ -41,7 +39,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::provider::callable::UserProviderCallableData;
-use crate::interpreter::rule_defs::provider::provider_methods;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 
 #[derive(Debug, buck2_error::Error)]
@@ -108,11 +105,6 @@ where
             .raw_entry_v1()
             .index_from_hash(attribute.hash().promote(), |k| k == attribute.key())?;
         Some(self.attributes[index].to_value())
-    }
-
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(provider_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
