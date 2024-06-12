@@ -505,6 +505,11 @@ mod tests {
     #[test]
     fn test_parse_macros() -> anyhow::Result<()> {
         assert_eq!(
+            ParsedArg(vec![ArgItem::String("contains no macros".into())]),
+            parse_macros(r#"contains no macros"#)?
+        );
+
+        assert_eq!(
             ParsedArg(vec![ArgItem::String("contains no $(macros)".into())]),
             parse_macros(r#"contains no \$(macros)"#)?
         );
