@@ -469,7 +469,7 @@ def _codesign_everything(
     # If we have > 1 paths to sign (including root bundle), access keychain first to avoid user playing whack-a-mole
     # with permission grant dialog windows.
     if codesign_on_copy_filtered_paths:
-        _obtain_keychain_permissions(
+        obtain_keychain_permissions(
             identity_fingerprint, tmp_dir, codesign_command_factory
         )
     _codesign_paths(
@@ -596,7 +596,7 @@ def _filter_out_fast_adhoc_paths(
     ]
 
 
-def _obtain_keychain_permissions(
+def obtain_keychain_permissions(
     identity_fingerprint: str,
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
