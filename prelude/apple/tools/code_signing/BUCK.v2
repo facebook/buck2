@@ -5,6 +5,18 @@ oncall("build_infra")
 
 source_listing()
 
+configured_alias(
+    name = "dummy_binary_for_signing_configured",
+    actual = ":dummy_binary_for_signing",
+    platform = "config//platform/macos:base",
+)
+
+cxx_binary(
+    name = "dummy_binary_for_signing",
+    srcs = ["dummy_binary_for_signing.c"],
+    default_target_platform = "config//platform/macos:base",
+)
+
 python_library(
     name = "lib",
     srcs = glob(
@@ -16,6 +28,7 @@ python_library(
             "main.py",
         ],
     ),
+    resources = [":dummy_binary_for_signing_configured"],
     visibility = ["PUBLIC"],
     deps = [
         "prelude//apple/tools:plistlib_utils",

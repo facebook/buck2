@@ -8,6 +8,7 @@
 # pyre-strict
 
 import asyncio
+import importlib.resources
 import logging
 import os
 import shutil
@@ -465,6 +466,12 @@ def _codesign_everything(
         platform=platform,
         fast_adhoc_signing=fast_adhoc_signing,
     )
+    # If we have > 1 paths to sign (including root bundle), access keychain first to avoid user playing whack-a-mole
+    # with permission grant dialog windows.
+    if codesign_on_copy_filtered_paths:
+        _obtain_keychain_permissions(
+            identity_fingerprint, tmp_dir, codesign_command_factory
+        )
     _codesign_paths(
         codesign_on_copy_filtered_paths,
         identity_fingerprint,
@@ -587,3 +594,27 @@ def _filter_out_fast_adhoc_paths(
             p.path, identity_fingerprint, p.entitlements, platform
         )
     ]
+
+
+def _obtain_keychain_permissions(
+    identity_fingerprint: str,
+    tmp_dir: str,
+    codesign_command_factory: ICodesignCommandFactory,
+) -> None:
+    with ExitStack() as stack, importlib.resources.path(
+        __package__, "dummy_binary_for_signing"
+    ) as dummy_binary_path:
+        # Copy the binary to avoid races vs other bundling actions
+        dummy_binary_copied = os.path.join(tmp_dir, "dummy_binary_for_signing")
+        shutil.copyfile(dummy_binary_path, dummy_binary_copied, follow_symlinks=True)
+        p = _spawn_codesign_process(
+            path=CodesignedPath(
+                path=Path(dummy_binary_copied), entitlements=None, flags=[]
+            ),
+            identity_fingerprint=identity_fingerprint,
+            tmp_dir=tmp_dir,
+            codesign_command_factory=codesign_command_factory,
+            stack=stack,
+        )
+        p.process.wait()
+    p.check_result()
