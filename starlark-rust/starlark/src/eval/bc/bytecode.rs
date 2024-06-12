@@ -144,8 +144,7 @@ fn step<'v, 'b, EC: EvaluationCallbacks>(
     opcode.dispatch(HandlerImpl { eval, frame, ip })
 }
 
-/// Execute the code block, either a module, a function body or a loop body.
-// Do not inline this function because it is called from two places: function and loop.
+/// Execute the code block, either a module or a function body.
 pub(crate) fn run_block<'v, EC: EvaluationCallbacks>(
     eval: &mut Evaluator<'v, '_, '_>,
     ec: &mut EC,
