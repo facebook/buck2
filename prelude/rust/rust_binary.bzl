@@ -324,7 +324,6 @@ def _rust_binary_common(
         params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
-        designated_clippy = True,
     )
 
     providers = [RustcExtraOutputsInfo(
@@ -332,7 +331,22 @@ def _rust_binary_common(
         metadata_fast = meta_fast,
     )]
 
-    extra_meta_targets = output_as_diag_subtargets(meta_fast).items()
+    # `diagnostics_only` allows us to circumvent compilation failures and
+    # treat the resulting rustc action as a success, even if a metadata
+    # artifact was not generated. This allows us to generate diagnostics
+    # even when the target has bugs.
+    diag_artifacts = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("metadata-fast"),
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        designated_clippy = True,
+        diagnostics_only = True,
+    )
+
+    extra_diag_targets = output_as_diag_subtargets(diag_artifacts).items()
 
     expand = rust_compile(
         ctx = ctx,
@@ -344,7 +358,7 @@ def _rust_binary_common(
     )
 
     compiled_outputs = styles[specified_link_strategy]
-    extra_compiled_targets = (extra_meta_targets + [
+    extra_compiled_targets = (extra_diag_targets + [
         ("doc", generate_rustdoc(
             ctx = ctx,
             compile_ctx = compile_ctx,

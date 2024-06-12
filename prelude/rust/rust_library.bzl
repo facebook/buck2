@@ -124,15 +124,14 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Grab the artifacts to use for the check subtargets. Picking a good
     # `LibOutputStyle` ensures that the subtarget shares work with the main
     # build if possible
-    check_params = lang_style_param[(LinkageLang("rust"), DEFAULT_STATIC_LIB_OUTPUT_STYLE)]
+    meta_params = lang_style_param[(LinkageLang("rust"), DEFAULT_STATIC_LIB_OUTPUT_STYLE)]
 
     meta_fast = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("metadata-fast"),
-        params = check_params,
+        params = meta_params,
         default_roots = ["lib.rs"],
-        designated_clippy = True,
     )
 
     # Generate the actions to build various output artifacts. Given the set of
@@ -227,6 +226,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         emit = Emit("expand"),
         params = static_library_params,
         default_roots = default_roots,
+        # This is needed as rustc can generate expanded sources that do not
+        # fully compile, but will report an error even if it succeeds.
+        # TODO(pickett): Handle this at the rustc action level, we shouldn't
+        # need to pass a special arg here, expand should just work.
+        diagnostics_only = True,
     )
 
     # If doctests=True or False is set on the individual target, respect that.
@@ -253,7 +257,19 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = default_roots,
     )
 
-    check_artifacts = rust_param_artifact[check_params]
+    # diagnostics_only allows us to circumvent compilation failures and
+    # treat the resulting rustc action as a success, even if a metadata
+    # artifact was not generated. This allows us to generate diagnostics
+    # even when the target has bugs.
+    diag_artifacts = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("metadata-fast"),
+        params = meta_params,
+        default_roots = ["lib.rs"],
+        designated_clippy = True,
+        diagnostics_only = True,
+    )
 
     providers = []
     providers += _default_providers(
@@ -263,13 +279,13 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
-        check_artifacts = output_as_diag_subtargets(check_artifacts[MetadataKind("fast")]),
+        check_artifacts = output_as_diag_subtargets(diag_artifacts),
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
     )
     providers += _rust_metadata_providers(
-        check_artifacts = check_artifacts,
+        check_artifacts = rust_param_artifact[meta_params],
     )
 
     if ctx.attrs.proc_macro:

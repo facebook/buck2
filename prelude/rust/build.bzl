@@ -171,6 +171,7 @@ def generate_rustdoc(
         emit = Emit("metadata-fast"),
         params = params,
         default_roots = default_roots,
+        diagnostics_only = False,
         is_rustdoc_test = False,
     )
 
@@ -249,6 +250,7 @@ def generate_rustdoc_coverage(
         emit = Emit("metadata-fast"),
         params = params,
         default_roots = default_roots,
+        diagnostics_only = False,
         is_rustdoc_test = False,
     )
 
@@ -338,6 +340,7 @@ def generate_rustdoc_test(
         emit = Emit("link"),
         params = params,
         default_roots = default_roots,
+        diagnostics_only = False,
         is_rustdoc_test = True,
     )
 
@@ -428,6 +431,7 @@ def rust_compile(
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         designated_clippy: bool = False,
         allow_cache_upload: bool = False,
+        diagnostics_only: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> RustcOutput:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
@@ -452,6 +456,7 @@ def rust_compile(
         emit = emit,
         params = params,
         default_roots = default_roots,
+        diagnostics_only = diagnostics_only,
         is_rustdoc_test = False,
     )
 
@@ -473,7 +478,7 @@ def rust_compile(
     # let rustc_emit generate its own output artifacts, and then make sure we
     # use the predeclared one as the output after the failure filter action
     # below. Otherwise we'll use the predeclared outputs directly.
-    if toolchain_info.failure_filter:
+    if diagnostics_only:
         emit_op = _rustc_emit(
             ctx = ctx,
             emit = emit,
@@ -542,6 +547,7 @@ def rust_compile(
         rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_op.args),
         required_outputs = [emit_op.output],
         is_clippy = False,
+        diagnostics_only = diagnostics_only,
         allow_cache_upload = allow_cache_upload,
         crate_map = common_args.crate_map,
         env = emit_op.env,
@@ -585,13 +591,14 @@ def rust_compile(
             env = clippy_env,
             required_outputs = [clippy_emit_op.output],
             is_clippy = True,
+            diagnostics_only = diagnostics_only,
             allow_cache_upload = False,
             crate_map = common_args.crate_map,
         )
     else:
         clippy_invoke = None
 
-    if toolchain_info.failure_filter:
+    if diagnostics_only:
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
         # asked for explicitly).
@@ -845,13 +852,14 @@ def _compute_common_args(
         emit: Emit,
         params: BuildParams,
         default_roots: list[str],
+        diagnostics_only: bool,
         is_rustdoc_test: bool) -> CommonArgsInfo:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     path_sep = "\\" if exec_is_windows else "/"
 
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test)
+    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, diagnostics_only)
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
@@ -859,6 +867,8 @@ def _compute_common_args(
     subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, params.dep_link_strategy.value, emit.value)
     if is_rustdoc_test:
         subdir = "{}-rustdoc-test".format(subdir)
+    if diagnostics_only:
+        subdir = "{}-diag".format(subdir)
 
     # Included in tempfiles
     tempfile = "{}-{}".format(attr_simple_crate_for_filenames(ctx), emit.value)
@@ -1141,7 +1151,7 @@ def _crate_root(
          "\nMake sure you have one of {} in your `srcs` attribute.".format(default_roots) +
          "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates.list()))
 
-def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit) -> str:
+def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, diagnostics_only: bool) -> str:
     if emit == Emit("metadata-full"):
         link_strategy_suffix = {
             LinkStrategy("static"): " [static]",
@@ -1151,7 +1161,7 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit) -> 
         return "metadata" + link_strategy_suffix
 
     if emit == Emit("metadata-fast"):
-        return "check"
+        return "diag" if diagnostics_only else "check"
 
     if emit == Emit("link"):
         link_strategy_suffix = {
@@ -1275,6 +1285,7 @@ def _rustc_invoke(
         rustc_cmd: cmd_args,
         required_outputs: list[Artifact],
         is_clippy: bool,
+        diagnostics_only: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
         env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> Invoke:
@@ -1309,7 +1320,7 @@ def _rustc_invoke(
         compile_cmd.add(cmd_args("--path-env=", k, "=", v, delimiter = ""))
 
     build_status = None
-    if toolchain_info.failure_filter:
+    if diagnostics_only:
         # Build status for fail filter
         build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag))
         compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
@@ -1344,6 +1355,7 @@ def _rustc_invoke(
             crate_type = common_args.crate_type,
             link_strategy = common_args.params.dep_link_strategy,
             emit = common_args.emit,
+            diagnostics_only = diagnostics_only,
         )
 
     ctx.actions.run(
