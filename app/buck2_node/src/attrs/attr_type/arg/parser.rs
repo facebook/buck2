@@ -338,6 +338,16 @@ fn read_literal_opt(input: &str) -> Result<Option<Box<str>>> {
     // even number of preceding `\` (as the first of each pair escapes the second). If there's
     // an odd number of preceding `\`, one of them should be removed.
 
+    // Fast check that there are no macro refs in the string, which is the common case.
+    // We can do better than `memchr` (given our strings are short), but not much.
+    if memchr::memchr2(b'$', b'\\', input.as_bytes()).is_none() {
+        return Ok((Some(input.into()), ""));
+    }
+
+    read_literal_opt_slow(input)
+}
+
+fn read_literal_opt_slow(input: &str) -> Result<Option<Box<str>>> {
     let mut char_indices = input.char_indices();
     let mut indices_to_drop = Vec::new();
     enum State {

@@ -13,6 +13,7 @@ derive_more = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
+memchr = { workspace = true }
 once_cell = { workspace = true }
 ref-cast = { workspace = true }
 serde = { workspace = true }
