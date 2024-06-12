@@ -61,13 +61,13 @@ mod t {
     impl DapAdapterClient for Client {
         fn event_stopped(&self) -> crate::Result<()> {
             println!("stopped!");
-            self.controller.eval_stopped();
-            Ok(())
+            self.controller.eval_stopped()
         }
     }
 
     #[derive(Debug, Clone, Dupe)]
     struct BreakpointController {
+        /// The number of breakpoint hits or 999999 if cancelled.
         breakpoints_hit: Arc<AtomicUsize>,
     }
 
@@ -82,14 +82,30 @@ mod t {
             Box::new(Client::new(self.dupe()))
         }
 
-        fn eval_stopped(&self) {
-            self.breakpoints_hit.fetch_add(1, Ordering::SeqCst);
+        fn eval_stopped(&self) -> crate::Result<()> {
+            loop {
+                let breakpoints_hit = self.breakpoints_hit.load(Ordering::SeqCst);
+                if breakpoints_hit == 999999 {
+                    eprintln!("eval_stopped: cancelled");
+                    return Err(anyhow::anyhow!("cancelled").into());
+                }
+                if self.breakpoints_hit.compare_exchange(
+                    breakpoints_hit,
+                    breakpoints_hit + 1,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                ) == Ok(breakpoints_hit)
+                {
+                    return Ok(());
+                }
+            }
         }
 
         fn wait_for_eval_stopped(&self, breakpoint_count: usize, timeout: Duration) {
             let now = Instant::now();
             loop {
                 let breakpoints_hit = self.breakpoints_hit.load(Ordering::SeqCst);
+                assert_ne!(breakpoints_hit, 999999, "cancelled");
                 assert!(breakpoints_hit <= breakpoint_count);
                 if breakpoints_hit == breakpoint_count {
                     break;
@@ -99,6 +115,19 @@ mod t {
                 }
                 hint::spin_loop();
             }
+        }
+    }
+
+    struct BreakpointControllerDropGuard {
+        controller: BreakpointController,
+    }
+
+    impl Drop for BreakpointControllerDropGuard {
+        fn drop(&mut self) {
+            eprintln!("dropping controller");
+            self.controller
+                .breakpoints_hit
+                .store(999999, Ordering::SeqCst);
         }
     }
 
@@ -180,6 +209,11 @@ mod t {
         ) -> crate::Result<R>,
     {
         let controller = BreakpointController::new();
+
+        let _guard = BreakpointControllerDropGuard {
+            controller: controller.dupe(),
+        };
+
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         thread::scope(|s| f(s, controller, Box::new(adapter), Box::new(eval_hook)))
     }
