@@ -18,6 +18,7 @@
 #[cfg(test)]
 mod t {
     use std::collections::HashMap;
+    use std::hint;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -85,11 +86,16 @@ mod t {
 
         fn wait_for_eval_stopped(&self, breakpoint_count: usize, timeout: Duration) {
             let now = Instant::now();
-            while self.breakpoints_hit.load(Ordering::SeqCst) != breakpoint_count {
+            loop {
+                let breakpoints_hit = self.breakpoints_hit.load(Ordering::SeqCst);
+                assert!(breakpoints_hit <= breakpoint_count);
+                if breakpoints_hit == breakpoint_count {
+                    break;
+                }
                 if now.elapsed() > timeout {
                     panic!("didn't hit expected breakpoint");
                 }
-                std::hint::spin_loop();
+                hint::spin_loop();
             }
         }
     }
