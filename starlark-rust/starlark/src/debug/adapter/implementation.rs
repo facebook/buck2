@@ -124,7 +124,11 @@ impl<'a, 'e: 'a> BeforeStmtFuncDyn<'a, 'e> for DapAdapterEvalHookImpl {
                     ..
                 }) => match evaluate_expr(&self.state, eval, condition.to_owned()) {
                     Ok(v) => v.to_bool(),
-                    _ => true,
+                    Err(_) => {
+                        // If failed to evaluate the condition, stop.
+                        // TODO(nga): print the error.
+                        true
+                    }
                 },
                 Some(..) => true,
                 None => false,
