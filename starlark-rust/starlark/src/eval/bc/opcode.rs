@@ -46,7 +46,6 @@ pub(crate) enum BcOpcode {
     ArrayIndexSet,
     Slice,
     ObjectField,
-    ObjectFieldRaw,
     SetObjectField,
     Eq,
     EqConst,

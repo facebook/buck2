@@ -1125,13 +1125,6 @@ pub(crate) enum MemberOrValue<'v, 'a> {
 }
 
 impl<'v, 'a> MemberOrValue<'v, 'a> {
-    pub(crate) fn to_value(&self) -> Value<'v> {
-        match self {
-            MemberOrValue::Member(x) => x.to_frozen_value().to_value(),
-            MemberOrValue::Value(x) => *x,
-        }
-    }
-
     #[inline]
     pub(crate) fn invoke(
         &self,

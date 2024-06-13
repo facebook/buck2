@@ -33,7 +33,6 @@ Opcode,Count,Count / Total
 "ArrayIndexSet",0,"0.000"
 "Slice",0,"0.000"
 "ObjectField",0,"0.000"
-"ObjectFieldRaw",0,"0.000"
 "SetObjectField",0,"0.000"
 "Eq",0,"0.000"
 "EqConst",0,"0.000"

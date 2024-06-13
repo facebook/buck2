@@ -150,7 +150,6 @@ pub(crate) struct InstrArrayIndexImpl;
 pub(crate) struct InstrSetArrayIndexImpl;
 pub(crate) struct InstrArrayIndexSetImpl;
 pub(crate) struct InstrObjectFieldImpl;
-pub(crate) struct InstrObjectFieldRawImpl;
 pub(crate) struct InstrSetObjectFieldImpl;
 pub(crate) struct InstrSliceImpl;
 pub(crate) struct InstrArrayIndex2Impl;
@@ -167,7 +166,6 @@ pub(crate) type InstrArrayIndex = InstrNoFlow<InstrArrayIndexImpl>;
 pub(crate) type InstrSetArrayIndex = InstrNoFlow<InstrSetArrayIndexImpl>;
 pub(crate) type InstrArrayIndexSet = InstrNoFlow<InstrArrayIndexSetImpl>;
 pub(crate) type InstrObjectField = InstrNoFlow<InstrObjectFieldImpl>;
-pub(crate) type InstrObjectFieldRaw = InstrNoFlow<InstrObjectFieldRawImpl>;
 pub(crate) type InstrSetObjectField = InstrNoFlow<InstrSetObjectFieldImpl>;
 pub(crate) type InstrSlice = InstrNoFlow<InstrSliceImpl>;
 pub(crate) type InstrArrayIndex2 = InstrNoFlow<InstrArrayIndex2Impl>;
@@ -377,27 +375,6 @@ impl InstrNoFlowImpl for InstrObjectFieldImpl {
         let object = frame.get_bc_slot(*object);
         let value = get_attr_hashed_bind(object, field, eval.heap())?;
         frame.set_bc_slot(*target, value);
-        Ok(())
-    }
-}
-
-/// Get raw field.
-///
-/// For regular field, get the field. For methods, get the raw unbound method.
-///
-/// This instruction is used for call profiling, where we don't need to bind the methods.
-impl InstrNoFlowImpl for InstrObjectFieldRawImpl {
-    type Arg = (BcSlotIn, Symbol, BcSlotOut);
-
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_, '_>,
-        frame: BcFramePtr<'v>,
-        _ip: BcPtrAddr,
-        (object, field, target): &(BcSlotIn, Symbol, BcSlotOut),
-    ) -> crate::Result<()> {
-        let object = frame.get_bc_slot(*object);
-        let value = get_attr_hashed_raw(object, field, eval.heap())?;
-        frame.set_bc_slot(*target, value.to_value());
         Ok(())
     }
 }
