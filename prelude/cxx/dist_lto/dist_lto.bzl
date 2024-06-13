@@ -573,9 +573,6 @@ def cxx_dist_link(
                             new_objs.append(obj)
                             opt_objects.append(obj)
                         current_index += 1
-                elif isinstance(linkable, SharedLibLinkable):
-                    append_linkable_args(link_args, linkable)
-                    current_index += 1
                 else:
                     current_index += 1
             link_args.add(link.post_flags)
