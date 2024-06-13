@@ -175,6 +175,7 @@ pub(crate) fn to_json_project(
                     run: vec!["run".to_owned(), target.to_string()],
                     test: vec![
                         "test".to_owned(),
+                        "-c=client.id=rust-project".to_owned(),
                         target.to_string(),
                         "--".to_owned(),
                         "{test_id}".to_owned(),
@@ -223,7 +224,11 @@ pub(crate) fn to_json_project(
         runnables: vec![
             Runnable {
                 program: "buck".to_owned(),
-                args: vec!["build".to_owned(), "{label}".to_owned()],
+                args: vec![
+                    "build".to_owned(),
+                    "-c=client.id=rust-project".to_owned(),
+                    "{label}".to_owned(),
+                ],
                 cwd: project_root.to_owned(),
                 kind: RunnableKind::Check,
             },
@@ -231,6 +236,7 @@ pub(crate) fn to_json_project(
                 program: "buck".to_owned(),
                 args: vec![
                     "test".to_owned(),
+                    "-c=client.id=rust-project".to_owned(),
                     "{label}".to_owned(),
                     "--".to_owned(),
                     "{test_id}".to_owned(),
