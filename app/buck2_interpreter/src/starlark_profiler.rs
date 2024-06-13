@@ -31,19 +31,6 @@ enum StarlarkProfilerError {
     RetainedMemoryNotFrozen,
 }
 
-/// When profiling Starlark file, all dependencies of that file must be
-/// "instrumented" otherwise the profiler won't work.
-///
-/// This struct defines instrumentation level for the module.
-#[derive(Debug, PartialEq, Eq, Clone, Dupe, Allocative)]
-pub struct StarlarkProfilerInstrumentation {}
-
-impl StarlarkProfilerInstrumentation {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
 #[derive(Debug, Clone, Allocative)]
 pub struct StarlarkProfileDataAndStats {
     #[allocative(skip)] // OK to skip because used only when profiling enabled.
@@ -128,11 +115,6 @@ impl StarlarkProfiler {
         })
     }
 
-    /// Instrumentation level required by `bzl` files loaded by the profiled module.
-    fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
-        Some(StarlarkProfilerInstrumentation {})
-    }
-
     /// Prepare an Evaluator to capture output relevant to this profiler.
     fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
         eval.enable_profile(&self.profile_mode)?;
@@ -201,18 +183,6 @@ enum StarlarkProfilerOrInstrumentationImpl<'p> {
 pub struct StarlarkProfilerOrInstrumentation<'p>(StarlarkProfilerOrInstrumentationImpl<'p>);
 
 impl<'p> StarlarkProfilerOrInstrumentation<'p> {
-    pub fn new(
-        profiler: &'p mut StarlarkProfiler,
-        instrumentation: Option<StarlarkProfilerInstrumentation>,
-    ) -> StarlarkProfilerOrInstrumentation<'p> {
-        match (profiler.instrumentation(), instrumentation) {
-            (None, None) => StarlarkProfilerOrInstrumentation::disabled(),
-            (Some(_), Some(_)) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
-            (None, Some(_)) => StarlarkProfilerOrInstrumentation::disabled(),
-            (Some(_), None) => panic!("profiler, but no instrumentation"),
-        }
-    }
-
     pub fn for_profiler(profiler: &'p mut StarlarkProfiler) -> Self {
         StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Profiler(profiler))
     }
