@@ -31,7 +31,7 @@ use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;

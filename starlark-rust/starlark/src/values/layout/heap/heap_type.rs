@@ -82,7 +82,7 @@ use crate::values::layout::value::Value;
 use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::string::intern::interner::FrozenStringInterner;
 use crate::values::string::intern::interner::StringValueInterner;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;

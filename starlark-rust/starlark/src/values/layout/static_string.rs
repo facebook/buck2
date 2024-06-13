@@ -22,8 +22,8 @@ use std::sync::atomic::AtomicU32;
 
 use crate::values::layout::avalue::VALUE_STR_A_VALUE_PTR;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::string::StarlarkStr;
-use crate::values::string::StarlarkStrN;
+use crate::values::string::str_type::StarlarkStr;
+use crate::values::string::str_type::StarlarkStrN;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 

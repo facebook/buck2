@@ -54,7 +54,7 @@ use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::AValueSimple;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::string::hash_string_value;
+use crate::values::string::str_type::hash_string_value;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;

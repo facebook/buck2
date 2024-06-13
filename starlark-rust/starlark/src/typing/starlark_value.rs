@@ -40,7 +40,7 @@ use crate::values::float::StarlarkFloat;
 use crate::values::list::value::FrozenList;
 use crate::values::none::NoneType;
 use crate::values::starlark_type_id::StarlarkTypeId;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
 use crate::values::tuple::value::Tuple;

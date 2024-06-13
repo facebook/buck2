@@ -43,7 +43,7 @@ use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
 use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
 use crate::values::types::list::value::FrozenListData;

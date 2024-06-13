@@ -31,7 +31,7 @@ use crate::typing::Ty;
 use crate::typing::TyFunction;
 use crate::typing::TyName;
 use crate::values::none::NoneType;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::typing::any::TypingAny;
 use crate::values::StarlarkValue;
 

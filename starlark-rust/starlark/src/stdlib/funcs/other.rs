@@ -37,7 +37,7 @@ use crate::values::none::NoneType;
 use crate::values::num::value::NumRef;
 use crate::values::range::Range;
 use crate::values::string::repr::string_repr;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::tuple::value::FrozenTuple;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;

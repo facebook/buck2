@@ -96,7 +96,7 @@ use crate::values::recursive_repr_or_json_guard::json_stack_push;
 use crate::values::recursive_repr_or_json_guard::repr_stack_push;
 use crate::values::stack_guard;
 use crate::values::starlark_type_id::StarlarkTypeId;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -1349,7 +1349,7 @@ mod tests {
     use crate::assert;
     use crate::values::list::AllocList;
     use crate::values::none::NoneType;
-    use crate::values::string::StarlarkStr;
+    use crate::values::string::str_type::StarlarkStr;
     use crate::values::types::int::PointerI32;
     use crate::values::unpack::UnpackValue;
     use crate::values::Heap;

@@ -25,7 +25,7 @@ pub use starlark_derive::StarlarkTypeRepr;
 
 use crate::typing::Ty;
 use crate::values::none::NoneType;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;

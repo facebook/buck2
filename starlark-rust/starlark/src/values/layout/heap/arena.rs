@@ -60,7 +60,7 @@ use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
-use crate::values::string::StarlarkStr;
+use crate::values::string::str_type::StarlarkStr;
 use crate::values::Value;
 use crate::values::ValueLike;
 

@@ -26,7 +26,7 @@ use crate::values::dict::value::dict_methods;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
 use crate::values::list::value::list_methods;
-use crate::values::string::str_methods;
+use crate::values::string::str_type::str_methods;
 use crate::values::FrozenRef;
 use crate::values::FrozenValueTyped;
 use crate::values::Value;
