@@ -26,10 +26,9 @@ pub struct TargetCfgOptions {
     #[clap(
         value_name = "VALUE",
         long = "modifier",
-        help = "WARNING: This feature is under development and behavior may change. A configuration modifier to configure all targets on the command line. This may be a constraint value target.",
-        hide = true
+        help = "A configuration modifier to configure all targets on the command line. This may be a constraint value target."
     )]
-    pub cli_modifier: Option<String>,
+    pub cli_modifier: Vec<String>,
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
@@ -44,8 +43,8 @@ pub struct TargetCfgUnusedOptions {
     pub target_platforms: Option<String>,
 
     /// This option is not used.
-    #[clap(value_name = "VALUE", long = "modifier", hide = true)]
-    pub cli_modifier: Option<String>,
+    #[clap(value_name = "VALUE", long = "modifier")]
+    pub cli_modifier: Vec<String>,
 }
 
 impl TargetCfgOptions {
@@ -57,11 +56,7 @@ impl TargetCfgOptions {
     }
 
     fn cli_modifiers(&self) -> Vec<String> {
-        let mut modifiers = Vec::new();
-        if let Some(modifier) = &self.cli_modifier {
-            modifiers.push(modifier.clone());
-        }
-        modifiers
+        self.cli_modifier.clone()
     }
 }
 
@@ -98,29 +93,8 @@ mod tests {
         )?)
     }
 
-    #[ignore]
     #[test]
-    fn short_opt_multiple() -> anyhow::Result<()> {
-        let opts = parse(&["-m", "value1", "-m", "value2"])?;
-
-        assert_eq!(opts.cli_modifiers(), vec!["value1", "value2"]);
-
-        Ok(())
-    }
-
-    #[ignore]
-    #[test]
-    fn short_opt_comma_separated() -> anyhow::Result<()> {
-        let opts = parse(&["-m", "value1,value2"])?;
-
-        assert_eq!(opts.cli_modifiers(), vec!["value1", "value2"]);
-
-        Ok(())
-    }
-
-    #[ignore]
-    #[test]
-    fn long_opt_multiple() -> anyhow::Result<()> {
+    fn opt_multiple() -> anyhow::Result<()> {
         let opts = parse(&["--modifier", "value1", "--modifier", "value2"])?;
 
         assert_eq!(opts.cli_modifiers(), vec!["value1", "value2"]);
@@ -128,35 +102,13 @@ mod tests {
         Ok(())
     }
 
-    #[ignore]
-    #[test]
-    fn long_opt_comma_separated() -> anyhow::Result<()> {
-        let opts = parse(&["--modifier", "value1,value2"])?;
-
-        assert_eq!(opts.cli_modifiers(), vec!["value1", "value2"]);
-
-        Ok(())
-    }
-
-    #[ignore]
-    #[test]
-    fn comma_separated_and_multiple() -> anyhow::Result<()> {
-        let opts = parse(&["--modifier", "value1,value2", "--modifier", "value3"])?;
-
-        assert_eq!(opts.cli_modifiers(), vec!["value1", "value2", "value3"]);
-
-        Ok(())
-    }
-
-    #[ignore]
     #[test]
     fn space_separated_fails() -> anyhow::Result<()> {
-        assert_matches!(parse(&["-m", "value1", "value2"]), Err(..));
+        assert_matches!(parse(&["--modifier", "value1", "value2"]), Err(..));
 
         Ok(())
     }
 
-    #[ignore]
     #[test]
     fn test_target_cfg_unused() {
         #[derive(Debug, Eq, PartialEq)]
