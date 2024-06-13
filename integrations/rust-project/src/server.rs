@@ -317,7 +317,7 @@ fn handle_discover_buck_targets(
     );
     let _guard = span.entered();
 
-    let project = develop.run(targets)?;
+    let project = develop.run_inner(targets)?;
     tracing::info!(crate_len = &project.crates.len(), "created index");
 
     if !projects.iter().any(|p| *p == project) {
@@ -377,7 +377,7 @@ fn handle_did_save_buck_file(
     .entered();
 
     let develop = Develop::new();
-    let project = match develop.run(targets) {
+    let project = match develop.run_inner(targets) {
         Ok(project) => project,
         Err(e) => {
             warn!(error = ?e, "unable to load updated file");

@@ -127,6 +127,103 @@ impl Develop {
 const DEFAULT_EXTRA_TARGETS: usize = 50;
 
 impl Develop {
+    #[instrument(name = "develop", skip_all, fields(develop_input = ?input))]
+    pub(crate) fn run(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
+        let targets = match input {
+            Input::Targets(targets) => targets,
+            Input::Files(files) => {
+                let canonical_files = files
+                    .into_iter()
+                    .map(|p| match canonicalize(&p) {
+                        Ok(path) => path,
+                        Err(_) => p,
+                    })
+                    .collect::<Vec<_>>();
+
+                self.related_targets(&canonical_files)?
+            }
+        };
+
+        let rust_project = self.run_inner(targets)?;
+
+        let mut writer: BufWriter<Box<dyn Write>> = match cfg.out {
+            Output::Path(ref p) => {
+                let out = std::fs::File::create(p)?;
+                BufWriter::new(Box::new(out))
+            }
+            Output::Stdout => BufWriter::new(Box::new(std::io::stdout())),
+        };
+
+        if cfg.pretty {
+            serde_json::to_writer_pretty(&mut writer, &rust_project)?;
+        } else {
+            serde_json::to_writer(&mut writer, &rust_project)?;
+        }
+        writeln!(writer)?;
+
+        match cfg.out {
+            Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
+            Output::Stdout => info!("wrote rust-project.json to stdout"),
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
+        let start = std::time::Instant::now();
+
+        let Develop {
+            sysroot,
+            relative_paths,
+            buck,
+            check_cycles,
+        } = self;
+
+        let project_root = buck.resolve_project_root()?;
+
+        info!("building generated code");
+        let expanded_and_resolved = buck.expand_and_resolve(&targets)?;
+
+        info!("fetching sysroot");
+        let aliased_libraries =
+            buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
+
+        info!("fetching sysroot");
+        let sysroot = match &sysroot {
+            SysrootConfig::Sysroot(path) => {
+                let mut sysroot_path = canonicalize(expand_tilde(path)?)?;
+                if *relative_paths {
+                    sysroot_path = relative_to(&sysroot_path, &project_root);
+                }
+
+                Sysroot {
+                    sysroot: sysroot_path,
+                    sysroot_src: None,
+                }
+            }
+            SysrootConfig::BuckConfig => {
+                resolve_buckconfig_sysroot(&project_root, *relative_paths)?
+            }
+            SysrootConfig::Rustup => resolve_rustup_sysroot()?,
+        };
+        info!("converting buck info to rust-project.json");
+        let rust_project = to_json_project(
+            sysroot,
+            expanded_and_resolved,
+            aliased_libraries,
+            *relative_paths,
+            *check_cycles,
+        )?;
+
+        let duration = start.elapsed();
+        info!(
+            duration_ms = duration.as_millis(),
+            "finished generating rust-project"
+        );
+
+        Ok(rust_project)
+    }
+
     /// For every Rust file, return the relevant buck targets that should be used to configure rust-analyzer.
     pub(crate) fn related_targets(&self, files: &[PathBuf]) -> Result<Vec<Target>, anyhow::Error> {
         // We always want the targets that directly own these Rust files.
@@ -216,103 +313,6 @@ impl Develop {
                 owners
             }
         }
-    }
-
-    pub(crate) fn run(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
-        let start = std::time::Instant::now();
-
-        let Develop {
-            sysroot,
-            relative_paths,
-            buck,
-            check_cycles,
-        } = self;
-
-        let project_root = buck.resolve_project_root()?;
-
-        info!("building generated code");
-        let expanded_and_resolved = buck.expand_and_resolve(&targets)?;
-
-        info!("resolving aliased libraries");
-        let aliased_libraries =
-            buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
-
-        info!("fetching sysroot");
-        let sysroot = match &sysroot {
-            SysrootConfig::Sysroot(path) => {
-                let mut sysroot_path = canonicalize(expand_tilde(path)?)?;
-                if *relative_paths {
-                    sysroot_path = relative_to(&sysroot_path, &project_root);
-                }
-
-                Sysroot {
-                    sysroot: sysroot_path,
-                    sysroot_src: None,
-                }
-            }
-            SysrootConfig::BuckConfig => {
-                resolve_buckconfig_sysroot(&project_root, *relative_paths)?
-            }
-            SysrootConfig::Rustup => resolve_rustup_sysroot()?,
-        };
-        info!("converting buck info to rust-project.json");
-        let rust_project = to_json_project(
-            sysroot,
-            expanded_and_resolved,
-            aliased_libraries,
-            *relative_paths,
-            *check_cycles,
-        )?;
-
-        let duration = start.elapsed();
-        info!(
-            duration_ms = duration.as_millis(),
-            "finished generating rust-project"
-        );
-
-        Ok(rust_project)
-    }
-
-    #[instrument(name = "develop", skip_all, fields(develop_input = ?input))]
-    pub(crate) fn run_as_cli(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
-        let targets = match input {
-            Input::Targets(targets) => targets,
-            Input::Files(files) => {
-                let canonical_files = files
-                    .into_iter()
-                    .map(|p| match canonicalize(&p) {
-                        Ok(path) => path,
-                        Err(_) => p,
-                    })
-                    .collect::<Vec<_>>();
-
-                self.related_targets(&canonical_files)?
-            }
-        };
-
-        let rust_project = self.run(targets)?;
-
-        let mut writer: BufWriter<Box<dyn Write>> = match cfg.out {
-            Output::Path(ref p) => {
-                let out = std::fs::File::create(p)?;
-                BufWriter::new(Box::new(out))
-            }
-            Output::Stdout => BufWriter::new(Box::new(std::io::stdout())),
-        };
-
-        if cfg.pretty {
-            serde_json::to_writer_pretty(&mut writer, &rust_project)?;
-        } else {
-            serde_json::to_writer(&mut writer, &rust_project)?;
-        }
-        writeln!(writer)?;
-
-        match cfg.out {
-            Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
-            Output::Stdout => info!("wrote rust-project.json to stdout"),
-        }
-
-        Ok(())
     }
 }
 

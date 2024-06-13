@@ -180,7 +180,7 @@ fn main() -> Result<(), anyhow::Error> {
             };
 
             let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run_as_cli(input, out) {
+            match develop.run(input, out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     tracing::error!(
