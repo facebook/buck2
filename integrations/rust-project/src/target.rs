@@ -244,6 +244,25 @@ impl TargetInfo {
 
         cfg
     }
+
+    pub(crate) fn src_dirs(&self) -> Vec<PathBuf> {
+        let mut all_src_dirs: Vec<&Path> = self.srcs.iter().filter_map(|p| p.parent()).collect();
+        all_src_dirs.sort();
+
+        let mut uniq_dirs: Vec<PathBuf> = vec![];
+        for src_dir in all_src_dirs {
+            match uniq_dirs.last() {
+                Some(last_dir) => {
+                    if !src_dir.starts_with(last_dir) {
+                        uniq_dirs.push(src_dir.to_owned());
+                    }
+                }
+                None => uniq_dirs.push(src_dir.to_owned()),
+            }
+        }
+
+        uniq_dirs
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
@@ -294,4 +313,38 @@ fn test_cfg() {
     };
 
     assert_eq!(info.cfg(), expected);
+}
+
+#[test]
+fn test_src_dirs() {
+    let info = TargetInfo {
+        name: "bar".to_owned(),
+        label: "bar".to_owned(),
+        kind: Kind::Library,
+        edition: None,
+        srcs: vec![
+            PathBuf::from("src/foo.rs"),
+            PathBuf::from("src/bar/foo.rs"),
+            PathBuf::from("other/blah.rs"),
+        ],
+        mapped_srcs: FxHashMap::default(),
+        crate_name: None,
+        crate_dynamic: None,
+        crate_root: None,
+        deps: vec![],
+        test_deps: vec![],
+        named_deps: FxHashMap::default(),
+        proc_macro: None,
+        features: vec![],
+        env: FxHashMap::default(),
+        source_folder: PathBuf::from("/tmp"),
+        project_relative_buildfile: PathBuf::from("bar/BUCK"),
+        in_workspace: false,
+        out_dir: None,
+        rustc_flags: vec![],
+    };
+
+    let expected: Vec<PathBuf> = vec![PathBuf::from("other"), PathBuf::from("src")];
+
+    assert_eq!(info.src_dirs(), expected);
 }
