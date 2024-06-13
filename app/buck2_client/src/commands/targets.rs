@@ -51,6 +51,18 @@ enum TargetHashFileMode {
     None,
 }
 
+impl TargetHashFileMode {
+    fn to_proto(&self) -> targets_request::TargetHashFileMode {
+        match self {
+            TargetHashFileMode::PathsOnly => targets_request::TargetHashFileMode::PathsOnly,
+            TargetHashFileMode::PathsAndContents => {
+                targets_request::TargetHashFileMode::PathsAndContents
+            }
+            TargetHashFileMode::None => targets_request::TargetHashFileMode::NoFiles,
+        }
+    }
+}
+
 #[derive(Debug, clap::ValueEnum, Clone, Dupe)]
 enum TargetHashGraphType {
     None,
@@ -299,17 +311,7 @@ impl StreamingCommand for TargetsCommand {
             } else {
                 targets_request::Targets::Other(targets_request::Other {
                     output_attributes,
-                    target_hash_file_mode: match self.target_hash_file_mode {
-                        TargetHashFileMode::PathsOnly => {
-                            targets_request::TargetHashFileMode::PathsOnly as i32
-                        }
-                        TargetHashFileMode::PathsAndContents => {
-                            targets_request::TargetHashFileMode::PathsAndContents as i32
-                        }
-                        TargetHashFileMode::None => {
-                            targets_request::TargetHashFileMode::NoFiles as i32
-                        }
-                    },
+                    target_hash_file_mode: self.target_hash_file_mode.to_proto() as i32,
                     target_hash_modified_paths,
                     target_hash_use_fast_hash,
                     target_hash_graph_type,
