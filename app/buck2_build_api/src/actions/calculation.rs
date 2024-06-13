@@ -175,6 +175,31 @@ async fn build_action_no_redirect(
         )
         .await;
 
+        let mut action_digest = None;
+        if let Some(command_execution) = commands.last() {
+            if let Some(details) = &command_execution.details {
+                if let Some(command_kind) = &details.command_kind {
+                    if let Some(command) = &command_kind.command {
+                        action_digest = match command {
+                            buck2_data::command_execution_kind::Command::RemoteCommand(
+                                remote_command,
+                            ) => Some(remote_command.action_digest.to_owned()),
+                            buck2_data::command_execution_kind::Command::LocalCommand(
+                                local_command,
+                            ) => Some(local_command.action_digest.to_owned()),
+                            buck2_data::command_execution_kind::Command::WorkerCommand(
+                                worker_command,
+                            ) => Some(worker_command.action_digest.to_owned()),
+                            buck2_data::command_execution_kind::Command::OmittedLocalCommand(
+                                omitted_local_command,
+                            ) => Some(omitted_local_command.action_digest.to_owned()),
+                            _ => None,
+                        };
+                    }
+                }
+            }
+        }
+
         let queue_duration = command_reports.last().and_then(|r| r.timing.queue_duration);
 
         let action_key = action.key().as_proto();
@@ -291,6 +316,7 @@ async fn build_action_no_redirect(
                 queue_duration,
                 execution_kind,
                 target_rule_type_name,
+                action_digest,
             },
             Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action_key),
@@ -332,6 +358,7 @@ async fn build_action_no_redirect(
                 .execution_kind
                 .unwrap_or(buck2_data::ActionExecutionKind::NotSet),
             target_rule_type_name: action_execution_data.target_rule_type_name,
+            action_digest: action_execution_data.action_digest,
         },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
@@ -418,6 +445,7 @@ pub struct ActionWithExtraData {
     pub action: Arc<RegisteredAction>,
     pub execution_kind: buck2_data::ActionExecutionKind,
     pub target_rule_type_name: Option<String>,
+    pub action_digest: Option<String>,
 }
 
 struct ActionExecutionData {
@@ -426,6 +454,7 @@ struct ActionExecutionData {
     queue_duration: Option<std::time::Duration>,
     execution_kind: Option<buck2_data::ActionExecutionKind>,
     target_rule_type_name: Option<String>,
+    action_digest: Option<String>,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls

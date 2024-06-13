@@ -424,6 +424,7 @@ message CriticalPathEntry2 {
     ActionExecutionKind execution_kind = 5;
 
     optional string target_rule_type_name = 6;
+    optional string action_digest = 7;
   }
 
   message Materialization {
