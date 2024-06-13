@@ -80,7 +80,7 @@ use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
-use crate::values::string::intern::interner::FrozenStringInterner;
+use crate::values::string::intern::interner::FrozenStringValueInterner;
 use crate::values::string::intern::interner::StringValueInterner;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::AllocFrozenValue;
@@ -144,7 +144,7 @@ pub struct FrozenHeap {
     /// Memory I depend on.
     refs: RefCell<SmallSet<FrozenHeapRef>>,
     /// String interner.
-    str_interner: RefCell<FrozenStringInterner>,
+    str_interner: RefCell<FrozenStringValueInterner>,
 }
 
 /// `FrozenHeap` when it is no longer modified and can be share between threads.

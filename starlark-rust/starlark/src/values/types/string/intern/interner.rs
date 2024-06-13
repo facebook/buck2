@@ -27,11 +27,11 @@ use crate::values::Trace;
 
 /// `[FrozenStringValue]` interner.
 #[derive(Default)]
-pub(crate) struct FrozenStringInterner {
+pub(crate) struct FrozenStringValueInterner {
     map: RawTable<FrozenStringValue>,
 }
 
-impl FrozenStringInterner {
+impl FrozenStringValueInterner {
     pub(crate) fn intern(
         &mut self,
         s: Hashed<&str>,
@@ -82,7 +82,7 @@ impl<'v> StringValueInterner<'v> {
 #[cfg(test)]
 mod tests {
     use crate::collections::Hashed;
-    use crate::values::string::intern::interner::FrozenStringInterner;
+    use crate::values::string::intern::interner::FrozenStringValueInterner;
     use crate::values::string::intern::interner::StringValueInterner;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
@@ -91,7 +91,7 @@ mod tests {
     fn test_intern() {
         let heap1 = FrozenHeap::new();
         let heap2 = FrozenHeap::new();
-        let mut intern = FrozenStringInterner::default();
+        let mut intern = FrozenStringValueInterner::default();
 
         let xx1 = intern.intern(Hashed::new("xx"), || heap1.alloc_str("xx"));
         let xx2 = intern.intern(Hashed::new("xx"), || heap2.alloc_str("xx"));
