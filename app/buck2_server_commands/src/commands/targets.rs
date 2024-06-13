@@ -91,7 +91,7 @@ impl<'a, W: Write> Outputter<'a, W> {
 
     fn flush(&mut self) -> anyhow::Result<()> {
         match self {
-            Self::Stdout(_) => Ok(()),
+            Self::Stdout(stdout) => Ok(stdout.flush()?),
             Self::File(f) => Ok(f.flush()?),
         }
     }
