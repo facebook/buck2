@@ -11,6 +11,7 @@ pub mod build;
 pub mod bxl;
 pub mod clean;
 pub mod clean_stale;
+pub mod completion;
 pub mod ctargets;
 pub mod debug;
 pub mod expand_external_cell;

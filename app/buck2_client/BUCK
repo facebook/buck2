@@ -18,6 +18,7 @@ rust_library(
         "fbsource//third-party/rust:bytesize",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:clap_complete",
         "fbsource//third-party/rust:csv",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
