@@ -47,7 +47,6 @@ def main(argv: List[str]) -> int:
             # When lto_mode=thin/full all compile actions are passed `-flto=thin/full`. We
             # want to generate a native object file here.
             "-fno-lto",
-            "-Werror=unused-command-line-argument",
         ]
     )
 
