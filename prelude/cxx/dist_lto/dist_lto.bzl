@@ -407,22 +407,14 @@ def cxx_dist_link(
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
         opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+        opt_args = opt_cmd_parts.link_cmd
 
-        # Some toolchains provide separate flags for opt actions and link actions
-        if cxx_toolchain.linker_info.dist_thin_lto_codegen_flags != None and type(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags) == "cmd_args" and len(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags.inputs) > 0:
-            # The "linker" is clang, the linker isn't actually involved.
-            opt_args = cmd_args(cxx_toolchain.linker_info.linker)
-            opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
-        else:
-            opt_args = opt_cmd_parts.link_cmd
+        # buildifier: disable=uninitialized
+        for link in link_infos:
+            for raw_flag in link.pre_flags + link.post_flags:
+                opt_args.add(raw_flag)
 
-            # buildifier: disable=uninitialized
-            for link in link_infos:
-                for raw_flag in link.pre_flags + link.post_flags:
-                    opt_args.add(raw_flag)
-
-            opt_args.add(opt_cmd_parts.post_linker_flags)
-
+        opt_args.add(opt_cmd_parts.post_linker_flags)
         return opt_args
 
     opt_common_flags = prepare_opt_flags(link_infos)

@@ -25,7 +25,6 @@ LinkerInfo = provider(
         # "archiver_platform",
         # "" on Unix, "exe" on Windows
         "binary_extension": provider_field(typing.Any, default = None),  # str
-        "dist_thin_lto_codegen_flags": provider_field(typing.Any, default = None),
         "generate_linker_maps": provider_field(typing.Any, default = None),  # bool
         # Whether to run native links locally.  We support this for fbcode platforms
         # to avoid issues with C++ static links (see comment in
@@ -40,11 +39,11 @@ LinkerInfo = provider(
         "link_ordering": provider_field(typing.Any, default = None),  # LinkOrdering
         "linker": provider_field(typing.Any, default = None),
         "linker_flags": provider_field(typing.Any, default = None),
+        "post_linker_flags": provider_field(typing.Any, default = None),
         "lto_mode": provider_field(typing.Any, default = None),
         "mk_shlib_intf": provider_field(typing.Any, default = None),
         # "o" on Unix, "obj" on Windows
         "object_file_extension": provider_field(typing.Any, default = None),  # str
-        "post_linker_flags": provider_field(typing.Any, default = None),
         "sanitizer_runtime_enabled": provider_field(bool, default = False),
         "sanitizer_runtime_files": provider_field(list[Artifact], default = []),
         "shlib_interfaces": provider_field(ShlibInterfacesMode),
