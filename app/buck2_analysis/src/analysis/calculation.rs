@@ -311,8 +311,15 @@ async fn get_analysis_result_inner(
                 .await
             }
             RuleType::Forward => {
-                assert!(dep_analysis.len() == 1);
-                Ok(MaybeCompatible::Compatible(dep_analysis.pop().unwrap().1))
+                let one_dep_analysis = dep_analysis
+                    .pop()
+                    .internal_error("Forward node analysis produced no results")?;
+                if !dep_analysis.is_empty() {
+                    return Err(internal_error!(
+                        "Forward node analysis produced more than one result"
+                    ));
+                }
+                Ok(MaybeCompatible::Compatible(one_dep_analysis.1))
             }
         }
     })
