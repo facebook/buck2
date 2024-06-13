@@ -116,7 +116,11 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         )
 
         cxx_library_output = cxx_library_parameterized(ctx, constructor_params)
-        test_binary_output = ctx.actions.declare_output(get_product_name(ctx))
+
+        # Locate the temporary binary that is bundled into the xctest in a binaries directory. When Xcode loads the test out of the target's output dir,
+        # it will utilize a binary with the test name from the output dir instead of the xctest bundle. Which then results in paths to test resources
+        # being incorrect. Locating the temporary binary elsewhere works around this issue.
+        test_binary_output = ctx.actions.declare_output("__binaries__", get_product_name(ctx))
 
         # Rename in order to generate dSYM with correct binary name (dsymutil doesn't provide a way to control binary name in output dSYM bundle).
         test_binary = ctx.actions.copy_file(test_binary_output, cxx_library_output.default_output.default)
