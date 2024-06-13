@@ -39,15 +39,15 @@ use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
 
-pub(crate) enum Outputter {
-    Stdout,
+pub(crate) enum Outputter<'a, W: Write> {
+    Stdout(&'a mut W),
     File(BufWriter<File>),
 }
 
-impl Outputter {
-    fn new(request: &TargetsRequest) -> anyhow::Result<Self> {
+impl<'a, W: Write> Outputter<'a, W> {
+    fn new(request: &TargetsRequest, stdout: &'a mut W) -> anyhow::Result<Self> {
         match &request.output {
-            None => Ok(Self::Stdout),
+            None => Ok(Self::Stdout(stdout)),
             Some(file) => Ok(Self::File(BufWriter::new(
                 File::create(file).with_context(|| {
                     format!("Failed to open file `{}` for `targets` output ", file)
@@ -56,17 +56,17 @@ impl Outputter {
         }
     }
 
-    fn write1(&mut self, stdout: &mut impl Write, x: &str) -> anyhow::Result<()> {
+    fn write1(&mut self, x: &str) -> anyhow::Result<()> {
         match self {
-            Self::Stdout => stdout.write_all(x.as_bytes())?,
+            Self::Stdout(stdout) => stdout.write_all(x.as_bytes())?,
             Self::File(f) => f.write_all(x.as_bytes())?,
         }
         Ok(())
     }
 
-    fn write2(&mut self, stdout: &mut impl Write, x: &str, y: &str) -> anyhow::Result<()> {
+    fn write2(&mut self, x: &str, y: &str) -> anyhow::Result<()> {
         match self {
-            Self::Stdout => {
+            Self::Stdout(stdout) => {
                 stdout.write_all(x.as_bytes())?;
                 stdout.write_all(y.as_bytes())?;
             }
@@ -81,7 +81,7 @@ impl Outputter {
     /// If this outputter should write anything to a file, do so, and return whatever buffer is left over.
     fn write_to_file(&mut self, buffer: String) -> anyhow::Result<String> {
         match self {
-            Self::Stdout => Ok(buffer),
+            Self::Stdout(_) => Ok(buffer),
             Self::File(f) => {
                 f.write_all(buffer.as_bytes())?;
                 Ok(String::new())
@@ -91,7 +91,7 @@ impl Outputter {
 
     fn flush(&mut self) -> anyhow::Result<()> {
         match self {
-            Self::Stdout => Ok(()),
+            Self::Stdout(_) => Ok(()),
             Self::File(f) => Ok(f.flush()?),
         }
     }
@@ -163,7 +163,7 @@ async fn targets(
     )
     .await?;
 
-    let mut outputter = Outputter::new(request)?;
+    let mut outputter = Outputter::new(request, stdout)?;
 
     let response = match &request.targets {
         Some(targets_request::Targets::ResolveAlias(_)) => {
@@ -181,7 +181,6 @@ async fn targets(
 
                 let res = targets_streaming(
                     server_ctx,
-                    stdout,
                     dice,
                     formatter,
                     &mut outputter,

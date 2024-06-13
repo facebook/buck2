@@ -53,10 +53,9 @@ use crate::target_hash::TargetHashes;
 
 pub(crate) async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
-    stdout: &mut impl Write,
     mut dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
-    outputter: &mut Outputter,
+    outputter: &mut Outputter<'_, impl Write>,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     keep_going: bool,
     cached: bool,
@@ -185,7 +184,7 @@ pub(crate) async fn targets_streaming(
                 formatter.separator(&mut buffer);
             }
             needs_separator = true;
-            outputter.write2(stdout, &buffer, &res.stdout)?;
+            outputter.write2(&buffer, &res.stdout)?;
             buffer.clear();
         }
         if imports {
@@ -207,7 +206,7 @@ pub(crate) async fn targets_streaming(
                     }
                     needs_separator = true;
                     formatter.imports(package_file_path.path(), &imports, None, &mut buffer);
-                    outputter.write1(stdout, &buffer)?;
+                    outputter.write1(&buffer)?;
                     buffer.clear();
                     imported.lock().unwrap().extend(imports.into_iter());
                 }
@@ -235,7 +234,7 @@ pub(crate) async fn targets_streaming(
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
             formatter.imports(path.path(), &imports, None, &mut buffer);
             todo.extend(imports);
-            outputter.write1(stdout, &buffer)?;
+            outputter.write1(&buffer)?;
             buffer.clear();
         }
     }
