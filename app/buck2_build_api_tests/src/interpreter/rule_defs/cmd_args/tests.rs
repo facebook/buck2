@@ -102,25 +102,6 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn displays_correctly_old_hidden() -> buck2_error::Result<()> {
-    // Remove this test when `.hidden()` is removed.
-    let mut tester = tester()?;
-    tester.run_starlark_bzl_test(indoc!(
-        r#"
-        def test():
-            cli = cmd_args(format="x{}y", quote="shell")
-            cli.add("foo")
-            cli.hidden("bar")
-            # TODO(nga): fix options formatting.
-            assert_eq('cmd_args("foo", hidden=["bar"], format="x{}y", quote="shell")', str(cli))
-            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ],\n  format="x{}y",\n  quote="shell"\n)', prepr(cli))
-        "#
-    ))?;
-
-    Ok(())
-}
-
-#[test]
 fn displays_correctly() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(

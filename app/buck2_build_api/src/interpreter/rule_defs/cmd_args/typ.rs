@@ -18,6 +18,7 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::soft_error;
 use buck2_util::thin_box::ThinBoxSlice;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -669,6 +670,11 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         mut this: StarlarkCommandLineMut<'v>,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+        soft_error!(
+            "cmd_args_hidden",
+            anyhow::anyhow!("cmd_args.hidden() is deprecated and will be removed soon")
+        )?;
+
         this.borrow.add_hidden(&args.items)?;
         Ok(this)
     }
