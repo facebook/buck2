@@ -81,7 +81,6 @@ impl Develop {
             relative_paths,
             mode,
             check_cycles,
-            log_json: _,
             log_scuba_to_stdout: _,
         } = command
         {
@@ -115,6 +114,29 @@ impl Develop {
                 Input::Targets(targets)
             } else {
                 Input::Files(files)
+            };
+
+            return (develop, input, out);
+        }
+
+        if let crate::Command::DevelopJson { args } = command {
+            let out = Output::Stdout;
+            let sysroot = SysrootConfig::BuckConfig;
+            let mode = select_mode(None);
+
+            let buck = buck::Buck::new(mode);
+
+            let develop = Develop {
+                sysroot,
+                relative_paths: false,
+                buck,
+                check_cycles: false,
+            };
+            let out = OutputCfg { out, pretty: false };
+
+            let input = match args {
+                crate::JsonArguments::File(path) => Input::Files(vec![path]),
+                crate::JsonArguments::Label(target) => Input::Targets(vec![Target::new(target)]),
             };
 
             return (develop, input, out);
