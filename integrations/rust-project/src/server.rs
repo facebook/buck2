@@ -27,6 +27,7 @@ use tracing::info;
 use tracing::warn;
 
 use crate::cli::Develop;
+use crate::cli::Input;
 use crate::json_project::Crate;
 use crate::json_project::JsonProject;
 use crate::target::Target;
@@ -294,14 +295,20 @@ fn handle_discover_buck_targets(
         "resolving targets",
         token = DiscoverBuckTargets::METHOD.to_owned(),
     )
-    .in_scope(|| develop.related_targets(&params.text_documents))?;
+    .in_scope(|| develop.related_targets(Input::Files(params.text_documents)))?;
 
-    let Some(target) = targets.first() else {
+    let Some((buildfile, targets)) = targets.into_iter().next() else {
         return Err(anyhow::anyhow!("Could not find any targets."));
     };
 
+    let buildfile_str = buildfile
+        .clone()
+        .to_str()
+        .expect("Unable to convert path to String")
+        .to_owned();
+
     // this request is load-bearing: it is necessary in order to start showing in-editor progress.
-    let token = lsp_types::ProgressToken::String(target.to_string());
+    let token = lsp_types::ProgressToken::String(buildfile_str.clone());
     server.send_request::<lsp_types::request::WorkDoneProgressCreate>(
         lsp_types::WorkDoneProgressCreateParams {
             token: token.clone(),
@@ -312,12 +319,12 @@ fn handle_discover_buck_targets(
         target: "lsp_progress",
         tracing::Level::INFO,
         "resolving targets",
-        token = target.to_string(),
-        label = target.to_string(),
+        token = buildfile_str,
+        label = buildfile_str,
     );
     let _guard = span.entered();
 
-    let project = develop.run_inner(targets)?;
+    let project = develop.run_inner(targets, buildfile)?;
     tracing::info!(crate_len = &project.crates.len(), "created index");
 
     if !projects.iter().any(|p| *p == project) {
@@ -377,7 +384,7 @@ fn handle_did_save_buck_file(
     .entered();
 
     let develop = Develop::new();
-    let project = match develop.run_inner(targets) {
+    let project = match develop.run_inner(targets, path) {
         Ok(project) => project,
         Err(e) => {
             warn!(error = ?e, "unable to load updated file");

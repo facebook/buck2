@@ -11,7 +11,17 @@ mod check;
 mod develop;
 mod new;
 
+#[derive(Debug, Clone)]
+pub(crate) enum Input {
+    Targets(Vec<Target>),
+    Files(Vec<PathBuf>),
+}
+
+use std::path::PathBuf;
+
 pub(crate) use check::Check;
 pub(crate) use develop::Develop;
 pub(crate) use new::New;
 pub(crate) use new::ProjectKind;
+
+use crate::target::Target;

@@ -14,10 +14,13 @@ use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
+use serde::Deserialize;
+use serde::Serialize;
 use tracing::info;
 use tracing::instrument;
 use tracing::warn;
 
+use super::Input;
 use crate::buck;
 use crate::buck::relative_to;
 use crate::buck::select_mode;
@@ -37,17 +40,12 @@ pub(crate) struct Develop {
     pub(crate) relative_paths: bool,
     pub(crate) buck: buck::Buck,
     pub(crate) check_cycles: bool,
+    pub(crate) invoked_by_ra: bool,
 }
 
 pub(crate) struct OutputCfg {
     out: Output,
     pretty: bool,
-}
-
-#[derive(Debug)]
-pub(crate) enum Input {
-    Targets(Vec<Target>),
-    Files(Vec<PathBuf>),
 }
 
 #[derive(Debug)]
@@ -66,6 +64,7 @@ impl Develop {
             buck,
             relative_paths: false,
             check_cycles: false,
+            invoked_by_ra: false,
         }
     }
 
@@ -106,6 +105,7 @@ impl Develop {
                 relative_paths,
                 buck,
                 check_cycles,
+                invoked_by_ra: false,
             };
             let out = OutputCfg { out, pretty };
 
@@ -131,11 +131,12 @@ impl Develop {
                 relative_paths: false,
                 buck,
                 check_cycles: false,
+                invoked_by_ra: true,
             };
             let out = OutputCfg { out, pretty: false };
 
             let input = match args {
-                crate::JsonArguments::File(path) => Input::Files(vec![path]),
+                crate::JsonArguments::Path(path) => Input::Files(vec![path]),
                 crate::JsonArguments::Label(target) => Input::Targets(vec![Target::new(target)]),
             };
 
@@ -148,11 +149,17 @@ impl Develop {
 
 const DEFAULT_EXTRA_TARGETS: usize = 50;
 
+#[derive(Serialize, Deserialize)]
+struct OutputData {
+    buildfile: PathBuf,
+    project: JsonProject,
+}
+
 impl Develop {
     #[instrument(name = "develop", skip_all, fields(develop_input = ?input))]
     pub(crate) fn run(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
-        let targets = match input {
-            Input::Targets(targets) => targets,
+        let input = match input {
+            Input::Targets(targets) => Input::Targets(targets),
             Input::Files(files) => {
                 let canonical_files = files
                     .into_iter()
@@ -162,12 +169,9 @@ impl Develop {
                     })
                     .collect::<Vec<_>>();
 
-                self.related_targets(&canonical_files)?
+                Input::Files(canonical_files)
             }
         };
-
-        let rust_project = self.run_inner(targets)?;
-
         let mut writer: BufWriter<Box<dyn Write>> = match cfg.out {
             Output::Path(ref p) => {
                 let out = std::fs::File::create(p)?;
@@ -176,29 +180,51 @@ impl Develop {
             Output::Stdout => BufWriter::new(Box::new(std::io::stdout())),
         };
 
-        if cfg.pretty {
-            serde_json::to_writer_pretty(&mut writer, &rust_project)?;
-        } else {
-            serde_json::to_writer(&mut writer, &rust_project)?;
+        let targets = self.related_targets(input.clone())?;
+        if targets.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Unable to find owning targets for {:?}",
+                input
+            ));
         }
-        writeln!(writer)?;
+        for (buildfile, targets) in targets {
+            let project = self.run_inner(targets, buildfile.clone())?;
 
-        match cfg.out {
-            Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
-            Output::Stdout => info!("wrote rust-project.json to stdout"),
+            // if invoked by rust-analyzer, write the more verbose buildfile out as well.
+            if self.invoked_by_ra {
+                let output = OutputData { buildfile, project };
+                serde_json::to_writer(&mut writer, &output)?;
+                writeln!(writer)?;
+                info!("wrote rust-project.json to stdout");
+            } else {
+                if cfg.pretty {
+                    serde_json::to_writer_pretty(&mut writer, &project)?;
+                } else {
+                    serde_json::to_writer(&mut writer, &project)?;
+                }
+                writeln!(writer)?;
+                match &cfg.out {
+                    Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
+                    Output::Stdout => info!("wrote rust-project.json to stdout"),
+                }
+            }
         }
 
         Ok(())
     }
 
-    pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
+    pub(crate) fn run_inner(
+        &self,
+        targets: Vec<Target>,
+        buildfile: PathBuf,
+    ) -> Result<JsonProject, anyhow::Error> {
         let start = std::time::Instant::now();
-
         let Develop {
             sysroot,
             relative_paths,
             buck,
             check_cycles,
+            ..
         } = self;
 
         let project_root = buck.resolve_project_root()?;
@@ -233,6 +259,7 @@ impl Develop {
             sysroot,
             expanded_and_resolved,
             aliased_libraries,
+            buildfile,
             *relative_paths,
             *check_cycles,
         )?;
@@ -247,17 +274,10 @@ impl Develop {
     }
 
     /// For every Rust file, return the relevant buck targets that should be used to configure rust-analyzer.
-    pub(crate) fn related_targets(&self, files: &[PathBuf]) -> Result<Vec<Target>, anyhow::Error> {
-        // We always want the targets that directly own these Rust files.
-        let direct_owning_targets = dedupe_unittest(&self.resolve_file_targets(files));
-
-        let unique_owning_targets = direct_owning_targets
-            .iter()
-            .cloned()
-            .collect::<FxHashSet<_>>();
-
-        let mut targets = direct_owning_targets;
-
+    pub(crate) fn related_targets(
+        &self,
+        input: Input,
+    ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         // We want to load additional targets from the enclosing buildfile, to help users
         // who have a bunch of small targets in their buildfile. However, we want to set a limit
         // so we don't try to load everything in very large generated buildfiles.
@@ -266,75 +286,13 @@ impl Develop {
             Err(_) => DEFAULT_EXTRA_TARGETS,
         };
 
-        // Include additional targets from the found buildfiles, up to max_extra_targets more.
-        let owners = self.resolve_file_owners(files);
-        let extra_targets = owners
-            .values()
-            .flatten()
-            .filter(|t| !unique_owning_targets.contains(t))
-            .cloned()
-            .collect::<Vec<_>>();
-
-        targets.extend(
-            dedupe_unittest(&extra_targets)
-                .into_iter()
-                .take(max_extra_targets),
-        );
+        // We always want the targets that directly own these Rust files.
+        let mut targets = self.buck.query_owners(input, max_extra_targets)?;
+        for targets in targets.values_mut() {
+            *targets = dedupe_targets(targets);
+        }
 
         Ok(targets)
-    }
-
-    fn resolve_file_targets(&self, files: &[PathBuf]) -> Vec<Target> {
-        let file_targets = match self.buck.query_owner(files) {
-            Ok(targets) => {
-                for (file, targets) in targets.iter() {
-                    if targets.is_empty() {
-                        warn!(file = ?file, "Buck returned zero targets for this file.");
-                    }
-                }
-
-                targets.into_values().flatten().collect::<Vec<_>>()
-            }
-            Err(_) => {
-                let mut file_targets = vec![];
-                for file in files {
-                    match self.buck.query_owner(&[file.to_path_buf()]) {
-                        Ok(targets) => {
-                            file_targets.extend(targets.into_values().flatten());
-                        }
-                        Err(e) => {
-                            warn!(file = ?file, "Could not find a target that owns this file: {:#}", e);
-                        }
-                    }
-                }
-
-                file_targets
-            }
-        };
-
-        dedupe_targets(&file_targets)
-    }
-
-    pub fn resolve_file_owners(&self, files: &[PathBuf]) -> FxHashMap<PathBuf, Vec<Target>> {
-        match self.buck.query_owning_buildfile(&files) {
-            Ok(owners) => owners,
-            Err(_) => {
-                let mut owners = FxHashMap::default();
-
-                for file in files {
-                    match self.buck.query_owning_buildfile(&[file.to_path_buf()]) {
-                        Ok(file_owners) => {
-                            owners.extend(file_owners.into_iter());
-                        }
-                        Err(e) => {
-                            warn!(file = ?file, "Could not find a target that owns this file: {}", e);
-                        }
-                    }
-                }
-
-                owners
-            }
-        }
     }
 }
 
@@ -350,28 +308,27 @@ fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
 }
 
 /// Remove duplicate targets, but preserve order.
+///
+/// This function will also remove `foo` if `foo-unittest` is present.
 fn dedupe_targets(targets: &[Target]) -> Vec<Target> {
     let mut seen = FxHashSet::default();
-    let mut unique_targets = vec![];
-    for target in targets {
-        if !seen.contains(target) {
-            seen.insert(target);
-            unique_targets.push(target.clone());
-        }
-    }
-
-    unique_targets
-}
-
-// Don't bother with target `foo` if `foo-unittest` is present.
-fn dedupe_unittest(targets: &[Target]) -> Vec<Target> {
+    let mut unique_targets_acc = vec![];
     let unique_targets = targets.iter().collect::<FxHashSet<_>>();
 
-    targets
+    let targets: Vec<Target> = targets
         .iter()
         .filter(|t| !unique_targets.contains(&Target::new(format!("{}-unittest", t))))
         .cloned()
-        .collect()
+        .collect();
+
+    for target in targets {
+        if !seen.contains(&target) {
+            seen.insert(target.clone());
+            unique_targets_acc.push(target);
+        }
+    }
+
+    unique_targets_acc
 }
 
 #[test]
@@ -389,5 +346,5 @@ fn test_dedupe_unittest() {
         Target::new("baz-unittest".to_owned()),
     ];
 
-    assert_eq!(dedupe_unittest(&targets), expected);
+    assert_eq!(dedupe_targets(&targets), expected);
 }

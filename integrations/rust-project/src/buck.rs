@@ -27,6 +27,7 @@ use tracing::trace;
 use tracing::warn;
 use tracing::Level;
 
+use crate::cli::Input;
 use crate::json_project::deprecated::{self};
 use crate::json_project::Build;
 use crate::json_project::Edition;
@@ -48,6 +49,7 @@ pub(crate) fn to_json_project(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
+    buildfile: PathBuf,
     relative_paths: bool,
     check_cycles: bool,
 ) -> Result<JsonProject, anyhow::Error> {
@@ -246,6 +248,7 @@ pub(crate) fn to_json_project(
                 kind: RunnableKind::TestOne,
             },
         ],
+        buildfile,
         // needed to ignore the generated `rust-project.json` in diffs, but including the actual
         // string will mark this file as generated
         generated: String::from("\x40generated"),
@@ -659,43 +662,40 @@ impl Buck {
         Ok(raw)
     }
 
-    /// Return all the targets that own each file.
-    #[instrument(skip_all)]
-    pub(crate) fn query_owner(
-        &self,
-        files: &[PathBuf],
-    ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
-        let mut command = self.command(["uquery"]);
-
-        command.args(["--json", "owner(\"%s\")", "--"]);
-        command.args(files);
-
-        info!(?files, "querying buck to determine owner");
-        let out = deserialize_output(command.output(), &command)?;
-        Ok(out)
-    }
-
     /// Find the buildfile that owns each file specified, and return the path to
     /// each buildfile along with all the targets it contains.
     #[instrument(skip_all)]
-    pub(crate) fn query_owning_buildfile(
+    pub(crate) fn query_owners(
         &self,
-        files: &[PathBuf],
+        input: Input,
+        max_extra_targets: usize,
     ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         let mut command = self.command(["bxl"]);
 
         command.args([
             "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_owning_buildfile",
             "--",
-            "--files",
         ]);
 
-        command.args(files);
-
         info!(
-            ?files,
+            ?input,
             "querying buck to determine owning buildfile and its targets"
         );
+
+        match input {
+            Input::Targets(targets) => {
+                command.arg("--targets");
+                command.args(targets);
+            }
+            Input::Files(files) => {
+                command.arg("--files");
+                command.args(files);
+            }
+        };
+
+        command.arg("--max_extra_targets");
+        command.arg(max_extra_targets.to_string());
+
         let out = deserialize_output(command.output(), &command)?;
         Ok(out)
     }

@@ -139,7 +139,7 @@ enum Command {
 #[derive(PartialEq, Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum JsonArguments {
-    File(PathBuf),
+    Path(PathBuf),
     Label(String),
 }
 
@@ -326,7 +326,7 @@ fn test_parse_use_clippy() {
 
 #[test]
 fn json_args_pass() {
-    let args = JsonArguments::File(PathBuf::from("buck2/integrations/rust-project/src/main.rs"));
+    let args = JsonArguments::Path(PathBuf::from("buck2/integrations/rust-project/src/main.rs"));
     let expected = Opt {
         command: Some(Command::DevelopJson { args }),
         version: false,
@@ -334,7 +334,7 @@ fn json_args_pass() {
     let actual = Opt::try_parse_from([
         "rust-project",
         "develop-json",
-        "{\"file\":\"buck2/integrations/rust-project/src/main.rs\"}",
+        "{\"path\":\"buck2/integrations/rust-project/src/main.rs\"}",
     ])
     .expect("Unable to parse args");
     assert_eq!(actual, expected);
