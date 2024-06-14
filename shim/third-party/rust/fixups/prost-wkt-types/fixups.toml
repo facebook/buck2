@@ -1,0 +1,6 @@
+[[buildscript]]
+[buildscript.gen_srcs.env]
+PROTOC = "$(exe buck//third-party/proto:protoc)"
+
+[env]
+PROTOC = "$(exe buck//third-party/proto:protoc)"
