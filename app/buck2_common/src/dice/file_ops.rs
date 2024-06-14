@@ -29,6 +29,7 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 
+use crate::buildfiles::HasBuildfiles;
 use crate::dice::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::FileOps;
 use crate::file_ops::FileOpsError;
@@ -36,7 +37,6 @@ use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::io::ReadDirError;
-use crate::legacy_configs::buildfiles::HasBuildfiles;
 
 pub mod delegate;
 

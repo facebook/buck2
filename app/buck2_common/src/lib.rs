@@ -23,6 +23,7 @@ extern crate maplit;
 
 pub mod argv;
 pub mod buckd_connection;
+pub mod buildfiles;
 pub mod cas_digest;
 pub mod chunk_reader;
 pub mod client_utils;

@@ -117,7 +117,7 @@ mod tests {
     use gazebo::prelude::SliceExt;
     use indoc::indoc;
 
-    use crate::legacy_configs::buildfiles::parse_buildfile_name;
+    use crate::buildfiles::parse_buildfile_name;
     use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::testing::TestConfigParserFileOps;

@@ -11,7 +11,6 @@
 //! .buckconfig files as configuration)
 
 mod access;
-pub mod buildfiles;
 pub mod cells;
 pub mod dice;
 pub mod init;
