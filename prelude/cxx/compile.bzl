@@ -454,7 +454,7 @@ def _compile_single_cxx(
         gcno_file = ctx.actions.declare_output(
             paths.join("__objects__", "{}.gcno".format(filename_base)),
         )
-        cmd.hidden(gcno_file.as_output())
+        cmd.add(cmd_args(hidden = gcno_file.as_output()))
     ctx.actions.run(
         cmd,
         category = src_compile_cmd.cxx_compile_cmd.category,
