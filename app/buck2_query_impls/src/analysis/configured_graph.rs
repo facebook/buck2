@@ -82,7 +82,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let (targets, label_to_artifact) = {
-                    let (a, b) = ctx.compute2(
+                    ctx.try_compute2(
                         |ctx| {
                             async move {
                                 ctx.try_compute_join(self.targets.iter(), |ctx, target| {
@@ -108,8 +108,8 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                             }
                             .boxed()
                         },
-                    );
-                    futures::future::try_join(a, b).await?
+                    )
+                    .await?
                 };
 
                 let targets: TargetSet<_> = targets

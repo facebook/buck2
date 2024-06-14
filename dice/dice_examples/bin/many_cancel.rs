@@ -134,14 +134,14 @@ impl Key for TopKey {
         let latches = ctx.per_transaction_data().data.get::<Latches>().unwrap();
         if self.0 == config.chain_count {
             latches.dense_latch_release();
-            let (a, b) = ctx.compute2(
+            ctx.compute2(
                 |ctx| async move { drop(ctx.compute(&DenseKey(config.dense_count)).await) }.boxed(),
                 |ctx| async move { drop(ctx.compute(&BottomKey(self.0)).await) }.boxed(),
-            );
-            futures::future::join(a, b).await;
+            )
+            .await;
         } else {
             latches.chain_latch_release(self.0 as usize + 1);
-            let (a, b) = ctx.compute2(
+            ctx.compute2(
                 |ctx| {
                     async move {
                         // This allows time to drop the graph of things below this before we re-request them.
@@ -151,8 +151,8 @@ impl Key for TopKey {
                     .boxed()
                 },
                 |ctx| async move { drop(ctx.compute(&BottomKey(self.0)).await) }.boxed(),
-            );
-            futures::future::join(a, b).await;
+            )
+            .await;
         }
         self.0
     }

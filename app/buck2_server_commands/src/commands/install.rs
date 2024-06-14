@@ -76,7 +76,6 @@ use chrono::Utc;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
@@ -325,80 +324,80 @@ async fn handle_install_request<'a>(
     installer_debug: bool,
 ) -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
-    let (build_files, build_installer_and_connect) = ctx.compute2(
-        |ctx| {
-            async move {
-                build_files(ctx, materializations, install_files_slice, files_tx).await?;
-                anyhow::Ok(Instant::now())
-            }
-            .boxed()
-        },
-        |ctx| {
-            async move {
-                // FIXME: The random unused tcp port might be available when get_random_tcp_port() is called,
-                // but when the installer tries to bind on it, someone else might bind on it.
-                // TODO: choose unused tcp port on installer side.
-                // The way communication may happen:
-                // 1. buck2 passes a temp file for a tcp port output.
-                // 2. installer app choose unused tcp port and writes it into the passed file.
-                // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
-                let tcp_port = get_random_tcp_port()?;
-
-                let installer_log_filename = format!(
-                    "{}/installer_{}_{}.log",
-                    install_log_dir,
-                    get_timestamp_as_string()?,
-                    calculate_hash(&installer_label.target().name())
-                );
-
-                let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
-
-                installer_run_args.extend(vec![
-                    "--tcp-port".to_owned(),
-                    tcp_port.to_string(),
-                    "--log-path".to_owned(),
-                    installer_log_filename.to_owned(),
-                ]);
-
-                build_launch_installer(
-                    ctx,
-                    materializations,
-                    installer_label,
-                    &installer_run_args,
-                    installer_debug,
-                )
-                .await?;
-                let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
-                let artifact_fs = ctx.get_artifact_fs().await?;
-
-                let installer_ready = Instant::now();
-                for (install_id, install_files) in install_files_slice {
-                    send_install_info(client.clone(), install_id, install_files, &artifact_fs)
-                        .await?;
+    let (artifacts_ready, (installer_ready, installer_finished)) = ctx
+        .try_compute2(
+            |ctx| {
+                async move {
+                    build_files(ctx, materializations, install_files_slice, files_tx).await?;
+                    anyhow::Ok(Instant::now())
                 }
+                .boxed()
+            },
+            |ctx| {
+                async move {
+                    // FIXME: The random unused tcp port might be available when get_random_tcp_port() is called,
+                    // but when the installer tries to bind on it, someone else might bind on it.
+                    // TODO: choose unused tcp port on installer side.
+                    // The way communication may happen:
+                    // 1. buck2 passes a temp file for a tcp port output.
+                    // 2. installer app choose unused tcp port and writes it into the passed file.
+                    // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
+                    let tcp_port = get_random_tcp_port()?;
 
-                let send_files_result =
-                    tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
-                        .map(anyhow::Ok)
-                        .try_for_each_concurrent(None, |file| {
-                            send_file(
-                                file,
-                                &artifact_fs,
-                                client.clone(),
-                                installer_log_filename.to_owned(),
-                            )
-                        })
-                        .await;
-                let installer_finished = Instant::now();
-                send_shutdown_command(client.clone()).await?;
-                send_files_result.context("Failed to send artifacts to installer")?;
-                anyhow::Ok((installer_ready, installer_finished))
-            }
-            .boxed()
-        },
-    );
-    let ((installer_ready, installer_finished), artifacts_ready) =
-        try_join(build_installer_and_connect, build_files).await?;
+                    let installer_log_filename = format!(
+                        "{}/installer_{}_{}.log",
+                        install_log_dir,
+                        get_timestamp_as_string()?,
+                        calculate_hash(&installer_label.target().name())
+                    );
+
+                    let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
+
+                    installer_run_args.extend(vec![
+                        "--tcp-port".to_owned(),
+                        tcp_port.to_string(),
+                        "--log-path".to_owned(),
+                        installer_log_filename.to_owned(),
+                    ]);
+
+                    build_launch_installer(
+                        ctx,
+                        materializations,
+                        installer_label,
+                        &installer_run_args,
+                        installer_debug,
+                    )
+                    .await?;
+                    let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
+                    let artifact_fs = ctx.get_artifact_fs().await?;
+
+                    let installer_ready = Instant::now();
+                    for (install_id, install_files) in install_files_slice {
+                        send_install_info(client.clone(), install_id, install_files, &artifact_fs)
+                            .await?;
+                    }
+
+                    let send_files_result =
+                        tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
+                            .map(anyhow::Ok)
+                            .try_for_each_concurrent(None, |file| {
+                                send_file(
+                                    file,
+                                    &artifact_fs,
+                                    client.clone(),
+                                    installer_log_filename.to_owned(),
+                                )
+                            })
+                            .await;
+                    let installer_finished = Instant::now();
+                    send_shutdown_command(client.clone()).await?;
+                    send_files_result.context("Failed to send artifacts to installer")?;
+                    anyhow::Ok((installer_ready, installer_finished))
+                }
+                .boxed()
+            },
+        )
+        .await?;
 
     let build_finished = std::cmp::max(installer_ready, artifacts_ready);
     let install_duration = installer_finished - build_finished;

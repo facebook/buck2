@@ -243,7 +243,7 @@ async fn compute_deferred(
             let (targets, deferreds, materialized_artifacts) = {
                 // don't move span
                 let span = &span;
-                let (target_node_futs, deferreds_futs, materialized_artifacts_fut) = ctx.compute3(
+                ctx.try_compute3(
                     |ctx| {
                         async move {
                             ctx.try_compute_join(target_deps, |ctx, target| {
@@ -280,9 +280,8 @@ async fn compute_deferred(
                         }
                         .boxed()
                     },
-                );
-                futures::future::join3(target_node_futs, deferreds_futs, materialized_artifacts_fut)
-                    .await
+                )
+                .await?
             };
 
             let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(self.0.dupe())));
@@ -292,9 +291,9 @@ async fn compute_deferred(
                     async move {
                         let mut deferred_ctx = ResolveDeferredCtx::new(
                             self.0.dupe(),
-                            targets?.into_iter().collect(),
-                            deferreds?.into_iter().collect(),
-                            materialized_artifacts?,
+                            targets.into_iter().collect(),
+                            deferreds.into_iter().collect(),
+                            materialized_artifacts,
                             &mut registry,
                             ctx.global_data().get_io_provider().project_root().dupe(),
                             ctx.global_data().get_digest_config(),

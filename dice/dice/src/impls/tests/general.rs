@@ -331,11 +331,11 @@ impl Key for Fib {
             return Ok(self.0 as u64);
         }
         let (a, b) = {
-            let (a, b) = ctx.compute2(
+            ctx.compute2(
                 |ctx| ctx.compute(&Fib(self.0 - 2)).boxed(),
                 |ctx| ctx.compute(&Fib(self.0 - 1)).boxed(),
-            );
-            futures::future::join(a, b).await
+            )
+            .await
         };
         match (a, b) {
             (Ok(a), Ok(b)) => Ok(a? + b?),

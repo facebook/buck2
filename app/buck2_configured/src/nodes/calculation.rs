@@ -929,10 +929,7 @@ async fn compute_configured_target_node_no_transition(
 
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
         CycleGuard::<ConfiguredGraphCycleDescriptor>::new(&ctx)?
-            .guard_this({
-                let (a, b) = ctx.compute2(get_toolchain_deps, get_exec_deps);
-                futures::future::join(a, b)
-            })
+            .guard_this(ctx.compute2(get_toolchain_deps, get_exec_deps))
             .await
             .into_result(ctx)
             .await??;
