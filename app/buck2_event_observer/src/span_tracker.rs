@@ -515,6 +515,7 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             Data::ActionExecution(..)
             | Data::FinalMaterialization(..)
             | Data::Analysis(..)
+            | Data::AnalysisResolveQueries(..)
             | Data::Load(..)
             | Data::LoadPackage(..)
             | Data::TestDiscovery(..)

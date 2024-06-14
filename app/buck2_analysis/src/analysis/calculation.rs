@@ -122,13 +122,13 @@ pub async fn resolve_queries(
     }
 
     span_async(
-        buck2_data::AnalysisStageStart {
-            stage: Some(buck2_data::analysis_stage_start::Stage::ResolveQueries(())),
+        buck2_data::AnalysisResolveQueriesStart {
+            standard_target: Some(configured_node.label().as_proto().into()),
         },
         async {
             (
                 resolve_queries_impl(ctx, configured_node, queries).await,
-                buck2_data::AnalysisStageEnd {},
+                buck2_data::AnalysisResolveQueriesEnd {},
             )
         },
     )

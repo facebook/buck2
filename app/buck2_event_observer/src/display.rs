@@ -93,6 +93,19 @@ pub fn display_configured_target_label(
     }
 }
 
+fn display_configured_target_label_opt(
+    ctl: Option<&ConfiguredTargetLabel>,
+    opts: TargetDisplayOptions,
+) -> anyhow::Result<String> {
+    Ok(match ctl {
+        Some(ctl) => display_configured_target_label(ctl, opts)?,
+        None => {
+            // Should never happen, but better not error here.
+            "unknown target".to_owned()
+        }
+    })
+}
+
 pub fn display_anon_target(ctl: &AnonTarget) -> anyhow::Result<String> {
     if let AnonTarget {
         name: Some(TargetLabel { package, name }),
@@ -238,6 +251,13 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 let stage = display_analysis_stage(stage);
                 Ok(stage.into())
             }
+            Data::AnalysisResolveQueries(resolve_queries) => Ok(format!(
+                "{} -- analysis queries",
+                display_configured_target_label_opt(
+                    resolve_queries.standard_target.as_ref(),
+                    opts
+                )?
+            )),
             Data::LoadPackage(load) => Ok(format!("{} -- loading package file tree", load.path)),
             Data::Load(load) => Ok(format!("{} -- evaluating build file", load.module_id)),
             Data::ExecutorStage(info) => {
@@ -366,7 +386,6 @@ pub fn display_analysis_stage(stage: &buck2_data::analysis_stage_start::Stage) -
     use buck2_data::analysis_stage_start::Stage;
 
     match stage {
-        Stage::ResolveQueries(()) => "resolve_queries",
         Stage::EvaluateRule(()) => "evaluate_rule",
     }
 }

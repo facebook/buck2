@@ -52,6 +52,7 @@ message SpanStartEvent {
     CommandStart command = 50;
     ActionExecutionStart action_execution = 51;
     AnalysisStart analysis = 52;
+    AnalysisResolveQueriesStart analysis_resolve_queries = 5201;
     LoadBuildFileStart load = 53;
     ExecutorStageStart executor_stage = 54;
     TestDiscoveryStart test_discovery = 55;
@@ -102,6 +103,7 @@ message SpanEndEvent {
     CommandEnd command = 50;
     ActionExecutionEnd action_execution = 51;
     AnalysisEnd analysis = 52;
+    AnalysisResolveQueriesEnd analysis_resolve_queries = 5201;
     LoadBuildFileEnd load = 53;
     ExecutorStageEnd executor_stage = 54;
     TestDiscoveryEnd test_discovery = 55;
@@ -1349,13 +1351,19 @@ message AnalysisEnd {
 }
 
 message AnalysisStageStart {
+  reserved 1;
   oneof stage {
-    google.protobuf.Empty resolve_queries = 1;
     google.protobuf.Empty evaluate_rule = 2;
   }
 }
 
 message AnalysisStageEnd {}
+
+message AnalysisResolveQueriesStart {
+  ConfiguredTargetLabel standard_target = 1;
+}
+
+message AnalysisResolveQueriesEnd {}
 
 message ExecutorStageStart {
   oneof stage {
