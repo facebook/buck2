@@ -19,7 +19,7 @@ use starlark::eval::Evaluator;
 use crate::dice::starlark_debug::HasStarlarkDebugger;
 use crate::factory::StarlarkEvaluatorProvider;
 use crate::starlark_debug::StarlarkDebugController;
-use crate::starlark_profiler::StarlarkProfilerOpt;
+use crate::starlark_profiler::profiler::StarlarkProfilerOpt;
 
 /// This constructs an appropriate StarlarkEvaluatorProvider to set up
 /// profiling/instrumentation/debugging in a starlark Evaluator for buck.

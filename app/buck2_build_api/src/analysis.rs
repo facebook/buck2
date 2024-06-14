@@ -14,7 +14,7 @@ use std::sync::Arc;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
+use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::deferred::types::DeferredLookup;

@@ -17,7 +17,7 @@ use buck2_cli_proto::profile_request::Profiler;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
-use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
+use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use starlark::eval::ProfileMode;
 use starlark::StarlarkResultExt;
 

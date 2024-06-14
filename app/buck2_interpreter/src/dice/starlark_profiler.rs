@@ -17,7 +17,7 @@ use dice::Key;
 use dupe::Dupe;
 use starlark::eval::ProfileMode;
 
-use crate::starlark_profiler::StarlarkProfileMode;
+use crate::starlark_profiler::mode::StarlarkProfileMode;
 
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkProfilerError {

@@ -30,7 +30,7 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::metadata::key::MetadataKey;
