@@ -773,7 +773,7 @@ impl DaemonState {
         Ok(self.data.dupe()?)
     }
 
-    fn validate_cwd(&self) -> anyhow::Result<()> {
+    pub fn validate_cwd(&self) -> anyhow::Result<()> {
         if let Some(working_directory) = &self.working_directory {
             let res = working_directory.is_stale().and_then(|stale| {
                 if stale {
@@ -799,7 +799,7 @@ impl DaemonState {
         Ok(())
     }
 
-    fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
+    pub fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
         #[cfg(fbcode_build)]
         {
             use buck2_core::fs::fs_util;

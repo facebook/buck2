@@ -132,7 +132,7 @@ fn process_status(status: StatusResponse) -> anyhow::Result<serde_json::Value> {
         }
     };
 
-    Ok(serde_json::json!({
+    let mut value = serde_json::json!({
         "start_time": timestamp,
         "uptime": uptime,
         "process_info": serde_json::to_value(status.process_info)?,
@@ -143,7 +143,17 @@ fn process_status(status: StatusResponse) -> anyhow::Result<serde_json::Value> {
         "forkserver_pid": serde_json::to_value(status.forkserver_pid)?,
         "supports_vpnless": status.supports_vpnless.unwrap_or_default(),
         "http2": status.http2,
-    }))
+    });
+
+    if let Some(valid_working_directory) = status.valid_working_directory {
+        value["valid_working_directory"] = serde_json::to_value(valid_working_directory)?;
+    }
+
+    if let Some(valid_buck_out_mount) = status.valid_buck_out_mount {
+        value["valid_buck_out_mount"] = serde_json::to_value(valid_buck_out_mount)?;
+    }
+
+    Ok(value)
 }
 
 #[cfg(test)]

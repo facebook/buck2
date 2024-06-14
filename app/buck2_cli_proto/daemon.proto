@@ -76,6 +76,8 @@ message StatusResponse {
   optional uint32 forkserver_pid = 11;
   optional bool supports_vpnless = 12;
   optional bool http2 = 13;
+  optional bool valid_working_directory = 14;
+  optional bool valid_buck_out_mount = 15;
 }
 
 message PingRequest {
