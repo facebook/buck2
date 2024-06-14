@@ -90,6 +90,8 @@ enum ErrorTag {
   INTERRUPTED_BY_DAEMON_SHUTDOWN = 23;
   // The daemon couldn't be killed
   DAEMON_WONT_DIE_FROM_KILL = 24;
+  // No valid internal or VPNless certs could be found
+  NO_VALID_CERTS = 25;
 
   //// High level descriptions of the "phase" of the build during which the
   // error occurred

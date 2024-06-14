@@ -22,6 +22,7 @@ use rustls::PrivateKey;
 use rustls::RootCertStore;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input, tag = NoValidCerts)]
 #[error("ERROR - COULD NOT FIND VALID CERTS")]
 struct InvalidCertsError;
 

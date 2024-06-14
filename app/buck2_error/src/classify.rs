@@ -34,6 +34,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::DaemonConnect => line!(),
         ErrorTag::GrpcResponseMessageTooLarge => line!(),
         ErrorTag::ClientGrpc => line!(),
+        ErrorTag::NoValidCerts => line!(),
         ErrorTag::IoBrokenPipe => line!(),
         ErrorTag::IoConnectionAborted => line!(),
         ErrorTag::IoNotConnected => line!(),
@@ -79,6 +80,7 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
         ErrorTag::InterruptedByDaemonShutdown => Some(Tier::Input),
         ErrorTag::GrpcResponseMessageTooLarge => Some(Tier::Tier0),
         ErrorTag::ClientGrpc => Some(Tier::Tier0),
+        ErrorTag::NoValidCerts => Some(Tier::Input),
         ErrorTag::IoBrokenPipe => None,
         ErrorTag::IoConnectionAborted => Some(Tier::Tier0),
         ErrorTag::IoNotConnected => Some(Tier::Input), // This typically means eden is not mounted
