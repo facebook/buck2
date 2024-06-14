@@ -10,4 +10,4 @@
 module Library(helloWorld) where
 
 helloWorld :: IO ()
-helloWorld = putStrLn "Hello World!"
+helloWorld = putStr "Hello World!\n"

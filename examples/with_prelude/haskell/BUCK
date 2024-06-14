@@ -1,14 +1,25 @@
-_SUPPORTED = not host_info().os.is_windows
+load("//test_utils.bzl", "assert_output")
 
-# buildifier: disable=no-effect
+_SUPPORTED = host_info().os.is_linux
+
 haskell_library(
     name = "library",
     srcs = ["Library.hs"],
+    deps = [
+        "//third-party/haskell:base",
+    ],
 ) if _SUPPORTED else None
 
-# buildifier: disable=no-effect
 haskell_binary(
     name = "main",
     srcs = ["Main.hs"],
-    deps = [":library"],
+    deps = [
+        ":library",
+    ],
+) if _SUPPORTED else None
+
+assert_output(
+    name = "hello-world-check",
+    command = "$(exe_target :main)",
+    output = "Hello World!",
 ) if _SUPPORTED else None

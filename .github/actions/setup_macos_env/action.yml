@@ -7,7 +7,7 @@ runs:
     run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain=none
     shell: bash
   - name: Brew install
-    run: brew install cmake python3 coreutils opam llvm protobuf zstd ghc
+    run: brew install cmake python3 coreutils opam llvm protobuf zstd
     shell: bash
   - name: Install conan
     run: sudo pip3 install --break-system-packages conan==1.*
@@ -17,3 +17,6 @@ runs:
   - uses: actions/setup-go@v5
     with:
       go-version: '~1.22.0'
+  - uses: haskell-actions/setup@v2
+    with:
+      ghc-version: '9.10.1'
