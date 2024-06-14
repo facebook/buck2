@@ -52,7 +52,7 @@ use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_cancellable;
-use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
+use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;

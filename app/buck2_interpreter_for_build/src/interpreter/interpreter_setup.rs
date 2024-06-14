@@ -14,9 +14,9 @@ use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::ResolvedLegacyConfigArg;
 use buck2_core::cells::CellResolver;
-use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
-use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::starlark_types::SetStarlarkTypes;
+use buck2_interpreter::starlark_profiler::config::SetStarlarkProfilerInstrumentation;
+use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use dice::DiceTransactionUpdater;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;

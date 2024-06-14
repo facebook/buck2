@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod config;
 pub mod data;
 pub mod mode;
 pub mod profiler;

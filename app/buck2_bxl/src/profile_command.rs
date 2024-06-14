@@ -18,7 +18,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
-use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
+use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
