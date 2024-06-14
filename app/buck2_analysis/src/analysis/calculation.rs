@@ -29,6 +29,7 @@ use buck2_data::ToProtoMessage;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::async_record_root_spans;
+use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span_async;
 use buck2_events::span::SpanId;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
@@ -249,14 +250,18 @@ async fn get_analysis_result_inner(
     };
 
     let configured_node = configured_node.as_ref();
-    let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
 
-    let now = Instant::now();
+    let ((res, now), spans): ((anyhow::Result<_>, Instant), _) = match configured_node.rule_type() {
+        RuleType::Starlark(func) => {
+            let (dep_analysis, query_results) = ctx
+                .try_compute2(
+                    |ctx| get_dep_analysis(configured_node, ctx).boxed(),
+                    |ctx| resolve_queries(ctx, configured_node).boxed(),
+                )
+                .await?;
 
-    let (res, spans) = async_record_root_spans(async {
-        let func = configured_node.rule_type();
-        match func {
-            RuleType::Starlark(func) => {
+            let now = Instant::now();
+            let (res, spans) = async_record_root_spans(async {
                 let rule_spec = get_rule_spec(ctx, func).await?;
                 let start_event = buck2_data::AnalysisStart {
                     target: Some(target.as_proto().into()),
@@ -267,8 +272,6 @@ async fn get_analysis_result_inner(
                     let mut profile = None;
 
                     let result: anyhow::Result<_> = try {
-                        let query_results = resolve_queries(ctx, configured_node).await?;
-
                         let result = span_async(
                             buck2_data::AnalysisStageStart {
                                 stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(
@@ -309,8 +312,15 @@ async fn get_analysis_result_inner(
                     )
                 })
                 .await
-            }
-            RuleType::Forward => {
+            })
+            .await;
+
+            ((res, now), spans)
+        }
+        RuleType::Forward => {
+            let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
+            let now = Instant::now();
+            let (res, spans) = record_root_spans(|| {
                 let one_dep_analysis = dep_analysis
                     .pop()
                     .internal_error("Forward node analysis produced no results")?;
@@ -320,10 +330,11 @@ async fn get_analysis_result_inner(
                     ));
                 }
                 Ok(MaybeCompatible::Compatible(one_dep_analysis.1))
-            }
+            });
+
+            ((res, now), spans)
         }
-    })
-    .await;
+    };
 
     ctx.store_evaluation_data(AnalysisKeyActivationData {
         duration: now.elapsed(),
