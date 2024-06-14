@@ -73,13 +73,6 @@ impl<'v> StarlarkValue<'v> for NoneType {
         true
     }
 
-    fn equals(&self, other: Value) -> crate::Result<bool> {
-        // We always compare pointers before calling `equals`,
-        // so if we are here, the other is definitely not `None`.
-        debug_assert!(!other.is_none());
-        Ok(false)
-    }
-
     fn to_bool(&self) -> bool {
         false
     }

@@ -1083,8 +1083,9 @@ impl FrozenValue {
     /// `self == b` is `ptr_eq`.
     pub(crate) fn eq_is_ptr_eq(self) -> bool {
         // Note `int` is not `ptr_eq` because `int` can be equal to `float`.
-        self.is_none()
-            || self.unpack_bool().is_some()
+
+        // If a value does not override equality, it is `ptr_eq`.
+        !self.to_value().get_ref().vtable().starlark_value.HAS_equals
             // Strings of length <= 1 are statically allocated.
             || matches!(self.unpack_str(), Some(s) if s.len() <= 1)
             // Empty tuple is statically allocated.

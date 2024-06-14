@@ -19,6 +19,7 @@
 
 mod constant_folding;
 mod def_inline;
+mod eq;
 mod if_rand;
 mod list_add;
 mod speculative_exec;
