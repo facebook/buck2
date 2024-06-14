@@ -47,7 +47,7 @@ dupe = { workspace = true }
 gazebo = { workspace = true }
 lock_free_hashtable = { workspace = true }
 sorted_vector_map = { workspace = true }
-static_interner = { path = "../../shed/static_interner" }
+static_interner = { workspace = true }
 
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
