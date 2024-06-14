@@ -47,7 +47,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(
         cmd,
         category = "mockingbird",
+        local_only = True,
     )
+    # TODO: T182716646 Remove local_only
 
     return [
         DefaultInfo(mockingbird_source),
