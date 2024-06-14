@@ -12,7 +12,7 @@
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::PackageLabel;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -62,7 +62,7 @@ async fn test_package_value_same_dir_package_file() {
     let result = interpreter
         .eval_build_file(
             PackageLabel::testing_parse("root//headphones"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
         )
         .await
         .unwrap();
@@ -109,7 +109,7 @@ async fn test_package_value_parent_dir_package_file() {
     let result = interpreter
         .eval_build_file(
             PackageLabel::testing_parse("root//trackpad"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
         )
         .await
         .unwrap();
@@ -144,7 +144,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
     let err = interpreter
         .eval_build_file(
             PackageLabel::testing_parse("root//foo"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
         )
         .await;
     assert!(
@@ -230,7 +230,7 @@ async fn test_read_parent_package_value() {
     let result = interpreter
         .eval_build_file(
             PackageLabel::testing_parse("root//foo"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
         )
         .await
         .unwrap();
@@ -295,7 +295,7 @@ async fn test_read_parent_package_value_from_bzl() {
     let result = interpreter
         .eval_build_file(
             PackageLabel::testing_parse("root//foo"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
         )
         .await
         .unwrap();
@@ -330,7 +330,7 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
     let err = interpreter
         .eval_build_file(
             PackageLabel::testing_parse("root//foo"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
         )
         .await;
     assert!(
@@ -374,7 +374,7 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
     let err = interpreter
         .eval_build_file(
             PackageLabel::testing_parse("root//foo"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
         )
         .await;
     assert!(

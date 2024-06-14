@@ -159,50 +159,48 @@ impl StarlarkProfiler {
 
 /// How individual starlark invocation (`bzl`, `BUCK` or analysis) should be interpreted.
 #[derive(Clone, Dupe, Eq, PartialEq, Allocative)]
-pub enum StarlarkProfileModeOrInstrumentation {
+pub enum StarlarkProfileMode {
     None,
     Profile(ProfileMode),
 }
 
-impl StarlarkProfileModeOrInstrumentation {
+impl StarlarkProfileMode {
     pub fn profile_mode(&self) -> Option<&ProfileMode> {
         match self {
-            StarlarkProfileModeOrInstrumentation::Profile(profile) => Some(profile),
-            StarlarkProfileModeOrInstrumentation::None => None,
+            StarlarkProfileMode::Profile(profile) => Some(profile),
+            StarlarkProfileMode::None => None,
         }
     }
 }
 
-enum StarlarkProfilerOrInstrumentationImpl<'p> {
+enum StarlarkProfilerOptImpl<'p> {
     None,
     Profiler(&'p mut StarlarkProfiler),
 }
 
 /// Modules can be evaluated with profiling or with instrumentation for profiling.
 /// This type enapsulates this logic.
-pub struct StarlarkProfilerOrInstrumentation<'p>(StarlarkProfilerOrInstrumentationImpl<'p>);
+pub struct StarlarkProfilerOpt<'p>(StarlarkProfilerOptImpl<'p>);
 
-impl<'p> StarlarkProfilerOrInstrumentation<'p> {
+impl<'p> StarlarkProfilerOpt<'p> {
     pub fn for_profiler(profiler: &'p mut StarlarkProfiler) -> Self {
-        StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Profiler(profiler))
+        StarlarkProfilerOpt(StarlarkProfilerOptImpl::Profiler(profiler))
     }
 
     /// No profiling.
-    pub fn disabled() -> StarlarkProfilerOrInstrumentation<'p> {
-        StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::None)
+    pub fn disabled() -> StarlarkProfilerOpt<'p> {
+        StarlarkProfilerOpt(StarlarkProfilerOptImpl::None)
     }
 
     pub fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<bool> {
         match &mut self.0 {
-            StarlarkProfilerOrInstrumentationImpl::None => Ok(false),
-            StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => {
-                profiler.initialize(eval).map(|_| true)
-            }
+            StarlarkProfilerOptImpl::None => Ok(false),
+            StarlarkProfilerOptImpl::Profiler(profiler) => profiler.initialize(eval).map(|_| true),
         }
     }
 
     pub fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
-        if let StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) = &mut self.0 {
+        if let StarlarkProfilerOptImpl::Profiler(profiler) = &mut self.0 {
             profiler.visit_frozen_module(module)
         } else {
             Ok(())
@@ -210,7 +208,7 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
     }
 
     pub fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
-        if let StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) = &mut self.0 {
+        if let StarlarkProfilerOptImpl::Profiler(profiler) = &mut self.0 {
             profiler.evaluation_complete(eval)
         } else {
             Ok(())

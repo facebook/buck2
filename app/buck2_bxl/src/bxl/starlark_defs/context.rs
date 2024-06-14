@@ -62,7 +62,7 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -561,7 +561,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                 async move {
                     with_starlark_eval_provider(
                         dice_ctx,
-                        &mut StarlarkProfilerOrInstrumentation::disabled(),
+                        &mut StarlarkProfilerOpt::disabled(),
                         format!("bxl_dynamic:{}", "foo"),
                         move |provider, dice_ctx| {
                             tokio::task::block_in_place(|| eval_ctx.do_eval(provider, dice_ctx))

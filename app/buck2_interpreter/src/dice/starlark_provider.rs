@@ -19,7 +19,7 @@ use starlark::eval::Evaluator;
 use crate::dice::starlark_debug::HasStarlarkDebugger;
 use crate::factory::StarlarkEvaluatorProvider;
 use crate::starlark_debug::StarlarkDebugController;
-use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use crate::starlark_profiler::StarlarkProfilerOpt;
 
 /// This constructs an appropriate StarlarkEvaluatorProvider to set up
 /// profiling/instrumentation/debugging in a starlark Evaluator for buck.
@@ -34,7 +34,7 @@ use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 /// StarlarkEvaluatorProvider.
 pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputations<'a>>, R>(
     mut ctx: D,
-    profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
+    profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     description: String,
     closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> anyhow::Result<R>,
 ) -> anyhow::Result<R> {
@@ -55,7 +55,7 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
     };
 
     struct EvalProvider<'a, 'b> {
-        profiler: &'a mut StarlarkProfilerOrInstrumentation<'b>,
+        profiler: &'a mut StarlarkProfilerOpt<'b>,
         debugger: Option<Box<dyn StarlarkDebugController>>,
         starlark_max_callstack_size: Option<usize>,
     }

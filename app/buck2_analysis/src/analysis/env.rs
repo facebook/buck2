@@ -33,9 +33,9 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfileMode;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
@@ -192,7 +192,7 @@ pub(crate) async fn run_analysis<'a>(
     execution_platform: &'a ExecutionPlatformResolution,
     rule_spec: &'a dyn RuleSpec,
     node: ConfiguredTargetNodeRef<'a>,
-    profile_mode: &'a StarlarkProfileModeOrInstrumentation,
+    profile_mode: &'a StarlarkProfileMode,
 ) -> anyhow::Result<AnalysisResult> {
     let analysis_env =
         AnalysisEnv::new(label, results, query_results, execution_platform, rule_spec)?;
@@ -236,7 +236,7 @@ fn run_analysis_with_env<'a, 'd: 'a>(
     dice: &'a mut DiceComputations<'d>,
     analysis_env: AnalysisEnv<'a>,
     node: ConfiguredTargetNodeRef<'a>,
-    profile_mode: &'a StarlarkProfileModeOrInstrumentation,
+    profile_mode: &'a StarlarkProfileMode,
 ) -> impl Future<Output = anyhow::Result<AnalysisResult>> + 'a + Captures<'d> {
     let fut = async move {
         run_analysis_with_env_underlying(dice, analysis_env, node, profile_mode).await
@@ -248,7 +248,7 @@ async fn run_analysis_with_env_underlying(
     dice: &mut DiceComputations<'_>,
     analysis_env: AnalysisEnv<'_>,
     node: ConfiguredTargetNodeRef<'_>,
-    profile_mode: &StarlarkProfileModeOrInstrumentation,
+    profile_mode: &StarlarkProfileMode,
 ) -> anyhow::Result<AnalysisResult> {
     let env = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
@@ -277,8 +277,8 @@ async fn run_analysis_with_env_underlying(
         .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
     let mut profiler = match &mut profiler_opt {
-        None => StarlarkProfilerOrInstrumentation::disabled(),
-        Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
+        None => StarlarkProfilerOpt::disabled(),
+        Some(profiler) => StarlarkProfilerOpt::for_profiler(profiler),
     };
 
     let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(

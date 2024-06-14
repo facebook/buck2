@@ -44,9 +44,9 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
-use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfileMode;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
 use clap::error::ErrorKind;
 use dashmap::DashMap;
 use dice::DiceComputations;
@@ -76,7 +76,7 @@ use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
     key: BxlKey,
-    profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,
+    profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
 ) -> anyhow::Result<(
     BxlResult,
@@ -287,7 +287,7 @@ async fn eval_bxl_inner(
     ctx: &mut DiceComputations<'_>,
     dispatcher: EventDispatcher,
     key: BxlKey,
-    profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,
+    profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
 ) -> anyhow::Result<(
     BxlResult,
@@ -313,8 +313,8 @@ async fn eval_bxl_inner(
         .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
     let mut profiler = match &mut profiler_opt {
-        None => StarlarkProfilerOrInstrumentation::disabled(),
-        Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
+        None => StarlarkProfilerOpt::disabled(),
+        Some(profiler) => StarlarkProfilerOpt::for_profiler(profiler),
     };
 
     let starlark_eval_description = format!("bxl:{}", core_data.key());

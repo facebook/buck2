@@ -17,7 +17,7 @@ use dice::Key;
 use dupe::Dupe;
 use starlark::eval::ProfileMode;
 
-use crate::starlark_profiler::StarlarkProfileModeOrInstrumentation;
+use crate::starlark_profiler::StarlarkProfileMode;
 
 #[derive(Debug, buck2_error::Error)]
 enum StarlarkProfilerError {
@@ -82,16 +82,14 @@ impl StarlarkProfilerConfiguration {
     }
 
     /// Profile mode for intermediate target analysis.
-    pub fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileModeOrInstrumentation {
+    pub fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileMode {
         match self {
             StarlarkProfilerConfiguration::None
             | StarlarkProfilerConfiguration::ProfileLastLoading(_)
             | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
-            | StarlarkProfilerConfiguration::ProfileBxl(_) => {
-                StarlarkProfileModeOrInstrumentation::None
-            }
+            | StarlarkProfilerConfiguration::ProfileBxl(_) => StarlarkProfileMode::None,
             StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
-                StarlarkProfileModeOrInstrumentation::Profile(profile_mode.dupe())
+                StarlarkProfileMode::Profile(profile_mode.dupe())
             }
         }
     }
@@ -148,13 +146,13 @@ impl Key for StarlarkProfilerConfigurationKey {
 
 #[async_trait]
 impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
-    type Value = buck2_error::Result<StarlarkProfileModeOrInstrumentation>;
+    type Value = buck2_error::Result<StarlarkProfileMode>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
-    ) -> buck2_error::Result<StarlarkProfileModeOrInstrumentation> {
+    ) -> buck2_error::Result<StarlarkProfileMode> {
         let configuration = get_starlark_profiler_configuration(ctx).await?;
         Ok(configuration.profile_mode_for_intermediate_analysis())
     }
@@ -210,7 +208,7 @@ pub trait GetStarlarkProfilerInstrumentation {
     /// Profile mode for non-final targe analysis.
     async fn get_profile_mode_for_intermediate_analysis(
         &mut self,
-    ) -> anyhow::Result<StarlarkProfileModeOrInstrumentation>;
+    ) -> anyhow::Result<StarlarkProfileMode>;
 }
 
 #[async_trait]
@@ -245,7 +243,7 @@ async fn get_starlark_profiler_configuration(
 impl GetStarlarkProfilerInstrumentation for DiceComputations<'_> {
     async fn get_profile_mode_for_intermediate_analysis(
         &mut self,
-    ) -> anyhow::Result<StarlarkProfileModeOrInstrumentation> {
+    ) -> anyhow::Result<StarlarkProfileMode> {
         Ok(self
             .compute(&StarlarkProfileModeForIntermediateAnalysisKey)
             .await??)

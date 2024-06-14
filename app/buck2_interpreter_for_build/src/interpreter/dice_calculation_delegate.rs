@@ -38,7 +38,7 @@ use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::StarlarkPath;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
@@ -231,7 +231,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         with_starlark_eval_provider(
             ctx,
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
             format!("load:{}", &starlark_file),
             move |provider, ctx| {
                 let mut buckconfigs =
@@ -333,7 +333,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         with_starlark_eval_provider(
             ctx,
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut StarlarkProfilerOpt::disabled(),
             format!("load:{}", path),
             move |provider, ctx| {
                 let mut buckconfigs =
@@ -461,7 +461,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             ) -> Self::Value {
                 with_starlark_eval_provider(
                     ctx,
-                    &mut StarlarkProfilerOrInstrumentation::disabled(),
+                    &mut StarlarkProfilerOpt::disabled(),
                     "Check starlark stack size".to_owned(),
                     move |provider, _| {
                         let env = Module::new();
@@ -513,7 +513,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     pub async fn eval_build_file(
         &mut self,
         package: PackageLabel,
-        profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
+        profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
         self.check_starlark_stack_size().await?;
 

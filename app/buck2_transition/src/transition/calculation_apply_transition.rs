@@ -29,7 +29,7 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -135,7 +135,7 @@ async fn do_apply_transition(
     let print = EventDispatcherPrintHandler(get_dispatcher());
     with_starlark_eval_provider(
         ctx,
-        &mut StarlarkProfilerOrInstrumentation::disabled(),
+        &mut StarlarkProfilerOpt::disabled(),
         format!("transition:{}", transition_id),
         move |provider, _| {
             let (mut eval, _) = provider.make(&module)?;

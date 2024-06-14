@@ -19,7 +19,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
-use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfileMode;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -127,9 +127,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                                         eval(
                                             &mut ctx,
                                             bxl_key,
-                                            StarlarkProfileModeOrInstrumentation::Profile(
-                                                profile_mode,
-                                            ),
+                                            StarlarkProfileMode::Profile(profile_mode),
                                             observer,
                                         )
                                         .await?

@@ -30,7 +30,7 @@ use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOpt;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_profile::get_profile_response;
@@ -104,7 +104,7 @@ async fn generate_profile_loading(
     calculation
         .eval_build_file(
             package,
-            &mut StarlarkProfilerOrInstrumentation::for_profiler(&mut profiler),
+            &mut StarlarkProfilerOpt::for_profiler(&mut profiler),
         )
         .await?;
 
