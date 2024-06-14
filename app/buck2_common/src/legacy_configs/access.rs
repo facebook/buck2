@@ -31,7 +31,6 @@ use crate::legacy_configs::LegacyBuckConfigValue;
 use crate::legacy_configs::LegacyBuckConfigView;
 use crate::legacy_configs::LegacyBuckConfigs;
 use crate::legacy_configs::SectionConfigDiff;
-use crate::target_aliases::BuckConfigTargetAliasResolver;
 
 #[derive(buck2_error::Error, Debug)]
 enum ConfigValueError {
@@ -108,10 +107,6 @@ impl LegacyBuckConfigSection {
 }
 
 impl LegacyBuckConfig {
-    pub fn target_alias_resolver(&self) -> BuckConfigTargetAliasResolver {
-        BuckConfigTargetAliasResolver::new(self.dupe())
-    }
-
     fn get_config_value(&self, key: BuckconfigKeyRef) -> Option<&ConfigValue> {
         let BuckconfigKeyRef { section, property } = key;
         self.0

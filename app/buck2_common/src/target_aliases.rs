@@ -154,7 +154,7 @@ impl Key for TargetAliasResolverKey {
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<BuckConfigTargetAliasResolver> {
         let legacy_configs = ctx.get_legacy_config_for_cell(self.cell_name).await?;
-        Ok(legacy_configs.target_alias_resolver())
+        Ok(BuckConfigTargetAliasResolver::new(legacy_configs.dupe()))
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
