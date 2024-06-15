@@ -28,7 +28,7 @@ use crate::values::function::NativeAttribute;
 use crate::values::function::NativeCallableRawDocs;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
-use crate::values::types::unbound::MaybeUnboundValue;
+use crate::values::types::unbound::UnboundValue;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -44,7 +44,7 @@ pub struct Methods {
     /// This field holds the objects referenced in `members`.
     #[allow(dead_code)]
     heap: FrozenHeapRef,
-    members: SymbolMap<MaybeUnboundValue>,
+    members: SymbolMap<UnboundValue>,
     docstring: Option<String>,
 }
 
@@ -54,7 +54,7 @@ pub struct MethodsBuilder {
     /// The heap everything is allocated in.
     heap: FrozenHeap,
     /// Members, either `NativeMethod` or `NativeAttribute`.
-    members: SymbolMap<MaybeUnboundValue>,
+    members: SymbolMap<UnboundValue>,
     /// The raw docstring for the main object.
     docstring: Option<String>,
 }
@@ -65,12 +65,12 @@ impl Methods {
     }
 
     #[inline]
-    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<&MaybeUnboundValue> {
+    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<&UnboundValue> {
         self.members.get_hashed_str(name)
     }
 
     #[inline]
-    pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<&MaybeUnboundValue> {
+    pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<&UnboundValue> {
         self.members.get(name)
     }
 
@@ -165,7 +165,7 @@ impl MethodsBuilder {
     {
         self.members.insert(
             name,
-            MaybeUnboundValue::Attr(
+            UnboundValue::Attr(
                 FrozenValueTyped::new(self.heap.alloc(NativeAttribute {
                     speculative_exec_safe,
                     docstring,
@@ -197,7 +197,7 @@ impl MethodsBuilder {
         );
         self.members.insert(
             name,
-            MaybeUnboundValue::Method(
+            UnboundValue::Method(
                 FrozenValueTyped::new(self.heap.alloc(NativeMethod {
                     function,
                     name: name.to_owned(),

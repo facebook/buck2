@@ -38,7 +38,7 @@ use crate::values::ValueLike;
 
 /// A value or an unbound method or unbound attribute.
 #[derive(Clone)]
-pub(crate) enum MaybeUnboundValue {
+pub(crate) enum UnboundValue {
     /// A method with `this` unbound.
     Method(
         FrozenValueTyped<'static, NativeMethod>,
@@ -51,18 +51,18 @@ pub(crate) enum MaybeUnboundValue {
     ),
 }
 
-impl Debug for MaybeUnboundValue {
+impl Debug for UnboundValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("MaybeUnboundValue").finish_non_exhaustive()
     }
 }
 
-impl MaybeUnboundValue {
+impl UnboundValue {
     #[inline]
     pub(crate) fn to_frozen_value(&self) -> FrozenValue {
         match self {
-            MaybeUnboundValue::Method(m, _) => m.to_frozen_value(),
-            MaybeUnboundValue::Attr(a, _) => a.to_frozen_value(),
+            UnboundValue::Method(m, _) => m.to_frozen_value(),
+            UnboundValue::Attr(a, _) => a.to_frozen_value(),
         }
     }
 
@@ -70,10 +70,10 @@ impl MaybeUnboundValue {
     #[inline]
     pub(crate) fn bind<'v>(&self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self {
-            MaybeUnboundValue::Method(m, _) => {
+            UnboundValue::Method(m, _) => {
                 Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), *m)))
             }
-            MaybeUnboundValue::Attr(_, a) => a(this, heap),
+            UnboundValue::Attr(_, a) => a(this, heap),
         }
     }
 
@@ -89,8 +89,8 @@ impl MaybeUnboundValue {
             self.to_frozen_value().to_value(),
             Some(span),
             |eval| match self {
-                MaybeUnboundValue::Method(_, m) => m.invoke(eval, this, args),
-                MaybeUnboundValue::Attr(_, a) => {
+                UnboundValue::Method(_, m) => m.invoke(eval, this, args),
+                UnboundValue::Attr(_, a) => {
                     NativeAttribute::invoke_method_impl(&**a, this, args, eval)
                 }
             },

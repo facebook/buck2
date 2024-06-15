@@ -76,7 +76,7 @@ use crate::values::types::range::Range;
 use crate::values::types::string::dot_format::format_one;
 use crate::values::types::string::interpolation::percent_s_one;
 use crate::values::types::tuple::value::Tuple;
-use crate::values::types::unbound::MaybeUnboundValue;
+use crate::values::types::unbound::UnboundValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -874,11 +874,11 @@ impl ExprCompiled {
         let v = get_attr_hashed_raw(left.to_value(), attr, ctx.heap()).ok()?;
         match v {
             MemberOrValue::Member(m) => match m {
-                MaybeUnboundValue::Method(m, _) => Some(
+                UnboundValue::Method(m, _) => Some(
                     ctx.frozen_heap()
                         .alloc_simple(BoundMethodGen::new(left, *m)),
                 ),
-                MaybeUnboundValue::Attr(..) => None,
+                UnboundValue::Attr(..) => None,
             },
             MemberOrValue::Value(v) => v.unpack_frozen(),
         }
@@ -1120,7 +1120,7 @@ fn get_attr_no_attr_error<'v>(x: Value<'v>, attribute: &Symbol) -> crate::Error 
 }
 
 pub(crate) enum MemberOrValue<'v, 'a> {
-    Member(&'a MaybeUnboundValue),
+    Member(&'a UnboundValue),
     Value(Value<'v>),
 }
 
