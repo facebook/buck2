@@ -143,7 +143,7 @@ def materialize_generated_protobufs(
         ctx: BxlContext,
         target: bxl.ConfiguredTargetNode,
         actions: AnalysisActions,
-        seen: dict[str, ()]) -> bxl.EnsuredArtifact | None:
+        seen: dict[str, bxl.EnsuredArtifact]) -> bxl.EnsuredArtifact:
     """If `target` has a dependency that generates code from protobufs,
     materialize the generated code and return the path to the output directory.
     """
@@ -153,12 +153,12 @@ def materialize_generated_protobufs(
     output = analysis.providers()[DefaultInfo].default_outputs[0]
     outfile = "{}/{}/{}".format(t.cell, t.package, t.name)
 
-    if outfile in seen:
-        return None
-    seen[outfile] = ()
+    artifact = seen.get(outfile)
+    if not artifact:
+        artifact = ctx.output.ensure(actions.copy_file(outfile, output))
+        seen[outfile] = artifact
 
-    copied = ctx.output.ensure(actions.copy_file(outfile, output))
-    return copied.abs_path()
+    return artifact.abs_path()
 
 GeneratedThrift = record(
     artifact = bxl.EnsuredArtifact,
@@ -169,27 +169,27 @@ def materialize_generated_thrift(
         ctx: BxlContext,
         target: bxl.ConfiguredTargetNode,
         actions: AnalysisActions,
-        seen: dict[str, ()]) -> list[GeneratedThrift]:
+        seen: dict[str, bxl.EnsuredArtifact]) -> list[GeneratedThrift]:
     mapped_srcs = target.attrs_lazy().get("mapped_srcs").value()
     built = ctx.build(mapped_srcs.keys())
     out = []
-    for label, artifacts in built.items():
-        mapped_src = mapped_srcs.get(label)
-
-        outfile = "{}/{}/{}/{}".format(target.label.cell, target.label.package, target.label.name, mapped_src)
-        if outfile in seen:
+    for label, build_result in built.items():
+        if len(build_result.artifacts()) == 0:
             continue
 
-        if len(artifacts.artifacts()) > 0:
-            copied = actions.copy_file(outfile, artifacts.artifacts()[0])
-            copied = ctx.output.ensure(copied)
-            artifact = GeneratedThrift(
-                artifact = copied.abs_path(),
-                mapped_src = mapped_src,
-            )
-            out.append(artifact)
+        mapped_src = mapped_srcs.get(label)
+        outfile = "{}/{}/{}/{}".format(target.label.cell, target.label.package, target.label.name, mapped_src)
 
-        seen[outfile] = ()
+        artifact = seen.get(outfile)
+        if not artifact:
+            copied = actions.copy_file(outfile, build_result.artifacts()[0])
+            artifact = ctx.output.ensure(copied)
+            seen[outfile] = artifact
+
+        out.append(GeneratedThrift(
+            artifact = artifact.abs_path(),
+            mapped_src = mapped_src,
+        ))
     return out
 
 def expand_proc_macros(
