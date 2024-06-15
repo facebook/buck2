@@ -106,15 +106,8 @@ f"{x}" == '("x",)'
     #[test]
     fn conv() {
         assert().is_true(r#"x = 'a'; f"{x}" == 'a'"#);
-        // TODO(nga): these should pass.
-        assert().fail(
-            r#"x = 'a'; f"{x!s}" == 'a'"#,
-            "Not a valid identifier: `x!s`",
-        );
-        assert().fail(
-            r#"x = 'a'; f"{x!r}" == '"a"'"#,
-            "Not a valid identifier: `x!r`",
-        );
+        assert().is_true(r#"x = 'a'; f"{x!s}" == 'a'"#);
+        assert().is_true(r#"x = 'a'; f"{x!r}" == '"a"'"#);
     }
 }
 

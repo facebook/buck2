@@ -18,6 +18,7 @@
 use std::str::FromStr;
 
 use anyhow::Context as _;
+use starlark_syntax::dot_format_parser::FormatConv;
 use starlark_syntax::dot_format_parser::FormatParser;
 use starlark_syntax::dot_format_parser::FormatToken;
 
@@ -37,7 +38,11 @@ pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
         match parser.next().ok()?? {
             FormatToken::Text(text) => before.push_str(text),
             FormatToken::Escape(e) => before.push_str(e.as_str()),
-            FormatToken::Capture { capture: "", .. } => break,
+            FormatToken::Capture {
+                capture: "",
+                conv: FormatConv::Str,
+                pos: _,
+            } => break,
             FormatToken::Capture { .. } => return None,
         }
     }
@@ -142,9 +147,11 @@ pub(crate) fn format<'v>(
         match token {
             FormatToken::Text(text) => result.push_str(text),
             FormatToken::Escape(e) => result.push_str(e.as_str()),
-            FormatToken::Capture { capture, .. } => {
-                format_capture(capture, &mut args, &kwargs, &mut result)?
-            }
+            FormatToken::Capture {
+                capture,
+                conv,
+                pos: _,
+            } => format_capture(capture, conv, &mut args, &kwargs, &mut result)?,
         }
     }
     let r = heap.alloc_str(&result);
@@ -153,53 +160,38 @@ pub(crate) fn format<'v>(
 }
 
 fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
-    capture: &str,
+    field: &str,
+    conv: FormatConv,
     args: &mut FormatArgs<'v, T>,
     kwargs: &Dict,
     result: &mut String,
 ) -> anyhow::Result<()> {
-    let (n, conv) = {
-        if let Some((n, conv)) = capture.split_once('!') {
-            (n, conv)
-        } else {
-            (capture, "s")
-        }
-    };
     let conv_s = |x: Value, result: &mut String| x.collect_str(result);
     let conv_r = |x: Value, result: &mut String| x.collect_repr(result);
     let conv: &dyn Fn(Value, &mut String) = match conv {
-        "s" => &conv_s,
-        "r" => &conv_r,
-        c => {
-            return Err(anyhow::anyhow!(
-                concat!(
-                    "'{}' is not a valid format string specifier, only ",
-                    "'s' and 'r' are valid specifiers",
-                ),
-                c
-            ));
-        }
+        FormatConv::Str => &conv_s,
+        FormatConv::Repr => &conv_r,
     };
-    if n.is_empty() {
+    if field.is_empty() {
         conv(args.next_ordered()?, result);
         Ok(())
-    } else if n.chars().all(|c| c.is_ascii_digit()) {
-        let i = usize::from_str(n)
-            .with_context(|| format!("Error parsing `{n}` as a format string index"))?;
+    } else if field.bytes().all(|c| c.is_ascii_digit()) {
+        let i = usize::from_str(field)
+            .with_context(|| format!("Error parsing `{field}` as a format string index"))?;
         conv(args.by_index(i)?, result);
         Ok(())
     } else {
-        if let Some(x) = n.chars().find(|c| match c {
-            '.' | ',' | '[' | ']' => true,
+        if let Some(x) = field.bytes().find(|c| match c {
+            b'.' | b',' | b'[' | b']' => true,
             _ => false,
         }) {
             return Err(anyhow::anyhow!(
                 "Invalid character '{}' inside replacement field",
-                x
+                char::from(x)
             ));
         }
-        match kwargs.get_str(n) {
-            None => Err(ValueError::KeyNotFound(n.to_owned()).into()),
+        match kwargs.get_str(field) {
+            None => Err(ValueError::KeyNotFound(field.to_owned()).into()),
             Some(v) => {
                 conv(v, result);
                 Ok(())
@@ -211,10 +203,12 @@ fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
 #[cfg(test)]
 mod tests {
     use starlark_map::small_map::SmallMap;
+    use starlark_syntax::dot_format_parser::FormatConv;
 
     use crate::assert;
     use crate::coerce::coerce;
     use crate::values::dict::Dict;
+    use crate::values::string::dot_format::format_capture;
     use crate::values::string::dot_format::parse_format_one;
     use crate::values::string::dot_format::FormatArgs;
     use crate::values::Heap;
@@ -222,11 +216,12 @@ mod tests {
 
     fn format_capture_for_test<'v, T: Iterator<Item = Value<'v>>>(
         capture: &str,
+        conv: FormatConv,
         args: &mut FormatArgs<'v, T>,
         kwargs: &Dict,
     ) -> anyhow::Result<String> {
         let mut result = String::new();
-        super::format_capture(capture, args, kwargs, &mut result)?;
+        format_capture(capture, conv, args, kwargs, &mut result)?;
         Ok(result)
     }
 
@@ -242,32 +237,32 @@ mod tests {
         kwargs.insert_hashed(heap.alloc_str("c").get_hashed(), heap.alloc("z"));
         let kwargs = Dict::new(coerce(kwargs));
         assert_eq!(
-            format_capture_for_test("", &mut args, &kwargs).unwrap(),
+            format_capture_for_test("", FormatConv::Str, &mut args, &kwargs).unwrap(),
             "1"
         );
         assert_eq!(
-            format_capture_for_test("!s", &mut args, &kwargs).unwrap(),
+            format_capture_for_test("", FormatConv::Str, &mut args, &kwargs).unwrap(),
             "2"
         );
         assert_eq!(
-            format_capture_for_test("!r", &mut args, &kwargs).unwrap(),
+            format_capture_for_test("", FormatConv::Repr, &mut args, &kwargs).unwrap(),
             "\"3\""
         );
         assert_eq!(
-            format_capture_for_test("a!r", &mut args, &kwargs).unwrap(),
+            format_capture_for_test("a", FormatConv::Repr, &mut args, &kwargs).unwrap(),
             "\"x\""
         );
         assert_eq!(
-            format_capture_for_test("a!s", &mut args, &kwargs).unwrap(),
+            format_capture_for_test("a", FormatConv::Str, &mut args, &kwargs).unwrap(),
             "x"
         );
-        assert!(format_capture_for_test("1", &mut args, &kwargs).is_err());
+        assert!(format_capture_for_test("1", FormatConv::Str, &mut args, &kwargs).is_err());
         let mut args = FormatArgs::new(original_args.iter().copied());
         assert_eq!(
-            format_capture_for_test("1", &mut args, &kwargs).unwrap(),
+            format_capture_for_test("1", FormatConv::Str, &mut args, &kwargs).unwrap(),
             "2"
         );
-        assert!(format_capture_for_test("", &mut args, &kwargs).is_err());
+        assert!(format_capture_for_test("", FormatConv::Str, &mut args, &kwargs).is_err());
     }
 
     #[test]
@@ -282,6 +277,11 @@ mod tests {
             Some(("abc".to_owned(), "def".to_owned())),
             parse_format_one("abc{}def")
         );
+        assert_eq!(
+            Some(("abc".to_owned(), "def".to_owned())),
+            parse_format_one("abc{!s}def")
+        );
+        assert_eq!(None, parse_format_one("abc{!r}def"));
         assert_eq!(
             Some(("a{b".to_owned(), "c}d{".to_owned())),
             parse_format_one("a{{b{}c}}d{{")

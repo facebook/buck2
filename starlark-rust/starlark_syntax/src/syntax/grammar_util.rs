@@ -21,6 +21,7 @@ use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::dot_format_parser::FormatConv;
 use crate::dot_format_parser::FormatParser;
 use crate::dot_format_parser::FormatToken;
 use crate::eval_exception::EvalException;
@@ -276,7 +277,7 @@ pub fn fstring(
                 // We are producing a format string here so we need to escape this back!
                 format.push_str(e.back_to_escape())
             }
-            Ok(FormatToken::Capture { capture, pos }) => {
+            Ok(FormatToken::Capture { capture, pos, conv }) => {
                 let capture_begin = begin + content_start_offset + pos;
                 let capture_end = capture_begin + capture.len();
 
@@ -300,7 +301,11 @@ pub fn fstring(
                 )
                 .ast(capture_begin, capture_end);
                 expressions.push(expr);
-                format.push_str("{}"); // Positional format.
+                // Positional format.
+                match conv {
+                    FormatConv::Str => format.push_str("{}"),
+                    FormatConv::Repr => format.push_str("{!r}"),
+                }
             }
             Err(inner) => {
                 // TODO: Reporting the exact position of the error would be better.
