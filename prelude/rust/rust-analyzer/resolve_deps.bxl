@@ -23,6 +23,12 @@ ExpandedAndResolved = record(
     resolved_deps = dict[TargetLabel, TargetInfo],
 )
 
+MappedSrc = record(
+    target = bxl.ConfiguredTargetNode,
+    src = Label,
+    dest = str,
+)
+
 def materialize(
         ctx: BxlContext,
         target: bxl.ConfiguredTargetNode) -> bxl.EnsuredArtifact:
@@ -117,26 +123,33 @@ def cquery_deps(
     # Eagerly analyze targets
     ctx.analysis(outputs)
 
+    mapped_srcs = []
     seen = {}
     for target in outputs:
+        attrs = target.attrs_lazy()
+
         in_workspace = target.label.raw_target() in top_targets
-        for candidate_workspace in target.attrs_lazy().get("_workspaces").value():
+        for candidate_workspace in attrs.get("_workspaces").value():
             if candidate_workspace.raw_target() in workspaces:
                 in_workspace = True
 
-        labels = target.attrs_lazy().get("labels")
+        labels = attrs.get("labels")
         if "thrift_library-rust" in labels.value():
-            thrift_files = materialize_generated_thrift(ctx, target, actions, seen)
-            cfg = _process_target_config(ctx, target, in_workspace)
-            for thrift in thrift_files:
-                if thrift.mapped_src == "lib.rs":
-                    cfg["crate_root"] = thrift.artifact
-            out[target.label.raw_target()] = cfg
+            for src, dest in attrs.get("mapped_srcs").value().items():
+                mapped_srcs.append(MappedSrc(
+                    target = target,
+                    src = src,
+                    dest = dest,
+                ))
+            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
         elif "generated_protobuf_library_rust" in labels.value():
             protobuf_out_dir = materialize_generated_protobufs(ctx, target, actions, seen)
             out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace, protobuf_out_dir)
         else:
             out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
+
+    materialize_generated_thrift(ctx, actions, mapped_srcs, out)
+
     return out
 
 def materialize_generated_protobufs(
@@ -160,25 +173,20 @@ def materialize_generated_protobufs(
 
     return artifact.abs_path()
 
-GeneratedThrift = record(
-    artifact = bxl.EnsuredArtifact,
-    mapped_src = str,
-)
-
 def materialize_generated_thrift(
         ctx: BxlContext,
-        target: bxl.ConfiguredTargetNode,
         actions: AnalysisActions,
-        seen: dict[str, bxl.EnsuredArtifact]) -> list[GeneratedThrift]:
-    mapped_srcs = target.attrs_lazy().get("mapped_srcs").value()
-    built = ctx.build(mapped_srcs.keys())
-    out = []
-    for label, build_result in built.items():
+        mapped_srcs: list[MappedSrc],
+        out: dict[TargetLabel, TargetInfo]) -> None:
+    built = ctx.build([m.src for m in mapped_srcs])
+
+    seen = {}
+    for m in mapped_srcs:
+        build_result = built[m.src]
         if len(build_result.artifacts()) == 0:
             continue
 
-        mapped_src = mapped_srcs.get(label)
-        outfile = "{}/{}/{}/{}".format(target.label.cell, target.label.package, target.label.name, mapped_src)
+        outfile = "{}/{}/{}/{}".format(m.target.label.cell, m.target.label.package, m.target.label.name, m.dest)
 
         artifact = seen.get(outfile)
         if not artifact:
@@ -186,11 +194,8 @@ def materialize_generated_thrift(
             artifact = ctx.output.ensure(copied)
             seen[outfile] = artifact
 
-        out.append(GeneratedThrift(
-            artifact = artifact.abs_path(),
-            mapped_src = mapped_src,
-        ))
-    return out
+        if m.dest == "lib.rs":
+            out[m.target.label.raw_target()]["crate_root"] = artifact.abs_path()
 
 def expand_proc_macros(
         ctx: BxlContext,
