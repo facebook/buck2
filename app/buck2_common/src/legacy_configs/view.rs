@@ -11,8 +11,8 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
-use crate::legacy_configs::LegacyBuckConfig;
 
 /// Buckconfig trait.
 ///

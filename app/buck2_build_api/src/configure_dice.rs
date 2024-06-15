@@ -12,9 +12,9 @@ use std::sync::Arc;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::SetIoProvider;
 use buck2_common::io::IoProvider;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
@@ -106,7 +106,7 @@ fn determine_which_dice(
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::legacy_configs::testing::parse;
+    use buck2_common::legacy_configs::configs::testing::parse;
 
     use super::*;
 

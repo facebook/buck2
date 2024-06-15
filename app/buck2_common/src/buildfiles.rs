@@ -120,7 +120,7 @@ mod tests {
     use crate::buildfiles::parse_buildfile_name;
     use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
-    use crate::legacy_configs::testing::TestConfigParserFileOps;
+    use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
 
     #[test]
     fn test_buildfiles() -> anyhow::Result<()> {

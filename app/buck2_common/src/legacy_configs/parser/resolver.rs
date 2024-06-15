@@ -13,11 +13,11 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
-use crate::legacy_configs::parse_config_section_and_key;
+use crate::legacy_configs::configs::parse_config_section_and_key;
+use crate::legacy_configs::configs::LegacyBuckConfigSection;
+use crate::legacy_configs::configs::ResolvedValue;
 use crate::legacy_configs::parser::ConfigError;
 use crate::legacy_configs::parser::SectionBuilder;
-use crate::legacy_configs::LegacyBuckConfigSection;
-use crate::legacy_configs::ResolvedValue;
 
 // Since we can't change other entries in values while we iterate over the configuration, we use
 // ResolvedItems to store information about recursive resolutions and the current resolution stack.

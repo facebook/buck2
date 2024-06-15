@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::init::ResourceControlConfig;
-use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_forkserver::client::ForkserverClient;
 

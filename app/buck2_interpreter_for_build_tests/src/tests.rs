@@ -11,9 +11,9 @@ use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
-use buck2_common::legacy_configs::LegacyBuckConfig;
-use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;

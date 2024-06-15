@@ -13,8 +13,8 @@ use std::time::Instant;
 
 use anyhow::Context;
 use buck2_common::file_ops::FileType;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserverSync;
 use buck2_core::fs::fs_util;

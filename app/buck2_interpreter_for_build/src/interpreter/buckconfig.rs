@@ -12,9 +12,9 @@ use std::fmt;
 use std::ops::DerefMut;
 use std::sync::Arc;
 
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::legacy_configs::LegacyBuckConfig;
 use dice::DiceComputations;
 use hashbrown::raw::RawTable;
 use starlark::collections::Hashed;

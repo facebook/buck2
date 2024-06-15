@@ -20,17 +20,17 @@ use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 
+use crate::legacy_configs::configs::CellConfigDiff;
+use crate::legacy_configs::configs::ConfigDiffEntry;
+use crate::legacy_configs::configs::ConfigDiffMetrics;
+use crate::legacy_configs::configs::ConfigValue;
+use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::configs::LegacyBuckConfigSection;
+use crate::legacy_configs::configs::LegacyBuckConfigValue;
+use crate::legacy_configs::configs::LegacyBuckConfigs;
+use crate::legacy_configs::configs::SectionConfigDiff;
 use crate::legacy_configs::key::BuckconfigKeyRef;
-use crate::legacy_configs::CellConfigDiff;
-use crate::legacy_configs::ConfigDiffEntry;
-use crate::legacy_configs::ConfigDiffMetrics;
-use crate::legacy_configs::ConfigValue;
-use crate::legacy_configs::LegacyBuckConfig;
-use crate::legacy_configs::LegacyBuckConfigSection;
-use crate::legacy_configs::LegacyBuckConfigValue;
-use crate::legacy_configs::LegacyBuckConfigView;
-use crate::legacy_configs::LegacyBuckConfigs;
-use crate::legacy_configs::SectionConfigDiff;
+use crate::legacy_configs::view::LegacyBuckConfigView;
 
 #[derive(buck2_error::Error, Debug)]
 enum ConfigValueError {

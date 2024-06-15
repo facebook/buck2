@@ -920,7 +920,7 @@ async fn http_client_from_startup_config(
 #[cfg(test)]
 mod tests {
 
-    use buck2_common::legacy_configs::testing::parse;
+    use buck2_common::legacy_configs::configs::testing::parse;
     use indoc::indoc;
 
     use super::*;

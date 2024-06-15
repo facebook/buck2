@@ -13,7 +13,7 @@ use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::io::IoProvider;
-use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_core::fs::project::ProjectRoot;
 
 pub async fn create_io_provider(

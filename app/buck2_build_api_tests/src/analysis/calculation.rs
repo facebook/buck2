@@ -19,8 +19,8 @@ use buck2_build_api::interpreter::rule_defs::provider::registration::register_bu
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::legacy_configs::LegacyBuckConfig;
-use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_configured::configuration::calculation::ExecutionPlatformsKey;

@@ -40,21 +40,21 @@ use crate::dice::file_ops::DiceFileComputations;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::FileType;
 use crate::file_ops::RawPathMetadata;
+use crate::legacy_configs::configs::push_all_files_from_a_directory;
+use crate::legacy_configs::configs::BuckConfigParseOptions;
+use crate::legacy_configs::configs::CellResolutionState;
+use crate::legacy_configs::configs::ConfigDirEntry;
+use crate::legacy_configs::configs::ConfigParserFileOps;
+use crate::legacy_configs::configs::DefaultConfigParserFileOps;
+use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::configs::LegacyBuckConfigs;
+use crate::legacy_configs::configs::LegacyConfigCmdArg;
+use crate::legacy_configs::configs::MainConfigFile;
+use crate::legacy_configs::configs::ResolvedLegacyConfigArg;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
 use crate::legacy_configs::init::DaemonStartupConfig;
 use crate::legacy_configs::path::BuckConfigFile;
 use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
-use crate::legacy_configs::push_all_files_from_a_directory;
-use crate::legacy_configs::BuckConfigParseOptions;
-use crate::legacy_configs::CellResolutionState;
-use crate::legacy_configs::ConfigDirEntry;
-use crate::legacy_configs::ConfigParserFileOps;
-use crate::legacy_configs::DefaultConfigParserFileOps;
-use crate::legacy_configs::LegacyBuckConfig;
-use crate::legacy_configs::LegacyBuckConfigs;
-use crate::legacy_configs::LegacyConfigCmdArg;
-use crate::legacy_configs::MainConfigFile;
-use crate::legacy_configs::ResolvedLegacyConfigArg;
 
 #[derive(Debug, buck2_error::Error)]
 enum CellsError {
@@ -609,10 +609,10 @@ mod tests {
     use crate::external_cells::EXTERNAL_CELLS_IMPL;
     use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
+    use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
+    use crate::legacy_configs::configs::tests::assert_config_value;
+    use crate::legacy_configs::configs::LegacyConfigCmdArg;
     use crate::legacy_configs::key::BuckconfigKeyRef;
-    use crate::legacy_configs::testing::TestConfigParserFileOps;
-    use crate::legacy_configs::tests::assert_config_value;
-    use crate::legacy_configs::LegacyConfigCmdArg;
 
     #[test]
     fn test_cells() -> anyhow::Result<()> {

@@ -22,8 +22,8 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 
 use crate::dice::cells::HasCellResolver;
+use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::dice::HasLegacyConfigs;
-use crate::legacy_configs::LegacyBuckConfig;
 
 #[derive(buck2_error::Error, Debug)]
 enum AliasResolutionError {
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_aliases() -> anyhow::Result<()> {
-        let config = legacy_configs::testing::parse(
+        let config = legacy_configs::configs::testing::parse(
             &[(
                 "/config",
                 indoc!(

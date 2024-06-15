@@ -16,8 +16,8 @@ use buck2_core::buck2_env;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
-use crate::legacy_configs::LegacyBuckConfig;
 
 /// Helper enum to categorize the kind of timeout we get from the startup config.
 #[derive(Clone, Debug)]

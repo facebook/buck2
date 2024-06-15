@@ -29,11 +29,11 @@ use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
+use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::configs::LegacyBuckConfigs;
+use crate::legacy_configs::configs::ResolvedLegacyConfigArg;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
-use crate::legacy_configs::LegacyBuckConfig;
-use crate::legacy_configs::LegacyBuckConfigs;
-use crate::legacy_configs::ResolvedLegacyConfigArg;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
 #[derive(Clone, Dupe)]
@@ -411,10 +411,10 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use dice::InjectedKey;
 
+    use crate::legacy_configs::configs::testing::parse_with_config_args;
+    use crate::legacy_configs::configs::LegacyBuckConfigs;
+    use crate::legacy_configs::configs::LegacyConfigCmdArg;
     use crate::legacy_configs::dice::LegacyBuckConfigKey;
-    use crate::legacy_configs::testing::parse_with_config_args;
-    use crate::legacy_configs::LegacyBuckConfigs;
-    use crate::legacy_configs::LegacyConfigCmdArg;
 
     #[test]
     fn config_equals() -> anyhow::Result<()> {

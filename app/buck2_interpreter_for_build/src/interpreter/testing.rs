@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 
-use buck2_common::legacy_configs::testing::parse_with_config_args;
-use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_common::legacy_configs::configs::testing::parse_with_config_args;
+use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;

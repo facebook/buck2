@@ -12,9 +12,9 @@ use std::collections::HashMap;
 use anyhow::Context;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
-use buck2_common::legacy_configs::ConfigDiffEntry;
-use buck2_common::legacy_configs::ConfigDiffMetrics;
-use buck2_common::legacy_configs::LegacyConfigCmdArg;
+use buck2_common::legacy_configs::configs::ConfigDiffEntry;
+use buck2_common::legacy_configs::configs::ConfigDiffMetrics;
+use buck2_common::legacy_configs::configs::LegacyConfigCmdArg;
 
 fn config_type_from_i32(value: i32) -> anyhow::Result<ConfigType> {
     ConfigType::from_i32(value).with_context(|| {
@@ -89,8 +89,8 @@ fn diff_by_cell(metrics: ConfigDiffMetrics) -> HashMap<String, buck2_data::CellC
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::legacy_configs::CellConfigDiff;
-    use buck2_common::legacy_configs::SectionConfigDiff;
+    use buck2_common::legacy_configs::configs::CellConfigDiff;
+    use buck2_common::legacy_configs::configs::SectionConfigDiff;
     use buck2_core::cells::name::CellName;
     use maplit::hashmap;
     use starlark_map::smallmap;

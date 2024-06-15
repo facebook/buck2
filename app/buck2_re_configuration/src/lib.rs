@@ -12,8 +12,8 @@
 use std::str::FromStr;
 
 use allocative::Allocative;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::rollout_percentage::RolloutPercentage;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";

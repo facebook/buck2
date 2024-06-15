@@ -22,17 +22,17 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
+use crate::legacy_configs::configs::ConfigArgumentPair;
+use crate::legacy_configs::configs::ConfigArgumentParseError;
+use crate::legacy_configs::configs::ConfigData;
+use crate::legacy_configs::configs::ConfigFileLocation;
+use crate::legacy_configs::configs::ConfigFileLocationWithLine;
+use crate::legacy_configs::configs::ConfigParserFileOps;
+use crate::legacy_configs::configs::ConfigValue;
+use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::configs::LegacyBuckConfigSection;
+use crate::legacy_configs::configs::Location;
 use crate::legacy_configs::parser::resolver::ConfigResolver;
-use crate::legacy_configs::ConfigArgumentPair;
-use crate::legacy_configs::ConfigArgumentParseError;
-use crate::legacy_configs::ConfigData;
-use crate::legacy_configs::ConfigFileLocation;
-use crate::legacy_configs::ConfigFileLocationWithLine;
-use crate::legacy_configs::ConfigParserFileOps;
-use crate::legacy_configs::ConfigValue;
-use crate::legacy_configs::LegacyBuckConfig;
-use crate::legacy_configs::LegacyBuckConfigSection;
-use crate::legacy_configs::Location;
 
 mod resolver;
 
