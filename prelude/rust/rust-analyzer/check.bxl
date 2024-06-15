@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def check_targets_impl(ctx):
+def check_targets_impl(ctx: BxlContext) -> None:
     target_universe = ctx.uquery().owner(ctx.cli_args.file)
     owners = ctx.cquery().owner(ctx.cli_args.file, target_universe)
     nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
