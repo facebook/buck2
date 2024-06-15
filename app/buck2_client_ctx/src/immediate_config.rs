@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_common::legacy_configs::cells::ImmediateConfig;
+use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellResolver;
@@ -24,6 +24,32 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
 use prost::Message;
+
+/// Limited view of the root config. This does not follow includes.
+struct ImmediateConfig {
+    cell_resolver: CellResolver,
+    daemon_startup_config: DaemonStartupConfig,
+}
+
+impl ImmediateConfig {
+    /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
+    /// and without parsing any configs for any referenced cells. This means this function might return
+    /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
+    fn parse(project_fs: &ProjectRoot) -> anyhow::Result<ImmediateConfig> {
+        let cells = BuckConfigBasedCells::parse_no_follow_includes(project_fs)?;
+
+        let root_config = cells
+            .configs_by_name
+            .get(cells.cell_resolver.root_cell())
+            .context("No config for root cell")?;
+
+        Ok(ImmediateConfig {
+            cell_resolver: cells.cell_resolver,
+            daemon_startup_config: DaemonStartupConfig::new(root_config)
+                .context("Error loading daemon startup config")?,
+        })
+    }
+}
 
 /// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not
 /// processing any includes).

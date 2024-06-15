@@ -52,7 +52,6 @@ use crate::legacy_configs::configs::LegacyConfigCmdArg;
 use crate::legacy_configs::configs::MainConfigFile;
 use crate::legacy_configs::configs::ResolvedLegacyConfigArg;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
-use crate::legacy_configs::init::DaemonStartupConfig;
 use crate::legacy_configs::path::BuckConfigFile;
 use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
 
@@ -137,7 +136,7 @@ impl BuckConfigBasedCells {
         Self::parse_with_file_ops_and_options(project_fs, file_ops, config_args, cwd, opts)
     }
 
-    pub(crate) fn parse_no_follow_includes(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
+    pub fn parse_no_follow_includes(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
         let opts = BuckConfigParseOptions {
             follow_includes: false,
         };
@@ -572,32 +571,6 @@ async fn get_buckconfig_paths_for_cell(
     }
 
     Ok(buckconfig_paths)
-}
-
-/// Limited view of the root config. This does not follow includes.
-pub struct ImmediateConfig {
-    pub cell_resolver: CellResolver,
-    pub daemon_startup_config: DaemonStartupConfig,
-}
-
-impl ImmediateConfig {
-    /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
-    /// and without parsing any configs for any referenced cells. This means this function might return
-    /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<ImmediateConfig> {
-        let cells = BuckConfigBasedCells::parse_no_follow_includes(project_fs)?;
-
-        let root_config = cells
-            .configs_by_name
-            .get(cells.cell_resolver.root_cell())
-            .context("No config for root cell")?;
-
-        Ok(ImmediateConfig {
-            cell_resolver: cells.cell_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(root_config)
-                .context("Error loading daemon startup config")?,
-        })
-    }
 }
 
 pub(crate) fn create_project_filesystem() -> ProjectRoot {
