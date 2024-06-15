@@ -210,9 +210,9 @@ impl StarlarkProvidersLabel {
 )]
 #[display(fmt = "{}", label)]
 #[repr(C)]
+#[serde(transparent)]
 pub struct StarlarkProvidersLabel {
     #[freeze(identity)]
-    #[serde(flatten)]
     label: ProvidersLabel,
 }
 
@@ -304,17 +304,20 @@ mod tests {
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProviderName;
+    use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use buck2_core::target::label::label::TargetLabel;
     use starlark::assert::Assert;
     use starlark::environment::GlobalsBuilder;
     use starlark::starlark_module;
 
     use crate::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+    use crate::types::configured_providers_label::StarlarkProvidersLabel;
 
     #[starlark_module]
-    fn register_test_provider_label(globals: &mut GlobalsBuilder) {
-        fn sample() -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
+    fn register_test_providers_label(globals: &mut GlobalsBuilder) {
+        fn configured_providers_label() -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
             Ok(StarlarkConfiguredProvidersLabel {
                 label: ConfiguredProvidersLabel::new(
                     ConfiguredTargetLabel::testing_parse(
@@ -331,16 +334,41 @@ mod tests {
                 ),
             })
         }
+
+        fn providers_label() -> anyhow::Result<StarlarkProvidersLabel> {
+            Ok(StarlarkProvidersLabel {
+                label: ProvidersLabel::new(
+                    TargetLabel::testing_parse("foo//bar:baz"),
+                    ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+                        vec![
+                            ProviderName::new("qux".to_owned())?,
+                            ProviderName::new("quux".to_owned())?,
+                        ]
+                        .into_boxed_slice(),
+                    ))),
+                ),
+            })
+        }
     }
 
     #[test]
-    fn test_to_json() {
+    fn test_configured_providers_label_to_json() {
         let mut a = Assert::new();
-        a.globals_add(register_test_provider_label);
+        a.globals_add(register_test_providers_label);
         a.eq(
             &"'\"foo//bar:baz[qux][quux] (<CFG>)\"'"
                 .replace("<CFG>", &ConfigurationData::testing_new().to_string()),
-            "json.encode(sample())",
+            "json.encode(configured_providers_label())",
+        );
+    }
+
+    #[test]
+    fn test_providers_label_to_json() {
+        let mut a = Assert::new();
+        a.globals_add(register_test_providers_label);
+        a.eq(
+            "'\"foo//bar:baz[qux][quux]\"'",
+            "json.encode(providers_label())",
         );
     }
 }
