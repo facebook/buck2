@@ -103,33 +103,6 @@ impl BuckConfigBasedCells {
         Ok(cells.cell_resolver)
     }
 
-    /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
-    /// and without parsing any configs for any referenced cells. This means this function might return
-    /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    pub fn parse_immediate_config(project_fs: &ProjectRoot) -> anyhow::Result<ImmediateConfig> {
-        let opts = BuckConfigParseOptions {
-            follow_includes: false,
-        };
-        let cells = Self::parse_with_file_ops_and_options(
-            project_fs,
-            &mut DefaultConfigParserFileOps {},
-            &[],
-            ProjectRelativePath::empty(),
-            opts,
-        )?;
-
-        let root_config = cells
-            .configs_by_name
-            .get(cells.cell_resolver.root_cell())
-            .context("No config for root cell")?;
-
-        Ok(ImmediateConfig {
-            cell_resolver: cells.cell_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(root_config)
-                .context("Error loading daemon startup config")?,
-        })
-    }
-
     pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(
             project_fs,
@@ -592,6 +565,35 @@ async fn get_buckconfig_paths_for_cell(
 pub struct ImmediateConfig {
     pub cell_resolver: CellResolver,
     pub daemon_startup_config: DaemonStartupConfig,
+}
+
+impl ImmediateConfig {
+    /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
+    /// and without parsing any configs for any referenced cells. This means this function might return
+    /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
+    pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<ImmediateConfig> {
+        let opts = BuckConfigParseOptions {
+            follow_includes: false,
+        };
+        let cells = BuckConfigBasedCells::parse_with_file_ops_and_options(
+            project_fs,
+            &mut DefaultConfigParserFileOps {},
+            &[],
+            ProjectRelativePath::empty(),
+            opts,
+        )?;
+
+        let root_config = cells
+            .configs_by_name
+            .get(cells.cell_resolver.root_cell())
+            .context("No config for root cell")?;
+
+        Ok(ImmediateConfig {
+            cell_resolver: cells.cell_resolver,
+            daemon_startup_config: DaemonStartupConfig::new(root_config)
+                .context("Error loading daemon startup config")?,
+        })
+    }
 }
 
 pub(crate) fn create_project_filesystem() -> ProjectRoot {

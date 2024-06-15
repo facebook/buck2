@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_common::legacy_configs::cells::ImmediateConfig;
 use buck2_common::legacy_configs::init::DaemonStartupConfig;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellResolver;
@@ -107,7 +107,7 @@ impl<'a> ImmediateConfigContext<'a> {
 
                 // See comment in `ImmediateConfig` about why we use `OnceLock` rather than `Lazy`
                 let project_filesystem = roots.project_root;
-                let cfg = BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?;
+                let cfg = ImmediateConfig::parse(&project_filesystem)?;
 
                 // It'd be nice to deal with this a little differently by having this be a separate
                 // type.
