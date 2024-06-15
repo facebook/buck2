@@ -30,7 +30,7 @@ use gazebo::prelude::*;
 
 use crate::ctx::ServerCommandContextTrait;
 
-pub struct PatternParser {
+struct PatternParser {
     cell_resolver: CellResolver,
     cell_alias_resolver: CellAliasResolver,
     cwd: CellPath,
@@ -38,7 +38,7 @@ pub struct PatternParser {
 }
 
 impl PatternParser {
-    pub async fn new(
+    async fn new(
         ctx: &mut DiceComputations<'_>,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
@@ -58,7 +58,7 @@ impl PatternParser {
         })
     }
 
-    pub fn parse_pattern<T: PatternType>(&self, pattern: &str) -> anyhow::Result<ParsedPattern<T>> {
+    fn parse_pattern<T: PatternType>(&self, pattern: &str) -> anyhow::Result<ParsedPattern<T>> {
         ParsedPattern::parse_relaxed(
             &self.target_alias_resolver,
             self.cwd.as_ref(),
