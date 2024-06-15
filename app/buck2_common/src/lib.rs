@@ -39,6 +39,7 @@ pub mod global_cfg_options;
 pub mod home_buck_tmp;
 pub mod http;
 pub mod ignores;
+pub mod init;
 pub mod invocation_paths;
 pub mod invocation_roots;
 pub mod io;

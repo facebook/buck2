@@ -14,7 +14,6 @@ mod access;
 pub mod cells;
 pub mod configs;
 pub mod dice;
-pub mod init;
 pub mod key;
 mod parser;
 pub(crate) mod path;

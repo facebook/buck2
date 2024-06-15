@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::legacy_configs::init::DaemonStartupConfig;
+use buck2_common::init::DaemonStartupConfig;
 use buck2_core::buck2_env;
 use buck2_core::ci::ci_identifiers;
 

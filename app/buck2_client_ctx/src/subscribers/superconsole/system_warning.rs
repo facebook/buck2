@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::legacy_configs::init::SystemWarningConfig;
+use buck2_common::init::SystemWarningConfig;
 use crossterm::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;

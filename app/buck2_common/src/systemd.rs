@@ -15,8 +15,8 @@ use std::sync::OnceLock;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_util::process;
 
-use crate::legacy_configs::init::ResourceControlConfig;
-use crate::legacy_configs::init::ResourceControlStatus;
+use crate::init::ResourceControlConfig;
+use crate::init::ResourceControlStatus;
 
 const SYSTEMD_MIN_VERSION: u32 = 253;
 static AVAILABILITY: OnceLock<Option<SystemdNotAvailableReason>> = OnceLock::new();

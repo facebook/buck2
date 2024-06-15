@@ -17,7 +17,7 @@ use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
-use buck2_common::legacy_configs::init::SystemWarningConfig;
+use buck2_common::init::SystemWarningConfig;
 
 use crate::commands::log::options::EventLogOptions;
 

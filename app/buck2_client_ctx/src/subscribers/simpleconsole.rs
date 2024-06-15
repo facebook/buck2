@@ -17,7 +17,7 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::legacy_configs::init::SystemWarningConfig;
+use buck2_common::init::SystemWarningConfig;
 use buck2_data::TagEvent;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
