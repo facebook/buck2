@@ -107,42 +107,7 @@ impl StarlarkProfilerConfiguration {
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-struct StarlarkProfilerConfigurationKey;
-
-#[derive(
-    Debug,
-    derive_more::Display,
-    Copy,
-    Clone,
-    Dupe,
-    Eq,
-    PartialEq,
-    Hash,
-    Allocative
-)]
-#[display(fmt = "{:?}", self)]
 pub struct StarlarkProfileModeForIntermediateAnalysisKey;
-
-#[async_trait]
-impl Key for StarlarkProfilerConfigurationKey {
-    type Value = buck2_error::Result<StarlarkProfilerConfiguration>;
-
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let configuration = get_starlark_profiler_instrumentation_override(ctx).await?;
-        Ok(configuration)
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
-    }
-}
 
 #[async_trait]
 impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
@@ -236,7 +201,7 @@ async fn get_starlark_profiler_instrumentation_override(
 async fn get_starlark_profiler_configuration(
     ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-    Ok(ctx.compute(&StarlarkProfilerConfigurationKey).await??)
+    get_starlark_profiler_instrumentation_override(ctx).await
 }
 
 #[async_trait]
