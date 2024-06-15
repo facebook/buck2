@@ -92,8 +92,18 @@ impl BuckConfigBasedCells {
         Self::parse_immediate_config_with_file_ops(project_fs, &mut DefaultConfigParserFileOps {})
     }
 
+    pub(crate) fn parse_cell_resolver(
+        project_fs: &ProjectRoot,
+        file_ops: &mut dyn ConfigParserFileOps,
+    ) -> anyhow::Result<CellResolver> {
+        Ok(
+            BuckConfigBasedCells::parse_immediate_config_with_file_ops(project_fs, file_ops)?
+                .cell_resolver,
+        )
+    }
+
     /// Private function with semantics of `parse_immediate_config` but usable for testing.
-    pub(crate) fn parse_immediate_config_with_file_ops(
+    fn parse_immediate_config_with_file_ops(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<ImmediateConfig> {
