@@ -96,10 +96,18 @@ impl BuckConfigBasedCells {
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<CellResolver> {
-        Ok(
-            BuckConfigBasedCells::parse_immediate_config_with_file_ops(project_fs, file_ops)?
-                .cell_resolver,
-        )
+        let opts = BuckConfigParseOptions {
+            follow_includes: false,
+        };
+        let cells = Self::parse_with_file_ops_and_options(
+            project_fs,
+            file_ops,
+            &[],
+            ProjectRelativePath::empty(),
+            opts,
+        )?;
+
+        Ok(cells.cell_resolver)
     }
 
     /// Private function with semantics of `parse_immediate_config` but usable for testing.
