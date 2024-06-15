@@ -20,7 +20,7 @@ use dice::DiceComputations;
 use gazebo::prelude::VecExt;
 
 use crate::ctx::ServerCommandContextTrait;
-use crate::pattern::global_cfg_options_from_client_context;
+use crate::global_cfg_options::global_cfg_options_from_client_context;
 
 pub enum TargetResolutionConfig {
     /// Resolve using target platform.

@@ -24,8 +24,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::global_cfg_options_from_client_context;
 use dice::DiceComputations;
 
 use crate::output::buck_out_path_parser::BuckOutPathParser;

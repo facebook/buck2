@@ -15,6 +15,7 @@ pub mod bxl;
 pub mod command_end;
 pub mod concurrency;
 pub mod ctx;
+pub mod global_cfg_options;
 pub mod logging;
 pub mod other_server_commands;
 pub mod partial_result_dispatcher;
