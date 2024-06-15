@@ -113,14 +113,23 @@ impl HasBuildfiles for DiceComputations<'_> {
 #[cfg(test)]
 mod tests {
     use buck2_core::cells::name::CellName;
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use gazebo::prelude::SliceExt;
     use indoc::indoc;
 
     use crate::buildfiles::parse_buildfile_name;
-    use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
+
+    fn create_project_filesystem() -> ProjectRoot {
+        #[cfg(not(windows))]
+        let root_path = "/".to_owned();
+        #[cfg(windows)]
+        let root_path = "C:/".to_owned();
+        ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
+    }
 
     #[test]
     fn test_buildfiles() -> anyhow::Result<()> {
