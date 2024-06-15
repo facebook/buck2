@@ -41,8 +41,7 @@ def materialize(
 def _process_target_config(
         ctx: BxlContext,
         target: bxl.ConfiguredTargetNode,
-        in_workspace: bool,
-        out_dir: bxl.EnsuredArtifact | None = None) -> TargetInfo:
+        in_workspace: bool) -> TargetInfo:
     # convert all source paths to absolute paths
     resolved_attrs = target.resolved_attrs_eager(ctx)
 
@@ -105,8 +104,6 @@ def _process_target_config(
     copy["project_relative_buildfile"] = ctx.fs.project_rel_path(target.buildfile_path)
     copy["kind"] = target.rule_type
     copy["in_workspace"] = in_workspace
-    if out_dir:
-        copy["out_dir"] = out_dir
 
     return copy
 
@@ -133,6 +130,12 @@ def cquery_deps(
             if candidate_workspace.raw_target() in workspaces:
                 in_workspace = True
 
+        target_info = _process_target_config(
+            ctx = ctx,
+            target = target,
+            in_workspace = in_workspace,
+        )
+
         labels = attrs.get("labels")
         if "thrift_library-rust" in labels.value():
             for src, dest in attrs.get("mapped_srcs").value().items():
@@ -141,12 +144,11 @@ def cquery_deps(
                     src = src,
                     dest = dest,
                 ))
-            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
         elif "generated_protobuf_library_rust" in labels.value():
             protobuf_out_dir = materialize_generated_protobufs(ctx, target, actions, seen)
-            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace, protobuf_out_dir)
-        else:
-            out[target.label.raw_target()] = _process_target_config(ctx, target, in_workspace)
+            target_info["out_dir"] = protobuf_out_dir
+
+        out[target.label.raw_target()] = target_info
 
     materialize_generated_thrift(ctx, actions, mapped_srcs, out)
 
