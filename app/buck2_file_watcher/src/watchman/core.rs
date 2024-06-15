@@ -76,7 +76,7 @@ mod types {
             let event = match (*self.exists, *self.new) {
                 (true, true) => WatchmanEventType::Create,
                 (false, _) => WatchmanEventType::Delete,
-                _ => WatchmanEventType::Modify,
+                (true, false) => WatchmanEventType::Modify,
             };
 
             Some(WatchmanEvent {
