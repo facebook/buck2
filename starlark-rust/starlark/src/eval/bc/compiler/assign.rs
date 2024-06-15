@@ -19,7 +19,7 @@
 
 use starlark_syntax::slice_vec_ext::SliceExt;
 
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::eval::bc::compiler::expr::write_n_exprs;
 use crate::eval::bc::instr_impl::InstrSetArrayIndex;
 use crate::eval::bc::instr_impl::InstrSetObjectField;

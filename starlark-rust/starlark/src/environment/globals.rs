@@ -23,7 +23,7 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 
-use crate::collections::symbol_map::SymbolMap;
+use crate::collections::symbol::map::SymbolMap;
 use crate::collections::SmallMap;
 use crate::docs::DocMember;
 use crate::docs::DocModule;

@@ -27,7 +27,7 @@ use thiserror::Error;
 use crate::cast::transmute;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHashValue;

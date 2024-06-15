@@ -44,7 +44,7 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::module::AstModule;
 use starlark_syntax::syntax::module::AstModuleFields;
 
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::docs::DocString;
 use crate::environment::Globals;
 use crate::eval::compiler::def::DefInfo;

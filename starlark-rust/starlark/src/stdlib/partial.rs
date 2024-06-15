@@ -29,7 +29,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::environment::GlobalsBuilder;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;

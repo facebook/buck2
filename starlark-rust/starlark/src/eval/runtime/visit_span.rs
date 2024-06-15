@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::expr::CompareOp;
 use crate::eval::compiler::span::IrSpanned;

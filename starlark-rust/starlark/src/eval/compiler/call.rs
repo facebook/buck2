@@ -22,7 +22,7 @@ use std::cell::Cell;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::VecExt;
 
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;
 use crate::eval::compiler::def_inline::local_as_value::local_as_value;
 use crate::eval::compiler::def_inline::InlineDefBody;

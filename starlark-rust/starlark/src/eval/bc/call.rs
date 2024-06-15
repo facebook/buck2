@@ -25,7 +25,7 @@ use std::marker::PhantomData;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::coerce::coerce;
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::eval::bc::frame::BcFramePtr;
 use crate::eval::bc::instr_arg::BcInstrArg;
 use crate::eval::bc::stack_ptr::BcSlotIn;

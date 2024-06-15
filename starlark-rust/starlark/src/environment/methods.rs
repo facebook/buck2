@@ -18,8 +18,8 @@
 use once_cell::sync::OnceCell;
 use starlark_map::Hashed;
 
-use crate::collections::symbol_map::Symbol;
-use crate::collections::symbol_map::SymbolMap;
+use crate::collections::symbol::map::SymbolMap;
+use crate::collections::symbol::symbol::Symbol;
 use crate::docs::DocObject;
 use crate::environment::common_documentation;
 use crate::typing::Ty;

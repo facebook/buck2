@@ -20,7 +20,7 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::ArgumentP;
 
 use crate::coerce::coerce;
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::payload::CstArgument;

@@ -24,7 +24,7 @@ use std::fmt::Write;
 
 use itertools::Itertools;
 
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::slots::ModuleSlotId;

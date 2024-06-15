@@ -34,4 +34,4 @@ pub(crate) mod aligned_padded_str;
 pub(crate) mod alloca;
 pub(crate) mod maybe_uninit_backport;
 pub(crate) mod string_pool;
-pub(crate) mod symbol_map;
+pub(crate) mod symbol;

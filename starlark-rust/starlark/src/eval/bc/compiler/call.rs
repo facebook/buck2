@@ -19,7 +19,7 @@
 
 use either::Either;
 
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::eval::bc::call::BcCallArgsFull;
 use crate::eval::bc::call::BcCallArgsPos;
 use crate::eval::bc::compiler::expr::write_expr_opt;

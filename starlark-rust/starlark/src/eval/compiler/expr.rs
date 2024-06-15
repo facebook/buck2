@@ -34,7 +34,7 @@ use starlark_syntax::syntax::ast::StmtP;
 use thiserror::Error;
 
 use crate::codemap::Spanned;
-use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol::symbol::Symbol;
 use crate::environment::slots::ModuleSlotId;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::compiler::args::ArgsCompiledValue;

@@ -31,7 +31,7 @@ use starlark_map::Hashed;
 use crate as starlark;
 use crate::__macro_refs::coerce;
 use crate::cast::transmute;
-use crate::collections::symbol_map::SymbolMap;
+use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocParam;
 use crate::docs::DocString;
 use crate::eval::runtime::arguments::ArgSymbol;
