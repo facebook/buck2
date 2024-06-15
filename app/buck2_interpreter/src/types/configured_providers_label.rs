@@ -300,6 +300,47 @@ pub fn register_providers_label(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    // Tests live in `buck2_build_api` crate because tests depend on `Tester` type
-    // which depends on `buck2_build_api` heavily.
+    use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::provider::label::ConfiguredProvidersLabel;
+    use buck2_core::provider::label::NonDefaultProvidersName;
+    use buck2_core::provider::label::ProviderName;
+    use buck2_core::provider::label::ProvidersName;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use starlark::assert::Assert;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::starlark_module;
+
+    use crate::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+
+    #[starlark_module]
+    fn register_test_provider_label(globals: &mut GlobalsBuilder) {
+        fn sample() -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
+            Ok(StarlarkConfiguredProvidersLabel {
+                label: ConfiguredProvidersLabel::new(
+                    ConfiguredTargetLabel::testing_parse(
+                        "foo//bar:baz",
+                        ConfigurationData::testing_new(),
+                    ),
+                    ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+                        vec![
+                            ProviderName::new("qux".to_owned())?,
+                            ProviderName::new("quux".to_owned())?,
+                        ]
+                        .into_boxed_slice(),
+                    ))),
+                ),
+            })
+        }
+    }
+
+    #[test]
+    fn test_to_json() {
+        let mut a = Assert::new();
+        a.globals_add(register_test_provider_label);
+        a.eq(
+            &"'\"foo//bar:baz[qux][quux] (<CFG>)\"'"
+                .replace("<CFG>", &ConfigurationData::testing_new().to_string()),
+            "json.encode(sample())",
+        );
+    }
 }
