@@ -27,7 +27,7 @@ use std::ptr;
 use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
-use equivalent::Equivalent;
+pub use equivalent::Equivalent;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 pub struct Interner<T: 'static, H = DefaultHasher> {
