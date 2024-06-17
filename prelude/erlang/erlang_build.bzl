@@ -285,8 +285,8 @@ def _generate_beam_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
-    dep_info_content = to_term_args(_build_dep_info_data(updated_build_environment))
-    dep_info_file = ctx.actions.write(_dep_info_name(toolchain), dep_info_content)
+    dep_info_content = _build_dep_info_data(updated_build_environment)
+    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), dep_info_content)
 
     for erl in src_artifacts:
         _build_erl(ctx, toolchain, updated_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
@@ -388,6 +388,8 @@ def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) ->
             "minimal",
             "-noinput",
             "-noshell",
+            "-pa",
+            toolchain.utility_modules,
             "-run",
             "escript",
             "start",
@@ -460,6 +462,8 @@ def _build_erl(
         "minimal",
         "-noinput",
         "-noshell",
+        "-pa",
+        toolchain.utility_modules,
         "-run",
         "escript",
         "start",

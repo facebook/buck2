@@ -39,6 +39,7 @@ toolchain_utilities(
         "edoc_doclet_chunks.erl",
         "edoc_report.erl",
         "epp_dodger.erl",
+        "json.erl",
     ],
     visibility = ["PUBLIC"],
 )

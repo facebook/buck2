@@ -21,12 +21,12 @@
 %%%  or a given output file. The format is as follows and intended to
 %%%  be consumed by other file:consult/1:
 %%% ```
-%%%  [#{"type" := "include"
+%%%  [#{<<"type">> := "include"
 %%%             | "include_lib"
 %%%             | "behaviour"
 %%%             | "parse_transform"
 %%%             | "manual_dependency",
-%%%   "file"  := "header_or_source_file.(h|e)rl",
+%%%   <<"file">>  := "header_or_source_file.(h|e)rl",
 %%%  ["app"   => "application"][only for "include_lib"]
 %%%   },
 %%%   ...
@@ -96,7 +96,7 @@ usage() ->
 do(InFile, Outspec) ->
     {ok, Forms} = epp_dodger:parse_file(InFile),
     Dependencies = lists:sort(process_forms(Forms, [])),
-    OutData = unicode:characters_to_binary(io_lib:format("~p.", [Dependencies])),
+    OutData = unicode:characters_to_binary(json:encode(Dependencies)),
     case Outspec of
         {file, File} ->
             file:write_file(File, OutData);
@@ -108,29 +108,33 @@ do(InFile, Outspec) ->
 process_forms([], Acc) ->
     Acc;
 process_forms([?MATCH_INCLUDE(Include) | Rest], Acc) ->
-    Dependency = #{"file" => filename:basename(Include), "type" => "include"},
+    Dependency = #{<<"file">> => list_to_binary(filename:basename(Include)), <<"type">> => <<"include">>},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_INCLUDE_LIB(IncludeLib) | Rest], Acc) ->
     Dependency =
         case filename:split(IncludeLib) of
             [App, "include", Include] ->
-                #{"app" => App, "file" => Include, "type" => "include_lib"};
+                #{
+                    <<"app">> => list_to_binary(App),
+                    <<"file">> => list_to_binary(Include),
+                    <<"type">> => <<"include_lib">>
+                };
             _ ->
                 error(malformed_header_include_lib)
         end,
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_BEHAVIOR(Module) | Rest], Acc) ->
-    Dependency = #{"file" => module_to_erl(Module), "type" => "behaviour"},
+    Dependency = #{<<"file">> => module_to_erl(Module), <<"type">> => <<"behaviour">>},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_BEHAVIOUR(Module) | Rest], Acc) ->
-    Dependency = #{"file" => module_to_erl(Module), "type" => "behaviour"},
+    Dependency = #{<<"file">> => module_to_erl(Module), <<"type">> => <<"behaviour">>},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_PARSETRANSFORM(Module) | Rest], Acc) ->
-    Dependency = #{"file" => module_to_erl(Module), "type" => "parse_transform"},
+    Dependency = #{<<"file">> => module_to_erl(Module), <<"type">> => <<"parse_transform">>},
     process_forms(Rest, [Dependency | Acc]);
 process_forms([?MATCH_MANUAL_DEPENDENCIES(Modules) | Rest], Acc) ->
     Dependencies = [
-        #{"file" => module_to_erl(Module), "type" => "manual_dependency"}
+        #{<<"file">> => module_to_erl(Module), <<"type">> => <<"manual_dependency">>}
      || {tree, atom, _, Module} <- Modules
     ],
     process_forms(Rest, Dependencies ++ Acc);
@@ -139,4 +143,4 @@ process_forms([_ | Rest], Acc) ->
 
 -spec module_to_erl(module()) -> file:filename().
 module_to_erl(Module) ->
-    unicode:characters_to_list([atom_to_list(Module), ".erl"]).
+    unicode:characters_to_binary([atom_to_list(Module), ".erl"]).
