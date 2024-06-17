@@ -63,10 +63,9 @@ def _cpu_split_transition_impl(
     elif os_label == refs.watchos[ConstraintValueInfo].label:
         if sdk == None or sdk_label == refs.watchos_simulator_sdk[ConstraintValueInfo].label:
             cpu_name_to_cpu_constraint["arm64"] = refs.arm64[ConstraintValueInfo]
-            cpu_name_to_cpu_constraint["x86_64"] = refs.x86_64[ConstraintValueInfo]
         elif sdk_label == refs.watchos_device_sdk[ConstraintValueInfo].label:
             cpu_name_to_cpu_constraint["arm64"] = refs.arm64[ConstraintValueInfo]
-            cpu_name_to_cpu_constraint["arm32"] = refs.arm32[ConstraintValueInfo]
+            cpu_name_to_cpu_constraint["arm64_32"] = refs.arm64_32[ConstraintValueInfo]
         else:
             fail("Unsupported SDK {} for WatchOS".format(sdk_label))
     elif os_label == refs.macos[ConstraintValueInfo].label:
@@ -103,6 +102,7 @@ cpu_split_transition = transition(
     refs = {
         "arm32": "config//cpu/constraints:arm32",
         "arm64": "config//cpu/constraints:arm64",
+        "arm64_32": "config//cpu/constraints:arm64_32",
         "cpu": "config//cpu/constraints:cpu",
         "ios": "config//os/constraints:iphoneos",
         "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",

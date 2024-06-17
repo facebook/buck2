@@ -30,6 +30,12 @@ constraint_value(
     visibility = ["PUBLIC"],
 )
 
+constraint_value(
+    name = "arm64_32",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)
+
 # Represents various flavors of ARM32, e.g., ARMv7k
 constraint_value(
     name = "arm32",
