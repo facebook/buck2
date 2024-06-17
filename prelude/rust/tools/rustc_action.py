@@ -58,6 +58,7 @@ class Args(NamedTuple):
     buck_target: Optional[str]
     failure_filter: Optional[IO[bytes]]
     required_output: Optional[List[Tuple[str, str]]]
+    echo: Optional[IO[bytes]]
     rustc: List[str]
 
 
@@ -117,6 +118,11 @@ def arg_parse() -> Args:
         metavar=("SHORT", "PATH"),
         help="Required output path we expect rustc to generate "
         "(and filled with a placeholder on a filtered failure)",
+    )
+    parser.add_argument(
+        "--echo",
+        type=argparse.FileType("wb"),
+        help="Write the input command line to this file, without running it",
     )
     parser.add_argument(
         "rustc",
@@ -229,6 +235,11 @@ async def handle_output(  # noqa: C901
 
 async def main() -> int:
     args = arg_parse()
+    args = args._replace(rustc=[arg_eval(arg) for arg in args.rustc])
+
+    if args.echo:
+        args.echo.write("".join(arg + "\n" for arg in args.rustc).encode("utf-8"))
+        return 0
 
     # Inherit a very limited initial environment, then add the new things
     env = {
@@ -278,8 +289,7 @@ async def main() -> int:
     if DEBUG:
         print(f"args {repr(args)} env {env} crate_map {crate_map}", end="\n")
 
-    rustc_cmd = args.rustc[:1]
-    rustc_args = [arg_eval(arg) for arg in args.rustc[1:]]
+    rustc_cmd, rustc_args = args.rustc[:1], args.rustc[1:]
 
     if args.remap_cwd_prefix is not None:
         rustc_args.append(

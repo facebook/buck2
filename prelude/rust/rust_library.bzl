@@ -101,6 +101,7 @@ load(
     "resolve_rust_deps",
     "strategy_info",
 )
+load(":named_deps.bzl", "write_named_deps_names")
 load(
     ":outputs.bzl",
     "RustcExtraOutputsInfo",
@@ -283,6 +284,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
+        named_deps_names = write_named_deps_names(ctx, compile_ctx),
     )
     providers += _rust_metadata_providers(
         check_artifacts = rust_param_artifact[meta_params],
@@ -491,13 +493,16 @@ def _default_providers(
         check_artifacts: dict[str, Artifact | None],
         expand: Artifact,
         sources: Artifact,
-        rustdoc_coverage: Artifact) -> list[Provider]:
+        rustdoc_coverage: Artifact,
+        named_deps_names: Artifact | None) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
     targets["expand"] = expand
     targets["doc"] = rustdoc
     targets["doc-coverage"] = rustdoc_coverage
+    if named_deps_names:
+        targets["named_deps"] = named_deps_names
     sub_targets = {
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()

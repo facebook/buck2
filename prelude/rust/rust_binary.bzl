@@ -75,6 +75,7 @@ load(
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
 )
+load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
 load(":resources.bzl", "rust_attr_resources")
 
@@ -101,7 +102,6 @@ def _rust_binary_common(
     dwp_target = None
     pdb = None
     strategy_param = {}  # strategy -> param
-    sub_targets = {}
 
     specified_link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
 
@@ -369,7 +369,12 @@ def _rust_binary_common(
         ("expand", expand.output),
         ("sources", compile_ctx.symlinked_srcs),
     ])
-    sub_targets.update({k: [DefaultInfo(default_output = v)] for k, v in extra_compiled_targets})
+
+    named_deps_names = write_named_deps_names(ctx, compile_ctx)
+    if named_deps_names:
+        extra_compiled_targets.append(("named_deps", named_deps_names))
+
+    sub_targets = {k: [DefaultInfo(default_output = v)] for k, v in extra_compiled_targets}
     sub_targets.update(compiled_outputs.sub_targets)
     for (k, sub_compiled_outputs) in styles.items():
         sub_targets[k.value] = [

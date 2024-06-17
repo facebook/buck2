@@ -42,7 +42,10 @@ def materialize(
 def _process_target_config(
         ctx: BxlContext,
         target: bxl.ConfiguredTargetNode,
+        analysis: bxl.AnalysisResult,
         in_workspace: bool) -> TargetInfo:
+    providers = analysis.providers()
+
     # convert all source paths to absolute paths
     resolved_attrs = target.resolved_attrs_eager(ctx)
 
@@ -65,13 +68,13 @@ def _process_target_config(
         mapped_srcs[v] = ctx.output.ensure(key).abs_path()
 
     # remove the configured platform from named deps.
-    named_deps = {}
     if is_list(resolved_attrs.named_deps):
-        for dep, alias in resolved_attrs.named_deps:
-            if isinstance(dep, ResolvedStringWithMacros):
-                dep = str(dep).replace("\"", "")
-            named_deps[dep] = alias.label.raw_target()
+        named_deps_names = providers[DefaultInfo].sub_targets["named_deps"][DefaultInfo].default_outputs[0]
+        named_deps = [ctx.output.ensure(named_deps_names).abs_path()]
+        for _alias, dep in resolved_attrs.named_deps:
+            named_deps.append(dep.label.raw_target())
     else:
+        named_deps = {}
         for dep, alias in resolved_attrs.named_deps.items():
             named_deps[dep] = alias.label.raw_target()
 
@@ -125,7 +128,7 @@ def cquery_deps(
     out = {}
 
     # Eagerly analyze targets
-    ctx.analysis(outputs)
+    analysis = ctx.analysis(outputs)
 
     mapped_srcs = []
     seen = {}
@@ -140,6 +143,7 @@ def cquery_deps(
         target_info = _process_target_config(
             ctx = ctx,
             target = target,
+            analysis = analysis[target.label.with_sub_target()],
             in_workspace = in_workspace,
         )
 

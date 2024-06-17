@@ -15,6 +15,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
+use serde::de::Error as _;
+use serde::de::MapAccess;
+use serde::de::SeqAccess;
+use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -118,6 +122,7 @@ pub(crate) struct TargetInfo {
     pub(crate) test_deps: Vec<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with
     // `buck.direct_dependencies` and are instead a separate entry.
+    #[serde(deserialize_with = "deserialize_named_deps")]
     pub(crate) named_deps: FxHashMap<String, Target>,
     pub(crate) proc_macro: Option<bool>,
     // Set of features enabled for this crate.
@@ -278,6 +283,52 @@ pub(crate) struct ExpandedAndResolved {
     pub(crate) expanded_targets: Vec<Target>,
     pub(crate) queried_proc_macros: FxHashMap<Target, MacroOutput>,
     pub(crate) resolved_deps: FxHashMap<Target, TargetInfo>,
+}
+
+fn deserialize_named_deps<'de, D>(deserializer: D) -> Result<FxHashMap<String, Target>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct NamedDepsVisitor;
+
+    impl<'de> Visitor<'de> for NamedDepsVisitor {
+        type Value = FxHashMap<String, Target>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("dict or list")
+        }
+
+        fn visit_map<M>(self, map: M) -> Result<Self::Value, M::Error>
+        where
+            M: MapAccess<'de>,
+        {
+            FxHashMap::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+        }
+
+        fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
+        where
+            S: SeqAccess<'de>,
+        {
+            let names: PathBuf = seq
+                .next_element()?
+                .ok_or_else(|| S::Error::invalid_length(0, &self))?;
+            let content = fs::read_to_string(&names).map_err(|e| {
+                S::Error::custom(format!("failed to read {}: {}", names.display(), e))
+            })?;
+            let mut lines = content.lines();
+
+            let mut named_deps = FxHashMap::default();
+            while let Some(target) = seq.next_element()? {
+                let name = lines.next().ok_or_else(|| {
+                    S::Error::custom(format!("not enough lines in {}", names.display()))
+                })?;
+                named_deps.insert(name.to_owned(), target);
+            }
+            Ok(named_deps)
+        }
+    }
+
+    deserializer.deserialize_any(NamedDepsVisitor)
 }
 
 #[test]
