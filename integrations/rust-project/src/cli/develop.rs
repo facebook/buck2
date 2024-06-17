@@ -187,26 +187,30 @@ impl Develop {
                 input
             ));
         }
-        for (buildfile, targets) in targets {
-            let project = self.run_inner(targets)?;
 
-            // if invoked by rust-analyzer, write the more verbose buildfile out as well.
-            if self.invoked_by_ra {
+        if self.invoked_by_ra {
+            for (buildfile, targets) in targets {
+                let project = self.run_inner(targets)?;
                 let output = OutputData { buildfile, project };
                 serde_json::to_writer(&mut writer, &output)?;
                 writeln!(writer)?;
                 info!("wrote rust-project.json to stdout");
+            }
+        } else {
+            let mut targets = targets.into_values().flatten().collect::<Vec<_>>();
+            targets.sort();
+            targets.dedup();
+
+            let project = self.run_inner(targets)?;
+            if cfg.pretty {
+                serde_json::to_writer_pretty(&mut writer, &project)?;
             } else {
-                if cfg.pretty {
-                    serde_json::to_writer_pretty(&mut writer, &project)?;
-                } else {
-                    serde_json::to_writer(&mut writer, &project)?;
-                }
-                writeln!(writer)?;
-                match &cfg.out {
-                    Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
-                    Output::Stdout => info!("wrote rust-project.json to stdout"),
-                }
+                serde_json::to_writer(&mut writer, &project)?;
+            }
+            writeln!(writer)?;
+            match &cfg.out {
+                Output::Path(p) => info!(file = ?p, "wrote rust-project.json"),
+                Output::Stdout => info!("wrote rust-project.json to stdout"),
             }
         }
 
