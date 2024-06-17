@@ -521,7 +521,7 @@ impl CellConfigLoader {
                 let (new_configs, config_metrics) = if dice_ctx.is_injected_legacy_configs_key_set().await? {
                     let injected_legacy_configs = dice_ctx.get_injected_legacy_configs().await?;
                     let root_cell = cells_and_configs.cell_resolver.root_cell();
-                    let diff_data = ConfigDiffMetrics::new(root_cell, &injected_legacy_configs, &cells_and_configs.configs_by_name);
+                    let diff_data = ConfigDiffMetrics::new(root_cell, &cells_and_configs.configs_by_name, &injected_legacy_configs);
                     (diff_data.has_changed(), Some(diff_data))
                 } else {
                     // first invocation of a daemon
