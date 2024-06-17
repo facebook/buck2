@@ -106,7 +106,7 @@ def _mapped_srcs_arg():
 
 def _named_deps_arg(is_binary: bool):
     return {
-        "named_deps": attrs.dict(key = attrs.string(), value = rust_target_dep(is_binary), sorted = False, default = {}, doc = """
+        "named_deps": attrs.one_of(attrs.dict(key = attrs.string(), value = rust_target_dep(is_binary), sorted = False), attrs.list(attrs.tuple(attrs.arg(), rust_target_dep(is_binary))), default = {}, doc = """
     Add crate dependencies and define a local name by which to use that dependency by. This
      allows a crate to have multiple dependencies with the same crate name. For example:
      `named_deps = {"local_name", ":some_rust_crate" }`.

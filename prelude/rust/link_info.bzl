@@ -72,6 +72,11 @@ load(
     "Linkage",  # @unused Used as a type
 )
 load(
+    "@prelude//utils:type_defs.bzl",
+    "is_dict",
+    "is_string",
+)
+load(
     ":build_params.bzl",
     "MetadataKind",  # @unused Used as a type
 )
@@ -193,7 +198,7 @@ RustOrNativeDependency = record(
     # The actual dependency
     dep = field(Dependency),
     # The local name, if any (for `named_deps`)
-    name = field([None, str]),
+    name = field(None | str | ResolvedStringWithMacros),
     # Any flags for the dependency (`flagged_deps`), which are passed on to rustc.
     flags = field(list[str]),
 )
@@ -202,7 +207,7 @@ RustDependency = record(
     info = field(RustLinkInfo),
     label = field(ConfiguredProvidersLabel),
     dep = field(Dependency),
-    name = field([None, str]),
+    name = field(None | str | ResolvedStringWithMacros),
     flags = field(list[str]),
     proc_macro_marker = field([None, RustProcMacroMarker]),
 )
@@ -243,12 +248,14 @@ def enable_link_groups(
 # Returns all first-order dependencies.
 def _do_resolve_deps(
         deps: list[Dependency],
-        named_deps: dict[str, Dependency],
+        named_deps: dict[str, Dependency] | list[(ResolvedStringWithMacros, Dependency)],
         flagged_deps: list[(Dependency, list[str])] = []) -> list[RustOrNativeDependency]:
+    named_deps_items = named_deps.items() if is_dict(named_deps) else named_deps
+
     return [
         RustOrNativeDependency(name = name, dep = dep, flags = flags)
         for name, dep, flags in [(None, dep, []) for dep in deps] +
-                                [(name, dep, []) for name, dep in named_deps.items()] +
+                                [(name, dep, []) for name, dep in named_deps_items] +
                                 [(None, dep, flags) for dep, flags in flagged_deps]
     ]
 
@@ -561,8 +568,8 @@ def inherited_external_debug_info(
         children = inherited_debug_infos,
     )
 
-def normalize_crate(label: str) -> str:
-    return label.replace("-", "_")
+def normalize_crate(label: str | ResolvedStringWithMacros) -> str | ResolvedStringWithMacros:
+    return label.replace("-", "_") if is_string(label) else label
 
 def attr_simple_crate_for_filenames(ctx: AnalysisContext) -> str:
     """

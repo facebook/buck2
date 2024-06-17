@@ -11,7 +11,7 @@ load(":build_params.bzl", "BuildParams", "CrateType", "Emit")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
 
 CrateName = record(
-    simple = field(str),
+    simple = field(str | ResolvedStringWithMacros),
     dynamic = field(Artifact | None),
 )
 

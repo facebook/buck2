@@ -9,6 +9,7 @@ load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//rust:build_params.bzl", "MetadataKind")
 load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 load("@prelude//utils:set.bzl", "set")
+load("@prelude//utils:type_defs.bzl", "is_list")
 
 TargetInfo = dict[str, typing.Any]
 
@@ -65,8 +66,14 @@ def _process_target_config(
 
     # remove the configured platform from named deps.
     named_deps = {}
-    for dep, alias in resolved_attrs.named_deps.items():
-        named_deps[dep] = alias.label.raw_target()
+    if is_list(resolved_attrs.named_deps):
+        for dep, alias in resolved_attrs.named_deps:
+            if isinstance(dep, ResolvedStringWithMacros):
+                dep = str(dep).replace("\"", "")
+            named_deps[dep] = alias.label.raw_target()
+    else:
+        for dep, alias in resolved_attrs.named_deps.items():
+            named_deps[dep] = alias.label.raw_target()
 
     # remove the configured platform for tests
     tests = []
