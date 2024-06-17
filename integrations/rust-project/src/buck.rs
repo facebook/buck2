@@ -49,7 +49,6 @@ pub(crate) fn to_json_project(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
-    buildfile: PathBuf,
     relative_paths: bool,
     check_cycles: bool,
 ) -> Result<JsonProject, anyhow::Error> {
@@ -246,7 +245,6 @@ pub(crate) fn to_json_project(
                 kind: RunnableKind::TestOne,
             },
         ],
-        buildfile,
         // needed to ignore the generated `rust-project.json` in diffs, but including the actual
         // string will mark this file as generated
         generated: String::from("\x40generated"),

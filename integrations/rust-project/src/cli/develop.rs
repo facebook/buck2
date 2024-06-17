@@ -188,7 +188,7 @@ impl Develop {
             ));
         }
         for (buildfile, targets) in targets {
-            let project = self.run_inner(targets, buildfile.clone())?;
+            let project = self.run_inner(targets)?;
 
             // if invoked by rust-analyzer, write the more verbose buildfile out as well.
             if self.invoked_by_ra {
@@ -213,11 +213,7 @@ impl Develop {
         Ok(())
     }
 
-    pub(crate) fn run_inner(
-        &self,
-        targets: Vec<Target>,
-        buildfile: PathBuf,
-    ) -> Result<JsonProject, anyhow::Error> {
+    pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
         let start = std::time::Instant::now();
         let Develop {
             sysroot,
@@ -259,7 +255,6 @@ impl Develop {
             sysroot,
             expanded_and_resolved,
             aliased_libraries,
-            buildfile,
             *relative_paths,
             *check_cycles,
         )?;

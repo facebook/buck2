@@ -35,7 +35,6 @@ pub(crate) struct JsonProject {
     /// libcore, etc.).
     pub(crate) crates: Vec<Crate>,
     pub(crate) runnables: Vec<Runnable>,
-    pub(crate) buildfile: PathBuf,
     pub(crate) generated: String,
 }
 
