@@ -349,6 +349,11 @@ def _cxx_binary_and_test_attrs():
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "constraint_overrides": attrs.list(attrs.string(), default = []),
+        # These flags will only be used to instrument a target
+        # when coverage for that target is enabled by a header
+        # selected for coverage either in the target or in one
+        # of the target's dependencies.
+        "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
@@ -411,6 +416,10 @@ inlined_extra_attributes = {
     },
     "cxx_library": {
         "auto_link_groups": attrs.bool(default = False),
+        # These flags will only be used to instrument a target
+        # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
+        # or by any of the target's dependencies.
+        "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
         "deps_query": attrs.option(attrs.query(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
