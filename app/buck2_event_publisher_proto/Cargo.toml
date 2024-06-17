@@ -1,0 +1,16 @@
+[package]
+name = "buck2_event_publisher_proto"
+
+edition = "2021"
+license = { workspace = true }
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+prost = { workspace = true }
+tonic = { workspace = true }
+
+buck2_data = { workspace = true }
+
+[build-dependencies]
+buck2_protoc_dev = { workspace = true }
