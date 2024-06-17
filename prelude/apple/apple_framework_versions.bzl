@@ -52,6 +52,9 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (11, 0, 0),
         "watchos": (7, 0, 0),
     },
+    "AccessorySetupKit": {
+        "iphoneos": (18, 0, 0),
+    },
     "Accounts": {
         "iphoneos": (5, 0, 0),
         "maccatalyst": (13, 0, 0),
@@ -188,6 +191,9 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 15, 0),
         "watchos": (6, 0, 0),
     },
+    "ContactProvider": {
+        "iphoneos": (18, 0, 0),
+    },
     "Contacts": {
         "iphoneos": (9, 0, 0),
         "maccatalyst": (13, 0, 0),
@@ -245,6 +251,9 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 8, 0),
         "watchos": (2, 0, 0),
+    },
+    "CoreHID": {
+        "macosx": (15, 0, 0),
     },
     "CoreHaptics": {
         "appletvos": (14, 0, 0),
@@ -426,6 +435,9 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 13, 0),
     },
+    "FSKit": {
+        "macosx": (15, 0, 0),
+    },
     "FamilyControls": {"iphoneos": (15, 0, 0), "maccatalyst": (15, 0, 0)},
     "FileProvider": {"iphoneos": (11, 0, 0), "macosx": (10, 15, 0)},
     "FileProviderUI": {
@@ -582,6 +594,10 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (16, 0, 0),
         "macosx": (12, 0, 0),
     },
+    "LockedCameraCapture": {
+        "iphoneos": (18, 0, 0),
+        "maccatalyst": (18, 0, 0),
+    },
     "MLCompute": {
         "appletvos": (14, 0, 0),
         "iphoneos": (14, 0, 0),
@@ -611,6 +627,10 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "iphoneos": (7, 0, 0),
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 9, 0),
+    },
+    "MediaExtension": {
+        "maccatalyst": (18, 0, 0),
+        "macosx": (15, 0, 0),
     },
     "MediaLibrary": {"maccatalyst": (13, 0, 0), "macosx": (10, 9, 0)},
     "MediaPlayer": {
@@ -773,6 +793,10 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "watchos": (9, 0, 0),
     },
     "PreferencePanes": {"maccatalyst": (14, 0, 0), "macosx": (10, 1, 0)},
+    "ProximitReaderStub": {
+        "maccatalyst": (18, 0, 0),
+        "macosx": (15, 0, 0),
+    },
     "ProximityReader": {"iphoneos": (15, 4, 0), "maccatalyst": (15, 4, 0)},
     "PushKit": {
         "iphoneos": (8, 0, 0),
@@ -901,6 +925,10 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 9, 0),
         "watchos": (3, 0, 0),
     },
+    "StickerKit": {
+        "iphoneos": (18, 0, 0),
+        "macosx": (15, 0, 0),
+    },
     "StoreKit": {
         "appletvos": (9, 0, 0),
         "iphoneos": (3, 0, 0),
@@ -916,6 +944,14 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
         "watchos": (6, 0, 0),
     },
     "SyncServices": {"macosx": (10, 4, 0)},
+    "Synchronization": {
+        "iphoneos": (18, 0, 0),
+        "maccatalyst": (18, 0, 0),
+        "macosx": (15, 0, 0),
+        "tvos": (18, 0, 0),
+        "visionos": (2, 0, 0),
+        "watchos": (11, 0, 0),
+    },
     "System": {
         "appletvos": (14, 0, 0),
         "iphoneos": (14, 0, 0),
@@ -934,6 +970,9 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     "TVServices": {"appletvos": (9, 0, 0)},
     "TVUIKit": {"appletvos": (12, 0, 0)},
     "TWAIN": {"macosx": (10, 2, 0)},
+    "TabletopKit": {
+        "visionos": (2, 0, 0),
+    },
     "TabularData": {
         "appletvos": (15, 0, 0),
         "iphoneos": (15, 0, 0),
