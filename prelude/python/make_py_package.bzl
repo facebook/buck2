@@ -665,7 +665,7 @@ def generate_startup_function_loader(ctx: AnalysisContext) -> ArgLike:
     else:
         startup_functions_list = "\n".join(
             [
-                '"' + startup_function + '",'
+                "'''" + startup_function + "''',"
                 for _, startup_function in sorted(ctx.attrs.manifest_module_entries.get("startup_functions", {}).items())
             ],
         )
@@ -676,24 +676,36 @@ def generate_startup_function_loader(ctx: AnalysisContext) -> ArgLike:
 import importlib
 import warnings
 
+VARS = {vars}
 STARTUP_FUNCTIONS=[{startup_functions_list}]
 
+VARS["_dearg"] = lambda *args, **kwargs: (args, kwargs)
+
+
 def load_startup_functions():
-    for func in STARTUP_FUNCTIONS:
-        mod, sep, func = func.partition(":")
+    for name in STARTUP_FUNCTIONS:
+        mod, sep, func = name.partition(":")
         if sep:
             try:
+                func, _, args = func.partition("(")
+                args, kwargs = eval("_dearg(" + args, VARS) if args else ((), {{}})
                 module = importlib.import_module(mod)
-                getattr(module, func)()
+                getattr(module, func)(*args, **kwargs)
             except Exception as e:
                 # TODO: Ignoring errors for now.
                 warnings.warn(
-                    "Startup function %s (%s:%s) not executed: %s"
-                    % (mod, name, func, e),
+                    "Startup function '%s' (%s:%s) not executed: %s"
+                    % (func, mod, func, e),
                     stacklevel=1,
                 )
 
-        """.format(startup_functions_list = startup_functions_list),
+        """.format(
+            startup_functions_list = startup_functions_list,
+            vars = {
+                "label": repr(ctx.label),
+                "name": ctx.attrs.name,
+            },
+        ),
     )
     return ctx.actions.write_json(
         "manifest/startup_function_loader.manifest",
