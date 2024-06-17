@@ -158,11 +158,14 @@ def artifact_ext(
         as_arg = lambda: _as_arg(artifact, sub_path),
     )
 
-def to_arglike(src: Artifact | Dependency) -> ArgLike:
+def to_artifact_ext(src: Artifact | Dependency) -> ArtifactExt:
     if type(src) == "dependency":
         ext = src.get(DefaultOutputExt)
         if ext != None:
-            src = ext.default_output.as_arg()
+            return ext.default_output
         else:
             (src,) = src[DefaultInfo].default_outputs
-    return src
+    return artifact_ext(src)
+
+def to_arglike(src: Artifact | Dependency) -> ArgLike:
+    return to_artifact_ext(src).as_arg()
