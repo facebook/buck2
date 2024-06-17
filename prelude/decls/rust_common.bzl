@@ -77,7 +77,7 @@ def _crate(crate_type):
 
 def _crate_root():
     return {
-        "crate_root": attrs.option(attrs.string(), default = None, doc = """
+        "crate_root": attrs.option(attrs.one_of(attrs.source(), attrs.string()), default = None, doc = """
     Set the name of the top-level source file for the crate, which can be used to override the
      default (see `srcs`).
 """),

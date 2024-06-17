@@ -42,6 +42,10 @@ load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:set.bzl", "set")
+load(
+    "@prelude//utils:type_defs.bzl",
+    "is_string",
+)
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build_params.bzl",
@@ -878,7 +882,7 @@ def _compute_common_args(
     srcs = ctx.attrs.srcs
     mapped_srcs = ctx.attrs.mapped_srcs
     all_srcs = map(lambda s: s.short_path, srcs) + mapped_srcs.values()
-    crate_root = ctx.attrs.crate_root or _crate_root(ctx, all_srcs, default_roots)
+    crate_root = _crate_root(ctx, all_srcs, default_roots)
     if exec_is_windows:
         crate_root = crate_root.replace("/", "\\")
 
@@ -1136,6 +1140,14 @@ def _crate_root(
         ctx: AnalysisContext,
         srcs: list[str],
         default_roots: list[str]) -> str:
+    if ctx.attrs.crate_root:
+        # Crate root can be either a string or a source. If a string, pass it
+        # along untouched.
+        if is_string(ctx.attrs.crate_root):
+            return ctx.attrs.crate_root
+        else:
+            return ctx.attrs.crate_root.short_path
+
     candidates = set()
     if getattr(ctx.attrs, "crate_dynamic", None):
         crate_with_suffix = None
