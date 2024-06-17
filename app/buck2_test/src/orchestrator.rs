@@ -329,7 +329,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             match (
                 remote_storage_config.supports_remote,
                 execution_kind.as_ref(),
-                translations::convert_artifact(output_name.clone().into_string(), artifact),
+                translations::convert_artifact(output_name.clone().into_string(), &artifact),
             ) {
                 // This condition checks that a downstream consumer supports
                 // remote outputs AND the output is actually in CAS.
@@ -342,7 +342,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                     let future = async move {
                         let _unused = remote_storage::apply_config(
                             self.dice.per_transaction_data().get_re_client(),
-                            &remote_object,
+                            &artifact,
                             &remote_storage_config,
                         )
                         .await;
