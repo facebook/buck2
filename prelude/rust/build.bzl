@@ -66,7 +66,12 @@ load(
     "CrateName",  # @unused Used as a type
     "DepCollectionContext",
 )
-load(":extern.bzl", "crate_map_arg", "extern_arg")
+load(
+    ":extern.bzl",
+    "crate_map_arg",
+    "crate_name_as_cmd_arg",
+    "extern_arg",
+)
 load(
     ":failure_filter.bzl",
     "failure_filter",
@@ -211,8 +216,7 @@ def generate_rustdoc(
             if dep.name:
                 name = normalize_crate(dep.name)
             else:
-                # TODO: resolve this using dynamic (if set), see comment on D52476603
-                name = dep.info.crate.simple
+                name = crate_name_as_cmd_arg(dep.info.crate)
 
             rustdoc_cmd.add(cmd_args(
                 "--extern-html-root-url=",

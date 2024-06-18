@@ -7,6 +7,14 @@
 
 load(":context.bzl", "CrateName")
 
+def crate_name_as_cmd_arg(crate: CrateName) -> cmd_args | str | ResolvedStringWithMacros:
+    if crate.dynamic:
+        # TODO: consider using `cmd_args(crate.dynamic, quote = "json")` so it
+        # doesn't fall apart on paths containing ')'
+        return cmd_args(crate.dynamic, format = "$(cat {})")
+    else:
+        return crate.simple
+
 # Create `--extern` flag. For crates with a name computed during analysis:
 #
 #     --extern=NAME=path/to/libNAME.rlib
@@ -21,14 +29,14 @@ def extern_arg(flags: list[str], crate: CrateName, lib: Artifact) -> cmd_args:
     else:
         flags = ",".join(flags) + ":"
 
-    if crate.dynamic:
-        # TODO: consider using `cmd_args(crate.dynamic, quote = "json")` so it
-        # doesn't fall apart on paths containing ')'
-        crate_name = cmd_args(crate.dynamic, format = "$(cat {})")
-    else:
-        crate_name = crate.simple
-
-    return cmd_args("--extern=", flags, crate_name, "=", lib, delimiter = "")
+    return cmd_args(
+        "--extern=",
+        flags,
+        crate_name_as_cmd_arg(crate),
+        "=",
+        lib,
+        delimiter = "",
+    )
 
 # Create `--crate-map` flag. For crates with a name computed during analysis:
 #
@@ -39,9 +47,10 @@ def extern_arg(flags: list[str], crate: CrateName, lib: Artifact) -> cmd_args:
 #     --crate-map=$(cat path/to/REALNAME)=//path/to:target
 #
 def crate_map_arg(crate: CrateName, label: Label) -> cmd_args:
-    if crate.dynamic:
-        crate_name = cmd_args(crate.dynamic, format = "$(cat {})")
-    else:
-        crate_name = crate.simple
-
-    return cmd_args("--crate-map=", crate_name, "=", str(label.raw_target()), delimiter = "")
+    return cmd_args(
+        "--crate-map=",
+        crate_name_as_cmd_arg(crate),
+        "=",
+        str(label.raw_target()),
+        delimiter = "",
+    )
