@@ -43,7 +43,7 @@ def get_enable_library_evolution():
     }))
 
 def _strict_provisioning_profile_search_default_attr():
-    default_value = (read_root_config("apple", "strict_provisioning_profile_search", "").lower() == "true")
+    default_value = (read_root_config("apple", "strict_provisioning_profile_search", "true").lower() == "true")
     return attrs.bool(default = select({
         "DEFAULT": default_value,
         "config//features/apple:strict_provisioning_profile_search_enabled": True,
