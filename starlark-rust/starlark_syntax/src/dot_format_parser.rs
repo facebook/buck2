@@ -261,4 +261,12 @@ mod tests {
         assert_eq!(parser.next().unwrap(), Some(FormatToken::Text("quux")));
         assert_eq!(parser.next().unwrap(), None);
     }
+
+    #[test]
+    fn test_failure() {
+        let s = "}foo";
+        let mut parser = FormatParser::new(s);
+        let error_msg = parser.next().unwrap_err().to_string();
+        assert_eq!(error_msg, "Standalone '}' in format string `}foo`");
+    }
 }
