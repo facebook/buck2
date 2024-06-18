@@ -356,6 +356,7 @@ def _cxx_binary_and_test_attrs():
         "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
+        "exported_needs_coverage_instrumentation": attrs.bool(default = False),
         "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": LINK_GROUP_MAP_ATTR,
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
@@ -421,6 +422,7 @@ inlined_extra_attributes = {
         # or by any of the target's dependencies.
         "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
         "deps_query": attrs.option(attrs.query(), default = None),
+        "exported_needs_coverage_instrumentation": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_deps_query_whole": attrs.bool(default = False),
