@@ -24,7 +24,6 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::SliceExt;
 use indexmap::IndexMap;
 
 use crate::ServerAuditSubcommand;
@@ -42,9 +41,7 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                 let cwd = server_ctx.working_dir();
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
-                    &self
-                        .patterns
-                        .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                    &self.patterns,
                     cwd,
                 )
                 .await?;

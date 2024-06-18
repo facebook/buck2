@@ -25,7 +25,6 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 
 use crate::ServerAuditSubcommand;
 
@@ -110,9 +109,7 @@ impl ServerAuditSubcommand for AuditVisibilityCommand {
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
-                    &self
-                        .patterns
-                        .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                    &self.patterns,
                     server_ctx.working_dir(),
                 )
                 .await?;

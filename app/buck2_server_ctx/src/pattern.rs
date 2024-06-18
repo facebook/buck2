@@ -67,17 +67,17 @@ impl PatternParser {
 /// See `ParsedPattern::parse_relaxed` for details.
 pub async fn parse_patterns_from_cli_args<T: PatternType>(
     ctx: &mut DiceComputations<'_>,
-    target_patterns: &[buck2_data::TargetPattern],
+    target_patterns: &[String],
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<ParsedPattern<T>>> {
     let parser = PatternParser::new(ctx, cwd).await?;
 
-    target_patterns.try_map(|value| parser.parse_pattern(&value.value))
+    target_patterns.try_map(|value| parser.parse_pattern(&value))
 }
 
 pub async fn parse_and_resolve_patterns_from_cli_args<T: PatternType>(
     ctx: &mut DiceComputations<'_>,
-    target_patterns: &[buck2_data::TargetPattern],
+    target_patterns: &[String],
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<ResolvedPattern<T>> {
     let patterns = parse_patterns_from_cli_args(ctx, target_patterns, cwd).await?;

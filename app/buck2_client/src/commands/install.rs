@@ -22,7 +22,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use gazebo::prelude::*;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Build and install an application")]
@@ -184,9 +183,7 @@ impl StreamingCommand for InstallCommand {
             .install(
                 InstallRequest {
                     context: Some(context),
-                    target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
-                        value: pat.to_owned(),
-                    }),
+                    target_patterns: self.patterns.clone(),
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     build_opts: Some(self.build_opts.to_proto()),
                     installer_run_args: extra_run_args,

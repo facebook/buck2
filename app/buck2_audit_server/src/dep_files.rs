@@ -42,9 +42,7 @@ impl ServerAuditSubcommand for AuditDepFilesCommand {
 
                 let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
-                    &[buck2_data::TargetPattern {
-                        value: self.pattern.clone(),
-                    }],
+                    &[self.pattern.clone()],
                     server_ctx.working_dir(),
                 )
                 .await?

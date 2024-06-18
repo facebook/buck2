@@ -24,7 +24,6 @@ use dice::DiceTransaction;
 use futures::stream::FuturesOrdered;
 use futures::FutureExt;
 use futures::StreamExt;
-use gazebo::prelude::*;
 
 use crate::common::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
@@ -63,9 +62,7 @@ async fn server_execute_with_dice(
 
     let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
         &mut ctx,
-        &command
-            .patterns
-            .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+        &command.patterns,
         server_ctx.working_dir(),
     )
     .await?;

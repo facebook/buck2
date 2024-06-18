@@ -104,9 +104,7 @@ impl StreamingCommand for RunCommand {
                 BuildRequest {
                     context: Some(context),
                     // TODO(wendyy): glob patterns should be prohibited, and command should fail before the build event happens.
-                    target_patterns: vec![buck2_data::TargetPattern {
-                        value: self.target.clone(),
-                    }],
+                    target_patterns: vec![self.target.clone()],
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: build_providers::Action::Skip as i32,

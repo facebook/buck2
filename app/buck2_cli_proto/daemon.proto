@@ -149,7 +149,7 @@ message ClientContext {
 }
 
 message TargetsRequest {
-  reserved 3 to 16, 18, 4242000;
+  reserved 2, 3 to 16, 18, 4242000;
 
   enum TargetHashFileMode {
     PATHS_ONLY = 0;
@@ -193,7 +193,7 @@ message TargetsRequest {
   }
 
   ClientContext context = 1;
-  repeated buck.data.TargetPattern target_patterns = 2;
+  repeated string target_patterns = 102;
   TargetCfg target_cfg = 201;
 
   optional string output = 17;
@@ -221,9 +221,9 @@ message TargetsShowOutputsResponse {
 
 // `buck2 ctargets` command
 message ConfiguredTargetsRequest {
-  reserved 10;
+  reserved 2, 10;
   ClientContext context = 1;
-  repeated buck.data.TargetPattern target_patterns = 2;
+  repeated string target_patterns = 12;
   TargetCfg target_cfg = 201;
   bool skip_missing_targets = 11;
 }
@@ -373,10 +373,10 @@ message CommonBuildOptions {
 }
 
 message BuildRequest {
-  reserved 5, 4242001;
+  reserved 2, 5, 4242001;
 
   ClientContext context = 1;
-  repeated buck.data.TargetPattern target_patterns = 2;
+  repeated string target_patterns = 10;
   TargetCfg target_cfg = 201;
   repeated string target_universe = 8;
 
@@ -426,10 +426,10 @@ message TestSessionOptions {
 }
 
 message TestRequest {
-  reserved 10;
+  reserved 2, 10;
 
   ClientContext context = 1;
-  repeated buck.data.TargetPattern target_patterns = 2;
+  repeated string target_patterns = 14;
   TargetCfg target_cfg = 201;
 
   repeated string test_executor_args = 3;
@@ -491,8 +491,9 @@ message BxlResponse {
 }
 
 message InstallRequest {
+  reserved 2;
   ClientContext context = 1;
-  repeated buck.data.TargetPattern target_patterns = 2;
+  repeated string target_patterns = 12;
   TargetCfg target_cfg = 201;
   CommonBuildOptions build_opts = 3;
   repeated string installer_run_args = 4;

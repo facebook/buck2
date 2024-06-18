@@ -302,9 +302,7 @@ impl StreamingCommand for TargetsCommand {
 
         let target_request = TargetsRequest {
             context,
-            target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
-                value: pat.to_owned(),
-            }),
+            target_patterns: self.patterns,
             output_format: output_format as i32,
             targets: Some(if self.resolve_alias {
                 targets_request::Targets::ResolveAlias(targets_request::ResolveAlias {})

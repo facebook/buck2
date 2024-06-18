@@ -116,7 +116,7 @@ pub(crate) async fn targets_resolve_aliases(
             }
             _ => Err(anyhow::anyhow!(
                 "Invalid alias (does not expand to a single target): `{}`",
-                alias.value
+                alias
             )),
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -188,13 +188,13 @@ pub(crate) async fn targets_resolve_aliases(
                         )
                     })
             })
-            .with_context(|| format!("Invalid alias: `{}`", alias.value))?;
+            .with_context(|| format!("Invalid alias: `{}`", alias))?;
 
         if needs_separator {
             formatter.separator(&mut buffer);
         }
         needs_separator = true;
-        formatter.emit(&alias.value, node.label(), &mut buffer);
+        formatter.emit(&alias, node.label(), &mut buffer);
     }
 
     formatter.end(&mut buffer);

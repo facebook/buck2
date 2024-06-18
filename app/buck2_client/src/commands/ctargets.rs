@@ -21,7 +21,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use gazebo::prelude::SliceExt;
 
 /// Resolve target patterns to configured targets.
 #[derive(Debug, clap::Parser)]
@@ -62,9 +61,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
             .ctargets(
                 ConfiguredTargetsRequest {
                     context,
-                    target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
-                        value: pat.to_owned(),
-                    }),
+                    target_patterns: self.patterns,
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     skip_missing_targets: self.skip_missing_targets,
                 },

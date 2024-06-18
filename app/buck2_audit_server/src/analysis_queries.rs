@@ -21,7 +21,6 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_and_resolve_patterns_from_cli_args;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use crate::common::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
@@ -43,9 +42,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                 let resolved_pattern =
                     parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
                         &mut ctx,
-                        &self
-                            .patterns
-                            .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                        &self.patterns,
                         server_ctx.working_dir(),
                     )
                     .await?;

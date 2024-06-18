@@ -17,7 +17,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_patterns_to_targets_from_cli_args;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use dice::DiceComputations;
-use gazebo::prelude::SliceExt;
 
 use crate::common::target_resolution_config::audit_command_target_resolution_config;
 
@@ -40,7 +39,7 @@ pub(crate) async fn audit_command_configured_target_labels(
     let targets =
         parse_and_resolve_patterns_to_targets_from_cli_args::<ConfiguredTargetPatternExtra>(
             ctx,
-            &patterns.map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+            &patterns,
             server_ctx.working_dir(),
         )
         .await?;

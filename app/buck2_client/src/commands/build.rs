@@ -36,7 +36,6 @@ use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use crate::commands::build::out::copy_to_out;
 use crate::print::PrintOutputs;
@@ -207,9 +206,7 @@ impl StreamingCommand for BuildCommand {
             .build(
                 BuildRequest {
                     context: Some(context),
-                    target_patterns: self
-                        .patterns
-                        .map(|p| buck2_data::TargetPattern { value: p.clone() }),
+                    target_patterns: self.patterns.clone(),
                     target_cfg: Some(self.target_cfg.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: self.default_info() as i32,

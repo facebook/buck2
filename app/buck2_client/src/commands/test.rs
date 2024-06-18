@@ -32,7 +32,6 @@ use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_c
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::working_dir::WorkingDir;
-use gazebo::prelude::*;
 use superconsole::Line;
 use superconsole::Span;
 
@@ -201,9 +200,7 @@ impl StreamingCommand for TestCommand {
             .test(
                 TestRequest {
                     context: Some(context),
-                    target_patterns: self
-                        .patterns
-                        .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                    target_patterns: self.patterns.clone(),
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     test_executor_args: self.test_executor_args,
                     excluded_labels: self.exclude,
