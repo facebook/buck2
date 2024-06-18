@@ -136,7 +136,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
         return output
 
-    def scrub_binary(inner_ctx, executable: Artifact, executable_link_execution_preference: LinkExecutionPreference, adhoc_codesign_tool: [RunInfo, None]) -> Artifact:
+    def scrub_binary(
+            inner_ctx,
+            executable: Artifact,
+            executable_link_execution_preference: LinkExecutionPreference,
+            adhoc_codesign_tool: [RunInfo, None],
+            focused_targets_labels: list[Label]) -> Artifact:
         inner_cmd = cmd_args(cmd)
         output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
 
@@ -148,6 +153,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             inner_cmd.add(["--adhoc-codesign-tool", adhoc_codesign_tool])
         inner_cmd.add(["--input", executable])
         inner_cmd.add(["--output", output.as_output()])
+        if len(focused_targets_labels) > 0:
+            additional_labels_json = inner_ctx.actions.write_json(
+                inner_ctx.attrs.name + ".additional_labels.json",
+                {"targets": [label.raw_target() for label in focused_targets_labels]},
+            )
+            inner_cmd.add(["--persisted-targets-file", additional_labels_json])
         inner_ctx.actions.run(
             inner_cmd,
             category = "scrub_binary",

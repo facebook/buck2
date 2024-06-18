@@ -37,6 +37,10 @@ def _parse_args() -> argparse.Namespace:
         "--adhoc-codesign-tool",
         help="An adhoc codesign tool to use to re-sign the executables/dylibs, if provided.",
     )
+    parser.add_argument(
+        "--persisted-targets-file",
+        help="A JSON file with additional targets that must be preserved by the scrubber.",
+    )
     return parser.parse_args()
 
 
@@ -46,6 +50,7 @@ def main() -> None:
         scrub(
             input_file=args.input,
             output_file=args.output,
+            persisted_targets_file=args.persisted_targets_file,
             targets_file=args.targets_file,
             spec_file=args.spec_file,
             adhoc_codesign_tool=args.adhoc_codesign_tool,

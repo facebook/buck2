@@ -198,6 +198,7 @@ def _get_scrubber_results(
                         scrub(
                             str(test_binary_file),
                             out_file.name,
+                            None,
                             targets_file=str(targets_json_file),
                             adhoc_codesign_tool=adhoc_codesign_tool,
                         ),
@@ -211,13 +212,14 @@ def _get_scrubber_results(
                         scrub(
                             str(test_binary_file),
                             out_file.name,
+                            None,
                             spec_file=str(spec_json_file),
                             adhoc_codesign_tool=adhoc_codesign_tool,
                         ),
                         out_file.name,
                     )
             else:
-                return scrub(str(test_binary_file), out_file.name), out_file.name
+                return scrub(str(test_binary_file), out_file.name, None), out_file.name
 
 
 def _get_test_resource_file(name) -> pathlib.Path:

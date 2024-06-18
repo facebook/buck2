@@ -117,7 +117,7 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
 def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
-def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo) -> Artifact:
+def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo, focused_targets_labels: list[Label] = []) -> Artifact:
     # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
     code_signing_configuration = CodeSignConfiguration(ctx.attrs._code_signing_configuration)
     if code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
@@ -128,7 +128,7 @@ def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None 
 
     selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     preference = binary_execution_preference_info.preference if binary_execution_preference_info else LinkExecutionPreference("any")
-    return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool)
+    return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool, focused_targets_labels)
 
 def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     binary = binary_dep[DefaultInfo].default_outputs[0]
@@ -136,28 +136,30 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     if ctx.attrs.selective_debugging == None:
         return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
-    binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
-    if not debuggable_info:
+    if debuggable_info:
+        # If we have debuggable info for this binary, create the scrubed dsym for the binary and filter debug info.
+        debug_info_tset = debuggable_info.debug_info_tset
+
+        # The traversal is intentionally designed to be topological, allowing us to skip
+        # portions of the debug info that are not transitive in relation to the focused targets.
+        all_debug_info = debug_info_tset._tset.traverse(ordering = "topological")
+        selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
+        filtered_debug_info = selective_debugging_info.filter(all_debug_info)
+
+        filtered_external_debug_info = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = flatten(filtered_debug_info.map.values()),
+        )
+
+        binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
+        dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
+
+        debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info, filtered_map = filtered_debug_info.map)
+        return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
+    else:
+        binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
         return AppleBundleBinaryOutput(binary = binary)
-
-    # If we have debuggable info for this binary, create the scrubed dsym for the binary and filter debug info.
-    debug_info_tset = debuggable_info.debug_info_tset
-    dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
-
-    # The traversal is intentionally designed to be topological, allowing us to skip
-    # portions of the debug info that are not transitive in relation to the focused targets.
-    all_debug_info = debug_info_tset._tset.traverse(ordering = "topological")
-    selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
-    filtered_debug_info = selective_debugging_info.filter(all_debug_info)
-
-    filtered_external_debug_info = make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        artifacts = flatten(filtered_debug_info.map.values()),
-    )
-    debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info, filtered_map = filtered_debug_info.map)
-
-    return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
 def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet) -> Artifact:
     debug_info = project_artifacts(

@@ -110,16 +110,22 @@ def should_scrub_with_focused_targets_output_paths(
         return True
 
 
-def _should_scrub_with_targets_file(json_file_path: str) -> Callable[[str], bool]:
+def _should_scrub_with_targets_file(
+    json_file_path: str, additional_labels: Set[str]
+) -> Callable[[str], bool]:
     focused_targets_output_paths = load_focused_targets_output_paths(json_file_path)
     return lambda debug_file_path: should_scrub_with_focused_targets_output_paths(
-        focused_targets_output_paths, debug_file_path
+        focused_targets_output_paths.union(additional_labels), debug_file_path
     )
 
 
-def _should_scrub_with_spec_file(json_file_path: str) -> Callable[[str], bool]:
+def _should_scrub_with_spec_file(
+    json_file_path: str, additional_labels: Set[str]
+) -> Callable[[str], bool]:
     spec = Spec(json_file_path)
-    return spec.scrub_debug_file_path
+    return lambda debug_file_path: should_scrub_with_focused_targets_output_paths(
+        additional_labels, debug_file_path
+    ) and spec.scrub_debug_file_path(debug_file_path)
 
 
 def _scrub(
@@ -163,18 +169,20 @@ def _scrub(
 def scrub(
     input_file: str,
     output_file: str,
+    persisted_targets_file: str,
     targets_file: Optional[str] = None,
     spec_file: Optional[str] = None,
     adhoc_codesign_tool: Optional[str] = None,
 ) -> List[Tuple[str, str]]:
+    additional_labels = load_focused_targets_output_paths(persisted_targets_file)
     if targets_file and spec_file:
         raise Exception(
             "Only one of a targets file or spec file is supported, not both!"
         )
     elif targets_file:
-        scrub_handler = _should_scrub_with_targets_file(targets_file)
+        scrub_handler = _should_scrub_with_targets_file(targets_file, additional_labels)
     elif spec_file:
-        scrub_handler = _should_scrub_with_spec_file(spec_file)
+        scrub_handler = _should_scrub_with_spec_file(spec_file, additional_labels)
     else:
         scrub_handler = _always_scrub
 
