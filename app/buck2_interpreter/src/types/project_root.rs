@@ -16,15 +16,15 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
-pub struct ProjectRoot;
+pub struct StarlarkProjectRoot;
 
-impl ProjectRoot {
+impl StarlarkProjectRoot {
     pub fn new() -> Self {
         Self
     }
 }
 
-starlark_simple_value!(ProjectRoot);
+starlark_simple_value!(StarlarkProjectRoot);
 
 #[starlark_value(type = "project_root")]
-impl<'v> StarlarkValue<'v> for ProjectRoot {}
+impl<'v> StarlarkValue<'v> for StarlarkProjectRoot {}

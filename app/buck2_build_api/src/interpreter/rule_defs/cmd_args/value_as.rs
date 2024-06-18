@@ -10,7 +10,7 @@
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
-use buck2_interpreter::types::project_root::ProjectRoot;
+use buck2_interpreter::types::project_root::StarlarkProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::typing::Ty;
@@ -62,7 +62,7 @@ impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
         check!(StarlarkTargetLabel);
         check!(StarlarkConfiguredProvidersLabel);
         check!(CellRoot);
-        check!(ProjectRoot);
+        check!(StarlarkProjectRoot);
 
         Some(ValueAsCommandLineLike(value.request_value()?))
     }
