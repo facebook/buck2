@@ -943,6 +943,8 @@ message LoadBuildFileEnd {
   optional uint64 starlark_peak_allocated_bytes = 4;
   // Number of CPU instructions during evaluation of BUCK file.
   optional uint64 cpu_instruction_count = 5;
+  // Number of targets
+  optional uint64 target_count = 6;
 }
 
 message SharedTaskStart {

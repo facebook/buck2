@@ -578,12 +578,14 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         .ok()
                         .and_then(|rs| rs.cpu_instruction_count);
                     let result = result_with_stats.map(|rs| rs.result);
+                    let target_count = result.as_ref().ok().map(|rs| rs.targets().len() as u64);
 
                     (
                         result,
                         buck2_data::LoadBuildFileEnd {
                             module_id,
                             cell: cell_str,
+                            target_count,
                             starlark_peak_allocated_bytes,
                             cpu_instruction_count,
                             error,

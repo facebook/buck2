@@ -977,6 +977,7 @@ mod tests {
                     error: None,
                     starlark_peak_allocated_bytes: Some(0),
                     cpu_instruction_count: None,
+                    target_count: Some(10),
                 })),
                 stats: None,
                 duration: None,
