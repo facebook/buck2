@@ -237,6 +237,12 @@ def _cxx_python_extension_attrs():
         "allow_suffixing": attrs.bool(default = True),
         # Copied from cxx_library.
         "auto_link_groups": attrs.bool(default = False),
+
+        # These flags will only be used to instrument a target
+        # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
+        # or by any of the target's dependencies.
+        "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
+        "exported_needs_coverage_instrumentation": attrs.bool(default = False),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_whole": attrs.default_only(attrs.bool(default = True)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
