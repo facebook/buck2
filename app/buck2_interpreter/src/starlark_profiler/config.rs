@@ -43,18 +43,6 @@ pub enum StarlarkProfilerConfiguration {
 }
 
 impl StarlarkProfilerConfiguration {
-    pub fn profile_last_bxl(&self) -> anyhow::Result<&ProfileMode> {
-        match self {
-            StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
-            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_)
-            | StarlarkProfilerConfiguration::ProfileLastLoading(_) => {
-                Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
-            }
-            StarlarkProfilerConfiguration::ProfileBxl(profile_mode) => Ok(profile_mode),
-        }
-    }
-
     pub fn profile_last_loading(&self) -> anyhow::Result<&ProfileMode> {
         match self {
             StarlarkProfilerConfiguration::None
@@ -67,22 +55,8 @@ impl StarlarkProfilerConfiguration {
         }
     }
 
-    pub fn profile_last_analysis(&self) -> anyhow::Result<&ProfileMode> {
-        match self {
-            StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::ProfileLastLoading(_)
-            | StarlarkProfilerConfiguration::ProfileBxl(_) => {
-                Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
-            }
-            StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
-            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
-                Ok(profile_mode)
-            }
-        }
-    }
-
     /// Profile mode for intermediate target analysis.
-    pub fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileMode {
+    fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileMode {
         match self {
             StarlarkProfilerConfiguration::None
             | StarlarkProfilerConfiguration::ProfileLastLoading(_)
