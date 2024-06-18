@@ -270,7 +270,8 @@ def create_compile_cmds(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
-        inherited_preprocessor_infos: list[CPreprocessorInfo]) -> CxxCompileCommandOutput:
+        inherited_preprocessor_infos: list[CPreprocessorInfo],
+        add_coverage_instrumentation_compiler_flags: bool) -> CxxCompileCommandOutput:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -335,6 +336,8 @@ def create_compile_cmds(
     for src in srcs_with_flags:
         src_args = []
         src_args.extend(src.flags)
+        if add_coverage_instrumentation_compiler_flags:
+            src_args.extend(ctx.attrs.coverage_instrumentation_compiler_flags)
 
         ext = get_source_extension(src, extension_for_plain_headers)
 
