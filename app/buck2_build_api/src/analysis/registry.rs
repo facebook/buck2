@@ -297,6 +297,14 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.assert_no_promises()
     }
 
+    pub fn num_declared_actions(&self) -> u64 {
+        self.actions.actions_len() as u64
+    }
+
+    pub fn num_declared_artifacts(&self) -> u64 {
+        self.actions.artifacts_len() as u64
+    }
+
     /// You MUST pass the same module to both the first function and the second one.
     /// It requires both to get the lifetimes to line up.
     pub fn finalize(

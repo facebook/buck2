@@ -43,6 +43,8 @@ pub struct AnalysisResult {
     /// For forward node, this value is shared with underlying analysis (including this field).
     pub profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
     promise_artifact_map: Arc<HashMap<PromiseArtifactId, Artifact>>,
+    pub num_declared_actions: u64,
+    pub num_declared_artifacts: u64,
 }
 
 impl AnalysisResult {
@@ -52,12 +54,16 @@ impl AnalysisResult {
         deferred: DeferredTable,
         profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
         promise_artifact_map: HashMap<PromiseArtifactId, Artifact>,
+        num_declared_actions: u64,
+        num_declared_artifacts: u64,
     ) -> Self {
         Self {
             provider_collection,
             deferred: Arc::new(deferred),
             profile_data,
             promise_artifact_map: Arc::new(promise_artifact_map),
+            num_declared_actions,
+            num_declared_artifacts,
         }
     }
 

@@ -111,6 +111,8 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
                 deferred_result,
                 None,
                 HashMap::new(),
+                0,
+                0,
             ))),
         )
         .mock_and_return(
@@ -210,6 +212,8 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
                 deferred_result,
                 None,
                 HashMap::new(),
+                0,
+                0,
             ))),
         )
         .mock_and_return(

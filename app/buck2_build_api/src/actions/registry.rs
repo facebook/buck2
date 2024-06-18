@@ -270,4 +270,12 @@ impl ActionsRegistry {
     pub(crate) fn execution_platform(&self) -> &ExecutionPlatformResolution {
         &self.execution_platform
     }
+
+    pub(crate) fn actions_len(&self) -> usize {
+        self.pending.len()
+    }
+
+    pub(crate) fn artifacts_len(&self) -> usize {
+        self.artifacts.len()
+    }
 }

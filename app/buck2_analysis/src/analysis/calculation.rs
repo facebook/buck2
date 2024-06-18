@@ -270,6 +270,8 @@ async fn get_analysis_result_inner(
 
                 span_async(start_event, async {
                     let mut profile = None;
+                    let mut declared_artifacts = None;
+                    let mut declared_actions = None;
 
                     let result: anyhow::Result<_> = try {
                         let result = span_async(
@@ -298,6 +300,8 @@ async fn get_analysis_result_inner(
                         .await?;
 
                         profile = Some(make_analysis_profile(&result));
+                        declared_artifacts = Some(result.num_declared_artifacts);
+                        declared_actions = Some(result.num_declared_actions);
 
                         MaybeCompatible::Compatible(result)
                     };
@@ -308,6 +312,8 @@ async fn get_analysis_result_inner(
                             target: Some(target.as_proto().into()),
                             rule: func.to_string(),
                             profile,
+                            declared_actions,
+                            declared_artifacts,
                         },
                     )
                 })

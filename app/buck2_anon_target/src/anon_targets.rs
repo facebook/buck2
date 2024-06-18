@@ -389,7 +389,8 @@ impl AnonTargetKey {
                 // Pull the ctx object back out, and steal ctx.action's state back
                 let analysis_registry = ctx.take_state();
                 std::mem::drop(eval);
-
+                let num_declared_actions = analysis_registry.num_declared_actions();
+                let num_declared_artifacts = analysis_registry.num_declared_artifacts();
                 let (frozen_env, deferreds) = analysis_registry.finalize(&env)?(env)?;
 
                 let res = frozen_env.get("").unwrap();
@@ -403,17 +404,19 @@ impl AnonTargetKey {
                     deferred,
                     None,
                     fulfilled_artifact_mappings,
+                    num_declared_actions,
+                    num_declared_artifacts,
                 ))
             }
             .map(|res| {
-                (
-                    res,
-                    buck2_data::AnalysisEnd {
-                        target: Some(self.0.as_proto().into()),
-                        rule: self.0.rule_type().to_string(),
-                        profile: None, // Not implemented for anon targets
-                    },
-                )
+                let end = buck2_data::AnalysisEnd {
+                    target: Some(self.0.as_proto().into()),
+                    rule: self.0.rule_type().to_string(),
+                    profile: None, // Not implemented for anon targets
+                    declared_actions: res.as_ref().ok().map(|v| v.num_declared_actions),
+                    declared_artifacts: res.as_ref().ok().map(|v| v.num_declared_artifacts),
+                };
+                (res, end)
             }),
         )
         .await
