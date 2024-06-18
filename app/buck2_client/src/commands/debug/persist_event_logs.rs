@@ -22,8 +22,8 @@ use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::PersistEventLogSubprocess;
 use buck2_event_log::ttl::manifold_event_log_ttl;
-use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
-use buck2_events::sink::scribe::ThriftScribeSink;
+use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
+use buck2_events::sink::remote::RemoteEventSink;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use tokio::fs::File;
@@ -334,7 +334,7 @@ fn categorize_error(err: &anyhow::Error) -> &'static str {
 }
 
 async fn dispatch_event_to_scribe(
-    sink: Option<&ThriftScribeSink>,
+    sink: Option<&RemoteEventSink>,
     invocation_id: &TraceId,
     result: PersistEventLogSubprocess,
 ) {
@@ -354,8 +354,8 @@ async fn dispatch_event_to_scribe(
     };
 }
 
-fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<ThriftScribeSink>> {
-    new_thrift_scribe_sink_if_enabled(
+fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<RemoteEventSink>> {
+    new_remote_event_sink_if_enabled(
         ctx.fbinit(),
         /* buffer size */ 100,
         /* retry_backoff */ Duration::from_millis(500),
