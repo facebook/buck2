@@ -37,9 +37,7 @@ pub fn setup_interpreter(
     updater.set_interpreter_context(configuror)?;
     updater.set_legacy_configs(legacy_configs)?;
     updater.set_legacy_config_overrides(legacy_config_overrides)?;
-    updater.set_starlark_profiler_instrumentation_override(
-        starlark_profiler_instrumentation_override,
-    )?;
+    updater.set_starlark_profiler_configuration(starlark_profiler_instrumentation_override)?;
     updater.set_starlark_types(disable_starlark_types, unstable_typecheck)?;
 
     Ok(())

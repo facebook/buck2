@@ -107,7 +107,7 @@ impl StarlarkProfilerConfiguration {
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-pub struct StarlarkProfileModeForIntermediateAnalysisKey;
+struct StarlarkProfileModeForIntermediateAnalysisKey;
 
 #[async_trait]
 impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
@@ -150,9 +150,9 @@ impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-pub struct StarlarkProfilerInstrumentationOverrideKey;
+pub struct StarlarkProfilerConfigurationKey;
 
-impl InjectedKey for StarlarkProfilerInstrumentationOverrideKey {
+impl InjectedKey for StarlarkProfilerConfigurationKey {
     type Value = StarlarkProfilerConfiguration;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -162,7 +162,7 @@ impl InjectedKey for StarlarkProfilerInstrumentationOverrideKey {
 
 #[async_trait]
 pub trait SetStarlarkProfilerInstrumentation {
-    fn set_starlark_profiler_instrumentation_override(
+    fn set_starlark_profiler_configuration(
         &mut self,
         instrumentation: StarlarkProfilerConfiguration,
     ) -> anyhow::Result<()>;
@@ -178,11 +178,11 @@ pub trait GetStarlarkProfilerInstrumentation {
 
 #[async_trait]
 impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
-    fn set_starlark_profiler_instrumentation_override(
+    fn set_starlark_profiler_configuration(
         &mut self,
-        instrumentation: StarlarkProfilerConfiguration,
+        configuration: StarlarkProfilerConfiguration,
     ) -> anyhow::Result<()> {
-        Ok(self.changed_to([(StarlarkProfilerInstrumentationOverrideKey, instrumentation)])?)
+        Ok(self.changed_to([(StarlarkProfilerConfigurationKey, configuration)])?)
     }
 }
 
@@ -193,9 +193,7 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
 async fn get_starlark_profiler_configuration(
     ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-    Ok(ctx
-        .compute(&StarlarkProfilerInstrumentationOverrideKey)
-        .await?)
+    Ok(ctx.compute(&StarlarkProfilerConfigurationKey).await?)
 }
 
 #[async_trait]
