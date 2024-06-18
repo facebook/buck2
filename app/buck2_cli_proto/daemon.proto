@@ -98,6 +98,7 @@ message TargetCfg {
 
 message ClientContext {
   reserved 5, 21;
+  // `AbsNormPath`.
   string working_dir = 1;
   repeated ConfigOverride config_overrides = 3;
   enum HostPlatformOverride {
