@@ -36,14 +36,18 @@ jobs:
     - uses: actions/checkout@v4.1.0
     - uses: ./.github/actions/setup_macos_env
     - uses: ./.github/actions/init_opam
-    - uses: ./.github/actions/build_release
-    - name: Build example/prelude directory
+    - name: Setup the 'example/with_prelude' project
       run: |-
-        eval $(opam env)
+        # Do this before building buck so we can fail fast.
+        cd examples/with_prelude
+        cp -r ../../prelude prelude
+        ./haskell-setup.sh
+        ./ocaml-setup.sh
+    - uses: ./.github/actions/build_release
+    - name: Build the 'example/with_prelude' project
+      run: |-
         cd examples/with_prelude
         $RUNNER_TEMP/artifacts/buck2 init
-        cp -r ../../prelude prelude
-        source ./ocaml-setup.sh
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_no_prelude

@@ -19,8 +19,9 @@ def haskell_library(deps = [], **kwargs):
         **kwargs
     )
 
-def haskell_binary(deps = [], **kwargs):
+def haskell_binary(linker_flags = [], deps = [], **kwargs):
     native.haskell_binary(
+        linker_flags = linker_flags + ["-dynamic"] if host_info().os.is_macos else linker_flags,
         deps = deps + ["//third-party/haskell:base"],
         **kwargs
     )
