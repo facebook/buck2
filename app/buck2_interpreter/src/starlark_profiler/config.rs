@@ -118,7 +118,7 @@ impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> buck2_error::Result<StarlarkProfileMode> {
-        let configuration = get_starlark_profiler_configuration(ctx).await?;
+        let configuration = ctx.compute(&StarlarkProfilerConfigurationKey).await?;
         Ok(configuration.profile_mode_for_intermediate_analysis())
     }
 
@@ -184,16 +184,6 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
     ) -> anyhow::Result<()> {
         Ok(self.changed_to([(StarlarkProfilerConfigurationKey, configuration)])?)
     }
-}
-
-/// Global profiler configuration.
-///
-/// This function is not exposed outside,
-/// because accessing full configuration may invalidate too much.
-async fn get_starlark_profiler_configuration(
-    ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<StarlarkProfilerConfiguration> {
-    Ok(ctx.compute(&StarlarkProfilerConfigurationKey).await?)
 }
 
 #[async_trait]
