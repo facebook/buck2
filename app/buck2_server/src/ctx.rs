@@ -103,6 +103,7 @@ use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
 use buck2_server_ctx::stderr_output_guard::StderrOutputWriter;
 use buck2_server_starlark_debug::create_debugger_handle;
 use buck2_server_starlark_debug::BuckStarlarkDebuggerHandle;
+use buck2_util::arc_str::ArcS;
 use buck2_util::truncate::truncate_container;
 use dice::DiceComputations;
 use dice::DiceData;
@@ -160,7 +161,7 @@ pub struct ServerCommandContext<'a> {
     /// working-dir relative way. For example, it's common to resolve target patterns relative to
     /// the working directory and resolving cell aliases there. This should generally only be used
     /// to interpret values that are in the request. We should convert to client-agnostic things early.
-    pub working_dir: ProjectRelativePathBuf,
+    pub working_dir: ArcS<ProjectRelativePath>,
 
     working_dir_abs: WorkingDir,
 
@@ -237,6 +238,8 @@ impl<'a> ServerCommandContext<'a> {
                     client_context.working_dir.clone(),
                 ))
             })?;
+        let working_dir_project_relative: ArcS<ProjectRelativePath> =
+            ArcS::from(<&ProjectRelativePath>::from(&*working_dir_project_relative));
 
         #[derive(Allocative)]
         struct Observer {
@@ -298,7 +301,7 @@ impl<'a> ServerCommandContext<'a> {
 
         let cell_configs_loader = Arc::new(CellConfigLoader {
             project_root: base_context.project_root.clone(),
-            working_dir: working_dir_project_relative.to_buf().into(),
+            working_dir: working_dir_project_relative.dupe(),
             reuse_current_config: client_context.reuse_current_config,
             config_overrides,
             loaded_cell_configs: AsyncOnceCell::new(),
@@ -308,7 +311,7 @@ impl<'a> ServerCommandContext<'a> {
 
         Ok(ServerCommandContext {
             base_context,
-            working_dir: working_dir_project_relative.to_buf().into(),
+            working_dir: working_dir_project_relative,
             working_dir_abs: WorkingDir::unchecked_new(working_dir.to_buf()),
             host_platform_override: client_context.host_platform(),
             host_arch_override: client_context.host_arch(),
@@ -462,7 +465,7 @@ impl<'a> ServerCommandContext<'a> {
 
 struct CellConfigLoader {
     project_root: ProjectRoot,
-    working_dir: ProjectRelativePathBuf,
+    working_dir: ArcS<ProjectRelativePath>,
     /// Reuses build config from the previous invocation if there is one
     reuse_current_config: bool,
     config_overrides: Vec<LegacyConfigCmdArg>,

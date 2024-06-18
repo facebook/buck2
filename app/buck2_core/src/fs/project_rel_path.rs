@@ -74,6 +74,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use buck2_util::arc_str::StringInside;
 use derivative::Derivative;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
@@ -123,6 +124,16 @@ pub struct ProjectRelativePath(
 pub struct ProjectRelativePathBuf(
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePathBuf,
 );
+
+impl StringInside for ProjectRelativePath {
+    fn as_str(wrapper: &Self) -> &str {
+        wrapper.0.as_str()
+    }
+
+    fn from_str(s: &str) -> &Self {
+        ProjectRelativePath::unchecked_new(s)
+    }
+}
 
 impl AsRef<ForwardRelativePath> for ProjectRelativePath {
     fn as_ref(&self) -> &ForwardRelativePath {

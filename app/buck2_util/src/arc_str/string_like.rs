@@ -70,6 +70,13 @@ impl<S: StringInside + ?Sized> Deref for ArcS<S> {
     }
 }
 
+impl<S: StringInside + ?Sized> AsRef<S> for ArcS<S> {
+    #[inline]
+    fn as_ref(&self) -> &S {
+        self
+    }
+}
+
 impl<S: StringInside + ?Sized> Borrow<S> for ArcS<S> {
     #[inline]
     fn borrow(&self) -> &S {
