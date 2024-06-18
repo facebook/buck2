@@ -24,13 +24,13 @@ system_cxx_toolchain(
             "/permissive-",
             "/TC",
         ] + select({
-            "root//buck2_utils/configuration:debug": [
+            "buck2//buck2_utils/configuration:debug": [
                 "/Od",
                 "/D_DEBUG",
                 "/RTC1",
                 "/MDd",
             ],
-            "root//buck2_utils/configuration:release": [
+            "buck2//buck2_utils/configuration:release": [
                 "/O2",
                 "/Oi",
                 "/GL",
@@ -67,13 +67,13 @@ system_cxx_toolchain(
             "/permissive-",
             "/TP",
         ] + select({
-            "root//buck2_utils/configuration:debug": [
+            "buck2//buck2_utils/configuration:debug": [
                 "/Od",
                 "/D_DEBUG",
                 "/RTC1",
                 "/MDd",
             ],
-            "root//buck2_utils/configuration:release": [
+            "buck2//buck2_utils/configuration:release": [
                 "/O2",
                 "/Oi",
                 "/GL",
@@ -94,9 +94,9 @@ system_cxx_toolchain(
             "/DEBUG",
             "/INCREMENTAL:NO",
         ] + select({
-            "root//buck2_utils/configuration:debug": [],
+            "buck2//buck2_utils/configuration:debug": [],
             #Converted /LTCG:incremental to /LTCG because I'm guessing incremental actions won't work well with Buck2
-            "root//buck2_utils/configuration:release": [
+            "buck2//buck2_utils/configuration:release": [
                 "/OPT:REF",
                 "/OPT:ICF",
                 "/LTCG",
@@ -116,6 +116,6 @@ configuration = read_config("cxx", "configuration", "debug")
 
 platform(
     name = "default",
-    constraint_values = ["root//buck2_utils/configuration:release"] if configuration == "release" else ["root//buck2_utils/configuration:debug"],
+    constraint_values = ["buck2//buck2_utils/configuration:release"] if configuration == "release" else ["buck2//buck2_utils/configuration:debug"],
     deps = ["prelude//platforms:default"],
 )
