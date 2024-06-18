@@ -14,7 +14,7 @@ use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::pattern::parse_and_resolve_patterns_to_targets_from_cli_args;
+use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_patterns_to_targets_from_cli_args;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use dice::DiceComputations;
 use gazebo::prelude::SliceExt;

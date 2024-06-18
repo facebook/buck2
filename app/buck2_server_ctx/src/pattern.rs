@@ -17,13 +17,8 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern_type::PatternType;
-use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::label::label::TargetLabel;
-use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DiceComputations;
-use dupe::Dupe;
 use gazebo::prelude::*;
 
 struct PatternParser {
@@ -87,49 +82,4 @@ pub async fn parse_and_resolve_patterns_from_cli_args<T: PatternType>(
 ) -> anyhow::Result<ResolvedPattern<T>> {
     let patterns = parse_patterns_from_cli_args(ctx, target_patterns, cwd).await?;
     ResolveTargetPatterns::resolve(ctx, &patterns).await
-}
-
-pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>(
-    ctx: &mut DiceComputations<'_>,
-    target_patterns: &[buck2_data::TargetPattern],
-    cwd: &ProjectRelativePath,
-) -> anyhow::Result<Vec<(TargetLabel, T)>> {
-    let resolved_pattern =
-        parse_and_resolve_patterns_from_cli_args::<T>(ctx, target_patterns, cwd).await?;
-    let mut result_targets = Vec::new();
-    for (package, spec) in resolved_pattern.specs {
-        match spec {
-            buck2_core::pattern::PackageSpec::Targets(targets) => {
-                result_targets.extend(targets.into_map(|(name, extra)| {
-                    (TargetLabel::new(package.dupe(), name.as_ref()), extra)
-                }))
-            }
-            buck2_core::pattern::PackageSpec::All => {
-                // Note this code is not parallel. Careful if used in performance sensitive code.
-                let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
-                result_targets.extend(
-                    interpreter_results
-                        .targets()
-                        .keys()
-                        .map(|target| (TargetLabel::new(package.dupe(), target), T::default())),
-                );
-            }
-        }
-    }
-    Ok(result_targets)
-}
-
-pub async fn parse_and_resolve_provider_labels_from_cli_args(
-    ctx: &mut DiceComputations<'_>,
-    target_patterns: &[buck2_data::TargetPattern],
-    cwd: &ProjectRelativePath,
-) -> anyhow::Result<Vec<ProvidersLabel>> {
-    let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<ProvidersPatternExtra>(
-        ctx,
-        target_patterns,
-        cwd,
-    )
-    .await?;
-    Ok(targets
-        .into_map(|(label, providers)| providers.into_providers_label(label.pkg(), label.name())))
 }

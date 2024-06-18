@@ -17,7 +17,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::parse_and_resolve_provider_labels_from_cli_args;
+use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_provider_labels_from_cli_args;
 use buck2_util::indent::indent;
 use dice::DiceComputations;
 use dice::DiceTransaction;
