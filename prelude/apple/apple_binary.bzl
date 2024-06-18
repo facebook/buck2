@@ -5,6 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactInfoTag",
+)
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -134,6 +138,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                         ),
                     ],
                 },
+                external_debug_info_tags = [ArtifactInfoTag("swiftmodule")] if swift_compile else [],
             ),
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,

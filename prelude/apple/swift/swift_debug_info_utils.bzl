@@ -7,6 +7,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
+    "ArtifactInfoTag",
     "ArtifactTSet",
     "make_artifact_tset",
 )
@@ -27,6 +28,7 @@ def extract_and_merge_swift_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_
         label = ctx.label,
         artifacts = artifacts,
         children = swift_debug_tsets,
+        tags = [ArtifactInfoTag("swiftmodule")],
     )
 
 def extract_and_merge_clang_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_providers, artifacts: list[Artifact] = []) -> ArtifactTSet:
@@ -41,4 +43,5 @@ def extract_and_merge_clang_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_
         label = ctx.label,
         artifacts = artifacts,
         children = clang_debug_tsets,
+        tags = [ArtifactInfoTag("swift_pcm")],
     )

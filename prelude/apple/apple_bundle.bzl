@@ -144,7 +144,9 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     debug_info_tset = debuggable_info.debug_info_tset
     dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
-    all_debug_info = debug_info_tset._tset.traverse()
+    # The traversal is intentionally designed to be topological, allowing us to skip
+    # portions of the debug info that are not transitive in relation to the focused targets.
+    all_debug_info = debug_info_tset._tset.traverse(ordering = "topological")
     selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     filtered_debug_info = selective_debugging_info.filter(all_debug_info)
 

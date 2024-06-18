@@ -5,6 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactInfoTag",
+)
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(
     "@prelude//linking:execution_preference.bzl",
@@ -40,6 +44,7 @@ AppleSelectiveDebuggingInfo = provider(
 
 AppleSelectiveDebuggingFilteredDebugInfo = record(
     map = field(dict[Label, list[Artifact]]),
+    swift_modules_labels = field(list[Label]),
 )
 
 # The type of selective debugging json input to utilze.
@@ -156,16 +161,26 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     def filter_debug_info(debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo:
         map = {}
+        swift_modules = set()
+        selected_targets_contain_swift = False
         for infos in debug_info:
             for info in infos:
-                if _is_label_included(info.label, selection_criteria):
+                is_swiftmodule = ArtifactInfoTag("swiftmodule") in info.tags
+                is_swift_pcm = ArtifactInfoTag("swift_pcm") in info.tags
+                is_swift_related = is_swiftmodule or is_swift_pcm
+                if _is_label_included(info.label, selection_criteria) or (selected_targets_contain_swift and is_swift_related):
                     # There might be a few ArtifactInfo corresponding to the same Label,
                     # so to avoid overwriting, we need to preserve all artifacts.
                     if info.label in map:
                         map[info.label] += info.artifacts
                     else:
                         map[info.label] = list(info.artifacts)
-        return AppleSelectiveDebuggingFilteredDebugInfo(map = map)
+
+                    if is_swiftmodule:
+                        swift_modules.add(info.label)
+
+                    selected_targets_contain_swift = selected_targets_contain_swift or ArtifactInfoTag("swiftmodule") in info.tags
+        return AppleSelectiveDebuggingFilteredDebugInfo(map = map, swift_modules_labels = swift_modules.list())
 
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,

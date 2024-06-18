@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "ArtifactTSet")  # @unused Used as a type
+load("@prelude//:artifact_tset.bzl", "ArtifactInfoTag", "ArtifactTSet")
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
@@ -97,6 +97,8 @@ CxxRuleAdditionalParams = record(
     subtargets = field(dict, {}),  # [str: ["provider"]]
     # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
     additional_providers_factory = field([typing.Callable, None], None),  # ([CPreprocessorInfo, None]) -> ["provider"]:
+    # The list of tags that should be applied to generated ArtifactTSet of debug information.
+    external_debug_info_tags = field(list[ArtifactInfoTag], []),
 )
 
 # Parameters that allows to configure/extend generic implementation of C++ rules.

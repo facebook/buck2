@@ -138,7 +138,7 @@ def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> Link
         external_debug_info = make_artifact_tset(
             actions = actions,
             infos = [
-                ArtifactInfo(label = label, artifacts = artifacts)
+                ArtifactInfo(label = label, artifacts = artifacts, tags = [])
                 for _label, artifacts in external_debug_info
             ],
         ),

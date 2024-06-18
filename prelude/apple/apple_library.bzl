@@ -7,6 +7,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
+    "ArtifactInfoTag",
     "ArtifactTSet",
     "make_artifact_tset",
     "project_artifacts",
@@ -387,6 +388,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
                 ],
             },
             additional_providers_factory = additional_providers_factory,
+            external_debug_info_tags = [ArtifactInfoTag("swiftmodule")] if swift_compile else [],
         ),
         output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,

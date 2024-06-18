@@ -1053,6 +1053,7 @@ def _form_library_outputs(
                     label = ctx.label,
                     artifacts = external_debug_artifacts,
                     children = impl_params.additional.shared_external_debug_info,
+                    tags = impl_params.additional.external_debug_info_tags,
                 )
 
                 gcno_files += compiled_srcs.pic.gcno_files
@@ -1368,6 +1369,7 @@ def _static_library(
         label = ctx.label,
         artifacts = object_external_debug_info,
         children = [external_debug_info],
+        tags = impl_params.additional.external_debug_info_tags,
     )
 
     return (

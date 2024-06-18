@@ -7,6 +7,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
+    "ArtifactInfoTag",
     "ArtifactTSet",  # @unused Used as a type
     "make_artifact_tset",
     "project_artifacts",
@@ -771,6 +772,7 @@ def get_swift_dependency_info(
         artifacts = [output_module] if output_module != None else [],
         children = _get_external_debug_info_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
         label = ctx.label,
+        tags = [ArtifactInfoTag("swiftmodule")],
     )
 
     return SwiftDependencyInfo(
