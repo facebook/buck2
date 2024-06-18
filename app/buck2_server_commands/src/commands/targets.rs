@@ -50,7 +50,7 @@ impl<'a, W: Write> Outputter<'a, W> {
             None => Ok(Self::Stdout(stdout)),
             Some(file) => Ok(Self::File(BufWriter::new(
                 File::create(file).with_context(|| {
-                    format!("Failed to open file `{}` for `targets` output ", file)
+                    format!("Failed to open file `{file}` for `targets` output ")
                 })?,
             ))),
         }

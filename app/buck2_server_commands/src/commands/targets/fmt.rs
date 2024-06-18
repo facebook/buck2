@@ -308,7 +308,7 @@ impl TargetFormatter for JsonFormat {
             stdout,
             &mut first,
             "buck.error",
-            QuotedJson::quote_str(&format!("{:?}", error)),
+            QuotedJson::quote_str(&format!("{error:?}")),
         );
         self.writer.entry_end(stdout, first);
     }
