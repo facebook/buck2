@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_common::pattern::parse_from_cli;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -17,15 +18,14 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
 
-use crate::pattern;
-
 pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>(
     ctx: &mut DiceComputations<'_>,
     target_patterns: &[String],
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<(TargetLabel, T)>> {
     let resolved_pattern =
-        pattern::parse_and_resolve_patterns_from_cli_args::<T>(ctx, target_patterns, cwd).await?;
+        parse_from_cli::parse_and_resolve_patterns_from_cli_args::<T>(ctx, target_patterns, cwd)
+            .await?;
     let mut result_targets = Vec::new();
     for (package, spec) in resolved_pattern.specs {
         match spec {

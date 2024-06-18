@@ -8,4 +8,5 @@
  */
 
 pub mod package_roots;
+pub mod parse_from_cli;
 pub mod resolve;

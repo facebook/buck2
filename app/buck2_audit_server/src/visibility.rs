@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_audit::visibility::AuditVisibilityCommand;
 use buck2_cli_proto::ClientContext;
+use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -22,7 +23,6 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use dice::DiceTransaction;
 use dupe::Dupe;
 

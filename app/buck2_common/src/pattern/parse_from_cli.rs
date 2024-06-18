@@ -7,11 +7,6 @@
  * of this source tree.
  */
 
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::pattern::resolve::ResolveTargetPatterns;
-use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
-use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -20,6 +15,12 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::ParsedPattern;
 use dice::DiceComputations;
 use gazebo::prelude::*;
+
+use crate::dice::cells::HasCellResolver;
+use crate::pattern::resolve::ResolveTargetPatterns;
+use crate::pattern::resolve::ResolvedPattern;
+use crate::target_aliases::BuckConfigTargetAliasResolver;
+use crate::target_aliases::HasTargetAliasResolver;
 
 struct PatternParser {
     cell_resolver: CellResolver,
