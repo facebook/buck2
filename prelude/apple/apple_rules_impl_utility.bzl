@@ -49,6 +49,13 @@ def _strict_provisioning_profile_search_default_attr():
         "config//features/apple:strict_provisioning_profile_search_enabled": True,
     }))
 
+def _fast_adhoc_signing_enabled_default_attr():
+    return attrs.bool(default = select({
+        "DEFAULT": True,
+        "config//features/apple:fast_adhoc_signing_disabled": False,
+        "config//features/apple:fast_adhoc_signing_enabled": True,
+    }))
+
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -67,6 +74,7 @@ def _apple_bundle_like_common_attrs():
     # `apple_bundle()` and `apple_test()` share a common set of extra attrs
     attribs = {
         "codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
+        "fast_adhoc_signing_enabled": attrs.option(attrs.bool(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
         "versioned_macos_bundle": attrs.bool(default = False),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
@@ -79,6 +87,7 @@ def _apple_bundle_like_common_attrs():
         "_codesign_identities_command_override": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
+        "_fast_adhoc_signing_enabled_default": _fast_adhoc_signing_enabled_default_attr(),
         "_fast_provisioning_profile_parsing_enabled": attrs.bool(default = False),
         "_incremental_bundling_enabled": attrs.bool(default = False),
         "_profile_bundling_enabled": attrs.bool(default = False),

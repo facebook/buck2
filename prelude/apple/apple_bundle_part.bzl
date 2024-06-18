@@ -78,7 +78,10 @@ def assemble_bundle(
         codesign_configuration_args = ["--codesign-configuration", "dry-run"]
         codesign_tool = tools.dry_codesign_tool
     elif code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
-        codesign_configuration_args = ["--codesign-configuration", "fast-adhoc"]
+        if _get_fast_adhoc_signing_enabled(ctx):
+            codesign_configuration_args = ["--codesign-configuration", "fast-adhoc"]
+        else:
+            codesign_configuration_args = []
     elif code_signing_configuration == CodeSignConfiguration("none"):
         codesign_configuration_args = []
     else:
@@ -353,3 +356,9 @@ def _apple_bundle_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
         ))
 
     return categories
+
+def _get_fast_adhoc_signing_enabled(ctx: AnalysisContext) -> bool:
+    fast_adhoc_signing_enabled = ctx.attrs.fast_adhoc_signing_enabled
+    if fast_adhoc_signing_enabled != None:
+        return fast_adhoc_signing_enabled
+    return ctx.attrs._fast_adhoc_signing_enabled_default
