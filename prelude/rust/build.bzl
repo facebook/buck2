@@ -214,10 +214,17 @@ def generate_rustdoc(
                 # TODO: resolve this using dynamic (if set), see comment on D52476603
                 name = dep.info.crate.simple
 
-            rustdoc_cmd.add(
-                "--extern-html-root-url={}={}/{}:{}"
-                    .format(name, url_prefix, dep.label.package, dep.label.name),
-            )
+            rustdoc_cmd.add(cmd_args(
+                "--extern-html-root-url=",
+                name,
+                "=",
+                url_prefix,
+                "/",
+                dep.label.package,
+                ":",
+                dep.label.name,
+                delimiter = "",
+            ))
 
     rustdoc_cmd_action = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
