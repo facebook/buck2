@@ -91,7 +91,6 @@ pub struct BuildCommand {
     #[clap(
         long,
         group = "test-info",
-        alias = "build-test-dependencies",
         help = "Build tests (this is not the default)"
     )]
     build_test_info: bool,
@@ -419,10 +418,6 @@ mod tests {
         assert_eq!(opts.run_info(), Action::Skip);
 
         let opts = parse(&["--build-test-info"])?;
-        assert_eq!(opts.test_info(), Action::BuildIfAvailable);
-
-        // Legacy flag from before we could configure the other options.
-        let opts = parse(&["--build-test-dependencies"])?;
         assert_eq!(opts.test_info(), Action::BuildIfAvailable);
 
         Ok(())
