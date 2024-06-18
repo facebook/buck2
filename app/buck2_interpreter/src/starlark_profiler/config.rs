@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
@@ -26,7 +28,7 @@ enum StarlarkProfilerError {
 }
 
 /// Global profiling configuration.
-#[derive(PartialEq, Eq, Clone, Dupe, Debug, Allocative)]
+#[derive(PartialEq, Eq, Clone, Debug, Allocative)]
 #[derive(Default)]
 pub enum StarlarkProfilerConfiguration {
     /// No profiling.
@@ -127,7 +129,7 @@ impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
 pub struct StarlarkProfilerConfigurationKey;
 
 impl InjectedKey for StarlarkProfilerConfigurationKey {
-    type Value = StarlarkProfilerConfiguration;
+    type Value = Arc<StarlarkProfilerConfiguration>;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -156,7 +158,7 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
         &mut self,
         configuration: StarlarkProfilerConfiguration,
     ) -> anyhow::Result<()> {
-        Ok(self.changed_to([(StarlarkProfilerConfigurationKey, configuration)])?)
+        Ok(self.changed_to([(StarlarkProfilerConfigurationKey, Arc::new(configuration))])?)
     }
 }
 

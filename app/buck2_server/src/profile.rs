@@ -211,7 +211,7 @@ async fn generate_profile(
 
             let profiles =
                 futures::future::try_join_all(resolved.specs.into_iter().map(|(package, spec)| {
-                    let profile_mode = profile_mode.dupe();
+                    let profile_mode = profile_mode.clone();
                     let ctx = ctx.dupe();
                     spawn_cancellable(
                         move |_cancel| {

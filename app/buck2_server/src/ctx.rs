@@ -446,7 +446,7 @@ impl<'a> ServerCommandContext<'a> {
             interpreter_xcode_version,
             starlark_profiler_instrumentation_override: self
                 .starlark_profiler_instrumentation_override
-                .dupe(),
+                .clone(),
             events: self.events().dupe(),
             disable_starlark_types: self.disable_starlark_types,
             unstable_typecheck: self.unstable_typecheck,
@@ -802,7 +802,7 @@ impl DiceUpdater for DiceCommandUpdater {
             configuror,
             legacy_configs,
             cells_and_configs.resolved_args,
-            self.starlark_profiler_instrumentation_override.dupe(),
+            self.starlark_profiler_instrumentation_override.clone(),
             self.disable_starlark_types,
             self.unstable_typecheck,
         )?;
