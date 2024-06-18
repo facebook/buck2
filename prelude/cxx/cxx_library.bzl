@@ -129,11 +129,6 @@ load(
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
-    ":cxx_instrumentation.bzl",
-    "build_exported_needs_coverage",
-    "needs_coverage",
-)
-load(
     ":cxx_library_utility.bzl",
     "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
@@ -375,7 +370,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
 
-    exported_needs_coverage = build_exported_needs_coverage(ctx, exported_deps + non_exported_deps)
     compiled_srcs = cxx_compile_srcs(
         ctx = ctx,
         impl_params = impl_params,
@@ -383,13 +377,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         inherited_non_exported_preprocessor_infos = inherited_non_exported_preprocessor_infos,
         inherited_exported_preprocessor_infos = inherited_exported_preprocessor_infos,
         preferred_linkage = preferred_linkage,
-        add_coverage_instrumentation_compiler_flags = needs_coverage(exported_needs_coverage),
     )
 
     sub_targets = {}
     providers = []
-
-    providers.append(exported_needs_coverage)
 
     if len(ctx.attrs.tests) > 0 and impl_params.generate_providers.preprocessor_for_tests:
         providers.append(
@@ -940,8 +931,7 @@ def cxx_compile_srcs(
         own_preprocessors: list[CPreprocessor],
         inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo],
         inherited_exported_preprocessor_infos: list[CPreprocessorInfo],
-        preferred_linkage: Linkage,
-        add_coverage_instrumentation_compiler_flags: bool) -> _CxxCompiledSourcesOutput:
+        preferred_linkage: Linkage) -> _CxxCompiledSourcesOutput:
     """
     Compile objects we'll need for archives and shared libraries.
     """
@@ -952,7 +942,6 @@ def cxx_compile_srcs(
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
-        add_coverage_instrumentation_compiler_flags = add_coverage_instrumentation_compiler_flags,
     )
 
     # Define object files.

@@ -101,10 +101,6 @@ load(
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
-    ":cxx_instrumentation.bzl",
-    "is_coverage_enabled_by_any_dep",
-)
-load(
     ":cxx_library_utility.bzl",
     "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
@@ -220,7 +216,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
-        is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_strategy != LinkStrategy("static"))
 

@@ -170,7 +170,6 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
         inherited_pre,
         [],
         linkage,
-        False,  # add_coverage_instrumentation_compiler_flags
     )
 
     compiled_objects = c_compile_cmds.pic.objects
