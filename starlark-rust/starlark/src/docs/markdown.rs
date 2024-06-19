@@ -58,18 +58,6 @@ pub trait RenderMarkdown {
     }
 }
 
-impl RenderMarkdown for String {
-    fn render_markdown_opt(&self, _flavor: MarkdownFlavor) -> Option<String> {
-        Some(self.clone())
-    }
-}
-
-impl RenderMarkdown for str {
-    fn render_markdown_opt(&self, _flavor: MarkdownFlavor) -> Option<String> {
-        Some(self.to_owned())
-    }
-}
-
 /// What to render from a [`DocString`].
 enum DSOpts {
     /// Just the summary.
