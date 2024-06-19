@@ -9,8 +9,6 @@
 
 // If this code needs fixing, make sure you fix the README.md too!
 
-use std::convert::TryInto;
-
 use superconsole::components::bordering::Bordered;
 use superconsole::components::bordering::BorderedSpec;
 use superconsole::Component;

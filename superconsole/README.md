@@ -28,7 +28,6 @@ use to inject state into their otherwise immutable rendering logic.
 ## Examples
 
 ```rust
-use std::convert::TryInto;
 use superconsole::components::bordering::{Bordered, BorderedSpec};
 use superconsole::{Component, Dimensions, DrawMode, Lines, SuperConsole};
 
