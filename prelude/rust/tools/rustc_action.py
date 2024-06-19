@@ -42,6 +42,7 @@ if sys.version_info[:2] < (3, 7):
 
 
 def key_value_arg(s: str) -> Tuple[str, str]:
+    s = arg_eval(s)
     key_value = s.split("=", maxsplit=1)
     if len(key_value) == 2:
         return (key_value[0], key_value[1])
