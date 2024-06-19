@@ -344,6 +344,7 @@ def process_genrule(
         cmd_args(script_args, hidden = [cmd, srcs_artifact, out_artifact.as_output()] + hidden),
         env = env_vars,
         local_only = local_only,
+        weight = value_or(ctx.attrs.weight, 1),
         allow_cache_upload = cacheable,
         category = category,
         identifier = identifier,

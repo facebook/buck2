@@ -110,6 +110,13 @@ def _cmd_exe_arg():
 """),
     }
 
+def _weight_arg():
+    return {
+        "weight": attrs.option(attrs.int(), default = None, doc = """
+    How many local slots these genrule should take when executing locally.
+"""),
+    }
+
 def _out_arg():
     return {
         "out": attrs.option(attrs.string(), default = None, doc = """
@@ -187,5 +194,6 @@ genrule_common = struct(
     cmd_exe_arg = _cmd_exe_arg,
     out_arg = _out_arg,
     type_arg = _type_arg,
+    weight_arg = _weight_arg,
     environment_expansion_separator = _environment_expansion_separator,
 )

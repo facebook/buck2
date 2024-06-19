@@ -1073,6 +1073,7 @@ apk_genrule = prelude_rule(
         genrule_common.bash_arg() |
         genrule_common.cmd_exe_arg() |
         genrule_common.type_arg() |
+        genrule_common.weight_arg() |
         {
             "out": attrs.option(attrs.string(), default = None, doc = """
                 The name of the output file or directory. The complete path to this

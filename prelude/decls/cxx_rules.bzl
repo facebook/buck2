@@ -364,6 +364,7 @@ cxx_genrule = prelude_rule(
         genrule_common.bash_arg() |
         genrule_common.cmd_exe_arg() |
         genrule_common.type_arg() |
+        genrule_common.weight_arg() |
         genrule_common.out_arg() |
         genrule_common.environment_expansion_separator() |
         {

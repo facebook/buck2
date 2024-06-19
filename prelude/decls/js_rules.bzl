@@ -64,6 +64,7 @@ js_bundle_genrule = prelude_rule(
             "rewrite_sourcemap": attrs.bool(default = False),
             "skip_resources": attrs.bool(default = False),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
+            "weight": attrs.option(attrs.int(), default = None),
         }
     ),
 )
