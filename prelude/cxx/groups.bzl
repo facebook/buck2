@@ -420,5 +420,5 @@ def make_info_subtarget_providers(ctx: AnalysisContext, groups: list[Group], map
         "groups": {group.name: _make_json_info_for_group(group) for group in groups},
         "mappings": mappings,
     }
-    json_output = ctx.actions.write_json("link_group_map_info.json", info_json)
+    json_output = ctx.actions.write_json("link_group_map_info.json", info_json, pretty = True)
     return [DefaultInfo(default_output = json_output)]
