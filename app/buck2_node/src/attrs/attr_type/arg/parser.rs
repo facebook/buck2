@@ -340,15 +340,15 @@ fn read_literal_opt(input: &str) -> Result<Option<Box<str>>> {
 
     // Fast check that there are no macro refs in the string, which is the common case.
     // We can do better than `memchr` (given our strings are short), but not much.
-    if memchr::memchr2(b'$', b'\\', input.as_bytes()).is_none() {
-        return Ok((Some(input.into()), ""));
+    match memchr::memchr2(b'$', b'\\', input.as_bytes()) {
+        None => Ok((Some(input.into()), "")),
+        Some(pos) => read_literal_opt_slow(input, pos),
     }
-
-    read_literal_opt_slow(input)
 }
 
-fn read_literal_opt_slow(input: &str) -> Result<Option<Box<str>>> {
-    let mut char_indices = input.bytes().enumerate();
+fn read_literal_opt_slow(input: &str, pos: usize) -> Result<Option<Box<str>>> {
+    let mut char_indices = input.bytes().enumerate().skip(pos);
+
     let mut indices_to_drop = Vec::new();
     enum State {
         Searching,
