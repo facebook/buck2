@@ -78,10 +78,8 @@ impl<'v> Evaluator<'v, '_, '_> {
             }
         }
 
-        let orig_module_variables = self.module_variables.take();
         let globals = self.top_frame_def_info_for_debugger()?.globals;
         let res = self.eval_module(statements, &globals);
-        self.module_variables = orig_module_variables;
 
         // Now put the Module back how it was before we started, as best we can
         // and move things into locals if that makes sense

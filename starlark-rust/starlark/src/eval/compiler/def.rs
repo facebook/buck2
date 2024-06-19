@@ -788,9 +788,9 @@ where
         if Self::FROZEN {
             debug_assert!(self.module.load_relaxed().is_some());
         }
-        let res = eval.with_function_context(me, self.module.load_relaxed(), self.bc());
 
-        res.map_err(EvalException::into_error)
+        eval.eval_bc(me, self.bc())
+            .map_err(EvalException::into_error)
     }
 
     pub(crate) fn resolve_arg_name(&self, name: Hashed<&str>) -> ResolvedArgName {

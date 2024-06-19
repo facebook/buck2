@@ -116,10 +116,6 @@ pub(crate) const DEFAULT_STACK_SIZE: usize = 50;
 pub struct Evaluator<'v, 'a, 'e> {
     // The module that is being used for this evaluation
     pub(crate) module_env: &'v Module,
-    // The module-level variables in scope at the moment.
-    // If `None` then we're in the initial module, use variables from `module_env`.
-    // If `Some` we've called a `def` in a loaded frozen module.
-    pub(crate) module_variables: Option<FrozenRef<'static, FrozenModuleData>>,
     /// Current function (`def` or `lambda`) frame: locals and bytecode stack.
     pub(crate) current_frame: BcFramePtr<'v>,
     // How we deal with a `load` function.
@@ -218,7 +214,6 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         Evaluator {
             call_stack: CheapCallStack::default(),
             module_env: module,
-            module_variables: None,
             current_frame: BcFramePtr::null(),
             loader: None,
             extra: None,
@@ -468,26 +463,6 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         // Must always call .pop regardless
         let res = within(self).map_err(|e| add_diagnostics(e, self));
         self.call_stack.pop();
-        res
-    }
-
-    /// Called to change the local variables, from the callee.
-    /// Only called for user written functions.
-    #[inline(always)] // There is only one caller
-    pub(crate) fn with_function_context(
-        &mut self,
-        def: Value<'v>,
-        module: Option<FrozenRef<'static, FrozenModuleData>>, // None == use module_env
-        bc: &Bc,
-    ) -> Result<Value<'v>, EvalException> {
-        // Set up for the new function call
-        let old_module_variables = mem::replace(&mut self.module_variables, module);
-
-        // Run the computation
-        let res = self.eval_bc(def, bc);
-
-        // Restore them all back
-        self.module_variables = old_module_variables;
         res
     }
 
