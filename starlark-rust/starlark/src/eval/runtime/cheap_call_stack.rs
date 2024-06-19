@@ -197,17 +197,14 @@ impl<'v> CheapCallStack<'v> {
     }
 
     /// `n`-th element from the top of the stack.
-    pub(crate) fn top_nth_function(&self, n: usize) -> crate::Result<Value<'v>> {
-        let index = self
-            .count
-            .checked_sub(1)
-            .and_then(|x| x.checked_sub(n))
-            .ok_or_else(|| {
-                crate::Error::new_other(CallStackError::StackIsTooShallowForNthTopFrame(
-                    n, self.count,
-                ))
-            })?;
-        Ok(self.stack[index].function)
+    pub(crate) fn top_nth_function(&self, n: usize) -> anyhow::Result<Value<'v>> {
+        self.top_nth_function_opt(n)
+            .ok_or_else(|| CallStackError::StackIsTooShallowForNthTopFrame(n, self.count).into())
+    }
+
+    pub(crate) fn top_nth_function_opt(&self, n: usize) -> Option<Value<'v>> {
+        let index = self.count.checked_sub(1).and_then(|x| x.checked_sub(n))?;
+        Some(self.stack[index].function)
     }
 
     pub(crate) fn to_diagnostic_frames(&self, inlined_frames: InlinedFrames) -> CallStack {

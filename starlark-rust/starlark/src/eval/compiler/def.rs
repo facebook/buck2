@@ -535,7 +535,7 @@ pub(crate) struct DefGen<V> {
     /// When the module is not frozen yet, this field contains `None`, and function's module
     /// can be accessed from evaluator's module.
     #[allocative(skip)]
-    module: AtomicFrozenRefOption<FrozenModuleData>,
+    pub(crate) module: AtomicFrozenRefOption<FrozenModuleData>,
     /// This field is only used in `FrozenDef`. It is populated in `post_freeze`.
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]

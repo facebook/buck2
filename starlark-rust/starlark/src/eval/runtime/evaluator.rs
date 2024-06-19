@@ -515,13 +515,14 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         #[cold]
         #[inline(never)]
         fn error<'v>(eval: &Evaluator<'v, '_, '_>, slot: ModuleSlotId) -> crate::Error {
-            let name = match &eval.module_variables {
-                None => eval
+            let name = match eval.top_frame_def_frozen_module(false) {
+                Err(e) => Some(format!("<internal error: {e}>")),
+                Ok(None) => eval
                     .module_env
                     .mutable_names()
                     .get_slot(slot)
                     .map(|s| s.as_str().to_owned()),
-                Some(e) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),
+                Ok(Some(e)) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
             crate::Error::new_other(EvaluatorError::LocalVariableReferencedBeforeAssignment(
@@ -529,7 +530,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             ))
         }
 
-        match &self.module_variables {
+        match self.top_frame_def_frozen_module(false)? {
             None => self.module_env.slots().get_slot(slot),
             Some(e) => e.get_slot(slot).map(Value::new_frozen),
         }
@@ -690,19 +691,34 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.func_to_def_info(func)
     }
 
+    pub(crate) fn top_frame_def_frozen_module(
+        &self,
+        for_debugger: bool,
+    ) -> anyhow::Result<Option<FrozenRef<'static, FrozenModuleData>>> {
+        let func = self.top_frame_maybe_for_debugger(for_debugger)?;
+        if let Some(func) = func.downcast_ref::<FrozenDef>() {
+            Ok(func.module.load_relaxed())
+        } else if let Some(func) = func.downcast_ref::<Def>() {
+            Ok(func.module.load_relaxed())
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn top_frame_maybe_for_debugger(&self, for_debugger: bool) -> anyhow::Result<Value<'v>> {
+        let func = self.call_stack.top_nth_function(0)?;
+        if for_debugger && func.downcast_ref::<NativeFunction>().is_some() {
+            // If top frame is `breakpoint` or `debug_evaluate`, it will be skipped.
+            self.call_stack.top_nth_function(1)
+        } else {
+            Ok(func)
+        }
+    }
+
     /// Gets the "top frame" for debugging. If the real top frame is `breakpoint` or `debug_evaluate`
     /// it will be skipped. This should only be used for the starlark debugger.
     pub(crate) fn top_frame_def_info_for_debugger(&self) -> crate::Result<FrozenRef<DefInfo>> {
-        let func = {
-            let top = self.call_stack.top_nth_function(0)?;
-            if top.downcast_ref::<NativeFunction>().is_some() {
-                // we are in `breakpoint` or `debug_evaluate` function, get the next frame.
-                self.call_stack.top_nth_function(1)?
-            } else {
-                top
-            }
-        };
-
+        let func = self.top_frame_maybe_for_debugger(true)?;
         self.func_to_def_info(func)
     }
 
