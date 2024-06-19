@@ -127,7 +127,7 @@ def arg_parse() -> Args:
     parser.add_argument(
         "rustc",
         nargs=argparse.REMAINDER,
-        type=str,
+        type=arg_eval,
         help="Compiler command line",
     )
 
@@ -235,7 +235,6 @@ async def handle_output(  # noqa: C901
 
 async def main() -> int:
     args = arg_parse()
-    args = args._replace(rustc=[arg_eval(arg) for arg in args.rustc])
 
     if args.echo:
         args.echo.write("".join(arg + "\n" for arg in args.rustc).encode("utf-8"))
