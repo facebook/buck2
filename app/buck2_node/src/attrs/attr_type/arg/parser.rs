@@ -348,7 +348,7 @@ fn read_literal_opt(input: &str) -> Result<Option<Box<str>>> {
 }
 
 fn read_literal_opt_slow(input: &str) -> Result<Option<Box<str>>> {
-    let mut char_indices = input.char_indices();
+    let mut char_indices = input.bytes().enumerate();
     let mut indices_to_drop = Vec::new();
     enum State {
         Searching,
@@ -366,28 +366,28 @@ fn read_literal_opt_slow(input: &str) -> Result<Option<Box<str>>> {
     let mut pos = char_indices.next();
     while let Some((idx, c)) = pos {
         state = match (state, c) {
-            (Searching, '\\') => Escaped,
-            (Dollar, '\\') => Escaped,
-            (EscapedDollar, '\\') => Escaped,
+            (Searching, b'\\') => Escaped,
+            (Dollar, b'\\') => Escaped,
+            (EscapedDollar, b'\\') => Escaped,
 
-            (Escaped, '$') => EscapedDollar,
+            (Escaped, b'$') => EscapedDollar,
             (Escaped, _) => Searching,
 
-            (Searching, '$') => Dollar,
+            (Searching, b'$') => Dollar,
             (Searching, _) => Searching,
 
-            (Dollar, '(') => {
+            (Dollar, b'(') => {
                 // found a macro
                 break;
             }
-            (EscapedDollar, '(') => {
+            (EscapedDollar, b'(') => {
                 // Indicates we hit the sequence `\$(` and we need to drop the `\`
                 indices_to_drop.push(idx - 2);
                 EscapedMacro(1)
             }
-            (EscapedMacro(1), ')') => Searching,
-            (EscapedMacro(n), ')') => EscapedMacro(n - 1),
-            (EscapedMacro(n), '(') => EscapedMacro(n + 1),
+            (EscapedMacro(1), b')') => Searching,
+            (EscapedMacro(n), b')') => EscapedMacro(n - 1),
+            (EscapedMacro(n), b'(') => EscapedMacro(n + 1),
             (EscapedMacro(n), _) => EscapedMacro(n),
             // Note that '(' and '\' is handled for both of thes above.
             (Dollar, _) => Searching,
