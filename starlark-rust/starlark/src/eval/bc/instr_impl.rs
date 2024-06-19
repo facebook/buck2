@@ -1448,7 +1448,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
             return_type,
             def_data.info,
             eval,
-        ));
+        )?);
         frame.set_bc_slot(*target, def);
         Ok(())
     }

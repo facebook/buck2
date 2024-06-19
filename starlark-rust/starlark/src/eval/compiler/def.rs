@@ -560,21 +560,21 @@ impl<'v> Def<'v> {
         return_type: Option<TypeCompiled<FrozenValue>>,
         stmt: FrozenRef<'static, DefInfo>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> Value<'v> {
+    ) -> anyhow::Result<Value<'v>> {
         let captured = stmt
             .parent
             .as_ref()
             .map(|copy| eval.clone_slot_capture(copy, &stmt));
-        eval.heap().alloc(Self {
+        Ok(eval.heap().alloc(Self {
             parameters,
             parameter_captures: stmt.parameter_captures,
             parameter_types,
             return_type,
             captured,
-            module: AtomicFrozenRefOption::new(eval.module_variables),
+            module: AtomicFrozenRefOption::new(eval.top_frame_def_frozen_module(false)?),
             optimized_on_freeze_stmt: StmtCompiledCell::new(),
             def_info: stmt,
-        })
+        }))
     }
 }
 
