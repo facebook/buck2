@@ -18,7 +18,6 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::soft_error;
 use buck2_util::thin_box::ThinBoxSlice;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -658,24 +657,6 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
     ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
         this.borrow.add_values(&args.items)?;
-        Ok(this)
-    }
-
-    /// Things to add to the command line which do not show up but are added as dependencies.
-    /// The values can be anything normally permissible to pass to `add`.
-    ///
-    /// Typically used if the command you are running implicitly depends on files that are not
-    /// passed on the command line, e.g. headers in the case of a C compilation.
-    fn hidden<'v>(
-        mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(args)] args: UnpackTuple<Value<'v>>,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
-        soft_error!(
-            "cmd_args_hidden",
-            anyhow::anyhow!("cmd_args.hidden() is deprecated and will be removed soon")
-        )?;
-
-        this.borrow.add_hidden(&args.items)?;
         Ok(this)
     }
 
