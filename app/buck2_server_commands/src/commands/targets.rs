@@ -39,44 +39,24 @@ use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
 
-pub(crate) enum Outputter<'a, W: Write + Send> {
-    Stdout(&'a mut W),
-    File(BufWriter<File>),
+enum OutputType {
+    Stdout,
+    File,
 }
 
-impl<'a, W: Write + Send> Outputter<'a, W> {
-    fn new(request: &TargetsRequest, stdout: &'a mut W) -> anyhow::Result<Self> {
-        match &request.output {
-            None => Ok(Self::Stdout(stdout)),
-            Some(file) => Ok(Self::File(BufWriter::new(
-                File::create(file).with_context(|| {
+fn outputter<'a, W: Write + Send + 'a>(
+    request: &TargetsRequest,
+    stdout: W,
+) -> anyhow::Result<(OutputType, Box<dyn Write + Send + 'a>)> {
+    match &request.output {
+        None => Ok((OutputType::Stdout, Box::new(stdout))),
+        Some(file) => {
+            let file =
+                BufWriter::new(File::create(file).with_context(|| {
                     format!("Failed to open file `{file}` for `targets` output ")
-                })?,
-            ))),
+                })?);
+            Ok((OutputType::File, Box::new(file)))
         }
-    }
-
-    fn get_write(&mut self) -> &mut (dyn Write + Send) {
-        match self {
-            Self::Stdout(stdout) => stdout,
-            Self::File(f) => f,
-        }
-    }
-
-    /// If this outputter should write anything to a file, do so, and return whatever buffer is left over.
-    fn write_to_file(&mut self, buffer: String) -> anyhow::Result<String> {
-        match self {
-            Self::Stdout(_) => Ok(buffer),
-            Self::File(f) => {
-                f.write_all(buffer.as_bytes())?;
-                Ok(String::new())
-            }
-        }
-    }
-
-    fn flush(&mut self) -> anyhow::Result<()> {
-        self.get_write().flush()?;
-        Ok(())
     }
 }
 
@@ -151,7 +131,7 @@ async fn targets(
     )
     .await?;
 
-    let mut outputter = Outputter::new(request, stdout)?;
+    let (output_type, mut output) = outputter(request, stdout)?;
 
     let response = match &request.targets {
         Some(targets_request::Targets::ResolveAlias(_)) => {
@@ -171,7 +151,7 @@ async fn targets(
                     server_ctx,
                     dice,
                     formatter,
-                    outputter.get_write(),
+                    &mut output,
                     parsed_target_patterns,
                     other.keep_going,
                     other.cached,
@@ -181,7 +161,7 @@ async fn targets(
                 )
                 .await;
                 // Make sure we always flush the outputter, even on failure, as we may have partially written to it
-                outputter.flush()?;
+                output.flush()?;
                 res?
             } else {
                 let formatter = create_formatter(request, other)?;
@@ -210,10 +190,17 @@ async fn targets(
         None => return Err(internal_error!("Missing field in proto request")),
     };
 
+    let buffer = match output_type {
+        OutputType::Stdout => response.serialized_targets_output,
+        OutputType::File => {
+            output.write_all(response.serialized_targets_output.as_bytes())?;
+            String::new()
+        }
+    };
     let response = TargetsResponse {
         error_count: response.error_count,
-        serialized_targets_output: outputter.write_to_file(response.serialized_targets_output)?,
+        serialized_targets_output: buffer,
     };
-    outputter.flush()?;
+    output.flush()?;
     Ok(response)
 }
