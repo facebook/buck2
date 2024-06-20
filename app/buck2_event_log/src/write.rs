@@ -165,6 +165,16 @@ impl NamedEventLogWriter {
             ))),
         }
     }
+
+    async fn shutdown(&mut self) {
+        if let Err(e) = self.file.shutdown().await {
+            tracing::warn!("Failed to flush log file at `{}`: {:#}", self.path.path, e);
+        }
+    }
+
+    fn child(mut self) -> Option<FutureChildOutput> {
+        self.process_to_wait_for.take()
+    }
 }
 
 pub(crate) enum LogWriterState {
@@ -381,13 +391,7 @@ impl<'a> WriteEventLog<'a> {
             };
 
             for writer in writers.iter_mut() {
-                if let Err(e) = writer.file.shutdown().await {
-                    tracing::warn!(
-                        "Failed to flush log file at `{}`: {:#}",
-                        writer.path.path,
-                        e
-                    );
-                }
+                writer.shutdown().await
             }
 
             // NOTE: We call `into_iter()` here and that implicitly drops the `writer.file`, which
@@ -395,7 +399,7 @@ impl<'a> WriteEventLog<'a> {
             // an odd behavior in Tokio that `shutdown` doesn't do that).
             let futs = writers
                 .into_iter()
-                .filter_map(|mut w| w.process_to_wait_for.take())
+                .filter_map(|w| w.child())
                 .map(|proc| wait_for_child_and_log(proc, "Event Log"));
 
             futures::future::join_all(futs).await;
