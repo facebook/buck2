@@ -13,13 +13,13 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     dep_names = [dep[MockingbirdLibraryInfo].name for dep in ctx.attrs.deps]
 
-    json_project_description = _get_mockingbird_json_project_description(info = mockingbird_info, included_srcs = ctx.attrs.srcs, excluded_srcs = ctx.attrs.excluded_srcs, dep_names = dep_names)
+    (json_project_description, src_dirs) = _get_mockingbird_json_project_description(info = mockingbird_info, included_srcs = ctx.attrs.srcs, excluded_srcs = ctx.attrs.excluded_srcs, dep_names = dep_names)
     json_project_description_output = ctx.actions.declare_output("mockingbird_project.json")
     ctx.actions.write_json(json_project_description_output.as_output(), json_project_description)
 
     mockingbird_source = ctx.actions.declare_output(mockingbird_info.name + "Mocks.generated.swift", dir = False)
     cmd = cmd_args(
-        hidden = [record.src_dir for record in mockingbird_info.tset.traverse()],
+        hidden = src_dirs,
     )
 
     params = [
@@ -47,9 +47,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(
         cmd,
         category = "mockingbird",
-        local_only = True,
+        local_only = True,  # Mockingbird creates sockets for interprocess communication, which is deliberately blocked on RE.
     )
-    # TODO: T182716646 Remove local_only
 
     return [
         DefaultInfo(mockingbird_source),
@@ -119,18 +118,21 @@ registration_spec = RuleRegistrationSpec(
 #     }
 #   ]
 # }
-def _get_mockingbird_json_project_description(info: MockingbirdLibraryInfo, included_srcs: list[str], excluded_srcs: list[str], dep_names: list[str]) -> dict:
+def _get_mockingbird_json_project_description(info: MockingbirdLibraryInfo, included_srcs: list[str], excluded_srcs: list[str], dep_names: list[str]) -> (dict, list):
     targets = []
+    src_dirs = []
     for record in info.tset.traverse():
         if record.name == info.name:
             targets.append(_target_dict_for_mockingbird_record(record = record, included_srcs = included_srcs, excluded_srcs = excluded_srcs, include_non_exported_deps = True))
+            src_dirs.append(record.src_dir)
         elif record.name in dep_names:
             targets.append(_target_dict_for_mockingbird_record(record = record, included_srcs = [], excluded_srcs = [], include_non_exported_deps = False))
+            src_dirs.append(record.src_dir)
     json = {
         "targets": targets,
     }
 
-    return json
+    return (json, src_dirs)
 
 def _target_dict_for_mockingbird_record(record: MockingbirdLibraryRecord, included_srcs: list[str], excluded_srcs: list[str], include_non_exported_deps: bool) -> dict:
     srcs = []
