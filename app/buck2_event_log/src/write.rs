@@ -175,6 +175,57 @@ impl NamedEventLogWriter {
     fn child(mut self) -> Option<FutureChildOutput> {
         self.process_to_wait_for.take()
     }
+
+    fn serialize_event<'b, T>(&self, mut buf: &mut Vec<u8>, event: &T) -> anyhow::Result<()>
+    where
+        T: SerializeForLog + 'b,
+    {
+        match self.event_log_type {
+            EventLogType::System => {
+                match self.path.encoding.mode {
+                    LogMode::Json => {
+                        event.serialize_to_json(&mut buf)?;
+                        buf.push(b'\n');
+                    }
+                    LogMode::Protobuf => event.serialize_to_protobuf_length_delimited(&mut buf)?,
+                };
+            }
+            EventLogType::User => {
+                if event.maybe_serialize_user_event(&mut buf)? {
+                    buf.push(b'\n');
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn write_all(&mut self, buf: &[u8]) -> anyhow::Result<()> {
+        match self.file.write_all(buf).await {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                // The subprocess exited with some kind of error. That is logged separately, so
+                // here we just ignore it.
+                Ok(())
+            }
+            Err(e) => Err(anyhow::Error::from(e).context("Failed to write event")),
+        }
+    }
+
+    async fn write_events<'b, T, I>(
+        &mut self,
+        mut buf: &mut Vec<u8>,
+        events: &I,
+    ) -> Result<(), anyhow::Error>
+    where
+        T: SerializeForLog + 'b,
+        I: IntoIterator<Item = &'b T> + Clone + 'b,
+    {
+        for event in events.clone() {
+            self.serialize_event(&mut buf, event)?;
+        }
+        self.write_all(&buf).await?;
+        Ok(())
+    }
 }
 
 enum LogWriterState {
@@ -252,36 +303,7 @@ impl<'a> WriteEventLog<'a> {
                 for writer in writers {
                     self.buf.clear();
 
-                    for event in events.clone() {
-                        match writer.event_log_type {
-                            EventLogType::System => {
-                                match writer.path.encoding.mode {
-                                    LogMode::Json => {
-                                        event.serialize_to_json(&mut self.buf)?;
-                                        self.buf.push(b'\n');
-                                    }
-                                    LogMode::Protobuf => event
-                                        .serialize_to_protobuf_length_delimited(&mut self.buf)?,
-                                };
-                            }
-                            EventLogType::User => {
-                                if event.maybe_serialize_user_event(&mut self.buf)? {
-                                    self.buf.push(b'\n');
-                                }
-                            }
-                        }
-                    }
-
-                    match writer.file.write_all(&self.buf).await {
-                        Ok(_) => (),
-                        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
-                            // The subprocess exited with some kind of error. That is logged separately, so
-                            // here we just ignore it.
-                        }
-                        Err(e) => {
-                            return Err(anyhow::Error::from(e).context("Failed to write event"));
-                        }
-                    }
+                    writer.write_events(&mut self.buf, &events).await?;
 
                     if self.buf.len() > 1_000_000 {
                         // Make sure we don't keep too much memory if encountered one large event.
