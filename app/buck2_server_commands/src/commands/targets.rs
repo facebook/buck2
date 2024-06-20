@@ -39,12 +39,12 @@ use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
 
-pub(crate) enum Outputter<'a, W: Write> {
+pub(crate) enum Outputter<'a, W: Write + Send> {
     Stdout(&'a mut W),
     File(BufWriter<File>),
 }
 
-impl<'a, W: Write> Outputter<'a, W> {
+impl<'a, W: Write + Send> Outputter<'a, W> {
     fn new(request: &TargetsRequest, stdout: &'a mut W) -> anyhow::Result<Self> {
         match &request.output {
             None => Ok(Self::Stdout(stdout)),
@@ -56,7 +56,7 @@ impl<'a, W: Write> Outputter<'a, W> {
         }
     }
 
-    fn get_write(&mut self) -> &mut dyn Write {
+    fn get_write(&mut self) -> &mut (dyn Write + Send) {
         match self {
             Self::Stdout(stdout) => stdout,
             Self::File(f) => f,
@@ -150,7 +150,7 @@ impl ServerCommandTemplate for TargetsServerCommand {
 
 async fn targets(
     server_ctx: &dyn ServerCommandContextTrait,
-    stdout: &mut impl Write,
+    stdout: &mut (impl Write + Send),
     mut dice: DiceTransaction,
     request: &TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {

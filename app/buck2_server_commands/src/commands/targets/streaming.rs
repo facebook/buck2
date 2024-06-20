@@ -55,7 +55,7 @@ pub(crate) async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
     mut dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
-    outputter: &mut Outputter<'_, impl Write>,
+    outputter: &mut Outputter<'_, impl Write + Send>,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     keep_going: bool,
     cached: bool,
