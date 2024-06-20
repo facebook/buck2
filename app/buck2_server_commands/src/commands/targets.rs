@@ -39,6 +39,7 @@ use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
 
+#[derive(PartialEq, Eq)]
 enum OutputType {
     Stdout,
     File,
@@ -133,7 +134,7 @@ async fn targets(
 
     let (output_type, mut output) = outputter(request, stdout)?;
 
-    let response = match &request.targets {
+    let mut response = match &request.targets {
         Some(targets_request::Targets::ResolveAlias(_)) => {
             targets_resolve_aliases(dice, request, parsed_target_patterns).await?
         }
@@ -193,17 +194,10 @@ async fn targets(
         None => return Err(internal_error!("Missing field in proto request")),
     };
 
-    let buffer = match output_type {
-        OutputType::Stdout => response.serialized_targets_output,
-        OutputType::File => {
-            output.write_all(response.serialized_targets_output.as_bytes())?;
-            String::new()
-        }
-    };
-    let response = TargetsResponse {
-        error_count: response.error_count,
-        serialized_targets_output: buffer,
-    };
-    output.flush()?;
+    if !response.serialized_targets_output.is_empty() && output_type == OutputType::File {
+        output.write_all(response.serialized_targets_output.as_bytes())?;
+        response.serialized_targets_output.clear();
+        output.flush()?;
+    }
     Ok(response)
 }
