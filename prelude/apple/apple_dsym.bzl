@@ -24,7 +24,16 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
     output = ctx.actions.declare_output(output_path, dir = True)
 
     cmd = cmd_args(
-        [dsymutil] + ctx.attrs._dsymutil_extra_flags + ["-o", output.as_output()],
+        [
+            dsymutil,
+            # https://github.com/llvm/llvm-project/blob/e3eb12cce97fa75d1d2443bcc2c2b26aa660fe34/llvm/tools/dsymutil/dsymutil.cpp#L94-L98
+            # The validation default changes depending on build mode, so
+            # explicitly set validation as disabled to unify behavior.
+            "--verify-dwarf=none",
+        ] + ctx.attrs._dsymutil_extra_flags + [
+            "-o",
+            output.as_output(),
+        ],
         executable,
         # Mach-O executables don't contain DWARF data.
         # Instead, they contain paths to the object files which themselves contain DWARF data.
