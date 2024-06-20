@@ -68,13 +68,6 @@ impl<'a, W: Write + Send> Outputter<'a, W> {
         Ok(())
     }
 
-    fn write2(&mut self, x: &str, y: &str) -> anyhow::Result<()> {
-        let w = self.get_write();
-        w.write_all(x.as_bytes())?;
-        w.write_all(y.as_bytes())?;
-        Ok(())
-    }
-
     /// If this outputter should write anything to a file, do so, and return whatever buffer is left over.
     fn write_to_file(&mut self, buffer: String) -> anyhow::Result<String> {
         match self {

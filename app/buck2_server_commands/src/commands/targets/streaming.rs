@@ -184,7 +184,8 @@ pub(crate) async fn targets_streaming(
                 formatter.separator(&mut buffer);
             }
             needs_separator = true;
-            outputter.write2(&buffer, &res.stdout)?;
+            outputter.write1(&buffer)?;
+            outputter.write1(&res.stdout)?;
             buffer.clear();
         }
         if imports {
