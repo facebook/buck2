@@ -48,7 +48,7 @@ pub struct InitCommand {
     #[clap(long)]
     allow_dirty: bool,
 
-    // Use git to initialize the project and pull in buck2-prelude as a submodule
+    /// Use git to initialize the project and pull in buck2-prelude as a submodule
     #[clap(long)]
     git: bool,
 
