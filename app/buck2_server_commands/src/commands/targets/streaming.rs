@@ -15,7 +15,6 @@ use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use buck2_cli_proto::TargetsResponse;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::bzl::ImportPath;
@@ -67,7 +66,7 @@ pub(crate) async fn targets_streaming(
     imports: bool,
     fast_hash: Option<bool>, // None = no hashing
     threads: Option<usize>,
-) -> anyhow::Result<TargetsResponse> {
+) -> anyhow::Result<Stats> {
     struct Res {
         stats: Stats,           // Stats to merge in
         package: PackageLabel,  // The package I was operating on
@@ -243,10 +242,8 @@ pub(crate) async fn targets_streaming(
     }
 
     formatter.end(&stats, &mut buffer);
-    Ok(TargetsResponse {
-        error_count: stats.errors,
-        serialized_targets_output: buffer,
-    })
+    write_str(outputter, &mut buffer)?;
+    Ok(stats)
 }
 
 /// Given the patterns, separate into those which have an explicit package, and those which are recursive

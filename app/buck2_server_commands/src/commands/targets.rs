@@ -162,7 +162,10 @@ async fn targets(
                 .await;
                 // Make sure we always flush the outputter, even on failure, as we may have partially written to it
                 output.flush()?;
-                res?
+                TargetsResponse {
+                    error_count: res?.errors,
+                    serialized_targets_output: String::new(),
+                }
             } else {
                 let formatter = create_formatter(request, other)?;
                 let global_cfg_options = global_cfg_options_from_client_context(
