@@ -48,14 +48,18 @@ use tokio::sync::Semaphore;
 use crate::commands::targets::fmt::Stats;
 use crate::commands::targets::fmt::TargetFormatter;
 use crate::commands::targets::fmt::TargetInfo;
-use crate::commands::targets::Outputter;
 use crate::target_hash::TargetHashes;
+
+fn write_str(outputter: &mut dyn Write, s: &str) -> anyhow::Result<()> {
+    outputter.write_all(s.as_bytes())?;
+    Ok(())
+}
 
 pub(crate) async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
     mut dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
-    outputter: &mut Outputter<'_, impl Write + Send>,
+    outputter: &mut (dyn Write + Send),
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     keep_going: bool,
     cached: bool,
@@ -184,8 +188,8 @@ pub(crate) async fn targets_streaming(
                 formatter.separator(&mut buffer);
             }
             needs_separator = true;
-            outputter.write(&buffer)?;
-            outputter.write(&res.stdout)?;
+            write_str(outputter, &buffer)?;
+            write_str(outputter, &res.stdout)?;
             buffer.clear();
         }
         if imports {
@@ -207,7 +211,7 @@ pub(crate) async fn targets_streaming(
                     }
                     needs_separator = true;
                     formatter.imports(package_file_path.path(), &imports, None, &mut buffer);
-                    outputter.write(&buffer)?;
+                    write_str(outputter, &buffer)?;
                     buffer.clear();
                     imported.lock().unwrap().extend(imports.into_iter());
                 }
@@ -235,7 +239,7 @@ pub(crate) async fn targets_streaming(
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
             formatter.imports(path.path(), &imports, None, &mut buffer);
             todo.extend(imports);
-            outputter.write(&buffer)?;
+            write_str(outputter, &buffer)?;
             buffer.clear();
         }
     }

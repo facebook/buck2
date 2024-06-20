@@ -63,11 +63,6 @@ impl<'a, W: Write + Send> Outputter<'a, W> {
         }
     }
 
-    fn write(&mut self, x: &str) -> anyhow::Result<()> {
-        self.get_write().write_all(x.as_bytes())?;
-        Ok(())
-    }
-
     /// If this outputter should write anything to a file, do so, and return whatever buffer is left over.
     fn write_to_file(&mut self, buffer: String) -> anyhow::Result<String> {
         match self {
@@ -176,7 +171,7 @@ async fn targets(
                     server_ctx,
                     dice,
                     formatter,
-                    &mut outputter,
+                    outputter.get_write(),
                     parsed_target_patterns,
                     other.keep_going,
                     other.cached,
