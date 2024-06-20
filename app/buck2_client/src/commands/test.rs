@@ -157,6 +157,9 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long)]
     test_executor_stderr: Option<OutputDestinationArg>,
 
+    #[clap(long)]
+    build: bool,
+
     /// Additional arguments passed to the test executor.
     ///
     /// Test executor is expected to have `--env` flag to pass environment variables.
@@ -225,6 +228,7 @@ impl StreamingCommand for TestCommand {
                         .transpose()
                         .context("Invalid `timeout`")?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
+                    build: self.build,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),

@@ -472,6 +472,9 @@ message TestRequest {
 
   // Should you add tests that are on the `tests` attribute of the target.
   bool ignore_tests_attribute = 13;
+
+  // Whether all targets matching `target_patterns` should be built instead of only test ones.
+  bool build = 15;
 }
 
 message BxlRequest {
