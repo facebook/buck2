@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::atomic::AtomicI64;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -53,6 +55,7 @@ pub struct HybridExecutor<R> {
     pub executor_preference: ExecutorPreference,
     pub low_pass_filter: Arc<LowPassFilter>,
     pub re_max_input_files_bytes: u64,
+    pub fallback_tracker: Arc<FallbackTracker>,
 }
 
 impl<R> HybridExecutor<R>
@@ -282,7 +285,7 @@ where
                 jobs.execute_concurrent().await
             };
 
-        let mut res = if is_retryable_status(&first_res) {
+        let mut res = if is_retryable_status(&first_res) && self.fallback_tracker.can_fallback() {
             // If the first result had made a claim, then cancel it now to let the other result
             // proceed.
             if let Some(claim) = first_res.report.claim.take() {
@@ -520,3 +523,41 @@ where
 
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
 struct JobPriority(u8);
+
+pub struct FallbackTracker {
+    count_fallbacks: AtomicI64,
+}
+
+impl FallbackTracker {
+    pub fn new() -> Self {
+        FallbackTracker {
+            count_fallbacks: AtomicI64::new(0),
+        }
+    }
+
+    pub fn can_fallback(&self) -> bool {
+        let retried = self.count_fallbacks.fetch_add(1, Ordering::Relaxed);
+
+        #[cfg(all(fbcode_build, target_os = "linux"))]
+        let max = if hostcaps::is_prod() {
+            justknobs::get("buck2/buck2:max_fallback", None).ok()
+        } else {
+            None
+        };
+
+        #[cfg(not(all(fbcode_build, target_os = "linux")))]
+        let max = None;
+
+        if let Some(max) = max {
+            if retried >= max {
+                tracing::warn!(
+                    "Not falling back to local because too many actions have fallen back already.  \
+                    If you would like to proceed anyway, pass `--prefer-local`."
+                );
+                return false;
+            }
+        }
+
+        true
+    }
+}

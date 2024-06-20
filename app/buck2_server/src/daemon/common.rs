@@ -44,6 +44,7 @@ use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
 use buck2_execute_impl::executors::action_cache::RemoteDepFileCacheChecker;
 use buck2_execute_impl::executors::action_cache_upload_permission_checker::ActionCacheUploadPermissionChecker;
 use buck2_execute_impl::executors::caching::CacheUploader;
+use buck2_execute_impl::executors::hybrid::FallbackTracker;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
@@ -90,6 +91,7 @@ pub struct CommandExecutorFactory {
     materialize_failed_inputs: bool,
     /// Cache permission checks per command.
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
+    fallback_tracker: Arc<FallbackTracker>,
 }
 
 impl CommandExecutorFactory {
@@ -130,6 +132,7 @@ impl CommandExecutorFactory {
             paranoid,
             materialize_failed_inputs,
             cache_upload_permission_checker,
+            fallback_tracker: Arc::new(FallbackTracker::new()),
         }
     }
 }
@@ -316,6 +319,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         );
                         let executor_preference = self.strategy.hybrid_preference();
                         let low_pass_filter = self.low_pass_filter.dupe();
+                        let fallback_tracker = self.fallback_tracker.dupe();
 
                         if self.paranoid.is_some() {
                             let executor_preference = executor_preference
@@ -334,6 +338,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 executor_preference,
                                 re_max_input_files_bytes,
                                 low_pass_filter,
+                                fallback_tracker,
                             }))
                         } else {
                             Some(Arc::new(HybridExecutor {
@@ -343,6 +348,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 executor_preference,
                                 re_max_input_files_bytes,
                                 low_pass_filter,
+                                fallback_tracker,
                             }))
                         }
                     }

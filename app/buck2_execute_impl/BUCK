@@ -13,6 +13,8 @@ rust_library(
             "linux",
             [
                 "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
+                # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
+                # @oss-disable: "//justknobs/rust:justknobs", 
             ],
         ),
         (
