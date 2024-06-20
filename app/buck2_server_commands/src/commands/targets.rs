@@ -124,7 +124,17 @@ async fn targets(
     request: &TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {
     let (output_type, mut output) = outputter(request, stdout)?;
-    let res = targets_with_output(server_ctx, dice, request, output_type, &mut output).await;
+    let mut res = targets_with_output(server_ctx, dice, request, &mut output).await;
+    match &mut res {
+        Ok(response)
+            if !response.serialized_targets_output.is_empty()
+                && output_type == OutputType::File =>
+        {
+            output.write_all(response.serialized_targets_output.as_bytes())?;
+            response.serialized_targets_output.clear();
+        }
+        _ => {}
+    }
     output.flush()?;
     res
 }
@@ -133,7 +143,6 @@ async fn targets_with_output(
     server_ctx: &dyn ServerCommandContextTrait,
     mut dice: DiceTransaction,
     request: &TargetsRequest,
-    output_type: OutputType,
     output: &mut (impl Write + Send),
 ) -> anyhow::Result<TargetsResponse> {
     let cwd = server_ctx.working_dir();
@@ -145,9 +154,9 @@ async fn targets_with_output(
     )
     .await?;
 
-    let mut response = match &request.targets {
+    match &request.targets {
         Some(targets_request::Targets::ResolveAlias(_)) => {
-            targets_resolve_aliases(dice, request, parsed_target_patterns).await?
+            targets_resolve_aliases(dice, request, parsed_target_patterns).await
         }
         Some(targets_request::Targets::Other(other)) => {
             if other.streaming {
@@ -172,10 +181,10 @@ async fn targets_with_output(
                     request.concurrency.as_ref().map(|x| x.concurrency as usize),
                 )
                 .await;
-                TargetsResponse {
+                Ok(TargetsResponse {
                     error_count: res?.errors,
                     serialized_targets_output: String::new(),
-                }
+                })
             } else {
                 let formatter = create_formatter(request, other)?;
                 let global_cfg_options = global_cfg_options_from_client_context(
@@ -197,15 +206,9 @@ async fn targets_with_output(
                     TargetHashOptions::new(other, &cell_resolver, fs)?,
                     other.keep_going,
                 )
-                .await?
+                .await
             }
         }
-        None => return Err(internal_error!("Missing field in proto request")),
-    };
-
-    if !response.serialized_targets_output.is_empty() && output_type == OutputType::File {
-        output.write_all(response.serialized_targets_output.as_bytes())?;
-        response.serialized_targets_output.clear();
+        None => Err(internal_error!("Missing field in proto request")),
     }
-    Ok(response)
 }
