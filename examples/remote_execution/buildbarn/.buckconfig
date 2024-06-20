@@ -1,6 +1,5 @@
 [cells]
 root = .
-prelude = prelude
 
 [buck2_re_client]
 action_cache_address = grpc://localhost:8980

@@ -1,6 +1,5 @@
 [cells]
 root = .
-prelude = prelude
 
 [buck2]
 digest_algorithms = SHA256

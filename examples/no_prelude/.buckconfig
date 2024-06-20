@@ -1,4 +1,3 @@
 [cells]
 root = .
-prelude = prelude
 toolchains = toolchains
