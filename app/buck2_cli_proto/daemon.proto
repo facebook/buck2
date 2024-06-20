@@ -172,6 +172,12 @@ message TargetsRequest {
     STATS = 4;
   }
 
+  enum Compression {
+    UNCOMPRESSED = 0;
+    GZIP = 1;
+    ZSTD = 2;
+  }
+
   message ResolveAlias {}
 
   message Other {
@@ -205,6 +211,7 @@ message TargetsRequest {
     Other other = 21;
   }
   Concurrency concurrency = 22;
+  Compression compression = 23;
 }
 
 message TargetsResponse {

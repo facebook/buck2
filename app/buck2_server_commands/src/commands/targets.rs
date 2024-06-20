@@ -18,6 +18,7 @@ use std::io::Write;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_cli_proto::targets_request;
+use buck2_cli_proto::targets_request::Compression;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
@@ -32,6 +33,8 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use flate2::write::GzEncoder;
+use zstd::stream::write as zstd;
 
 use crate::commands::targets::default::targets_batch;
 use crate::commands::targets::default::TargetHashOptions;
@@ -45,20 +48,69 @@ enum OutputType {
     File,
 }
 
+trait Compressor: Write + Send {
+    fn finish(self: Box<Self>) -> anyhow::Result<()>;
+}
+
+struct UncompressedCompressor<T>(T);
+
+impl<T: Write> Write for UncompressedCompressor<T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+        self.0.write_all(buf)
+    }
+}
+
+impl<T: Write + Send> Compressor for UncompressedCompressor<T> {
+    fn finish(self: Box<Self>) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl<T: Write + Send> Compressor for GzEncoder<T> {
+    fn finish(self: Box<Self>) -> anyhow::Result<()> {
+        (*self).finish()?;
+        Ok(())
+    }
+}
+
+impl<T: Write + Send> Compressor for zstd::Encoder<'_, T> {
+    fn finish(self: Box<Self>) -> anyhow::Result<()> {
+        (*self).finish()?;
+        Ok(())
+    }
+}
+
 fn outputter<'a, W: Write + Send + 'a>(
     request: &TargetsRequest,
     stdout: W,
-) -> anyhow::Result<(OutputType, Box<dyn Write + Send + 'a>)> {
-    match &request.output {
-        None => Ok((OutputType::Stdout, Box::new(stdout))),
+) -> anyhow::Result<(OutputType, Box<dyn Compressor + 'a>)> {
+    let (output_type, output): (_, Box<dyn Compressor>) = match &request.output {
+        None => (OutputType::Stdout, Box::new(UncompressedCompressor(stdout))),
         Some(file) => {
             let file =
                 BufWriter::new(File::create(file).with_context(|| {
                     format!("Failed to open file `{file}` for `targets` output ")
                 })?);
-            Ok((OutputType::File, Box::new(file)))
+            (OutputType::File, Box::new(UncompressedCompressor(file)))
         }
-    }
+    };
+
+    let compression = Compression::from_i32(request.compression)
+        .internal_error("buck cli should send valid compression type")?;
+    let output = match compression {
+        Compression::Uncompressed => output,
+        Compression::Gzip => Box::new(GzEncoder::new(output, Default::default())),
+        Compression::Zstd => Box::new(zstd::Encoder::new(output, 0)?),
+    };
+    Ok((output_type, output))
 }
 
 pub(crate) async fn targets_command(
@@ -136,6 +188,7 @@ async fn targets(
         _ => {}
     }
     output.flush()?;
+    output.finish()?;
     res
 }
 

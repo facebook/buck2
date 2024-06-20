@@ -83,6 +83,23 @@ enum TargetHashFunction {
     Strong,
 }
 
+#[derive(Debug, clap::ValueEnum, Clone, Dupe)]
+enum Compression {
+    None,
+    Gzip,
+    Zstd,
+}
+
+impl Compression {
+    fn to_proto(&self) -> buck2_cli_proto::targets_request::Compression {
+        match self {
+            Compression::None => buck2_cli_proto::targets_request::Compression::Uncompressed,
+            Compression::Gzip => buck2_cli_proto::targets_request::Compression::Gzip,
+            Compression::Zstd => buck2_cli_proto::targets_request::Compression::Zstd,
+        }
+    }
+}
+
 /// Show details about the specified targets.
 ///
 /// This command is meant to only handle unconfigured targets,
@@ -193,6 +210,15 @@ pub struct TargetsCommand {
     /// File will be created if it does not exist, and overwritten if it does.
     #[clap(long, short = 'o', value_name = "PATH")]
     output: Option<PathArg>,
+
+    /// Compress the output.
+    #[clap(
+        long,
+        default_value = "none",
+        value_name = "SCHEME",
+        requires = "output"
+    )]
+    compression: Compression,
 
     /// Patterns to interpret
     #[clap(name = "TARGET_PATTERNS")]
@@ -329,6 +355,7 @@ impl StreamingCommand for TargetsCommand {
             concurrency: self
                 .num_threads
                 .map(|num| buck2_cli_proto::Concurrency { concurrency: num }),
+            compression: self.compression.to_proto() as i32,
         };
 
         if let Some(format) = self.show_output.format() {

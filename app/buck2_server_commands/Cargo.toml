@@ -13,6 +13,7 @@ async-trait = { workspace = true }
 blake3 = { workspace = true }
 chrono = { workspace = true }
 derive_more = { workspace = true }
+flate2 = { workspace = true }
 futures = { workspace = true }
 indent_write = { workspace = true }
 itertools = { workspace = true }
@@ -26,6 +27,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+zstd = { workspace = true }
 
 dice = { workspace = true }
 dupe = { workspace = true }
