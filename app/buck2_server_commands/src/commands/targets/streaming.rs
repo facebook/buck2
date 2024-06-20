@@ -50,8 +50,9 @@ use crate::commands::targets::fmt::TargetFormatter;
 use crate::commands::targets::fmt::TargetInfo;
 use crate::target_hash::TargetHashes;
 
-fn write_str(outputter: &mut dyn Write, s: &str) -> anyhow::Result<()> {
+fn write_str(outputter: &mut dyn Write, s: &mut String) -> anyhow::Result<()> {
     outputter.write_all(s.as_bytes())?;
+    s.clear();
     Ok(())
 }
 
@@ -173,7 +174,7 @@ pub(crate) async fn targets_streaming(
     let mut needs_separator = false;
     let mut package_files_seen = SmallSet::new();
     while let Some(res) = packages.next().await {
-        let res = res?;
+        let mut res = res?;
         stats.merge(&res.stats);
         if let Some(stderr) = &res.stderr {
             server_ctx.stderr()?.write_all(stderr.as_bytes())?;
@@ -188,9 +189,8 @@ pub(crate) async fn targets_streaming(
                 formatter.separator(&mut buffer);
             }
             needs_separator = true;
-            write_str(outputter, &buffer)?;
-            write_str(outputter, &res.stdout)?;
-            buffer.clear();
+            write_str(outputter, &mut buffer)?;
+            write_str(outputter, &mut res.stdout)?;
         }
         if imports {
             // Need to also find imports from PACKAGE files
@@ -211,8 +211,7 @@ pub(crate) async fn targets_streaming(
                     }
                     needs_separator = true;
                     formatter.imports(package_file_path.path(), &imports, None, &mut buffer);
-                    write_str(outputter, &buffer)?;
-                    buffer.clear();
+                    write_str(outputter, &mut buffer)?;
                     imported.lock().unwrap().extend(imports.into_iter());
                 }
                 // TODO(nga): we should cross cell boundary:
@@ -239,8 +238,7 @@ pub(crate) async fn targets_streaming(
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
             formatter.imports(path.path(), &imports, None, &mut buffer);
             todo.extend(imports);
-            write_str(outputter, &buffer)?;
-            buffer.clear();
+            write_str(outputter, &mut buffer)?;
         }
     }
 
