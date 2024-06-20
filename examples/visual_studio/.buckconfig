@@ -10,6 +10,10 @@ fbcode = none
 fbsource = none
 buck = none
 
+[external_cells]
+  prelude = bundled
+
+
 [parser]
 target_platform_detector_spec = target:root//...->toolchains//:default
 

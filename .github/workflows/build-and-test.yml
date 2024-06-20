@@ -41,8 +41,6 @@ jobs:
       run: |-
         eval $(opam env)
         cd examples/with_prelude
-        $RUNNER_TEMP/artifacts/buck2 init
-        cp -r ../../prelude prelude
         source ./ocaml-setup.sh
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
@@ -60,8 +58,6 @@ jobs:
       run: |-
         eval $(opam env)
         cd examples/with_prelude
-        $RUNNER_TEMP/artifacts/buck2 init
-        cp -r ../../prelude prelude
         source ./ocaml-setup.sh
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
@@ -78,8 +74,6 @@ jobs:
       - name: Build example/prelude directory
         run: |-
           cd examples/with_prelude
-          & $Env:RUNNER_TEMP/artifacts/buck2 init
-          copy-item -Path $env:GITHUB_WORKSPACE\prelude -Destination prelude -Recurse
           & $Env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
           & $Env:RUNNER_TEMP/artifacts/buck2 test //... -v 2
       - uses: ./.github/actions/build_example_no_prelude
