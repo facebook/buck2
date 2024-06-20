@@ -120,8 +120,21 @@ impl ServerCommandTemplate for TargetsServerCommand {
 async fn targets(
     server_ctx: &dyn ServerCommandContextTrait,
     stdout: &mut (impl Write + Send),
+    dice: DiceTransaction,
+    request: &TargetsRequest,
+) -> anyhow::Result<TargetsResponse> {
+    let (output_type, mut output) = outputter(request, stdout)?;
+    let res = targets_with_output(server_ctx, dice, request, output_type, &mut output).await;
+    output.flush()?;
+    res
+}
+
+async fn targets_with_output(
+    server_ctx: &dyn ServerCommandContextTrait,
     mut dice: DiceTransaction,
     request: &TargetsRequest,
+    output_type: OutputType,
+    output: &mut (impl Write + Send),
 ) -> anyhow::Result<TargetsResponse> {
     let cwd = server_ctx.working_dir();
     let cell_resolver = dice.get_cell_resolver().await?;
@@ -131,8 +144,6 @@ async fn targets(
         cwd,
     )
     .await?;
-
-    let (output_type, mut output) = outputter(request, stdout)?;
 
     let mut response = match &request.targets {
         Some(targets_request::Targets::ResolveAlias(_)) => {
@@ -152,7 +163,7 @@ async fn targets(
                     server_ctx,
                     dice,
                     formatter,
-                    &mut output,
+                    output,
                     parsed_target_patterns,
                     other.keep_going,
                     other.cached,
@@ -161,8 +172,6 @@ async fn targets(
                     request.concurrency.as_ref().map(|x| x.concurrency as usize),
                 )
                 .await;
-                // Make sure we always flush the outputter, even on failure, as we may have partially written to it
-                output.flush()?;
                 TargetsResponse {
                     error_count: res?.errors,
                     serialized_targets_output: String::new(),
@@ -197,7 +206,6 @@ async fn targets(
     if !response.serialized_targets_output.is_empty() && output_type == OutputType::File {
         output.write_all(response.serialized_targets_output.as_bytes())?;
         response.serialized_targets_output.clear();
-        output.flush()?;
     }
     Ok(response)
 }
