@@ -128,26 +128,26 @@ fn exec_impl(
 fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyhow::Result<()> {
     let mut buckconfig = std::fs::File::create(repo_root.join(".buckconfig"))?;
     writeln!(buckconfig, "[cells]")?;
-    writeln!(buckconfig, "root = .")?;
-    writeln!(buckconfig, "prelude = prelude")?;
+    writeln!(buckconfig, "  root = .")?;
+    writeln!(buckconfig, "  prelude = prelude")?;
 
     // Add additional configs that depend on prelude / no-prelude mode
     if prelude {
-        writeln!(buckconfig, "toolchains = toolchains")?;
-        writeln!(buckconfig, "none = none")?;
+        writeln!(buckconfig, "  toolchains = toolchains")?;
+        writeln!(buckconfig, "  none = none")?;
         writeln!(buckconfig)?;
         writeln!(buckconfig, "[cell_aliases]")?;
-        writeln!(buckconfig, "config = prelude")?;
-        writeln!(buckconfig, "ovr_config = prelude")?;
-        writeln!(buckconfig, "fbcode = none")?;
-        writeln!(buckconfig, "fbsource = none")?;
-        writeln!(buckconfig, "fbcode_macros = none")?;
-        writeln!(buckconfig, "buck = none")?;
+        writeln!(buckconfig, "  config = prelude")?;
+        writeln!(buckconfig, "  ovr_config = prelude")?;
+        writeln!(buckconfig, "  fbcode = none")?;
+        writeln!(buckconfig, "  fbsource = none")?;
+        writeln!(buckconfig, "  fbcode_macros = none")?;
+        writeln!(buckconfig, "  buck = none")?;
         writeln!(buckconfig)?;
         writeln!(buckconfig, "[parser]")?;
         writeln!(
             buckconfig,
-            "target_platform_detector_spec = target:root//...->prelude//platforms:default"
+            "  target_platform_detector_spec = target:root//...->prelude//platforms:default"
         )?;
     } else {
         // For the no-prelude mode, create an empty prelude/prelude.bzl as Buck2 expects one.
@@ -158,7 +158,7 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
     if git {
         writeln!(buckconfig)?;
         writeln!(buckconfig, "[project]")?;
-        writeln!(buckconfig, "ignore = .git")?;
+        writeln!(buckconfig, "  ignore = .git")?;
     }
     Ok(())
 }
@@ -344,24 +344,24 @@ mod tests {
         initialize_buckconfig(tempdir_path, true, true)?;
         let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
         let expected_buckconfig = "[cells]
-root = .
-prelude = prelude
-toolchains = toolchains
-none = none
+  root = .
+  prelude = prelude
+  toolchains = toolchains
+  none = none
 
 [cell_aliases]
-config = prelude
-ovr_config = prelude
-fbcode = none
-fbsource = none
-fbcode_macros = none
-buck = none
+  config = prelude
+  ovr_config = prelude
+  fbcode = none
+  fbsource = none
+  fbcode_macros = none
+  buck = none
 
 [parser]
-target_platform_detector_spec = target:root//...->prelude//platforms:default
+  target_platform_detector_spec = target:root//...->prelude//platforms:default
 
 [project]
-ignore = .git
+  ignore = .git
 ";
         assert_eq!(actual_buckconfig, expected_buckconfig);
         Ok(())
@@ -378,8 +378,8 @@ ignore = .git
         initialize_buckconfig(tempdir_path, false, false)?;
         let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
         let expected_buckconfig = "[cells]
-root = .
-prelude = prelude
+  root = .
+  prelude = prelude
 ";
         assert_eq!(actual_buckconfig, expected_buckconfig);
 
