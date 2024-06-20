@@ -184,8 +184,8 @@ pub(crate) async fn targets_streaming(
                 formatter.separator(&mut buffer);
             }
             needs_separator = true;
-            outputter.write1(&buffer)?;
-            outputter.write1(&res.stdout)?;
+            outputter.write(&buffer)?;
+            outputter.write(&res.stdout)?;
             buffer.clear();
         }
         if imports {
@@ -207,7 +207,7 @@ pub(crate) async fn targets_streaming(
                     }
                     needs_separator = true;
                     formatter.imports(package_file_path.path(), &imports, None, &mut buffer);
-                    outputter.write1(&buffer)?;
+                    outputter.write(&buffer)?;
                     buffer.clear();
                     imported.lock().unwrap().extend(imports.into_iter());
                 }
@@ -235,7 +235,7 @@ pub(crate) async fn targets_streaming(
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
             formatter.imports(path.path(), &imports, None, &mut buffer);
             todo.extend(imports);
-            outputter.write1(&buffer)?;
+            outputter.write(&buffer)?;
             buffer.clear();
         }
     }

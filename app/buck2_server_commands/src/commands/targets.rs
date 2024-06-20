@@ -63,7 +63,7 @@ impl<'a, W: Write + Send> Outputter<'a, W> {
         }
     }
 
-    fn write1(&mut self, x: &str) -> anyhow::Result<()> {
+    fn write(&mut self, x: &str) -> anyhow::Result<()> {
         self.get_write().write_all(x.as_bytes())?;
         Ok(())
     }
