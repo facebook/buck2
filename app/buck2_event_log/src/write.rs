@@ -268,9 +268,6 @@ impl<'a> WriteEventLog<'a> {
             .with_context(|| format!("Error creating event log directory: `{}`", logdir))?;
         remove_old_logs(logdir).await;
 
-        // The event-log is going to be written to file containing the build uuid.
-        // But we don't know the build uuid until we've gotten the CommandStart event.
-        // So we'll just create it when we know where to put it.
         let encoding = Encoding::PROTO_ZSTD;
         let file_name = &get_logfile_name(event, encoding, &self.command_name)?;
         let path = EventLogPathBuf {
