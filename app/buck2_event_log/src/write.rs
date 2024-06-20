@@ -19,10 +19,8 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_events::BuckEvent;
-use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::future::Future;
-use futures::FutureExt;
 use prost::Message;
 use serde::Serialize;
 use tokio::fs::OpenOptions;
@@ -55,9 +53,8 @@ enum LogWriterState {
     Closed,
 }
 
-pub struct WriteEventLog<'a> {
+pub struct WriteEventLog {
     state: LogWriterState,
-    async_cleanup_context: Option<AsyncCleanupContext<'a>>,
     sanitized_argv: SanitizedArgv,
     command_name: String,
     working_dir: WorkingDir,
@@ -67,14 +64,13 @@ pub struct WriteEventLog<'a> {
     allow_vpnless: bool,
 }
 
-impl<'a> WriteEventLog<'a> {
+impl WriteEventLog {
     pub fn new(
         logdir: AbsNormPathBuf,
         working_dir: WorkingDir,
         extra_path: Option<AbsPathBuf>,
         extra_user_event_log_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
-        async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         allow_vpnless: bool,
@@ -85,7 +81,6 @@ impl<'a> WriteEventLog<'a> {
                 extra_path,
                 extra_user_event_log_path,
             },
-            async_cleanup_context: Some(async_cleanup_context),
             sanitized_argv,
             command_name,
             working_dir,
@@ -244,18 +239,6 @@ impl<'a> WriteEventLog<'a> {
     }
 }
 
-impl<'a> Drop for WriteEventLog<'a> {
-    fn drop(&mut self) {
-        let exit = self.exit();
-        match self.async_cleanup_context.as_ref() {
-            Some(async_cleanup_context) => {
-                async_cleanup_context.register("event log upload", exit.boxed());
-            }
-            None => (),
-        }
-    }
-}
-
 async fn start_persist_event_log_subprocess(
     path: EventLogPathBuf,
     trace_id: TraceId,
@@ -342,7 +325,7 @@ async fn open_event_log_for_writing(
     ))
 }
 
-impl<'a> WriteEventLog<'a> {
+impl WriteEventLog {
     pub async fn write_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
         let mut event_refs = Vec::new();
         let mut first = true;
@@ -474,7 +457,7 @@ mod tests {
     use crate::stream_value::StreamValue;
     use crate::utils::Compression;
 
-    impl WriteEventLog<'static> {
+    impl WriteEventLog {
         async fn new_test(log: EventLogPathBuf) -> anyhow::Result<Self> {
             Ok(Self {
                 state: LogWriterState::Opened {
@@ -486,7 +469,6 @@ mod tests {
                     argv: vec!["buck2".to_owned()],
                     expanded_argv: vec!["buck2".to_owned()],
                 },
-                async_cleanup_context: None,
                 command_name: "testtest".to_owned(),
                 working_dir: WorkingDir::current_dir()?,
                 buf: Vec::new(),

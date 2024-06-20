@@ -18,6 +18,7 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_log::write::WriteEventLog;
 use buck2_events::BuckEvent;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
+use futures::FutureExt;
 
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
@@ -25,7 +26,8 @@ use crate::subscribers::subscriber::Tick;
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
 pub(crate) struct EventLog<'a> {
-    writer: WriteEventLog<'a>,
+    async_cleanup_context: Option<AsyncCleanupContext<'a>>,
+    writer: WriteEventLog,
 }
 
 impl<'a> EventLog<'a> {
@@ -41,13 +43,13 @@ impl<'a> EventLog<'a> {
         allow_vpnless: bool,
     ) -> anyhow::Result<EventLog> {
         Ok(Self {
+            async_cleanup_context: Some(async_cleanup_context),
             writer: WriteEventLog::new(
                 logdir,
                 working_dir,
                 extra_path,
                 extra_user_event_log_path,
                 sanitized_argv,
-                async_cleanup_context,
                 command_name,
                 log_size_counter_bytes,
                 allow_vpnless,
@@ -92,5 +94,17 @@ impl<'a> EventSubscriber for EventLog<'a> {
     async fn exit(&mut self) -> anyhow::Result<()> {
         self.writer.exit().await;
         Ok(())
+    }
+}
+
+impl<'a> Drop for EventLog<'a> {
+    fn drop(&mut self) {
+        let exit = self.writer.exit();
+        match self.async_cleanup_context.as_ref() {
+            Some(async_cleanup_context) => {
+                async_cleanup_context.register("event log upload", exit.boxed());
+            }
+            None => (),
+        }
     }
 }
