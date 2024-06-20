@@ -122,6 +122,35 @@ pub(crate) struct NamedEventLogWriter {
     process_to_wait_for: Option<FutureChildOutput>,
 }
 
+impl NamedEventLogWriter {
+    fn new(
+        path: EventLogPathBuf,
+        file: impl AsyncWrite + std::marker::Send + std::marker::Unpin + std::marker::Sync + 'static,
+        bytes_written: Option<Arc<AtomicU64>>,
+        event_log_type: EventLogType,
+    ) -> Self {
+        let file = match path.encoding.compression {
+            Compression::None => {
+                Box::new(CountingReader::new(file, bytes_written)) as EventLogWriter
+            }
+            Compression::Gzip => Box::new(GzipEncoder::with_quality(
+                CountingReader::new(file, bytes_written),
+                async_compression::Level::Fastest,
+            )) as EventLogWriter,
+            Compression::Zstd => Box::new(ZstdEncoder::with_quality(
+                CountingReader::new(file, bytes_written),
+                async_compression::Level::Default,
+            )) as EventLogWriter,
+        };
+        Self {
+            path,
+            file,
+            event_log_type,
+            process_to_wait_for: None,
+        }
+    }
+}
+
 pub(crate) enum LogWriterState {
     Unopened {
         logdir: AbsNormPathBuf,
@@ -413,7 +442,7 @@ async fn start_persist_event_log_subprocess(
         )
     })?;
     let pipe = child.stdin.take().expect("stdin was piped");
-    let mut writer = get_writer(path, pipe, bytes_written, EventLogType::System)?;
+    let mut writer = NamedEventLogWriter::new(path, pipe, bytes_written, EventLogType::System);
 
     // Only spawn this if we are going to wait.
     if block {
@@ -440,32 +469,12 @@ async fn open_event_log_for_writing(
             )
         })?;
 
-    get_writer(path, file, bytes_written, event_log_type)
-}
-
-fn get_writer(
-    path: EventLogPathBuf,
-    file: impl AsyncWrite + std::marker::Send + std::marker::Unpin + std::marker::Sync + 'static,
-    bytes_written: Option<Arc<AtomicU64>>,
-    event_log_type: EventLogType,
-) -> Result<NamedEventLogWriter, anyhow::Error> {
-    let file = match path.encoding.compression {
-        Compression::None => Box::new(CountingReader::new(file, bytes_written)) as EventLogWriter,
-        Compression::Gzip => Box::new(GzipEncoder::with_quality(
-            CountingReader::new(file, bytes_written),
-            async_compression::Level::Fastest,
-        )) as EventLogWriter,
-        Compression::Zstd => Box::new(ZstdEncoder::with_quality(
-            CountingReader::new(file, bytes_written),
-            async_compression::Level::Default,
-        )) as EventLogWriter,
-    };
-    Ok(NamedEventLogWriter {
+    Ok(NamedEventLogWriter::new(
         path,
         file,
+        bytes_written,
         event_log_type,
-        process_to_wait_for: None,
-    })
+    ))
 }
 
 impl<'a> WriteEventLog<'a> {
