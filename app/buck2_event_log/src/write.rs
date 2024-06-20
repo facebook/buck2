@@ -150,6 +150,21 @@ impl NamedEventLogWriter {
             process_to_wait_for,
         }
     }
+
+    async fn flush(&mut self) -> anyhow::Result<()> {
+        match self.file.flush().await {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                // The subprocess exited with some kind of error. That is logged separately, so
+                // here we just ignore it.
+                Ok(())
+            }
+            Err(e) => Err(anyhow::Error::from(e).context(format!(
+                "Error flushing log file at {}",
+                self.path.path.display()
+            ))),
+        }
+    }
 }
 
 pub(crate) enum LogWriterState {
@@ -534,19 +549,7 @@ impl<'a> WriteEventLog<'a> {
         };
 
         for writer in writers {
-            match writer.file.flush().await {
-                Ok(_) => (),
-                Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
-                    // The subprocess exited with some kind of error. That is logged separately, so
-                    // here we just ignore it.
-                }
-                Err(e) => {
-                    return Err(anyhow::Error::from(e).context(format!(
-                        "Error flushing log file at {}",
-                        writer.path.path.display()
-                    )));
-                }
-            }
+            writer.flush().await?;
         }
 
         Ok(())
