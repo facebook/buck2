@@ -284,12 +284,14 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         link_infos[link_style] = LinkInfos(
             default = LinkInfo(
                 pre_flags = ctx.attrs.exported_linker_flags,
+                post_flags = ctx.attrs.exported_post_linker_flags,
                 linkables = linkables,
             ),
         )
         prof_link_infos[link_style] = LinkInfos(
             default = LinkInfo(
                 pre_flags = ctx.attrs.exported_linker_flags,
+                post_flags = ctx.attrs.exported_post_linker_flags,
                 linkables = prof_linkables,
             ),
         )

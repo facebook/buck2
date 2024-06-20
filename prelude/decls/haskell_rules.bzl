@@ -232,6 +232,7 @@ haskell_prebuilt_library = prelude_rule(
         } |
         haskell_common.exported_linker_flags_arg() |
         {
+            "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_header_dirs": attrs.list(attrs.source(), default = []),
             "db": attrs.source(),
