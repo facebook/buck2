@@ -56,25 +56,22 @@ impl<'a, W: Write> Outputter<'a, W> {
         }
     }
 
-    fn write1(&mut self, x: &str) -> anyhow::Result<()> {
+    fn get_write(&mut self) -> &mut dyn Write {
         match self {
-            Self::Stdout(stdout) => stdout.write_all(x.as_bytes())?,
-            Self::File(f) => f.write_all(x.as_bytes())?,
+            Self::Stdout(stdout) => stdout,
+            Self::File(f) => f,
         }
+    }
+
+    fn write1(&mut self, x: &str) -> anyhow::Result<()> {
+        self.get_write().write_all(x.as_bytes())?;
         Ok(())
     }
 
     fn write2(&mut self, x: &str, y: &str) -> anyhow::Result<()> {
-        match self {
-            Self::Stdout(stdout) => {
-                stdout.write_all(x.as_bytes())?;
-                stdout.write_all(y.as_bytes())?;
-            }
-            Self::File(f) => {
-                f.write_all(x.as_bytes())?;
-                f.write_all(y.as_bytes())?;
-            }
-        }
+        let w = self.get_write();
+        w.write_all(x.as_bytes())?;
+        w.write_all(y.as_bytes())?;
         Ok(())
     }
 
@@ -90,10 +87,8 @@ impl<'a, W: Write> Outputter<'a, W> {
     }
 
     fn flush(&mut self) -> anyhow::Result<()> {
-        match self {
-            Self::Stdout(stdout) => Ok(stdout.flush()?),
-            Self::File(f) => Ok(f.flush()?),
-        }
+        self.get_write().flush()?;
+        Ok(())
     }
 }
 
