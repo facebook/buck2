@@ -2,7 +2,7 @@
 
 # Buck2: fast multi-language build system
 
-![Version] ![License] [![Build Status]][CI]
+![Version] ![License] [![Build Status]][CI]a
 
 [Version]:
   https://img.shields.io/badge/release-unstable,%20"Developer%20Edition"-orange.svg

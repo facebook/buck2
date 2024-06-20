@@ -7,7 +7,7 @@
 # of this source tree.
 
 """
-Generate API documentation for the website.
+Generatea API documentation for the website.
 """
 
 import argparse
