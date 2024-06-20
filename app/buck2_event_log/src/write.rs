@@ -128,6 +128,7 @@ impl NamedEventLogWriter {
         file: impl AsyncWrite + std::marker::Send + std::marker::Unpin + std::marker::Sync + 'static,
         bytes_written: Option<Arc<AtomicU64>>,
         event_log_type: EventLogType,
+        process_to_wait_for: Option<FutureChildOutput>,
     ) -> Self {
         let file = match path.encoding.compression {
             Compression::None => {
@@ -146,7 +147,7 @@ impl NamedEventLogWriter {
             path,
             file,
             event_log_type,
-            process_to_wait_for: None,
+            process_to_wait_for,
         }
     }
 }
@@ -442,14 +443,21 @@ async fn start_persist_event_log_subprocess(
         )
     })?;
     let pipe = child.stdin.take().expect("stdin was piped");
-    let mut writer = NamedEventLogWriter::new(path, pipe, bytes_written, EventLogType::System);
 
     // Only spawn this if we are going to wait.
-    if block {
-        writer.process_to_wait_for = Some(FutureChildOutput::new(child));
-    }
+    let process_to_wait_for = if block {
+        Some(FutureChildOutput::new(child))
+    } else {
+        None
+    };
 
-    Ok(writer)
+    Ok(NamedEventLogWriter::new(
+        path,
+        pipe,
+        bytes_written,
+        EventLogType::System,
+        process_to_wait_for,
+    ))
 }
 
 async fn open_event_log_for_writing(
@@ -474,6 +482,7 @@ async fn open_event_log_for_writing(
         file,
         bytes_written,
         event_log_type,
+        None,
     ))
 }
 
