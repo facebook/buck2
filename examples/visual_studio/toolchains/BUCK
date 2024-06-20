@@ -3,7 +3,7 @@ load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
 
 system_cxx_toolchain(
     name = "cxx",
-    #The flags in the below attributes' Windows config are copied from Visual Studio's project "Console App", with some changes listed in each attribute
+    ##The flags in the below attributes' Windows config are copied from Visual Studio's project "Console App", with some changes listed in each attribute
     c_flags = select({
         "config//os:linux": [],
         #Copied from the C++ flags
