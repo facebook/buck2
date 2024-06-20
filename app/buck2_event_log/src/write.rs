@@ -113,7 +113,7 @@ pub(crate) enum EventLogType {
     User,
 }
 
-pub(crate) struct NamedEventLogWriter {
+struct NamedEventLogWriter {
     path: EventLogPathBuf,
     file: EventLogWriter,
     event_log_type: EventLogType,
@@ -177,7 +177,7 @@ impl NamedEventLogWriter {
     }
 }
 
-pub(crate) enum LogWriterState {
+enum LogWriterState {
     Unopened {
         logdir: AbsNormPathBuf,
         extra_path: Option<AbsPathBuf>,
