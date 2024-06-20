@@ -10,7 +10,29 @@ import argparse
 import os
 import re
 from io import TextIOWrapper
-from typing import Dict, Iterable, List
+from typing import Dict, FrozenSet, Iterable, List
+
+
+_RESERVED_KEYWORDS: FrozenSet[str] = frozenset(
+    [
+        "config_macros",
+        "conflict",
+        "exclude",
+        "explicit",
+        "extern",
+        "export_as",
+        "export",
+        "framework",
+        "header",
+        "link",
+        "module",
+        "private",
+        "requires",
+        "textual",
+        "umbrella",
+        "use",
+    ]
+)
 
 
 class Module:
@@ -30,7 +52,10 @@ class Module:
 
     def render(self, f: TextIOWrapper, path_prefix: str, indent: int = 0) -> None:
         space = " " * indent
-        f.write(f"{space}module {self.name} {{\n")
+        name = self.name
+        if name in _RESERVED_KEYWORDS:
+            name = f"{name}_"
+        f.write(f"{space}module {name} {{\n")
 
         submodule_names = set()
         for submodule_name in sorted(self.submodules.keys()):
