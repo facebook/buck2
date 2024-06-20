@@ -48,6 +48,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         cmd,
         category = "mockingbird",
         local_only = True,  # Mockingbird creates sockets for interprocess communication, which is deliberately blocked on RE.
+        weight_percentage = 100,
     )
 
     return [
