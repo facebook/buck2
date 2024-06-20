@@ -11,5 +11,8 @@ buck = none
 fbcode = none
 fbsource = none
 
+[external_cells]
+  prelude = bundled
+
 [parser]
 target_platform_detector_spec = target:root//...->bootstrap//platform:default
