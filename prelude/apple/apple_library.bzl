@@ -147,7 +147,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             shared_library_flags_overrides = None
         else:
             fail("Unsupported `shared_library_macho_file_type` attribute value: `{}`".format(shared_type))
-        constructor_params, swift_library_for_distribution = apple_library_rule_constructor_params_and_swift_providers(
+        constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_library",
@@ -162,10 +162,9 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             ),
             deps_providers,
         )
-        swift_header = constructor_params.swift_objc_header
         output = cxx_library_parameterized(ctx, constructor_params)
 
-        return output.providers + _make_mockingbird_library_info_provider(ctx) + _make_apple_library_info_provider(ctx, swift_header) + _make_apple_library_for_distribution_info_provider(ctx, swift_library_for_distribution)
+        return output.providers + _make_mockingbird_library_info_provider(ctx)
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
@@ -240,7 +239,7 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
         tset = mockingbird_tset,
     )]
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> (CxxRuleConstructorParams, SwiftLibraryForDistributionOutput | None):
+def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams:
     mockingbird_gen_sources = []
     if not "dummy_library" in ctx.attrs.labels:
         for dep in cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx):
@@ -343,6 +342,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         swift_objc_header = None
         swift_library_for_distribution_output = None
 
+    extra_apple_providers = []
+    if not is_test_target:
+        extra_apple_providers = _make_apple_library_info_provider(ctx, swift_objc_header) + _make_apple_library_for_distribution_info_provider(ctx, swift_library_for_distribution_output)
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
@@ -390,7 +393,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             additional_providers_factory = additional_providers_factory,
             external_debug_info_tags = [ArtifactInfoTag("swiftmodule")] if swift_compile else [],
         ),
-        output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers,
+        output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers(extra_apple_providers),
         shared_library_flags = params.shared_library_flags,
         shared_library_interface_target = get_versioned_target_triple(ctx),
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
@@ -415,7 +418,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         swift_objc_header = swift_objc_header,
-    ), swift_library_for_distribution_output
+    )
 
 def _get_extra_linker_flags_and_outputs(
         ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo]]):
@@ -435,66 +438,71 @@ def _filter_swift_srcs(ctx: AnalysisContext, additional_srcs: list = []) -> (lis
     return cxx_srcs, swift_srcs
 
 def _get_link_style_sub_targets_and_providers(
-        output_style: LibOutputStyle,
-        ctx: AnalysisContext,
-        output: [CxxLibraryOutput, None]) -> (dict[str, list[Provider]], list[Provider]):
-    # We always propagate a resource graph regardless of link style or empty output
-    resource_graph = create_resource_graph(
-        ctx = ctx,
-        labels = ctx.attrs.labels,
-        deps = cxx_attr_deps(ctx),
-        exported_deps = cxx_attr_exported_deps(ctx),
-        # Shared libraries should not propagate their resources to rdeps,
-        # they should only be contained in their frameworks apple_bundle.
-        should_propagate = output_style != LibOutputStyle("shared_lib"),
-    )
-    if output_style != LibOutputStyle("shared_lib") or output == None:
-        return ({}, [resource_graph])
+        extra_providers: list[Provider]) -> typing.Callable:
+    def get_link_style_sub_targets_impl(
+            output_style: LibOutputStyle,
+            ctx: AnalysisContext,
+            output: [CxxLibraryOutput, None]) -> (dict[str, list[Provider]], list[Provider]):
+        # We always propagate a resource graph regardless of link style or empty output
+        resource_graph = create_resource_graph(
+            ctx = ctx,
+            labels = ctx.attrs.labels,
+            deps = cxx_attr_deps(ctx),
+            exported_deps = cxx_attr_exported_deps(ctx),
+            # Shared libraries should not propagate their resources to rdeps,
+            # they should only be contained in their frameworks apple_bundle.
+            should_propagate = output_style != LibOutputStyle("shared_lib"),
+        )
 
-    min_version = get_min_deployment_version_for_node(ctx)
-    min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
+        if output_style != LibOutputStyle("shared_lib") or output == None:
+            return ({}, [resource_graph] + extra_providers)
 
-    debug_info = project_artifacts(
-        actions = ctx.actions,
-        tsets = [output.external_debug_info],
-    )
+        min_version = get_min_deployment_version_for_node(ctx)
+        min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
 
-    if get_apple_stripped_attr_value_with_default_fallback(ctx):
-        if False:
-            # TODO(nga): `output.unstripped` is never `None`.
-            def unknown():
-                pass
+        debug_info = project_artifacts(
+            actions = ctx.actions,
+            tsets = [output.external_debug_info],
+        )
 
-            output = unknown()
-        expect(output.unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
-        dsym_executable = output.unstripped
-    else:
-        dsym_executable = output.default
-    dsym_artifact = get_apple_dsym(
-        ctx = ctx,
-        executable = dsym_executable,
-        debug_info = debug_info,
-        action_identifier = dsym_executable.short_path,
-    )
-    debug_info_artifacts_manifest = ctx.actions.write(
-        "debuginfo.artifacts",
-        debug_info,
-        with_inputs = True,
-    )
-    subtargets = {
-        DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
-        DEBUGINFO_SUBTARGET: [DefaultInfo(default_output = debug_info_artifacts_manifest)],
-    }
-    providers = [
-        AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
-        resource_graph,
-    ] + min_version_providers
+        if get_apple_stripped_attr_value_with_default_fallback(ctx):
+            if False:
+                # TODO(nga): `output.unstripped` is never `None`.
+                def unknown():
+                    pass
 
-    if output.linker_map != None:
-        subtargets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
-        providers += [AppleBundleLinkerMapInfo(linker_maps = [output.linker_map.map])]
+                output = unknown()
+            expect(output.unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
+            dsym_executable = output.unstripped
+        else:
+            dsym_executable = output.default
+        dsym_artifact = get_apple_dsym(
+            ctx = ctx,
+            executable = dsym_executable,
+            debug_info = debug_info,
+            action_identifier = dsym_executable.short_path,
+        )
+        debug_info_artifacts_manifest = ctx.actions.write(
+            "debuginfo.artifacts",
+            debug_info,
+            with_inputs = True,
+        )
+        subtargets = {
+            DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
+            DEBUGINFO_SUBTARGET: [DefaultInfo(default_output = debug_info_artifacts_manifest)],
+        }
+        providers = [
+            AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
+            resource_graph,
+        ] + min_version_providers + extra_providers
 
-    return (subtargets, providers)
+        if output.linker_map != None:
+            subtargets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
+            providers += [AppleBundleLinkerMapInfo(linker_maps = [output.linker_map.map])]
+
+        return (subtargets, providers)
+
+    return get_link_style_sub_targets_impl
 
 def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
     return cmd_args(get_min_deployment_version_target_linker_flags(ctx))

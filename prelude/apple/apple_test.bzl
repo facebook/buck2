@@ -75,7 +75,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         # ensure we always have an adhoc signature regardless of arch/linker logic.
         shared_library_flags += ["-Wl,-adhoc_codesign"]
 
-        constructor_params, _ = apple_library_rule_constructor_params_and_swift_providers(
+        constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_test",
