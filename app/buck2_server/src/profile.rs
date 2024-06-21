@@ -22,7 +22,6 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::PackageSpec;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -87,16 +86,8 @@ async fn generate_profile_analysis(
 async fn generate_profile_loading(
     ctx: &DiceTransaction,
     package: PackageLabel,
-    spec: PackageSpec<TargetPatternExtra>,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
-    match spec {
-        PackageSpec::Targets(..) => {
-            return Err(anyhow::Error::msg("Must use a package"));
-        }
-        PackageSpec::All => {}
-    }
-
     let mut ctx = ctx.clone();
     let mut calculation = ctx
         .get_interpreter_calculator(package.cell_name(), BuildFileCell::new(package.cell_name()))
@@ -218,14 +209,14 @@ async fn generate_profile(
             let ctx = &ctx;
             let ctx_data = ctx.per_transaction_data();
 
-            let profiles =
-                futures::future::try_join_all(resolved.specs.into_iter().map(|(package, spec)| {
+            let profiles = futures::future::try_join_all(resolved.specs.into_iter().map(
+                |(package, _spec)| {
                     let profile_mode = profile_mode.clone();
                     let ctx = ctx.dupe();
                     spawn_cancellable(
                         move |_cancel| {
                             async move {
-                                generate_profile_loading(&ctx, package, spec, &profile_mode).await
+                                generate_profile_loading(&ctx, package, &profile_mode).await
                             }
                             .boxed()
                         },
@@ -233,8 +224,9 @@ async fn generate_profile(
                         ctx_data,
                     )
                     .into_drop_cancel()
-                }))
-                .await?;
+                },
+            ))
+            .await?;
 
             StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)
         }
