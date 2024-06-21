@@ -10,6 +10,7 @@ load(
     "get_modifier_info",
     "json_to_tagged_modifiers",
     "modifier_to_refs",
+    "resolve_alias",
     "resolve_modifier",
 )
 load(":name.bzl", "cfg_name")
@@ -37,6 +38,7 @@ def cfg_constructor_pre_constraint_analysis(
         target_modifiers: list[Modifier] | None,
         cli_modifiers: list[str],
         rule_name: str,
+        aliases: struct,
         **_kwargs) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -50,6 +52,8 @@ def cfg_constructor_pre_constraint_analysis(
             A list of modifiers specified from buildfile via `metadata` attribute.
         cli_modifiers:
             modifiers specified from `--modifier` flag, `?modifier`, or BXL
+        aliases:
+            A struct that contains mapping of modifier aliases to modifier.
 
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
@@ -68,6 +72,9 @@ def cfg_constructor_pre_constraint_analysis(
     # Add target modifiers as `TaggedModifiers`
     if target_modifiers:
         merged_modifiers.append(TaggedModifiers(modifiers = target_modifiers, location = ModifierTargetLocation(), rule_name = None))
+
+    # Resolve all aliases in CLI modifiers
+    cli_modifiers = [resolve_alias(modifier, aliases) for modifier in cli_modifiers]
 
     # Convert CLI modifiers to `TaggedModifier`
     if cli_modifiers:

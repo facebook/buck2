@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(":alias.bzl?v2_only", "ALIASES")
 load(":cfg_constructor.bzl?v2_only", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
 
 MODIFIER_METADATA_KEY = "buck.cfg_modifiers"
@@ -17,4 +18,5 @@ def set_cfg_constructor():
             stage0 = cfg_constructor_pre_constraint_analysis,
             stage1 = cfg_constructor_post_constraint_analysis,
             key = MODIFIER_METADATA_KEY,
+            aliases = ALIASES,
         )

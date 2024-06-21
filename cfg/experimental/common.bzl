@@ -199,3 +199,14 @@ def _json_to_location(j: dict[str, str]) -> ModifierLocation:
     if modifier_type == "ModifierTargetLocation":
         return ModifierTargetLocation()
     fail("Internal error: cannot deserialize location `{}`".format(j))
+
+def resolve_alias(modifier: Modifier, aliases: struct) -> Modifier:
+    if isinstance(modifier, ModifiersMatchInfo):
+        fail("It should not be possible to specify a conditional modifier from command line")
+    if ":" in modifier:
+        # This is a target and not an alias
+        return modifier
+    resolved = getattr(aliases, modifier, None)
+    if resolved:
+        return resolved
+    fail("Found invalid modifier alias `{}`. A list of valid modifier aliases is in buck2/cfg/experimental/alias.bzl".format(modifier))
