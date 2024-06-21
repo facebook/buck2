@@ -1254,7 +1254,7 @@ prebuilt_cxx_library_group = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
-            "include_dirs": attrs.list(attrs.source(), default = []),
+            "include_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
             "include_in_android_merge_map_output": attrs.bool(default = True),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
