@@ -150,7 +150,9 @@ pub(crate) fn to_json_project(
             }
         }
 
-        include_dirs.extend(info.src_dirs());
+        if let Some(parent) = root_module.parent() {
+            include_dirs.insert(parent.to_owned());
+        }
 
         let build = if info.in_workspace {
             let build = Build {
