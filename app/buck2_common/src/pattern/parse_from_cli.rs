@@ -13,6 +13,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::PatternType;
+use buck2_core::pattern::unparsed::UnparsedPatterns;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
@@ -74,6 +75,13 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
     let parser = PatternParser::new(ctx, cwd).await?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value))
+}
+
+pub async fn parse_patterns_from_cli_args_typed<T: PatternType>(
+    ctx: &mut DiceComputations<'_>,
+    patterns: &UnparsedPatterns<T>,
+) -> anyhow::Result<Vec<ParsedPattern<T>>> {
+    parse_patterns_from_cli_args(ctx, patterns.patterns(), patterns.working_dir()).await
 }
 
 pub async fn parse_and_resolve_patterns_from_cli_args<T: PatternType>(

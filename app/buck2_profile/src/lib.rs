@@ -19,6 +19,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use starlark::eval::ProfileMode;
@@ -62,8 +63,7 @@ pub fn starlark_profiler_configuration_from_request(
                     let working_dir = project_root.relativize(working_dir)?;
                     StarlarkProfilerConfiguration::ProfileLastAnalysis(
                         profile_mode,
-                        opts.target_patterns.clone(),
-                        working_dir.to_buf(),
+                        UnparsedPatterns::new(opts.target_patterns.clone(), working_dir.to_buf()),
                     )
                 }
                 (buck2_cli_proto::target_profile::Action::Analysis, true) => {

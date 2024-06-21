@@ -15,3 +15,4 @@ pub mod parse_package;
 pub mod pattern;
 pub mod pattern_type;
 pub mod query_file_literal;
+pub mod unparsed;

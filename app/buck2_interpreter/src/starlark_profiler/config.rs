@@ -11,11 +11,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args_typed;
 use buck2_core::pattern::pattern::ParsedPatternPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
@@ -47,10 +47,7 @@ pub enum StarlarkProfilerConfiguration {
     /// Profile analysis of the last target, everything else is instrumented.
     ProfileLastAnalysis(
         ProfileMode,
-        // Target patterns to profile.
-        Vec<String>,
-        // Working directory (to resolve target patterns).
-        ProjectRelativePathBuf,
+        UnparsedPatterns<ConfiguredProvidersPatternExtra>,
     ),
     /// Profile analysis targets recursively.
     ProfileAnalysisRecursively(ProfileMode),
@@ -109,13 +106,12 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
             StarlarkProfilerConfiguration::ProfileLastLoading(mode) => {
                 StarlarkProfilerConfigurationResolved::ProfileLastLoading(mode.dupe())
             }
-            StarlarkProfilerConfiguration::ProfileLastAnalysis(mode, patterns, working_dir) => {
-                let patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
-                    ctx,
-                    patterns,
-                    working_dir,
-                )
-                .await?;
+            StarlarkProfilerConfiguration::ProfileLastAnalysis(mode, patterns) => {
+                let patterns =
+                    parse_patterns_from_cli_args_typed::<ConfiguredProvidersPatternExtra>(
+                        ctx, patterns,
+                    )
+                    .await?;
                 let patterns = patterns
                     .into_iter()
                     .map(|p| {
