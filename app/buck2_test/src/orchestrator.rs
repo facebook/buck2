@@ -785,9 +785,9 @@ impl<'b> BuckTestOrchestrator<'b> {
                 outputs,
             },
             CommandExecutionStatus::Error {
-                stage: _,
                 error,
                 execution_kind,
+                ..
             } => ExecuteData {
                 stdout: ExecutionStream::Inline(Default::default()),
                 stderr: ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
@@ -1201,11 +1201,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                     String::from_utf8_lossy(&std_streams.stderr),
                 ).into());
             }
-            CommandExecutionStatus::Error {
-                stage: _,
-                error,
-                execution_kind: _,
-            } => {
+            CommandExecutionStatus::Error { error, .. } => {
                 return Err(error.into());
             }
             CommandExecutionStatus::Cancelled => {

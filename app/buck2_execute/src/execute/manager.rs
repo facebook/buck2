@@ -22,6 +22,7 @@ use crate::execute::claim::ClaimManager;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
+use crate::execute::result::CommandExecutionErrorType;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionReport;
 use crate::execute::result::CommandExecutionResult;
@@ -248,7 +249,16 @@ pub trait CommandExecutionManagerExt: Sized {
         timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult;
 
-    fn error(self, stage: &'static str, error: impl Into<anyhow::Error>) -> CommandExecutionResult;
+    fn error(self, stage: &'static str, error: impl Into<anyhow::Error>) -> CommandExecutionResult {
+        self.error_classified(stage, error, CommandExecutionErrorType::Other)
+    }
+
+    fn error_classified(
+        self,
+        stage: &'static str,
+        error: impl Into<anyhow::Error>,
+        error_type: CommandExecutionErrorType,
+    ) -> CommandExecutionResult;
 }
 
 impl<T> CommandExecutionManagerExt for T
@@ -291,13 +301,19 @@ where
         )
     }
 
-    fn error(self, stage: &'static str, error: impl Into<anyhow::Error>) -> CommandExecutionResult {
+    fn error_classified(
+        self,
+        stage: &'static str,
+        error: impl Into<anyhow::Error>,
+        error_type: CommandExecutionErrorType,
+    ) -> CommandExecutionResult {
         let execution_kind = self.execution_kind();
         self.result(
             CommandExecutionStatus::Error {
                 stage,
                 error: error.into(),
                 execution_kind,
+                typ: error_type,
             },
             IndexMap::new(),
             Default::default(),

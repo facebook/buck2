@@ -30,6 +30,12 @@ use crate::execute::request::CommandExecutionOutput;
 use crate::execute::request::ResolvedCommandExecutionOutput;
 use crate::output_size::OutputSize;
 
+#[derive(Debug)]
+pub enum CommandExecutionErrorType {
+    StorageResourceExhausted,
+    Other,
+}
+
 /// "Status" of an action execution indicating how it finished. E.g. "built_remotely", "local_fallback", "action_cache".
 #[derive(Debug)]
 pub enum CommandExecutionStatus {
@@ -43,6 +49,7 @@ pub enum CommandExecutionStatus {
         stage: &'static str,
         error: anyhow::Error,
         execution_kind: Option<CommandExecutionKind>,
+        typ: CommandExecutionErrorType,
     },
     TimedOut {
         execution_kind: CommandExecutionKind,
@@ -77,6 +84,7 @@ impl Display for CommandExecutionStatus {
                 stage,
                 error,
                 execution_kind: Some(execution_kind),
+                ..
             } => {
                 write!(f, "error {}:{}\n{:#}", execution_kind, stage, error)
             }
@@ -84,6 +92,7 @@ impl Display for CommandExecutionStatus {
                 stage,
                 error,
                 execution_kind: None,
+                ..
             } => {
                 write!(f, "error:{}\n{:#}", stage, error)
             }

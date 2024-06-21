@@ -28,6 +28,7 @@ use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::result::CommandExecutionErrorType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_futures::cancellation::CancellationContext;
@@ -237,6 +238,13 @@ where
                 // Don't retry timeouts. They are used for tests and falling back on a timeout is
                 // sort of the opposite of what's been requested.
                 CommandExecutionStatus::TimedOut { .. } => false,
+                // Don't retry storage resource exhaustion errors as retries might only increase the traffic to storage.
+                CommandExecutionStatus::Error {
+                    typ: CommandExecutionErrorType::StorageResourceExhausted,
+                    ..
+                } => self
+                    .fallback_tracker
+                    .can_fallback_when_storage_resource_exhausted(),
                 // Errors are infra errors and are always retried because that is the point of
                 // falling back.
                 CommandExecutionStatus::Error { .. } => true,
@@ -533,6 +541,23 @@ impl FallbackTracker {
         FallbackTracker {
             count_fallbacks: AtomicI64::new(0),
         }
+    }
+
+    pub fn can_fallback_when_storage_resource_exhausted(&self) -> bool {
+        #[cfg(all(fbcode_build, target_os = "linux"))]
+        if hostcaps::is_prod() {
+            justknobs::eval(
+                "buck2/buck2:allow_storage_resource_exhausted_fallback",
+                None,
+                None,
+            )
+            .unwrap_or(false)
+        } else {
+            false
+        }
+
+        #[cfg(not(all(fbcode_build, target_os = "linux")))]
+        false
     }
 
     pub fn can_fallback(&self) -> bool {

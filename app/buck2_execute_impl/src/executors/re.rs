@@ -33,6 +33,7 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::result::CommandExecutionErrorType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -46,12 +47,14 @@ use futures::FutureExt;
 use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::ExecuteResponse;
+use remote_execution::REClientError;
 use remote_execution::TCode;
 use tracing::info;
 
 use crate::re::download::download_action_results;
 use crate::re::download::DownloadResult;
 use crate::re::paranoid_download::ParanoidDownloader;
+use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum RemoteExecutorError {
@@ -115,7 +118,23 @@ impl ReExecutor {
 
         match upload_response {
             Ok(()) => {}
-            Err(e) => return ControlFlow::Break(manager.error("remote_upload_error", e)),
+            Err(e) => {
+                let is_storage_resource_exhausted = e
+                    .downcast_ref::<REClientError>()
+                    .map_or(false, |re_client_error| {
+                        is_storage_resource_exhausted(re_client_error)
+                    });
+                let error_type = if is_storage_resource_exhausted {
+                    CommandExecutionErrorType::StorageResourceExhausted
+                } else {
+                    CommandExecutionErrorType::Other
+                };
+                return ControlFlow::Break(manager.error_classified(
+                    "remote_upload_error",
+                    e,
+                    error_type,
+                ));
+            }
         };
 
         ControlFlow::Continue(manager)
@@ -202,12 +221,18 @@ impl ReExecutor {
                     response.timing(),
                 )
             } else {
-                manager.error(
+                let error_type = if is_storage_resource_exhausted(&response.error) {
+                    CommandExecutionErrorType::StorageResourceExhausted
+                } else {
+                    CommandExecutionErrorType::Other
+                };
+                manager.error_classified(
                     "remote_exec_error",
                     ReErrorWrapper {
                         action_digest: action_digest.dupe(),
                         inner: response.error,
                     },
+                    error_type,
                 )
             };
 

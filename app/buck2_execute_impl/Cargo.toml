@@ -24,6 +24,7 @@ once_cell = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }
 prost = { workspace = true }
+regex = { workspace = true }
 remote_execution = { workspace = true }
 rusqlite = { workspace = true }
 tokio = { workspace = true }

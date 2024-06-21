@@ -18,3 +18,4 @@ pub mod executors;
 pub mod low_pass_filter;
 pub mod materializers;
 pub mod re;
+mod storage_resource_exhausted;

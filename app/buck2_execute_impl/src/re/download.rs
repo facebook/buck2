@@ -39,6 +39,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionOutputRef;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::result::CommandExecutionErrorType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
@@ -55,9 +56,11 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
+use remote_execution::REClientError;
 
 use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
+use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 
 pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,
@@ -204,15 +207,26 @@ impl CasDownloader<'_> {
                 .extract_artifacts(identity, paths, requested_outputs, output_spec)
                 .await;
 
-            let artifacts = match artifacts {
-                Ok(artifacts) => artifacts,
-                Err(e) => {
-                    return ControlFlow::Break(DownloadResult::Result(manager.error(
-                        "extract_artifacts",
-                        e.context(format!("action_digest={}", details.action_digest)),
-                    )));
-                }
-            };
+            let artifacts =
+                match artifacts {
+                    Ok(artifacts) => artifacts,
+                    Err(e) => {
+                        let error = e.context(format!("action_digest={}", details.action_digest));
+                        let is_storage_resource_exhausted = error
+                            .downcast_ref::<REClientError>()
+                            .map_or(false, |re_client_error| {
+                                is_storage_resource_exhausted(re_client_error)
+                            });
+                        let error_type = if is_storage_resource_exhausted {
+                            CommandExecutionErrorType::StorageResourceExhausted
+                        } else {
+                            CommandExecutionErrorType::Other
+                        };
+                        return ControlFlow::Break(DownloadResult::Result(
+                            manager.error_classified("extract_artifacts", error, error_type),
+                        ));
+                    }
+                };
 
             let info = CasDownloadInfo::new_execution(
                 TrackedActionDigest::new_expires(
