@@ -390,6 +390,23 @@ impl<T: PatternType> Display for ParsedPattern<T> {
     }
 }
 
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
+pub enum ParsedPatternPredicate<T: PatternType> {
+    Any,
+    AnyOf(Vec<ParsedPattern<T>>),
+}
+
+impl ParsedPatternPredicate<TargetPatternExtra> {
+    pub fn matches(&self, target: &TargetLabel) -> bool {
+        match self {
+            ParsedPatternPredicate::Any => true,
+            ParsedPatternPredicate::AnyOf(patterns) => {
+                patterns.iter().any(|pattern| pattern.matches(target))
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PatternParts<'a, T: PatternType> {
     /// Is there a `foo//` or `//` part.

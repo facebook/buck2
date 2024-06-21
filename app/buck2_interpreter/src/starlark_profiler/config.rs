@@ -15,7 +15,7 @@ use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::ParsedPatternPredicate;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
@@ -76,8 +76,7 @@ impl StarlarkProfilerConfiguration {
 enum StarlarkProfilerConfigurationResolved {
     None,
     ProfileLastLoading(ProfileMode),
-    ProfileLastAnalysis(ProfileMode, Vec<ParsedPattern<TargetPatternExtra>>),
-    ProfileAnalysisRecursively(ProfileMode),
+    ProfileAnalysis(ProfileMode, ParsedPatternPredicate<TargetPatternExtra>),
     ProfileBxl(ProfileMode),
 }
 
@@ -130,10 +129,16 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
                         })
                     })
                     .collect();
-                StarlarkProfilerConfigurationResolved::ProfileLastAnalysis(mode.dupe(), patterns)
+                StarlarkProfilerConfigurationResolved::ProfileAnalysis(
+                    mode.dupe(),
+                    ParsedPatternPredicate::AnyOf(patterns),
+                )
             }
             StarlarkProfilerConfiguration::ProfileAnalysisRecursively(mode) => {
-                StarlarkProfilerConfigurationResolved::ProfileAnalysisRecursively(mode.dupe())
+                StarlarkProfilerConfigurationResolved::ProfileAnalysis(
+                    mode.dupe(),
+                    ParsedPatternPredicate::Any,
+                )
             }
             StarlarkProfilerConfiguration::ProfileBxl(mode) => {
                 StarlarkProfilerConfigurationResolved::ProfileBxl(mode.dupe())
@@ -177,18 +182,12 @@ impl ProjectionKey for StarlarkProfileModeForAnalysisKey {
             StarlarkProfilerConfigurationResolved::ProfileLastLoading(_) => {
                 Ok(StarlarkProfileMode::None)
             }
-            StarlarkProfilerConfigurationResolved::ProfileLastAnalysis(mode, patterns) => {
-                let matches = patterns
-                    .iter()
-                    .any(|pattern| pattern.matches(self.0.unconfigured()));
-                if matches {
+            StarlarkProfilerConfigurationResolved::ProfileAnalysis(mode, patterns) => {
+                if patterns.matches(self.0.unconfigured()) {
                     Ok(StarlarkProfileMode::Profile(mode.dupe()))
                 } else {
                     Ok(StarlarkProfileMode::None)
                 }
-            }
-            StarlarkProfilerConfigurationResolved::ProfileAnalysisRecursively(mode) => {
-                Ok(StarlarkProfileMode::Profile(mode.dupe()))
             }
             StarlarkProfilerConfigurationResolved::ProfileBxl(_) => Ok(StarlarkProfileMode::None),
         }
