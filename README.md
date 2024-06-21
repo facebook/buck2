@@ -1,6 +1,6 @@
 <div class="title-block" style="text-align: center;" align="center">
 [dummy change7-]
-# Buck2: fast multi-language build systemsssssssssss
+# Buck2: fast multi-language build systemssssssssssss
 
 ![Version] ![License] [![Build Status]][CI]
 
