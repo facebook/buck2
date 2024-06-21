@@ -573,6 +573,23 @@ pub fn create_file<P: AsRef<AbsPath>>(path: P) -> Result<FileWriteGuard, IoError
     })
 }
 
+pub fn create_file_if_not_exists<P: AsRef<AbsPath>>(
+    path: P,
+) -> Result<Option<FileWriteGuard>, IoError> {
+    let guard = IoCounterKey::Write.guard();
+    match File::create_new(path.as_ref().as_maybe_relativized()) {
+        Ok(file) => Ok(Some(FileWriteGuard {
+            file,
+            _guard: guard,
+        })),
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Ok(None),
+        Err(e) => make_error!(
+            Err(e),
+            format!("create_file_new({})", P::as_ref(&path).display()),
+        )?,
+    }
+}
+
 pub struct FileReadGuard {
     file: File,
     _guard: IoCounterGuard,
@@ -1142,6 +1159,16 @@ mod tests {
         fs_util::set_permissions(&path, perm)?;
         fs_util::remove_all(&path)?;
         assert!(!path.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_file_if_not_exists() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let path = root.join("foo.txt");
+        let _file = fs_util::create_file_if_not_exists(&path)?.unwrap();
+        assert!(fs_util::create_file_if_not_exists(path)?.is_none());
         Ok(())
     }
 }
