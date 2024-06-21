@@ -359,38 +359,6 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
     }
 }
 
-/// Run get_analysis_result but discard the results (public outside the `analysis` module, unlike
-/// get_analysis_result)
-pub async fn profile_analysis(
-    ctx: &mut DiceComputations<'_>,
-    target: &ConfiguredTargetLabel,
-) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
-    // Self check.
-    let profile_mode = ctx.get_profile_mode_for_analysis(target).await?;
-    if !matches!(profile_mode, StarlarkProfileMode::Profile(_)) {
-        return Err(internal_error!("recursive analysis configured incorrectly"));
-    }
-
-    let target_node = ctx
-        .get_configured_target_node(target)
-        .await?
-        .require_compatible()?;
-    let target = match target_node.forward_target() {
-        None => target_node.label(),
-        Some(forward) => forward.label(),
-    };
-    get_analysis_result(ctx, target)
-        .await?
-        .require_compatible()?
-        .profile_data
-        .with_internal_error(|| {
-            format!(
-                "profile_data not set after finished profiling analysis for `{}`",
-                target
-            )
-        })
-}
-
 fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode> {
     let mut stack = vec![node];
     let mut visited = LabelIndexedSet::new();
@@ -412,7 +380,7 @@ fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode>
     result
 }
 
-pub async fn profile_analysis_recursively(
+pub async fn profile_analysis(
     ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
@@ -436,15 +404,19 @@ pub async fn profile_analysis_recursively(
                     .get_analysis_result(node.label())
                     .await?
                     .require_compatible()?;
-                result
-                    .profile_data
-                    .internal_error("profile_data not set after finished profiling analysis")
+                // This may be `None` if we are running profiling for a subset of the targets.
+                anyhow::Ok(result.profile_data)
             }
             .boxed()
         })
         .await?;
 
-    StarlarkProfileDataAndStats::merge(profile_datas.iter().map(|x| &**x))
+    StarlarkProfileDataAndStats::merge(
+        profile_datas
+            .iter()
+            .filter_map(|o| o.as_ref())
+            .map(|x| &**x),
+    )
 }
 
 pub struct AnalysisKeyActivationData {

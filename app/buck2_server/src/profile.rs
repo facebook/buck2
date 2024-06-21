@@ -13,7 +13,6 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::profile_analysis;
-use buck2_analysis::analysis::calculation::profile_analysis_recursively;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::TargetCfg;
@@ -66,13 +65,9 @@ async fn generate_profile_analysis(
         .await?;
 
     match profile_mode {
-        StarlarkProfilerConfiguration::ProfileLastAnalysis(..) => {
+        StarlarkProfilerConfiguration::ProfileLastAnalysis(..)
+        | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
             profile_analysis(&mut ctx, &configured_target)
-                .await
-                .context("Analysis failed")
-        }
-        StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
-            profile_analysis_recursively(&mut ctx, &configured_target)
                 .await
                 .context("Recursive profile analysis failed")
                 .map(Arc::new)
