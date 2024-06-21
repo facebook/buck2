@@ -12,6 +12,7 @@ pub mod build_context;
 pub(crate) mod bzl_eval_ctx;
 pub mod calculation;
 pub(crate) mod cell_info;
+pub(crate) mod check_starlark_stack_size;
 pub mod configuror;
 pub mod context;
 pub mod cycles;

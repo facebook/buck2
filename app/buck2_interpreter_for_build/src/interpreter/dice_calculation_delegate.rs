@@ -29,7 +29,6 @@ use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::import_paths::HasImportPaths;
@@ -46,15 +45,12 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::FutureExt;
-use indoc::indoc;
 use starlark::codemap::FileSpan;
-use starlark::environment::Globals;
-use starlark::environment::Module;
 use starlark::syntax::AstModule;
-use starlark::syntax::Dialect;
 
 use crate::interpreter::buckconfig::ConfigsOnDiceViewForStarlark;
 use crate::interpreter::cell_info::InterpreterCellInfo;
+use crate::interpreter::check_starlark_stack_size::check_starlark_stack_size;
 use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
@@ -68,8 +64,6 @@ enum DiceCalculationDelegateError {
     EvalBuildFileError(BuildFilePath),
     #[error("Error evaluating module: `{0}`")]
     EvalModuleError(String),
-    #[error("Error checking starlark stack size")]
-    CheckStarlarkStackSizeError,
 }
 
 #[async_trait]
@@ -442,80 +436,12 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         .await
     }
 
-    // In order to prevent non deterministic crashes
-    // we intentionally set off a starlark stack overflow, to make
-    // sure that starlark catches the overflow and reports an error
-    // before the native stack overflows
-    async fn check_starlark_stack_size(&mut self) -> anyhow::Result<()> {
-        #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash)]
-        struct StarlarkStackSizeChecker;
-
-        #[async_trait]
-        impl Key for StarlarkStackSizeChecker {
-            type Value = buck2_error::Result<()>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                with_starlark_eval_provider(
-                    ctx,
-                    &mut StarlarkProfilerOpt::disabled(),
-                    "Check starlark stack size".to_owned(),
-                    move |provider, _| {
-                        let env = Module::new();
-                        let (mut eval, _) = provider.make(&env)?;
-                        let content = indoc!(
-                            r#"
-                                def f():
-                                    f()
-                                f()
-                        "#
-                        );
-                        let ast =
-                            AstModule::parse("x.star", content.to_owned(), &Dialect::Extended)
-                                .map_err(BuckStarlarkError::new)?;
-                        match eval.eval_module(ast, &Globals::standard()) {
-                            Err(e) if e.to_string().contains("Starlark call stack overflow") => {
-                                Ok(())
-                            }
-                            Err(p) => Err(BuckStarlarkError::new(p).into()),
-                            Ok(_) => {
-                                Err(DiceCalculationDelegateError::CheckStarlarkStackSizeError
-                                    .into())
-                            }
-                        }
-                    },
-                )
-                .await?;
-                Ok(())
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-
-            fn validity(x: &Self::Value) -> bool {
-                x.is_ok()
-            }
-        }
-
-        self.ctx
-            .compute(&StarlarkStackSizeChecker)
-            .await?
-            .map_err(anyhow::Error::from)
-    }
-
     pub async fn eval_build_file(
         &mut self,
         package: PackageLabel,
         profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        self.check_starlark_stack_size().await?;
+        check_starlark_stack_size(self.ctx).await?;
 
         let listing = self.resolve_package_listing(package.dupe()).await?;
 
