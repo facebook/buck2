@@ -40,7 +40,6 @@
 //! For example, execution tests are run at different garbage collection settings. Parsing tests are run
 //! with both Unix and Windows newlines.
 
-#[allow(clippy::module_inception)] // This seems a perfectly reasonable thing to do
 mod assert;
 mod conformance;
 

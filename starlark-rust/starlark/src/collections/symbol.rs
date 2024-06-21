@@ -16,5 +16,4 @@
  */
 
 pub(crate) mod map;
-#[allow(clippy::module_inception)]
 pub(crate) mod symbol;

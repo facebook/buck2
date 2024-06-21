@@ -28,6 +28,7 @@ CLIPPY_ALLOW = [
     "clippy::match-like-matches-macro",  # Using matches! is sometimes clearer, sometimes not
     "clippy::match-wild-err-arm",  # Seems reasonable to panic on Err(_)
     "clippy::missing-safety-doc",  # Documentation should be tailored to the reader, not the linter
+    "clippy::module_inception",  # Unnecessary restriction.
     "clippy::multiple-bound-locations",  # FIXME New in 1.78.0
     "clippy::mut_from_ref",  # Tries to check soundness, which Rust already does
     "clippy::naive-bytecount",  # Requires an extra dependency for marginal gains.

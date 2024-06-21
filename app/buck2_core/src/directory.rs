@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::module_inception)]
-
 mod builder;
 mod dashmap_directory_interner;
 mod directory;

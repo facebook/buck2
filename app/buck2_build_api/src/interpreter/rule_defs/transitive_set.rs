@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::module_inception)]
-
 pub mod globals;
 mod transitive_set;
 mod transitive_set_args_projection;

@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::module_inception)]
-
 pub(crate) mod backend;
 pub(crate) mod default;
 pub(crate) mod longest_path_graph;
