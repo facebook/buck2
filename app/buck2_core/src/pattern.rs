@@ -149,6 +149,28 @@ pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersNa
     }
 }
 
+/// All possible labels.
+/// - target label
+/// - configured target label
+/// - providers label
+/// - configured providers label
+pub struct TargetLabelWithExtra<T: PatternType> {
+    pub target_label: TargetLabel,
+    pub extra: T,
+}
+
+impl TargetLabelWithExtra<TargetPatternExtra> {
+    pub fn into_target_label(self) -> TargetLabel {
+        self.target_label
+    }
+}
+
+impl TargetLabelWithExtra<ProvidersPatternExtra> {
+    pub fn into_providers_label(self) -> ProvidersLabel {
+        ProvidersLabel::new(self.target_label, self.extra.providers)
+    }
+}
+
 /// A parsed target pattern.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
 pub enum ParsedPattern<T: PatternType> {
