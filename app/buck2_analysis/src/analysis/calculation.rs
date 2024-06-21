@@ -359,8 +359,8 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
     }
 }
 
-fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode> {
-    let mut stack = vec![node];
+fn all_deps(nodes: &[ConfiguredTargetNode]) -> LabelIndexedSet<ConfiguredTargetNode> {
+    let mut stack = nodes.to_vec();
     let mut visited = LabelIndexedSet::new();
     let mut result = LabelIndexedSet::new();
     while let Some(node) = stack.pop() {
@@ -382,20 +382,30 @@ fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode>
 
 pub async fn profile_analysis(
     ctx: &mut DiceComputations<'_>,
-    target: &ConfiguredTargetLabel,
+    targets: &[ConfiguredTargetLabel],
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
     // Self check.
-    let profile_mode = ctx.get_profile_mode_for_analysis(target).await?;
-    if !matches!(profile_mode, StarlarkProfileMode::Profile(_)) {
-        return Err(internal_error!("recursive analysis configured incorrectly"));
+    for target in targets {
+        let profile_mode = ctx.get_profile_mode_for_analysis(target).await?;
+        if !matches!(profile_mode, StarlarkProfileMode::Profile(_)) {
+            return Err(internal_error!("recursive analysis configured incorrectly"));
+        }
     }
 
-    let node = ctx
-        .get_configured_target_node(target)
-        .await?
-        .require_compatible()?;
+    let nodes: Vec<ConfiguredTargetNode> = ctx
+        .try_compute_join(targets.iter(), |ctx, target| {
+            async move {
+                let node = ctx
+                    .get_configured_target_node(target)
+                    .await?
+                    .require_compatible()?;
+                anyhow::Ok(node)
+            }
+            .boxed()
+        })
+        .await?;
 
-    let all_deps = all_deps(node);
+    let all_deps = all_deps(&nodes);
 
     let profile_datas = ctx
         .try_compute_join(all_deps.iter(), |ctx, node| {

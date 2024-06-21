@@ -20,9 +20,10 @@ use buck2_common::pattern::parse_from_cli::parse_and_resolve_patterns_from_cli_a
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
-use buck2_core::target::label::label::TargetLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_cancellable;
@@ -36,6 +37,7 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_patterns_to_targets_from_cli_args;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -45,29 +47,35 @@ use futures::future::FutureExt;
 
 async fn generate_profile_analysis(
     mut ctx: DiceTransaction,
-    package: PackageLabel,
-    spec: PackageSpec<TargetPatternExtra>,
+    server_ctx: &dyn ServerCommandContextTrait,
+    target_patterns: &[String],
     target_resolution_config: TargetResolutionConfig,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
-    let (target, TargetPatternExtra) = match spec {
-        PackageSpec::Targets(targets) => one(targets).context("Invalid targets"),
-        PackageSpec::All => Err(anyhow::Error::msg("Cannot use a package")),
-    }
-    .context("Did not find exactly one target")?;
+    let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<
+        ConfiguredProvidersPatternExtra,
+    >(&mut ctx, target_patterns, server_ctx.working_dir())
+    .await?;
 
-    let label = TargetLabel::new(package.dupe(), target.as_ref());
-
-    let configured_targets = target_resolution_config
-        .get_configured_target(&mut ctx, &label)
+    let target_resolution_config = &target_resolution_config;
+    let configured_targetss = ctx
+        .try_compute_join(targets, |ctx, label| {
+            async move {
+                target_resolution_config
+                    .get_configured_target(ctx, &label.target_label)
+                    .await
+            }
+            .boxed()
+        })
         .await?;
-    let configured_target =
-        one(configured_targets).context("Did not find exactly one configured target")?;
+
+    let configured_targets: Vec<ConfiguredTargetLabel> =
+        configured_targetss.into_iter().flatten().collect();
 
     match profile_mode {
         StarlarkProfilerConfiguration::ProfileLastAnalysis(..)
         | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
-            profile_analysis(&mut ctx, &configured_target)
+            profile_analysis(&mut ctx, &configured_targets)
                 .await
                 .context("Recursive profile analysis failed")
                 .map(Arc::new)
@@ -188,21 +196,25 @@ async fn generate_profile(
         TargetResolutionConfig::from_args(&mut ctx, target_cfg, server_ctx, target_universe)
             .await?;
 
-    let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
-        &mut ctx,
-        &target_patterns,
-        server_ctx.working_dir(),
-    )
-    .await?;
-
     match action {
         Action::Analysis => {
-            let (package, spec) = one(resolved.specs)
-                .context("Error: profiling analysis requires exactly one target pattern")?;
-            generate_profile_analysis(ctx, package, spec, target_resolution_config, profile_mode)
-                .await
+            generate_profile_analysis(
+                ctx,
+                server_ctx,
+                target_patterns,
+                target_resolution_config,
+                profile_mode,
+            )
+            .await
         }
         Action::Loading => {
+            let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
+                &mut ctx,
+                &target_patterns,
+                server_ctx.working_dir(),
+            )
+            .await?;
+
             let ctx = &ctx;
             let ctx_data = ctx.per_transaction_data();
 
@@ -227,13 +239,4 @@ async fn generate_profile(
             StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)
         }
     }
-}
-
-fn one<T>(it: impl IntoIterator<Item = T>) -> anyhow::Result<T> {
-    let mut it = it.into_iter();
-    let val = it.next().context("No value found")?;
-    if it.next().is_some() {
-        return Err(anyhow::Error::msg("More than one value found"));
-    }
-    Ok(val)
 }
