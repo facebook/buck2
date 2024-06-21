@@ -10,7 +10,7 @@
   https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blueviolet.svg
 [Build Status]:
   https://github.com/facebook/buck2/actions/workflows/build-and-test.yml/badge.svg
-[CI]: https://github.com/facebook/buck2/actions/workflows/build-and-test.yml
+[CI]: https://github.com/facebook/buck2/actions/workflows/build-and-test.ymls
 
 <strong>
   <a href="https://buck2.build">Homepage</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="https://buck2.build/docs/getting_started/">Getting Started</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="./CONTRIBUTING.md">Contributing</a>
