@@ -1,6 +1,6 @@
 <div class="title-block" style="text-align: center;" align="center">
 
-# Buck2: fast multi-language build systemmmmmm
+# Buck22: fast multi-language build systemmmmmm
 
 ![Version] ![License] [![Build Status]][CI]
 
