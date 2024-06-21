@@ -8,6 +8,7 @@
  */
 
 use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
@@ -27,6 +28,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_server::builtin_docs::docs::docs_command;
 use buck2_server::daemon::daemon_tcp::create_listener;
@@ -205,6 +207,25 @@ fn terminate_on_panic() {
     }));
 }
 
+fn verify_buck_out_dir(paths: &InvocationPaths) -> anyhow::Result<()> {
+    let path = paths.buck_out_path();
+    fs_util::create_dir_all(path.clone())?;
+
+    const CACHEDIR_TAG_CONTENTS: &str = r#"Signature: 8a477f597d28d172789f06886806bc55
+# This file is a cache directory tag created by Buck2.
+# For information about cache directory tags, see:
+#    http://www.brynosaurus.com/cachedir/
+"#;
+
+    if let Some(mut file) =
+        fs_util::create_file_if_not_exists(path.join(ForwardRelativePath::new("CACHEDIR.TAG")?))?
+    {
+        file.write_all(CACHEDIR_TAG_CONTENTS.as_bytes())?;
+    }
+
+    Ok(())
+}
+
 impl DaemonCommand {
     fn run(
         self,
@@ -314,6 +335,15 @@ impl DaemonCommand {
                 .expect("failed to set gflag --cgroup2_reader_update_interval_ms");
             }
         }
+
+        // Unfortunately, buck-out doesn't really have a well-defined place/time at which it creates
+        // the buck-out dir, instead just creating it whenever it first wants to write something to
+        // it. We don't want to create it unconditionally on all commands as there are lots of
+        // client commands (help, log, etc.) that should not require a buck-out just to be able to
+        // run. However, at the point at which we're starting a daemon it does seem sensible to now
+        // ensure that it always exists, primarily so that we can put a file into it to mark it as a
+        // cachedir.
+        verify_buck_out_dir(&paths)?;
 
         let mut builder = new_tokio_runtime("buck2-rt");
         builder.enable_all();
