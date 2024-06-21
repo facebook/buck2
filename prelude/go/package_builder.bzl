@@ -135,11 +135,13 @@ def _compile(
 
     compile_cmd = cmd_args(
         [
+            go_toolchain.go_wrapper,
             go_toolchain.compiler,
             go_toolchain.compiler_flags,
             compiler_flags,
             "-buildid=",
             "-nolocalimports",
+            ["-trimpath", "%cwd%"],
             ["-p", pkg_name],
             ["-importcfg", importcfg],
             ["-o", out.as_output()],

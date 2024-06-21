@@ -80,6 +80,8 @@ def main(argv):
             # HACK: Replace %cwd% with the current working directory to make it work when `go` does `cd` to a tmp-dir.
             env[env_var] = var_value.replace("%cwd%", cwd)
 
+    unknown = [arg.replace("%cwd%", cwd) for arg in unknown]
+
     retcode = subprocess.call(
         [wrapped_binary] + unknown, env=env, cwd=parsed.workdir, stdout=parsed.output
     )
