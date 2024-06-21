@@ -51,7 +51,6 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::FutureExt;
 use smallvec::SmallVec;
-use starlark::eval::ProfileMode;
 
 use crate::analysis::env::get_user_defined_rule_spec;
 use crate::analysis::env::run_analysis;
@@ -92,8 +91,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let profile_mode = ctx.get_profile_mode_for_intermediate_analysis().await?;
-                Ok(get_analysis_result(ctx, &self.0, &profile_mode)
+                Ok(get_analysis_result(ctx, &self.0)
                     .await
                     .with_context(|| format!("Error running analysis for `{}`", &self.0))?)
             }
@@ -228,9 +226,8 @@ pub async fn get_rule_spec(
 async fn get_analysis_result(
     ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
-    profile_mode: &StarlarkProfileMode,
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
-    get_analysis_result_inner(ctx, target, profile_mode)
+    get_analysis_result_inner(ctx, target)
         .await
         .tag(ErrorTag::Analysis)
 }
@@ -238,7 +235,6 @@ async fn get_analysis_result(
 async fn get_analysis_result_inner(
     ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
-    profile_mode: &StarlarkProfileMode,
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
     let configured_node: MaybeCompatible<ConfiguredTargetNode> =
         ctx.get_configured_target_node(target).await?;
@@ -253,10 +249,14 @@ async fn get_analysis_result_inner(
 
     let ((res, now), spans): ((anyhow::Result<_>, Instant), _) = match configured_node.rule_type() {
         RuleType::Starlark(func) => {
-            let (dep_analysis, query_results) = ctx
-                .try_compute2(
+            let (dep_analysis, query_results, profile_mode) = ctx
+                .try_compute3(
                     |ctx| get_dep_analysis(configured_node, ctx).boxed(),
                     |ctx| resolve_queries(ctx, configured_node).boxed(),
+                    |ctx| {
+                        ctx.get_profile_mode_for_analysis(configured_node.label())
+                            .boxed()
+                    },
                 )
                 .await?;
 
@@ -290,7 +290,7 @@ async fn get_analysis_result_inner(
                                         configured_node.execution_platform_resolution(),
                                         &rule_spec,
                                         configured_node,
-                                        profile_mode,
+                                        &profile_mode,
                                     )
                                     .await,
                                     buck2_data::AnalysisStageEnd {},
@@ -364,8 +364,13 @@ fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
 pub async fn profile_analysis(
     ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
-    profile_mode: &ProfileMode,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+    // Self check.
+    let profile_mode = ctx.get_profile_mode_for_analysis(target).await?;
+    if !matches!(profile_mode, StarlarkProfileMode::Profile(_)) {
+        return Err(internal_error!("recursive analysis configured incorrectly"));
+    }
+
     let target_node = ctx
         .get_configured_target_node(target)
         .await?
@@ -374,20 +379,16 @@ pub async fn profile_analysis(
         None => target_node.label(),
         Some(forward) => forward.label(),
     };
-    get_analysis_result(
-        ctx,
-        target,
-        &StarlarkProfileMode::Profile(profile_mode.dupe()),
-    )
-    .await?
-    .require_compatible()?
-    .profile_data
-    .with_internal_error(|| {
-        format!(
-            "profile_data not set after finished profiling analysis for `{}`",
-            target
-        )
-    })
+    get_analysis_result(ctx, target)
+        .await?
+        .require_compatible()?
+        .profile_data
+        .with_internal_error(|| {
+            format!(
+                "profile_data not set after finished profiling analysis for `{}`",
+                target
+            )
+        })
 }
 
 fn all_deps(node: ConfiguredTargetNode) -> LabelIndexedSet<ConfiguredTargetNode> {
@@ -416,7 +417,7 @@ pub async fn profile_analysis_recursively(
     target: &ConfiguredTargetLabel,
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
     // Self check.
-    let profile_mode = ctx.get_profile_mode_for_intermediate_analysis().await?;
+    let profile_mode = ctx.get_profile_mode_for_analysis(target).await?;
     if !matches!(profile_mode, StarlarkProfileMode::Profile(_)) {
         return Err(internal_error!("recursive analysis configured incorrectly"));
     }

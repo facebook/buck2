@@ -41,6 +41,7 @@ use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::errors::create_error_report;
@@ -1256,7 +1257,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<ProfileRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        struct ProfileCommandOptions;
+        struct ProfileCommandOptions {
+            project_root: ProjectRoot,
+        }
 
         impl OneshotCommandOptions for ProfileCommandOptions {}
 
@@ -1265,14 +1268,16 @@ impl DaemonApi for BuckdServer {
                 &self,
                 req: &ProfileRequest,
             ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-                starlark_profiler_configuration_from_request(req)
+                starlark_profiler_configuration_from_request(req, &self.project_root)
             }
         }
 
         let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
-            ProfileCommandOptions,
+            ProfileCommandOptions {
+                project_root: self.0.daemon_state.paths.project_root().dupe(),
+            },
             |ctx, partial_result_dispatcher, req| {
                 callbacks.profile(ctx, partial_result_dispatcher, req)
             },

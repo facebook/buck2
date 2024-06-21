@@ -11,11 +11,19 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
+use dice::DiceProjectionComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
+use dice::ProjectionKey;
 use dupe::Dupe;
 use starlark::eval::ProfileMode;
 
@@ -37,7 +45,13 @@ pub enum StarlarkProfilerConfiguration {
     /// Profile loading of one `BUCK`, everything else is instrumented.
     ProfileLastLoading(ProfileMode),
     /// Profile analysis of the last target, everything else is instrumented.
-    ProfileLastAnalysis(ProfileMode),
+    ProfileLastAnalysis(
+        ProfileMode,
+        // Target patterns to profile.
+        Vec<String>,
+        // Working directory (to resolve target patterns).
+        ProjectRelativePathBuf,
+    ),
     /// Profile analysis targets recursively.
     ProfileAnalysisRecursively(ProfileMode),
     /// Profile BXL
@@ -48,7 +62,7 @@ impl StarlarkProfilerConfiguration {
     pub fn profile_last_loading(&self) -> anyhow::Result<&ProfileMode> {
         match self {
             StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(..)
             | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_)
             | StarlarkProfilerConfiguration::ProfileBxl(_) => {
                 Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
@@ -56,19 +70,15 @@ impl StarlarkProfilerConfiguration {
             StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode) => Ok(profile_mode),
         }
     }
+}
 
-    /// Profile mode for intermediate target analysis.
-    fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileMode {
-        match self {
-            StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::ProfileLastLoading(_)
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
-            | StarlarkProfilerConfiguration::ProfileBxl(_) => StarlarkProfileMode::None,
-            StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
-                StarlarkProfileMode::Profile(profile_mode.dupe())
-            }
-        }
-    }
+#[derive(PartialEq, Eq, Clone, Debug, Allocative)]
+enum StarlarkProfilerConfigurationResolved {
+    None,
+    ProfileLastLoading(ProfileMode),
+    ProfileLastAnalysis(ProfileMode, Vec<ParsedPattern<TargetPatternExtra>>),
+    ProfileAnalysisRecursively(ProfileMode),
+    ProfileBxl(ProfileMode),
 }
 
 #[derive(
@@ -83,19 +93,105 @@ impl StarlarkProfilerConfiguration {
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-struct StarlarkProfileModeForIntermediateAnalysisKey;
+struct StarlarkProfilerConfigurationResolvedKey;
 
 #[async_trait]
-impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
-    type Value = buck2_error::Result<StarlarkProfileMode>;
+impl Key for StarlarkProfilerConfigurationResolvedKey {
+    type Value = buck2_error::Result<Arc<StarlarkProfilerConfigurationResolved>>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
-    ) -> buck2_error::Result<StarlarkProfileMode> {
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         let configuration = ctx.compute(&StarlarkProfilerConfigurationKey).await?;
-        Ok(configuration.profile_mode_for_intermediate_analysis())
+        let new = match &*configuration {
+            StarlarkProfilerConfiguration::None => StarlarkProfilerConfigurationResolved::None,
+            StarlarkProfilerConfiguration::ProfileLastLoading(mode) => {
+                StarlarkProfilerConfigurationResolved::ProfileLastLoading(mode.dupe())
+            }
+            StarlarkProfilerConfiguration::ProfileLastAnalysis(mode, patterns, working_dir) => {
+                let patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
+                    ctx,
+                    patterns,
+                    working_dir,
+                )
+                .await?;
+                let patterns = patterns
+                    .into_iter()
+                    .map(|p| {
+                        p.map(|_| {
+                            // Drop the extra because:
+                            // - we don't use providers when profiling analysis
+                            // - configuration may create issues when there are transitions;
+                            //   it might return more than user requested without
+                            //   (e.g. target and host analysis), but practically this is not an issue.
+                            TargetPatternExtra
+                        })
+                    })
+                    .collect();
+                StarlarkProfilerConfigurationResolved::ProfileLastAnalysis(mode.dupe(), patterns)
+            }
+            StarlarkProfilerConfiguration::ProfileAnalysisRecursively(mode) => {
+                StarlarkProfilerConfigurationResolved::ProfileAnalysisRecursively(mode.dupe())
+            }
+            StarlarkProfilerConfiguration::ProfileBxl(mode) => {
+                StarlarkProfilerConfigurationResolved::ProfileBxl(mode.dupe())
+            }
+        };
+        Ok(Arc::new(new))
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+#[derive(
+    Debug,
+    derive_more::Display,
+    Clone,
+    Dupe,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative
+)]
+struct StarlarkProfileModeForAnalysisKey(ConfiguredTargetLabel);
+
+impl ProjectionKey for StarlarkProfileModeForAnalysisKey {
+    type DeriveFromKey = StarlarkProfilerConfigurationResolvedKey;
+
+    type Value = buck2_error::Result<StarlarkProfileMode>;
+
+    fn compute(
+        &self,
+        configuration: &buck2_error::Result<Arc<StarlarkProfilerConfigurationResolved>>,
+        _ctx: &DiceProjectionComputations,
+    ) -> buck2_error::Result<StarlarkProfileMode> {
+        match &**(configuration.as_ref().map_err(|e| e.dupe())?) {
+            StarlarkProfilerConfigurationResolved::None => Ok(StarlarkProfileMode::None),
+            StarlarkProfilerConfigurationResolved::ProfileLastLoading(_) => {
+                Ok(StarlarkProfileMode::None)
+            }
+            StarlarkProfilerConfigurationResolved::ProfileLastAnalysis(mode, patterns) => {
+                let matches = patterns
+                    .iter()
+                    .any(|pattern| pattern.matches(self.0.unconfigured()));
+                if matches {
+                    Ok(StarlarkProfileMode::Profile(mode.dupe()))
+                } else {
+                    Ok(StarlarkProfileMode::None)
+                }
+            }
+            StarlarkProfilerConfigurationResolved::ProfileAnalysisRecursively(mode) => {
+                Ok(StarlarkProfileMode::Profile(mode.dupe()))
+            }
+            StarlarkProfilerConfigurationResolved::ProfileBxl(_) => Ok(StarlarkProfileMode::None),
+        }
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -146,9 +242,10 @@ pub trait SetStarlarkProfilerInstrumentation {
 
 #[async_trait]
 pub trait GetStarlarkProfilerInstrumentation {
-    /// Profile mode for non-final targe analysis.
-    async fn get_profile_mode_for_intermediate_analysis(
+    /// Profile mode for analysis of given target.
+    async fn get_profile_mode_for_analysis(
         &mut self,
+        target_label: &ConfiguredTargetLabel,
     ) -> anyhow::Result<StarlarkProfileMode>;
 }
 
@@ -164,11 +261,16 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
 
 #[async_trait]
 impl GetStarlarkProfilerInstrumentation for DiceComputations<'_> {
-    async fn get_profile_mode_for_intermediate_analysis(
+    async fn get_profile_mode_for_analysis(
         &mut self,
+        target_label: &ConfiguredTargetLabel,
     ) -> anyhow::Result<StarlarkProfileMode> {
-        Ok(self
-            .compute(&StarlarkProfileModeForIntermediateAnalysisKey)
-            .await??)
+        let cfg = self
+            .compute_opaque(&StarlarkProfilerConfigurationResolvedKey)
+            .await?;
+        Ok(self.projection(
+            &cfg,
+            &StarlarkProfileModeForAnalysisKey(target_label.dupe()),
+        )??)
     }
 }

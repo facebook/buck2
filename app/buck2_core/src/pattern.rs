@@ -219,6 +219,16 @@ impl<T: PatternType> ParsedPattern<T> {
         }
     }
 
+    pub fn map<U: PatternType>(self, f: impl FnOnce(T) -> U) -> ParsedPattern<U> {
+        match self {
+            ParsedPattern::Target(package, target_name, val) => {
+                ParsedPattern::Target(package, target_name, f(val))
+            }
+            ParsedPattern::Package(package) => ParsedPattern::Package(package),
+            ParsedPattern::Recursive(cell_path) => ParsedPattern::Recursive(cell_path),
+        }
+    }
+
     /// Extract a literal from a [ParsedPattern], or `Err` if it is not a literal.
     pub fn as_literal(self, original: &str) -> anyhow::Result<(PackageLabel, TargetName, T)> {
         // FIXME: Would be better if we had a Display on self, so we could produce a nice error message.

@@ -76,7 +76,10 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             ProfileOpts::BxlProfile(opts) => {
                 let output = AbsPath::new(Path::new(&self.req.destination_path))?;
 
-                let profile_mode = starlark_profiler_configuration_from_request(&self.req)?;
+                let profile_mode = starlark_profiler_configuration_from_request(
+                    &self.req,
+                    server_ctx.project_root(),
+                )?;
 
                 let profile_data = match profile_mode {
                     StarlarkProfilerConfiguration::ProfileBxl(profile_mode) => {

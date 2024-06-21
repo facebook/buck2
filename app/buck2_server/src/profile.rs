@@ -66,8 +66,8 @@ async fn generate_profile_analysis(
         .await?;
 
     match profile_mode {
-        StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode) => {
-            profile_analysis(&mut ctx, &configured_target, profile_mode)
+        StarlarkProfilerConfiguration::ProfileLastAnalysis(..) => {
+            profile_analysis(&mut ctx, &configured_target)
                 .await
                 .context("Analysis failed")
         }
@@ -138,7 +138,8 @@ impl ServerCommandTemplate for ProfileServerCommand {
     ) -> anyhow::Result<Self::Response> {
         let output = AbsPath::new(Path::new(&self.req.destination_path))?;
 
-        let profile_mode = starlark_profiler_configuration_from_request(&self.req)?;
+        let profile_mode =
+            starlark_profiler_configuration_from_request(&self.req, server_ctx.project_root())?;
 
         match self
             .req
