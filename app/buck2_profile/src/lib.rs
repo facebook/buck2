@@ -75,11 +75,22 @@ pub fn starlark_profiler_configuration_from_request(
     }
 }
 
+#[allow(clippy::format_collect)]
 pub fn get_profile_response(
     profile_data: Arc<StarlarkProfileDataAndStats>,
     output: &AbsPath,
 ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
     fs_util::create_dir_if_not_exists(output)?;
+
+    fs_util::write(
+        output.join("targets.txt"),
+        profile_data
+            .targets
+            .iter()
+            .map(|t| format!("{t}\n"))
+            .collect::<String>(),
+    )
+    .context("Failed to write targets")?;
 
     match profile_data.profile_data.profile_mode() {
         ProfileMode::HeapFlameAllocated

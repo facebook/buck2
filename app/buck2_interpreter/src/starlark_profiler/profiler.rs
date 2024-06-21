@@ -17,6 +17,7 @@ use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
 use starlark::StarlarkResultExt;
 
+use crate::starlark_profiler::data::ProfileTarget;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
 
 #[derive(Debug, buck2_error::Error)]
@@ -38,10 +39,16 @@ pub struct StarlarkProfiler {
     finalized_at: Option<Instant>,
     profile_data: Option<ProfileData>,
     total_retained_bytes: Option<usize>,
+
+    target: ProfileTarget,
 }
 
 impl StarlarkProfiler {
-    pub fn new(profile_mode: ProfileMode, will_freeze: bool) -> StarlarkProfiler {
+    pub fn new(
+        profile_mode: ProfileMode,
+        will_freeze: bool,
+        target: ProfileTarget,
+    ) -> StarlarkProfiler {
         Self {
             profile_mode,
             will_freeze,
@@ -49,6 +56,7 @@ impl StarlarkProfiler {
             finalized_at: None,
             profile_data: None,
             total_retained_bytes: None,
+            target,
         }
     }
 
@@ -63,6 +71,7 @@ impl StarlarkProfiler {
             profile_data: self
                 .profile_data
                 .internal_error("profile_data not initialized")?,
+            targets: vec![self.target],
         })
     }
 

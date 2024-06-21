@@ -43,6 +43,7 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
+use buck2_interpreter::starlark_profiler::data::ProfileTarget;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
@@ -310,7 +311,7 @@ async fn eval_bxl_inner(
 
     let mut profiler_opt = profile_mode_or_instrumentation
         .profile_mode()
-        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
+        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true, ProfileTarget::Bxl));
 
     let mut profiler = match &mut profiler_opt {
         None => StarlarkProfilerOpt::disabled(),

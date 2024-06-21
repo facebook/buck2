@@ -33,6 +33,7 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
+use buck2_interpreter::starlark_profiler::data::ProfileTarget;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -272,9 +273,13 @@ async fn run_analysis_with_env_underlying(
         analysis_env.execution_platform.dupe(),
     )?;
 
-    let mut profiler_opt = profile_mode
-        .profile_mode()
-        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
+    let mut profiler_opt = profile_mode.profile_mode().map(|profile_mode| {
+        StarlarkProfiler::new(
+            profile_mode.dupe(),
+            true,
+            ProfileTarget::Analysis(node.label().dupe()),
+        )
+    });
 
     let mut profiler = match &mut profiler_opt {
         None => StarlarkProfilerOpt::disabled(),

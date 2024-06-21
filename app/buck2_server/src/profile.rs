@@ -27,6 +27,7 @@ use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
+use buck2_interpreter::starlark_profiler::data::ProfileTarget;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -93,7 +94,11 @@ async fn generate_profile_loading(
         .get_interpreter_calculator(package.cell_name(), BuildFileCell::new(package.cell_name()))
         .await?;
 
-    let mut profiler = StarlarkProfiler::new(profile_mode.profile_last_loading()?.dupe(), false);
+    let mut profiler = StarlarkProfiler::new(
+        profile_mode.profile_last_loading()?.dupe(),
+        false,
+        ProfileTarget::Loading(package.dupe()),
+    );
 
     calculation
         .eval_build_file(
