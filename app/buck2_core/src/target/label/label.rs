@@ -169,14 +169,15 @@ impl TargetLabel {
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<TargetLabel> {
-        let (pkg, name, TargetPatternExtra) = ParsedPattern::<TargetPatternExtra>::parse_precise(
-            label,
-            cell_name,
-            cell_resolver,
-            cell_alias_resolver,
-        )?
-        .as_literal(label)?;
-        Ok(TargetLabel::new(pkg, name.as_ref()))
+        let (target_label, TargetPatternExtra) =
+            ParsedPattern::<TargetPatternExtra>::parse_precise(
+                label,
+                cell_name,
+                cell_resolver,
+                cell_alias_resolver,
+            )?
+            .as_literal(label)?;
+        Ok(target_label)
     }
 
     fn into_raw(self) -> *const () {

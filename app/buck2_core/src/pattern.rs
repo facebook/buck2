@@ -167,8 +167,8 @@ pub enum ParsedPattern<T: PatternType> {
 impl ParsedPattern<TargetPatternExtra> {
     /// Extract [`TargetLabel`] from a [`ParsedPattern`].
     pub fn as_target_label(self, original: &str) -> anyhow::Result<TargetLabel> {
-        let (package, target_name, TargetPatternExtra) = self.as_literal(original)?;
-        Ok(TargetLabel::new(package, target_name.as_ref()))
+        let (target_label, TargetPatternExtra) = self.as_literal(original)?;
+        Ok(target_label)
     }
 
     /// Check if a [`ParsedPattern`] matches a [`TargetLabel`]
@@ -189,11 +189,8 @@ impl ParsedPattern<TargetPatternExtra> {
 impl ParsedPattern<ProvidersPatternExtra> {
     /// Extract [`ProvidersLabel`] from a [`ParsedPattern`].
     pub fn as_providers_label(self, original: &str) -> anyhow::Result<ProvidersLabel> {
-        let (package, target, ProvidersPatternExtra { providers }) = self.as_literal(original)?;
-        Ok(ProvidersLabel::new(
-            TargetLabel::new(package, target.as_ref()),
-            providers,
-        ))
+        let (target_label, ProvidersPatternExtra { providers }) = self.as_literal(original)?;
+        Ok(ProvidersLabel::new(target_label, providers))
     }
 }
 
@@ -230,11 +227,13 @@ impl<T: PatternType> ParsedPattern<T> {
     }
 
     /// Extract a literal from a [ParsedPattern], or `Err` if it is not a literal.
-    pub fn as_literal(self, original: &str) -> anyhow::Result<(PackageLabel, TargetName, T)> {
+    pub fn as_literal(self, original: &str) -> anyhow::Result<(TargetLabel, T)> {
         // FIXME: Would be better if we had a Display on self, so we could produce a nice error message.
         //        For now, just require the original string to be passed in for good errors.
         match self {
-            ParsedPattern::Target(package, target_name, val) => Ok((package, target_name, val)),
+            ParsedPattern::Target(package, target_name, val) => {
+                Ok((TargetLabel::new(package, target_name.as_ref()), val))
+            }
             _ => Err(TargetPatternParseError::TargetLiteralRequired(original.to_owned()).into()),
         }
     }
@@ -1639,7 +1638,7 @@ mod tests {
             )?
         );
 
-        let (package, target_name, providers) = ParsedPattern::parse_precise(
+        let (target_label, providers) = ParsedPattern::parse_precise(
             "//package/path:target#flavor",
             CellName::testing_new("root"),
             &resolver(),
@@ -1648,8 +1647,12 @@ mod tests {
         .as_literal("")?;
         assert_eq!(
             "root//package/path:target#flavor",
-            ProvidersPatternExtra::into_providers_label(providers, package, target_name.as_ref())
-                .to_string(),
+            ProvidersPatternExtra::into_providers_label(
+                providers,
+                target_label.pkg(),
+                target_label.name()
+            )
+            .to_string(),
         );
         Ok(())
     }
