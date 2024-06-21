@@ -269,7 +269,7 @@ def compile_swift(
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
 
     swift_framework_output = None
-    if ctx.attrs._enable_library_evolution:
+    if _should_compile_with_evolution(ctx):
         swift_framework_output = SwiftLibraryForDistributionOutput(
             swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface"),
             private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface"),
@@ -347,7 +347,7 @@ def _compile_swiftmodule(
         "-experimental-skip-non-inlinable-function-bodies-without-types",
     ])
 
-    if ctx.attrs._enable_library_evolution:
+    if _should_compile_with_evolution(ctx):
         argfile_cmd.add(["-enable-library-evolution"])
         argfile_cmd.add(["-emit-module-interface"])
 
@@ -436,7 +436,7 @@ def _compile_object(
         if embed_bitcode:
             cmd.add("--embed-bitcode")
 
-    if ctx.attrs._enable_library_evolution:
+    if _should_compile_with_evolution(ctx):
         cmd.add(["-enable-library-evolution"])
 
     argsfiles = _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain)
@@ -913,3 +913,8 @@ def _exported_deps(ctx) -> list[Dependency]:
         return ctx.attrs.exported_deps + ctx.attrs.deps
     else:
         return ctx.attrs.exported_deps
+
+def _should_compile_with_evolution(ctx) -> bool:
+    if ctx.attrs.enable_library_evolution != None:
+        return ctx.attrs.enable_library_evolution
+    return ctx.attrs._enable_library_evolution

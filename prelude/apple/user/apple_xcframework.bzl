@@ -76,7 +76,6 @@ def _apple_xcframework_framework_attrib_split_transition_impl(
     new_platforms = _normalize_platforms(attrs.platforms).items()
     for os_value, cpu_values in new_platforms:
         updated_constraints = _strip_os_sdk_and_runtime_constraints(platform, refs)
-        updated_constraints[refs.swift_library_evolution[ConstraintSettingInfo].label] = refs.swift_library_evolution_enabled[ConstraintValueInfo]
 
         canonical_platform_suffix = ""
 

@@ -112,6 +112,7 @@ def apple_test_extra_attrs():
     attribs = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
+        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -145,6 +146,7 @@ def apple_xcuitest_extra_attrs():
         # This is ignored, but required for info plist processing.
         "binary": attrs.option(attrs.source(), default = None),
         "codesign_identity": attrs.option(attrs.string(), default = None),
+        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "entitlements_file": attrs.option(attrs.source(), default = None),
         "extension": attrs.default_only(attrs.string(default = "app")),
         "incremental_bundling_enabled": attrs.bool(default = False),

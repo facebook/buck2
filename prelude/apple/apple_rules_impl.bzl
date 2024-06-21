@@ -80,6 +80,7 @@ def _apple_binary_extra_attrs():
     attribs = {
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
+        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": LINK_GROUP_MAP_ATTR,
@@ -106,6 +107,7 @@ def _apple_binary_extra_attrs():
 def _apple_library_extra_attrs():
     attribs = {
         "enable_distributed_thinlto": attrs.bool(default = False),
+        "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_execution_preference": link_execution_preference_attr(),
