@@ -251,14 +251,6 @@ impl TargetInfo {
     }
 
     pub(crate) fn src_dirs(&self) -> Vec<PathBuf> {
-        // generated thrift sources might return an empty `srcs`.
-        // if it's empty, use the parent of the root module.
-        if self.srcs.is_empty() {
-            if let Some(parent) = self.root_module().parent() {
-                return vec![parent.to_owned()];
-            }
-        }
-
         let mut all_src_dirs: Vec<&Path> = self.srcs.iter().filter_map(|p| p.parent()).collect();
         all_src_dirs.sort();
 
