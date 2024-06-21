@@ -77,14 +77,12 @@ pub fn starlark_profiler_configuration_from_request(
 
 pub fn get_profile_response(
     profile_data: Arc<StarlarkProfileDataAndStats>,
-    req: &buck2_cli_proto::ProfileRequest,
     output: &AbsPath,
 ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
-    let command_profile_mode = buck2_cli_proto::profile_request::Profiler::from_i32(req.profiler)
-        .context("Invalid profiler")?;
-
-    match command_profile_mode {
-        Profiler::HeapFlameAllocated | Profiler::HeapFlameRetained | Profiler::TimeFlame => {
+    match profile_data.profile_data.profile_mode() {
+        ProfileMode::HeapFlameAllocated
+        | ProfileMode::HeapFlameRetained
+        | ProfileMode::TimeFlame => {
             let mut profile = profile_data.profile_data.gen().into_anyhow_result()?;
             if profile.is_empty() {
                 // inferno does not like empty flamegraphs.
