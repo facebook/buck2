@@ -224,32 +224,38 @@ where
                 .into_count_uncapped(),
         };
 
-        let is_retryable_status = move |r: &CommandExecutionResult| {
-            match &r.report.status {
-                // This does need be retried since if we get a cancelled result that would
-                // typically mean the other result asked for cancellation and we're about to
-                // receive the result here, or it could mean we're being asked to cancel by our
-                // caller.
-                CommandExecutionStatus::Cancelled => true,
-                // If the execution is successful, use the result.
-                CommandExecutionStatus::Success { .. } => false,
-                // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
-                CommandExecutionStatus::Failure { .. } => fallback_on_failure,
-                // Don't retry timeouts. They are used for tests and falling back on a timeout is
-                // sort of the opposite of what's been requested.
-                CommandExecutionStatus::TimedOut { .. } => false,
-                // Don't retry storage resource exhaustion errors as retries might only increase the traffic to storage.
-                CommandExecutionStatus::Error {
-                    typ: CommandExecutionErrorType::StorageResourceExhausted,
-                    ..
-                } => self
-                    .fallback_tracker
-                    .can_fallback_when_storage_resource_exhausted(),
-                // Errors are infra errors and are always retried because that is the point of
-                // falling back.
-                CommandExecutionStatus::Error { .. } => true,
-            }
-        };
+        let is_retryable_status =
+            move |r: &CommandExecutionResult, ignore_fallback_tracker: bool| {
+                match &r.report.status {
+                    // This does need be retried since if we get a cancelled result that would
+                    // typically mean the other result asked for cancellation and we're about to
+                    // receive the result here, or it could mean we're being asked to cancel by our
+                    // caller.
+                    CommandExecutionStatus::Cancelled => true,
+                    // If the execution is successful, use the result.
+                    CommandExecutionStatus::Success { .. } => false,
+                    // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
+                    CommandExecutionStatus::Failure { .. } => fallback_on_failure,
+                    // Don't retry timeouts. They are used for tests and falling back on a timeout is
+                    // sort of the opposite of what's been requested.
+                    CommandExecutionStatus::TimedOut { .. } => false,
+                    // Don't retry storage resource exhaustion errors as retries might only increase the traffic to storage.
+                    CommandExecutionStatus::Error {
+                        typ: CommandExecutionErrorType::StorageResourceExhausted,
+                        ..
+                    } => {
+                        ignore_fallback_tracker
+                            || self
+                                .fallback_tracker
+                                .can_fallback_when_storage_resource_exhausted()
+                    }
+                    // Errors are infra errors and are always retried because that is the point of
+                    // falling back.
+                    CommandExecutionStatus::Error { .. } => {
+                        ignore_fallback_tracker || self.fallback_tracker.can_fallback()
+                    }
+                }
+            };
 
         let fallback_only = fallback_only && !command.request.force_full_hybrid_if_capable();
 
@@ -293,7 +299,7 @@ where
                 jobs.execute_concurrent().await
             };
 
-        let mut res = if is_retryable_status(&first_res) && self.fallback_tracker.can_fallback() {
+        let mut res = if is_retryable_status(&first_res, false) {
             // If the first result had made a claim, then cancel it now to let the other result
             // proceed.
             if let Some(claim) = first_res.report.claim.take() {
@@ -310,7 +316,7 @@ where
             // For the purposes of giving users a good UX, if both things failed, give them the
             // local executor's error, which is likely to not have failed because of e.g.
             // sandboxing.
-            let (mut primary_res, mut secondary_res) = if is_retryable_status(&second_res) {
+            let (mut primary_res, mut secondary_res) = if is_retryable_status(&second_res, true) {
                 if first_priority > second_priority {
                     (first_res, second_res)
                 } else {
