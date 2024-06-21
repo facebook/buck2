@@ -15,7 +15,7 @@ use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::project::ProjectRoot;
-use crate::pattern::maybe_split_cell_alias_and_relative_path;
+use crate::pattern::pattern::maybe_split_cell_alias_and_relative_path;
 
 pub fn parse_query_file_literal(
     literal: &str,

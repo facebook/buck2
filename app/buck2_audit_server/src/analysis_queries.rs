@@ -51,7 +51,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
 
                 for (package, spec) in resolved_pattern.specs {
                     match spec {
-                        buck2_core::pattern::PackageSpec::Targets(targets) => {
+                        buck2_core::pattern::pattern::PackageSpec::Targets(targets) => {
                             for (target, TargetPatternExtra) in targets {
                                 let label = TargetLabel::new(package.dupe(), target.as_ref());
                                 for configured_target in target_resolution_config
@@ -80,7 +80,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                 }
                             }
                         }
-                        buck2_core::pattern::PackageSpec::All => {
+                        buck2_core::pattern::pattern::PackageSpec::All => {
                             unimplemented!()
                         }
                     }

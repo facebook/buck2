@@ -12,8 +12,8 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::arc_str::ThinArcSlice;
 use dupe::Dupe;

@@ -17,10 +17,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_core::pattern::lex_target_pattern;
+use buck2_core::pattern::pattern::lex_target_pattern;
+use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;

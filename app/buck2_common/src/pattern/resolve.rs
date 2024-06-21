@@ -9,11 +9,11 @@
 
 use anyhow::Context;
 use buck2_core::package::PackageLabel;
-use buck2_core::pattern::display_precise_pattern;
+use buck2_core::pattern::pattern::display_precise_pattern;
+use buck2_core::pattern::pattern::PackageSpec;
+use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::PatternType;
-use buck2_core::pattern::PackageSpec;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -145,11 +145,11 @@ mod tests {
     use buck2_core::cells::CellsAggregator;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::PackageLabel;
+    use buck2_core::pattern::pattern::PackageSpec;
+    use buck2_core::pattern::pattern::ParsedPattern;
     use buck2_core::pattern::pattern_type::PatternType;
     use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
     use buck2_core::pattern::pattern_type::TargetPatternExtra;
-    use buck2_core::pattern::PackageSpec;
-    use buck2_core::pattern::ParsedPattern;
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;

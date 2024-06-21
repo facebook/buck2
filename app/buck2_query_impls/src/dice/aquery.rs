@@ -30,7 +30,7 @@ use buck2_build_api::deferred::calculation::DeferredCalculation;
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;

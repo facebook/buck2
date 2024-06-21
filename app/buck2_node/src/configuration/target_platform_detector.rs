@@ -29,8 +29,8 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::label::TargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
@@ -78,7 +78,9 @@ impl TargetPlatformDetector {
                                 cell_resolver,
                                 cell_alias_resolver,
                             )? {
-                                buck2_core::pattern::ParsedPattern::Recursive(root) => root,
+                                buck2_core::pattern::pattern::ParsedPattern::Recursive(root) => {
+                                    root
+                                }
                                 _ => {
                                     return Err(
                                         DetectorSpecParseError::TargetKindRequiresRecursivePattern(

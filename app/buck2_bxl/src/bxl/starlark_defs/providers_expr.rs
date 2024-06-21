@@ -10,8 +10,8 @@
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
-use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;

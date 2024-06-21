@@ -10,8 +10,8 @@
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
-use buck2_core::pattern::ParsedPattern;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;

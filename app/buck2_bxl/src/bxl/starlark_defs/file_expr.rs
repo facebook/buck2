@@ -21,7 +21,7 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
+use buck2_core::pattern::pattern::maybe_split_cell_alias_and_relative_path;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;

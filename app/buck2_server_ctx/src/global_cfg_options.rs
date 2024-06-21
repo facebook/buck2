@@ -12,7 +12,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPattern;
 use dice::DiceComputations;
 
 use crate::ctx::ServerCommandContextTrait;

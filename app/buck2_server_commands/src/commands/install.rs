@@ -214,8 +214,8 @@ async fn install(
     for (package, spec) in resolved_pattern.specs {
         let ctx = &mut ctx;
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
-            buck2_core::pattern::PackageSpec::Targets(targets) => targets,
-            buck2_core::pattern::PackageSpec::All => {
+            buck2_core::pattern::pattern::PackageSpec::Targets(targets) => targets,
+            buck2_core::pattern::pattern::PackageSpec::All => {
                 let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                 interpreter_results
                     .targets()
