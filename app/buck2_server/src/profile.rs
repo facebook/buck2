@@ -16,7 +16,6 @@ use buck2_analysis::analysis::calculation::profile_analysis;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::TargetCfg;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::parse_from_cli::parse_and_resolve_patterns_from_cli_args;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -32,13 +31,12 @@ use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -49,7 +47,7 @@ async fn generate_profile_analysis(
     mut ctx: DiceTransaction,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
-    global_cfg_options: GlobalCfgOptions,
+    target_resolution_config: TargetResolutionConfig,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
     let (target, TargetPatternExtra) = match spec {
@@ -60,9 +58,11 @@ async fn generate_profile_analysis(
 
     let label = TargetLabel::new(package.dupe(), target.as_ref());
 
-    let configured_target = ctx
-        .get_configured_target(&label, &global_cfg_options)
+    let configured_targets = target_resolution_config
+        .get_configured_target(&mut ctx, &label)
         .await?;
+    let configured_target =
+        one(configured_targets).context("Did not find exactly one configured target")?;
 
     match profile_mode {
         StarlarkProfilerConfiguration::ProfileLastAnalysis(..)
@@ -153,6 +153,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
                     opts.target_cfg
                         .as_ref()
                         .internal_error("target_cfg not set")?,
+                    &opts.target_universe,
                     action,
                     &profile_mode,
                 )
@@ -179,11 +180,13 @@ async fn generate_profile(
     mut ctx: DiceTransaction,
     target_patterns: &[String],
     target_cfg: &TargetCfg,
+    target_universe: &[String],
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
-    let global_cfg_options =
-        global_cfg_options_from_client_context(target_cfg, server_ctx, &mut ctx).await?;
+    let target_resolution_config =
+        TargetResolutionConfig::from_args(&mut ctx, target_cfg, server_ctx, target_universe)
+            .await?;
 
     let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
         &mut ctx,
@@ -196,7 +199,8 @@ async fn generate_profile(
         Action::Analysis => {
             let (package, spec) = one(resolved.specs)
                 .context("Error: profiling analysis requires exactly one target pattern")?;
-            generate_profile_analysis(ctx, package, spec, global_cfg_options, profile_mode).await
+            generate_profile_analysis(ctx, package, spec, target_resolution_config, profile_mode)
+                .await
         }
         Action::Loading => {
             let ctx = &ctx;

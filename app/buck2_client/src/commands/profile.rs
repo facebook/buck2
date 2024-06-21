@@ -19,7 +19,7 @@ use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::TargetProfile;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -135,7 +135,7 @@ struct ProfileCommonOptions {
     mode: BuckProfileMode,
 
     #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
+    target_cfg: TargetCfgWithUniverseOptions,
 
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
@@ -196,20 +196,55 @@ impl StreamingCommand for ProfileSubcommand {
             ProfileCommand::Loading(loading) => ProfileOpts::TargetProfile(TargetProfile {
                 target_patterns: loading.buck_opts.target_patterns.clone(),
                 action: target_profile::Action::Loading as i32,
-                target_cfg: Some(loading.profile_common_opts.target_cfg.target_cfg()),
+                target_cfg: Some(
+                    loading
+                        .profile_common_opts
+                        .target_cfg
+                        .target_cfg
+                        .target_cfg(),
+                ),
+                target_universe: loading
+                    .profile_common_opts
+                    .target_cfg
+                    .target_universe
+                    .clone(),
                 recursive: loading.buck_opts.recursive,
             }),
             ProfileCommand::Analysis(analysis) => ProfileOpts::TargetProfile(TargetProfile {
                 target_patterns: analysis.buck_opts.target_patterns.clone(),
                 action: target_profile::Action::Analysis as i32,
-                target_cfg: Some(analysis.profile_common_opts.target_cfg.target_cfg()),
+                target_cfg: Some(
+                    analysis
+                        .profile_common_opts
+                        .target_cfg
+                        .target_cfg
+                        .target_cfg(),
+                ),
+                target_universe: analysis
+                    .profile_common_opts
+                    .target_cfg
+                    .target_universe
+                    .clone(),
                 recursive: analysis.buck_opts.recursive,
             }),
-            ProfileCommand::Bxl(bxl) => ProfileOpts::BxlProfile(BxlProfile {
-                bxl_label: bxl.bxl_opts.bxl_label.clone(),
-                bxl_args: bxl.bxl_opts.bxl_args.clone(),
-                target_cfg: Some(bxl.profile_common_opts.target_cfg.target_cfg()),
-            }),
+            ProfileCommand::Bxl(bxl) => {
+                if !bxl
+                    .profile_common_opts
+                    .target_cfg
+                    .target_universe
+                    .is_empty()
+                {
+                    return Err::<(), _>(anyhow::anyhow!(
+                        "BXL profile does not support target universe"
+                    ))
+                    .into();
+                }
+                ProfileOpts::BxlProfile(BxlProfile {
+                    bxl_label: bxl.bxl_opts.bxl_label.clone(),
+                    bxl_args: bxl.bxl_opts.bxl_args.clone(),
+                    target_cfg: Some(bxl.profile_common_opts.target_cfg.target_cfg.target_cfg()),
+                })
+            }
         };
 
         let request = ProfileRequest {

@@ -791,6 +791,7 @@ message TargetProfile {
 
   repeated string target_patterns = 4;
   TargetCfg target_cfg = 101;
+  repeated string target_universe = 102;
   bool recursive = 2;
   Action action = 3;
 }

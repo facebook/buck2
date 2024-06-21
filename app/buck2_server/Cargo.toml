@@ -64,7 +64,6 @@ buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
-buck2_node = { workspace = true }
 buck2_profile = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_server_starlark_debug = { workspace = true }
