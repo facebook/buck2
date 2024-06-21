@@ -414,7 +414,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     }
 
     async fn resolve_package_listing(
-        &mut self,
+        ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> anyhow::Result<PackageListing> {
         span_async(
@@ -422,7 +422,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 path: package.as_cell_path().to_string(),
             },
             async {
-                let result = DicePackageListingResolver(self.ctx)
+                let result = DicePackageListingResolver(ctx)
                     .resolve_package_listing(package.dupe())
                     .await;
                 (
@@ -441,9 +441,13 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         package: PackageLabel,
         profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        check_starlark_stack_size(self.ctx).await?;
-
-        let listing = self.resolve_package_listing(package.dupe()).await?;
+        let ((), listing) = self
+            .ctx
+            .try_compute2(
+                |ctx| check_starlark_stack_size(ctx).boxed(),
+                |ctx| Self::resolve_package_listing(ctx, package.dupe()).boxed(),
+            )
+            .await?;
 
         let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
         let (ast, deps) = self
