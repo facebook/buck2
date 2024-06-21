@@ -1,5 +1,5 @@
 <div class="title-block" style="text-align: center;" align="center">
-[dummy change]
+[dummy change-]
 # Buck2: fast multi-language build system
 
 ![Version] ![License] [![Build Status]][CI]
