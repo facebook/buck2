@@ -10,6 +10,7 @@ apple_tools(
     # @oss-disable: adhoc_codesign_tool = "prelude//apple/tools/meta_only/codesign_rust:adhoc-signer", 
     assemble_bundle = "prelude//apple/tools/bundling:assemble_bundle",
     dry_codesign_tool = ":dry_codesign_tool",
+    framework_sanitizer = ":framework_sanitizer",
     info_plist_processor = "prelude//apple/tools/info_plist_processor:tool",
     ipa_package_maker = ":ipa_package_maker",
     make_modulemap = ":make_modulemap",
@@ -18,6 +19,12 @@ apple_tools(
     split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
     visibility = ["PUBLIC"],
     xcframework_maker = ":xcframework_maker",
+)
+
+python_binary(
+    name = "framework_sanitizer",
+    main = "framework_sanitizer.py",
+    visibility = ["PUBLIC"],
 )
 
 python_binary(

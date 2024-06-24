@@ -44,6 +44,7 @@ load(
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeDefault")
 load(":apple_frameworks.bzl", "to_framework_name")
+load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 
 def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
@@ -103,15 +104,42 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
         )
         providers.append(linkable_graph)
 
+    providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
+    providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))
+
     # The default output is the provided framework.
-    providers.append(DefaultInfo(default_output = framework_directory_artifact))
+    sub_targets = {
+        "distribution": _sanitize_framework_for_app_distribution(ctx, framework_directory_artifact) + providers,
+    }
+
+    providers.append(DefaultInfo(default_output = framework_directory_artifact, sub_targets = sub_targets))
     providers.append(AppleBundleInfo(
         bundle = framework_directory_artifact,
         bundle_type = AppleBundleTypeDefault,
         skip_copying_swift_stdlib = True,
         contains_watchapp = None,
     ))
-    providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
-    providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))
 
+    return providers
+
+def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_directory_artifact: Artifact) -> list[Provider]:
+    framework_name = to_framework_name(framework_directory_artifact.basename)
+    bundle_for_app_distribution = ctx.actions.declare_output(framework_name + ".framework", dir = True)
+
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
+    framework_sanitize_command = cmd_args([
+        apple_tools.framework_sanitizer,
+        "--input",
+        framework_directory_artifact,
+        "--output",
+        bundle_for_app_distribution.as_output(),
+    ])
+    ctx.actions.run(framework_sanitize_command, category = "sanitize_prebuilt_apple_framework")
+    providers = [DefaultInfo(default_output = bundle_for_app_distribution)]
+    providers.append(AppleBundleInfo(
+        bundle = bundle_for_app_distribution,
+        bundle_type = AppleBundleTypeDefault,
+        skip_copying_swift_stdlib = True,
+        contains_watchapp = None,
+    ))
     return providers

@@ -22,6 +22,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
             selective_debugging_scrubber = ctx.attrs.selective_debugging_scrubber[RunInfo],
             xcframework_maker = ctx.attrs.xcframework_maker[RunInfo],
+            framework_sanitizer = ctx.attrs.framework_sanitizer[RunInfo],
         ),
     ]
 
@@ -35,6 +36,7 @@ registration_spec = RuleRegistrationSpec(
         "adhoc_codesign_tool": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "assemble_bundle": attrs.dep(providers = [RunInfo]),
         "dry_codesign_tool": attrs.dep(providers = [RunInfo]),
+        "framework_sanitizer": attrs.dep(providers = [RunInfo]),
         "info_plist_processor": attrs.dep(providers = [RunInfo]),
         "ipa_package_maker": attrs.dep(providers = [RunInfo]),
         "make_modulemap": attrs.dep(providers = [RunInfo]),
