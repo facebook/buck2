@@ -644,6 +644,9 @@ android_instrumentation_test = prelude_rule(
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "disable_animations": attrs.bool(default = False, doc = """
+                Disables animations on the emulator if set to True.
+            """),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
             "licenses": attrs.list(attrs.source(), default = []),
         }

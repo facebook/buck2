@@ -111,6 +111,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     if ctx.attrs.clear_package_data:
         cmd.append("--clear-package-data")
 
+    if ctx.attrs.disable_animations:
+        cmd.append("--disable-animations")
+
     cmd.extend(
         [
             "--adb-executable-path",
