@@ -35,7 +35,7 @@ function SearchBox() {
         type="text"
         value={searchTerm}
         onChange={event => setSearchTerm(event.target.value)}
-        placeholder="Search target by label substring..."
+        placeholder="Search targets"
         onKeyDown={event => {
           event.key == 'Enter' ? goSearch() : null
         }}
