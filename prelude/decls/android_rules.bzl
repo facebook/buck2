@@ -639,6 +639,9 @@ android_instrumentation_test = prelude_rule(
         buck.test_label_arg() |
         buck.test_rule_timeout_ms() |
         {
+            "clear_package_data": attrs.bool(default = False, doc = """
+                Runs `pm clear` on the app and test packages before the test run if set to True.
+            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),

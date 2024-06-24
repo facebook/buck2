@@ -108,6 +108,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     if ctx.attrs.instrumentation_test_listener_class != None:
         cmd.extend(["--extra-instrumentation-test-listener", ctx.attrs.instrumentation_test_listener_class])
 
+    if ctx.attrs.clear_package_data:
+        cmd.append("--clear-package-data")
+
     cmd.extend(
         [
             "--adb-executable-path",
