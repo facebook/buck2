@@ -59,7 +59,8 @@ def assemble_bundle(
         info_plist_part: [AppleBundlePart, None],
         swift_stdlib_args: [SwiftStdlibArguments, None],
         extra_hidden: list[Artifact] = [],
-        skip_adhoc_signing: bool = False) -> AppleBundleConstructionResult:
+        skip_adhoc_signing: bool = False,
+        incremental_bundling_override = None) -> AppleBundleConstructionResult:
     """
     Returns extra subtargets related to bundling.
     """
@@ -182,6 +183,8 @@ def assemble_bundle(
 
     # Fallback to value from buckconfig
     incremental_bundling_enabled = ctx.attrs.incremental_bundling_enabled or ctx.attrs._incremental_bundling_enabled
+    if incremental_bundling_override != None:
+        incremental_bundling_enabled = incremental_bundling_override
 
     if incremental_bundling_enabled:
         command.add("--incremental-state", incremental_state)
