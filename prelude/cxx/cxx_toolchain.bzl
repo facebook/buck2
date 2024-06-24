@@ -104,6 +104,7 @@ def cxx_toolchain_impl(ctx):
         link_ordering = ctx.attrs.link_ordering,
         linker = ctx.attrs.linker[RunInfo],
         linker_flags = cmd_args(ctx.attrs.linker_flags, c_lto_flags),
+        dist_thin_lto_codegen_flags = cmd_args(ctx.attrs.dist_thin_lto_codegen_flags) if ctx.attrs.dist_thin_lto_codegen_flags else None,
         post_linker_flags = cmd_args(ctx.attrs.post_linker_flags),
         lto_mode = lto_mode,
         mk_shlib_intf = ctx.attrs.shared_library_interface_producer,

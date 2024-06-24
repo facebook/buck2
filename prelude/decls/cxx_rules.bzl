@@ -947,6 +947,7 @@ cxx_toolchain = prelude_rule(
             "debug_path_prefix_map_sanitizer_format": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "detailed_untracked_header_messages": attrs.bool(default = False),
+            "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
             "filepath_length_limited": attrs.bool(default = False),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "headers_whitelist": attrs.list(attrs.string(), default = []),
