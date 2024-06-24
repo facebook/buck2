@@ -161,7 +161,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             swift_stdlib_args,
             # Adhoc signing can be skipped because the test executable is adhoc signed
             # + includes any entitlements if present.
-            skip_adhoc_signing = False,
+            skip_adhoc_signing = True,
             incremental_bundling_override = False,
         )
         sub_targets = bundle_result.sub_targets
