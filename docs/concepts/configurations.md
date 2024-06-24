@@ -13,7 +13,7 @@ will compute the appropriate configuration for a target and display a version of
 that target's attributes with the configuration applied. The `uquery` command
 will not apply a configuration.
 
-Here is a heavily trimmed version of the outpus of invoking `uquery` and
+Here is a heavily trimmed version of the outputs of invoking `uquery` and
 `cquery` on `//buck2/app/buck2_core:buck2_core`.
 
 ```

@@ -16,7 +16,7 @@ To find the location of output for a target, use
 `buck2 build //foo:bar --show-output`. This will print the output corresponding
 to each built target, in this case `//foo:bar output_path`.
 
-To only get the output path (without the target behorehand) you want to use
+To only get the output path (without the target beforehand) you want to use
 `buck2 build //foo:bar --show-simple-output`.
 
 The resultant path is relative to the root of the repo (such as

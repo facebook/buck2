@@ -54,7 +54,7 @@ Following are aspects common to Buck1 and Buck2 (and in most cases, Bazel):
 
 Buck2 has many minor differences from Buck1, but there are a number that give
 new efficiency or expressiveness that are of note (most of these are also
-differences from Bazel).
+different from Bazel).
 
 - **Buck2 is written in Rust** - Buck1 was written in Java. One of the
   advantages of using Rust is the absence of GC pauses, However, Java also has
