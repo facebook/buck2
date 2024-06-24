@@ -15,7 +15,6 @@ them.
 
 ---
 
-- How do I see the arguments for a given rule from the command line?
 - How do I find all the targets for a package?
 - How do I specify more than one target to `buck2 cquery`?
 - How do I get the attribute names and values for the targets that result from a

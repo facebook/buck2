@@ -55,7 +55,7 @@ regular Buck2:
   program, and any bugs that may come with manual parsing**.
   - Some languages are more verbose than others when it comes to string parsing.
   - BXL scripts are written in Starlark, which is basically a deterministic,
-    immutable Python, and are able to directly introspect Starlark objects (such
+    immutable Python. BXL is able to directly introspect Starlark objects (such
     as rules and target nodes, and so on) and call methods on these objects
     instead of parsing them over Buck2’s output.
 
@@ -69,11 +69,11 @@ IDE project generation is roughly as follows:
 - Perform some filtering on the graph targets if needed. This depends on the
   target's configuration.
 - For each target, generate the project target metadata, including:
-- compiler flags
-- linker flags
-- paths to generated files
-- inputs and outputs for each targets
-- the paths relative to some `PATH`
+  - compiler flags
+  - linker flags
+  - paths to generated files
+  - inputs and outputs for each targets
+  - the paths relative to some `PATH`
 - Write a single file translating this metadata into a format understood by the
   IDE
 
@@ -84,7 +84,7 @@ An example BXL flow for generating a project for IDE might be:
 - Run analysis on the project target with a specific configuration to filter the
   graph targets
 - For each resulting target, inspect the providers and attributes to extract the
-  required metadata information. BXL has filesystem operations handle paths
+  required metadata information. BXL uses filesystem operations to handle paths
   within the project
 - Run actions based on the linker/compiler flags, and build artifacts as needed
   to generate a project

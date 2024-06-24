@@ -26,8 +26,8 @@ backend. When that happens, builds using Deferred Materialization may fail if
 those artifacts are needed locally.
 
 A kill is necessary to recover from those builds. However, the
-[Restarter](restarter.md) can be used to mitigate this issue by restarting Buck
-when it encounters an expired artifact.
+[Restarter](restarter.md) can be used to mitigate this issue by restarting Buck2
+daemon when it encounters an expired artifact.
 
 <OssOnly>
 At Meta, artifacts get periodically refreshed, but open source RE backends do not expose the TTL of artifacts, so this feature does not work outside of Meta.
