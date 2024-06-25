@@ -53,6 +53,7 @@ use crate::subscribers::superconsole::commands::CommandsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
 use crate::subscribers::superconsole::dice::DiceComponent;
+use crate::subscribers::superconsole::header::TasksHeader;
 use crate::subscribers::superconsole::io::IoHeader;
 use crate::subscribers::superconsole::re::ReHeader;
 use crate::subscribers::superconsole::session_info::SessionInfoComponent;
@@ -66,10 +67,12 @@ mod common;
 pub(crate) mod debug_events;
 mod debugger;
 pub(crate) mod dice;
+mod header;
 pub(crate) mod io;
 mod re;
 pub mod session_info;
 pub(crate) mod system_warning;
+
 pub mod test;
 pub mod timed_list;
 
@@ -118,6 +121,12 @@ pub struct SuperConsoleState {
     config: SuperConsoleConfig,
 }
 
+impl SuperConsoleState {
+    pub fn extra(&self) -> &DebugEventObserverExtra {
+        self.simple_console.observer.extra()
+    }
+}
+
 #[derive(Clone)]
 pub struct SuperConsoleConfig {
     pub enable_dice: bool,
@@ -126,6 +135,7 @@ pub struct SuperConsoleConfig {
     pub enable_io: bool,
     pub enable_commands: bool,
     pub display_platform: bool,
+    pub expanded_progress: bool,
     /// Two lines for root events with single child event.
     pub two_lines: bool,
     pub max_lines: usize,
@@ -140,6 +150,7 @@ impl Default for SuperConsoleConfig {
             enable_detailed_re: false,
             enable_io: false,
             enable_commands: false,
+            expanded_progress: false,
             display_platform: false,
             two_lines: false,
             max_lines: 10,
@@ -233,7 +244,8 @@ impl<'s> Component for BuckRootComponent<'s> {
             },
             mode,
         )?;
-        draw.draw(&TimedList::new(&CUTOFFS, self.header, self.state), mode)?;
+        draw.draw(&TasksHeader::new(&self.header, self.state), mode)?;
+        draw.draw(&TimedList::new(&CUTOFFS, self.state), mode)?;
 
         Ok(draw.finish())
     }
@@ -524,6 +536,11 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         } else if c == 'p' {
             self.toggle("Display target configurations", 'p', |s| {
                 &mut s.state.config.display_platform
+            })
+            .await?;
+        } else if c == 'x' {
+            self.toggle("Display expanded progress", 'x', |s| {
+                &mut s.state.config.expanded_progress
             })
             .await?;
         } else if c == 'c' {

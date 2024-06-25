@@ -129,7 +129,7 @@ impl WhatUpCommand {
                     },
                     mode,
                 )?;
-                draw.draw(&TimedList::new(&CUTOFFS, "", self.state), mode)?;
+                draw.draw(&TimedList::new(&CUTOFFS, self.state), mode)?;
                 Ok(draw.finish())
             }
         }

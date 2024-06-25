@@ -14,12 +14,8 @@ use std::time::Instant;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::fmt_duration;
-use buck2_event_observer::humanized::HumanizedCount;
-use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
-use superconsole::components::bordering::BorderedSpec;
-use superconsole::components::Bordered;
 use superconsole::components::DrawVertical;
 use superconsole::style::Stylize;
 use superconsole::Component;
@@ -30,8 +26,6 @@ use superconsole::Lines;
 use superconsole::Span;
 
 use self::table_builder::Table;
-use crate::subscribers::superconsole::common::HeaderLineComponent;
-use crate::subscribers::superconsole::common::StaticStringComponent;
 use crate::subscribers::superconsole::timed_list::table_builder::Row;
 use crate::subscribers::superconsole::timed_list::table_builder::TimedRow;
 use crate::subscribers::superconsole::SuperConsoleState;
@@ -198,114 +192,25 @@ impl<'c> Component for TimedListBody<'c> {
     }
 }
 
-/// This component is used to display summary counts about the number of jobs.
-struct CountComponent<'s> {
-    state: &'s SuperConsoleState,
-}
+/// Component for timed list header
+struct TimedListHeader;
 
-impl<'s> Component for CountComponent<'s> {
-    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
-        let observer = self.state.simple_console.observer();
-        let spans = observer.spans();
-        let action_stats = self.state.simple_console.observer().action_stats();
-        let time_speed = self.state.time_speed;
-
-        let finished = spans.roots_completed() as u64;
-
-        let elapsed =
-            fmt_duration::fmt_duration(self.state.current_tick.elapsed_time, time_speed.speed());
-
-        match mode {
-            DrawMode::Normal => {
-                let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
-
-                let remaining = spans.iter_roots().len() as u64 + pending;
-                let total = remaining + finished;
-
-                let remaining = HumanizedCount::new(remaining);
-                let total = HumanizedCount::new(total);
-
-                let contents = if action_stats.log_stats() {
-                    let mut actions_summary = format!(
-                        "Remaining: {}/{}. Cache hits: {}%. ",
-                        remaining,
-                        total,
-                        action_stats.total_cache_hit_percentage()
-                    );
-                    if action_stats.fallback_actions > 0 {
-                        actions_summary += format!(
-                            "Fallback: {}/{}. ",
-                            HumanizedCount::new(action_stats.fallback_actions),
-                            HumanizedCount::new(action_stats.total_executed_actions())
-                        )
-                        .as_str();
-                    }
-                    actions_summary += format!("Time elapsed: {}", elapsed).as_str();
-                    actions_summary
-                } else {
-                    format!(
-                        "Remaining: {}/{}. Time elapsed: {}",
-                        remaining, total, elapsed
-                    )
-                };
-                Ok(Lines(vec![Line::unstyled(&contents)?]))
-            }
-            DrawMode::Final => {
-                let mut lines = vec![Line::unstyled(&format!(
-                    "Jobs completed: {}. Time elapsed: {}.",
-                    finished, elapsed,
-                ))?];
-                if action_stats.log_stats() {
-                    lines.push(Line::unstyled(&action_stats.to_string())?);
-                }
-                Ok(Lines(lines))
-            }
-        }
-    }
-}
-
-/// Wrapper component for Header + Count
-struct TimedListHeader<'s> {
-    state: &'s SuperConsoleState,
-    header: &'s str,
-}
-
-impl<'s> Component for TimedListHeader<'s> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
-        let info = StaticStringComponent {
-            header: self.header,
-        };
-        let header_split = HeaderLineComponent::new(info, CountComponent { state: self.state });
-        let header_box = Bordered::new(
-            header_split,
-            BorderedSpec {
-                bottom: Some(Span::dash()),
-                top: None,
-                left: None,
-                right: None,
-            },
-        );
-
-        header_box.draw(dimensions, mode)
+impl Component for TimedListHeader {
+    fn draw_unchecked(&self, dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+        Ok(Lines(vec![Line::unstyled(&"-".repeat(dimensions.width))?]))
     }
 }
 
 /// Component that displays ongoing events and their durations + summary stats.
 pub struct TimedList<'a> {
-    header: &'a str,
     cutoffs: &'a Cutoffs,
     state: &'a SuperConsoleState,
 }
 
 impl<'a> TimedList<'a> {
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
-    /// * `header` is the string displayed at the top of the list.
-    pub fn new(cutoffs: &'a Cutoffs, header: &'a str, state: &'a SuperConsoleState) -> Self {
-        Self {
-            header,
-            cutoffs,
-            state,
-        }
+    pub fn new(cutoffs: &'a Cutoffs, state: &'a SuperConsoleState) -> Self {
+        Self { cutoffs, state }
     }
 }
 
@@ -315,10 +220,7 @@ impl<'a> Component for TimedList<'a> {
 
         match mode {
             DrawMode::Normal if !span_tracker.is_unused() => {
-                let header = TimedListHeader {
-                    header: self.header,
-                    state: self.state,
-                };
+                let header = TimedListHeader;
                 let body = TimedListBody {
                     cutoffs: self.cutoffs,
                     state: self.state,
@@ -328,10 +230,6 @@ impl<'a> Component for TimedList<'a> {
                 draw.draw(&header, mode)?;
                 draw.draw(&body, mode)?;
                 Ok(draw.finish())
-            }
-            // show a summary at the end
-            DrawMode::Final => {
-                CountComponent { state: self.state }.draw(dimensions, DrawMode::Final)
             }
             _ => Ok(Lines::new()),
         }
@@ -461,7 +359,6 @@ mod tests {
 
         let output = TimedList::new(
             &CUTOFFS,
-            "test",
             &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
         )
         .draw(
@@ -472,7 +369,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testRemaining: 2/2. Cache hits: 100%. Ti",
+
             "----------------------------------------",
             "<span fg=dark_yellow>test -- speak of the devil</span>          <span fg=dark_yellow>3.0s</span>",
             "foo -- speak of the devil           1.0s",
@@ -547,7 +444,6 @@ mod tests {
 
         let output = TimedList::new(
             &CUTOFFS,
-            "test",
             &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
         )
         .draw(
@@ -558,7 +454,6 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testRemaining: 3/3. Cache hits: 100%. Ti",
             "----------------------------------------",
             "e1 -- speak of the devil            1.0s",
             "<span italic>... and 2 more currently executing</span>",
@@ -663,7 +558,7 @@ mod tests {
         )?;
 
         {
-            let output = TimedList::new(&CUTOFFS, "test", &state).draw(
+            let output = TimedList::new(&CUTOFFS, &state).draw(
                 Dimensions {
                     width: 60,
                     height: 10,
@@ -672,7 +567,6 @@ mod tests {
             )?;
 
             let expected = [
-                "test                      Remaining: 3/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
                 "<span fg=dark_red>pkg:target -- action (category identifier)</span>             <span fg=dark_red>10.0s</span>",
             ].iter().map(|l| format!("{}\n", l)).join("");
@@ -683,7 +577,7 @@ mod tests {
         {
             state.config.max_lines = 1; // With fewer lines now
 
-            let output = TimedList::new(&CUTOFFS, "test", &state).draw(
+            let output = TimedList::new(&CUTOFFS, &state).draw(
                 Dimensions {
                     width: 60,
                     height: 10,
@@ -692,7 +586,6 @@ mod tests {
             )?;
 
             let expected = [
-                "test                      Remaining: 3/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
                 "<span italic>... and 1 more currently executing</span>",
             ]
@@ -785,7 +678,6 @@ mod tests {
 
         let output = TimedList::new(
             &CUTOFFS,
-            "test",
             &super_console_state_for_test(
                 state.clone(),
                 action_stats.dupe(),
@@ -802,7 +694,6 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");
@@ -837,7 +728,6 @@ mod tests {
 
         let output = TimedList::new(
             &CUTOFFS,
-            "test",
             &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
         )
         .draw(
@@ -848,7 +738,6 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");
