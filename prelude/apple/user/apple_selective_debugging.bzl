@@ -176,8 +176,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         selected_targets_contain_swift = False
         for infos in debug_info:
             for info in infos:
-                is_swiftmodule = ArtifactInfoTag("swiftmodule") in info.tags
-                is_swift_pcm = ArtifactInfoTag("swift_pcm") in info.tags
+                # FIXME: Temporary disable the logic of transitive Swift debug info materialisation.
+                is_swiftmodule = False  # ArtifactInfoTag("swiftmodule") in info.tags
+                is_swift_pcm = False  # ArtifactInfoTag("swift_pcm") in info.tags
                 is_swift_related = is_swiftmodule or is_swift_pcm
                 if _is_label_included(info.label, selection_criteria) or (selected_targets_contain_swift and is_swift_related):
                     # There might be a few ArtifactInfo corresponding to the same Label,
