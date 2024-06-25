@@ -128,6 +128,16 @@ pub fn display_analysis_target(
     match target {
         Target::StandardTarget(ctl) => display_configured_target_label(ctl, opts),
         Target::AnonTarget(anon) => display_anon_target(anon),
+        Target::DynamicLambda(dynamic) => {
+            use buck2_data::dynamic_lambda_owner::Owner;
+            match dynamic.owner.as_ref().context("Missing `owner`")? {
+                Owner::TargetLabel(target_label) => {
+                    display_configured_target_label(target_label, opts)
+                }
+                Owner::BxlKey(bxl_key) => display_bxl_key(bxl_key),
+                Owner::AnonTarget(anon_target) => display_anon_target(anon_target),
+            }
+        }
     }
 }
 

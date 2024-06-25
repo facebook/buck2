@@ -1341,6 +1341,7 @@ message AnalysisStart {
   oneof target {
     ConfiguredTargetLabel standard_target = 1;
     AnonTarget anon_target = 3;
+    DynamicLambdaOwner dynamic_lambda = 4;
   }
   string rule = 2;
 }
@@ -1349,6 +1350,7 @@ message AnalysisEnd {
   oneof target {
     ConfiguredTargetLabel standard_target = 1;
     AnonTarget anon_target = 4;
+    DynamicLambdaOwner dynamic_lambda = 5;
   }
   string rule = 3;
   AnalysisProfile profile = 2;
@@ -2170,6 +2172,14 @@ message DeferredPreparationStageEnd {}
 
 message DynamicLambdaStart {
   // The configured target label that this action contributes to.
+  oneof owner {
+    ConfiguredTargetLabel target_label = 1;
+    BxlFunctionKey bxl_key = 2;
+    AnonTarget anon_target = 3;
+  }
+}
+
+message DynamicLambdaOwner {
   oneof owner {
     ConfiguredTargetLabel target_label = 1;
     BxlFunctionKey bxl_key = 2;

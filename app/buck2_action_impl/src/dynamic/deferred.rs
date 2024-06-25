@@ -38,6 +38,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -224,46 +225,78 @@ impl Deferred for DynamicLambda {
         let output = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
             eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await
         } else {
-            let env = Module::new();
+            let proto_rule = "dynamic_lambda".to_owned();
 
-            let (analysis_registry, declared_outputs) = {
-                let heap = env.heap();
-                let print = EventDispatcherPrintHandler(get_dispatcher());
-                let mut eval = Evaluator::new(&env);
-                eval.set_print_handler(&print);
-                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
-                let ctx = AnalysisContext::prepare(
-                    heap,
-                    dynamic_lambda_ctx_data.lambda.attributes()?,
-                    self.owner.configured_label(),
-                    dynamic_lambda_ctx_data.lambda.plugins()?,
-                    dynamic_lambda_ctx_data.registry,
-                    dynamic_lambda_ctx_data.digest_config,
-                );
-
-                DynamicLambda::invoke_dynamic_output_lambda(
-                    &mut eval,
-                    dynamic_lambda_ctx_data.lambda.lambda(),
-                    ctx.to_value(),
-                    dynamic_lambda_ctx_data.artifacts,
-                    dynamic_lambda_ctx_data.outputs,
-                    dynamic_lambda_ctx_data.lambda.arg(),
-                )?;
-
-                ctx.assert_no_promises()?;
-
-                (ctx.take_state(), dynamic_lambda_ctx_data.declared_outputs)
+            let start_event = buck2_data::AnalysisStart {
+                target: Some(buck2_data::analysis_start::Target::DynamicLambda(
+                    self.owner.to_proto().into(),
+                )),
+                rule: proto_rule.clone(),
             };
 
-            let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
-            let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
+            span_async(start_event, async {
+                let mut declared_actions = None;
+                let mut declared_artifacts = None;
 
-            let output: anyhow::Result<Vec<_>> = declared_outputs
-                .into_iter()
-                .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
-                .collect();
-            output
+                let output: anyhow::Result<_> = try {
+                    let env = Module::new();
+
+                    let (analysis_registry, declared_outputs) = {
+                        let heap = env.heap();
+                        let print = EventDispatcherPrintHandler(get_dispatcher());
+                        let mut eval = Evaluator::new(&env);
+                        eval.set_print_handler(&print);
+                        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+                        let dynamic_lambda_ctx_data =
+                            dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
+                        let ctx = AnalysisContext::prepare(
+                            heap,
+                            dynamic_lambda_ctx_data.lambda.attributes()?,
+                            self.owner.configured_label(),
+                            dynamic_lambda_ctx_data.lambda.plugins()?,
+                            dynamic_lambda_ctx_data.registry,
+                            dynamic_lambda_ctx_data.digest_config,
+                        );
+
+                        DynamicLambda::invoke_dynamic_output_lambda(
+                            &mut eval,
+                            dynamic_lambda_ctx_data.lambda.lambda(),
+                            ctx.to_value(),
+                            dynamic_lambda_ctx_data.artifacts,
+                            dynamic_lambda_ctx_data.outputs,
+                            dynamic_lambda_ctx_data.lambda.arg(),
+                        )?;
+
+                        ctx.assert_no_promises()?;
+
+                        (ctx.take_state(), dynamic_lambda_ctx_data.declared_outputs)
+                    };
+
+                    declared_actions = Some(analysis_registry.num_declared_actions());
+                    declared_artifacts = Some(analysis_registry.num_declared_artifacts());
+                    let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
+                    let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
+
+                    declared_outputs
+                        .into_iter()
+                        .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
+                        .collect::<anyhow::Result<Vec<_>>>()
+                };
+
+                (
+                    output,
+                    buck2_data::AnalysisEnd {
+                        target: Some(buck2_data::analysis_end::Target::DynamicLambda(
+                            self.owner.to_proto().into(),
+                        )),
+                        rule: proto_rule,
+                        profile: None,
+                        declared_actions,
+                        declared_artifacts,
+                    },
+                )
+            })
+            .await?
         };
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
             output: output?.into_boxed_slice(),

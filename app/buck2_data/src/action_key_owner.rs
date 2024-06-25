@@ -46,6 +46,22 @@ impl From<BaseDeferredKeyProto> for crate::critical_path_entry2::materialization
     }
 }
 
+impl From<BaseDeferredKeyProto> for crate::DynamicLambdaOwner {
+    fn from(value: BaseDeferredKeyProto) -> Self {
+        Self {
+            owner: Some(match value {
+                BaseDeferredKeyProto::TargetLabel(t) => {
+                    crate::dynamic_lambda_owner::Owner::TargetLabel(t)
+                }
+                BaseDeferredKeyProto::BxlKey(b) => crate::dynamic_lambda_owner::Owner::BxlKey(b),
+                BaseDeferredKeyProto::AnonTarget(a) => {
+                    crate::dynamic_lambda_owner::Owner::AnonTarget(a)
+                }
+            }),
+        }
+    }
+}
+
 impl From<BaseDeferredKeyProto> for crate::dynamic_lambda_start::Owner {
     fn from(value: BaseDeferredKeyProto) -> Self {
         match value {
