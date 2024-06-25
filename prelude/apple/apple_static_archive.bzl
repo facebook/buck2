@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
+load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE", "get_validation_deps_outputs")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo", "AppleLibraryInfo")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
@@ -20,9 +21,10 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output(archive_name)
 
     artifacts = _get_static_link_args(ctx)
-    cmd = cmd_args([libtool, "-static", "-o", output.as_output(), artifacts])
+    validation_deps_outputs = get_validation_deps_outputs(ctx)
 
     #TODO(T193127271): Support thin archives
+    cmd = cmd_args([libtool, "-static", "-o", output.as_output(), artifacts], hidden = validation_deps_outputs or [])
     ctx.actions.run(cmd, category = "libtool", identifier = output.short_path)
 
     providers = [DefaultInfo(default_output = output), _get_apple_library_info(ctx)] + _get_apple_library_for_distribution_info(ctx)
@@ -104,6 +106,7 @@ registration_spec = RuleRegistrationSpec(
         "deps": attrs.list(attrs.dep(), default = []),
         "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
         "flat_deps": attrs.list(attrs.dep(), default = []),
+        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         "_apple_toolchain": get_apple_toolchain_attr(),
     },
 )
