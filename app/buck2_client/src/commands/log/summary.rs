@@ -16,6 +16,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::process_memory;
 use buck2_data::ActionExecutionKind;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_event_observer::fmt_duration;
 use buck2_event_observer::humanized::HumanizedBytes;
 use tokio_stream::StreamExt;
 
@@ -33,6 +34,7 @@ struct Stats {
     total_other_actions: u64,
     total_targets_analysed: u64,
     peak_process_memory_bytes: Option<u64>,
+    duration: Option<prost_types::Duration>,
 }
 
 impl Stats {
@@ -56,6 +58,9 @@ impl Stats {
                 }
                 Some(buck2_data::span_end_event::Data::Analysis(_)) => {
                     self.total_targets_analysed += 1;
+                }
+                Some(buck2_data::span_end_event::Data::Command(_command)) => {
+                    self.duration = end.duration.clone();
                 }
                 _ => {}
             },
@@ -101,8 +106,13 @@ impl Display for Stats {
                 f,
                 "peak process memory: {}",
                 HumanizedBytes::fixed_width(peak_process_memory_bytes)
-            )
+            )?;
+        }
+        if let Some(duration) = &self.duration {
+            let duration = std::time::Duration::new(duration.seconds as u64, duration.nanos as u32);
+            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration, 1.0))
         } else {
+            // TODO(ezgi): when there is no CommandEnd, take the timestamp from the last event and calculate the duration
             Ok(())
         }
     }
