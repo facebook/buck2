@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::fmt_duration;
 use buck2_event_observer::humanized::HumanizedCount;
 use buck2_event_observer::pending_estimate::pending_estimate;
@@ -21,22 +22,55 @@ use crate::subscribers::superconsole::common::StaticStringComponent;
 use crate::subscribers::superconsole::SuperConsoleState;
 
 pub(crate) struct TasksHeader<'s> {
+    data: HeaderData<'s>,
+}
+
+struct HeaderData<'s> {
     header: &'s str,
-    state: &'s SuperConsoleState,
+    action_stats: &'s ActionStats,
+    elapsed_str: String,
+    finished: u64,
+    remaining: u64,
+}
+
+impl<'s> HeaderData<'s> {
+    fn from_state(header: &'s str, state: &'s SuperConsoleState) -> Self {
+        let observer = state.simple_console.observer();
+        let spans = observer.spans();
+        let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
+        let finished = spans.roots_completed() as u64;
+        let remaining = spans.iter_roots().len() as u64 + pending;
+
+        HeaderData {
+            header,
+            action_stats: state.simple_console.observer().action_stats(),
+            elapsed_str: time_elapsed(state),
+            finished,
+            remaining,
+        }
+    }
+
+    fn total(&self) -> u64 {
+        self.finished + self.remaining
+    }
 }
 
 impl<'s> TasksHeader<'s> {
     pub fn new(header: &'s str, state: &'s SuperConsoleState) -> Self {
-        Self { header, state }
+        Self::new_for_data(HeaderData::from_state(header, state))
+    }
+
+    fn new_for_data(data: HeaderData<'s>) -> Self {
+        Self { data }
     }
 }
 
 impl<'s> Component for TasksHeader<'s> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let info = StaticStringComponent {
-            header: self.header,
+            header: self.data.header,
         };
-        HeaderLineComponent::new(info, CountComponent { state: self.state }).draw(dimensions, mode)
+        HeaderLineComponent::new(info, CountComponent { data: &self.data }).draw(dimensions, mode)
     }
 }
 
@@ -46,50 +80,39 @@ fn time_elapsed(state: &SuperConsoleState) -> String {
 
 /// This component is used to display summary counts about the number of jobs.
 struct CountComponent<'s> {
-    state: &'s SuperConsoleState,
+    data: &'s HeaderData<'s>,
 }
 
 impl<'s> Component for CountComponent<'s> {
     fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
-        let observer = self.state.simple_console.observer();
-        let spans = observer.spans();
-        let action_stats = self.state.simple_console.observer().action_stats();
-
-        let finished = spans.roots_completed() as u64;
-
-        let elapsed = time_elapsed(self.state);
-
         match mode {
             DrawMode::Normal => {
-                let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
+                let remaining = HumanizedCount::new(self.data.remaining);
+                let total = HumanizedCount::new(self.data.total());
 
-                let remaining = spans.iter_roots().len() as u64 + pending;
-                let total = remaining + finished;
-
-                let remaining = HumanizedCount::new(remaining);
-                let total = HumanizedCount::new(total);
-
-                let contents = if action_stats.log_stats() {
+                let contents = if self.data.action_stats.log_stats() {
                     let mut actions_summary = format!(
                         "Remaining: {}/{}. Cache hits: {}%. ",
                         remaining,
                         total,
-                        action_stats.total_cache_hit_percentage()
+                        self.data.action_stats.total_cache_hit_percentage()
                     );
-                    if action_stats.fallback_actions > 0 {
+                    if self.data.action_stats.fallback_actions > 0 {
                         actions_summary += format!(
                             "Fallback: {}/{}. ",
-                            HumanizedCount::new(action_stats.fallback_actions),
-                            HumanizedCount::new(action_stats.total_executed_actions())
+                            HumanizedCount::new(self.data.action_stats.fallback_actions),
+                            HumanizedCount::new(self.data.action_stats.total_executed_actions())
                         )
                         .as_str();
                     }
-                    actions_summary += format!("Time elapsed: {}", elapsed).as_str();
+                    actions_summary += format!("Time elapsed: {}", self.data.elapsed_str).as_str();
                     actions_summary
                 } else {
                     format!(
                         "Remaining: {}/{}. Time elapsed: {}",
-                        remaining, total, elapsed
+                        self.data.remaining,
+                        self.data.total(),
+                        self.data.elapsed_str
                     )
                 };
                 Ok(Lines(vec![Line::unstyled(&contents)?]))
@@ -97,10 +120,10 @@ impl<'s> Component for CountComponent<'s> {
             DrawMode::Final => {
                 let mut lines = vec![Line::unstyled(&format!(
                     "Jobs completed: {}. Time elapsed: {}.",
-                    finished, elapsed,
+                    self.data.finished, self.data.elapsed_str,
                 ))?];
-                if action_stats.log_stats() {
-                    lines.push(Line::unstyled(&action_stats.to_string())?);
+                if self.data.action_stats.log_stats() {
+                    lines.push(Line::unstyled(&self.data.action_stats.to_string())?);
                 }
                 Ok(Lines(lines))
             }
@@ -118,7 +141,6 @@ mod tests {
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
-    use buck2_event_observer::action_stats::ActionStats;
     use buck2_event_observer::span_tracker::BuckEventSpanTracker;
     use buck2_event_observer::verbosity::Verbosity;
     use buck2_events::span::SpanId;
