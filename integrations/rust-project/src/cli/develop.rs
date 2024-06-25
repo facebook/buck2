@@ -182,10 +182,9 @@ impl Develop {
 
         let targets = self.related_targets(input.clone())?;
         if targets.is_empty() {
-            return Err(anyhow::anyhow!(
-                "Unable to find owning targets for {:?}",
-                input
-            ));
+            let err = anyhow::anyhow!("No owning target found")
+                .context(format!("Could not find owning target for {:?}", input));
+            return Err(err);
         }
 
         if self.invoked_by_ra {
