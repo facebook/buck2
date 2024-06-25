@@ -533,4 +533,49 @@ mod tests {
         assert_eq!(mk("weird <>"), mk("weird <>"));
         assert_ne!(mk("weird <>"), mk("weird ><"))
     }
+
+    #[test]
+    fn test_scratch_path_is_unique() {
+        let path_resolver = BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
+            "base/buck-out/v2".into(),
+        ));
+        let pkg = PackageLabel::new(
+            CellName::testing_new("foo"),
+            CellRelativePath::unchecked_new("baz-package"),
+        );
+        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
+        let cfg_target = target.configure(ConfigurationData::testing_new());
+
+        let mk = move |s: &str, id: &str| {
+            path_resolver
+                .resolve_scratch(
+                    &BuckOutScratchPath::new(
+                        BaseDeferredKey::TargetLabel(cfg_target.dupe()),
+                        &Category::try_from("category").unwrap(),
+                        Some(id),
+                        s.to_owned(),
+                    )
+                    .unwrap(),
+                )
+                .as_str()
+                .to_owned()
+        };
+
+        // Same action_key, same identifier are equal
+        assert_eq!(mk("same_key", "same_id"), mk("same_key", "same_id"));
+        assert_eq!(mk("same_key", "_buck_same"), mk("same_key", "_buck_same"));
+
+        // Same action_key, different identifier are not equal
+        assert_ne!(mk("same_key", "diff_id1"), mk("same_key", "diff_id2"));
+        assert_ne!(mk("same_key", "_buck_1"), mk("same_key", "_buck_2"));
+
+        // Different action_key, same identifier are not equal
+        // TODO: This should not be equal, but it is currently due to a bug
+        assert_eq!(mk("diff_key1", "same_id"), mk("diff_key2", "same_id"));
+        assert_ne!(mk("diff_key1", "_buck_same"), mk("diff_key2", "_buck_same"));
+
+        // Different action_key, different identifier are not equal
+        assert_ne!(mk("diff_key1", "diff_id1"), mk("diff_key2", "diff_id2"));
+        assert_ne!(mk("diff_key1", "_buck_1"), mk("diff_key2", "_buck_2"));
+    }
 }
