@@ -133,123 +133,11 @@ impl<'s> Component for CountComponent<'s> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::sync::Arc;
-    use std::time::Duration;
-    use std::time::Instant;
-    use std::time::UNIX_EPOCH;
-
-    use buck2_data::FakeStart;
-    use buck2_data::SpanStartEvent;
-    use buck2_event_observer::span_tracker::BuckEventSpanTracker;
-    use buck2_event_observer::verbosity::Verbosity;
-    use buck2_events::span::SpanId;
-    use buck2_events::BuckEvent;
-    use buck2_wrapper_common::invocation_id::TraceId;
-    use dupe::Dupe;
 
     use super::*;
-    use crate::subscribers::subscriber::Tick;
-    use crate::subscribers::superconsole::SuperConsoleConfig;
-    use crate::subscribers::superconsole::TimeSpeed;
-
-    const TIME_DILATION: u64 = 10;
-
-    fn fake_time_speed() -> TimeSpeed {
-        // We run time 10x slower so that any time occurring due to the
-        // test running on an overloaded server is ignored.
-        //
-        // Note that going to 100x slower causes Windows CI to fail, because
-        // the `Instant` can't go below the time when the VM was booted, or you get an
-        // underflow of `Instant`.
-        TimeSpeed::new(Some(1.0 / (TIME_DILATION as f64))).unwrap()
-    }
-
-    fn fake_time(tick: &Tick, secs: u64) -> Instant {
-        tick.start_time
-            .checked_sub(Duration::from_secs(secs * TIME_DILATION))
-            .unwrap_or_else(|| {
-                panic!(
-                    "Instant went too low: {:?} - ({secs} * {TIME_DILATION}",
-                    tick.start_time
-                )
-            })
-            // We add 50ms to give us a 100ms window where we round down correctly
-            .checked_add(Duration::from_millis(50 * TIME_DILATION))
-            .unwrap()
-    }
-
-    fn super_console_state_for_test(
-        span_tracker: BuckEventSpanTracker,
-        action_stats: ActionStats,
-        tick: Tick,
-        time_speed: TimeSpeed,
-        timed_list_state: SuperConsoleConfig,
-    ) -> SuperConsoleState {
-        let mut state = SuperConsoleState::new(
-            None,
-            TraceId::null(),
-            Verbosity::default(),
-            false,
-            timed_list_state,
-        )
-        .unwrap();
-        state.simple_console.observer.span_tracker = span_tracker;
-        state.simple_console.observer.action_stats = action_stats;
-        state.current_tick = tick;
-        state.time_speed = time_speed;
-        state
-    }
 
     #[test]
     fn test_remaining() -> anyhow::Result<()> {
-        let tick = Tick::now();
-
-        let e1 = BuckEvent::new(
-            UNIX_EPOCH,
-            TraceId::new(),
-            Some(SpanId::next()),
-            None,
-            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
-                    caramba: "e1".to_owned(),
-                })),
-            }),
-        );
-
-        let e2 = BuckEvent::new(
-            UNIX_EPOCH,
-            TraceId::new(),
-            Some(SpanId::next()),
-            None,
-            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
-                    caramba: "e2".to_owned(),
-                })),
-            }),
-        );
-
-        let e3 = BuckEvent::new(
-            UNIX_EPOCH,
-            TraceId::new(),
-            Some(SpanId::next()),
-            None,
-            buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
-                    caramba: "e3".to_owned(),
-                })),
-            }),
-        );
-
-        let mut state = BuckEventSpanTracker::new();
-
-        for e in [e1, e2, e3] {
-            state
-                .start_at(&Arc::new(e.clone()), fake_time(&tick, 1))
-                .unwrap();
-        }
-
-        let time_speed = fake_time_speed();
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -257,16 +145,13 @@ mod tests {
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
         };
-
-        let timed_list_state = SuperConsoleConfig {
-            max_lines: 2,
-            ..Default::default()
-        };
-
-        let output = TasksHeader::new(
-            "test",
-            &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
-        )
+        let output = TasksHeader::new_for_data(HeaderData {
+            header: "test",
+            action_stats: &action_stats,
+            elapsed_str: "123s".to_owned(),
+            finished: 0,
+            remaining: 3,
+        })
         .draw(
             Dimensions {
                 width: 40,
@@ -283,176 +168,37 @@ mod tests {
 
     #[test]
     fn test_remaining_with_pending() -> anyhow::Result<()> {
-        let tick = Tick::now();
-
-        let mut state = SuperConsoleState::new(
-            None,
-            TraceId::null(),
-            Verbosity::default(),
-            false,
-            SuperConsoleConfig {
-                max_lines: 2,
-                ..Default::default()
+        let action_stats = ActionStats {
+            local_actions: 0,
+            remote_actions: 0,
+            cached_actions: 0,
+            fallback_actions: 0,
+            remote_dep_file_cached_actions: 0,
+        };
+        let output = TasksHeader::new_for_data(HeaderData {
+            header: "test",
+            action_stats: &action_stats,
+            elapsed_str: "0.0s".to_owned(),
+            finished: 0,
+            remaining: 2,
+        })
+        .draw(
+            Dimensions {
+                width: 60,
+                height: 10,
             },
+            DrawMode::Normal,
         )?;
 
-        state.time_speed = fake_time_speed();
-        state.current_tick = tick.clone();
+        let expected = "test                      Remaining: 2/2. Time elapsed: 0.0s\n".to_owned();
 
-        state.simple_console.observer.observe(
-            fake_time(&tick, 10),
-            &Arc::new(BuckEvent::new(
-                UNIX_EPOCH,
-                TraceId::new(),
-                Some(SpanId::next()),
-                None,
-                SpanStartEvent {
-                    data: Some(
-                        buck2_data::ActionExecutionStart {
-                            key: Some(buck2_data::ActionKey {
-                                id: Default::default(),
-                                owner: Some(buck2_data::action_key::Owner::TargetLabel(
-                                    buck2_data::ConfiguredTargetLabel {
-                                        label: Some(buck2_data::TargetLabel {
-                                            package: "pkg".into(),
-                                            name: "target".into(),
-                                        }),
-                                        configuration: Some(buck2_data::Configuration {
-                                            full_name: "conf".into(),
-                                        }),
-                                        execution_configuration: None,
-                                    },
-                                )),
-                                key: "".to_owned(),
-                            }),
-                            name: Some(buck2_data::ActionName {
-                                category: "category".into(),
-                                identifier: "identifier".into(),
-                            }),
-                            kind: buck2_data::ActionKind::NotSet as i32,
-                        }
-                        .into(),
-                    ),
-                }
-                .into(),
-            )),
-        )?;
-
-        state.simple_console.observer.observe(
-            fake_time(&tick, 1),
-            &Arc::new(BuckEvent::new(
-                UNIX_EPOCH,
-                TraceId::new(),
-                None,
-                None,
-                buck2_data::InstantEvent {
-                    data: Some(
-                        buck2_data::DiceStateSnapshot {
-                            key_states: {
-                                let mut map = HashMap::new();
-                                map.insert(
-                                    "BuildKey".to_owned(),
-                                    buck2_data::DiceKeyState {
-                                        started: 4,
-                                        finished: 2,
-                                        check_deps_started: 2,
-                                        check_deps_finished: 1,
-                                        compute_started: 5,
-                                        compute_finished: 2,
-                                    },
-                                );
-                                map
-                            },
-                        }
-                        .into(),
-                    ),
-                }
-                .into(),
-            )),
-        )?;
-
-        {
-            let output = TasksHeader::new("test", &state).draw(
-                Dimensions {
-                    width: 60,
-                    height: 10,
-                },
-                DrawMode::Normal,
-            )?;
-
-            let expected =
-                "test                      Remaining: 2/2. Time elapsed: 0.0s\n".to_owned();
-
-            pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
-        }
+        pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
         Ok(())
     }
 
     #[test]
     fn test_children() -> anyhow::Result<()> {
-        let tick = Tick::now();
-
-        let parent = SpanId::next();
-
-        let action = Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
-            TraceId::new(),
-            Some(parent),
-            None,
-            SpanStartEvent {
-                data: Some(
-                    buck2_data::ActionExecutionStart {
-                        key: Some(buck2_data::ActionKey {
-                            id: Default::default(),
-                            owner: Some(buck2_data::action_key::Owner::TargetLabel(
-                                buck2_data::ConfiguredTargetLabel {
-                                    label: Some(buck2_data::TargetLabel {
-                                        package: "pkg".into(),
-                                        name: "target".into(),
-                                    }),
-                                    configuration: Some(buck2_data::Configuration {
-                                        full_name: "conf".into(),
-                                    }),
-                                    execution_configuration: None,
-                                },
-                            )),
-                            key: "".to_owned(),
-                        }),
-                        name: Some(buck2_data::ActionName {
-                            category: "category".into(),
-                            identifier: "identifier".into(),
-                        }),
-                        kind: buck2_data::ActionKind::NotSet as i32,
-                    }
-                    .into(),
-                ),
-            }
-            .into(),
-        ));
-
-        let prepare = Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
-            TraceId::new(),
-            Some(SpanId::next()),
-            Some(parent),
-            SpanStartEvent {
-                data: Some(
-                    buck2_data::ExecutorStageStart {
-                        stage: Some(buck2_data::PrepareAction {}.into()),
-                    }
-                    .into(),
-                ),
-            }
-            .into(),
-        ));
-
-        let mut state = BuckEventSpanTracker::new();
-        state.start_at(&action, fake_time(&tick, 10)).unwrap();
-        state.start_at(&prepare, fake_time(&tick, 5)).unwrap();
-
-        let time_speed = fake_time_speed();
-
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -460,22 +206,13 @@ mod tests {
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
         };
-
-        let timed_list_state = SuperConsoleConfig {
-            max_lines: 5,
-            ..Default::default()
-        };
-
-        let output = TasksHeader::new(
-            "test",
-            &super_console_state_for_test(
-                state.clone(),
-                action_stats.dupe(),
-                tick.dupe(),
-                time_speed,
-                timed_list_state.clone(),
-            ),
-        )
+        let output = TasksHeader::new_for_data(HeaderData {
+            header: "test",
+            action_stats: &action_stats,
+            elapsed_str: "0.0s".to_owned(),
+            finished: 0,
+            remaining: 1,
+        })
         .draw(
             Dimensions {
                 width: 80,
