@@ -65,11 +65,11 @@ pub struct BuckEvent {
 
     /// If this event starts a new span, the span ID assigned to this span, or None if this event is a leaf event
     /// that does not start a new span.
-    span_id: Option<SpanId>,
+    pub span_id: Option<SpanId>,
 
     /// The ID of the span that contains this event. Will be non-None in all Events except the first and last events
     /// of a trace.
-    parent_id: Option<SpanId>,
+    pub parent_id: Option<SpanId>,
 }
 
 impl BuckEvent {
