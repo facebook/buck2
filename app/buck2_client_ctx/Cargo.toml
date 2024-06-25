@@ -71,6 +71,7 @@ winapi = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+indoc = { workspace = true }
 lsp-server = { workspace = true }
 maplit = { workspace = true }
 pretty_assertions = { workspace = true }
