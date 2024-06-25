@@ -141,14 +141,29 @@ impl DiceTaskWorker {
         let state_result = state_handle
             .lookup_key(VersionedGraphKey::new(v, self.k))
             .await;
-        // dep_check_stream needs to capture these and so they need to outlive it.
-        let cycles;
-        let mismatch;
-        let (task_state, deps_check_continuables) = match state_result {
+
+        // handle cancelled/cache hits before sending started events
+        let deps_to_check = match state_result {
             VersionedGraphResult::Match(entry) => {
                 return task_state.lookup_matches(entry);
             }
-            VersionedGraphResult::CheckDeps(mismatch2) => {
+            VersionedGraphResult::CheckDeps(mismatch2) => Some(mismatch2),
+            VersionedGraphResult::Compute => None,
+            VersionedGraphResult::Rejected(..) => {
+                return Err(Cancelled);
+            }
+        };
+
+        self.event_dispatcher.started(self.k);
+        scopeguard::defer! {
+            self.event_dispatcher.finished(self.k);
+        };
+
+        // deps_check_continuables needs to capture these and so they need to outlive it.
+        let cycles;
+        let mismatch;
+        let (task_state, deps_check_continuables) = match deps_to_check {
+            Some(mismatch2) => {
                 let (task_state, cycles2) = task_state.checking_deps(&self.eval);
                 cycles = cycles2;
                 mismatch = mismatch2;
@@ -201,13 +216,10 @@ impl DiceTaskWorker {
                     }
                 }
             }
-            VersionedGraphResult::Compute => {
+            None => {
                 let (task_state, cycles2) = task_state.lookup_dirtied(&self.eval);
                 cycles = cycles2;
                 (task_state, None)
-            }
-            VersionedGraphResult::Rejected(..) => {
-                return Err(Cancelled);
             }
         };
 
@@ -255,9 +267,9 @@ impl DiceTaskWorker {
         task_state: DiceWorkerStateEvaluating<'a, 'b>,
         cycles: &KeyComputingUserCycleDetectorData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
-        self.event_dispatcher.started(self.k);
+        self.event_dispatcher.compute_started(self.k);
         scopeguard::defer! {
-            self.event_dispatcher.finished(self.k);
+            self.event_dispatcher.compute_finished(self.k);
         };
 
         // TODO(bobyf) these also make good locations where we want to perform instrumentation

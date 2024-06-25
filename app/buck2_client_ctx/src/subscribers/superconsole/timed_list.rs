@@ -644,10 +644,12 @@ mod tests {
                                 map.insert(
                                     "BuildKey".to_owned(),
                                     buck2_data::DiceKeyState {
-                                        started: 4,
+                                        started: 5,
                                         finished: 2,
                                         check_deps_started: 2,
                                         check_deps_finished: 1,
+                                        compute_started: 4,
+                                        compute_finished: 2,
                                     },
                                 );
                                 map

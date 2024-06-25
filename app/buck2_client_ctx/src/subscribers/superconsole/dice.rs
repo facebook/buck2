@@ -33,8 +33,8 @@ impl<'s> Component for DiceComponent<'s> {
         let mut lines = vec!["Dice Key States".to_owned()];
 
         let header = format!(
-            "  {:<42}  {:>6}  {:>6}  {:>6}",
-            "  Key", "ChkDeps", "Pending", "Done"
+            "  {:<42}  {:>6}  {:>6}  {:>6}  {:>6}",
+            "  Key", "ChkDeps", "Compute", "Pending", "Done"
         );
         let header_len = header.len();
         lines.push(header);
@@ -44,14 +44,16 @@ impl<'s> Component for DiceComponent<'s> {
             // silly with some keys claiming to be in progress, but this is a debug component so
             // that is probably OK.
             let check_deps = v.check_deps_started - v.check_deps_finished;
+            let computing = v.compute_started - v.compute_finished;
             let pending = v.started - v.finished;
             let finished = v.finished;
 
             lines.push(format!(
-                "    {:<40} |  {}  |  {}  |  {}",
+                "    {:<40} |  {}  |  {}  |  {}  |  {}",
                 // Dice key states are all ascii
                 if k.len() > 40 { &k[..40] } else { k },
                 HumanizedCount::fixed_width(check_deps.into()),
+                HumanizedCount::fixed_width(computing.into()),
                 HumanizedCount::fixed_width(pending.into()),
                 HumanizedCount::fixed_width(finished.into())
             ));

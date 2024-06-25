@@ -16,9 +16,10 @@ use crate::span_tracker::SpanTrackable;
 pub fn pending_estimate<T: SpanTrackable>(roots: &Roots<T>, dice: &DiceState) -> u64 {
     let mut total = 0;
     for k in &["BuildKey", "AnalysisKey"] {
-        let from_dice = dice.key_states().get(*k).map_or(0, |v| {
-            v.started + v.check_deps_started - v.finished - v.check_deps_finished
-        });
+        let from_dice = dice
+            .key_states()
+            .get(*k)
+            .map_or(0, |v| v.started - v.finished);
 
         let from_roots = roots.dice_counts().get(k).copied().unwrap_or(0);
 

@@ -113,8 +113,12 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
             &*tracker.state.lock().unwrap(),
             &[
                 DiceEvent::Started { key_type: "Stage1" },
+                DiceEvent::ComputeStarted { key_type: "Stage1" },
                 DiceEvent::Started { key_type: "Stage0" },
+                DiceEvent::ComputeStarted { key_type: "Stage0" },
+                DiceEvent::ComputeFinished { key_type: "Stage0" },
                 DiceEvent::Finished { key_type: "Stage0" },
+                DiceEvent::ComputeFinished { key_type: "Stage1" },
                 DiceEvent::Finished { key_type: "Stage1" },
             ]
         );
@@ -138,12 +142,16 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
         assert_eq!(
             &*tracker.state.lock().unwrap(),
             &[
+                DiceEvent::Started { key_type: "Stage1" },
                 DiceEvent::CheckDepsStarted { key_type: "Stage1" },
+                DiceEvent::Started { key_type: "Stage0" },
                 DiceEvent::CheckDepsStarted { key_type: "Stage0" },
                 DiceEvent::CheckDepsFinished { key_type: "Stage0" },
-                DiceEvent::Started { key_type: "Stage0" },
+                DiceEvent::ComputeStarted { key_type: "Stage0" },
+                DiceEvent::ComputeFinished { key_type: "Stage0" },
                 DiceEvent::Finished { key_type: "Stage0" },
-                DiceEvent::CheckDepsFinished { key_type: "Stage1" }
+                DiceEvent::CheckDepsFinished { key_type: "Stage1" },
+                DiceEvent::Finished { key_type: "Stage1" },
             ]
         );
     }

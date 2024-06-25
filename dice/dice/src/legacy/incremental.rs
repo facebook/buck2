@@ -441,16 +441,23 @@ where
                     debug!("no matching entry in cache. checking for dependency changes");
                     extra.start_computing_key::<K>(&ev.k);
 
+                    let tracker = extra.user_data.tracker.dupe();
+
+                    tracker.event(DiceEvent::Started {
+                        key_type: K::key_type_name(),
+                    });
+
+                    scopeguard::defer! {
+                            tracker.event(DiceEvent::Finished { key_type: K::key_type_name() });
+                    }
+
                     let deps_changed = {
                         extra.user_data.tracker.event(DiceEvent::CheckDepsStarted {
                             key_type: K::key_type_name(),
                         });
 
                         scopeguard::defer! {
-                            extra
-                                .user_data
-                                .tracker
-                                .event(DiceEvent::CheckDepsFinished { key_type: K::key_type_name() });
+                            tracker.event(DiceEvent::CheckDepsFinished { key_type: K::key_type_name() });
                         }
 
                         Self::compute_whether_versioned_dependencies_changed(
@@ -481,6 +488,15 @@ where
                 VersionedGraphResult::Dirty | VersionedGraphResult::None => {
                     let mut extra = extra;
                     extra.start_computing_key::<K>(&ev.k);
+                    let tracker = extra.user_data.tracker.dupe();
+
+                    extra.user_data.tracker.event(DiceEvent::Started {
+                        key_type: K::key_type_name(),
+                    });
+
+                    scopeguard::defer! {
+                        tracker.event(DiceEvent::Finished { key_type: K::key_type_name() });
+                    }
 
                     debug!("dirtied. recomputing...");
                     ev.engine
@@ -555,11 +571,11 @@ where
         extra
             .user_data
             .tracker
-            .event(DiceEvent::Started { key_type: desc });
+            .event(DiceEvent::ComputeStarted { key_type: desc });
         let tracker = extra.user_data.tracker.dupe();
 
         scopeguard::defer! {
-            tracker.event(DiceEvent::Finished { key_type: desc });
+            tracker.event(DiceEvent::ComputeFinished { key_type: desc });
         };
 
         let v = transaction_ctx.get_version();

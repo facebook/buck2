@@ -387,6 +387,8 @@ mod tests {
                                     finished: 2,
                                     check_deps_started: 0,
                                     check_deps_finished: 0,
+                                    compute_started: 0,
+                                    compute_finished: 0,
                                 },
                             );
                             map
