@@ -59,7 +59,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<Arc<dyn LogConfigurationRel
     #[cfg(fbcode_build)]
     {
         use buck2_event_log::should_upload_log;
-        use buck2_events::sink::scribe;
+        use buck2_events::sink::remote;
         use gflags::GflagValue;
 
         // There are two sources of log spew when building buck2 with Buck and linking against fbcode:
@@ -73,7 +73,7 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<Arc<dyn LogConfigurationRel
         gflags::set_gflag_value(_fb, "stderrthreshold", GflagValue::U32(5))?;
 
         if !should_upload_log()? {
-            scribe::disable();
+            remote::disable();
         }
     }
 
