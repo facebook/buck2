@@ -48,7 +48,6 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(
@@ -79,15 +78,6 @@ load(
 load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
 load(":resources.bzl", "rust_attr_resources")
-
-_CompileOutputs = record(
-    link = field(Artifact),
-    args = field(ArgLike),
-    runtime_files = field(list[ArgLike]),
-    external_debug_info = field(list[TransitiveSetArgsProjection]),
-    sub_targets = field(dict[str, list[DefaultInfo]]),
-    dist_info = DistInfo,
-)
 
 def _strategy_params(
         ctx: AnalysisContext,
@@ -156,9 +146,6 @@ def _rust_binary_common(
         labels_to_links_map = rust_cxx_link_group_info.labels_to_links_map
         filtered_targets = rust_cxx_link_group_info.filtered_targets
 
-    # As per v1, we only setup a shared library symlink tree for the shared
-    # link style.
-    # XXX need link tree for dylib crates
     shlib_deps = []
     if link_strategy == LinkStrategy("shared") or rust_cxx_link_group_info != None:
         shlib_deps = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
@@ -233,7 +220,12 @@ def _rust_binary_common(
         args.add(cmd_args(hidden = resources_hidden))
         runtime_files.extend(resources_hidden)
 
-    sub_targets_for_link_strategy = {}
+    # A simple dict of sub-target key to artifact, which we'll convert to
+    # DefaultInfo providers at the end
+    extra_compiled_targets = {
+        "sources": compile_ctx.symlinked_srcs,
+    }
+    sub_targets = {}
 
     # TODO(agallagher) There appears to be pre-existing soname conflicts
     # when building this (when using link groups), which prevents using
@@ -243,7 +235,7 @@ def _rust_binary_common(
         for shlib in shared_libs
         if shlib.soname.is_str()
     }
-    sub_targets_for_link_strategy["shared-libraries"] = [DefaultInfo(
+    sub_targets["shared-libraries"] = [DefaultInfo(
         default_output = ctx.actions.write_json(
             name + ".shared-libraries.json",
             {
@@ -269,7 +261,7 @@ def _rust_binary_common(
     )]
 
     if isinstance(executable_args.shared_libs_symlink_tree, Artifact):
-        sub_targets_for_link_strategy["rpath-tree"] = [DefaultInfo(
+        sub_targets["rpath-tree"] = [DefaultInfo(
             default_output = executable_args.shared_libs_symlink_tree,
             other_outputs = [
                 shlib.lib.output
@@ -282,28 +274,16 @@ def _rust_binary_common(
         )]
 
     if rust_cxx_link_group_info:
-        sub_targets_for_link_strategy[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
+        sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
         readable_mappings = {}
         for node, group in link_group_mappings.items():
             readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]
-        sub_targets_for_link_strategy[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
+        sub_targets[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
             default_output = ctx.actions.write_json(
                 name + LINK_GROUP_MAPPINGS_FILENAME_SUFFIX,
                 readable_mappings,
             ),
         )]
-
-    compiled_outputs = _CompileOutputs(
-        link = link.output,
-        args = args,
-        runtime_files = runtime_files,
-        external_debug_info = executable_args.external_debug_info + external_debug_info,
-        sub_targets = sub_targets_for_link_strategy,
-        dist_info = DistInfo(
-            shared_libs = shlib_info.set,
-            nondebug_runtime_files = runtime_files,
-        ),
-    )
 
     meta_full = rust_compile(
         ctx = ctx,
@@ -342,8 +322,7 @@ def _rust_binary_common(
         designated_clippy = True,
         diagnostics_only = True,
     )
-
-    extra_diag_targets = output_as_diag_subtargets(diag_artifacts).items()
+    extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts))
 
     expand = rust_compile(
         ctx = ctx,
@@ -353,25 +332,20 @@ def _rust_binary_common(
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
+    extra_compiled_targets["expand"] = expand.output
 
-    extra_compiled_targets = (extra_diag_targets + [
-        ("doc", generate_rustdoc(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
-            default_roots = default_roots,
-            document_private_items = True,
-        )),
-        ("expand", expand.output),
-        ("sources", compile_ctx.symlinked_srcs),
-    ])
+    doc_output = generate_rustdoc(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        document_private_items = True,
+    )
+    extra_compiled_targets["doc"] = doc_output
 
     named_deps_names = write_named_deps_names(ctx, compile_ctx)
     if named_deps_names:
-        extra_compiled_targets.append(("named_deps", named_deps_names))
-
-    sub_targets = {k: [DefaultInfo(default_output = v)] for k, v in extra_compiled_targets}
-    sub_targets.update(compiled_outputs.sub_targets)
+        extra_compiled_targets["named_deps"] = named_deps_names
 
     if link.dwp_output:
         sub_targets["dwp"] = [
@@ -381,21 +355,29 @@ def _rust_binary_common(
         ]
 
     if link.pdb:
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = compiled_outputs.link)
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = link.output)
 
     dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
     if dupmbin_toolchain:
-        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, compiled_outputs.link, dupmbin_toolchain)
+        sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, link.output, dupmbin_toolchain)
+
+    sub_targets.update({
+        k: [DefaultInfo(default_output = v)]
+        for (k, v) in extra_compiled_targets.items()
+    })
 
     providers += [
         DefaultInfo(
-            default_output = compiled_outputs.link,
-            other_outputs = compiled_outputs.runtime_files + compiled_outputs.external_debug_info,
+            default_output = link.output,
+            other_outputs = runtime_files + executable_args.external_debug_info + external_debug_info,
             sub_targets = sub_targets,
         ),
-        compiled_outputs.dist_info,
+        DistInfo(
+            shared_libs = shlib_info.set,
+            nondebug_runtime_files = runtime_files,
+        ),
     ]
-    return (providers, compiled_outputs.args)
+    return (providers, args)
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx)
