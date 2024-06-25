@@ -60,3 +60,13 @@ pub fn get_last_command_execution_kind(
         LastCommandExecutionKind::NoCommand
     }
 }
+
+pub fn get_last_command_execution_time(action: &buck2_data::ActionExecutionEnd) -> Option<u64> {
+    action
+        .commands
+        .last()
+        .and_then(|c| c.details.as_ref())
+        .and_then(|c| c.metadata.as_ref())
+        .and_then(|c| c.execution_time.as_ref())
+        .map(|c| c.seconds as u64 * 1000 + c.nanos as u64 / 1000000)
+}

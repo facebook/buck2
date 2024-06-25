@@ -20,6 +20,7 @@ pub mod fmt_duration;
 pub mod humanized;
 pub mod last_command_execution_kind;
 pub mod pending_estimate;
+pub mod progress;
 pub mod re_state;
 pub mod session_info;
 pub mod span_tracker;

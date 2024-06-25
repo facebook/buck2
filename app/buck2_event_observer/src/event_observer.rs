@@ -17,6 +17,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use crate::action_stats::ActionStats;
 use crate::debug_events::DebugEventsState;
 use crate::dice_state::DiceState;
+use crate::progress::BuildProgressStateTracker;
 use crate::re_state::ReState;
 use crate::session_info::SessionInfo;
 use crate::span_tracker::BuckEventSpanTracker;
@@ -173,6 +174,7 @@ pub trait EventObserverExtra: Send {
 pub struct DebugEventObserverExtra {
     dice_state: DiceState,
     debug_events: DebugEventsState,
+    progress_state: BuildProgressStateTracker,
 }
 
 impl EventObserverExtra for DebugEventObserverExtra {
@@ -180,11 +182,13 @@ impl EventObserverExtra for DebugEventObserverExtra {
         Self {
             dice_state: DiceState::new(),
             debug_events: DebugEventsState::new(),
+            progress_state: BuildProgressStateTracker::new(),
         }
     }
 
     fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         self.debug_events.handle_event(receive_time, event)?;
+        self.progress_state.handle_event(receive_time, event)?;
 
         {
             use buck2_data::buck_event::Data::*;
@@ -219,6 +223,10 @@ impl DebugEventObserverExtra {
 
     pub fn debug_events(&self) -> &DebugEventsState {
         &self.debug_events
+    }
+
+    pub fn progress_state(&self) -> &BuildProgressStateTracker {
+        &self.progress_state
     }
 }
 
