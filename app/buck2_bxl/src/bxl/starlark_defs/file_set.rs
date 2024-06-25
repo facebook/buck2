@@ -182,6 +182,12 @@ pub(crate) fn file_node_methods(methods: &mut MethodsBuilder) {
     fn path<'v>(this: &StarlarkFileNode) -> anyhow::Result<&'v str> {
         Ok(this.0.path().as_str())
     }
+
+    /// The cell name for the file_node.
+    #[starlark(attribute)]
+    fn cell<'v>(this: &StarlarkFileNode) -> anyhow::Result<&'v str> {
+        Ok(this.0.cell().as_str())
+    }
 }
 
 #[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
