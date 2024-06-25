@@ -90,6 +90,8 @@ pub struct BuckOutScratchPath {
     owner: BaseDeferredKey,
     /// The path relative to that target.
     path: ForwardRelativePathBuf,
+    /// The unique identifier for this action
+    action_key: String,
 }
 
 impl BuckOutScratchPath {
@@ -139,7 +141,6 @@ impl BuckOutScratchPath {
                     // FIXME: Should this be a crypto hasher?
                     let mut hasher = DefaultHasher::new();
                     v.hash(&mut hasher);
-                    action_key.hash(&mut hasher);
                     let output_hash = format!("{}{:x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
                     path.join_normalized(ForwardRelativePath::new(&output_hash)?)?
                 }
@@ -147,7 +148,11 @@ impl BuckOutScratchPath {
             _ => path.to_buf(),
         };
 
-        Ok(Self { owner, path })
+        Ok(Self {
+            owner,
+            path,
+            action_key,
+        })
     }
 }
 
@@ -236,7 +241,7 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
-            None,
+            Some(&path.action_key),
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
@@ -570,8 +575,7 @@ mod tests {
         assert_ne!(mk("same_key", "_buck_1"), mk("same_key", "_buck_2"));
 
         // Different action_key, same identifier are not equal
-        // TODO: This should not be equal, but it is currently due to a bug
-        assert_eq!(mk("diff_key1", "same_id"), mk("diff_key2", "same_id"));
+        assert_ne!(mk("diff_key1", "same_id"), mk("diff_key2", "same_id"));
         assert_ne!(mk("diff_key1", "_buck_same"), mk("diff_key2", "_buck_same"));
 
         // Different action_key, different identifier are not equal
