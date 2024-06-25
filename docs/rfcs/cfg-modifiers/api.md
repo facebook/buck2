@@ -281,6 +281,9 @@ On command line, a `config_setting` target can be specified as a collection of
 modifiers after `--modifier` or `?`. This will be equivalent to specifying each
 constraint inside the `config_setting` as a separate modifier.
 
+**NOTE**: only `--modifier` flag is currently implemented. `-m` is currently
+disabled and `?` is not implemented.
+
 ### Modifier Resolution
 
 Modifiers are resolved in order of constraint setting, and for each constraint
@@ -367,6 +370,8 @@ keys are the conditionals and values are modifiers.
    example, when the OS to configure is not specified, it's best to assume that
    the user wants to target the same OS as the host machine.
 
+**NOTE**: `match_rule` and `match_host` are currently not implemented.
+
 An example using `modifiers.match_rule` and `modifiers.match_host` is as
 follows.
 
@@ -419,6 +424,8 @@ constraint will be inserted into the configuration since no modifier covered the
 sanitizer constraint setting.
 
 ## Debugging modifiers
+
+**NOTE**: below is unimplemented.
 
 Because many layers of modifiers can be applied before obtaining a final
 configuration, it is important that modifier resolution is easy to debug and
