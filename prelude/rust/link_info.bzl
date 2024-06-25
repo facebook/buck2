@@ -232,13 +232,11 @@ RustCxxLinkGroupInfo = record(
 
 def enable_link_groups(
         ctx: AnalysisContext,
-        link_strategy: [LinkStrategy, None],
-        specified_link_strategy: LinkStrategy,
-        is_binary: bool):
-    if not (cxx_is_gnu(ctx) and is_binary):
+        link_strategy: LinkStrategy):
+    if not cxx_is_gnu(ctx):
         # check minimum requirements
         return False
-    if link_strategy == LinkStrategy("shared") or link_strategy != specified_link_strategy:
+    if link_strategy == LinkStrategy("shared"):
         # check whether we should run link groups analysis for the given link strategy
         return False
 
