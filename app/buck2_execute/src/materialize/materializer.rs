@@ -34,35 +34,7 @@ use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::TrackedActionDigest;
-#[cfg(fbcode_build)]
-use crate::materialize::eden_api::EdenBuckOut;
 use crate::materialize::http::Checksum;
-
-// Add a stub EdenBuckOut for when we don't have Eden output enabled
-#[cfg(not(fbcode_build))]
-pub struct EdenBuckOut {
-    not_implemented: !,
-}
-
-#[cfg(not(fbcode_build))]
-impl EdenBuckOut {
-    pub async fn remove_paths_recursive(
-        &self,
-        _project_fs: &buck2_core::fs::project::ProjectRoot,
-        _paths: Vec<ProjectRelativePathBuf>,
-        _cancellations: &CancellationContext<'_>,
-    ) -> anyhow::Result<()> {
-        self.not_implemented
-    }
-
-    pub async fn set_path_object_id(
-        &self,
-        __path: &ProjectRelativePathBuf,
-        __value: &ArtifactValue,
-    ) -> anyhow::Result<()> {
-        self.not_implemented
-    }
-}
 
 pub struct WriteRequest {
     pub path: ProjectRelativePathBuf,
@@ -260,12 +232,6 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         &self,
         file_paths: Vec<ProjectRelativePathBuf>,
     ) -> anyhow::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>;
-
-    /// Expose Eden based buck-out if the materializer is Eden
-    /// Return None if not based on Eden.
-    fn eden_buck_out(&self) -> Option<&EdenBuckOut> {
-        None
-    }
 
     fn as_deferred_materializer_extension(&self) -> Option<&dyn DeferredMaterializerExtensions> {
         None
@@ -611,14 +577,12 @@ pub enum MaterializationMethod {
     Deferred,
     /// Materialize only when needed, do not materialize final artifacts
     DeferredSkipFinalArtifacts,
-    /// Let Eden delegate materialzation
-    Eden,
 }
 
 #[derive(Debug, buck2_error::Error)]
 pub enum MaterializationMethodError {
     #[error(
-        "Invalid value for buckconfig `[buck2] materializations`. Got `{0}`. Expected one of `all`, `deferred`, `deferred_skip_final_artifacts` or `eden`."
+        "Invalid value for buckconfig `[buck2] materializations`. Got `{0}`. Expected one of `all`, `deferred`, or `deferred_skip_final_artifacts`."
     )]
     InvalidValueForConfig(String),
 }
@@ -631,7 +595,6 @@ impl MaterializationMethod {
             Some("deferred_skip_final_artifacts") => {
                 Ok(MaterializationMethod::DeferredSkipFinalArtifacts)
             }
-            Some("eden") => Ok(MaterializationMethod::Eden),
             Some(v) => Err(MaterializationMethodError::InvalidValueForConfig(v.to_owned()).into()),
         }
     }

@@ -471,7 +471,6 @@ impl DaemonState {
                 EventDispatcher::null()
             };
             let materializer = Self::create_materializer(
-                fb,
                 io.project_root().dupe(),
                 digest_config,
                 paths.buck_out_dir(),
@@ -603,7 +602,6 @@ impl DaemonState {
     }
 
     fn create_materializer(
-        fb: FacebookInit,
         fs: ProjectRoot,
         digest_config: DigestConfig,
         buck_out_path: ProjectRelativePathBuf,
@@ -637,48 +635,6 @@ impl DaemonState {
                     http_client,
                     daemon_dispatcher,
                 )?))
-            }
-            MaterializationMethod::Eden => {
-                #[cfg(fbcode_build)]
-                {
-                    use buck2_execute::materialize::eden_api::EdenBuckOut;
-                    use buck2_execute_impl::materializers::eden::EdenMaterializer;
-
-                    let buck_out_mount = fs.root().join(&buck_out_path);
-
-                    if cfg!(unix) {
-                        Ok(Arc::new(
-                            EdenMaterializer::new(
-                                fs,
-                                digest_config,
-                                re_client_manager.dupe(),
-                                blocking_executor,
-                                EdenBuckOut::new(
-                                    fb,
-                                    buck_out_path,
-                                    buck_out_mount,
-                                    re_client_manager,
-                                )
-                                .context("Failed to create EdenFS-based buck-out")?,
-                                http_client,
-                            )
-                            .context("Failed to create Eden materializer")?,
-                        ))
-                    } else {
-                        Err(anyhow::anyhow!(
-                            "`eden` materialization method is not supported on Windows"
-                        ))
-                    }
-                }
-                #[cfg(not(fbcode_build))]
-                {
-                    let _unused = buck_out_path;
-                    let _unused = fs;
-                    let _unused = fb;
-                    Err(anyhow::anyhow!(
-                        "`eden` materialization method is only supported in Meta internal builds"
-                    ))
-                }
             }
         }
     }

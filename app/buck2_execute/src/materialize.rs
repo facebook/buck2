@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#[cfg(fbcode_build)]
-pub mod eden_api;
 pub mod http;
 
 pub mod materializer;

@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-#[cfg(fbcode_build)]
-pub mod eden;
-
 pub mod deferred;
 pub mod immediate;
 pub mod io;

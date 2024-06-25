@@ -992,23 +992,15 @@ pub async fn create_output_dirs(
 
     if request.outputs_cleanup {
         // TODO(scottcao): Move this deletion logic into materializer itself.
-        // Use Eden's clean up API if possible, it is significantly faster on Eden compared with
-        // the native method as the API does not load and materialize files or folders
-        if let Some(eden_buck_out) = materializer.eden_buck_out() {
-            eden_buck_out
-                .remove_paths_recursive(artifact_fs.fs(), output_paths, cancellations)
-                .await?;
-        } else {
-            blocking_executor
-                .execute_io(
-                    Box::new(CleanOutputPaths {
-                        paths: output_paths,
-                    }),
-                    cancellations,
-                )
-                .await
-                .context("Failed to cleanup output directory")?;
-        }
+        blocking_executor
+            .execute_io(
+                Box::new(CleanOutputPaths {
+                    paths: output_paths,
+                }),
+                cancellations,
+            )
+            .await
+            .context("Failed to cleanup output directory")?;
     }
 
     let project_fs = artifact_fs.fs();

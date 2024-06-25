@@ -129,12 +129,7 @@ async fn clean(
     lifecycle_lock: Option<&BuckdLifecycleLock>,
 ) -> anyhow::Result<()> {
     let mut paths_to_clean = Vec::new();
-    // Try to clean EdenFS based buck-out first. For EdenFS based buck-out, "eden rm"
-    // is efficient. Notice eden rm will remove the buck-out root directory,
-    // but for the native fs, the buck-out root directory is kept.
-    if let Some(paths) = try_clean_eden_buck_out(&buck_out_dir, lifecycle_lock.is_none()).await? {
-        paths_to_clean = paths;
-    } else if buck_out_dir.exists() {
+    if buck_out_dir.exists() {
         paths_to_clean =
             collect_paths_to_clean(&buck_out_dir)?.map(|path| path.display().to_string());
         if lifecycle_lock.is_some() {
@@ -233,62 +228,4 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-#[cfg(fbcode_build)]
-async fn try_clean_eden_buck_out(
-    buck_out: &AbsNormPathBuf,
-    dryrun: bool,
-) -> anyhow::Result<Option<Vec<String>>> {
-    use std::process::Stdio;
-
-    use buck2_execute::materialize::eden_api::is_recas_eden_mount;
-    use buck2_util::process::async_background_command;
-
-    if !cfg!(unix) {
-        return Ok(None);
-    }
-
-    if !is_recas_eden_mount(buck_out)? {
-        return Ok(None);
-    }
-
-    // Run eden rm <buck-out> to rm a mount
-    let mut eden_rm_cmd = async_background_command("eden");
-    eden_rm_cmd
-        .arg("rm")
-        .arg("-y") // No promot
-        .arg(buck_out.as_os_str())
-        .current_dir("/")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    buck2_client_ctx::eprintln!(
-        "The following command will be executed: `eden rm -y {}`",
-        buck_out
-    )?;
-
-    if !dryrun {
-        eden_rm_cmd
-            .spawn()
-            .context("Failed to start to remove EdenFS buck-out mount.")?
-            .wait()
-            .await
-            .context("Failed to remove EdenFS buck-out mount.")?;
-
-        // eden rm might not delete the buck-out completed.
-        if buck_out.exists() {
-            fs_util::remove_dir(buck_out)?;
-        }
-    }
-
-    Ok(Some(vec![buck_out.display().to_string()]))
-}
-
-#[cfg(not(fbcode_build))]
-async fn try_clean_eden_buck_out(
-    _buck_out: &AbsNormPathBuf,
-    _dryrun: bool,
-) -> anyhow::Result<Option<Vec<String>>> {
-    Ok(None)
 }
