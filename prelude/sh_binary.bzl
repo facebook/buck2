@@ -50,7 +50,7 @@ def _generate_script(
     # construct links directly to things (which buck1 actually also did for its
     # BUCK_DEFAULT_RUNTIME_RESOURCES).
     if not is_windows:
-        script_content = cmd_args([
+        script_content = cmd_args(
             "#!/usr/bin/env bash",
             "set -e",
             # This is awkward for two reasons: args doesn't support format strings
@@ -79,9 +79,10 @@ def _generate_script(
             # sources, the paths are the same for both.
             "export BUCK_DEFAULT_RUNTIME_RESOURCES=\"$BUCK_PROJECT_ROOT\"",
             "exec \"$BUCK_PROJECT_ROOT/{}\" \"$@\"".format(main_link),
-        ]).relative_to(script, parent = 1)
+            relative_to = (script, 1),
+        )
     else:
-        script_content = cmd_args([
+        script_content = cmd_args(
             "@echo off",
             "setlocal EnableDelayedExpansion",
             "set __RESOURCES_ROOT=^",
@@ -96,7 +97,8 @@ def _generate_script(
             "set BUCK_PROJECT_ROOT=%__SCRIPT_DIR%\\%__RESOURCES_ROOT%",
             "set BUCK_DEFAULT_RUNTIME_RESOURCES=%BUCK_PROJECT_ROOT%",
             "%BUCK_PROJECT_ROOT%\\{} %*".format(main_link),
-        ]).relative_to(script, parent = 1)
+            relative_to = (script, 1),
+        )
     actions.write(
         script,
         script_content,
