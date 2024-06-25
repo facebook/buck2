@@ -150,6 +150,23 @@ impl BuckConfigBasedCells {
     }
 
     fn parse_with_file_ops_and_options(
+        project_root: &ProjectRoot,
+        file_ops: &mut dyn ConfigParserFileOps,
+        config_args: &[LegacyConfigCmdArg],
+        cwd: &ProjectRelativePath,
+        options: BuckConfigParseOptions,
+    ) -> anyhow::Result<Self> {
+        Self::parse_with_file_ops_and_options_inner(
+            project_root,
+            file_ops,
+            config_args,
+            cwd,
+            options,
+        )
+        .with_context(|| format!("Parsing cells with project root `{project_root}`, cwd `{cwd}`",))
+    }
+
+    fn parse_with_file_ops_and_options_inner(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
@@ -1262,7 +1279,8 @@ mod tests {
         .err()
         .unwrap();
 
-        assert!(format!("{}", e).contains("No bundled cell"));
+        let e = format!("{:?}", e);
+        assert!(e.contains("No bundled cell"), "error: {}", e);
 
         Ok(())
     }
@@ -1339,7 +1357,8 @@ mod tests {
         .err()
         .unwrap();
 
-        assert!(format!("{}", e).contains("not a valid SHA1 digest"));
+        let e = format!("{:?}", e);
+        assert!(e.contains("not a valid SHA1 digest"), "error: {}", e);
 
         Ok(())
     }
