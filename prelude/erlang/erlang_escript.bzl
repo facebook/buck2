@@ -252,7 +252,7 @@ def _config_files_code_to_erl(config_files: list[Artifact]) -> list[str]:
     cmd = []
     cmd.append("ConfigFiles = [")
     for i in range(0, len(config_files)):
-        cmd.append(cmd_args("\"", config_files[i].short_path, "\"", delimiter = ""))
+        cmd.append('"{}"'.format(config_files[i].short_path))
         if i < len(config_files) - 1:
             cmd.append(",")
     cmd.append("],")
