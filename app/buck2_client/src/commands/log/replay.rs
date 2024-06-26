@@ -17,6 +17,7 @@ use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
+use buck2_common::init::SystemWarningConfig;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -62,7 +63,7 @@ impl ReplayCommand {
                 let (replayer, invocation) =
                     Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;
 
-                let system_warning_config = ctx.system_warning_config()?;
+                let system_warning_config = SystemWarningConfig::default();
                 let console = get_console_with_root(
                     invocation.trace_id,
                     console_opts.console_type,

@@ -9,6 +9,7 @@
 
 use buck2_core::is_open_source;
 use buck2_event_observer::humanized::HumanizedBytes;
+use buck2_util::system_stats::system_memory_stats;
 
 use crate::subscribers::recorder::process_memory;
 
@@ -33,14 +34,13 @@ pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -
 
 pub(crate) fn check_memory_pressure<T>(
     snapshot_tuple: &Option<(T, buck2_data::Snapshot)>,
-    system_info: &buck2_data::SystemInfo,
     memory_pressure_threshold_percent: Option<u64>,
 ) -> Option<MemoryPressureHigh> {
-    // TODO (ezgi): use the recorded threshold, not the one from host's buckconfig.
     memory_pressure_threshold_percent.and_then(|memory_pressure_threshold_percent| {
         snapshot_tuple.as_ref().and_then(|(_, snapshot)| {
             process_memory(snapshot).and_then(|process_memory| {
-                let system_total_memory = system_info.system_total_memory_bytes;
+                // TODO(ezgi): We should check the recorded system memory, not the real one so that replay would show the warnings properly.
+                let system_total_memory = system_memory_stats();
                 if (process_memory * 100 / system_total_memory) >= memory_pressure_threshold_percent
                 {
                     Some(MemoryPressureHigh {
