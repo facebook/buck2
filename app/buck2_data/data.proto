@@ -2214,7 +2214,7 @@ message InstallFinished {
 }
 
 message SystemInfo {
-  optional uint64 system_total_memory_bytes = 1;
+  uint64 system_total_memory_bytes = 1;
 }
 
 message CpuCounter {

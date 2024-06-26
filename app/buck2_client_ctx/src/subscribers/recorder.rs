@@ -820,7 +820,7 @@ impl<'a> InvocationRecorder<'a> {
     }
 
     fn handle_system_info(&mut self, system_info: &buck2_data::SystemInfo) -> anyhow::Result<()> {
-        self.system_total_memory_bytes = system_info.system_total_memory_bytes;
+        self.system_total_memory_bytes = Some(system_info.system_total_memory_bytes);
         Ok(())
     }
 

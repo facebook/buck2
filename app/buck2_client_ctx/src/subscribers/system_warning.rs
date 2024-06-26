@@ -40,19 +40,13 @@ pub(crate) fn check_memory_pressure<T>(
     memory_pressure_threshold_percent.and_then(|memory_pressure_threshold_percent| {
         snapshot_tuple.as_ref().and_then(|(_, snapshot)| {
             process_memory(snapshot).and_then(|process_memory| {
-                // TODO (ezgi): one-shot commands don't record this. Prevent panick (division-by-zero) until it is fixed.
-                if let Some(system_total_memory) = system_info.system_total_memory_bytes {
-                    if (process_memory * 100)
-                        .checked_div(system_total_memory)
-                        .is_some_and(|res| res >= memory_pressure_threshold_percent)
-                    {
-                        Some(MemoryPressureHigh {
-                            system_total_memory,
-                            process_memory,
-                        })
-                    } else {
-                        None
-                    }
+                let system_total_memory = system_info.system_total_memory_bytes;
+                if (process_memory * 100 / system_total_memory) >= memory_pressure_threshold_percent
+                {
+                    Some(MemoryPressureHigh {
+                        system_total_memory,
+                        process_memory,
+                    })
                 } else {
                     None
                 }
