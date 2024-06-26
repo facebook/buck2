@@ -28,12 +28,11 @@ pub(crate) async fn eval_query<
     F: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
     Fut: Future<Output = anyhow::Result<Env>> + Send,
-    A: AsRef<str>,
 >(
     dispatcher: EventDispatcher,
     functions: &F,
     query: &str,
-    query_args: &[A],
+    query_args: &[String],
     environment: impl Fn(Vec<String>) -> Fut + Send + Sync,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
     let query = MaybeMultiQuery::parse(query, query_args)?;

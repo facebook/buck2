@@ -42,11 +42,11 @@ pub(crate) struct CqueryEvaluator<'c, 'd> {
 }
 
 impl CqueryEvaluator<'_, '_> {
-    pub(crate) async fn eval_query<A: AsRef<str>, U: AsRef<str> + Send + Sync>(
+    pub(crate) async fn eval_query(
         &self,
         query: &str,
-        query_args: &[A],
-        target_universe: Option<&[U]>,
+        query_args: &[String],
+        target_universe: Option<&[String]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
         eval_query(self.dice_query_delegate.ctx().per_transaction_data().get_dispatcher().dupe(), &self.functions, query, query_args, |literals| async move {
             let (universe, resolved_literals) = match target_universe {
