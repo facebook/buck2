@@ -45,6 +45,7 @@ ArtifactExt = record(
     # Returns the resolved path as a `cmd_arg()`, with the optional sub-path
     # appended.
     as_arg = field(typing.Callable),
+    join = field(typing.Callable),
 )
 
 # A Provider that mirrors `DefaultInfo` for `Artifact` outputs, but allows
@@ -156,6 +157,10 @@ def artifact_ext(
         artifact = artifact,
         sub_path = sub_path,
         as_arg = lambda: _as_arg(artifact, sub_path),
+        join = lambda p: artifact_ext(
+            artifact = artifact,
+            sub_path = p if sub_path == None else paths.join(sub_path, p),
+        ),
     )
 
 def to_artifact_ext(src: Artifact | Dependency) -> ArtifactExt:
