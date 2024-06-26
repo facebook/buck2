@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_cli_proto::profile_request::ProfileOpts;
-use buck2_cli_proto::profile_request::Profiler;
 use buck2_cli_proto::HasClientContext;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -29,20 +28,20 @@ pub fn starlark_profiler_configuration_from_request(
     req: &buck2_cli_proto::ProfileRequest,
     project_root: &ProjectRoot,
 ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-    let profiler_proto = buck2_cli_proto::profile_request::Profiler::from_i32(req.profiler)
-        .context("Invalid profiler")?;
+    let profiler_proto =
+        buck2_cli_proto::ProfileMode::from_i32(req.profile_mode).context("Invalid profiler")?;
 
     let profile_mode = match profiler_proto {
-        Profiler::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
-        Profiler::HeapFlameRetained => ProfileMode::HeapFlameRetained,
-        Profiler::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
-        Profiler::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
-        Profiler::TimeFlame => ProfileMode::TimeFlame,
-        Profiler::Statement => ProfileMode::Statement,
-        Profiler::Bytecode => ProfileMode::Bytecode,
-        Profiler::BytecodePairs => ProfileMode::BytecodePairs,
-        Profiler::Typecheck => ProfileMode::Typecheck,
-        Profiler::Coverage => ProfileMode::Coverage,
+        buck2_cli_proto::ProfileMode::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
+        buck2_cli_proto::ProfileMode::HeapFlameRetained => ProfileMode::HeapFlameRetained,
+        buck2_cli_proto::ProfileMode::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
+        buck2_cli_proto::ProfileMode::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
+        buck2_cli_proto::ProfileMode::TimeFlame => ProfileMode::TimeFlame,
+        buck2_cli_proto::ProfileMode::Statement => ProfileMode::Statement,
+        buck2_cli_proto::ProfileMode::Bytecode => ProfileMode::Bytecode,
+        buck2_cli_proto::ProfileMode::BytecodePairs => ProfileMode::BytecodePairs,
+        buck2_cli_proto::ProfileMode::Typecheck => ProfileMode::Typecheck,
+        buck2_cli_proto::ProfileMode::Coverage => ProfileMode::Coverage,
     };
 
     match req.profile_opts.as_ref().expect("Missing profile opts") {

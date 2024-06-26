@@ -796,24 +796,24 @@ message TargetProfile {
   Action action = 3;
 }
 
-message ProfileRequest {
-  enum Profiler {
-    HEAP_FLAME_ALLOCATED = 0;
-    HEAP_FLAME_RETAINED = 10;
-    HEAP_SUMMARY_ALLOCATED = 1;
-    HEAP_SUMMARY_RETAINED = 11;
-    TIME_FLAME = 2;
-    STATEMENT = 3;
-    BYTECODE = 4;
-    BYTECODE_PAIRS = 5;
-    TYPECHECK = 6;
-    COVERAGE = 7;
-  }
+enum ProfileMode {
+  HEAP_FLAME_ALLOCATED = 0;
+  HEAP_FLAME_RETAINED = 10;
+  HEAP_SUMMARY_ALLOCATED = 1;
+  HEAP_SUMMARY_RETAINED = 11;
+  TIME_FLAME = 2;
+  STATEMENT = 3;
+  BYTECODE = 4;
+  BYTECODE_PAIRS = 5;
+  TYPECHECK = 6;
+  COVERAGE = 7;
+}
 
+message ProfileRequest {
   ClientContext context = 1;
 
   string destination_path = 3;
-  Profiler profiler = 4;
+  ProfileMode profile_mode = 4;
 
   oneof profile_opts {
     TargetProfile target_profile = 7;

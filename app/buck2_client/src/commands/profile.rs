@@ -12,7 +12,6 @@ use std::time::Duration;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_cli_proto::profile_request::ProfileOpts;
-use buck2_cli_proto::profile_request::Profiler;
 use buck2_cli_proto::target_profile;
 use buck2_cli_proto::BxlProfile;
 use buck2_cli_proto::ProfileRequest;
@@ -145,18 +144,18 @@ struct ProfileSubcommand {
     subcommand: ProfileCommand,
 }
 
-fn profile_mode_to_profile(mode: BuckProfileMode) -> Profiler {
+fn profile_mode_to_profile(mode: BuckProfileMode) -> buck2_cli_proto::ProfileMode {
     match mode {
-        BuckProfileMode::TimeFlame => Profiler::TimeFlame,
-        BuckProfileMode::HeapFlameAllocated => Profiler::HeapFlameAllocated,
-        BuckProfileMode::HeapFlameRetained => Profiler::HeapFlameRetained,
-        BuckProfileMode::HeapSummaryAllocated => Profiler::HeapSummaryAllocated,
-        BuckProfileMode::HeapSummaryRetained => Profiler::HeapSummaryRetained,
-        BuckProfileMode::Statement => Profiler::Statement,
-        BuckProfileMode::Bytecode => Profiler::Bytecode,
-        BuckProfileMode::BytecodePairs => Profiler::BytecodePairs,
-        BuckProfileMode::Typecheck => Profiler::Typecheck,
-        BuckProfileMode::Coverage => Profiler::Coverage,
+        BuckProfileMode::TimeFlame => buck2_cli_proto::ProfileMode::TimeFlame,
+        BuckProfileMode::HeapFlameAllocated => buck2_cli_proto::ProfileMode::HeapFlameAllocated,
+        BuckProfileMode::HeapFlameRetained => buck2_cli_proto::ProfileMode::HeapFlameRetained,
+        BuckProfileMode::HeapSummaryAllocated => buck2_cli_proto::ProfileMode::HeapSummaryAllocated,
+        BuckProfileMode::HeapSummaryRetained => buck2_cli_proto::ProfileMode::HeapSummaryRetained,
+        BuckProfileMode::Statement => buck2_cli_proto::ProfileMode::Statement,
+        BuckProfileMode::Bytecode => buck2_cli_proto::ProfileMode::Bytecode,
+        BuckProfileMode::BytecodePairs => buck2_cli_proto::ProfileMode::BytecodePairs,
+        BuckProfileMode::Typecheck => buck2_cli_proto::ProfileMode::Typecheck,
+        BuckProfileMode::Coverage => buck2_cli_proto::ProfileMode::Coverage,
     }
 }
 
@@ -251,7 +250,7 @@ impl StreamingCommand for ProfileSubcommand {
             context: Some(context),
             profile_opts: Some(profile_opts),
             destination_path,
-            profiler: profiler as i32,
+            profile_mode: profiler as i32,
         };
 
         let response = buckd
