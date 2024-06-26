@@ -38,6 +38,7 @@ use crate::pattern::ascii_pattern::trim_prefix_ascii;
 use crate::pattern::ascii_pattern::AsciiChar;
 use crate::pattern::ascii_pattern::AsciiStr;
 use crate::pattern::ascii_pattern::AsciiStr2;
+use crate::pattern::package::PackagePattern;
 use crate::pattern::pattern_type::ConfigurationPredicate;
 use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use crate::pattern::pattern_type::PatternType;
@@ -236,6 +237,13 @@ impl<T: PatternType> ParsedPattern<T> {
             }
             ParsedPattern::Package(package) => ParsedPattern::Package(package),
             ParsedPattern::Recursive(cell_path) => ParsedPattern::Recursive(cell_path),
+        }
+    }
+
+    pub fn into_package_pattern_ignore_target(self) -> PackagePattern {
+        match self {
+            ParsedPattern::Target(p, ..) | ParsedPattern::Package(p) => PackagePattern::Package(p),
+            ParsedPattern::Recursive(p) => PackagePattern::Recursive(p),
         }
     }
 

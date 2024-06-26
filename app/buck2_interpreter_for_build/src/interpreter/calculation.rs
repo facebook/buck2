@@ -32,7 +32,6 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOptVal;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -77,9 +76,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
                 BuildFileCell::new(package.cell_name()),
             )
             .await?;
-        interpreter
-            .eval_build_file(package.dupe(), StarlarkProfilerOptVal::Disabled)
-            .await
+        interpreter.eval_build_file(package.dupe()).await
     }
 
     fn get_interpreter_results<'a>(

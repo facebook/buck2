@@ -38,6 +38,9 @@ use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::StarlarkPath;
+use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
+use buck2_interpreter::starlark_profiler::data::ProfileTarget;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOptVal;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -441,15 +444,24 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     pub async fn eval_build_file(
         &mut self,
         package: PackageLabel,
-        mut profiler_instrumentation: StarlarkProfilerOptVal,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        let ((), listing) = self
+        let ((), listing, profile_mode) = self
             .ctx
-            .try_compute2(
+            .try_compute3(
                 |ctx| check_starlark_stack_size(ctx).boxed(),
                 |ctx| Self::resolve_package_listing(ctx, package.dupe()).boxed(),
+                |ctx| ctx.get_profile_mode_for_loading(package).boxed(),
             )
             .await?;
+
+        let profiler_opt = profile_mode.profile_mode().map(|profile_mode| {
+            StarlarkProfiler::new(profile_mode.dupe(), false, ProfileTarget::Loading(package))
+        });
+
+        let mut profiler = match profiler_opt {
+            None => StarlarkProfilerOptVal::Disabled,
+            Some(profiler) => StarlarkProfilerOptVal::Profiler(profiler),
+        };
 
         let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
         let (ast, deps) = self
@@ -478,7 +490,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         let mut eval_result = with_starlark_eval_provider(
             ctx,
-            &mut profiler_instrumentation.as_mut(),
+            &mut profiler.as_mut(),
             format!("load_buildfile:{}", &package),
             move |provider, ctx| {
                 let mut buckconfigs =
@@ -527,7 +539,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             },
         )
         .await?;
-        let profile_data = profiler_instrumentation.finish()?;
+        let profile_data = profiler.finish()?;
         if eval_result.starlark_profile.is_some() {
             return Err(internal_error!("starlark_profile field must not be set yet").into());
         }

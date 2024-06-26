@@ -12,6 +12,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args_typed;
+use buck2_core::package::PackageLabel;
+use buck2_core::pattern::package::PackagePredicate;
 use buck2_core::pattern::pattern::ParsedPatternPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -29,12 +31,6 @@ use starlark::eval::ProfileMode;
 
 use crate::starlark_profiler::mode::StarlarkProfileMode;
 
-#[derive(Debug, buck2_error::Error)]
-enum StarlarkProfilerError {
-    #[error("profiler is not configured to profile last element (internal error)")]
-    ProfilerConfigurationNotLast,
-}
-
 /// Global profiling configuration.
 #[derive(PartialEq, Eq, Clone, Debug, Allocative)]
 #[derive(Default)]
@@ -43,7 +39,10 @@ pub enum StarlarkProfilerConfiguration {
     #[default]
     None,
     /// Profile loading of one `BUCK`, everything else is instrumented.
-    ProfileLastLoading(ProfileMode),
+    ProfileLastLoading(
+        ProfileMode,
+        UnparsedPatterns<ConfiguredProvidersPatternExtra>,
+    ),
     /// Profile analysis of the last target, everything else is instrumented.
     ProfileLastAnalysis(
         ProfileMode,
@@ -55,24 +54,10 @@ pub enum StarlarkProfilerConfiguration {
     ProfileBxl(ProfileMode),
 }
 
-impl StarlarkProfilerConfiguration {
-    pub fn profile_last_loading(&self) -> anyhow::Result<&ProfileMode> {
-        match self {
-            StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(..)
-            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_)
-            | StarlarkProfilerConfiguration::ProfileBxl(_) => {
-                Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
-            }
-            StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode) => Ok(profile_mode),
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, Clone, Debug, Allocative)]
 enum StarlarkProfilerConfigurationResolved {
     None,
-    ProfileLastLoading(ProfileMode),
+    ProfileLastLoading(ProfileMode, PackagePredicate),
     ProfileAnalysis(ProfileMode, ParsedPatternPredicate<TargetPatternExtra>),
     ProfileBxl(ProfileMode),
 }
@@ -101,45 +86,56 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let configuration = ctx.compute(&StarlarkProfilerConfigurationKey).await?;
-        let new = match &*configuration {
-            StarlarkProfilerConfiguration::None => StarlarkProfilerConfigurationResolved::None,
-            StarlarkProfilerConfiguration::ProfileLastLoading(mode) => {
-                StarlarkProfilerConfigurationResolved::ProfileLastLoading(mode.dupe())
-            }
-            StarlarkProfilerConfiguration::ProfileLastAnalysis(mode, patterns) => {
-                let patterns =
-                    parse_patterns_from_cli_args_typed::<ConfiguredProvidersPatternExtra>(
-                        ctx, patterns,
-                    )
+        let new =
+            match &*configuration {
+                StarlarkProfilerConfiguration::None => StarlarkProfilerConfigurationResolved::None,
+                StarlarkProfilerConfiguration::ProfileLastLoading(mode, patterns) => {
+                    let patterns = parse_patterns_from_cli_args_typed::<
+                        ConfiguredProvidersPatternExtra,
+                    >(ctx, patterns)
                     .await?;
-                let patterns = patterns
-                    .into_iter()
-                    .map(|p| {
-                        p.map(|_| {
-                            // Drop the extra because:
-                            // - we don't use providers when profiling analysis
-                            // - configuration may create issues when there are transitions;
-                            //   it might return more than user requested without
-                            //   (e.g. target and host analysis), but practically this is not an issue.
-                            TargetPatternExtra
+                    let patterns = patterns
+                        .into_iter()
+                        .map(|p| p.into_package_pattern_ignore_target())
+                        .collect();
+                    StarlarkProfilerConfigurationResolved::ProfileLastLoading(
+                        mode.dupe(),
+                        PackagePredicate::AnyOf(patterns),
+                    )
+                }
+                StarlarkProfilerConfiguration::ProfileLastAnalysis(mode, patterns) => {
+                    let patterns = parse_patterns_from_cli_args_typed::<
+                        ConfiguredProvidersPatternExtra,
+                    >(ctx, patterns)
+                    .await?;
+                    let patterns = patterns
+                        .into_iter()
+                        .map(|p| {
+                            p.map(|_| {
+                                // Drop the extra because:
+                                // - we don't use providers when profiling analysis
+                                // - configuration may create issues when there are transitions;
+                                //   it might return more than user requested without
+                                //   (e.g. target and host analysis), but practically this is not an issue.
+                                TargetPatternExtra
+                            })
                         })
-                    })
-                    .collect();
-                StarlarkProfilerConfigurationResolved::ProfileAnalysis(
-                    mode.dupe(),
-                    ParsedPatternPredicate::AnyOf(patterns),
-                )
-            }
-            StarlarkProfilerConfiguration::ProfileAnalysisRecursively(mode) => {
-                StarlarkProfilerConfigurationResolved::ProfileAnalysis(
-                    mode.dupe(),
-                    ParsedPatternPredicate::Any,
-                )
-            }
-            StarlarkProfilerConfiguration::ProfileBxl(mode) => {
-                StarlarkProfilerConfigurationResolved::ProfileBxl(mode.dupe())
-            }
-        };
+                        .collect();
+                    StarlarkProfilerConfigurationResolved::ProfileAnalysis(
+                        mode.dupe(),
+                        ParsedPatternPredicate::AnyOf(patterns),
+                    )
+                }
+                StarlarkProfilerConfiguration::ProfileAnalysisRecursively(mode) => {
+                    StarlarkProfilerConfigurationResolved::ProfileAnalysis(
+                        mode.dupe(),
+                        ParsedPatternPredicate::Any,
+                    )
+                }
+                StarlarkProfilerConfiguration::ProfileBxl(mode) => {
+                    StarlarkProfilerConfigurationResolved::ProfileBxl(mode.dupe())
+                }
+            };
         Ok(Arc::new(new))
     }
 
@@ -175,7 +171,7 @@ impl ProjectionKey for StarlarkProfileModeForAnalysisKey {
     ) -> buck2_error::Result<StarlarkProfileMode> {
         match &**(configuration.as_ref().map_err(|e| e.dupe())?) {
             StarlarkProfilerConfigurationResolved::None => Ok(StarlarkProfileMode::None),
-            StarlarkProfilerConfigurationResolved::ProfileLastLoading(_) => {
+            StarlarkProfilerConfigurationResolved::ProfileLastLoading(..) => {
                 Ok(StarlarkProfileMode::None)
             }
             StarlarkProfilerConfigurationResolved::ProfileAnalysis(mode, patterns) => {
@@ -184,6 +180,51 @@ impl ProjectionKey for StarlarkProfileModeForAnalysisKey {
                 } else {
                     Ok(StarlarkProfileMode::None)
                 }
+            }
+            StarlarkProfilerConfigurationResolved::ProfileBxl(_) => Ok(StarlarkProfileMode::None),
+        }
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+#[derive(
+    Debug,
+    derive_more::Display,
+    Clone,
+    Dupe,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative
+)]
+struct StarlarkProfileModeForLoadingKey(PackageLabel);
+
+impl ProjectionKey for StarlarkProfileModeForLoadingKey {
+    type DeriveFromKey = StarlarkProfilerConfigurationResolvedKey;
+    type Value = buck2_error::Result<StarlarkProfileMode>;
+
+    fn compute(
+        &self,
+        derive_from: &buck2_error::Result<Arc<StarlarkProfilerConfigurationResolved>>,
+        _ctx: &DiceProjectionComputations,
+    ) -> Self::Value {
+        match &**(derive_from.as_ref().map_err(|e| e.dupe())?) {
+            StarlarkProfilerConfigurationResolved::None => Ok(StarlarkProfileMode::None),
+            StarlarkProfilerConfigurationResolved::ProfileLastLoading(mode, patterns) => {
+                if patterns.matches(self.0) {
+                    Ok(StarlarkProfileMode::Profile(mode.dupe()))
+                } else {
+                    Ok(StarlarkProfileMode::None)
+                }
+            }
+            StarlarkProfilerConfigurationResolved::ProfileAnalysis(_, _) => {
+                Ok(StarlarkProfileMode::None)
             }
             StarlarkProfilerConfigurationResolved::ProfileBxl(_) => Ok(StarlarkProfileMode::None),
         }
@@ -242,6 +283,11 @@ pub trait GetStarlarkProfilerInstrumentation {
         &mut self,
         target_label: &ConfiguredTargetLabel,
     ) -> anyhow::Result<StarlarkProfileMode>;
+
+    async fn get_profile_mode_for_loading(
+        &mut self,
+        package_label: PackageLabel,
+    ) -> anyhow::Result<StarlarkProfileMode>;
 }
 
 #[async_trait]
@@ -266,6 +312,19 @@ impl GetStarlarkProfilerInstrumentation for DiceComputations<'_> {
         Ok(self.projection(
             &cfg,
             &StarlarkProfileModeForAnalysisKey(target_label.dupe()),
+        )??)
+    }
+
+    async fn get_profile_mode_for_loading(
+        &mut self,
+        package_label: PackageLabel,
+    ) -> anyhow::Result<StarlarkProfileMode> {
+        let cfg = self
+            .compute_opaque(&StarlarkProfilerConfigurationResolvedKey)
+            .await?;
+        Ok(self.projection(
+            &cfg,
+            &StarlarkProfileModeForLoadingKey(package_label.dupe()),
         )??)
     }
 }

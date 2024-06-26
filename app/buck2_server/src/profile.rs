@@ -26,11 +26,10 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_cancellable;
+use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
-use buck2_interpreter::starlark_profiler::data::ProfileTarget;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOptVal;
+use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
@@ -87,22 +86,22 @@ async fn generate_profile_analysis(
 async fn generate_profile_loading(
     ctx: &DiceTransaction,
     package: PackageLabel,
-    profile_mode: &StarlarkProfilerConfiguration,
 ) -> anyhow::Result<StarlarkProfileDataAndStats> {
+    // Self-check.
+    let profile_mode = ctx.clone().get_profile_mode_for_loading(package).await?;
+    match profile_mode {
+        StarlarkProfileMode::None => {
+            return Err(internal_error!("profile mode must be set in DICE"));
+        }
+        StarlarkProfileMode::Profile(_) => {}
+    }
+
     let mut ctx = ctx.clone();
     let mut calculation = ctx
         .get_interpreter_calculator(package.cell_name(), BuildFileCell::new(package.cell_name()))
         .await?;
 
-    let profiler = StarlarkProfiler::new(
-        profile_mode.profile_last_loading()?.dupe(),
-        false,
-        ProfileTarget::Loading(package.dupe()),
-    );
-
-    let eval_result = calculation
-        .eval_build_file(package, StarlarkProfilerOptVal::Profiler(profiler))
-        .await?;
+    let eval_result = calculation.eval_build_file(package).await?;
 
     let starlark_profile = &eval_result
         .starlark_profile
@@ -217,14 +216,10 @@ async fn generate_profile(
 
             let profiles = futures::future::try_join_all(resolved.specs.into_iter().map(
                 |(package, _spec)| {
-                    let profile_mode = profile_mode.clone();
                     let ctx = ctx.dupe();
                     spawn_cancellable(
                         move |_cancel| {
-                            async move {
-                                generate_profile_loading(&ctx, package, &profile_mode).await
-                            }
-                            .boxed()
+                            async move { generate_profile_loading(&ctx, package).await }.boxed()
                         },
                         &*ctx_data.spawner,
                         ctx_data,

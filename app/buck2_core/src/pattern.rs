@@ -11,6 +11,7 @@
 #![doc = include_str!("pattern/target_pattern.md")]
 
 mod ascii_pattern;
+pub mod package;
 pub mod parse_package;
 pub mod pattern;
 pub mod pattern_type;

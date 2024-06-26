@@ -12,7 +12,6 @@
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::PackageLabel;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOptVal;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -60,10 +59,7 @@ async fn test_package_value_same_dir_package_file() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//headphones"),
-            StarlarkProfilerOptVal::Disabled,
-        )
+        .eval_build_file(PackageLabel::testing_parse("root//headphones"))
         .await
         .unwrap();
 
@@ -107,10 +103,7 @@ async fn test_package_value_parent_dir_package_file() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//trackpad"),
-            StarlarkProfilerOptVal::Disabled,
-        )
+        .eval_build_file(PackageLabel::testing_parse("root//trackpad"))
         .await
         .unwrap();
 
@@ -142,10 +135,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         .await
         .unwrap();
     let err = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//foo"),
-            StarlarkProfilerOptVal::Disabled,
-        )
+        .eval_build_file(PackageLabel::testing_parse("root//foo"))
         .await;
     assert!(
         format!("{:?}", err)
@@ -228,10 +218,7 @@ async fn test_read_parent_package_value() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//foo"),
-            StarlarkProfilerOptVal::Disabled,
-        )
+        .eval_build_file(PackageLabel::testing_parse("root//foo"))
         .await
         .unwrap();
 
@@ -293,10 +280,7 @@ async fn test_read_parent_package_value_from_bzl() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//foo"),
-            StarlarkProfilerOptVal::Disabled,
-        )
+        .eval_build_file(PackageLabel::testing_parse("root//foo"))
         .await
         .unwrap();
 
@@ -328,10 +312,7 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
         .await
         .unwrap();
     let err = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//foo"),
-            StarlarkProfilerOptVal::Disabled,
-        )
+        .eval_build_file(PackageLabel::testing_parse("root//foo"))
         .await;
     assert!(
         format!("{:?}", err)
@@ -372,10 +353,7 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
         .await
         .unwrap();
     let err = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//foo"),
-            StarlarkProfilerOptVal::Disabled,
-        )
+        .eval_build_file(PackageLabel::testing_parse("root//foo"))
         .await;
     assert!(
         format!("{:?}", err)

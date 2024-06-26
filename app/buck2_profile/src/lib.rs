@@ -51,7 +51,12 @@ pub fn starlark_profiler_configuration_from_request(
                 .context("Invalid action")?;
             Ok(match (action, opts.recursive) {
                 (buck2_cli_proto::target_profile::Action::Loading, false) => {
-                    StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
+                    let working_dir = AbsNormPath::new(&req.client_context()?.working_dir)?;
+                    let working_dir = project_root.relativize(working_dir)?;
+                    StarlarkProfilerConfiguration::ProfileLastLoading(
+                        profile_mode,
+                        UnparsedPatterns::new(opts.target_patterns.clone(), working_dir.to_buf()),
+                    )
                 }
                 (buck2_cli_proto::target_profile::Action::Loading, true) => {
                     return Err(anyhow::anyhow!(
