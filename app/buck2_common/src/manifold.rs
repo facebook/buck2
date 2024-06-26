@@ -37,6 +37,17 @@ impl Ttl {
             duration: Duration::from_secs(ttl),
         }
     }
+
+    pub fn from_days(days: u64) -> Self {
+        let secs = days * 24 * 60 * 60;
+        Self {
+            duration: Duration::from_secs(secs),
+        }
+    }
+
+    pub fn as_secs(&self) -> u64 {
+        self.duration.as_secs()
+    }
 }
 
 impl Default for Ttl {
@@ -311,5 +322,16 @@ impl<'a> ManifoldChunkedUploader<'a> {
 
     pub fn position(&self) -> u64 {
         self.position
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_days_to_secs() {
+        assert_eq!(Ttl::from_days(1).duration.as_secs(), 86400);
+        assert_eq!(Ttl::from_days(3).duration.as_secs(), 86400 * 3);
     }
 }
