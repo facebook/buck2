@@ -18,6 +18,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -65,13 +66,19 @@ pub fn starlark_profiler_configuration_from_request(
                 (buck2_cli_proto::target_profile::Action::Analysis, false) => {
                     let working_dir = AbsNormPath::new(&req.client_context()?.working_dir)?;
                     let working_dir = project_root.relativize(working_dir)?;
-                    StarlarkProfilerConfiguration::ProfileLastAnalysis(
+                    StarlarkProfilerConfiguration::ProfileAnalysis(
                         profile_mode,
-                        UnparsedPatterns::new(opts.target_patterns.clone(), working_dir.to_buf()),
+                        UnparsedPatternPredicate::AnyOf(UnparsedPatterns::new(
+                            opts.target_patterns.clone(),
+                            working_dir.to_buf(),
+                        )),
                     )
                 }
                 (buck2_cli_proto::target_profile::Action::Analysis, true) => {
-                    StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode)
+                    StarlarkProfilerConfiguration::ProfileAnalysis(
+                        profile_mode,
+                        UnparsedPatternPredicate::Any,
+                    )
                 }
             })
         }

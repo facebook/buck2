@@ -41,3 +41,9 @@ impl<T: PatternType> UnparsedPatterns<T> {
         &self.working_dir
     }
 }
+
+#[derive(Allocative, Debug, Clone, PartialEq, Eq)]
+pub enum UnparsedPatternPredicate<T: PatternType> {
+    Any,
+    AnyOf(UnparsedPatterns<T>),
+}

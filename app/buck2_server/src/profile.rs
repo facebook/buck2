@@ -71,8 +71,7 @@ async fn generate_profile_analysis(
         configured_targetss.into_iter().flatten().collect();
 
     match profile_mode {
-        StarlarkProfilerConfiguration::ProfileLastAnalysis(..)
-        | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_) => {
+        StarlarkProfilerConfiguration::ProfileAnalysis(..) => {
             profile_analysis(&mut ctx, &configured_targets)
                 .await
                 .context("Recursive profile analysis failed")
