@@ -421,7 +421,7 @@ impl BuckdServer {
         // Fire off a system-wide event to record the memory usage of this process.
         // TODO(ezgi): add it to oneshot command too
         dispatch.instant_event(buck2_data::SystemInfo {
-            system_total_memory_bytes: system_memory_stats(),
+            system_total_memory_bytes: Some(system_memory_stats()),
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
