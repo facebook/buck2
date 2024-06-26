@@ -17,7 +17,6 @@ use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::TargetCfg;
 use buck2_common::pattern::parse_from_cli::parse_and_resolve_patterns_from_cli_args;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -30,7 +29,7 @@ use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumenta
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -96,12 +95,7 @@ async fn generate_profile_loading(
         StarlarkProfileMode::Profile(_) => {}
     }
 
-    let mut ctx = ctx.clone();
-    let mut calculation = ctx
-        .get_interpreter_calculator(package.cell_name(), BuildFileCell::new(package.cell_name()))
-        .await?;
-
-    let eval_result = calculation.eval_build_file(package).await?;
+    let eval_result = ctx.clone().get_interpreter_results(package).await?;
 
     let starlark_profile = &eval_result
         .starlark_profile
