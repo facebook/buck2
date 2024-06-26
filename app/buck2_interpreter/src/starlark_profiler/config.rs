@@ -18,7 +18,6 @@ use buck2_core::pattern::pattern::ParsedPatternPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
-use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
@@ -39,10 +38,10 @@ pub enum StarlarkProfilerConfiguration {
     /// No profiling.
     #[default]
     None,
-    /// Profile loading of one `BUCK`, everything else is instrumented.
-    ProfileLastLoading(
+    /// Profile loading of one `BUCK`.
+    ProfileLoading(
         ProfileMode,
-        UnparsedPatterns<ConfiguredProvidersPatternExtra>,
+        UnparsedPatternPredicate<ConfiguredProvidersPatternExtra>,
     ),
     /// Profile analysis for given patterns.
     ProfileAnalysis(
@@ -87,21 +86,28 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
         let configuration = ctx.compute(&StarlarkProfilerConfigurationKey).await?;
         let new = match &*configuration {
             StarlarkProfilerConfiguration::None => StarlarkProfilerConfigurationResolved::None,
-            StarlarkProfilerConfiguration::ProfileLastLoading(mode, patterns) => {
-                let patterns =
-                    parse_patterns_from_cli_args_typed::<ConfiguredProvidersPatternExtra>(
-                        ctx, patterns,
+            StarlarkProfilerConfiguration::ProfileLoading(mode, patterns) => match patterns {
+                UnparsedPatternPredicate::Any => {
+                    StarlarkProfilerConfigurationResolved::ProfileLastLoading(
+                        mode.dupe(),
+                        PackagePredicate::Any,
                     )
+                }
+                UnparsedPatternPredicate::AnyOf(patterns) => {
+                    let patterns = parse_patterns_from_cli_args_typed::<
+                        ConfiguredProvidersPatternExtra,
+                    >(ctx, patterns)
                     .await?;
-                let patterns = patterns
-                    .into_iter()
-                    .map(|p| p.into_package_pattern_ignore_target())
-                    .collect();
-                StarlarkProfilerConfigurationResolved::ProfileLastLoading(
-                    mode.dupe(),
-                    PackagePredicate::AnyOf(patterns),
-                )
-            }
+                    let patterns = patterns
+                        .into_iter()
+                        .map(|p| p.into_package_pattern_ignore_target())
+                        .collect();
+                    StarlarkProfilerConfigurationResolved::ProfileLastLoading(
+                        mode.dupe(),
+                        PackagePredicate::AnyOf(patterns),
+                    )
+                }
+            },
             StarlarkProfilerConfiguration::ProfileAnalysis(mode, patterns) => {
                 match patterns {
                     UnparsedPatternPredicate::Any => {

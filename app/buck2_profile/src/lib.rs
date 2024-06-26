@@ -53,9 +53,12 @@ pub fn starlark_profiler_configuration_from_request(
                 (buck2_cli_proto::target_profile::Action::Loading, false) => {
                     let working_dir = AbsNormPath::new(&req.client_context()?.working_dir)?;
                     let working_dir = project_root.relativize(working_dir)?;
-                    StarlarkProfilerConfiguration::ProfileLastLoading(
+                    StarlarkProfilerConfiguration::ProfileLoading(
                         profile_mode,
-                        UnparsedPatterns::new(opts.target_patterns.clone(), working_dir.to_buf()),
+                        UnparsedPatternPredicate::AnyOf(UnparsedPatterns::new(
+                            opts.target_patterns.clone(),
+                            working_dir.to_buf(),
+                        )),
                     )
                 }
                 (buck2_cli_proto::target_profile::Action::Loading, true) => {
