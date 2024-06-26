@@ -9,6 +9,7 @@
 
 #![feature(error_generic_member_access)]
 #![feature(used_with_arg)]
+#![feature(once_cell_try)]
 
 //!
 //! Events and event streams for Buck2.

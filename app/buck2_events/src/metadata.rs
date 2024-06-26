@@ -86,15 +86,7 @@ pub struct SystemInfo {
 
 pub fn system_info() -> SystemInfo {
     let hostname = hostname();
-    let username;
-    #[cfg(fbcode_build)]
-    {
-        username = user::current_username().ok();
-    }
-    #[cfg(not(fbcode_build))]
-    {
-        username = None;
-    }
+    let username = username().ok().flatten();
 
     SystemInfo {
         hostname,
@@ -136,6 +128,17 @@ pub fn hostname() -> Option<String> {
             .map(|res| res.to_string_lossy().into_owned())
     })
     .clone()
+}
+
+pub fn username() -> anyhow::Result<Option<String>> {
+    #[cfg(fbcode_build)]
+    {
+        Ok(Some(user::current_username()?))
+    }
+    #[cfg(not(fbcode_build))]
+    {
+        Ok::<Option<String>, anyhow::Error>(None)
+    }
 }
 
 #[cfg(all(test, target_os = "windows"))]
