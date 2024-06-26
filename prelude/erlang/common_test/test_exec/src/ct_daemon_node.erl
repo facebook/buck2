@@ -173,7 +173,7 @@ ensure_distribution(Type, RandomName, Cookie) ->
                 ([] = os:cmd("epmd -daemon")),
             Name = list_to_atom(
                 lists:flatten(
-                    io_lib:format("ct_daemon~s", [RandomName])
+                    io_lib:format("ct_daemon~s@localhost", [RandomName])
                 )
             ),
             {ok, _Pid} = net_kernel:start(Name, #{name_domain => Type}),
