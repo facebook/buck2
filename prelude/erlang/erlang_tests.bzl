@@ -183,6 +183,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     output_dir = link_output(ctx, suite_name, build_environment, data_dir, property_dir)
     test_info_file = _write_test_info_file(
         ctx = ctx,
+        extra_code_paths = [primary_toolchain.utility_modules],
         test_suite = suite_name,
         dependencies = dependencies,
         test_dir = output_dir,
@@ -199,6 +200,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     for config_file in config_files:
         hidden_args.append(config_file)
 
+    hidden_args.append(primary_toolchain.utility_modules)
     hidden_args.append(output_dir)
     cmd.add(cmd_args(hidden = hidden_args))
 
@@ -262,6 +264,7 @@ def _build_default_info(dependencies: ErlAppDependencies, output_dir: Artifact) 
 
 def _write_test_info_file(
         ctx: AnalysisContext,
+        extra_code_paths: list[Artifact],
         test_suite: str,
         dependencies: ErlAppDependencies,
         test_dir: Artifact,
@@ -272,7 +275,7 @@ def _write_test_info_file(
         "common_app_env": ctx.attrs.common_app_env,
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
-        "dependencies": _list_code_paths(dependencies),
+        "dependencies": _list_code_paths(extra_code_paths, dependencies),
         "erl_cmd": cmd_args(['"', cmd_args(erl_cmd, delimiter = " "), '"'], delimiter = ""),
         "extra_ct_hooks": ctx.attrs.extra_ct_hooks,
         "extra_flags": ctx.attrs.extra_erl_flags,
@@ -287,9 +290,11 @@ def _write_test_info_file(
     )
     return test_info_file
 
-def _list_code_paths(dependencies: ErlAppDependencies) -> list[cmd_args]:
+def _list_code_paths(extra_code_paths: list[Artifact], dependencies: ErlAppDependencies) -> list[cmd_args]:
     """lists all ebin/ dirs from the test targets dependencies"""
     folders = []
+    for path in extra_code_paths:
+        folders.append(cmd_args(path, format = '"{}"'))
     for dependency in dependencies.values():
         if ErlangAppInfo in dependency:
             dep_info = dependency[ErlangAppInfo]
