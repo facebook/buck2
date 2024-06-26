@@ -16,12 +16,12 @@ use buck2_common::chunk_reader::ChunkReader;
 use buck2_common::manifold;
 use buck2_common::manifold::ManifoldChunkedUploader;
 use buck2_common::manifold::ManifoldClient;
-use buck2_core::buck2_env;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::PersistEventLogSubprocess;
+use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::sink::scribe::ThriftScribeSink;
 use buck2_events::BuckEvent;
@@ -36,10 +36,6 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tokio::time::Duration;
 use tokio::time::Instant;
-
-fn manifold_ttl_s() -> anyhow::Result<Option<u64>> {
-    buck2_env!("BUCK2_TEST_MANIFOLD_TTL_S", type=u64, applicability=testing)
-}
 
 const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
 
@@ -231,12 +227,10 @@ impl<'a> Uploader<'a> {
         manifold_path: &'a str,
         manifold_client: &'a ManifoldClient,
     ) -> anyhow::Result<Self> {
-        let ttl = manifold_ttl_s()?.map(manifold::Ttl::from_secs);
-
         let manifold = manifold_client.start_chunked_upload(
             manifold::Bucket::EVENT_LOGS,
             manifold_path,
-            ttl.unwrap_or_default(),
+            manifold_event_log_ttl()?,
         );
 
         Ok(Self {
