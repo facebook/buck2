@@ -40,7 +40,6 @@ use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::BuckEvent;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_util::sliding_window::SlidingWindow;
-use buck2_util::system_stats::system_memory_stats;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
@@ -228,7 +227,7 @@ impl<'a> InvocationRecorder<'a> {
             time_to_load_first_build_file: None,
             time_to_first_command_execution_start: None,
             time_to_first_test_discovery: None,
-            system_total_memory_bytes: Some(system_memory_stats()),
+            system_total_memory_bytes: None,
             file_watcher_stats: None,
             file_watcher_duration: None,
             time_to_last_action_execution_end: None,
@@ -820,6 +819,11 @@ impl<'a> InvocationRecorder<'a> {
         Ok(())
     }
 
+    fn handle_system_info(&mut self, system_info: &buck2_data::SystemInfo) -> anyhow::Result<()> {
+        self.system_total_memory_bytes = Some(system_info.system_total_memory_bytes);
+        Ok(())
+    }
+
     fn handle_test_discovery(
         &mut self,
         test_info: &buck2_data::TestDiscovery,
@@ -1153,6 +1157,9 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::instant_event::Data::InstallFinished(install_finished) => {
                         self.handle_install_finished(install_finished)
+                    }
+                    buck2_data::instant_event::Data::SystemInfo(system_info) => {
+                        self.handle_system_info(system_info)
                     }
                     _ => Ok(()),
                 }

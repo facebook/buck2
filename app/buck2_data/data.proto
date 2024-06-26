@@ -294,6 +294,8 @@ message InstantEvent {
     BuckConfigs buck_configs = 38;
 
     InstallFinished install_finished = 39;
+
+    SystemInfo system_info = 40;
   }
 }
 
@@ -2209,6 +2211,10 @@ message ConnectToInstallerEnd {}
 
 message InstallFinished {
   google.protobuf.Duration duration = 1;
+}
+
+message SystemInfo {
+  uint64 system_total_memory_bytes = 1;
 }
 
 message CpuCounter {
