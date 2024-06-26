@@ -504,7 +504,7 @@ impl<'a> InvocationRecorder<'a> {
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
             buckconfig_diff_count: self.buckconfig_diff_count.take(),
             buckconfig_diff_size: self.buckconfig_diff_size.take(),
-            manifold_event_log_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
+            event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
         };
 
         let event = BuckEvent::new(
