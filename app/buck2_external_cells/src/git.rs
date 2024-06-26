@@ -238,7 +238,13 @@ async fn download_and_materialize(
         return Ok(());
     }
 
-    let res = download_impl(ctx, setup, path, &*materializer, cancellations).await;
+    // Don't allow the actual download step to be cancelled. In principle it might be possible to
+    // properly clean up after a cancellation within the execution of this key, but we'd also have
+    // to deal with another key that might be waiting on this download to finish, which would be
+    // pretty complicated to deal with.
+    let res = cancellations
+        .critical_section(|| download_impl(ctx, setup, path, &*materializer, cancellations))
+        .await;
 
     // Give up our lock
     drop(semaphore_guard);
