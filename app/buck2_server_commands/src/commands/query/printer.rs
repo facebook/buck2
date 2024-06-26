@@ -309,7 +309,7 @@ impl<'a> QueryResultPrinter<'a> {
                 std::mem::drop(ser);
                 // need to add a newline to flush the output.
                 writeln!(&mut output)?;
-                captured_error
+                Ok(captured_error?)
             }
             _ => {
                 self.print_single_output(

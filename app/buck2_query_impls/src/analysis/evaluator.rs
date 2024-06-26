@@ -90,10 +90,18 @@ where
                 scope.spawn_cancellable(
                     async move {
                         let result = eval_single_query(functions, &query.query, env);
-                        let result = result.await;
+                        let result: buck2_error::Result<_> = result.await.map_err(|e| e.into());
                         (i, arg, result)
                     },
-                    move || (i, arg_1, Err(anyhow::anyhow!("future was cancelled"))),
+                    move || {
+                        (
+                            i,
+                            arg_1,
+                            Err::<_, buck2_error::Error>(
+                                anyhow::anyhow!("future was cancelled").into(),
+                            ),
+                        )
+                    },
                 )
             }
         })
