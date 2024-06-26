@@ -22,7 +22,6 @@ use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query_parser::multi_query::MaybeMultiQuery;
 use buck2_query_parser::multi_query::MultiQueryItem;
 use futures::Future;
-use starlark::collections::SmallSet;
 
 pub(crate) async fn eval_query<
     F: QueryFunctions<Env = Env>,
@@ -62,9 +61,8 @@ where
     Env: QueryEnvironment,
     Fut: Future<Output = anyhow::Result<Env>>,
 {
-    let mut literals = SmallSet::new();
-    extract_target_literals(functions, query, &mut literals)?;
-    let env = environment(literals.into_iter().collect()).await?;
+    let literals = extract_target_literals(functions, query)?;
+    let env = environment(literals).await?;
     QueryEvaluator::new(&env, functions).eval_query(query).await
 }
 

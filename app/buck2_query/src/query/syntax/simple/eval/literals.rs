@@ -23,13 +23,12 @@ use crate::query::syntax::simple::functions::QueryLiteralVisitor;
 pub fn extract_target_literals<F: QueryFunctions>(
     functions: &F,
     query: &str,
-    result: &mut SmallSet<String>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<String>> {
     let parsed = parse_expr(query)?;
-    struct LiteralExtractor<'a> {
-        literals: &'a mut SmallSet<String>,
+    struct LiteralExtractor {
+        literals: SmallSet<String>,
     }
-    impl QueryLiteralVisitor for LiteralExtractor<'_> {
+    impl QueryLiteralVisitor for LiteralExtractor {
         fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()> {
             if pattern != QUERY_PERCENT_S_PLACEHOLDER {
                 self.literals.get_or_insert_owned(pattern);
@@ -37,9 +36,11 @@ pub fn extract_target_literals<F: QueryFunctions>(
             Ok(())
         }
     }
-    let mut visitor = LiteralExtractor { literals: result };
+    let mut visitor = LiteralExtractor {
+        literals: SmallSet::new(),
+    };
     functions
         .visit_literals(&mut visitor, &parsed)
         .into_anyhow(query)?;
-    Ok(())
+    Ok(Vec::from_iter(visitor.literals))
 }
