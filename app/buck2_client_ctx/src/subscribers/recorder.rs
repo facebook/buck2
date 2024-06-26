@@ -30,6 +30,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_data::error::ErrorTag;
 use buck2_error::classify::best_tag;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
+use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_event_observer::action_stats;
 use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
@@ -503,6 +504,7 @@ impl<'a> InvocationRecorder<'a> {
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
             buckconfig_diff_count: self.buckconfig_diff_count.take(),
             buckconfig_diff_size: self.buckconfig_diff_size.take(),
+            manifold_event_log_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
         };
 
         let event = BuckEvent::new(
