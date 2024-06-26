@@ -22,6 +22,7 @@ use crate::subscribers::system_warning::system_memory_exceeded_msg;
 /// This component is used to display system warnings for a command e.g. memory pressure, low disk space etc.
 pub(crate) struct SystemWarningComponent<'a, T> {
     pub(crate) last_snapshot_tuple: &'a Option<(T, buck2_data::Snapshot)>,
+    pub(crate) system_info: &'a buck2_data::SystemInfo,
     pub(crate) system_warning_config: &'a SystemWarningConfig,
 }
 
@@ -37,6 +38,7 @@ impl<'a, T> Component for SystemWarningComponent<'a, T> {
 
         if let Some(memory_pressure) = check_memory_pressure(
             self.last_snapshot_tuple,
+            self.system_info,
             self.system_warning_config.memory_pressure_threshold_percent,
         ) {
             lines.push(warning_styled(&system_memory_exceeded_msg(

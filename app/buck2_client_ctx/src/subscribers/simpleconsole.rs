@@ -540,6 +540,7 @@ where
 
                     if let Some(memory_pressure) = check_memory_pressure(
                         &self.observer().two_snapshots().last,
+                        &self.observer().system_info(),
                         self.system_warning_config.memory_pressure_threshold_percent,
                     ) {
                         echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;

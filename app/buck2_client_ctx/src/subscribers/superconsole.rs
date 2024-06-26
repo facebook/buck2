@@ -175,10 +175,12 @@ impl<'s> Component for BuckRootComponent<'s> {
         let mut draw = DrawVertical::new(dimensions);
 
         let last_snapshot_tuple = &self.state.simple_console.observer.two_snapshots().last;
+        let system_info = &self.state.simple_console.observer.system_info();
         {
             draw.draw(
                 &SystemWarningComponent {
                     last_snapshot_tuple,
+                    system_info,
                     system_warning_config: &self.state.config.system_warning_config,
                 },
                 mode,

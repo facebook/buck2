@@ -15,6 +15,7 @@ use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOve
 use buck2_cli_proto::client_context::PreemptibleWhen as GrpcPreemptibleWhen;
 use buck2_cli_proto::ClientContext;
 use buck2_common::argv::Argv;
+use buck2_common::init::SystemWarningConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::error::buck2_hard_error_env;
 use buck2_core::fs::working_dir::WorkingDir;
@@ -213,5 +214,13 @@ impl<'a> ClientCommandContext<'a> {
 
     pub fn allow_vpnless(&self) -> anyhow::Result<bool> {
         Ok(self.immediate_config.daemon_startup_config()?.allow_vpnless)
+    }
+
+    pub fn system_warning_config(&self) -> anyhow::Result<SystemWarningConfig> {
+        Ok(self
+            .immediate_config
+            .daemon_startup_config()?
+            .system_warning_config
+            .clone())
     }
 }
