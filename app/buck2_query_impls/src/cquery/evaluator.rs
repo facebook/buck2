@@ -37,7 +37,6 @@ use crate::uquery::environment::UqueryDelegate;
 
 pub(crate) struct CqueryEvaluator<'c, 'd> {
     dice_query_delegate: DiceQueryDelegate<'c, 'd>,
-    functions: DefaultQueryFunctionsModule<CqueryEnvironment<'c>>,
     owner_behavior: CqueryOwnerBehavior,
 }
 
@@ -48,7 +47,14 @@ impl CqueryEvaluator<'_, '_> {
         query_args: &[String],
         target_universe: Option<&[String]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
-        eval_query(self.dice_query_delegate.ctx().per_transaction_data().get_dispatcher().dupe(), &self.functions, query, query_args, |literals| async move {
+        let dispatcher = self
+            .dice_query_delegate
+            .ctx()
+            .per_transaction_data()
+            .get_dispatcher()
+            .dupe();
+        let functions = DefaultQueryFunctionsModule::new();
+        eval_query(dispatcher, &functions, query, query_args, |literals| async move {
             let (universe, resolved_literals) = match target_universe {
                 None => {
                     if literals.is_empty() {
@@ -106,10 +112,8 @@ pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a, 'd>(
     owner_behavior: CqueryOwnerBehavior,
 ) -> anyhow::Result<CqueryEvaluator<'c, 'd>> {
     let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
-    let functions = DefaultQueryFunctionsModule::new();
     Ok(CqueryEvaluator {
         dice_query_delegate,
-        functions,
         owner_behavior,
     })
 }
