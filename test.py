@@ -40,6 +40,10 @@ def is_macos() -> bool:
     return sys.platform == "darwin"
 
 
+def is_windows() -> bool:
+    return sys.platform == "win32"
+
+
 class Colors(Enum):
     # Copied from https://stackoverflow.com/questions/287871/how-to-print-colored-text-to-the-terminal
     HEADER = "\033[95m"
@@ -366,8 +370,14 @@ def rustdoc(package_args: List[str]) -> None:
 
 
 def test(package_args: List[str]) -> None:
-    print_running("cargo test")
-    run(["cargo", "test", *package_args])
+    print_running("cargo test --lib")
+    extra_args = []
+    # Limit number of parallel jobs to prevent OOMs
+    if is_windows():
+        extra_args = ["--jobs", str(os.cpu_count() // 2)]
+    run(["cargo", "test", "--lib", *extra_args, *package_args])
+    print_running("cargo test --doc")
+    run(["cargo", "test", "--doc", *extra_args, *package_args])
 
 
 def main() -> None:
