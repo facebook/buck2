@@ -5,16 +5,25 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-NAMED_CONSTRAINT_SETTINGS = [
+# This is an ordered dictionary of constraint setting target to an optional transform.
+# The constraint settings listed below are used to name the configuration, where the first
+# constraint settings are named first in the configuration. The transform, if specified,
+# can change how the name appears in the configuration. By default, if there is no transform,
+# we just use name of the constraint value in the configuration name. If transform is
+# specified, the transform will be applied on the existing constraint value name to return a
+# new string to be used in the configuration.
+# @unsorted-dict-items
+NAMED_CONSTRAINT_SETTINGS = {
     # TODO(scottcao): Add OSS constraints as well
-    "ovr_config//os/constraints:os",
-    "ovr_config//cpu/constraints:cpu",
-    "ovr_config//runtime/constraints:runtime",
-    "ovr_config//runtime/constraints:runtime_version",
-    "ovr_config//os/sdk/apple/constraints:_",
-    "ovr_config//os/sdk/android/ndk/constraints:version",
-    "ovr_config//build_mode/constraints:san",
-]
+    "ovr_config//os/constraints:os": None,
+    "ovr_config//cpu/constraints:cpu": None,
+    "ovr_config//runtime/constraints:runtime": None,
+    "ovr_config//runtime/constraints:runtime_version": None,
+    "ovr_config//os/sdk/apple/constraints:_": None,
+    "ovr_config//os/sdk/android/ndk/constraints:version": None,
+    "ovr_config//toolchain/clang/constraints:clang-toolchain-version": (lambda label: "clang" + str(label.name)),
+    "ovr_config//build_mode/constraints:san": None,
+}
 
 # Mark all modifier generated configurations with a `cfg:` prefix.
 # We do this so that we can easily recognize which configuration is generated
@@ -27,9 +36,14 @@ def cfg_name(cfg: ConfigurationInfo) -> str:
 
     name_list = []
     constraints = {str(key): value for key, value in cfg.constraints.items()}
-    for constraint_setting in NAMED_CONSTRAINT_SETTINGS:
+    for constraint_setting, transform in NAMED_CONSTRAINT_SETTINGS.items():
         if constraint_setting in constraints:
-            name_list.append(constraints[constraint_setting].label.name)
+            constraint_value_label = constraints[constraint_setting].label
+            if transform:
+                constraint_name = transform(constraint_value_label)
+            else:
+                constraint_name = str(constraint_value_label.name)
+            name_list.append(constraint_name)
     if len(name_list) == 0:
         name = _EMPTY_CFG_NAME
     else:
