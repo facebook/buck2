@@ -13,6 +13,7 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
@@ -125,6 +126,7 @@ pub struct EvaluationResult {
     imports: Vec<ImportPath>,
     super_package: SuperPackage,
     targets: TargetsMap,
+    pub starlark_profile: Option<Arc<dyn StarlarkProfileDataAndStatsDyn>>,
 }
 
 impl EvaluationResult {
@@ -139,6 +141,8 @@ impl EvaluationResult {
             imports,
             super_package,
             targets,
+            // This is populated later when `Evaluator` is finalized.
+            starlark_profile: None,
         }
     }
 

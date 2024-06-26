@@ -24,6 +24,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
@@ -38,6 +39,7 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOptVal;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
@@ -439,7 +441,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     pub async fn eval_build_file(
         &mut self,
         package: PackageLabel,
-        profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
+        mut profiler_instrumentation: StarlarkProfilerOptVal,
     ) -> buck2_error::Result<Arc<EvaluationResult>> {
         let ((), listing) = self
             .ctx
@@ -474,9 +476,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = &self.configs;
         let ctx = &mut *self.ctx;
 
-        with_starlark_eval_provider(
+        let mut eval_result = with_starlark_eval_provider(
             ctx,
-            profiler_instrumentation,
+            &mut profiler_instrumentation.as_mut(),
             format!("load_buildfile:{}", &package),
             move |provider, ctx| {
                 let mut buckconfigs =
@@ -524,9 +526,13 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 })
             },
         )
-        .await
-        .map(Arc::new)
-        .map_err(buck2_error::Error::from)
+        .await?;
+        let profile_data = profiler_instrumentation.finish()?;
+        if eval_result.starlark_profile.is_some() {
+            return Err(internal_error!("starlark_profile field must not be set yet").into());
+        }
+        eval_result.starlark_profile = profile_data.map(|d| Arc::new(d) as _);
+        Ok(Arc::new(eval_result))
     }
 }
 

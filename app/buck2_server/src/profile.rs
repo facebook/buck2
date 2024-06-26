@@ -30,7 +30,7 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::ProfileTarget;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOptVal;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_profile::get_profile_response;
 use buck2_profile::starlark_profiler_configuration_from_request;
@@ -94,20 +94,21 @@ async fn generate_profile_loading(
         .get_interpreter_calculator(package.cell_name(), BuildFileCell::new(package.cell_name()))
         .await?;
 
-    let mut profiler = StarlarkProfiler::new(
+    let profiler = StarlarkProfiler::new(
         profile_mode.profile_last_loading()?.dupe(),
         false,
         ProfileTarget::Loading(package.dupe()),
     );
 
-    calculation
-        .eval_build_file(
-            package,
-            &mut StarlarkProfilerOpt::for_profiler(&mut profiler),
-        )
+    let eval_result = calculation
+        .eval_build_file(package, StarlarkProfilerOptVal::Profiler(profiler))
         .await?;
 
-    profiler.finish()
+    let starlark_profile = &eval_result
+        .starlark_profile
+        .as_ref()
+        .internal_error("profile result must be set")?;
+    Ok(StarlarkProfileDataAndStats::downcast(&***starlark_profile)?.clone())
 }
 
 pub async fn profile_command(

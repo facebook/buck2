@@ -159,3 +159,26 @@ impl<'p> StarlarkProfilerOpt<'p> {
         }
     }
 }
+
+pub enum StarlarkProfilerOptVal {
+    Disabled,
+    Profiler(StarlarkProfiler),
+}
+
+impl StarlarkProfilerOptVal {
+    pub fn as_mut(&mut self) -> StarlarkProfilerOpt {
+        match self {
+            StarlarkProfilerOptVal::Disabled => StarlarkProfilerOpt::disabled(),
+            StarlarkProfilerOptVal::Profiler(profiler) => {
+                StarlarkProfilerOpt::for_profiler(profiler)
+            }
+        }
+    }
+
+    pub fn finish(self) -> anyhow::Result<Option<StarlarkProfileDataAndStats>> {
+        match self {
+            StarlarkProfilerOptVal::Disabled => Ok(None),
+            StarlarkProfilerOptVal::Profiler(profiler) => profiler.finish().map(Some),
+        }
+    }
+}

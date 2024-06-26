@@ -7,14 +7,17 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::cmp;
 use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::BuckErrorContext;
 use starlark::eval::ProfileData;
 use starlark::StarlarkResultExt;
 
@@ -36,6 +39,12 @@ pub struct StarlarkProfileDataAndStats {
     pub(crate) initialized_at: Instant,
     pub(crate) finalized_at: Instant,
     pub(crate) total_retained_bytes: usize,
+}
+
+impl StarlarkProfileDataAndStatsDyn for StarlarkProfileDataAndStats {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl StarlarkProfileDataAndStats {
@@ -76,5 +85,12 @@ impl StarlarkProfileDataAndStats {
             finalized_at,
             total_retained_bytes,
         })
+    }
+
+    pub fn downcast(profile_data: &dyn StarlarkProfileDataAndStatsDyn) -> anyhow::Result<&Self> {
+        profile_data
+            .as_any()
+            .downcast_ref::<Self>()
+            .internal_error("There's only one implementation of StarlarkProfileDataAndStatsDyn")
     }
 }
