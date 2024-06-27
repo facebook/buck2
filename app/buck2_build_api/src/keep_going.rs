@@ -14,9 +14,7 @@ use dice::DiceComputations;
 use dice::UserComputationData;
 use futures::future::BoxFuture;
 use futures::stream::FuturesOrdered;
-use futures::stream::FuturesUnordered;
 use futures::Future;
-use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use indexmap::IndexMap;
@@ -24,23 +22,9 @@ use smallvec::SmallVec;
 
 pub struct KeepGoing;
 
-pub enum KeepGoingOrder {
-    Ordered,
-    Unordered,
-}
-
 impl KeepGoing {
-    pub fn ordered() -> KeepGoingOrder {
-        KeepGoingOrder::Ordered
-    }
-
-    pub fn unordered() -> KeepGoingOrder {
-        KeepGoingOrder::Unordered
-    }
-
     pub fn try_compute_join_all<'a, C, T: Send, R: 'a, E: 'a>(
         ctx: &'a mut DiceComputations<'_>,
-        order: KeepGoingOrder,
         items: impl IntoIterator<Item = T>,
         mapper: (
             impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
@@ -60,16 +44,8 @@ impl KeepGoing {
             )
         }));
 
-        match order {
-            KeepGoingOrder::Ordered => {
-                let futs: FuturesOrdered<_> = futs.into_iter().collect();
-                Self::try_join_all(keep_going, futs).left_future()
-            }
-            KeepGoingOrder::Unordered => {
-                let futs: FuturesUnordered<_> = futs.into_iter().collect();
-                Self::try_join_all(keep_going, futs).right_future()
-            }
-        }
+        let futs: FuturesOrdered<_> = futs.into_iter().collect();
+        Self::try_join_all(keep_going, futs)
     }
 
     async fn try_join_all<C, R, E>(

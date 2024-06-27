@@ -103,7 +103,6 @@ async fn build_action_no_redirect(
 
         let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
             ctx,
-            KeepGoing::ordered(),
             inputs.iter(),
             |ctx, v| {
                 async move {

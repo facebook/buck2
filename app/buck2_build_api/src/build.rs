@@ -389,7 +389,6 @@ async fn build_configured_label_inner<'a>(
         let resolved_artifacts: Vec<_> =
             tokio::task::unconstrained(KeepGoing::try_compute_join_all(
                 &mut ctx.get(),
-                KeepGoing::ordered(),
                 outputs.iter(),
                 |ctx, (output, _type)| async move { output.resolved_artifact(ctx).await }.boxed(),
             ))

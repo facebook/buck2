@@ -239,28 +239,22 @@ impl AnonTargetDependents {
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<AnonTargetDependentAnalysisResults<'v>> {
         let dep_analysis_results: HashMap<_, _> = {
-            KeepGoing::try_compute_join_all(
-                dice,
-                KeepGoing::unordered(),
-                self.deps.iter(),
-                |ctx, dep| {
-                    async move {
-                        let res = ctx
-                            .get_analysis_result(dep)
-                            .await
-                            .and_then(|v| v.require_compatible());
-                        res.map(|x| (dep, x.providers().dupe()))
-                    }
-                    .boxed()
-                },
-            )
+            KeepGoing::try_compute_join_all(dice, self.deps.iter(), |ctx, dep| {
+                async move {
+                    let res = ctx
+                        .get_analysis_result(dep)
+                        .await
+                        .and_then(|v| v.require_compatible());
+                    res.map(|x| (dep, x.providers().dupe()))
+                }
+                .boxed()
+            })
         }
         .await?;
 
         let promised_artifacts: HashMap<_, _> = {
             KeepGoing::try_compute_join_all(
                 dice,
-                KeepGoing::unordered(),
                 self.promise_artifacts.iter(),
                 |ctx, promise_artifact_attr| {
                     async move {

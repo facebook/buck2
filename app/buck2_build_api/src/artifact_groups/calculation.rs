@@ -439,7 +439,6 @@ impl Key for EnsureTransitiveSetProjectionKey {
 
         let sub_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
             ctx,
-            KeepGoing::ordered(),
             projection_sub_inputs.iter(),
             |ctx, a| async move { a.resolved_artifact(ctx).await }.boxed(),
         ))
@@ -450,7 +449,6 @@ impl Key for EnsureTransitiveSetProjectionKey {
             // stability of the ArtifactGroupValues we produce across executions, which try_compute_join_all preserves.
             let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
                 ctx,
-                KeepGoing::ordered(),
                 sub_inputs.iter(),
                 |ctx, v| async move { ensure_artifact_group_staged(ctx, v.clone()).await }.boxed(),
             ))

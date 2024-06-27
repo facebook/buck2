@@ -162,7 +162,6 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
 ) -> anyhow::Result<Vec<ActionInput>> {
     let resolved_artifacts: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
         ctx,
-        KeepGoing::ordered(),
         inputs,
         |ctx, input| async move { input.resolved_artifact(ctx).await }.boxed(),
     ))
