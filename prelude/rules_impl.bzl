@@ -666,6 +666,7 @@ transitions = {
     "apple_binary": target_sdk_version_transition,
     "apple_bundle": target_sdk_version_transition,
     "apple_resource": apple_resource_transition,
+    "apple_test": target_sdk_version_transition,
     "cxx_binary": constraint_overrides_transition,
     "cxx_test": constraint_overrides_transition,
     "go_binary": go_binary_transition,

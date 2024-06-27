@@ -124,6 +124,7 @@ def apple_test_extra_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         # The test source code and lib dependencies should be built into a shared library.
         "preferred_linkage": attrs.enum(Linkage.values(), default = "shared"),
+        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
