@@ -264,6 +264,10 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         Ok(FileSet::new(indexset![FileNode(cell_path)]))
     }
 
+    fn linear_dice_computations(&self) -> &LinearRecomputeDiceComputations<'_> {
+        self.ctx
+    }
+
     fn ctx<'a>(&'a self) -> DiceComputations<'a> {
         self.ctx.get()
     }

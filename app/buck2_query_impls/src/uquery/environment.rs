@@ -46,6 +46,7 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::ChildVisitor;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
@@ -92,6 +93,8 @@ pub(crate) trait UqueryDelegate: Send + Sync {
     // This always includes the immediate enclosing package of the path but can also include
     // all parent packages if the package matches `project.package_boundary_exceptions` buckconfig.
     async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>>;
+
+    fn linear_dice_computations(&self) -> &LinearRecomputeDiceComputations<'_>;
 
     fn ctx<'a>(&'a self) -> DiceComputations<'a>;
 }
@@ -386,7 +389,8 @@ pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
         top_level_imports.extend(eval_result.imports().iter().cloned());
     }
 
-    let loads = get_transitive_loads(top_level_imports, delegate).await?;
+    let loads =
+        get_transitive_loads(top_level_imports, delegate.linear_dice_computations()).await?;
 
     let mut new_paths = IndexSet::<FileNode>::new();
     for load in &loads {
@@ -615,7 +619,11 @@ async fn first_order_imports<'c>(
     all_top_level_imports: &[ImportPath],
     delegate: &'c dyn UqueryDelegate,
 ) -> anyhow::Result<HashMap<ImportPath, Vec<ImportPath>>> {
-    let all_imports = get_transitive_loads(all_top_level_imports.to_vec(), delegate).await?;
+    let all_imports = get_transitive_loads(
+        all_top_level_imports.to_vec(),
+        delegate.linear_dice_computations(),
+    )
+    .await?;
 
     let mut all_first_order_futs: FuturesUnordered<_> = all_imports
         .iter()
@@ -634,9 +642,9 @@ async fn first_order_imports<'c>(
 }
 
 // Uquery and Cquery share ImportPath traversal logic, so we move the logic to this function.
-pub(crate) async fn get_transitive_loads<'c>(
+pub(crate) async fn get_transitive_loads(
     top_level_imports: Vec<ImportPath>,
-    delegate: &'c dyn UqueryDelegate,
+    ctx: &LinearRecomputeDiceComputations<'_>,
 ) -> anyhow::Result<Vec<ImportPath>> {
     #[derive(Clone, Dupe)]
     struct Node(Arc<ImportPath>);
@@ -672,8 +680,8 @@ pub(crate) async fn get_transitive_loads<'c>(
 
     let mut imports: Vec<ImportPath> = Vec::new();
 
-    struct Delegate<'c> {
-        delegate: &'c dyn UqueryDelegate,
+    struct Delegate<'c, 'a> {
+        ctx: &'c LinearRecomputeDiceComputations<'a>,
     }
 
     let visit = |target: Node| {
@@ -681,15 +689,15 @@ pub(crate) async fn get_transitive_loads<'c>(
         Ok(())
     };
 
-    impl AsyncChildVisitor<Node> for Delegate<'_> {
+    impl AsyncChildVisitor<Node> for Delegate<'_, '_> {
         async fn for_each_child(
             &self,
             target: &Node,
             mut func: impl ChildVisitor<Node>,
         ) -> anyhow::Result<()> {
             for import in self
-                .delegate
-                .ctx()
+                .ctx
+                .get()
                 .get_loaded_module_imports(target.import_path())
                 .await?
             {
@@ -699,9 +707,7 @@ pub(crate) async fn get_transitive_loads<'c>(
         }
     }
 
-    let traversal_delegate = Delegate {
-        delegate: delegate.dupe(),
-    };
+    let traversal_delegate = Delegate { ctx };
     let lookup = Lookup {};
 
     let import_nodes = top_level_imports.iter().map(NodeRef::ref_cast);
