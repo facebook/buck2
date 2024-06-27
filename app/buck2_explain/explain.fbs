@@ -12,34 +12,13 @@ namespace explain;
 enum TargetFieldType : byte { Bool, Int, String, List, Dict }
 
 table TargetField {
-  type: TargetFieldType;
+  type: TargetFieldType = String;
   key: string;
   bool_value: bool = null;
   int_value: long = null;
   string_value: string;
   list_value: [TargetField];
   dict_value: [TargetField];
-}
-
-table IntAttr {
-    key: string;
-    value: long;
-}
-
-
-table StringAttr {
-    key: string;
-    value: string;
-}
-
-table ListOfStringsAttr {
-    key: string;
-    value: [string];
-}
-
-table DictOfStringsAttr {
-    key: string;
-    value: [StringAttr];
 }
 
 table ConfiguredTargetNode {
@@ -54,7 +33,6 @@ table ConfiguredTargetNode {
     plugins: [string];
     // user attrs
     attrs: [TargetField];
-    // TODO iguridi: add other possible types
     // extras
     configured_target_label: string;
 }
