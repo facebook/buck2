@@ -38,8 +38,8 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationNoExec::new(self.0.dupe())
         }
 
-        fn exec_cfg(&self) -> ConfigurationNoExec {
-            ConfigurationNoExec::new(self.1.dupe())
+        fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+            Ok(ConfigurationNoExec::new(self.1.dupe()))
         }
 
         fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {

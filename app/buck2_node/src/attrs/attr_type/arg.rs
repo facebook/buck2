@@ -214,7 +214,7 @@ impl MacroBase<ProvidersLabel> {
             }
             UnconfiguredMacro::Exe { label, exec_dep } => ConfiguredMacro::Exe {
                 label: if *exec_dep {
-                    ctx.configure_exec_target(label)
+                    ctx.configure_exec_target(label)?
                 } else {
                     ctx.configure_target(label)
                 },

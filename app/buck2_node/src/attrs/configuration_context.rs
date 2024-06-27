@@ -38,7 +38,7 @@ pub trait AttrConfigurationContext {
 
     fn cfg(&self) -> ConfigurationNoExec;
 
-    fn exec_cfg(&self) -> ConfigurationNoExec;
+    fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec>;
 
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     fn toolchain_cfg(&self) -> ConfigurationWithExec;
@@ -53,8 +53,11 @@ pub trait AttrConfigurationContext {
         label.configure_pair(self.cfg().cfg_pair().dupe())
     }
 
-    fn configure_exec_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
-        label.configure_pair(self.exec_cfg().cfg_pair().dupe())
+    fn configure_exec_target(
+        &self,
+        label: &ProvidersLabel,
+    ) -> anyhow::Result<ConfiguredProvidersLabel> {
+        Ok(label.configure_pair(self.exec_cfg()?.cfg_pair().dupe()))
     }
 
     fn configure_toolchain_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
@@ -129,8 +132,8 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
         self.resolved_cfg.cfg().dupe()
     }
 
-    fn exec_cfg(&self) -> ConfigurationNoExec {
-        self.exec_cfg.dupe()
+    fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+        Ok(self.exec_cfg.dupe())
     }
 
     fn toolchain_cfg(&self) -> ConfigurationWithExec {

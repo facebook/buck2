@@ -450,10 +450,11 @@ fn test_configured_deps() -> anyhow::Result<()> {
     let mut info = ConfiguredAttrInfoForTests::new();
     configured_exec.traverse(PackageLabel::testing(), &mut info)?;
     eprintln!("{:?}", info);
+    let exec_cfg = configuration_ctx().exec_cfg()?;
     assert_eq!(
         expected_deps
             .to_vec()
-            .map(|s| format!("{} ({})", s, configuration_ctx().exec_cfg())),
+            .map(|s| format!("{} ({})", s, exec_cfg)),
         info.execution_deps
             .iter()
             .map(ToString::to_string)
@@ -787,7 +788,7 @@ fn test_arg() -> anyhow::Result<()> {
     assert_eq!(
         format!(
             "\"$(exe root//some:exe ({})) --file=$(location root//some:location ({}))\"",
-            configuration_ctx().exec_cfg(),
+            configuration_ctx().exec_cfg()?,
             ConfigurationData::testing_new(),
         ),
         configured.as_display_no_ctx().to_string()
@@ -812,7 +813,7 @@ fn test_arg() -> anyhow::Result<()> {
     )];
     let expected_configured_exec_deps = vec![format!(
         "root//some:exe ({})",
-        configuration_ctx().exec_cfg()
+        configuration_ctx().exec_cfg()?
     )];
 
     assert_eq!(expected_deps, deps);

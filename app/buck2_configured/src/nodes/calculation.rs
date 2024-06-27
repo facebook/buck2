@@ -36,6 +36,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::internal_error;
 use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
@@ -422,12 +423,12 @@ fn unpack_target_compatible_with_attr(
             self.resolved_cfg.cfg().dupe()
         }
 
-        fn exec_cfg(&self) -> ConfigurationNoExec {
-            unreachable!(
+        fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+            Err(internal_error!(
                 "exec_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
-            )
+            ))
         }
 
         fn toolchain_cfg(&self) -> ConfigurationWithExec {
@@ -774,7 +775,9 @@ async fn gather_deps(
         for plugin_label in plugin_lists.iter_for_kind(kind).map(|(target, _)| {
             attr_cfg_ctx.configure_exec_target(&ProvidersLabel::default_for(target.dupe()))
         }) {
-            exec_deps.entry(plugin_label).or_insert(CheckVisibility::No);
+            exec_deps
+                .entry(plugin_label?)
+                .or_insert(CheckVisibility::No);
         }
     }
 

@@ -114,7 +114,7 @@ impl DepAttrType {
     ) -> anyhow::Result<ConfiguredAttr> {
         let configured_label = match &self.transition {
             DepAttrTransition::Identity(..) => ctx.configure_target(label),
-            DepAttrTransition::Exec => ctx.configure_exec_target(label),
+            DepAttrTransition::Exec => ctx.configure_exec_target(label)?,
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
         };
