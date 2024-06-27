@@ -44,38 +44,31 @@ impl KeepGoing {
             )
         }));
 
-        let futs: FuturesOrdered<_> = futs.into_iter().collect();
-        Self::try_join_all(keep_going, futs)
-    }
+        let mut futs: FuturesOrdered<_> = futs.into_iter().collect();
 
-    async fn try_join_all<C, R, E>(
-        keep_going: bool,
-        mut inputs: impl Stream<Item = Result<R, E>> + Unpin,
-    ) -> Result<C, E>
-    where
-        C: KeepGoingCollectable<R>,
-    {
-        let size = inputs.size_hint().0;
-        let mut res = C::with_capacity(size);
-        let mut err = None;
-        while let Some(x) = inputs.next().await {
-            match x {
-                Ok(x) => res.push(x),
-                Err(e) => {
-                    if keep_going {
-                        err = Some(e);
-                    } else {
-                        return Err(e);
+        async move {
+            let size = futs.size_hint().0;
+            let mut res = C::with_capacity(size);
+            let mut err = None;
+            while let Some(x) = futs.next().await {
+                match x {
+                    Ok(x) => res.push(x),
+                    Err(e) => {
+                        if keep_going {
+                            err = Some(e);
+                        } else {
+                            return Err(e);
+                        }
                     }
                 }
             }
-        }
 
-        if let Some(err) = err {
-            return Err(err);
-        }
+            if let Some(err) = err {
+                return Err(err);
+            }
 
-        Ok(res)
+            Ok(res)
+        }
     }
 }
 
