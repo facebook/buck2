@@ -136,7 +136,6 @@ impl LiteralParser {
 /// InterpreterCalculation.
 pub(crate) struct DiceQueryDelegate<'c, 'd> {
     ctx: &'c LinearRecomputeDiceComputations<'d>,
-    cell_resolver: CellResolver,
     query_data: Arc<DiceQueryData>,
 }
 
@@ -185,14 +184,9 @@ impl DiceQueryData {
 impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
     pub(crate) fn new(
         ctx: &'c LinearRecomputeDiceComputations<'d>,
-        cell_resolver: CellResolver,
         query_data: Arc<DiceQueryData>,
     ) -> Self {
-        Self {
-            ctx,
-            cell_resolver: cell_resolver.dupe(),
-            query_data,
-        }
+        Self { ctx, query_data }
     }
 
     pub(crate) fn ctx<'x>(&'x self) -> DiceComputations<'x> {
@@ -210,10 +204,9 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     async fn get_buildfile_names_by_cell(
         &self,
     ) -> anyhow::Result<HashMap<CellName, Arc<[FileNameBuf]>>> {
-        let resolver = &self.cell_resolver;
-        let buildfiles = self
-            .ctx
-            .get()
+        let mut ctx = self.ctx.get();
+        let resolver = ctx.get_cell_resolver().await?;
+        let buildfiles = ctx
             .try_compute_join(resolver.cells(), |ctx, (name, _)| {
                 async move {
                     DiceFileComputations::buildfiles(ctx, name)
@@ -380,7 +373,6 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
         .to_owned();
     Ok(DiceQueryDelegate::new(
         ctx,
-        cell_resolver.dupe(),
         Arc::new(DiceQueryData::new(
             global_cfg_options,
             cell_resolver,

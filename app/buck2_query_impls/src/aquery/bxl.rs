@@ -76,7 +76,7 @@ impl BxlAqueryFunctionsImpl {
             self.project_root.dupe(),
             target_alias_resolver,
         )?);
-        let query_delegate = DiceQueryDelegate::new(&dice, cell_resolver, query_data);
+        let query_delegate = DiceQueryDelegate::new(&dice, query_data);
 
         Ok(Arc::new(DiceAqueryDelegate::new(query_delegate).await?))
     }

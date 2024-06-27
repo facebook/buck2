@@ -64,11 +64,7 @@ impl BxlCqueryFunctionsImpl {
             target_alias_resolver,
         )?);
 
-        Ok(DiceQueryDelegate::new(
-            dice,
-            cell_resolver,
-            query_data.dupe(),
-        ))
+        Ok(DiceQueryDelegate::new(dice, query_data.dupe()))
     }
 
     async fn cquery_env<'c, 'd>(

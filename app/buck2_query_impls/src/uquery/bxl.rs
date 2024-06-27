@@ -58,7 +58,7 @@ impl BxlUqueryFunctionsImpl {
             self.project_root.dupe(),
             target_alias_resolver,
         )?);
-        Ok(DiceQueryDelegate::new(dice, cell_resolver, query_data))
+        Ok(DiceQueryDelegate::new(dice, query_data))
     }
 
     async fn uquery_env<'c, 'd>(
