@@ -7,10 +7,15 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
+use buck2_build_api::transition::TransitionAttrProvider;
+use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
+use dupe::OptionDupedExt;
 use starlark::values::OwnedFrozenValueTyped;
 
 use crate::transition::starlark::FrozenTransition;
@@ -49,4 +54,22 @@ impl FetchTransition for DiceComputations<'_> {
             .downcast_anyhow()
             .map_err(buck2_error::Error::from)
     }
+}
+
+struct TransitionGetAttrs;
+
+#[async_trait]
+impl TransitionAttrProvider for TransitionGetAttrs {
+    async fn transition_attrs(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        transition_id: &TransitionId,
+    ) -> anyhow::Result<Option<Arc<[String]>>> {
+        let transition = ctx.fetch_transition(transition_id).await?;
+        Ok(transition.attrs_names.as_ref().duped())
+    }
+}
+
+pub(crate) fn init_transition_attr_provider() {
+    TRANSITION_ATTRS_PROVIDER.init(&TransitionGetAttrs);
 }

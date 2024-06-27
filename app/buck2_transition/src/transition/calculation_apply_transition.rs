@@ -142,7 +142,7 @@ async fn do_apply_transition(
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
             let refs = module.heap().alloc(AllocStruct(refs));
-            let attrs = match (&transition.attrs, attrs) {
+            let attrs = match (&transition.attrs_names_starlark, attrs) {
                 (Some(names), Some(values)) => {
                     if names.len() != values.len() {
                         return Err(
@@ -307,7 +307,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
         let transition = ctx.fetch_transition(transition_id).await?;
 
         #[allow(clippy::manual_map)]
-        let attrs = if let Some(attrs) = &transition.attrs {
+        let attrs = if let Some(attrs) = &transition.attrs_names_starlark {
             Some(attrs.try_map(|attr| {
                 target_node
                     .attr(attr, AttrInspectOptions::All)

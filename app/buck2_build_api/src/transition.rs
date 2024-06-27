@@ -31,3 +31,21 @@ pub trait TransitionCalculation: Send + Sync + 'static {
 
 pub static TRANSITION_CALCULATION: LateBinding<&'static dyn TransitionCalculation> =
     LateBinding::new("TRANSITION_CALCULATION");
+
+pub static TRANSITION_ATTRS_PROVIDER: LateBinding<&'static dyn TransitionAttrProvider> =
+    LateBinding::new("TRANSITION_ATTRS_PROVIDER");
+
+//TODO transition attributes can be added to Rule. Basic idea is this:
+// * in RuleCallable fetch TransitionId from transition value using TransitionValue trait
+// * add a function like attrs to TransitionValue,
+// * call it from RuleCallable, and store in Rule.
+// * in TargetNode we have access to Rule.
+#[async_trait]
+pub trait TransitionAttrProvider: Send + Sync + 'static {
+    /// Fetch attribute names accessed by transition function.
+    async fn transition_attrs(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        transition_id: &TransitionId,
+    ) -> anyhow::Result<Option<Arc<[String]>>>;
+}
