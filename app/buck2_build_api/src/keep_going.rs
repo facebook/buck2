@@ -13,10 +13,7 @@ use std::hash::Hash;
 use dice::DiceComputations;
 use dice::UserComputationData;
 use futures::future::BoxFuture;
-use futures::stream::FuturesOrdered;
 use futures::Future;
-use futures::Stream;
-use futures::StreamExt;
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 
@@ -44,29 +41,20 @@ impl KeepGoing {
             )
         }));
 
-        let mut futs: FuturesOrdered<_> = futs.into_iter().collect();
-
         async move {
-            let size = futs.size_hint().0;
-            let mut res = C::with_capacity(size);
-            let mut err = None;
-            while let Some(x) = futs.next().await {
-                match x {
-                    Ok(x) => res.push(x),
-                    Err(e) => {
-                        if keep_going {
-                            err = Some(e);
-                        } else {
-                            return Err(e);
-                        }
-                    }
-                }
-            }
+            let v = if keep_going {
+                futures::future::join_all(futs)
+                    .await
+                    .into_iter()
+                    .try_collect::<Vec<_>>()?
+            } else {
+                futures::future::try_join_all(futs).await?
+            };
 
-            if let Some(err) = err {
-                return Err(err);
+            let mut res = C::with_capacity(v.len());
+            for x in v {
+                res.push(x);
             }
-
             Ok(res)
         }
     }

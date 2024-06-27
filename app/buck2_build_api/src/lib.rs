@@ -13,6 +13,7 @@
 #![feature(try_blocks)]
 #![feature(once_cell_try)]
 #![feature(used_with_arg)]
+#![feature(iterator_try_collect)]
 
 #[macro_use]
 extern crate starlark;
