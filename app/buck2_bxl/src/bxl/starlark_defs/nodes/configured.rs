@@ -21,6 +21,7 @@ use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_analysis::analysis::env::get_deps_from_analysis_results;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use buck2_analysis::attrs::resolve::configured_attr::PackageLabelOption;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::analysis::AnalysisResult;
@@ -488,7 +489,8 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(attrs.name.value())
     /// ```
     fn value<'v>(this: &StarlarkConfiguredAttr, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        this.0.to_value(this.1.dupe(), heap)
+        this.0
+            .to_value(PackageLabelOption::PackageLabel(this.1.dupe()), heap)
     }
 }
 

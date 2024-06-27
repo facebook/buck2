@@ -11,6 +11,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
+use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::error::BuckStarlarkError;
@@ -26,6 +27,7 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
+use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::values::dict::Dict;
@@ -48,6 +50,18 @@ use crate::attrs::resolve::attr_type::source::SourceAttrTypeExt;
 use crate::attrs::resolve::attr_type::split_transition_dep::SplitTransitionDepAttrTypeExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
+#[derive(Debug, buck2_error::Error)]
+enum ConfiguredAttrError {
+    #[error("Source path `{0}` cannot be used in attributes referenced in transition")]
+    SourceFileToStarlarkValue(ArcS<PackageRelativePath>),
+}
+
+#[derive(Copy, Clone)]
+pub enum PackageLabelOption {
+    PackageLabel(PackageLabel),
+    TransitionAttr,
+}
+
 pub trait ConfiguredAttrExt {
     fn resolve<'v>(
         &self,
@@ -63,7 +77,7 @@ pub trait ConfiguredAttrExt {
 
     fn starlark_type(&self) -> anyhow::Result<&'static str>;
 
-    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
+    fn to_value<'v>(&self, pkg: PackageLabelOption, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrExt for ConfiguredAttr {
@@ -131,7 +145,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             a @ (ConfiguredAttr::Visibility(_) | ConfiguredAttr::WithinView(_)) => {
                 // TODO(nga): rule implementations should not need visibility attribute.
                 //   But adding it here to preserve existing behavior.
-                a.to_value(pkg, ctx.heap())
+                a.to_value(PackageLabelOption::PackageLabel(pkg), ctx.heap())
             }
             ConfiguredAttr::ExplicitConfiguredDep(d) => {
                 ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
@@ -199,7 +213,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     }
 
     /// Converts the configured attr to a starlark value without fully resolving
-    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn to_value<'v>(&self, pkg: PackageLabelOption, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(match &self {
             ConfiguredAttr::Bool(v) => heap.alloc(v.0),
             ConfiguredAttr::Int(v) => heap.alloc(*v),
@@ -261,9 +275,24 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             }
             ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
             ConfiguredAttr::Query(query) => heap.alloc(&query.query.query),
-            ConfiguredAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
-            ))),
+            ConfiguredAttr::SourceFile(f) => match pkg {
+                PackageLabelOption::PackageLabel(pkg) => {
+                    heap.alloc(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
+                        SourcePath::new(pkg.to_owned(), f.path().dupe()),
+                    ))))
+                }
+                // We don't store package label in transition key for better caching of transition between packages.
+                // (This is not inherent requirement,
+                // but it was easier to implement this ways,
+                // and probably transitions do not need access to sources anyway).
+                // So package label is not available. If the need arises, we can store package label along with source attributes.
+                // TODO(romanp): add earlier check during rule function construction to prevent using source attributes in transitions.
+                PackageLabelOption::TransitionAttr => {
+                    return Err(
+                        ConfiguredAttrError::SourceFileToStarlarkValue(f.path().dupe()).into(),
+                    );
+                }
+            },
             ConfiguredAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
         })
     }

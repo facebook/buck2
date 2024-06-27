@@ -12,6 +12,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use buck2_analysis::attrs::resolve::configured_attr::PackageLabelOption;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -30,15 +32,13 @@ use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
-use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use dupe::OptionDupedExt;
 use itertools::Itertools;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -49,7 +49,6 @@ use starlark::values::Value;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
 
-use crate::coerced_attr::CoercedAttrResolveExt;
 use crate::transition::calculation_fetch_transition::FetchTransition;
 use crate::transition::starlark::FrozenTransition;
 
@@ -115,7 +114,7 @@ fn call_transition_function<'v>(
 
 async fn do_apply_transition(
     ctx: &mut DiceComputations<'_>,
-    attrs: Option<&[Option<CoercedAttr>]>,
+    attrs: Option<&[Option<Arc<ConfiguredAttr>>]>,
     conf: &ConfigurationData,
     transition_id: &TransitionId,
 ) -> buck2_error::Result<TransitionApplied> {
@@ -152,13 +151,15 @@ async fn do_apply_transition(
                     let mut attrs = Vec::with_capacity(names.len());
                     for (name, value) in names.iter().zip(values.iter()) {
                         let value = match value {
-                            Some(value) => value.to_value(module.heap()).with_context(|| {
-                                format!(
-                                    "Error converting attribute `{}={}` to Starlark value",
-                                    name.as_str(),
-                                    value.as_display_no_ctx(),
-                                )
-                            })?,
+                            Some(value) => value
+                                .to_value(PackageLabelOption::TransitionAttr, module.heap())
+                                .with_context(|| {
+                                    format!(
+                                        "Error converting attribute `{}={}` to Starlark value",
+                                        name.as_str(),
+                                        value.as_display_no_ctx(),
+                                    )
+                                })?,
                             None => Value::new_none(),
                         };
                         attrs.push((*name, value));
@@ -238,7 +239,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
     async fn apply_transition(
         &self,
         ctx: &mut DiceComputations<'_>,
-        target_node: TargetNodeRef<'_>,
+        configured_attrs: &OrderedMap<&str, Arc<ConfiguredAttr>>,
         cfg: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> anyhow::Result<Arc<TransitionApplied>> {
@@ -251,7 +252,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
             /// The attr value index is the index of attribute in transition object.
             /// Attributes are added here so multiple targets with the equal attributes
             /// (e.g. the same `java_version = 14`) share the transition computation.
-            attrs: Option<Vec<Option<CoercedAttr>>>,
+            attrs: Option<Vec<Option<Arc<ConfiguredAttr>>>>,
         }
 
         impl TransitionKey {
@@ -308,11 +309,12 @@ impl TransitionCalculation for TransitionCalculationImpl {
 
         #[allow(clippy::manual_map)]
         let attrs = if let Some(attrs) = &transition.attrs_names_starlark {
-            Some(attrs.try_map(|attr| {
-                target_node
-                    .attr(attr, AttrInspectOptions::All)
-                    .map(|o| o.map(|attr| attr.value.clone()))
-            })?)
+            Some(
+                attrs
+                    .iter()
+                    .map(|attr| configured_attrs.get(attr.as_str()).duped())
+                    .collect(),
+            )
         } else {
             None
         };

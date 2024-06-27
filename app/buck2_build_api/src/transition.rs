@@ -13,9 +13,10 @@ use async_trait::async_trait;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_node::nodes::unconfigured::TargetNodeRef;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use starlark_map::ordered_map::OrderedMap;
 
 #[async_trait]
 pub trait TransitionCalculation: Send + Sync + 'static {
@@ -23,7 +24,7 @@ pub trait TransitionCalculation: Send + Sync + 'static {
     async fn apply_transition(
         &self,
         ctx: &mut DiceComputations<'_>,
-        target_node: TargetNodeRef<'_>,
+        attrs: &OrderedMap<&str, Arc<ConfiguredAttr>>,
         conf: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> anyhow::Result<Arc<TransitionApplied>>;

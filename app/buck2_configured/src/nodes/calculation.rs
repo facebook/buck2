@@ -9,6 +9,7 @@
 
 //! Calculations relating to 'TargetNode's that runs on Dice
 
+use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -87,12 +88,11 @@ enum NodeCalculationError {
         LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
     )]
     BothTargetCompatibleWith(String),
-    #[allow(dead_code)]
     #[error(
         "Target {0} configuration transitioned\n\
         old: {1}\n\
         new: {2}\n\
-        but attribute {3}\n\
+        but attribute: {3}\n\
         resolved with old configuration to: {4}\n\
         resolved with new configuration to: {5}"
     )]
@@ -815,10 +815,9 @@ async fn gather_deps(
     ))
 }
 
-#[allow(dead_code)]
 /// Resolves configured attributes of target node needed to compute transitions
 async fn resolve_transition_attrs<'a>(
-    transitions: impl IntoIterator<Item = &'a TransitionId>,
+    transitions: impl Iterator<Item = &TransitionId>,
     target_node: &'a TargetNode,
     resolved_cfg: &ResolvedConfiguration,
     platform_cfgs: &OrderedMap<TargetLabel, ConfigurationData>,
@@ -886,8 +885,9 @@ async fn resolve_transition_attrs<'a>(
                 }
 
                 if let Some(coerced_attr) = target_node.attr(&attr, AttrInspectOptions::All)? {
-                    let conf_attr = coerced_attr.configure(&cfg_ctx)?;
-                    if let Some(old_val) = result.insert(conf_attr.name, Arc::new(conf_attr.value))
+                    let configured_attr = coerced_attr.configure(&cfg_ctx)?;
+                    if let Some(old_val) =
+                        result.insert(configured_attr.name, Arc::new(configured_attr.value))
                     {
                         return Err(internal_error!(
                             "Found duplicated value `{}` for attr `{}` on target `{}`",
@@ -903,7 +903,6 @@ async fn resolve_transition_attrs<'a>(
     Ok(result)
 }
 
-#[allow(dead_code)]
 /// Verifies if configured node's attributes are equal to the same attributes configured with pre-transition configuration.
 /// Only check attributes used in transition.
 fn verify_transitioned_attrs<'a>(
@@ -966,16 +965,24 @@ async fn compute_configured_target_node_no_transition(
         return Ok(MaybeCompatible::Incompatible(reason));
     }
 
+    let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref()).await?;
+
     let mut resolved_transitions = OrderedMap::new();
+    let attrs = resolve_transition_attrs(
+        target_node.transition_deps().map(|(_, tr)| tr.as_ref()),
+        &target_node,
+        &resolved_configuration,
+        &platform_cfgs,
+        ctx,
+    )
+    .await?;
     for (_dep, tr) in target_node.transition_deps() {
         let resolved_cfg = TRANSITION_CALCULATION
             .get()?
-            .apply_transition(ctx, target_node.as_ref(), target_cfg, tr)
+            .apply_transition(ctx, &attrs, target_cfg, tr)
             .await?;
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
     }
-
-    let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref()).await?;
 
     // We need to collect deps and to ensure that all attrs can be successfully
     // configured so that we don't need to support propagate configuration errors on attr access.
@@ -1181,50 +1188,110 @@ async fn compute_configured_target_node(
     }
 
     if let Some(transition_id) = &target_node.rule.cfg {
-        #[async_trait]
-        impl Key for ConfiguredTransitionedNodeKey {
-            type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
-                compute_configured_target_node_with_transition(self, ctx)
-                    .await
-                    .map_err(buck2_error::Error::from)
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                if let (Ok(x), Ok(y)) = (x, y) {
-                    x == y
-                } else {
-                    false
-                }
-            }
-        }
-
-        let cfg = TRANSITION_CALCULATION
-            .get()?
-            .apply_transition(ctx, target_node.as_ref(), key.0.cfg(), transition_id)
-            .await?;
-        let configured_target_label = key.0.unconfigured().configure(cfg.single()?.dupe());
-
-        if configured_target_label == key.0 {
-            // Transitioned to identical configured target, no need to create a forward node.
-            compute_configured_target_node_no_transition(&key.0, target_node.dupe(), ctx).await
-        } else {
-            Ok(ctx
-                .compute(&ConfiguredTransitionedNodeKey {
-                    forward: key.0.dupe(),
-                    transitioned: configured_target_label,
-                })
-                .await??)
-        }
+        compute_configured_forward_target_node(key, &target_node, transition_id, ctx).await
     } else {
         // We are not caching `ConfiguredTransitionedNodeKey` because this is cheap,
         // and no need to fetch `target_node` again.
         compute_configured_target_node_no_transition(&key.0.dupe(), target_node, ctx).await
+    }
+}
+
+async fn compute_configured_forward_target_node(
+    key: &ConfiguredTargetNodeKey,
+    target_node: &TargetNode,
+    transition_id: &TransitionId,
+    ctx: &mut DiceComputations<'_>,
+) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    #[async_trait]
+    impl Key for ConfiguredTransitionedNodeKey {
+        type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
+            compute_configured_target_node_with_transition(self, ctx)
+                .await
+                .map_err(buck2_error::Error::from)
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            if let (Ok(x), Ok(y)) = (x, y) {
+                x == y
+            } else {
+                false
+            }
+        }
+    }
+
+    let target_label_before_transition = &key.0;
+    let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref()).await?;
+    let resolved_configuration = ctx
+        .get_resolved_configuration(
+            target_label_before_transition.cfg(),
+            target_node.label().pkg().cell_name(),
+            target_node.get_configuration_deps(),
+        )
+        .await
+        .with_context(|| {
+            format!(
+                "Error resolving configuration deps of `{}`",
+                target_label_before_transition
+            )
+        })?;
+
+    let attrs = resolve_transition_attrs(
+        iter::once(transition_id),
+        target_node,
+        &resolved_configuration,
+        &platform_cfgs,
+        ctx,
+    )
+    .await?;
+
+    let cfg = TRANSITION_CALCULATION
+        .get()?
+        .apply_transition(
+            ctx,
+            &attrs,
+            target_label_before_transition.cfg(),
+            transition_id,
+        )
+        .await?;
+    let target_label_after_transition = target_label_before_transition
+        .unconfigured()
+        .configure(cfg.single()?.dupe());
+
+    if &target_label_after_transition == target_label_before_transition {
+        // Transitioned to identical configured target, no need to create a forward node.
+        compute_configured_target_node_no_transition(
+            target_label_before_transition,
+            target_node.dupe(),
+            ctx,
+        )
+        .await
+    } else {
+        let configured_target_node = ctx
+            .compute(&ConfiguredTransitionedNodeKey {
+                forward: target_label_before_transition.dupe(),
+                transitioned: target_label_after_transition,
+            })
+            .await??;
+
+        if let MaybeCompatible::Compatible(configured_target_node) = &configured_target_node {
+            let forward_target_node = configured_target_node
+                .forward_target()
+                .internal_error("must be forward node")?;
+
+            verify_transitioned_attrs(
+                &attrs,
+                resolved_configuration.cfg().cfg(),
+                forward_target_node,
+            )?;
+        }
+
+        Ok(configured_target_node)
     }
 }
 

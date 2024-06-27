@@ -10,7 +10,6 @@
 #![feature(error_generic_member_access)]
 #![feature(try_blocks)]
 
-pub(crate) mod coerced_attr;
 pub(crate) mod transition;
 
 pub fn init_late_bindings() {
