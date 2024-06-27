@@ -256,13 +256,20 @@ ensure_initialized() ->
 
 -spec init_utility_apps() -> boolean().
 init_utility_apps() ->
+    _ = application:load(test_cli_lib),
+    UtilityApps = application:get_env(test_cli_lib, utility_applications, []),
     RunningApps = proplists:get_value(running, application:info()),
-    case proplists:is_defined(test_cli_lib, RunningApps) of
+    StartResults = [init_utility_app(RunningApps, UtilityApp) || UtilityApp <- UtilityApps],
+    lists:any(fun(B) when is_boolean(B) -> B end, StartResults).
+
+-spec init_utility_app(RunningApps :: [atom()], UtilityApp :: atom()) -> boolean().
+init_utility_app(RunningApps, UtilityApp) ->
+    case proplists:is_defined(UtilityApp, RunningApps) of
         true ->
             false;
         false ->
-            io:format("starting utility applications...~n", []),
-            case application:ensure_all_started(test_cli_lib) of
+            io:format("starting utility application ~s...~n", [UtilityApp]),
+            case application:ensure_all_started(UtilityApp) of
                 {ok, _} ->
                     true;
                 Error ->

@@ -14,9 +14,7 @@ erlang_application(
         "+debug_info",
         "+warnings_as_errors",
     ],
-    resources = [
-        # "//erl/config:sys.ct.config",
-    ],
+    resources = [],
     visibility = ["PUBLIC"],
 )
 
