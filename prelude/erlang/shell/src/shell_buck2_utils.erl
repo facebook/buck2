@@ -21,7 +21,7 @@
     rebuild_modules/1,
     buck2_build_targets/1,
     buck2_query/1, buck2_query/2, buck2_query/3,
-    run_command/2,
+    run_command/2, run_command/3,
     get_additional_paths/1
 ]).
 
@@ -110,7 +110,6 @@ run_command(Fmt, Args, Options) ->
 
     RawCmd = io_lib:format(Fmt, Args),
     Cmd = unicode:characters_to_list(RawCmd),
-    io:format("~s~n", [Cmd]),
 
     Replay = proplists:get_value(replay, Options, true),
 

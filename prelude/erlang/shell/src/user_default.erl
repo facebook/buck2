@@ -44,7 +44,7 @@ c(Module, _Options, _Filter) ->
 
 -spec l(module()) -> code:load_ret().
 l(Module) ->
-    case find_module(Module) of
+    case shell_buck2_module_search:find_module(Module) of
         available ->
             c:l(Module);
         {source, RelSource} ->
@@ -55,71 +55,4 @@ l(Module) ->
             c:l(Module);
         Error ->
             Error
-    end.
-
--spec find_module(module()) ->
-    available
-    | {source, file:filename_all()}
-    | {error, not_found | {ambiguous, [file:filename_all()]}}.
-find_module(Module) ->
-    WantedModuleName = atom_to_list(Module),
-    case
-        [
-            found
-         || {ModuleName, _, _} <- code:all_available(),
-            string:equal(WantedModuleName, ModuleName)
-        ]
-    of
-        [found] -> available;
-        _ -> find_module_source(Module)
-    end.
-
--spec find_module_source(module()) ->
-    {source, file:filename_all()}
-    | {error, not_found | {ambiguous, [file:filename_all()]}}.
-find_module_source(Module) ->
-    Root = shell_buck2_utils:cell_root(),
-    io:format("use ~s as root", [Root]),
-    {ok, Output} = shell_buck2_utils:run_command(
-        "find ~s -type d "
-        "\\( -path \"~s/_build*\" -path \"~s/erl/_build*\" -o -path ~s/buck-out \\) -prune "
-        "-o -name '~s.erl' -print",
-        [Root, Root, Root, Root, Module]
-    ),
-    case
-        [
-            RelPath
-         || RelPath <- [
-                string:prefix(Path, [Root, "/"])
-             || Path <- string:split(Output, "\n", all)
-            ],
-            RelPath =/= nomatch,
-            string:prefix(RelPath, "buck-out") == nomatch,
-            string:str(binary_to_list(RelPath), "_build") == 0
-        ]
-    of
-        [ModulePath] ->
-            {source, ModulePath};
-        [] ->
-            {error, not_found};
-        Candidates ->
-            %% check if there are actually targets associated
-            {ok, RawOutput} = shell_buck2_utils:buck2_query(
-                "owner(\\\"\%s\\\")", "--json", Candidates
-            ),
-            SourceTargetMapping = jsone:decode(RawOutput),
-            case
-                maps:fold(
-                    fun
-                        (_Source, [], Acc) -> Acc;
-                        (Source, _, Acc) -> [Source | Acc]
-                    end,
-                    [],
-                    SourceTargetMapping
-                )
-            of
-                [] -> {error, not_found};
-                [Source] -> {source, Source};
-                More -> {error, {ambiguous, More}}
-            end
     end.
