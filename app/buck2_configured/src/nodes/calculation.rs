@@ -443,12 +443,14 @@ fn unpack_target_compatible_with_attr(
             )
         }
 
-        fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
-            unreachable!(
+        fn resolved_transitions(
+            &self,
+        ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+            Err(internal_error!(
                 "resolved_transitions() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
-            )
+            ))
         }
     }
 

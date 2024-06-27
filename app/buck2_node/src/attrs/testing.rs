@@ -54,7 +54,9 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             panic!("not used in tests")
         }
 
-        fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+        fn resolved_transitions(
+            &self,
+        ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
             panic!("not used in tests")
         }
     }

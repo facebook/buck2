@@ -47,7 +47,9 @@ pub trait AttrConfigurationContext {
 
     /// Map of transition ids resolved to configurations
     /// using current node configuration as input.
-    fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>;
+    fn resolved_transitions(
+        &self,
+    ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>>;
 
     fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
         label.configure_pair(self.cfg().cfg_pair().dupe())
@@ -74,7 +76,7 @@ pub trait AttrConfigurationContext {
         tr: &TransitionId,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
         let cfg = self
-            .resolved_transitions()
+            .resolved_transitions()?
             .get(tr)
             .context("internal error: no resolved transition")?;
         Ok(label.configure(cfg.single()?.dupe()))
@@ -86,7 +88,7 @@ pub trait AttrConfigurationContext {
         tr: &TransitionId,
     ) -> anyhow::Result<SortedMap<String, ConfiguredProvidersLabel>> {
         let cfg = self
-            .resolved_transitions()
+            .resolved_transitions()?
             .get(tr)
             .context("internal error: no resolved transition")?;
         let split = cfg.split()?;
@@ -149,7 +151,9 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
         }
     }
 
-    fn resolved_transitions(&self) -> &OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>> {
-        self.resolved_transitions
+    fn resolved_transitions(
+        &self,
+    ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+        Ok(self.resolved_transitions)
     }
 }
