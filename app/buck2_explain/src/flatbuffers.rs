@@ -20,8 +20,6 @@ use flatbuffers::WIPOffset;
 use gazebo::prelude::SliceExt;
 
 mod fbs {
-    pub use crate::explain_generated::explain::BoolAttr;
-    pub use crate::explain_generated::explain::BoolAttrArgs;
     pub use crate::explain_generated::explain::Build;
     pub use crate::explain_generated::explain::BuildArgs;
     pub use crate::explain_generated::explain::ConfiguredTargetNode;
@@ -34,6 +32,9 @@ mod fbs {
     pub use crate::explain_generated::explain::ListOfStringsAttrArgs;
     pub use crate::explain_generated::explain::StringAttr;
     pub use crate::explain_generated::explain::StringAttrArgs;
+    pub use crate::explain_generated::explain::TargetField;
+    pub use crate::explain_generated::explain::TargetFieldArgs;
+    pub use crate::explain_generated::explain::TargetFieldType;
 }
 
 enum AttrField<'a> {
@@ -105,7 +106,14 @@ fn target_to_fbs<'a>(
         })
         .map(|(key, value)| {
             let key = Some(builder.create_shared_string(key));
-            fbs::BoolAttr::create(builder, &fbs::BoolAttrArgs { key, value: *value })
+            fbs::TargetField::create(
+                builder,
+                &fbs::TargetFieldArgs {
+                    key,
+                    type_: fbs::TargetFieldType::Bool,
+                    bool_value: Some(*value),
+                },
+            )
         })
         .collect();
     let bool_attrs = Some(builder.create_vector(&list));
@@ -179,7 +187,7 @@ fn target_to_fbs<'a>(
             execution_platform: Some(execution_platform),
             plugins,
             // defined attrs
-            bool_attrs,
+            attrs: bool_attrs,
             int_attrs,
             string_attrs,
             list_of_strings_attrs,
@@ -373,10 +381,7 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(
-            target.bool_attrs().unwrap().get(0).key(),
-            Some("bool_field")
-        );
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bool_field"));
     }
 
     #[test]
