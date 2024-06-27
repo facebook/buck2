@@ -209,13 +209,7 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
 #[async_trait]
 impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>> {
-        //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
-        let module = self
-            .ctx
-            .get()
-            .get_loaded_module_from_import_path(path)
-            .await?;
-        Ok(module.imports().cloned().collect())
+        self.ctx.get().get_loaded_module_imports(path).await
     }
 
     // get the list of potential buildfile names for each cell

@@ -69,6 +69,19 @@ pub trait InterpreterCalculation {
         self.get_loaded_module(StarlarkModulePath::LoadFile(path))
             .await
     }
+
+    async fn get_loaded_module_imports(
+        &mut self,
+        path: &ImportPath,
+    ) -> anyhow::Result<Vec<ImportPath>> {
+        //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
+        Ok(self
+            .get_loaded_module_from_import_path(path)
+            .await?
+            .imports()
+            .cloned()
+            .collect())
+    }
 }
 
 #[async_trait]
