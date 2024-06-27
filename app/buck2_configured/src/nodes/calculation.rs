@@ -15,6 +15,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
+use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_build_api::transition::TRANSITION_CALCULATION;
 use buck2_common::dice::cycles::CycleGuard;
 use buck2_core::cells::name::CellName;
@@ -42,6 +43,7 @@ use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
+use buck2_node::attrs::configuration_context::PlatformConfigurationError;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -636,11 +638,13 @@ impl ErrorsAndIncompatibilities {
                         return Some(dep);
                     }
                     Ok(false) => {
-                        self.errs
-                            .push(anyhow::anyhow!(VisibilityError::NotVisibleTo(
+                        self.errs.push(
+                            VisibilityError::NotVisibleTo(
                                 dep.label().unconfigured().dupe(),
                                 target_label.unconfigured().dupe(),
-                            )));
+                            )
+                            .into(),
+                        );
                     }
                     Err(e) => {
                         self.errs.push(e);
@@ -792,6 +796,94 @@ async fn gather_deps(
         },
         errors_and_incompats,
     ))
+}
+
+#[allow(dead_code)]
+/// Resolves configured attributes of target node needed to compute transitions
+async fn resolve_transition_attrs<'a>(
+    transitions: impl IntoIterator<Item = &'a TransitionId>,
+    target_node: &'a TargetNode,
+    resolved_cfg: &ResolvedConfiguration,
+    platform_cfgs: &OrderedMap<TargetLabel, ConfigurationData>,
+    ctx: &mut DiceComputations<'_>,
+) -> anyhow::Result<OrderedMap<&'a str, Arc<ConfiguredAttr>>> {
+    struct AttrConfigurationContextToResolveTransitionAttrs<'c> {
+        resolved_cfg: &'c ResolvedConfiguration,
+        toolchain_cfg: ConfigurationWithExec,
+        platform_cfgs: &'c OrderedMap<TargetLabel, ConfigurationData>,
+    }
+
+    impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveTransitionAttrs<'c> {
+        fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+            self.resolved_cfg.settings()
+        }
+
+        fn cfg(&self) -> ConfigurationNoExec {
+            self.resolved_cfg.cfg().dupe()
+        }
+
+        fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+            Err(internal_error!(
+                "exec_cfg() is not needed in pre transition attribute resolution."
+            ))
+        }
+
+        fn toolchain_cfg(&self) -> ConfigurationWithExec {
+            self.toolchain_cfg.dupe()
+        }
+
+        fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
+            match self.platform_cfgs.get(label) {
+                Some(configuration) => Ok(configuration.dupe()),
+                None => Err(PlatformConfigurationError::UnknownPlatformTarget(label.dupe()).into()),
+            }
+        }
+
+        fn resolved_transitions(
+            &self,
+        ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+            Err(internal_error!(
+                "resolved_transitions() can't be used before transition execution."
+            ))
+        }
+    }
+
+    let cfg_ctx = AttrConfigurationContextToResolveTransitionAttrs {
+        resolved_cfg,
+        platform_cfgs,
+        toolchain_cfg: resolved_cfg
+            .cfg()
+            .make_toolchain(&ConfigurationNoExec::unbound_exec()),
+    };
+    let mut result = OrderedMap::default();
+    for tr in transitions {
+        let attrs = TRANSITION_ATTRS_PROVIDER
+            .get()?
+            .transition_attrs(ctx, &tr)
+            .await?;
+        if let Some(attrs) = attrs {
+            for attr in attrs.as_ref() {
+                // Multiple outgoing transitions may refer the same attribute.
+                if result.contains_key(attr.as_str()) {
+                    continue;
+                }
+
+                if let Some(coerced_attr) = target_node.attr(&attr, AttrInspectOptions::All)? {
+                    let conf_attr = coerced_attr.configure(&cfg_ctx)?;
+                    if let Some(old_val) = result.insert(conf_attr.name, Arc::new(conf_attr.value))
+                    {
+                        return Err(internal_error!(
+                            "Found duplicated value `{}` for attr `{}` on target `{}`",
+                            &old_val.as_display_no_ctx(),
+                            attr,
+                            target_node.label()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    Ok(result)
 }
 
 /// Compute configured target node ignoring transition for this node.
