@@ -86,14 +86,12 @@ fn target_to_fbs<'a>(
     );
 
     // defined attrs
-    let attrs: Vec<_> = node
+    let attrs = node
         .attrs(AttrInspectOptions::DefinedOnly)
         .filter(|a| a.name != NAME_ATTRIBUTE_FIELD)
-        .map(|a| categorize(a.value, a.name))
-        .collect();
+        .map(|a| categorize(a.value, a.name));
 
     let list: Vec<_> = attrs
-        .iter()
         .map(|attr| {
             let (name, value) = match attr {
                 AttrField::Bool(n, value) => {
@@ -105,7 +103,7 @@ fn target_to_fbs<'a>(
                             &fbs::TargetValueArgs {
                                 type_: fbs::TargetValueType::Bool,
                                 key: None,
-                                bool_value: Some(*value),
+                                bool_value: Some(value),
                                 int_value: None,
                                 string_value: None,
                                 list_value: None,
@@ -124,7 +122,7 @@ fn target_to_fbs<'a>(
                                 type_: fbs::TargetValueType::Int,
                                 key: None,
                                 bool_value: None,
-                                int_value: Some(*v),
+                                int_value: Some(v),
                                 string_value: None,
                                 list_value: None,
                                 dict_value: None,
