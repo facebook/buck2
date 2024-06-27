@@ -311,7 +311,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
             Some(attrs.try_map(|attr| {
                 target_node
                     .attr(attr, AttrInspectOptions::All)
-                    .map(|o| o.cloned())
+                    .map(|o| o.map(|attr| attr.value.clone()))
             })?)
         } else {
             None

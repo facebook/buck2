@@ -250,11 +250,11 @@ impl TargetNode {
     /// * `None` if attribute is known but not set and no default.
     /// * error if attribute is unknown.
     #[inline]
-    pub fn attr(
-        &self,
+    pub fn attr<'a>(
+        &'a self,
         key: &str,
         opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<&CoercedAttr>> {
+    ) -> anyhow::Result<Option<CoercedAttrFull<'a>>> {
         self.as_ref().attr(key, opts)
     }
 
@@ -415,7 +415,7 @@ impl<'a> TargetNodeRef<'a> {
         self,
         key: &str,
         opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<&'a CoercedAttr>> {
+    ) -> anyhow::Result<Option<CoercedAttrFull<'a>>> {
         self.0
             .get()
             .rule

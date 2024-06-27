@@ -277,9 +277,15 @@ impl AttributeSpec {
         attr_values: &'v AttrValues,
         key: &str,
         opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<&'v CoercedAttr>> {
+    ) -> anyhow::Result<Option<CoercedAttrFull<'v>>> {
         if let Some(idx) = self.attribute_id_by_name(key) {
-            Ok(self.known_attr_or_none(idx, attr_values, opts))
+            Ok(self
+                .known_attr_or_none(idx, attr_values, opts)
+                .map(|value| {
+                    let name = self.attribute_name_by_id(idx);
+                    let attr = self.attribute_by_id(idx);
+                    CoercedAttrFull { name, attr, value }
+                }))
         } else {
             Err(AttributeSpecError::UnknownAttribute(key.to_owned()).into())
         }

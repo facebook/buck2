@@ -72,6 +72,7 @@ async fn test_package_value_same_dir_package_file() {
             .attr("value", AttrInspectOptions::DefinedOnly)
             .unwrap()
             .unwrap()
+            .value
             .as_display_no_ctx()
             .to_string()
     );
@@ -116,6 +117,7 @@ async fn test_package_value_parent_dir_package_file() {
             .attr("value", AttrInspectOptions::DefinedOnly)
             .unwrap()
             .unwrap()
+            .value
             .as_display_no_ctx()
             .to_string()
     );
@@ -183,6 +185,7 @@ async fn test_overwrite_package_value_with_flag() {
             .attr("value", AttrInspectOptions::DefinedOnly)
             .unwrap()
             .unwrap()
+            .value
             .as_display_no_ctx()
             .to_string()
     );
@@ -231,6 +234,7 @@ async fn test_read_parent_package_value() {
             .attr("value", AttrInspectOptions::DefinedOnly)
             .unwrap()
             .unwrap()
+            .value
             .as_display_no_ctx()
             .to_string()
     );
@@ -293,6 +297,7 @@ async fn test_read_parent_package_value_from_bzl() {
             .attr("value", AttrInspectOptions::DefinedOnly)
             .unwrap()
             .unwrap()
+            .value
             .as_display_no_ctx()
             .to_string()
     );
