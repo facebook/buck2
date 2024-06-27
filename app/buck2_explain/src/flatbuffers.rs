@@ -26,8 +26,6 @@ mod fbs {
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
     pub use crate::explain_generated::explain::DictOfStringsAttr;
     pub use crate::explain_generated::explain::DictOfStringsAttrArgs;
-    pub use crate::explain_generated::explain::ListOfStringsAttr;
-    pub use crate::explain_generated::explain::ListOfStringsAttrArgs;
     pub use crate::explain_generated::explain::StringAttr;
     pub use crate::explain_generated::explain::StringAttrArgs;
     pub use crate::explain_generated::explain::TargetField;
@@ -109,6 +107,7 @@ fn target_to_fbs<'a>(
                         bool_value: Some(*value),
                         int_value: None,
                         string_value: None,
+                        list_value: None,
                     },
                 ))
             }
@@ -122,6 +121,7 @@ fn target_to_fbs<'a>(
                         bool_value: None,
                         int_value: Some(*v),
                         string_value: None,
+                        list_value: None,
                     },
                 ))
             }
@@ -136,6 +136,22 @@ fn target_to_fbs<'a>(
                         bool_value: None,
                         int_value: None,
                         string_value: value,
+                        list_value: None,
+                    },
+                ))
+            }
+            AttrField::StringList(k, v) => {
+                let key = Some(builder.create_shared_string(k));
+                let value = list_of_strings_to_target_field(builder, v.to_vec());
+                Some(fbs::TargetField::create(
+                    builder,
+                    &fbs::TargetFieldArgs {
+                        key,
+                        type_: fbs::TargetFieldType::String,
+                        bool_value: None,
+                        int_value: None,
+                        string_value: None,
+                        list_value: value,
                     },
                 ))
             }
@@ -143,20 +159,6 @@ fn target_to_fbs<'a>(
         })
         .collect();
     let all_attrs = Some(builder.create_vector(&list));
-
-    let list: Vec<_> = attrs
-        .iter()
-        .filter_map(|attr| match attr {
-            AttrField::StringList(n, v) => Some((n, v)),
-            _ => None,
-        })
-        .map(|(key, value)| {
-            let key = Some(builder.create_shared_string(key));
-            let value = list_of_strings_to_fbs(builder, value.to_vec());
-            fbs::ListOfStringsAttr::create(builder, &fbs::ListOfStringsAttrArgs { key, value })
-        })
-        .collect();
-    let list_of_strings_attrs = Some(builder.create_vector(&list));
 
     let list: Vec<_> = attrs
         .iter()
@@ -187,7 +189,6 @@ fn target_to_fbs<'a>(
             plugins,
             // defined attrs
             attrs: all_attrs,
-            list_of_strings_attrs,
             dict_of_strings_attrs,
         },
     );
@@ -292,6 +293,32 @@ fn list_of_strings_to_fbs<'a>(
         .into_iter()
         .map(|v| builder.create_shared_string(&v))
         .collect::<Vec<WIPOffset<&str>>>();
+    Some(builder.create_vector(&list))
+}
+
+fn list_of_strings_to_target_field<'a>(
+    builder: &'_ mut FlatBufferBuilder<'static>,
+    list: Vec<String>,
+) -> Option<
+    WIPOffset<flatbuffers::Vector<'static, flatbuffers::ForwardsUOffset<fbs::TargetField<'a>>>>,
+> {
+    let list = list
+        .into_iter()
+        .map(|v| {
+            let value = Some(builder.create_shared_string(&v));
+            fbs::TargetField::create(
+                builder,
+                &fbs::TargetFieldArgs {
+                    key: None,
+                    type_: fbs::TargetFieldType::String,
+                    bool_value: None,
+                    int_value: None,
+                    string_value: value,
+                    list_value: None,
+                },
+            )
+        })
+        .collect::<Vec<WIPOffset<fbs::TargetField<'a>>>>();
     Some(builder.create_vector(&list))
 }
 
@@ -685,13 +712,14 @@ mod tests {
         assert_things(target, build);
         assert_eq!(
             target
-                .list_of_strings_attrs()
+                .attrs()
                 .unwrap()
                 .get(0)
-                .value()
+                .list_value()
                 .unwrap()
-                .get(0),
-            "some_string1"
+                .get(0)
+                .string_value(),
+            Some("some_string1")
         );
     }
 
@@ -721,10 +749,7 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(
-            target.list_of_strings_attrs().unwrap().get(0).key(),
-            Some("some_deps")
-        );
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("some_deps"));
     }
 
     #[test]
@@ -745,18 +770,19 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.list_of_strings_attrs().unwrap().get(0).key(),
+            target.attrs().unwrap().get(0).key(),
             Some(VISIBILITY_ATTRIBUTE_FIELD)
         );
         assert_eq!(
             target
-                .list_of_strings_attrs()
+                .attrs()
                 .unwrap()
                 .get(0)
-                .value()
+                .list_value()
                 .unwrap()
-                .get(0),
-            "PUBLIC"
+                .get(0)
+                .string_value(),
+            Some("PUBLIC")
         );
     }
 
@@ -799,18 +825,19 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.list_of_strings_attrs().unwrap().get(0).key(),
+            target.attrs().unwrap().get(0).key(),
             Some(WITHIN_VIEW_ATTRIBUTE_FIELD)
         );
         assert_eq!(
             target
-                .list_of_strings_attrs()
+                .attrs()
                 .unwrap()
                 .get(0)
-                .value()
+                .list_value()
                 .unwrap()
-                .get(0),
-            "PUBLIC"
+                .get(0)
+                .string_value(),
+            Some("PUBLIC")
         );
     }
 
