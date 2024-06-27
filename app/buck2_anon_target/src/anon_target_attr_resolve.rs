@@ -250,7 +250,9 @@ impl AnonTargetDependents {
                 .boxed()
             })
         }
-        .await?;
+        .await?
+        .into_iter()
+        .collect();
 
         let promised_artifacts: HashMap<_, _> = {
             KeepGoing::try_compute_join_all(
@@ -266,7 +268,9 @@ impl AnonTargetDependents {
                 },
             )
         }
-        .await?;
+        .await?
+        .into_iter()
+        .collect();
 
         Ok(AnonTargetDependentAnalysisResults {
             dep_analysis_results,

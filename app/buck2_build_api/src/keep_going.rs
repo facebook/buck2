@@ -15,7 +15,7 @@ use futures::Future;
 pub struct KeepGoing;
 
 impl KeepGoing {
-    pub fn try_compute_join_all<'a, C, T: Send, R: 'a, E: 'a>(
+    pub fn try_compute_join_all<'a, T: Send, R: 'a, E: 'a>(
         ctx: &'a mut DiceComputations<'_>,
         items: impl IntoIterator<Item = T>,
         mapper: (
@@ -24,10 +24,7 @@ impl KeepGoing {
             + Sync
             + Copy
         ),
-    ) -> impl Future<Output = Result<C, E>> + 'a
-    where
-        C: FromIterator<R> + 'a,
-    {
+    ) -> impl Future<Output = Result<Vec<R>, E>> + 'a {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
         let futs = ctx.compute_many(items.into_iter().map(move |v| {
@@ -37,16 +34,14 @@ impl KeepGoing {
         }));
 
         async move {
-            let v = if keep_going {
+            Ok(if keep_going {
                 futures::future::join_all(futs)
                     .await
                     .into_iter()
                     .try_collect::<Vec<_>>()?
             } else {
                 futures::future::try_join_all(futs).await?
-            };
-
-            Ok(v.into_iter().collect())
+            })
         }
     }
 }
