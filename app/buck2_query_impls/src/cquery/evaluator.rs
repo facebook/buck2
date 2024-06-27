@@ -46,13 +46,28 @@ pub(crate) async fn eval_cquery(
         .dupe();
     let functions = DefaultQueryFunctionsModule::new();
     let dice_query_delegate = &dice_query_delegate;
+
+    let target_universe = match target_universe {
+        None => None,
+        Some(target_universe) => Some(Arc::new(
+            build_cquery_universe_from_literals(
+                target_universe,
+                dice_query_delegate.query_data(),
+                &mut dice_query_delegate.ctx(),
+            )
+            .await?,
+        )),
+    };
+
+    let target_universe = &target_universe;
+
     eval_query(
         dispatcher,
         &functions,
         query,
         query_args,
         |literals| async move {
-            let (universe, resolved_literals) = match target_universe {
+            let (resolved_literals, universe) = match target_universe {
                 None => {
                     if literals.is_empty() {
                         console_message(
@@ -63,11 +78,25 @@ pub(crate) async fn eval_cquery(
                     }
                     // In the absence of a user-provided target universe, we use the target
                     // literals in the cquery as the universe.
-                    resolve_literals_in_universe(&dice_query_delegate, &literals, &literals).await?
+
+                    let universe = build_cquery_universe_from_literals(
+                        &literals,
+                        dice_query_delegate.query_data(),
+                        &mut dice_query_delegate.ctx(),
+                    )
+                    .await?;
+
+                    (
+                        resolve_literals_in_universe(&dice_query_delegate, &literals, &universe)
+                            .await?,
+                        Arc::new(universe),
+                    )
                 }
-                Some(universe) => {
-                    resolve_literals_in_universe(&dice_query_delegate, &literals, universe).await?
-                }
+                Some(universe) => (
+                    resolve_literals_in_universe(&dice_query_delegate, &literals, &universe)
+                        .await?,
+                    universe.dupe(),
+                ),
             };
             Ok(CqueryEnvironment::new(
                 dice_query_delegate,
@@ -114,21 +143,10 @@ async fn build_cquery_universe_from_literals(
 async fn resolve_literals_in_universe(
     dice_query_delegate: &DiceQueryDelegate<'_, '_>,
     literals: &[String],
-    universe: &[String],
-) -> anyhow::Result<(
-    Arc<CqueryUniverse>,
-    PreresolvedQueryLiterals<ConfiguredTargetNode>,
-)> {
-    let query_literals = dice_query_delegate.query_data();
-
+    universe: &CqueryUniverse,
+) -> anyhow::Result<PreresolvedQueryLiterals<ConfiguredTargetNode>> {
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
-    let universe = build_cquery_universe_from_literals(
-        universe,
-        query_literals,
-        &mut dice_query_delegate.ctx(),
-    )
-    .await?;
 
     // capture a reference so the ref can be moved into the future below.
     let universe_ref = &universe;
@@ -151,5 +169,5 @@ async fn resolve_literals_in_universe(
         .collect();
 
     let resolved = resolution_futs.collect().await;
-    Ok((Arc::new(universe), PreresolvedQueryLiterals::new(resolved)))
+    Ok(PreresolvedQueryLiterals::new(resolved))
 }
