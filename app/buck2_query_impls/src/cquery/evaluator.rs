@@ -66,11 +66,11 @@ impl CqueryEvaluator<'_, '_> {
                     }
                     // In the absence of a user-provided target universe, we use the target
                     // literals in the cquery as the universe.
-                    resolve_literals_in_universe(&self.dice_query_delegate, self.dice_query_delegate.query_data().dupe(), &literals, &literals)
+                    resolve_literals_in_universe(&self.dice_query_delegate, &literals, &literals)
                         .await?
                 }
                 Some(universe) => {
-                    resolve_literals_in_universe(&self.dice_query_delegate, self.dice_query_delegate.query_data().dupe(), &literals, universe)
+                    resolve_literals_in_universe(&self.dice_query_delegate, &literals, universe)
                         .await?
                 }
             };
@@ -122,13 +122,14 @@ pub(crate) async fn get_cquery_evaluator<'a, 'c: 'a, 'd>(
 // the deps. From there, it resolves the literals to any matching nodes in the universe deps.
 async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     dice_query_delegate: &DiceQueryDelegate<'_, '_>,
-    query_literals: Arc<DiceQueryData>,
     literals: &[L],
     universe: &[U],
 ) -> anyhow::Result<(
     CqueryUniverse,
     PreresolvedQueryLiterals<ConfiguredTargetNode>,
 )> {
+    let query_literals = dice_query_delegate.query_data();
+
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
     let refs: Vec<_> = universe.map(|v| v.as_ref());
