@@ -22,7 +22,7 @@ use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use dice::DiceComputations;
 
 use crate::aquery::evaluator::get_aquery_evaluator;
-use crate::cquery::evaluator::get_cquery_evaluator;
+use crate::cquery::evaluator::eval_cquery;
 use crate::cquery::evaluator::preresolve_literals_and_build_universe;
 use crate::dice::get_dice_query_delegate;
 use crate::uquery::evaluator::get_uquery_evaluator;
@@ -60,8 +60,8 @@ impl QueryFrontend for QueryFrontendImpl {
         target_universe: Option<&[String]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
         ctx.with_linear_recompute(|ctx| async move {
-            let evaluator =
-                get_cquery_evaluator(&ctx, working_dir, global_cfg_options, owner_behavior).await?;
+            let dice_query_delegate =
+                get_dice_query_delegate(&ctx, working_dir, global_cfg_options).await?;
 
             // TODO(nga): this should support configured target patterns
             //   similarly to what we do for `build` command.
@@ -69,9 +69,14 @@ impl QueryFrontend for QueryFrontendImpl {
             //   ```
             //   buck2 cquery --target-universe android//:binary 'deps("some//:lib (<arm32>)")'
             //   ```
-            evaluator
-                .eval_query(query, query_args, target_universe.as_ref().map(|v| &v[..]))
-                .await
+            eval_cquery(
+                dice_query_delegate,
+                owner_behavior,
+                query,
+                query_args,
+                target_universe.as_ref().map(|v| &v[..]),
+            )
+            .await
         })
         .await
     }
