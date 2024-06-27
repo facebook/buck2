@@ -26,8 +26,6 @@ mod fbs {
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
     pub use crate::explain_generated::explain::DictOfStringsAttr;
     pub use crate::explain_generated::explain::DictOfStringsAttrArgs;
-    pub use crate::explain_generated::explain::IntAttr;
-    pub use crate::explain_generated::explain::IntAttrArgs;
     pub use crate::explain_generated::explain::ListOfStringsAttr;
     pub use crate::explain_generated::explain::ListOfStringsAttrArgs;
     pub use crate::explain_generated::explain::StringAttr;
@@ -101,35 +99,34 @@ fn target_to_fbs<'a>(
     let list: Vec<_> = attrs
         .iter()
         .filter_map(|attr| match attr {
-            AttrField::Bool(n, v) => Some((n, v)),
+            AttrField::Bool(key, value) => {
+                let key = Some(builder.create_shared_string(key));
+                Some(fbs::TargetField::create(
+                    builder,
+                    &fbs::TargetFieldArgs {
+                        key,
+                        type_: fbs::TargetFieldType::Bool,
+                        bool_value: Some(*value),
+                        int_value: None,
+                    },
+                ))
+            }
+            AttrField::Int(n, v) => {
+                let key = Some(builder.create_shared_string(n));
+                Some(fbs::TargetField::create(
+                    builder,
+                    &fbs::TargetFieldArgs {
+                        key,
+                        type_: fbs::TargetFieldType::Int,
+                        bool_value: None,
+                        int_value: Some(*v),
+                    },
+                ))
+            }
             _ => None,
         })
-        .map(|(key, value)| {
-            let key = Some(builder.create_shared_string(key));
-            fbs::TargetField::create(
-                builder,
-                &fbs::TargetFieldArgs {
-                    key,
-                    type_: fbs::TargetFieldType::Bool,
-                    bool_value: Some(*value),
-                },
-            )
-        })
         .collect();
-    let bool_attrs = Some(builder.create_vector(&list));
-
-    let list: Vec<_> = attrs
-        .iter()
-        .filter_map(|attr| match attr {
-            AttrField::Int(n, v) => Some((n, v)),
-            _ => None,
-        })
-        .map(|(key, value)| {
-            let key = Some(builder.create_shared_string(key));
-            fbs::IntAttr::create(builder, &fbs::IntAttrArgs { key, value: *value })
-        })
-        .collect();
-    let int_attrs = Some(builder.create_vector(&list));
+    let all_attrs = Some(builder.create_vector(&list));
 
     let list: Vec<_> = attrs
         .iter()
@@ -187,8 +184,7 @@ fn target_to_fbs<'a>(
             execution_platform: Some(execution_platform),
             plugins,
             // defined attrs
-            attrs: bool_attrs,
-            int_attrs,
+            attrs: all_attrs,
             string_attrs,
             list_of_strings_attrs,
             dict_of_strings_attrs,
@@ -401,8 +397,8 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.int_attrs().unwrap().get(0).key(), Some("int_field"));
-        assert_eq!(target.int_attrs().unwrap().get(0).value(), 1);
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("int_field"));
+        assert_eq!(target.attrs().unwrap().get(0).int_value(), Some(1));
     }
 
     #[test]
@@ -783,11 +779,8 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(
-            target.int_attrs().unwrap().get(0).key(),
-            Some("one_of_field")
-        );
-        assert_eq!(target.int_attrs().unwrap().get(0).value(), 7);
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("one_of_field"));
+        assert_eq!(target.attrs().unwrap().get(0).int_value(), Some(7));
     }
 
     #[test]

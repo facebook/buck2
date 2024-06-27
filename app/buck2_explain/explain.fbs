@@ -9,12 +9,13 @@
 
 namespace explain;
 
-enum TargetFieldType : byte { Bool }
+enum TargetFieldType : byte { Bool, Int }
 
 table TargetField {
   type: TargetFieldType;
   key: string;
   bool_value: bool = null;
+  int_value: long = null;
 }
 
 table IntAttr {
@@ -50,7 +51,6 @@ table ConfiguredTargetNode {
     plugins: [string];
     // user attrs
     attrs: [TargetField];
-    int_attrs: [IntAttr];
     string_attrs: [StringAttr];
     list_of_strings_attrs: [ListOfStringsAttr];
     dict_of_strings_attrs: [DictOfStringsAttr];
