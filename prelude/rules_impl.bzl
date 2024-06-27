@@ -664,6 +664,7 @@ transitions = {
     "android_binary": constraint_overrides_transition,
     "apple_asset_catalog": apple_resource_transition,
     "apple_binary": target_sdk_version_transition,
+    "apple_bundle": target_sdk_version_transition,
     "apple_resource": apple_resource_transition,
     "cxx_binary": constraint_overrides_transition,
     "cxx_test": constraint_overrides_transition,

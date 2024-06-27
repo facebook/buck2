@@ -169,6 +169,7 @@ def apple_bundle_extra_attrs():
         "bundle_type": attrs.option(attrs.enum(AppleBundleTypeAttributeType.values()), default = None),
         "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
         "module_map": attrs.option(attrs.source(), default = None),
+        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "split_arch_dsym": attrs.bool(default = False),
