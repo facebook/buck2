@@ -207,7 +207,7 @@ async fn generate_profile(
             let ctx = &ctx;
             let ctx_data = ctx.per_transaction_data();
 
-            let profiles = futures::future::try_join_all(resolved.specs.into_iter().map(
+            let profiles = buck2_util::future::try_join_all(resolved.specs.into_iter().map(
                 |(package, _spec)| {
                     let ctx = ctx.dupe();
                     spawn_cancellable(

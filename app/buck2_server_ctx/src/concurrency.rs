@@ -1674,7 +1674,7 @@ mod tests {
                 .await
         });
 
-        futures::future::try_join_all(tasks).await?;
+        buck2_util::future::try_join_all(tasks).await?;
 
         assert!(!concurrency.data.lock().await.previously_tainted);
 

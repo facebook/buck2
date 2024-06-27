@@ -366,7 +366,7 @@ fn create_clean_fut<T: IoHandler>(
 
         // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
         // do this to get parallelism.
-        let res = futures::future::try_join_all(
+        let res = buck2_util::future::try_join_all(
             found_paths
                 .into_iter()
                 .filter_map(|x| match x {

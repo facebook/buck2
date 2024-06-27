@@ -1154,7 +1154,7 @@ impl RemoteExecutionClientImpl {
             anyhow::Ok(())
         });
 
-        futures::future::try_join_all(futs).await?;
+        buck2_util::future::try_join_all(futs).await?;
 
         Ok(())
     }

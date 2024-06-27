@@ -123,7 +123,7 @@ impl<'a> AqueryFunctions<'a> {
             }
         }
 
-        let nodes = futures::future::try_join_all(
+        let nodes = buck2_util::future::try_join_all(
             action_keys.iter().map(|key| env.delegate.get_node(&key.0)),
         )
         .await?;

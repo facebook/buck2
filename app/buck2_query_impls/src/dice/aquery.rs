@@ -324,7 +324,7 @@ impl<'c, 'd> AqueryDelegate for DiceAqueryDelegate<'c, 'd> {
             .map(|i| i.require_action())
             .collect::<Result<Vec<_>, _>>()?;
 
-        futures::future::try_join_all(refs.iter().map(|n| self.get_node(n))).await
+        buck2_util::future::try_join_all(refs.iter().map(|n| self.get_node(n))).await
     }
 
     async fn get_target_set_from_analysis(

@@ -514,7 +514,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             .await?
         };
         let setup_commands: Vec<PreparedLocalResourceSetupContext> =
-            futures::future::try_join_all(setup_contexts.into_iter().map(|context| {
+            buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
                 self.prepare_local_resource(
                     context,
                     setup_local_resources_executor.fs(),
@@ -1061,7 +1061,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         default_timeout: Duration,
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
         let setup_commands =
-            futures::future::try_join_all(setup_contexts.into_iter().map(|context| {
+            buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
                 self.prepare_local_resource(context, executor.fs(), default_timeout)
             }))
             .await?;
@@ -1099,7 +1099,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                 .clone()
         });
 
-        Ok(futures::future::try_join_all(resource_futs)
+        Ok(buck2_util::future::try_join_all(resource_futs)
             .await
             .map_err(anyhow::Error::from)?)
     }
@@ -1114,7 +1114,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .input_artifacts
             .iter()
             .map(|group| async move { self.dice.clone().ensure_artifact_group(group).await });
-        let inputs = futures::future::try_join_all(futs).await?;
+        let inputs = buck2_util::future::try_join_all(futs).await?;
         let inputs = inputs
             .into_iter()
             .map(|group_values| CommandExecutionInput::Artifact(Box::new(group_values)))

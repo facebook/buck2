@@ -68,7 +68,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
             Expr::BinaryOpSequence(left, exprs) => {
                 let (left, rights) = futures::future::try_join(
                     self.eval(left),
-                    futures::future::try_join_all(exprs.iter().map(|(op, expr)| async move {
+                    buck2_util::future::try_join_all(exprs.iter().map(|(op, expr)| async move {
                         let value = self.eval(expr).await?;
                         Ok((op, value))
                     })),

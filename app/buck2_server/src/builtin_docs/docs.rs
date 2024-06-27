@@ -312,7 +312,7 @@ async fn docs(
         })
         .collect();
 
-    let modules_docs = futures::future::try_join_all(module_calcs).await?;
+    let modules_docs = buck2_util::future::try_join_all(module_calcs).await?;
     docs.extend(modules_docs.into_iter().flatten());
 
     let json_output = match format {
