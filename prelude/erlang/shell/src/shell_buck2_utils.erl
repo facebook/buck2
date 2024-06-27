@@ -17,6 +17,7 @@
 %% Public API
 -export([
     project_root/0,
+    cell_root/0,
     rebuild_modules/1,
     buck2_build_targets/1,
     buck2_query/1, buck2_query/2, buck2_query/3,
@@ -28,7 +29,15 @@
 
 -spec project_root() -> file:filename().
 project_root() ->
-    case run_command("buck2 root --kind=project 2>/dev/null", [], [{at_root, false}, {replay, false}]) of
+    root(project).
+
+-spec cell_root() -> file:filename().
+cell_root() ->
+    root(cell).
+
+-spec root(Type :: cell | project) -> file:filename().
+root(Type) ->
+    case run_command("buck2 root --kind=~s 2>/dev/null", [Type], [{at_root, false}, {replay, false}]) of
         {ok, Output} ->
             Dir = string:trim(Output),
             case filelib:is_dir(Dir) of
@@ -37,20 +46,6 @@ project_root() ->
             end;
         error ->
             error(failed_to_query_project_root)
-    end.
-
--spec project_cell() -> binary().
-project_cell() ->
-    ProjectRoot = project_root(),
-    case run_command("buck2 audit cell --json 2>/dev/null", [], [{replay, false}]) of
-        {ok, Output} ->
-            [ProjectCell] = [
-                Cell
-             || {Cell, CellRoot} <- maps:to_list(jsone:decode(Output)), string:equal(ProjectRoot, CellRoot)
-            ],
-            ProjectCell;
-        error ->
-            error(failed_to_query_project_cell)
     end.
 
 -spec rebuild_modules([module()]) -> ok | error.
@@ -115,6 +110,7 @@ run_command(Fmt, Args, Options) ->
 
     RawCmd = io_lib:format(Fmt, Args),
     Cmd = unicode:characters_to_list(RawCmd),
+    io:format("~s~n", [Cmd]),
 
     Replay = proplists:get_value(replay, Options, true),
 
@@ -138,13 +134,10 @@ port_loop(Port, Replay, StdOut) ->
 
 -spec get_additional_paths(file:filename_all()) -> [file:filename_all()].
 get_additional_paths(Path) ->
-    PrefixedPath = io_lib:format("~s//~s", [project_cell(), Path]),
     case
         run_command(
             "buck2 bxl --reuse-current-config --console super prelude//erlang/shell/shell.bxl:ebin_paths -- --source ~s",
-            [
-                PrefixedPath
-            ]
+            [Path]
         )
     of
         {ok, Output} ->

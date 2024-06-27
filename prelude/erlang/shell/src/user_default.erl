@@ -48,7 +48,8 @@ l(Module) ->
         available ->
             c:l(Module);
         {source, RelSource} ->
-            Paths = shell_buck2_utils:get_additional_paths(RelSource),
+            AbsSource = filename:absname(RelSource),
+            Paths = shell_buck2_utils:get_additional_paths(AbsSource),
             ok = code:add_paths(Paths),
             ok = ct_daemon:push_paths(Paths),
             c:l(Module);
@@ -77,7 +78,8 @@ find_module(Module) ->
     {source, file:filename_all()}
     | {error, not_found | {ambiguous, [file:filename_all()]}}.
 find_module_source(Module) ->
-    Root = shell_buck2_utils:project_root(),
+    Root = shell_buck2_utils:cell_root(),
+    io:format("use ~s as root", [Root]),
     {ok, Output} = shell_buck2_utils:run_command(
         "find ~s -type d "
         "\\( -path \"~s/_build*\" -path \"~s/erl/_build*\" -o -path ~s/buck-out \\) -prune "
