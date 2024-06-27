@@ -24,7 +24,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryEnvironmentAsNodeLookup;
@@ -75,12 +75,6 @@ enum RBuildFilesError {
 /// UqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
 pub(crate) trait UqueryDelegate: Send + Sync {
-    /// Returns the EvaluationResult for evaluation of the buildfile.
-    async fn eval_build_file(
-        &self,
-        packages: PackageLabel,
-    ) -> anyhow::Result<Arc<EvaluationResult>>;
-
     /// Get the imports from a LoadedModule corresponding to some path.
     async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>>;
 
@@ -197,7 +191,8 @@ impl<'c> UqueryEnvironment<'c> {
     async fn get_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {
         let package = self
             .delegate
-            .eval_build_file(target.pkg())
+            .ctx()
+            .get_interpreter_results(target.pkg())
             .await
             .with_context(|| format!("Error looking up `{}``", target))?;
         let node = package.resolve_target(target.name())?;
@@ -283,7 +278,11 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
                 Ok(packages) => {
                     let package_futs = packages.map(|package| async move {
                         // TODO(cjhopman): We should make sure that the file exists.
-                        let targets = self.delegate.eval_build_file(package.dupe()).await?;
+                        let targets = self
+                            .delegate
+                            .ctx()
+                            .get_interpreter_results(package.dupe())
+                            .await?;
 
                         let owner_targets: Vec<Self::Target> = targets
                             .targets()
@@ -352,7 +351,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
 
         let mut evaluations = vec![];
         for buildfile in buildfiles {
-            let fut = self.delegate.eval_build_file(buildfile);
+            let fut = async move { self.delegate.ctx().get_interpreter_results(buildfile).await };
             evaluations.push(fut);
         }
 
@@ -382,7 +381,8 @@ pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
         paths.insert(FileNode(target.dupe().buildfile_path().path()));
 
         let eval_result = delegate
-            .eval_build_file(target.buildfile_path().package())
+            .ctx()
+            .get_interpreter_results(target.buildfile_path().package())
             .await?; // TODO: no longer use eval_build_file, just parse imports directly (will solve async issue too)
 
         top_level_imports.extend(eval_result.imports().iter().cloned());
@@ -591,7 +591,8 @@ async fn top_level_imports_by_build_file<'c>(
                 (
                     file.dupe(),
                     delegate
-                        .eval_build_file(PackageLabel::from_cell_path(parent))
+                        .ctx()
+                        .get_interpreter_results(PackageLabel::from_cell_path(parent))
                         .await,
                 )
             } else {

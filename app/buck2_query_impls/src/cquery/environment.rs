@@ -21,6 +21,7 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryEnvironmentAsNodeLookup;
@@ -142,8 +143,8 @@ impl<'c> CqueryEnvironment<'c> {
                     // TODO(cjhopman): We should make sure that the file exists.
                     let targets = self
                         .delegate
-                        .uquery_delegate()
-                        .eval_build_file(package.dupe())
+                        .ctx()
+                        .get_interpreter_results(package.dupe())
                         .await?;
 
                     for node in targets.targets().values() {

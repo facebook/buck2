@@ -47,8 +47,6 @@ use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
-use buck2_node::nodes::eval_result::EvaluationResult;
-use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
@@ -210,13 +208,6 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
 
 #[async_trait]
 impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
-    async fn eval_build_file(
-        &self,
-        package: PackageLabel,
-    ) -> anyhow::Result<Arc<EvaluationResult>> {
-        self.ctx.get().get_interpreter_results(package).await
-    }
-
     async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>> {
         //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
         let module = self
