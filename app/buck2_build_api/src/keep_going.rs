@@ -7,15 +7,10 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-use std::hash::Hash;
-
 use dice::DiceComputations;
 use dice::UserComputationData;
 use futures::future::BoxFuture;
 use futures::Future;
-use indexmap::IndexMap;
-use smallvec::SmallVec;
 
 pub struct KeepGoing;
 
@@ -31,7 +26,7 @@ impl KeepGoing {
         ),
     ) -> impl Future<Output = Result<C, E>> + 'a
     where
-        C: KeepGoingCollectable<R> + 'a,
+        C: FromIterator<R> + 'a,
     {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
@@ -51,66 +46,8 @@ impl KeepGoing {
                 futures::future::try_join_all(futs).await?
             };
 
-            let mut res = C::with_capacity(v.len());
-            for x in v {
-                res.push(x);
-            }
-            Ok(res)
+            Ok(v.into_iter().collect())
         }
-    }
-}
-
-pub trait KeepGoingCollectable<I> {
-    fn with_capacity(cap: usize) -> Self;
-
-    fn push(&mut self, item: I);
-}
-
-impl<K, V> KeepGoingCollectable<(K, V)> for IndexMap<K, V>
-where
-    K: PartialEq + Eq + Hash,
-{
-    fn with_capacity(cap: usize) -> Self {
-        IndexMap::with_capacity(cap)
-    }
-
-    fn push(&mut self, item: (K, V)) {
-        let (k, v) = item;
-        IndexMap::insert(self, k, v);
-    }
-}
-
-impl<K, V> KeepGoingCollectable<(K, V)> for HashMap<K, V>
-where
-    K: PartialEq + Eq + Hash,
-{
-    fn with_capacity(cap: usize) -> Self {
-        HashMap::with_capacity(cap)
-    }
-
-    fn push(&mut self, item: (K, V)) {
-        let (k, v) = item;
-        HashMap::insert(self, k, v);
-    }
-}
-
-impl<I> KeepGoingCollectable<I> for Vec<I> {
-    fn with_capacity(cap: usize) -> Self {
-        Vec::with_capacity(cap)
-    }
-
-    fn push(&mut self, item: I) {
-        Vec::push(self, item);
-    }
-}
-
-impl<I> KeepGoingCollectable<I> for SmallVec<[I; 1]> {
-    fn with_capacity(cap: usize) -> Self {
-        SmallVec::with_capacity(cap)
-    }
-
-    fn push(&mut self, item: I) {
-        SmallVec::push(self, item);
     }
 }
 
