@@ -26,7 +26,9 @@ mod fbs {
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
     pub use crate::explain_generated::explain::TargetField;
     pub use crate::explain_generated::explain::TargetFieldArgs;
-    pub use crate::explain_generated::explain::TargetFieldType;
+    pub use crate::explain_generated::explain::TargetValue;
+    pub use crate::explain_generated::explain::TargetValueArgs;
+    pub use crate::explain_generated::explain::TargetValueType;
 }
 
 enum AttrField<'a> {
@@ -92,87 +94,112 @@ fn target_to_fbs<'a>(
 
     let list: Vec<_> = attrs
         .iter()
-        .map(|attr| match attr {
-            AttrField::Bool(key, value) => {
-                let key = Some(builder.create_shared_string(key));
-                fbs::TargetField::create(
-                    builder,
-                    &fbs::TargetFieldArgs {
-                        key,
-                        type_: fbs::TargetFieldType::Bool,
-                        bool_value: Some(*value),
-                        int_value: None,
-                        string_value: None,
-                        list_value: None,
-                        dict_value: None,
-                    },
-                )
-            }
-            AttrField::Int(n, v) => {
-                let key = Some(builder.create_shared_string(n));
-                fbs::TargetField::create(
-                    builder,
-                    &fbs::TargetFieldArgs {
-                        key,
-                        type_: fbs::TargetFieldType::Int,
-                        bool_value: None,
-                        int_value: Some(*v),
-                        string_value: None,
-                        list_value: None,
-                        dict_value: None,
-                    },
-                )
-            }
-            AttrField::String(k, v) => {
-                let key = Some(builder.create_shared_string(k));
-                let value = Some(builder.create_shared_string(&v));
-                fbs::TargetField::create(
-                    builder,
-                    &fbs::TargetFieldArgs {
-                        key,
-                        type_: fbs::TargetFieldType::String,
-                        bool_value: None,
-                        int_value: None,
-                        string_value: value,
-                        list_value: None,
-                        dict_value: None,
-                    },
-                )
-            }
-            AttrField::StringList(k, v) => {
-                let key = Some(builder.create_shared_string(k));
-                let value = list_of_strings_to_target_field(builder, v.to_vec());
-                fbs::TargetField::create(
-                    builder,
-                    &fbs::TargetFieldArgs {
-                        key,
-                        type_: fbs::TargetFieldType::String,
-                        bool_value: None,
-                        int_value: None,
-                        string_value: None,
-                        list_value: value,
-                        dict_value: None,
-                    },
-                )
-            }
-            AttrField::StringDict(k, v) => {
-                let key = Some(builder.create_shared_string(k));
-                let value = dict_of_strings_to_target_field(builder, v.to_vec());
-                fbs::TargetField::create(
-                    builder,
-                    &fbs::TargetFieldArgs {
-                        key,
-                        type_: fbs::TargetFieldType::String,
-                        bool_value: None,
-                        int_value: None,
-                        string_value: None,
-                        list_value: None,
-                        dict_value: value,
-                    },
-                )
-            }
+        .map(|attr| {
+            let (name, value) = match attr {
+                AttrField::Bool(n, value) => {
+                    let name = builder.create_shared_string(n);
+                    (
+                        name,
+                        fbs::TargetValue::create(
+                            builder,
+                            &fbs::TargetValueArgs {
+                                type_: fbs::TargetValueType::Bool,
+                                key: None,
+                                bool_value: Some(*value),
+                                int_value: None,
+                                string_value: None,
+                                list_value: None,
+                                dict_value: None,
+                            },
+                        ),
+                    )
+                }
+                AttrField::Int(n, v) => {
+                    let name = builder.create_shared_string(n);
+                    (
+                        name,
+                        fbs::TargetValue::create(
+                            builder,
+                            &fbs::TargetValueArgs {
+                                type_: fbs::TargetValueType::Int,
+                                key: None,
+                                bool_value: None,
+                                int_value: Some(*v),
+                                string_value: None,
+                                list_value: None,
+                                dict_value: None,
+                            },
+                        ),
+                    )
+                }
+                AttrField::String(n, v) => {
+                    let name = builder.create_shared_string(n);
+                    let value = Some(builder.create_shared_string(&v));
+                    (
+                        name,
+                        fbs::TargetValue::create(
+                            builder,
+                            &fbs::TargetValueArgs {
+                                type_: fbs::TargetValueType::String,
+                                key: None,
+                                bool_value: None,
+                                int_value: None,
+                                string_value: value,
+                                list_value: None,
+                                dict_value: None,
+                            },
+                        ),
+                    )
+                }
+                AttrField::StringList(n, v) => {
+                    let name = builder.create_shared_string(n);
+                    let value = list_of_strings_to_target_value(builder, v.to_vec());
+                    (
+                        name,
+                        fbs::TargetValue::create(
+                            builder,
+                            &fbs::TargetValueArgs {
+                                type_: fbs::TargetValueType::List,
+                                key: None,
+                                bool_value: None,
+                                int_value: None,
+                                string_value: None,
+                                list_value: value,
+                                dict_value: None,
+                            },
+                        ),
+                    )
+                }
+                AttrField::StringDict(n, v) => {
+                    let name = builder.create_shared_string(n);
+                    let value = dict_of_strings_to_target_field(builder, v.to_vec());
+                    (
+                        name,
+                        fbs::TargetValue::create(
+                            builder,
+                            &fbs::TargetValueArgs {
+                                type_: fbs::TargetValueType::Dict,
+                                key: None,
+                                bool_value: None,
+                                int_value: None,
+                                string_value: None,
+                                list_value: None,
+                                dict_value: value,
+                            },
+                        ),
+                    )
+                }
+            };
+            fbs::TargetField::create(
+                builder,
+                &fbs::TargetFieldArgs {
+                    name: Some(name),
+                    value: Some(value),
+                },
+            )
         })
         .collect();
+
     let all_attrs = Some(builder.create_vector(&list));
 
     let target = fbs::ConfiguredTargetNode::create(
@@ -296,21 +323,21 @@ fn list_of_strings_to_fbs<'a>(
     Some(builder.create_vector(&list))
 }
 
-fn list_of_strings_to_target_field<'a>(
+fn list_of_strings_to_target_value<'a>(
     builder: &'_ mut FlatBufferBuilder<'static>,
     list: Vec<String>,
 ) -> Option<
-    WIPOffset<flatbuffers::Vector<'static, flatbuffers::ForwardsUOffset<fbs::TargetField<'a>>>>,
+    WIPOffset<flatbuffers::Vector<'static, flatbuffers::ForwardsUOffset<fbs::TargetValue<'a>>>>,
 > {
     let list = list
         .into_iter()
         .map(|v| {
             let value = Some(builder.create_shared_string(&v));
-            fbs::TargetField::create(
+            fbs::TargetValue::create(
                 builder,
-                &fbs::TargetFieldArgs {
+                &fbs::TargetValueArgs {
                     key: None,
-                    type_: fbs::TargetFieldType::String,
+                    type_: fbs::TargetValueType::String,
                     bool_value: None,
                     int_value: None,
                     string_value: value,
@@ -319,7 +346,7 @@ fn list_of_strings_to_target_field<'a>(
                 },
             )
         })
-        .collect::<Vec<WIPOffset<fbs::TargetField<'a>>>>();
+        .collect::<Vec<WIPOffset<fbs::TargetValue<'a>>>>();
     Some(builder.create_vector(&list))
 }
 
@@ -327,18 +354,30 @@ fn dict_of_strings_to_target_field<'a>(
     builder: &'_ mut FlatBufferBuilder<'static>,
     dict: Vec<(String, String)>,
 ) -> Option<
-    WIPOffset<flatbuffers::Vector<'static, flatbuffers::ForwardsUOffset<fbs::TargetField<'a>>>>,
+    WIPOffset<flatbuffers::Vector<'static, flatbuffers::ForwardsUOffset<fbs::TargetValue<'a>>>>,
 > {
     let list = dict
         .into_iter()
         .map(|(k, v)| {
             let key = Some(builder.create_shared_string(&k));
-            let value = Some(builder.create_shared_string(&v));
-            fbs::TargetField::create(
+            let key = Some(fbs::TargetValue::create(
                 builder,
-                &fbs::TargetFieldArgs {
+                &fbs::TargetValueArgs {
+                    key: None,
+                    type_: fbs::TargetValueType::String,
+                    bool_value: None,
+                    int_value: None,
+                    string_value: key,
+                    list_value: None,
+                    dict_value: None,
+                },
+            ));
+            let value = Some(builder.create_shared_string(&v));
+            fbs::TargetValue::create(
+                builder,
+                &fbs::TargetValueArgs {
                     key,
-                    type_: fbs::TargetFieldType::String,
+                    type_: fbs::TargetValueType::String,
                     bool_value: None,
                     int_value: None,
                     string_value: value,
@@ -347,7 +386,7 @@ fn dict_of_strings_to_target_field<'a>(
                 },
             )
         })
-        .collect::<Vec<WIPOffset<fbs::TargetField<'a>>>>();
+        .collect::<Vec<WIPOffset<fbs::TargetValue<'a>>>>();
     Some(builder.create_vector(&list))
 }
 
@@ -417,7 +456,7 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bool_field"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("bool_field"));
     }
 
     #[test]
@@ -437,8 +476,8 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("int_field"));
-        assert_eq!(target.attrs().unwrap().get(0).int_value(), Some(1));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("int_field"));
+        assert_eq!(target.attrs().unwrap().get(0).value().int_value(), Some(1));
     }
 
     #[test]
@@ -458,8 +497,11 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
-        assert_eq!(target.attrs().unwrap().get(0).string_value(), Some("foo"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("bar"));
+        assert_eq!(
+            target.attrs().unwrap().get(0).value().string_value(),
+            Some("foo")
+        );
     }
 
     #[test]
@@ -479,9 +521,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("enum_field"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("enum_field"));
         assert_eq!(
-            target.attrs().unwrap().get(0).string_value(),
+            target.attrs().unwrap().get(0).value().string_value(),
             Some("some_string")
         );
         Ok(())
@@ -506,9 +548,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("bar"));
         assert_eq!(
-            target.attrs().unwrap().get(0).string_value(),
+            target.attrs().unwrap().get(0).value().string_value(),
             Some("$(location :relative_path_test_file)")
         );
     }
@@ -532,9 +574,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("bar"));
         assert_eq!(
-            target.attrs().unwrap().get(0).string_value(),
+            target.attrs().unwrap().get(0).value().string_value(),
             Some("foo/bar")
         );
     }
@@ -568,9 +610,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("bar"));
         assert_eq!(
-            target.attrs().unwrap().get(0).string_value(),
+            target.attrs().unwrap().get(0).value().string_value(),
             Some("$(query_targets deps(:foo))")
         );
     }
@@ -603,11 +645,11 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.attrs().unwrap().get(0).key(),
+            target.attrs().unwrap().get(0).name(),
             Some("plugin_dep_field")
         );
         assert_eq!(
-            target.attrs().unwrap().get(0).string_value(),
+            target.attrs().unwrap().get(0).value().string_value(),
             Some("cell//foo/bar:t2")
         );
     }
@@ -632,6 +674,7 @@ mod tests {
                 .attrs()
                 .unwrap()
                 .get(0)
+                .value()
                 .string_value()
                 .unwrap()
                 .contains("cell//foo/bar:t2 (<testing>#")
@@ -727,6 +770,7 @@ mod tests {
                 .attrs()
                 .unwrap()
                 .get(0)
+                .value()
                 .list_value()
                 .unwrap()
                 .get(0)
@@ -761,7 +805,7 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("some_deps"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("some_deps"));
     }
 
     #[test]
@@ -782,7 +826,7 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.attrs().unwrap().get(0).key(),
+            target.attrs().unwrap().get(0).name(),
             Some(VISIBILITY_ATTRIBUTE_FIELD)
         );
         assert_eq!(
@@ -790,6 +834,7 @@ mod tests {
                 .attrs()
                 .unwrap()
                 .get(0)
+                .value()
                 .list_value()
                 .unwrap()
                 .get(0)
@@ -815,8 +860,8 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("one_of_field"));
-        assert_eq!(target.attrs().unwrap().get(0).int_value(), Some(7));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("one_of_field"));
+        assert_eq!(target.attrs().unwrap().get(0).value().int_value(), Some(7));
     }
 
     #[test]
@@ -837,7 +882,7 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.attrs().unwrap().get(0).key(),
+            target.attrs().unwrap().get(0).name(),
             Some(WITHIN_VIEW_ATTRIBUTE_FIELD)
         );
         assert_eq!(
@@ -845,6 +890,7 @@ mod tests {
                 .attrs()
                 .unwrap()
                 .get(0)
+                .value()
                 .list_value()
                 .unwrap()
                 .get(0)
@@ -877,12 +923,13 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.attrs().unwrap().get(0).key(), Some("dict_field"));
+        assert_eq!(target.attrs().unwrap().get(0).name(), Some("dict_field"));
         assert_eq!(
             target
                 .attrs()
                 .unwrap()
                 .get(0)
+                .value()
                 .dict_value()
                 .unwrap()
                 .get(0)
@@ -914,7 +961,7 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.attrs().unwrap().get(0).string_value(),
+            target.attrs().unwrap().get(0).value().string_value(),
             Some("{\"key.something\":\"foo\"}")
         );
         Ok(())

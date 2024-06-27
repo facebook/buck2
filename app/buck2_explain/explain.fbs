@@ -9,16 +9,22 @@
 
 namespace explain;
 
-enum TargetFieldType : byte { Bool, Int, String, List, Dict }
+enum TargetValueType : byte { Bool, Int, String, List, Dict }
 
-table TargetField {
-  type: TargetFieldType = String;
-  key: string;
+
+table TargetValue {
+  type: TargetValueType = String;
+  key: TargetValue; // used for dicts
   bool_value: bool = null;
   int_value: long = null;
   string_value: string;
-  list_value: [TargetField];
-  dict_value: [TargetField];
+  list_value: [TargetValue];
+  dict_value: [TargetValue];
+}
+
+table TargetField {
+  name: string;
+  value: TargetValue (required);
 }
 
 table ConfiguredTargetNode {
