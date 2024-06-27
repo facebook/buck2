@@ -108,6 +108,7 @@ fn target_to_fbs<'a>(
                         type_: fbs::TargetFieldType::Bool,
                         bool_value: Some(*value),
                         int_value: None,
+                        string_value: None,
                     },
                 ))
             }
@@ -120,6 +121,21 @@ fn target_to_fbs<'a>(
                         type_: fbs::TargetFieldType::Int,
                         bool_value: None,
                         int_value: Some(*v),
+                        string_value: None,
+                    },
+                ))
+            }
+            AttrField::String(k, v) => {
+                let key = Some(builder.create_shared_string(k));
+                let value = Some(builder.create_shared_string(&v));
+                Some(fbs::TargetField::create(
+                    builder,
+                    &fbs::TargetFieldArgs {
+                        key,
+                        type_: fbs::TargetFieldType::String,
+                        bool_value: None,
+                        int_value: None,
+                        string_value: value,
                     },
                 ))
             }
@@ -127,20 +143,6 @@ fn target_to_fbs<'a>(
         })
         .collect();
     let all_attrs = Some(builder.create_vector(&list));
-
-    let list: Vec<_> = attrs
-        .iter()
-        .filter_map(|attr| match attr {
-            AttrField::String(n, v) => Some((n, v)),
-            _ => None,
-        })
-        .map(|(key, value)| {
-            let key = Some(builder.create_shared_string(key));
-            let value = Some(builder.create_shared_string(&value));
-            fbs::StringAttr::create(builder, &fbs::StringAttrArgs { key, value })
-        })
-        .collect();
-    let string_attrs = Some(builder.create_vector(&list));
 
     let list: Vec<_> = attrs
         .iter()
@@ -185,7 +187,6 @@ fn target_to_fbs<'a>(
             plugins,
             // defined attrs
             attrs: all_attrs,
-            string_attrs,
             list_of_strings_attrs,
             dict_of_strings_attrs,
         },
@@ -418,8 +419,8 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
-        assert_eq!(target.string_attrs().unwrap().get(0).value(), Some("foo"));
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(target.attrs().unwrap().get(0).string_value(), Some("foo"));
     }
 
     #[test]
@@ -439,12 +440,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("enum_field"));
         assert_eq!(
-            target.string_attrs().unwrap().get(0).key(),
-            Some("enum_field")
-        );
-        assert_eq!(
-            target.string_attrs().unwrap().get(0).value(),
+            target.attrs().unwrap().get(0).string_value(),
             Some("some_string")
         );
         Ok(())
@@ -469,9 +467,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
         assert_eq!(
-            target.string_attrs().unwrap().get(0).value(),
+            target.attrs().unwrap().get(0).string_value(),
             Some("$(location :relative_path_test_file)")
         );
     }
@@ -495,9 +493,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
         assert_eq!(
-            target.string_attrs().unwrap().get(0).value(),
+            target.attrs().unwrap().get(0).string_value(),
             Some("foo/bar")
         );
     }
@@ -531,9 +529,9 @@ mod tests {
         let target = build.targets().unwrap().get(0);
 
         assert_things(target, build);
-        assert_eq!(target.string_attrs().unwrap().get(0).key(), Some("bar"));
+        assert_eq!(target.attrs().unwrap().get(0).key(), Some("bar"));
         assert_eq!(
-            target.string_attrs().unwrap().get(0).value(),
+            target.attrs().unwrap().get(0).string_value(),
             Some("$(query_targets deps(:foo))")
         );
     }
@@ -566,11 +564,11 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.string_attrs().unwrap().get(0).key(),
+            target.attrs().unwrap().get(0).key(),
             Some("plugin_dep_field")
         );
         assert_eq!(
-            target.string_attrs().unwrap().get(0).value(),
+            target.attrs().unwrap().get(0).string_value(),
             Some("cell//foo/bar:t2")
         );
     }
@@ -592,10 +590,10 @@ mod tests {
         assert_things(target, build);
         assert!(
             target
-                .string_attrs()
+                .attrs()
                 .unwrap()
                 .get(0)
-                .value()
+                .string_value()
                 .unwrap()
                 .contains("cell//foo/bar:t2 (<testing>#")
         );
@@ -880,7 +878,7 @@ mod tests {
 
         assert_things(target, build);
         assert_eq!(
-            target.string_attrs().unwrap().get(0).value(),
+            target.attrs().unwrap().get(0).string_value(),
             Some("{\"key.something\":\"foo\"}")
         );
         Ok(())

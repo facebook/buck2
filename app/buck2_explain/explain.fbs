@@ -9,13 +9,14 @@
 
 namespace explain;
 
-enum TargetFieldType : byte { Bool, Int }
+enum TargetFieldType : byte { Bool, Int, String }
 
 table TargetField {
   type: TargetFieldType;
   key: string;
   bool_value: bool = null;
   int_value: long = null;
+  string_value: string;
 }
 
 table IntAttr {
@@ -51,7 +52,6 @@ table ConfiguredTargetNode {
     plugins: [string];
     // user attrs
     attrs: [TargetField];
-    string_attrs: [StringAttr];
     list_of_strings_attrs: [ListOfStringsAttr];
     dict_of_strings_attrs: [DictOfStringsAttr];
     // TODO iguridi: add other possible types
