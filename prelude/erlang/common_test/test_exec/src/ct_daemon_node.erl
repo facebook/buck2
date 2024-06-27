@@ -215,13 +215,8 @@ convert_atom_arg(Arg) ->
 
 -spec get_config_files() -> [file:filename_all()].
 get_config_files() ->
-    _ = application:load(test_exec),
-    PrivDir = code:priv_dir(test_exec),
-    [
-        ConfigFile
-     || ConfigFile <- filelib:wildcard(filename:join(PrivDir, "*")),
-        filename:extension(ConfigFile) =:= ".config"
-    ].
+    %% get config files from command line
+    [F || {config, F} <- init:get_arguments()].
 
 -spec gen_output_dir(RandomName :: string()) -> file:filename().
 gen_output_dir(RandomName) ->
