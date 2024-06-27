@@ -24,6 +24,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
@@ -75,9 +76,6 @@ enum RBuildFilesError {
 /// UqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
 pub(crate) trait UqueryDelegate: Send + Sync {
-    /// Get the imports from a LoadedModule corresponding to some path.
-    async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>>;
-
     async fn get_buildfile_names_by_cell(
         &self,
     ) -> anyhow::Result<HashMap<CellName, Arc<[FileNameBuf]>>>;
@@ -621,7 +619,7 @@ async fn first_order_imports<'c>(
 
     let mut all_first_order_futs: FuturesUnordered<_> = all_imports
         .iter()
-        .map(|node| async move { (node, delegate.eval_module_imports(node).await) })
+        .map(|node| async move { (node, delegate.ctx().get_loaded_module_imports(node).await) })
         .collect();
 
     let mut first_order_import_map = HashMap::<ImportPath, Vec<ImportPath>>::new();
@@ -691,7 +689,8 @@ pub(crate) async fn get_transitive_loads<'c>(
         ) -> anyhow::Result<()> {
             for import in self
                 .delegate
-                .eval_module_imports(target.import_path())
+                .ctx()
+                .get_loaded_module_imports(target.import_path())
                 .await?
             {
                 func.visit(&NodeRef(import))?;

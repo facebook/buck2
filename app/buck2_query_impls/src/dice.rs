@@ -23,7 +23,6 @@ use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
@@ -42,7 +41,6 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -208,10 +206,6 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
 
 #[async_trait]
 impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
-    async fn eval_module_imports(&self, path: &ImportPath) -> anyhow::Result<Vec<ImportPath>> {
-        self.ctx.get().get_loaded_module_imports(path).await
-    }
-
     // get the list of potential buildfile names for each cell
     async fn get_buildfile_names_by_cell(
         &self,
