@@ -9,7 +9,7 @@
 
 import React, {useContext} from 'react'
 import {DataContext} from './App'
-import {IntAttr, BoolAttr, ConfiguredTargetNode, ListOfStringsAttr, StringAttr} from './fbs/explain'
+import {ConfiguredTargetNode, TargetValueType, TargetField, TargetValue} from './fbs/explain'
 import {Link, RouterContext, TARGET_TAB, TARGET_VIEW} from './Router'
 
 const TARGET_ATTRS = 'target_attrs'
@@ -53,61 +53,82 @@ function List(props: {attr: (i: number) => string; length: number}): JSX.Element
   return <ul>{items}</ul>
 }
 
-function ListOfPlainAttrs(props: {
-  attr: (i: number) => IntAttr | BoolAttr | null
+function ListAttr(props: {
+  getItem: (i: number) => TargetValue | null
   length: number
 }): JSX.Element {
+  const {getItem, length} = props
+  if (length === 0) {
+    return <span></span>
+  }
+
   const items: JSX.Element[] = []
   for (let i = 0; i < props.length; i++) {
-    const value = props.attr(i)
-    if (value == null) {
-      continue
-    }
-    const row = (
+    items.push(
       <li key={i}>
-        {value.key()} = <PossibleLink value={value?.value()?.toString()} />
-      </li>
+        <Attr value={getItem(i)} />
+      </li>,
     )
-    items.push(row)
   }
-  return <>{items}</>
+  return <ul>[{items}]</ul>
 }
 
-function ListOfStringAttrs(props: {
-  attr: (i: number) => StringAttr | null
+function DictAttr(props: {
+  getItem: (i: number) => TargetValue | null
   length: number
 }): JSX.Element {
+  const {getItem, length} = props
+  if (length === 0) {
+    return <span>[]</span>
+  }
+
   const items: JSX.Element[] = []
   for (let i = 0; i < props.length; i++) {
-    const value = props.attr(i)
-    if (value == null) {
-      continue
-    }
-    const row = (
+    let value = getItem(i)
+    items.push(
       <li key={i}>
-        {value.key()} = <PossibleLink value={value.value() || 'Empty plain attr'} />
-      </li>
+        <Attr value={value?.key()} />:
+        <Attr value={value} />
+      </li>,
     )
-    items.push(row)
   }
-  return <>{items}</>
+  return <ul>&#123;{items}&#125;</ul>
 }
 
-function ListOfListOfStringAttrs(props: {
-  attr: (i: number) => ListOfStringsAttr | null
-  length: number
-}): JSX.Element {
+function Attr(props: {value: TargetValue | null | undefined}): JSX.Element {
+  const {value} = props
+  if (value == null) {
+    return <>null value</>
+  }
+  const valueType = value?.type()
+  if (valueType == null) {
+    return <>null value type</>
+  }
+  switch (valueType) {
+    case TargetValueType.Bool:
+      return <>{value.boolValue()?.toString()}</>
+    case TargetValueType.Int:
+      return <>{value.intValue()?.toString()}</>
+    case TargetValueType.String:
+      // TODO iguridi: update this once we have ConfiguredTargetLabel type
+      return <PossibleLink value={value.stringValue() || ''} />
+    case TargetValueType.List:
+      return <ListAttr getItem={i => value.listValue(i)} length={value.listValueLength()} />
+    case TargetValueType.Dict:
+      return <DictAttr getItem={i => value.dictValue(i)} length={value.dictValueLength()} />
+  }
+}
+
+function Attrs(props: {attr: (i: number) => TargetField | null; length: number}): JSX.Element {
   const items: JSX.Element[] = []
   for (let i = 0; i < props.length; i++) {
-    const value = props.attr(i)
-    if (value == null) {
+    const attr = props.attr(i)
+    if (attr == null) {
       continue
     }
     const row = (
       <li key={i}>
-        {value.key()} = [
-        <List attr={i => value.value(i)} length={value.valueLength()} />
-        ],
+        {attr.name()} = <Attr value={attr.value()} />
       </li>
     )
     items.push(row)
@@ -209,13 +230,7 @@ function TargetAttrs(props: {target: ConfiguredTargetNode}) {
       <li>oncall = "{target.oncall()}",</li>
       <li>target_configuration = "{target.targetConfiguration()}",</li>
       <li>execution_platform = "{target.executionPlatform()}",</li>
-      <ListOfPlainAttrs attr={i => target.boolAttrs(i)} length={target.boolAttrsLength()} />
-      <ListOfPlainAttrs attr={i => target.intAttrs(i)} length={target.intAttrsLength()} />
-      <ListOfStringAttrs attr={i => target.stringAttrs(i)} length={target.stringAttrsLength()} />
-      <ListOfListOfStringAttrs
-        attr={i => target.listOfStringsAttrs(i)}
-        length={target.listOfStringsAttrsLength()}
-      />
+      <Attrs attr={i => target.attrs(i)} length={target.attrsLength()} />
     </ul>
   )
 }

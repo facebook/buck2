@@ -15,7 +15,7 @@ import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
 import {Index} from 'flexsearch-ts'
-import {BoolAttr, Build, ConfiguredTargetNode, IntAttr, StringAttr} from './fbs/explain'
+import {Build, ConfiguredTargetNode, TargetField, TargetValue, TargetValueType} from './fbs/explain'
 import {ROOT_VIEW, Router, SEARCH_VIEW, TARGET_VIEW} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
@@ -44,16 +44,74 @@ function addIfExists(index: Index, key: string, element: string | null | undefin
   }
 }
 
-function addList(index: Index, key: string, attr: (i: number) => string, length: number) {
+function addList(
+  index: Index,
+  key: string,
+  attr: (i: number) => TargetValue | null | undefined,
+  length: number,
+) {
   for (let i = 0; i < length; i++) {
-    index.append(key, attr(i))
+    addTargetValue(index, key, attr(i))
   }
 }
 
-function addListPlain(
+function addListOfStrings(index: Index, key: string, attr: (i: number) => string, length: number) {
+  for (let i = 0; i < length; i++) {
+    const value = attr(i)
+    if (value != null) {
+      addIfExists(index, key, value)
+    }
+  }
+}
+
+function addDict(
   index: Index,
   key: string,
-  attr: (i: number) => StringAttr | IntAttr | BoolAttr | null,
+  attr: (i: number) => TargetValue | null | undefined,
+  length: number,
+) {
+  for (let i = 0; i < length; i++) {
+    const value = attr(i)
+    addTargetValue(index, key, value?.key())
+    addTargetValue(index, key, value)
+  }
+}
+
+function addTargetField(index: Index, key: string, field: TargetField | null) {
+  if (field == null) {
+    return
+  }
+  const name = field?.name()
+  addIfExists(index, key, name)
+  addTargetValue(index, key, field?.value())
+}
+
+function addTargetValue(index: Index, key: string, value: TargetValue | null | undefined) {
+  if (value == null) {
+    return
+  }
+  const valueType = value?.type()
+  if (valueType == null) {
+    return
+  }
+  switch (valueType) {
+    case TargetValueType.Bool:
+      addIfExists(index, key, value.boolValue()?.toString())
+    case TargetValueType.Int:
+      addIfExists(index, key, value.intValue()?.toString())
+    case TargetValueType.String:
+      addIfExists(index, key, value.stringValue())
+    case TargetValueType.List:
+      addList(index, key, i => value.listValue(i), value.listValueLength())
+    case TargetValueType.Dict:
+      addDict(index, key, i => value.dictValue(i), value.dictValueLength())
+  }
+}
+
+function addListOfTargetFields(
+  index: Index,
+  key: string,
+  attr: (i: number) => TargetField | null,
   length: number,
 ) {
   for (let i = 0; i < length; i++) {
@@ -61,11 +119,7 @@ function addListPlain(
     if (value == null) {
       continue
     }
-    const [k, v] = [value.key(), value.value()?.toString()]
-    if (k != null && v != null) {
-      index.append(key, k)
-      index.append(key, v)
-    }
+    addTargetField(index, key, value)
   }
 }
 
@@ -124,17 +178,13 @@ function App() {
         addIfExists(search_index, label, target.targetConfiguration())
         addIfExists(search_index, label, target.type())
         addIfExists(search_index, label, label)
-        addList(search_index, label, i => target.deps(i), target.depsLength())
-        addListPlain(search_index, label, i => target.boolAttrs(i), target.boolAttrsLength())
-        addListPlain(search_index, label, i => target.intAttrs(i), target.intAttrsLength())
-        addListPlain(search_index, label, i => target.stringAttrs(i), target.stringAttrsLength())
-        for (let i = 0; i < target.listOfStringsAttrsLength(); i++) {
-          let value = target.listOfStringsAttrs(i)
-          if (value == null) {
-            continue
-          }
-          addList(search_index, label, i => value.value(i), value.valueLength())
-        }
+        addListOfStrings(search_index, label, i => target.deps(i), target.depsLength())
+        addListOfTargetFields(
+          search_index,
+          label,
+          (i: number) => target.attrs(i),
+          target.attrsLength(),
+        )
       }
 
       // This should run just once total
