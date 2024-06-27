@@ -99,10 +99,10 @@ pub(crate) async fn preresolve_literals_and_build_universe(
 
 // This will first resolve the universe to configured nodes and then gather all
 // the deps. From there, it resolves the literals to any matching nodes in the universe deps.
-async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
+async fn resolve_literals_in_universe(
     dice_query_delegate: &DiceQueryDelegate<'_, '_>,
-    literals: &[L],
-    universe: &[U],
+    literals: &[String],
+    universe: &[String],
 ) -> anyhow::Result<(
     CqueryUniverse,
     PreresolvedQueryLiterals<ConfiguredTargetNode>,
@@ -111,7 +111,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
 
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
-    let refs: Vec<_> = universe.map(|v| v.as_ref());
+    let refs: Vec<_> = universe.map(|v| v.as_str());
     let universe_resolved = query_literals
         .eval_literals(&refs, &mut dice_query_delegate.ctx())
         .await?;
@@ -127,9 +127,10 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     let resolution_futs: FuturesUnordered<_> = literals
         .iter()
         .map(|lit| async move {
-            let lit = lit.as_ref();
             let result: anyhow::Result<_> = try {
-                let resolved_pattern = dice_query_delegate.resolve_target_patterns(&[lit]).await?;
+                let resolved_pattern = dice_query_delegate
+                    .resolve_target_patterns(&[lit.as_str()])
+                    .await?;
                 universe_ref.get(&resolved_pattern)
             };
 
