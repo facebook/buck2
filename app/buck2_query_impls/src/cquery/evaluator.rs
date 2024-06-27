@@ -116,7 +116,7 @@ async fn resolve_literals_in_universe(
     literals: &[String],
     universe: &[String],
 ) -> anyhow::Result<(
-    CqueryUniverse,
+    Arc<CqueryUniverse>,
     PreresolvedQueryLiterals<ConfiguredTargetNode>,
 )> {
     let query_literals = dice_query_delegate.query_data();
@@ -151,5 +151,5 @@ async fn resolve_literals_in_universe(
         .collect();
 
     let resolved = resolution_futs.collect().await;
-    Ok((universe, PreresolvedQueryLiterals::new(resolved)))
+    Ok((Arc::new(universe), PreresolvedQueryLiterals::new(resolved)))
 }

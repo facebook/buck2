@@ -82,7 +82,7 @@ pub(crate) struct CqueryEnvironment<'c> {
     //   ```
     //   buck2 cquery 'deps(//foo:bar)'
     //   ```
-    universe: Option<CqueryUniverse>,
+    universe: Option<Arc<CqueryUniverse>>,
     owner_behavior: CqueryOwnerBehavior,
 }
 
@@ -90,7 +90,7 @@ impl<'c> CqueryEnvironment<'c> {
     pub(crate) fn new(
         delegate: &'c dyn CqueryDelegate,
         literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
-        universe: Option<CqueryUniverse>,
+        universe: Option<Arc<CqueryUniverse>>,
         owner_behavior: CqueryOwnerBehavior,
     ) -> Self {
         Self {

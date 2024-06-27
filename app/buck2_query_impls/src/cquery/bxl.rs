@@ -73,7 +73,7 @@ impl BxlCqueryFunctionsImpl {
         universe: Option<&TargetSet<ConfiguredTargetNode>>,
     ) -> anyhow::Result<CqueryEnvironment<'c>> {
         let universe = match universe {
-            Some(u) => Some(CqueryUniverse::build(u)?),
+            Some(u) => Some(Arc::new(CqueryUniverse::build(u)?)),
             None => None,
         };
         let literals = dice_query_delegate.query_data().dupe();
