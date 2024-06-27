@@ -18,6 +18,7 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use dice::DiceComputations;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -97,6 +98,17 @@ pub(crate) async fn preresolve_literals_and_build_universe(
     Ok((universe, resolved_literals))
 }
 
+async fn build_cquery_universe_from_literals(
+    universe: &[String],
+    query_literals: &DiceQueryData,
+    ctx: &mut DiceComputations<'_>,
+) -> anyhow::Result<CqueryUniverse> {
+    let refs: Vec<_> = universe.map(|v| v.as_str());
+    let universe_resolved = query_literals.eval_literals(&refs, ctx).await?;
+
+    CqueryUniverse::build(&universe_resolved)
+}
+
 // This will first resolve the universe to configured nodes and then gather all
 // the deps. From there, it resolves the literals to any matching nodes in the universe deps.
 async fn resolve_literals_in_universe(
@@ -111,12 +123,12 @@ async fn resolve_literals_in_universe(
 
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
-    let refs: Vec<_> = universe.map(|v| v.as_str());
-    let universe_resolved = query_literals
-        .eval_literals(&refs, &mut dice_query_delegate.ctx())
-        .await?;
-
-    let universe = CqueryUniverse::build(&universe_resolved)?;
+    let universe = build_cquery_universe_from_literals(
+        universe,
+        query_literals,
+        &mut dice_query_delegate.ctx(),
+    )
+    .await?;
 
     // capture a reference so the ref can be moved into the future below.
     let universe_ref = &universe;
