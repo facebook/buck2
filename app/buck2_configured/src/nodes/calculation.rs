@@ -87,6 +87,23 @@ enum NodeCalculationError {
         LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
     )]
     BothTargetCompatibleWith(String),
+    #[allow(dead_code)]
+    #[error(
+        "Target {0} configuration transitioned\n\
+        old: {1}\n\
+        new: {2}\n\
+        but attribute {3}\n\
+        resolved with old configuration to: {4}\n\
+        resolved with new configuration to: {5}"
+    )]
+    TransitionAttrIncompatibleChange(
+        TargetLabel,
+        ConfigurationData,
+        ConfigurationData,
+        String,
+        String,
+        String,
+    ),
 }
 
 enum CompatibilityConstraints {
@@ -884,6 +901,43 @@ async fn resolve_transition_attrs<'a>(
         }
     }
     Ok(result)
+}
+
+#[allow(dead_code)]
+/// Verifies if configured node's attributes are equal to the same attributes configured with pre-transition configuration.
+/// Only check attributes used in transition.
+fn verify_transitioned_attrs<'a>(
+    // Attributes resolved with pre-transition configuration
+    pre_transition_attrs: &OrderedMap<&'a str, Arc<ConfiguredAttr>>,
+    pre_transition_config: &ConfigurationData,
+    node: &ConfiguredTargetNode,
+) -> anyhow::Result<()> {
+    for (attr, attr_value) in pre_transition_attrs {
+        let transition_configured_attr = node
+            .get(attr, AttrInspectOptions::All)
+            .with_internal_error(|| {
+                format!(
+                    "Attr {} was not found in transition for target {}",
+                    attr,
+                    node.label(),
+                )
+            })?;
+        if &transition_configured_attr.value != attr_value.as_ref() {
+            return Err(NodeCalculationError::TransitionAttrIncompatibleChange(
+                node.label().unconfigured().dupe(),
+                pre_transition_config.dupe(),
+                node.label().cfg().dupe(),
+                attr.to_string(),
+                attr_value.as_display_no_ctx().to_string(),
+                transition_configured_attr
+                    .value
+                    .as_display_no_ctx()
+                    .to_string(),
+            )
+            .into());
+        }
+    }
+    Ok(())
 }
 
 /// Compute configured target node ignoring transition for this node.
