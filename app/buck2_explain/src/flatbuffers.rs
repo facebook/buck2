@@ -102,12 +102,8 @@ fn target_to_fbs<'a>(
                             builder,
                             &fbs::TargetValueArgs {
                                 type_: fbs::TargetValueType::Bool,
-                                key: None,
                                 bool_value: Some(value),
-                                int_value: None,
-                                string_value: None,
-                                list_value: None,
-                                dict_value: None,
+                                ..Default::default()
                             },
                         ),
                     )
@@ -120,12 +116,8 @@ fn target_to_fbs<'a>(
                             builder,
                             &fbs::TargetValueArgs {
                                 type_: fbs::TargetValueType::Int,
-                                key: None,
-                                bool_value: None,
                                 int_value: Some(v),
-                                string_value: None,
-                                list_value: None,
-                                dict_value: None,
+                                ..Default::default()
                             },
                         ),
                     )
@@ -139,12 +131,8 @@ fn target_to_fbs<'a>(
                             builder,
                             &fbs::TargetValueArgs {
                                 type_: fbs::TargetValueType::String,
-                                key: None,
-                                bool_value: None,
-                                int_value: None,
                                 string_value: value,
-                                list_value: None,
-                                dict_value: None,
+                                ..Default::default()
                             },
                         ),
                     )
@@ -158,12 +146,8 @@ fn target_to_fbs<'a>(
                             builder,
                             &fbs::TargetValueArgs {
                                 type_: fbs::TargetValueType::List,
-                                key: None,
-                                bool_value: None,
-                                int_value: None,
-                                string_value: None,
                                 list_value: value,
-                                dict_value: None,
+                                ..Default::default()
                             },
                         ),
                     )
@@ -177,12 +161,8 @@ fn target_to_fbs<'a>(
                             builder,
                             &fbs::TargetValueArgs {
                                 type_: fbs::TargetValueType::Dict,
-                                key: None,
-                                bool_value: None,
-                                int_value: None,
-                                string_value: None,
-                                list_value: None,
                                 dict_value: value,
+                                ..Default::default()
                             },
                         ),
                     )
@@ -334,13 +314,9 @@ fn list_of_strings_to_target_value<'a>(
             fbs::TargetValue::create(
                 builder,
                 &fbs::TargetValueArgs {
-                    key: None,
                     type_: fbs::TargetValueType::String,
-                    bool_value: None,
-                    int_value: None,
                     string_value: value,
-                    list_value: None,
-                    dict_value: None,
+                    ..Default::default()
                 },
             )
         })
@@ -361,13 +337,9 @@ fn dict_of_strings_to_target_field<'a>(
             let key = Some(fbs::TargetValue::create(
                 builder,
                 &fbs::TargetValueArgs {
-                    key: None,
                     type_: fbs::TargetValueType::String,
-                    bool_value: None,
-                    int_value: None,
                     string_value: key,
-                    list_value: None,
-                    dict_value: None,
+                    ..Default::default()
                 },
             ));
             let value = Some(builder.create_shared_string(&v));
@@ -376,11 +348,8 @@ fn dict_of_strings_to_target_field<'a>(
                 &fbs::TargetValueArgs {
                     key,
                     type_: fbs::TargetValueType::String,
-                    bool_value: None,
-                    int_value: None,
                     string_value: value,
-                    list_value: None,
-                    dict_value: None,
+                    ..Default::default()
                 },
             )
         })
