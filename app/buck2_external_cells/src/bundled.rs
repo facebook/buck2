@@ -22,7 +22,6 @@ use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::fs::is_executable;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
@@ -288,7 +287,7 @@ async fn declare_all_source_artifacts(
             continue;
         };
         let path = buck_out_resolver.resolve_external_cell_source(
-            CellPathRef::new(cell_name, CellRelativePath::new(path.as_ref())),
+            CellRelativePath::new(path.as_ref()),
             ExternalCellOrigin::Bundled(cell_name),
         );
         requests.push(WriteRequest {
@@ -361,7 +360,7 @@ pub(crate) async fn materialize_all(
             continue;
         };
         let path = buck_out_resolver.resolve_external_cell_source(
-            CellPathRef::new(cell, CellRelativePath::new(path.as_ref())),
+            CellRelativePath::new(path.as_ref()),
             ExternalCellOrigin::Bundled(cell),
         );
         paths.push(path);
@@ -369,7 +368,7 @@ pub(crate) async fn materialize_all(
 
     materializer.ensure_materialized(paths).await?;
     Ok(buck_out_resolver.resolve_external_cell_source(
-        CellPathRef::new(cell, CellRelativePath::unchecked_new("")),
+        CellRelativePath::unchecked_new(""),
         ExternalCellOrigin::Bundled(cell),
     ))
 }

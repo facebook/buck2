@@ -18,8 +18,8 @@ use dupe::Dupe;
 
 use crate::base_deferred_key::BaseDeferredKey;
 use crate::category::Category;
-use crate::cells::cell_path::CellPathRef;
 use crate::cells::external::ExternalCellOrigin;
+use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
@@ -210,7 +210,7 @@ impl BuckOutPathResolver {
 
     pub fn resolve_external_cell_source(
         &self,
-        path: CellPathRef,
+        path: &CellRelativePath,
         origin: ExternalCellOrigin,
     ) -> ProjectRelativePathBuf {
         ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
@@ -221,14 +221,14 @@ impl BuckOutPathResolver {
                 ExternalCellOrigin::Git(_) => ForwardRelativePath::new("git").unwrap(),
             },
             match &origin {
-                ExternalCellOrigin::Bundled(_) => {
-                    ForwardRelativePath::new(path.cell().as_str()).unwrap()
+                ExternalCellOrigin::Bundled(cell) => {
+                    ForwardRelativePath::new(cell.as_str()).unwrap()
                 }
                 ExternalCellOrigin::Git(setup) => {
                     ForwardRelativePath::new(setup.commit.as_ref()).unwrap()
                 }
             },
-            path.path().as_ref(),
+            path.as_ref(),
         ]))
     }
 

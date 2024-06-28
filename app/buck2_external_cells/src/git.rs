@@ -26,7 +26,6 @@ use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
@@ -271,10 +270,8 @@ pub(crate) struct GitFileOpsDelegate {
 
 impl GitFileOpsDelegate {
     fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
-        self.buck_out_resolver.resolve_external_cell_source(
-            CellPathRef::new(self.cell, path),
-            ExternalCellOrigin::Git(self.setup.dupe()),
-        )
+        self.buck_out_resolver
+            .resolve_external_cell_source(path, ExternalCellOrigin::Git(self.setup.dupe()))
     }
 
     fn get_base_path(&self) -> ProjectRelativePathBuf {

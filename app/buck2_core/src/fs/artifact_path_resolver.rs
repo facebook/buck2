@@ -60,7 +60,7 @@ impl ArtifactFs {
             .external()
         {
             Ok(self.buck_out_path_resolver.resolve_external_cell_source(
-                source_artifact_path.to_cell_path().as_ref(),
+                source_artifact_path.to_cell_path().path(),
                 origin.dupe(),
             ))
         } else {
