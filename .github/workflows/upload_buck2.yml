@@ -93,6 +93,12 @@ jobs:
         env:
           RUSTFLAGS: "-C strip=debuginfo -C codegen-units=1"
         run: |
+          # aarch64-linux builds need JEMALLOC_SYS_WITH_LG_PAGE=16
+          # this is for e.g. linux running on apple silicon with native 16k pages
+          if [[ "${{ matrix.target.triple }}" == aarch64-unknown-linux* ]]; then
+            export JEMALLOC_SYS_WITH_LG_PAGE=16
+          fi
+
           if [ -n "${{ matrix.target.cross }}" ]; then
             CARGO=cross
           else
