@@ -590,8 +590,8 @@ pub enum MaterializationMethodError {
 impl MaterializationMethod {
     pub fn try_new_from_config_value(config_value: Option<&str>) -> anyhow::Result<Self> {
         match config_value {
-            None | Some("") | Some("all") => Ok(MaterializationMethod::Immediate),
-            Some("deferred") => Ok(MaterializationMethod::Deferred),
+            None | Some("") | Some("deferred") => Ok(MaterializationMethod::Deferred),
+            Some("all") => Ok(MaterializationMethod::Immediate),
             Some("deferred_skip_final_artifacts") => {
                 Ok(MaterializationMethod::DeferredSkipFinalArtifacts)
             }
