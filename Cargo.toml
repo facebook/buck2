@@ -14,6 +14,7 @@ members = [
     "app/buck2_audit_server",
     "app/buck2_bxl",
     "app/buck2_build_info",
+    "app/buck2_certs",
     "app/buck2_cfg_constructor",
     "app/buck2_client",
     "app/buck2_client_ctx",
@@ -337,6 +338,7 @@ buck2_build_info = { path = "app/buck2_build_info" }
 buck2_build_signals = { path = "app/buck2_build_signals" }
 buck2_build_signals_impl = { path = "app/buck2_build_signals_impl" }
 buck2_bxl = { path = "app/buck2_bxl" }
+buck2_certs = { path = "app/buck2_certs" }
 buck2_cfg_constructor = { path = "app/buck2_cfg_constructor" }
 buck2_cli_proto = { path = "app/buck2_cli_proto" }
 buck2_client = { path = "app/buck2_client" }

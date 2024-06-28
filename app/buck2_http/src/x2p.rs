@@ -65,15 +65,6 @@ pub fn find_proxy() -> anyhow::Result<Option<Proxy>> {
     ))
 }
 
-/// Whether the machine buck is running on supports vpnless operation.
-pub fn supports_vpnless() -> bool {
-    #[cfg(fbcode_build)]
-    return cpe::x2p::supports_vpnless();
-
-    #[cfg(not(fbcode_build))]
-    return false;
-}
-
 /// Collection of different kinds of errors we can see from x2pagent. Typically
 /// denotes a URL is not authorized for vpnless access and/or using the wrong,
 /// non-vpnless url.

@@ -17,7 +17,6 @@ mod proxy;
 mod redirect;
 pub mod retries;
 mod stats;
-pub mod tls;
 mod x2p;
 
 pub use client::to_bytes;

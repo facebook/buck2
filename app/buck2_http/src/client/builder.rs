@@ -12,6 +12,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_certs::certs::find_internal_cert;
+use buck2_certs::certs::supports_vpnless;
+use buck2_certs::certs::tls_config_with_single_cert;
+use buck2_certs::certs::tls_config_with_system_roots;
 use hyper::client::HttpConnector;
 use hyper::service::Service;
 use hyper::Body;
@@ -30,7 +34,6 @@ use super::HttpClient;
 use super::RequestClient;
 use crate::proxy;
 use crate::stats::HttpNetworkStats;
-use crate::tls;
 use crate::x2p;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -77,11 +80,11 @@ impl HttpClientBuilder {
     /// Builds an http client compatible with internal Meta usage.
     pub async fn internal(allow_vpnless: bool) -> anyhow::Result<Self> {
         let mut builder = Self::https_with_system_roots()?;
-        if allow_vpnless && x2p::supports_vpnless() {
+        if allow_vpnless && supports_vpnless() {
             tracing::debug!("Using vpnless client");
             let proxy = x2p::find_proxy()?.context("Expected unix domain socket or http proxy port for x2p client but did not find either")?;
             builder.with_x2p_proxy(proxy);
-        } else if let Some(cert_path) = tls::find_internal_cert() {
+        } else if let Some(cert_path) = find_internal_cert() {
             tracing::debug!("Using internal https client");
             builder.with_client_auth_cert(cert_path).await?;
         } else {
@@ -93,7 +96,7 @@ impl HttpClientBuilder {
 
     /// Creates a barebones https client using system roots for TLS authentication.
     pub fn https_with_system_roots() -> anyhow::Result<Self> {
-        let tls_config = tls::tls_config_with_system_roots()?;
+        let tls_config = tls_config_with_system_roots()?;
         Ok(Self {
             tls_config,
             proxies: Vec::new(),
@@ -113,7 +116,7 @@ impl HttpClientBuilder {
         &mut self,
         path: P,
     ) -> anyhow::Result<&mut Self> {
-        let tls_config = tls::tls_config_with_single_cert(path.as_ref(), path.as_ref()).await?;
+        let tls_config = tls_config_with_single_cert(path.as_ref(), path.as_ref()).await?;
         Ok(self.with_tls_config(tls_config))
     }
 

@@ -1,0 +1,23 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("build_infra")
+
+rust_library(
+    name = "buck2_certs",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:rustls",
+        "fbsource//third-party/rust:rustls-native-certs",
+        "fbsource//third-party/rust:rustls-pemfile",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
+        "fbsource//third-party/rust:x509-parser",
+        "//buck2/app/buck2_error:buck2_error",
+        "//buck2/app/buck2_util:buck2_util",
+        "//buck2/facebook/find_certs:find_certs",
+        "//buck2/gazebo/gazebo:gazebo",
+        # @oss-disable: "//common/rust/cpe:cpe", 
+    ],
+)

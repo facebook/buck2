@@ -1,0 +1,21 @@
+[package]
+edition = "2021"
+license = { workspace = true }
+name = "buck2_certs"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
+rustls-pemfile = { workspace = true }
+tokio = { workspace = true }
+
+tracing = { workspace = true }
+x509-parser = { workspace = true }
+
+gazebo = { workspace = true }
+
+buck2_error = { workspace = true }
+buck2_util = { workspace = true }
