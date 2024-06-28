@@ -114,6 +114,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     if ctx.attrs.disable_animations:
         cmd.append("--disable-animations")
 
+    if ctx.attrs.collect_tombstones:
+        cmd.append("--collect-tombstones")
+
     cmd.extend(
         [
             "--adb-executable-path",

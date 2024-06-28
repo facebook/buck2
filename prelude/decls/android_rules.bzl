@@ -647,6 +647,9 @@ android_instrumentation_test = prelude_rule(
             "disable_animations": attrs.bool(default = False, doc = """
                 Disables animations on the emulator if set to True.
             """),
+            "collect_tombstones": attrs.bool(default = False, doc = """
+                Checks whether the test generated any tombstones, and downloads them from the emulator if true.
+            """),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
             "licenses": attrs.list(attrs.source(), default = []),
         }
