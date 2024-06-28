@@ -79,7 +79,12 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
 
     cxx_tools_info = ctx.attrs.cxx_tools_info[CxxToolsInfo]
     cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if cxx_tools_info.os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
+    return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info)
 
+def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
+    return _cxx_toolchain_from_cxx_tools_info(ctx, ctx.attrs.cxx_tools_info[CxxToolsInfo])
+
+def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo):
     archiver_supports_argfiles = cxx_tools_info.os != "macos"
     additional_linker_flags = ["-fuse-ld=lld"] if cxx_tools_info.os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
 
@@ -203,6 +208,33 @@ def _run_info(args):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
+        "cxx_tools_info": attrs.default_only(attrs.exec_dep(providers = [CxxToolsInfo], default = select({
+            "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
+            "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
+        }))),
+        "c_flags": attrs.list(attrs.string(), default = []),
+        "compiler": attrs.option(attrs.string(), default = None),
+        "compiler_type": attrs.option(attrs.string(), default = None), # one of CxxToolProviderType
+        "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
+        "cvtres_compiler": attrs.option(attrs.string(), default = None),
+        "cvtres_flags": attrs.list(attrs.string(), default = []),
+        "cxx_compiler": attrs.option(attrs.string(), default = None),
+        "cxx_flags": attrs.list(attrs.string(), default = []),
+        "link_flags": attrs.list(attrs.string(), default = []),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "link_style": attrs.string(default = "shared"),
+        "linker": attrs.option(attrs.string(), default = None),
+        "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
+        "post_link_flags": attrs.list(attrs.string(), default = []),
+        "rc_compiler": attrs.option(attrs.string(), default = None),
+        "rc_flags": attrs.list(attrs.string(), default = []),
+    },
+    is_toolchain_rule = True,
+)
+
+cxx_tools_info_toolchain = rule(
+    impl = _cxx_tools_info_toolchain_impl,
+    attrs = {
         "cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = select({
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
             "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
@@ -217,14 +249,6 @@ system_cxx_toolchain = rule(
         "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_flags": attrs.list(attrs.string(), default = []),
-
-        #These parameters are kept for backwards compatibility. The cxx_tools_info parameter above is most likely a better alternative.
-        "compiler": attrs.option(attrs.string(), default = None),
-        "compiler_type": attrs.option(attrs.string(), default = None), # one of CxxToolProviderType
-        "cvtres_compiler": attrs.option(attrs.string(), default = None),
-        "cxx_compiler": attrs.option(attrs.string(), default = None),
-        "linker": attrs.option(attrs.string(), default = None),
-        "rc_compiler": attrs.option(attrs.string(), default = None),
     },
     is_toolchain_rule = True,
 )

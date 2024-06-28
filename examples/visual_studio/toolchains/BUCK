@@ -1,4 +1,4 @@
-load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains:cxx.bzl", "cxx_tools_info_toolchain")
 load("@prelude//toolchains/cxx/clang:tools.bzl", "path_clang_tools")
 load("@prelude//toolchains/msvc:tools.bzl", "find_msvc_tools")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
@@ -18,7 +18,7 @@ path_clang_tools(
     visibility = ["PUBLIC"],
 )
 
-system_cxx_toolchain(
+cxx_tools_info_toolchain(
     name = "cxx",
     cxx_tools_info = select({
         "config//os:windows": ":msvc_tools",
