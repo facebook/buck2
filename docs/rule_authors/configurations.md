@@ -218,6 +218,18 @@ should use `$(exe_target //:binary)` rather than `$(exe //:binary)`. That will
 run the same binary that you'd get from `buck2 build`, rather than one that is
 built for the execution platform.
 
+The path macros vary along two axes:
+
+- **Path Source**: either `DefaultInfo` or `RunInfo` providers
+- **Configuration**: inherits the configuration or transitions to an execution
+  platform configuration
+
+Specifically:
+
+- `$location`: `DefaultInfo` path source, inherits configuration
+- `$exe`: `RunInfo` path source, exec platform configuration
+- `$exe_target`: `RunInfo` path source, inherits configuration
+
 ## Execution platform resolution
 
 During analysis, unlike target platform resolution, every configured node
