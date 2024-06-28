@@ -306,7 +306,7 @@ impl BuckConfigBasedCells {
                             .internal_error("We just checked that this cell exists")?;
                         let origin =
                             Self::parse_external_cell_origin(name, origin.as_str(), &config)?;
-                        if origin == ExternalCellOrigin::Bundled {
+                        if let ExternalCellOrigin::Bundled(name) = origin {
                             EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
                         }
                         cells_aggregator.mark_external_cell(target.to_owned(), origin)?;
@@ -476,7 +476,7 @@ impl BuckConfigBasedCells {
         };
 
         if value == "bundled" {
-            Ok(ExternalCellOrigin::Bundled)
+            Ok(ExternalCellOrigin::Bundled(cell))
         } else if value == "git" {
             let section = &format!("external_cell_{}", cell.as_str());
             let commit: Arc<str> = get_config(section, "commit_hash")?.into();
@@ -1206,7 +1206,9 @@ mod tests {
 
         assert_eq!(
             resolver.get(other1).unwrap().external(),
-            Some(&ExternalCellOrigin::Bundled),
+            Some(&ExternalCellOrigin::Bundled(CellName::testing_new(
+                "test_bundled_cell"
+            ))),
         );
         assert_eq!(resolver.get(other2).unwrap().external(), None,);
         assert_eq!(

@@ -44,7 +44,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         origin: ExternalCellOrigin,
     ) -> anyhow::Result<Arc<dyn FileOpsDelegate>> {
         match origin {
-            ExternalCellOrigin::Bundled => {
+            ExternalCellOrigin::Bundled(cell_name) => {
                 Ok(bundled::get_file_ops_delegate(ctx, cell_name).await? as _)
             }
             ExternalCellOrigin::Git(setup) => {
@@ -88,7 +88,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         // it resulting in the materializer tracking paths in the repo, so this will have to do for
         // now.
         let materialized_path = match origin {
-            ExternalCellOrigin::Bundled => bundled::materialize_all(ctx, cell).await?,
+            ExternalCellOrigin::Bundled(cell) => bundled::materialize_all(ctx, cell).await?,
             ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, cell, setup).await?,
         };
 

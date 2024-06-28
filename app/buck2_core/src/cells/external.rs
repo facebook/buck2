@@ -12,9 +12,11 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 
+use crate::cells::name::CellName;
+
 #[derive(Debug, Clone, Dupe, allocative::Allocative, PartialEq, Eq)]
 pub enum ExternalCellOrigin {
-    Bundled,
+    Bundled(CellName),
     Git(GitCellSetup),
 }
 
@@ -38,7 +40,7 @@ pub struct GitCellSetup {
 impl fmt::Display for ExternalCellOrigin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Bundled => write!(f, "bundled"),
+            Self::Bundled(cell) => write!(f, "bundled({})", cell),
             Self::Git(git) => write!(f, "{}", git),
         }
     }

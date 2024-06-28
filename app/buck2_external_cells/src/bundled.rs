@@ -289,7 +289,7 @@ async fn declare_all_source_artifacts(
         };
         let path = buck_out_resolver.resolve_external_cell_source(
             CellPathRef::new(cell_name, CellRelativePath::new(path.as_ref())),
-            ExternalCellOrigin::Bundled,
+            ExternalCellOrigin::Bundled(cell_name),
         );
         requests.push(WriteRequest {
             path,
@@ -362,7 +362,7 @@ pub(crate) async fn materialize_all(
         };
         let path = buck_out_resolver.resolve_external_cell_source(
             CellPathRef::new(cell, CellRelativePath::new(path.as_ref())),
-            ExternalCellOrigin::Bundled,
+            ExternalCellOrigin::Bundled(cell),
         );
         paths.push(path);
     }
@@ -370,7 +370,7 @@ pub(crate) async fn materialize_all(
     materializer.ensure_materialized(paths).await?;
     Ok(buck_out_resolver.resolve_external_cell_source(
         CellPathRef::new(cell, CellRelativePath::unchecked_new("")),
-        ExternalCellOrigin::Bundled,
+        ExternalCellOrigin::Bundled(cell),
     ))
 }
 
