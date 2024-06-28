@@ -35,7 +35,15 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Extract prebuilt wheel and wrap in python library provider.
     # TODO(nmj): Make sure all attrs are used if necessary, esp compile
     extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True)
-    ctx.actions.run([ctx.attrs._extract[RunInfo], ctx.attrs.binary_src, "--output", extracted_src.as_output()], category = "py_extract_prebuilt_library")
+    cmd = cmd_args(
+        ctx.attrs._extract[RunInfo],
+        ctx.attrs.binary_src,
+        "--output",
+        extracted_src.as_output(),
+    )
+    if ctx.attrs.strip_soabi_tags:
+        cmd.add("--strip-soabi-tags")
+    ctx.actions.run(cmd, category = "py_extract_prebuilt_library")
     deps, shared_deps = gather_dep_libraries(ctx.attrs.deps)
     src_manifest = create_manifest_for_source_dir(ctx, "binary_src", extracted_src, exclude = "\\.pyc$")
     bytecode = compile_manifests(ctx, [src_manifest])

@@ -194,6 +194,16 @@ prebuilt_python_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "licenses": attrs.list(attrs.source(), default = []),
+            "strip_soabi_tags": attrs.bool(
+                default = False,
+                doc = """
+                    Strip the SOABI tags from extensions in the prebuilt library.
+
+                    Note that this should be considered unsafe, as it removes builtin
+                    protections that fail fast when a potententially incompatible
+                    native extension is imported.
+                """,
+            ),
         }
     ),
 )

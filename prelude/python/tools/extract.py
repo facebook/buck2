@@ -23,13 +23,41 @@ import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Optional
+
+
+def strip_soabi_tag(path: Path) -> Optional[Path]:
+    """
+    Helper to strip any SOABI tag from the given extension path.  Returns `None`
+    if no stripping is performed.
+    """
+
+    suffixes = path.suffixes[-2:]
+
+    # SOABI tagged extensions should have two suffixes.
+    if len(suffixes) != 2:
+        return None
+
+    # Not an extension.
+    ext = ""
+    for ext in (".so", ".pyd"):
+        if suffixes[1] == ext:
+            break
+    else:
+        return None
+
+    # TODO(agallagher): Is there a better way to detect these tags?
+    if not (suffixes[0].startswith(".cpython-") or suffixes[0] == ".abi3"):
+        return None
+
+    return path.with_suffix("").with_suffix(ext)
 
 
 # shutil.unpack_archive calls zipfile.extract which does *not* preserve file attributes
 # (see https://bugs.python.org/issue15795, https://stackoverflow.com/questions/39296101/python-zipfile-removes-execute-permissions-from-binaries).
 #
 # We need to preserve at least the executable bit.
-def extract(src: Path, dst_dir: Path) -> None:
+def extract(src: Path, dst_dir: Path, strip_soabi_tags: bool = False) -> None:
     if src.suffixes[-2:] == [".tar", ".gz"]:
         with tempfile.TemporaryDirectory() as tmp_dir:
             with tarfile.open(src) as tf:
@@ -40,13 +68,21 @@ def extract(src: Path, dst_dir: Path) -> None:
             (path,) = glob.glob(os.path.join(tmp_dir, "*"))
             for ent in os.listdir(path):
                 fsrc = os.path.join(path, ent)
-                fdst = os.path.join(dst_dir, ent)
+                fdst = Path(os.path.join(dst_dir, ent))
+                soabi_less_dst = strip_soabi_tag(fdst)
+                if soabi_less_dst is not None:
+                    fdst = soabi_less_dst
                 shutil.move(fsrc, fdst)
 
     else:
         with zipfile.ZipFile(src) as z:
             for info in z.infolist():
-                outfile = z.extract(info.filename, dst_dir)
+                outfile = Path(z.extract(info.filename, dst_dir))
+                if strip_soabi_tags:
+                    soabi_less_outfile = strip_soabi_tag(outfile)
+                    if soabi_less_outfile is not None:
+                        os.rename(outfile, soabi_less_outfile)
+                        outfile = soabi_less_outfile
                 execute_perms = (info.external_attr >> 16) & (
                     stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
                 )
@@ -64,12 +100,17 @@ def main() -> None:
     parser.add_argument(
         "--output", type=Path, required=True, help="The directory to write to"
     )
+    parser.add_argument("--strip-soabi-tags", action="store_true")
     parser.add_argument("src", type=Path, help="The archive to extract to --output")
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
 
-    extract(args.src, args.output)
+    extract(
+        src=args.src,
+        dst_dir=args.output,
+        strip_soabi_tags=args.strip_soabi_tags,
+    )
 
 
 if __name__ == "__main__":
