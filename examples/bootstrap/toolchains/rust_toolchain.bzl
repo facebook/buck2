@@ -32,7 +32,6 @@ def _rust_toolchain_impl(ctx):
             clippy_driver = RunInfo(args = ["clippy-driver"]),
             compiler = ctx.attrs.compiler[RunInfo],
             default_edition = ctx.attrs.default_edition,
-            extern_html_root_url_prefix = ctx.attrs.extern_html_root_url_prefix,
             failure_filter_action = ctx.attrs.failure_filter_action[RunInfo],
             panic_runtime = PanicRuntime("unwind"),
             rustc_action = ctx.attrs.rustc_action[RunInfo],
@@ -49,7 +48,6 @@ rust_toolchain = rule(
     attrs = {
         "compiler": attrs.exec_dep(providers = [RunInfo]),
         "default_edition": attrs.option(attrs.string(), default = None),
-        "extern_html_root_url_prefix": attrs.option(attrs.string(), default = None),
         "failure_filter_action": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:failure_filter_action")),
         "rustc_action": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:rustc_action")),
         "rustc_flags": attrs.list(attrs.string(), default = []),

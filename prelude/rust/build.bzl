@@ -65,7 +65,6 @@ load(
 load(
     ":extern.bzl",
     "crate_map_arg",
-    "crate_name_as_cmd_arg",
     "extern_arg",
 )
 load(
@@ -197,34 +196,6 @@ def generate_rustdoc(
 
     if document_private_items:
         rustdoc_cmd.add("--document-private-items")
-
-    url_prefix = toolchain_info.extern_html_root_url_prefix
-    if url_prefix != None:
-        # Flag --extern-html-root-url used below is only supported on nightly.
-        plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
-        rustdoc_cmd.add("-Zunstable-options")
-
-        for dep in resolve_rust_deps(ctx, compile_ctx.dep_ctx):
-            if dep.label.cell != ctx.label.cell:
-                # TODO: support a different extern_html_root_url_prefix per cell
-                continue
-
-            if dep.name:
-                name = normalize_crate(dep.name)
-            else:
-                name = crate_name_as_cmd_arg(dep.info.crate)
-
-            rustdoc_cmd.add(cmd_args(
-                "--extern-html-root-url=",
-                name,
-                "=",
-                url_prefix,
-                "/",
-                dep.label.package,
-                ":",
-                dep.label.name,
-                delimiter = "",
-            ))
 
     rustdoc_cmd_action = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],

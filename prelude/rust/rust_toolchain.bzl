@@ -93,9 +93,6 @@ rust_toolchain_attrs = {
     "deny_on_check_lints": provider_field(list[typing.Any], default = []),
     # Clippy configuration file clippy.toml
     "clippy_toml": provider_field(Artifact | None, default = None),
-    # URL prefix (e.g. /path/to/docs) where crates' docs are hosted. Used for
-    # linking types in signatures to their definition in another crate.
-    "extern_html_root_url_prefix": provider_field(str | None, default = None),
     # Utilities used for building flagfiles containing dynamic crate names
     "transitive_dependency_symlinks_tool": provider_field(RunInfo | None, default = None),
     # Setting this enables additional behaviors that improves linking at the
