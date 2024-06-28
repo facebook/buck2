@@ -20,7 +20,7 @@ path_clang_tools(
 
 system_cxx_toolchain(
     name = "cxx",
-    toolchain_info = select({
+    cxx_tools_info = select({
         "config//os:windows": ":msvc_tools",
         "config//os:linux": ":clang_tools",
     }),

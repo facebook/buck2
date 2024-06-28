@@ -23,7 +23,7 @@ load("@prelude//cxx:linker.bzl", "is_pdb_generated")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
 
-SystemCxxToolchainInfo = provider(
+CxxToolsInfo = provider(
     fields = {
         "compiler": provider_field(typing.Any, default = None),
         "compiler_type": provider_field(typing.Any, default = None),
@@ -40,8 +40,8 @@ SystemCxxToolchainInfo = provider(
     },
 )
 
-def _legacy_equivalent_toolchain_info_windows(ctx: AnalysisContext, default_toolchain: SystemCxxToolchainInfo) -> SystemCxxToolchainInfo:
-    return SystemCxxToolchainInfo(
+def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_toolchain: CxxToolsInfo) -> CxxToolsInfo:
+    return CxxToolsInfo(
         compiler = default_toolchain.compiler if ctx.attrs.compiler == None or ctx.attrs.compiler == "cl.exe" else ctx.attrs.compiler,
         compiler_type = default_toolchain.compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
         cxx_compiler = default_toolchain.cxx_compiler if ctx.attrs.compiler == None or ctx.attrs.compiler == "cl.exe" else ctx.attrs.compiler,
@@ -56,8 +56,8 @@ def _legacy_equivalent_toolchain_info_windows(ctx: AnalysisContext, default_tool
         os = default_toolchain.os,
     )
 
-def _legacy_equivalent_toolchain_info_non_windows(ctx: AnalysisContext, default_toolchain: SystemCxxToolchainInfo) -> SystemCxxToolchainInfo:
-    return SystemCxxToolchainInfo(
+def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_toolchain: CxxToolsInfo) -> CxxToolsInfo:
+    return CxxToolsInfo(
         compiler = default_toolchain.compiler if ctx.attrs.compiler == None else ctx.attrs.compiler,
         compiler_type = default_toolchain.compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
         cxx_compiler = default_toolchain.cxx_compiler if ctx.attrs.cxx_compiler == None else ctx.attrs.cxx_compiler,
@@ -77,13 +77,13 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     A very simple toolchain that is hardcoded to the current environment.
     """
 
-    toolchain_info = ctx.attrs.toolchain_info[SystemCxxToolchainInfo]
-    toolchain_info = _legacy_equivalent_toolchain_info_windows(ctx, toolchain_info) if toolchain_info.os == "windows" else _legacy_equivalent_toolchain_info_non_windows(ctx, toolchain_info)
+    cxx_tools_info = ctx.attrs.cxx_tools_info[CxxToolsInfo]
+    cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if cxx_tools_info.os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
 
-    archiver_supports_argfiles = toolchain_info.os != "macos"
-    additional_linker_flags = ["-fuse-ld=lld"] if toolchain_info.os == "linux" and toolchain_info.linker != "g++" and toolchain_info.cxx_compiler != "g++" else []
+    archiver_supports_argfiles = cxx_tools_info.os != "macos"
+    additional_linker_flags = ["-fuse-ld=lld"] if cxx_tools_info.os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
 
-    if toolchain_info.os == "windows":
+    if cxx_tools_info.os == "windows":
         linker_type = "windows"
         binary_extension = "exe"
         object_file_extension = "obj"
@@ -100,14 +100,14 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         shared_library_name_format = "{}.so"
         shared_library_versioned_name_format = "{}.so.{}"
 
-        if toolchain_info.os == "macos":
+        if cxx_tools_info.os == "macos":
             linker_type = "darwin"
             pic_behavior = PicBehavior("always_enabled")
         else:
             linker_type = "gnu"
             pic_behavior = PicBehavior("supported")
 
-    if toolchain_info.compiler_type == "clang":
+    if cxx_tools_info.compiler_type == "clang":
         llvm_link = RunInfo(args = ["llvm-link"])
     else:
         llvm_link = None
@@ -117,11 +117,11 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         CxxToolchainInfo(
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
-                linker = _run_info(toolchain_info.linker),
+                linker = _run_info(cxx_tools_info.linker),
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
                 post_linker_flags = ctx.attrs.post_link_flags,
-                archiver = _run_info(toolchain_info.archiver),
-                archiver_type = toolchain_info.archiver_type,
+                archiver = _run_info(cxx_tools_info.archiver),
+                archiver_type = cxx_tools_info.archiver_type,
                 archiver_supports_argfiles = archiver_supports_argfiles,
                 generate_linker_maps = False,
                 lto_mode = LtoMode("none"),
@@ -158,36 +158,36 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 bolt_msdk = None,
             ),
             cxx_compiler_info = CxxCompilerInfo(
-                compiler = _run_info(toolchain_info.cxx_compiler),
+                compiler = _run_info(cxx_tools_info.cxx_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
-                compiler_type = toolchain_info.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             c_compiler_info = CCompilerInfo(
-                compiler = _run_info(toolchain_info.compiler),
+                compiler = _run_info(cxx_tools_info.compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
-                compiler_type = toolchain_info.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             as_compiler_info = CCompilerInfo(
-                compiler = _run_info(toolchain_info.compiler),
-                compiler_type = toolchain_info.compiler_type,
+                compiler = _run_info(cxx_tools_info.compiler),
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             asm_compiler_info = CCompilerInfo(
-                compiler = _run_info(toolchain_info.asm_compiler),
-                compiler_type = toolchain_info.asm_compiler_type,
+                compiler = _run_info(cxx_tools_info.asm_compiler),
+                compiler_type = cxx_tools_info.asm_compiler_type,
             ),
             cvtres_compiler_info = CvtresCompilerInfo(
-                compiler = _run_info(toolchain_info.cvtres_compiler),
+                compiler = _run_info(cxx_tools_info.cvtres_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cvtres_flags,
-                compiler_type = toolchain_info.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             rc_compiler_info = RcCompilerInfo(
-                compiler = _run_info(toolchain_info.rc_compiler),
+                compiler = _run_info(cxx_tools_info.rc_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.rc_flags,
-                compiler_type = toolchain_info.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
             cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
@@ -203,7 +203,7 @@ def _run_info(args):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
-        "toolchain_info": attrs.exec_dep(providers = [SystemCxxToolchainInfo], default = select({
+        "cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = select({
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
             "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
         })),
@@ -218,7 +218,7 @@ system_cxx_toolchain = rule(
         "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_flags": attrs.list(attrs.string(), default = []),
 
-        #These parameters are kept for backwards compatibility. The toolchain_info parameter above is most likely a better alternative.
+        #These parameters are kept for backwards compatibility. The cxx_tools_info parameter above is most likely a better alternative.
         "compiler": attrs.option(attrs.string(), default = None),
         "compiler_type": attrs.option(attrs.string(), default = None), # one of CxxToolProviderType
         "cvtres_compiler": attrs.option(attrs.string(), default = None),

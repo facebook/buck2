@@ -7,12 +7,12 @@
 
 load("@prelude//decls/common.bzl", "buck")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//toolchains:cxx.bzl", "SystemCxxToolchainInfo")
+load("@prelude//toolchains:cxx.bzl", "CxxToolsInfo")
 
 def _path_clang_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
-        SystemCxxToolchainInfo(
+        CxxToolsInfo(
             compiler = "clang",
             compiler_type = "clang",
             cxx_compiler = "clang++",
