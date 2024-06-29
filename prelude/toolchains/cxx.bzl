@@ -20,8 +20,10 @@ load(
 )
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
+load("@prelude//decls/common.bzl", "buck")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 
 CxxToolsInfo = provider(
     fields = {
@@ -36,7 +38,6 @@ CxxToolsInfo = provider(
         "archiver_type": provider_field(typing.Any, default = None),
         "linker": provider_field(typing.Any, default = None),
         "linker_type": provider_field(typing.Any, default = None),
-        "os": provider_field(typing.Any, default = None),
     },
 )
 
@@ -53,7 +54,6 @@ def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_tool
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
-        os = default_toolchain.os,
     )
 
 def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_toolchain: CxxToolsInfo) -> CxxToolsInfo:
@@ -69,7 +69,6 @@ def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
-        os = default_toolchain.os,
     )
 
 def _system_cxx_toolchain_impl(ctx: AnalysisContext):
@@ -77,18 +76,20 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     A very simple toolchain that is hardcoded to the current environment.
     """
 
+    os = ctx.attrs._target_os_type[OsLookup].platform
     cxx_tools_info = ctx.attrs.cxx_tools_info[CxxToolsInfo]
-    cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if cxx_tools_info.os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
+    cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
     return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info)
 
 def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
     return _cxx_toolchain_from_cxx_tools_info(ctx, ctx.attrs.cxx_tools_info[CxxToolsInfo])
 
 def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo):
-    archiver_supports_argfiles = cxx_tools_info.os != "macos"
-    additional_linker_flags = ["-fuse-ld=lld"] if cxx_tools_info.os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
+    os = ctx.attrs._target_os_type[OsLookup].platform
+    archiver_supports_argfiles = os != "macos"
+    additional_linker_flags = ["-fuse-ld=lld"] if os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
 
-    if cxx_tools_info.os == "windows":
+    if os == "windows":
         linker_type = "windows"
         binary_extension = "exe"
         object_file_extension = "obj"
@@ -105,7 +106,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
         shared_library_name_format = "{}.so"
         shared_library_versioned_name_format = "{}.so.{}"
 
-        if cxx_tools_info.os == "macos":
+        if os == "macos":
             linker_type = "darwin"
             pic_behavior = PicBehavior("always_enabled")
         else:
@@ -212,6 +213,7 @@ system_cxx_toolchain = rule(
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
             "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
         }))),
+        "_target_os_type": buck.target_os_type_arg(),
         "c_flags": attrs.list(attrs.string(), default = []),
         "compiler": attrs.option(attrs.string(), default = None),
         "compiler_type": attrs.option(attrs.string(), default = None), # one of CxxToolProviderType
@@ -239,6 +241,7 @@ cxx_tools_info_toolchain = rule(
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
             "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
         })),
+        "_target_os_type": buck.target_os_type_arg(),
         "c_flags": attrs.list(attrs.string(), default = []),
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cvtres_flags": attrs.list(attrs.string(), default = []),

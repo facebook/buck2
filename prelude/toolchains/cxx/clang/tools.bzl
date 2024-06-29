@@ -5,11 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//decls/common.bzl", "buck")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//toolchains:cxx.bzl", "CxxToolsInfo")
 
-def _path_clang_tools_impl(ctx: AnalysisContext) -> list[Provider]:
+def _path_clang_tools_impl(_ctx) -> list[Provider]:
     return [
         DefaultInfo(),
         CxxToolsInfo(
@@ -24,13 +22,10 @@ def _path_clang_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             archiver_type = "gnu",
             linker = "clang++",
             linker_type = "gnu",
-            os = ctx.attrs._target_os_type[OsLookup].platform,
         ),
     ]
 
 path_clang_tools = rule(
     impl = _path_clang_tools_impl,
-    attrs = {
-        "_target_os_type": buck.target_os_type_arg(),
-    }
+    attrs = {},
 )

@@ -134,7 +134,6 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             archiver_type = "windows",
             linker = _windows_linker_wrapper(ctx, link_exe_script),
             linker_type = "windows",
-            os = "windows",
         ),
     ]
 
