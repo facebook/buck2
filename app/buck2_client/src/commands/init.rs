@@ -137,6 +137,17 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
         writeln!(buckconfig, "  fbcode_macros = none")?;
         writeln!(buckconfig, "  buck = none")?;
         writeln!(buckconfig)?;
+        writeln!(
+            buckconfig,
+            "# Uses a copy of the prelude bundled with the buck2 binary. You can alternatively delete this"
+        )?;
+        writeln!(
+            buckconfig,
+            "# section and vendor a copy of the prelude to the `prelude` directory of your project."
+        )?;
+        writeln!(buckconfig, "[external_cells]")?;
+        writeln!(buckconfig, "  prelude = bundled")?;
+        writeln!(buckconfig)?;
         writeln!(buckconfig, "[parser]")?;
         writeln!(
             buckconfig,
@@ -186,32 +197,6 @@ fn initialize_root_buck(repo_root: &AbsPath, prelude: bool) -> anyhow::Result<()
     Ok(())
 }
 
-fn set_up_prelude(repo_root: &AbsPath, git: bool) -> anyhow::Result<()> {
-    if git {
-        if !background_command("git")
-            .args([
-                "submodule",
-                "add",
-                "https://github.com/facebook/buck2-prelude.git",
-                "prelude",
-            ])
-            .current_dir(repo_root)
-            .status()?
-            .success()
-        {
-            return Err(anyhow::anyhow!(
-                "Unable to clone the prelude. Is the folder in use?"
-            ));
-        }
-    } else {
-        println!(
-            "* Download https://github.com/facebookincubator/buck2-prelude.git into `prelude/` with a VCS of your choice."
-        );
-        println!("* If you wish to use git submodule, run the command again with --git");
-    }
-    Ok(())
-}
-
 fn set_up_gitignore(repo_root: &AbsPath) -> anyhow::Result<()> {
     let gitignore = repo_root.join(".gitignore");
     // If .gitignore is empty or doesn't exist, add in buck-out
@@ -239,10 +224,6 @@ fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> anyhow::Resu
             return Err(anyhow::anyhow!("Failure when running `git init`."));
         };
         set_up_gitignore(repo_root)?;
-    }
-
-    if prelude {
-        set_up_prelude(repo_root, git)?;
     }
 
     // If the project already contains a .buckconfig, leave it alone
@@ -348,6 +329,11 @@ mod tests {
   fbsource = none
   fbcode_macros = none
   buck = none
+
+# Uses a copy of the prelude bundled with the buck2 binary. You can alternatively delete this
+# section and vendor a copy of the prelude to the `prelude` directory of your project.
+[external_cells]
+  prelude = bundled
 
 [parser]
   target_platform_detector_spec = target:root//...->prelude//platforms:default
