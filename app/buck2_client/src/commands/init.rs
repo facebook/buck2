@@ -23,9 +23,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_util::process::background_command;
 
-/// Buck2 Init
-///
-/// This command is intended to be part-tutorial part-convenience for generating buck2 projects.
+/// Initializes a buck2 project at the provided path.
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Initialize a buck2 project")]
 pub struct InitCommand {
@@ -33,7 +31,7 @@ pub struct InitCommand {
     #[clap(default_value = ".")]
     path: PathArg,
 
-    /// Don't generate a prelude or a toolchain.
+    /// Don't include the standard prelude or generate toolchain definitions.
     #[clap(long)]
     no_prelude: bool,
 
@@ -41,7 +39,8 @@ pub struct InitCommand {
     #[clap(long)]
     allow_dirty: bool,
 
-    /// Use git to initialize the project and pull in buck2-prelude as a submodule
+    /// Also initialize a git repository at the given path, and set up an appropriate `.gitignore`
+    /// file.
     #[clap(long)]
     git: bool,
 
