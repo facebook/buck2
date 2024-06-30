@@ -942,3 +942,20 @@ class Buck(Executable):
             result_type=BuckResult,
             exception_type=BuckException,
         )
+
+    def init(
+        self,
+        *argv: str,
+        input: Optional[bytes] = None,
+        rel_cwd: Optional[Path] = None,
+        env: Optional[Dict[str, str]] = None,
+    ) -> Process[BuckResult, BuckException]:
+        return self._run_buck_command(
+            "init",
+            *argv,
+            input=input,
+            rel_cwd=rel_cwd,
+            env=env,
+            result_type=BuckResult,
+            exception_type=BuckException,
+        )
