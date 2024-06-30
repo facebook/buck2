@@ -152,6 +152,12 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
             buckconfig,
             "  target_platform_detector_spec = target:root//...->prelude//platforms:default"
         )?;
+        writeln!(buckconfig)?;
+        writeln!(buckconfig, "[build]")?;
+        writeln!(
+            buckconfig,
+            "  execution_platforms = prelude//platforms:default"
+        )?;
     }
 
     if git {
@@ -336,6 +342,9 @@ mod tests {
 
 [parser]
   target_platform_detector_spec = target:root//...->prelude//platforms:default
+
+[build]
+  execution_platforms = prelude//platforms:default
 
 [project]
   ignore = .git
