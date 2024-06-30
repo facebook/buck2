@@ -247,6 +247,9 @@ fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> anyhow::Resu
 
     // If the project already contains a .buckconfig, leave it alone
     if repo_root.join(".buckconfig").exists() {
+        buck2_client_ctx::println!(
+            ".buckconfig already exists, not overwriting and not generating toolchains"
+        )?;
         return Ok(());
     }
 
