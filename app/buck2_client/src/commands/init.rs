@@ -25,20 +25,13 @@ use buck2_util::process::background_command;
 
 /// Buck2 Init
 ///
-/// This command is intended to be part-tutorial part-convenience
-/// for generating buck2 projects. Given a path and optional name
-/// (in the case that the folder name is not desirable).
+/// This command is intended to be part-tutorial part-convenience for generating buck2 projects.
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Initialize a buck2 project")]
 pub struct InitCommand {
     /// The path to initialize the project in. The folder does not need to exist.
     #[clap(default_value = ".")]
     path: PathArg,
-
-    /// The name for the project. If not provided will default to the last segment
-    /// of the path.
-    #[clap(short, long)]
-    name: Option<String>,
 
     /// Don't generate a prelude or a toolchain.
     #[clap(long)]
