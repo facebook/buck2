@@ -122,10 +122,10 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
     let mut buckconfig = std::fs::File::create(repo_root.join(".buckconfig"))?;
     writeln!(buckconfig, "[cells]")?;
     writeln!(buckconfig, "  root = .")?;
-    writeln!(buckconfig, "  prelude = prelude")?;
 
     // Add additional configs that depend on prelude / no-prelude mode
     if prelude {
+        writeln!(buckconfig, "  prelude = prelude")?;
         writeln!(buckconfig, "  toolchains = toolchains")?;
         writeln!(buckconfig, "  none = none")?;
         writeln!(buckconfig)?;
@@ -142,12 +142,8 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
             buckconfig,
             "  target_platform_detector_spec = target:root//...->prelude//platforms:default"
         )?;
-    } else {
-        // For the no-prelude mode, create an empty prelude/prelude.bzl as Buck2 expects one.
-        let prelude_dir = repo_root.join("prelude");
-        fs_util::create_dir(&prelude_dir)?;
-        fs_util::create_file(prelude_dir.join("prelude.bzl"))?;
     }
+
     if git {
         writeln!(buckconfig)?;
         writeln!(buckconfig, "[project]")?;
@@ -372,12 +368,9 @@ mod tests {
         let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
         let expected_buckconfig = "[cells]
   root = .
-  prelude = prelude
 ";
         assert_eq!(actual_buckconfig, expected_buckconfig);
 
-        // Test we have an empty prelude directory and prelude.bzl file
-        assert!(tempdir_path.join("prelude/prelude.bzl").exists());
         Ok(())
     }
 
