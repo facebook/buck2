@@ -29,4 +29,11 @@ fi
 # relocatable, we must use that path at which the action
 # is run (be it locally or on RE) and this is not known
 # at the time of action definition.
-exec "$@" -debug-prefix-map "$PWD"/=
+output=$("$@" -debug-prefix-map "$PWD"/= 2>&1)
+
+# The Swift compiler will return an exit code of 0 and warn when it cannot write auxiliary files.
+# Detect and error so that the action is not cached.
+if grep -q "could not write" <<< "$output"; then
+  echo "$output"
+  exit 1
+fi
