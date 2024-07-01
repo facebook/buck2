@@ -136,12 +136,15 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
             let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
 
             let mut lines_iter = docs.lines();
-            let first_line = lines_iter.next().unwrap();
-            let rest_of_lines: Vec<&str> = lines_iter.collect();
+            if let Some(first_line) = lines_iter.next() {
+                let rest_of_lines: Vec<&str> = lines_iter.collect();
 
-            let _ = writeln!(output, "* `{name}`: {first_line}");
-            for line in &rest_of_lines {
-                let _ = writeln!(output, "  {line}");
+                let _ = writeln!(output, "* `{name}`: {first_line}");
+                for line in &rest_of_lines {
+                    let _ = writeln!(output, "  {line}");
+                }
+            } else {
+                let _ = writeln!(output, "* `{name}`");
             }
             output
         });
