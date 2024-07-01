@@ -49,6 +49,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         category = "mockingbird",
         local_only = True,  # Mockingbird creates sockets for interprocess communication, which is deliberately blocked on RE.
         weight_percentage = 100,
+        allow_cache_upload = True,
     )
 
     return [
