@@ -2215,6 +2215,7 @@ message InstallFinished {
 
 message SystemInfo {
   optional uint64 system_total_memory_bytes = 1;
+  optional uint64 memory_pressure_threshold_percent = 2;
 }
 
 message CpuCounter {

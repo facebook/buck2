@@ -420,8 +420,11 @@ impl BuckdServer {
 
         // Fire off a system-wide event to record the memory usage of this process.
         // TODO(ezgi): add it to oneshot command too
+        let system_warning_config = &data.system_warning_config;
         dispatch.instant_event(buck2_data::SystemInfo {
             system_total_memory_bytes: Some(system_memory_stats()),
+            memory_pressure_threshold_percent: system_warning_config
+                .memory_pressure_threshold_percent,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here

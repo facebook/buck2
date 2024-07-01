@@ -22,6 +22,7 @@ use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
+use buck2_common::init::SystemWarningConfig;
 use buck2_common::init::Timeout;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -176,6 +177,9 @@ pub struct DaemonStateData {
 
     /// Tags to be logged per command.
     pub tags: Vec<String>,
+
+    /// Config used to display system warnings
+    pub system_warning_config: SystemWarningConfig,
 }
 
 impl DaemonStateData {
@@ -570,7 +574,7 @@ impl DaemonState {
                 #[cfg(fbcode_build)]
                 format!("disable-fallocate:{}", re_disable_fallocate),
             ];
-
+            let system_warning_config = SystemWarningConfig::from_config(root_config)?;
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
 
@@ -596,6 +600,7 @@ impl DaemonState {
                 paranoid,
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 tags,
+                system_warning_config,
             }))
         })
         .await?
