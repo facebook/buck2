@@ -30,6 +30,7 @@ pub struct EventObserver<E> {
     pub action_stats: ActionStats,
     re_state: ReState,
     two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
+    system_info: buck2_data::SystemInfo,
     session_info: SessionInfo,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
@@ -48,6 +49,7 @@ where
             action_stats: ActionStats::default(),
             re_state: ReState::new(),
             two_snapshots: TwoSnapshots::default(),
+            system_info: buck2_data::SystemInfo::default(),
             session_info: SessionInfo {
                 trace_id,
                 test_session: None,
@@ -119,6 +121,9 @@ where
                                 self.session_info.modern_dice = true;
                             }
                         }
+                        SystemInfo(system_info) => {
+                            self.system_info = system_info.clone();
+                        }
                         _ => {}
                     }
                 }
@@ -145,6 +150,10 @@ where
 
     pub fn two_snapshots(&self) -> &TwoSnapshots {
         &self.two_snapshots
+    }
+
+    pub fn system_info(&self) -> &buck2_data::SystemInfo {
+        &self.system_info
     }
 
     pub fn session_info(&self) -> &SessionInfo {

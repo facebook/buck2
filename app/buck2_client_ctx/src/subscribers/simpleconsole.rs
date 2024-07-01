@@ -17,7 +17,6 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::init::SystemWarningConfig;
 use buck2_data::TagEvent;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -100,19 +99,13 @@ pub(crate) struct SimpleConsole<E> {
     action_errors: Vec<buck2_data::ActionError>,
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
-    system_warning_config: SystemWarningConfig,
 }
 
 impl<E> SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    pub(crate) fn with_tty(
-        trace_id: TraceId,
-        verbosity: Verbosity,
-        expect_spans: bool,
-        system_warning_config: SystemWarningConfig,
-    ) -> Self {
+    pub(crate) fn with_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
@@ -121,16 +114,10 @@ where
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
-            system_warning_config,
         }
     }
 
-    pub(crate) fn without_tty(
-        trace_id: TraceId,
-        verbosity: Verbosity,
-        expect_spans: bool,
-        system_warning_config: SystemWarningConfig,
-    ) -> Self {
+    pub(crate) fn without_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
@@ -139,20 +126,14 @@ where
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
-            system_warning_config,
         }
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(
-        trace_id: TraceId,
-        verbosity: Verbosity,
-        expect_spans: bool,
-        system_warning_config: SystemWarningConfig,
-    ) -> Self {
+    pub(crate) fn autodetect(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(trace_id, verbosity, expect_spans, system_warning_config),
-            false => Self::without_tty(trace_id, verbosity, expect_spans, system_warning_config),
+            true => Self::with_tty(trace_id, verbosity, expect_spans),
+            false => Self::without_tty(trace_id, verbosity, expect_spans),
         }
     }
 
@@ -540,7 +521,7 @@ where
 
                     if let Some(memory_pressure) = check_memory_pressure(
                         &self.observer().two_snapshots().last,
-                        self.system_warning_config.memory_pressure_threshold_percent,
+                        &self.observer().system_info(),
                     ) {
                         echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;
                     }

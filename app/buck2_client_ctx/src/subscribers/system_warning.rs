@@ -9,7 +9,6 @@
 
 use buck2_core::is_open_source;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_util::system_stats::system_memory_stats;
 
 use crate::subscribers::recorder::process_memory;
 
@@ -34,23 +33,30 @@ pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -
 
 pub(crate) fn check_memory_pressure<T>(
     snapshot_tuple: &Option<(T, buck2_data::Snapshot)>,
-    memory_pressure_threshold_percent: Option<u64>,
+    system_info: &buck2_data::SystemInfo,
 ) -> Option<MemoryPressureHigh> {
-    memory_pressure_threshold_percent.and_then(|memory_pressure_threshold_percent| {
-        snapshot_tuple.as_ref().and_then(|(_, snapshot)| {
-            process_memory(snapshot).and_then(|process_memory| {
-                // TODO(ezgi): We should check the recorded system memory, not the real one so that replay would show the warnings properly.
-                let system_total_memory = system_memory_stats();
-                if (process_memory * 100 / system_total_memory) >= memory_pressure_threshold_percent
-                {
-                    Some(MemoryPressureHigh {
-                        system_total_memory,
-                        process_memory,
-                    })
-                } else {
-                    None
-                }
-            })
+    snapshot_tuple.as_ref().and_then(|(_, snapshot)| {
+        process_memory(snapshot).and_then(|process_memory| {
+            system_info
+                .system_total_memory_bytes
+                .and_then(|system_total_memory| {
+                    // TODO (ezgi): one-shot commands don't record this. Prevent panick (division-by-zero) until it is fixed.
+                    system_info.memory_pressure_threshold_percent.and_then(
+                        |memory_pressure_threshold_percent| {
+                            if (process_memory * 100)
+                                .checked_div(system_total_memory)
+                                .is_some_and(|res| res >= memory_pressure_threshold_percent)
+                            {
+                                Some(MemoryPressureHigh {
+                                    system_total_memory,
+                                    process_memory,
+                                })
+                            } else {
+                                None
+                            }
+                        },
+                    )
+                })
         })
     })
 }

@@ -42,28 +42,13 @@ pub fn get_console_with_root(
 ) -> anyhow::Result<Box<dyn EventSubscriber>> {
     match console_type {
         ConsoleType::Simple => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::<NoopEventObserverExtra>::autodetect(
-                trace_id,
-                verbosity,
-                expect_spans,
-                config.system_warning_config,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::autodetect(trace_id, verbosity, expect_spans),
         ))),
         ConsoleType::SimpleNoTty => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::<NoopEventObserverExtra>::without_tty(
-                trace_id,
-                verbosity,
-                expect_spans,
-                config.system_warning_config,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::without_tty(trace_id, verbosity, expect_spans),
         ))),
         ConsoleType::SimpleTty => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::<NoopEventObserverExtra>::with_tty(
-                trace_id,
-                verbosity,
-                expect_spans,
-                config.system_warning_config,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::with_tty(trace_id, verbosity, expect_spans),
         ))),
         ConsoleType::Super => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
@@ -77,7 +62,6 @@ pub fn get_console_with_root(
             )?,
         ))),
         ConsoleType::Auto => {
-            let system_warning_config = config.system_warning_config.clone();
             match StatefulSuperConsole::new_with_root(
                 trace_id.dupe(),
                 command_name,
@@ -94,7 +78,6 @@ pub fn get_console_with_root(
                         trace_id,
                         verbosity,
                         expect_spans,
-                        system_warning_config,
                     ),
                 ))),
             }

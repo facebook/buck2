@@ -261,7 +261,6 @@ pub struct DaemonStartupConfig {
     pub materializations: Option<String>,
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
-    pub system_warning_config: SystemWarningConfig,
 }
 
 impl DaemonStartupConfig {
@@ -303,7 +302,6 @@ impl DaemonStartupConfig {
                 .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
-            system_warning_config: SystemWarningConfig::from_config(config)?,
         })
     }
 
@@ -325,7 +323,6 @@ impl DaemonStartupConfig {
             materializations: None,
             http: HttpConfig::default(),
             resource_control: ResourceControlConfig::default(),
-            system_warning_config: SystemWarningConfig::default(),
         }
     }
 }

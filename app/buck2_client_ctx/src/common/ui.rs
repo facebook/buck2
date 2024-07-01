@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_common::init::SystemWarningConfig;
 use clap::builder::FalseyValueParser;
 use dupe::Dupe;
 use termwiz::istty::IsTty;
@@ -147,14 +146,8 @@ impl CommonConsoleOptions {
         }
     }
 
-    pub fn superconsole_config(
-        &self,
-        system_warning_config: SystemWarningConfig,
-    ) -> SuperConsoleConfig {
-        let mut config = SuperConsoleConfig {
-            system_warning_config,
-            ..Default::default()
-        };
+    pub fn superconsole_config(&self) -> SuperConsoleConfig {
+        let mut config = SuperConsoleConfig::default();
         for option in &self.ui {
             match option {
                 UiOptions::Dice => config.enable_dice = true,
