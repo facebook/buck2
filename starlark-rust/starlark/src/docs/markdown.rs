@@ -137,10 +137,8 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
 
             let mut lines_iter = docs.lines();
             if let Some(first_line) = lines_iter.next() {
-                let rest_of_lines: Vec<&str> = lines_iter.collect();
-
                 let _ = writeln!(output, "* `{name}`: {first_line}");
-                for line in &rest_of_lines {
+                for line in lines_iter {
                     let _ = writeln!(output, "  {line}");
                 }
             } else {
