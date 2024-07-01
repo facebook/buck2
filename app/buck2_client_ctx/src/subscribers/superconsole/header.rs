@@ -106,10 +106,16 @@ impl<'s> SimpleHeader<'s> {
 
 impl<'s> Component for SimpleHeader<'s> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
-        let info = StaticStringComponent {
-            header: self.data.header,
-        };
-        HeaderLineComponent::new(info, CountComponent { data: &self.data }).draw(dimensions, mode)
+        match mode {
+            DrawMode::Normal => HeaderLineComponent::new(
+                StaticStringComponent {
+                    header: self.data.header,
+                },
+                CountComponent { data: &self.data },
+            )
+            .draw(dimensions, mode),
+            DrawMode::Final => CountComponent { data: &self.data }.draw(dimensions, mode),
+        }
     }
 }
 
@@ -798,6 +804,41 @@ mod tests {
         let expected =
             "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s\n"
                 .to_owned();
+
+        pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple_header_final() -> anyhow::Result<()> {
+        let action_stats = ActionStats {
+            local_actions: 0,
+            remote_actions: 0,
+            cached_actions: 1,
+            fallback_actions: 0,
+            remote_dep_file_cached_actions: 0,
+        };
+        let output = SimpleHeader::new_for_data(HeaderData {
+            header: "test",
+            action_stats: &action_stats,
+            elapsed_str: "0.0s".to_owned(),
+            finished: 0,
+            remaining: 1,
+        })
+        .draw(
+            Dimensions {
+                width: 80,
+                height: 10,
+            },
+            DrawMode::Final,
+        )?;
+        let expected = indoc::indoc!(
+            r#"
+            Jobs completed: 0. Time elapsed: 0.0s.
+            Cache hits: 100%. Commands: 1 (cached: 1, remote: 0, local: 0)
+            "#
+        );
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
