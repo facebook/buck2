@@ -29,7 +29,8 @@ begin
 			[parameter(Mandatory=$true)] [String] $SourcePath,
 			[parameter(Mandatory=$true)] [String] $TargetPath
 		)
-		Copy-Item $SourcePath -Destination $TargetPath
+		New-Item -ItemType File -Path $TargetPath -Force | Out-Null
+		Copy-Item $SourcePath -Destination $TargetPath | Out-Null
 	}
 }
 process
