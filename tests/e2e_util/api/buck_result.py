@@ -282,9 +282,8 @@ class BuildResult(BuckResult):
         Looks for a '{' and parses the build stdout starting from '{' as a json.
         """
         try:
-            assert self.executable_type in (
-                ExecutableType.buck2,
-                ExecutableType.buck2_build_api_binary,
+            assert (
+                self.executable_type == ExecutableType.buck2
             ), "--build-report only works in v2"
             start = self.stdout.index("{")
             end = self.stdout.index("\n", start)

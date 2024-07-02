@@ -83,10 +83,9 @@ class Buck(Executable):
         env: Optional dictionary for environment variables to run command with.
         """
         args = list(argv)
-        if (
-            self.executable_type
-            in (ExecutableType.buck2, ExecutableType.buck2_build_api_binary)
-        ) and not any(arg.startswith("--build-report") for arg in args):
+        if (self.executable_type == ExecutableType.buck2) and not any(
+            arg.startswith("--build-report") for arg in args
+        ):
             args.append("--build-report=-")
 
         return self._run_buck_command(
@@ -839,15 +838,7 @@ class Buck(Executable):
         ):
             command_env["BUCK_WRAPPER_UUID"] = buck_build_id
 
-        cmd_to_run = (
-            [
-                str(self.path_to_executable),
-                "--dir",
-                str(self.cwd),
-            ]
-            if self.executable_type == ExecutableType.buck2_build_api_binary
-            else [str(self.path_to_executable), cmd]
-        )
+        cmd_to_run = [str(self.path_to_executable), cmd]
         if self.isolation_prefix:
             if self.executable_type == ExecutableType.buck1:
                 cmd_to_run.extend(
@@ -860,10 +851,6 @@ class Buck(Executable):
                     str(self.isolation_prefix),
                     *cmd_to_run[1:],
                 ]
-            elif self.executable_type == ExecutableType.buck2_build_api_binary:
-                cmd_to_run.extend(
-                    ["--buck-out", "buck-out/" + str(self.isolation_prefix)]
-                )
         cmd_to_run.extend(argv)
         cmd_to_run = self._get_windows_cmd_options() + cmd_to_run
         stderr = subprocess.PIPE if intercept_stderr else None

@@ -176,10 +176,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
         yield buck
 
-        if (
-            not marker.skip_final_kill
-            and buck.executable_type != ExecutableType.buck2_build_api_binary
-        ):
+        if not marker.skip_final_kill:
             if keep_temp:
                 await buck.kill()
             else:

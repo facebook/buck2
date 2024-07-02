@@ -18,9 +18,3 @@ class ExecutableType(Enum):
 
     buck1 = "buck1"
     buck2 = "buck2"
-    # For binaries in buck2/build_api, such as buck-build and bql binaries.
-    # Although buck-build and bql binaries have separate parameters, we treat them the same here
-    # because we are just differentiating between buck2 binary, which takes a subcommand,
-    # and buck2/build_api binaries, which do not.
-    buck2_build_api_binary = "buck2_build_api_binary"
-    daemon = "daemon"
