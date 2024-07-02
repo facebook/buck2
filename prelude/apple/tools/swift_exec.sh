@@ -29,11 +29,22 @@ fi
 # relocatable, we must use that path at which the action
 # is run (be it locally or on RE) and this is not known
 # at the time of action definition.
-output=$("$@" -debug-prefix-map "$PWD"/= 2>&1)
+{
+    IFS=$'\n' read -r -d '' CAPTURED_STDOUT;
+    IFS=$'\n' read -r -d '' CAPTURED_STDERR;
+    IFS=$'\n' read -r -d '' CAPTURED_EXIT_STATUS;
+} < <((printf '\0%s\0%d\0' "$( ( ( ({ "$@" -debug-prefix-map "$PWD"/=; echo "${?}" 1>&3-; } | tr -d '\0' 1>&4-) 4>&2- 2>&1- | tr -d '\0' 1>&4-) 3>&1- | exit "$(cat)") 4>&1-)" "${?}" 1>&2) 2>&1)
+
+echo "${CAPTURED_STDOUT}"
+echo "${CAPTURED_STDERR}" 1>&2
 
 # The Swift compiler will return an exit code of 0 and warn when it cannot write auxiliary files.
 # Detect and error so that the action is not cached.
-if grep -q "could not write" <<< "$output"; then
-  echo "$output"
+if grep -q "could not write" <<< "${CAPTURED_STDOUT}"; then
   exit 1
 fi
+if grep -q "could not write" <<< "${CAPTURED_STDERR}"; then
+  exit 1
+fi
+
+exit "${CAPTURED_EXIT_STATUS}"
