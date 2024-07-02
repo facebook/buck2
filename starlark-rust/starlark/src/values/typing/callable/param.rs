@@ -26,6 +26,7 @@ pub trait StarlarkCallableParamSpec {
     fn params() -> ParamSpec;
 }
 
+/// Indicates that a callable accepts any number of positional and keyword arguments.
 pub struct StarlarkCallableParamAny;
 
 /// `*args` and `**kwargs` parameters.

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-mod param;
+pub(crate) mod param;
 
 use std::fmt;
 use std::fmt::Debug;
