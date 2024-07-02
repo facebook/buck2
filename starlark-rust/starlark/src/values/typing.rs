@@ -28,6 +28,7 @@ pub(crate) mod type_compiled;
 
 pub use crate::values::types::type_instance_id::TypeInstanceId;
 pub use crate::values::typing::callable::param::StarlarkCallableParamAny;
+pub use crate::values::typing::callable::param::StarlarkCallableParamSpec;
 pub use crate::values::typing::callable::FrozenStarlarkCallable;
 pub use crate::values::typing::callable::StarlarkCallable;
 pub use crate::values::typing::iter::StarlarkIter;
