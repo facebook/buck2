@@ -37,7 +37,7 @@
 -export_type([annotation_function/0]).
 
 -spec serialize(test_result_artifact_annotations()) -> binary().
-serialize(ArtifactAnnotation) -> jsone:encode(ArtifactAnnotation).
+serialize(ArtifactAnnotation) -> json:encode(ArtifactAnnotation).
 
 -spec create_artifact_annotation(file:filename(), #test_env{}) -> test_result_artifact_annotations().
 create_artifact_annotation(FileName, TestEnv) ->

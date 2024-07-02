@@ -72,7 +72,7 @@ write_json_output(OutputDir, TpxResults) ->
 
 -spec format_json([case_result()]) -> string().
 format_json(TpxResults) ->
-    jsone:encode(lists:map(fun(CaseResult) -> format_case(CaseResult) end, TpxResults)).
+    json:encode(lists:map(fun(CaseResult) -> format_case(CaseResult) end, TpxResults)).
 
 -spec format_case([case_result()]) -> [formatted_case_result()].
 format_case(

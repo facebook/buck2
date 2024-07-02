@@ -209,7 +209,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         dep[ErlangTestInfo].output_dir
         for dep in dependencies.values()
         if ErlangTestInfo in dep
-    ] + [output_dir]
+    ] + [primary_toolchain.utility_modules, output_dir]
 
     preamble = '-eval "%s" \\' % (ctx.attrs.preamble)
     additional_args = [cmd_args(preamble, "-noshell \\")]

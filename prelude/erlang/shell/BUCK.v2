@@ -17,7 +17,6 @@ erlang_application(
     ],
     included_applications = [
         "prelude//erlang/common_test/test_exec:test_exec",
-        "prelude//erlang/toolchain:resources[jsone]",
     ],
     shell_libs = [],
     visibility = ["PUBLIC"],

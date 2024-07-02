@@ -214,7 +214,7 @@ listing_to_testnames(Listing) ->
 -spec print_results(file:filename()) -> boolean().
 print_results(ResultsFile) ->
     {ok, Data} = file:read_file(ResultsFile),
-    Results = jsone:decode(Data),
+    Results = json:decode(Data),
     {Summary, AnyFailure} = lists:foldl(fun print_individual_results/2, {#{}, false}, Results),
     io:format("~n~10s: ~b~n~n", ["TOTAL", lists:sum(maps:values(Summary))]),
     [

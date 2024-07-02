@@ -1,4 +1,4 @@
-load("@prelude//erlang:erlang_toolchain.bzl", "erlang_parse_transform", "toolchain_resources_internal", "toolchain_utilities")
+load("@prelude//erlang:erlang_toolchain.bzl", "erlang_parse_transform", "toolchain_utilities")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("build_infra")
@@ -41,10 +41,5 @@ toolchain_utilities(
         "epp_dodger.erl",
         "json.erl",
     ],
-    visibility = ["PUBLIC"],
-)
-
-toolchain_resources_internal(
-    name = "resources",
     visibility = ["PUBLIC"],
 )

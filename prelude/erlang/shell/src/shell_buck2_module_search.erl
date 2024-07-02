@@ -78,7 +78,7 @@ find_module_source(Module) ->
             {ok, RawOutput} = shell_buck2_utils:buck2_query(
                 "owner(\\\"\%s\\\")", "--json", Candidates
             ),
-            SourceTargetMapping = jsone:decode(RawOutput),
+            SourceTargetMapping = json:decode(RawOutput),
             case
                 maps:fold(
                     fun

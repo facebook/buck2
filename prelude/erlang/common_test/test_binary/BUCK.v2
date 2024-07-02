@@ -12,6 +12,8 @@ erlang_escript(
         "+sbtu",
         "-mode minimal",
     ],
+    # magic label special-cased by tooling to make vendored json available
+    labels = ["erlang_test_runner"],
     main_module = "test_binary",
     visibility = ["PUBLIC"],
     deps = [
@@ -30,7 +32,6 @@ erlang_application(
         "stdlib",
         "syntax_tools",
         "xmerl",
-        "prelude//erlang/toolchain:resources[jsone]",
         "prelude//erlang/common_test/common:common",
         "prelude//erlang/common_test/cth_hooks:cth_hooks",
         "prelude//erlang/common_test/test_exec:test_exec",
