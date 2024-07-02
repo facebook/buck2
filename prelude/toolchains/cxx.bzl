@@ -77,7 +77,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     """
 
     os = ctx.attrs._target_os_type[OsLookup].platform
-    cxx_tools_info = ctx.attrs.cxx_tools_info[CxxToolsInfo]
+    cxx_tools_info = ctx.attrs._cxx_tools_info[CxxToolsInfo]
     cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
     return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info)
 
@@ -209,10 +209,7 @@ def _run_info(args):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
-        "cxx_tools_info": attrs.default_only(attrs.exec_dep(providers = [CxxToolsInfo], default = select({
-            "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
-            "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
-        }))),
+        "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools"),
         "_target_os_type": buck.target_os_type_arg(),
         "c_flags": attrs.list(attrs.string(), default = []),
         "compiler": attrs.option(attrs.string(), default = None),
