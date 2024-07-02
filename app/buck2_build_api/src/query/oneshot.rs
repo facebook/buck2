@@ -22,7 +22,6 @@ use crate::actions::query::ActionQueryNode;
 /// [Context](https://fburl.com/adiagq2f).
 #[derive(Copy, Clone, Dupe)]
 pub enum CqueryOwnerBehavior {
-    Deprecated,
     Correct,
 }
 

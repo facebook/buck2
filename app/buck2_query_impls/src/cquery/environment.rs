@@ -16,12 +16,10 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
-use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
-use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryEnvironmentAsNodeLookup;
@@ -37,7 +35,6 @@ use buck2_query::query::syntax::simple::functions::HasModuleDescription;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use dice::DiceComputations;
-use dupe::Dupe;
 use tracing::warn;
 
 use crate::uquery::environment::allbuildfiles;
@@ -50,20 +47,10 @@ use crate::uquery::environment::UqueryDelegate;
 pub(crate) trait CqueryDelegate: Send + Sync {
     fn uquery_delegate(&self) -> &dyn UqueryDelegate;
 
-    async fn get_node_for_target(
-        &self,
-        target: &TargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
-
     async fn get_node_for_configured_target(
         &self,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<ConfiguredTargetNode>;
-
-    async fn get_configured_target(
-        &self,
-        target: &TargetLabel,
-    ) -> anyhow::Result<ConfiguredTargetLabel>;
 
     async fn get_node_for_default_configured_target(
         &self,
@@ -122,68 +109,6 @@ impl<'c> CqueryEnvironment<'c> {
         self.delegate
             .get_node_for_default_configured_target(label.unconfigured())
             .await
-    }
-
-    /// Deprecated `owner` function implementation.
-    /// See [this post](https://fburl.com/0xv7u4bz) for details.
-    async fn owner_deprecated(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
-        // need to explicitly track this rather than checking for changes to result set since the owner might
-        // already be in the set.
-        let mut owners = Vec::new();
-        match self
-            .delegate
-            .uquery_delegate()
-            .get_enclosing_packages(path)
-            .await
-        {
-            Ok(packages) => {
-                let package_futs = packages.iter().map(|package| async move {
-                    let mut result: Vec<ConfiguredTargetNode> = Vec::new();
-
-                    // TODO(cjhopman): We should make sure that the file exists.
-                    let targets = self
-                        .delegate
-                        .ctx()
-                        .get_interpreter_results(package.dupe())
-                        .await?;
-
-                    for node in targets.targets().values() {
-                        match self.delegate.get_node_for_target(node.label()).await? {
-                            MaybeCompatible::Compatible(node) => {
-                                for input in node.inputs() {
-                                    if &input == path {
-                                        result.push(node.dupe());
-                                        // this intentionally only breaks out of the inner loop. We don't need to look at the
-                                        // other inputs of this target, but it's possible for a single file to be owned by
-                                        // multiple targets.
-                                        break;
-                                    }
-                                }
-                            }
-                            MaybeCompatible::Incompatible(reason) => {
-                                // TODO(scottcao): Add event for incompatible target skipping
-                                console_message(reason.skipping_message(
-                                    &self.delegate.get_configured_target(node.label()).await?,
-                                ));
-                            }
-                        }
-                    }
-
-                    anyhow::Ok(result)
-                });
-
-                for nodes in futures::future::join_all(package_futs).await.into_iter() {
-                    for node in nodes?.into_iter() {
-                        owners.push(node);
-                    }
-                }
-            }
-            Err(_) => {
-                // we don't consider this an error, it's usually the case that the user
-                // just wants to know the target owning the file if it exists.
-            }
-        };
-        Ok(owners)
     }
 
     fn owner_correct(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
@@ -268,7 +193,6 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
 
         for path in paths.iter() {
             let owners = match &self.owner_behavior {
-                CqueryOwnerBehavior::Deprecated => self.owner_deprecated(path).await?,
                 CqueryOwnerBehavior::Correct => self.owner_correct(path)?,
             };
             if owners.is_empty() {
