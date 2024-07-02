@@ -98,7 +98,7 @@ pub macro buck2_env {
     }},
 }
 
-pub macro parse2 {
+macro parse2 {
     (
         $already_parsed:tt,
         applicability=internal$(,)?
@@ -122,7 +122,7 @@ pub macro parse2 {
 /// `parser` is `&str -> anyhow::Result<$stored_type>`, `processor` is `Option<& $stored_type> -> $output_type`
 ///
 /// The extra set of parentheses is a trick to let us pass things through `parse2` transparently
-pub macro expand(
+macro expand(
     (
     var=$var:literal,
     parser=$parser:expr,
@@ -145,7 +145,7 @@ pub macro expand(
     v
 }}
 
-pub macro register($var:literal, ty=$ty:ty, default=$default:expr, applicability=$applicability:expr) {{
+macro register($var:literal, ty=$ty:ty, default=$default:expr, applicability=$applicability:expr) {{
     use $crate::env::__macro_refs::linkme;
     #[linkme::distributed_slice($crate::env::registry::ENV_INFO)]
     #[linkme(crate = $crate::env::__macro_refs::linkme)]
