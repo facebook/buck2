@@ -6,7 +6,7 @@ runs:
   - name: Initialize OPAM
     run: |
       opam init --compiler=5.1.1 --disable-sandboxing -y
-      echo 'eval $(opam env)' >> ~/.bashrc
+      opam env | sed -e "s/ export .*//g" -e "s/'//g" -e "s/\;//g" >> $GITHUB_ENV
     shell: bash
   - name: Install OPAM packages
     run: opam install menhir ppxlib -y

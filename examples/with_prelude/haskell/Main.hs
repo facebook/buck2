@@ -9,7 +9,7 @@
 
 module Main(main) where
 
-import Library
+import Library qualified
 
 main :: IO ()
-main = Library.helloWorld
+main = putStrLn Library.helloWorld

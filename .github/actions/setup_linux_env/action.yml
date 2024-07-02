@@ -17,8 +17,11 @@ runs:
       prefix-key: buck2-upload
   - run: sudo apt-get update
     shell: bash
-  - run: sudo apt-get install opam libzstd-dev python3-pip ghc
+  - run: sudo apt-get install opam libzstd-dev python3-pip
     shell: bash
+  - uses: haskell-actions/setup@v2
+    with:
+      ghc-version: '9.10.1'
   - name: Install conan
     run: sudo pip3 install conan==1.*
     shell: bash
