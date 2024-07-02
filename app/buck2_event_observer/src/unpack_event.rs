@@ -39,31 +39,34 @@ pub enum UnpackedBuckEvent<'a> {
         &'a InstantEvent,
         &'a buck2_data::instant_event::Data,
     ),
+    UnrecognizedSpanStart(&'a BuckEvent, &'a SpanStartEvent),
+    UnrecognizedSpanEnd(&'a BuckEvent, &'a SpanEndEvent),
+    UnrecognizedInstant(&'a BuckEvent, &'a InstantEvent),
 }
 
 pub fn unpack_event(event: &BuckEvent) -> anyhow::Result<UnpackedBuckEvent> {
     match &event.data() {
-        buck_event::Data::SpanStart(v) => Ok(UnpackedBuckEvent::SpanStart(
-            event,
-            v,
-            v.data
-                .as_ref()
-                .ok_or_else(|| VisitorError::MissingField(event.clone()))?,
-        )),
-        buck_event::Data::SpanEnd(v) => Ok(UnpackedBuckEvent::SpanEnd(
-            event,
-            v,
-            v.data
-                .as_ref()
-                .ok_or_else(|| VisitorError::MissingField(event.clone()))?,
-        )),
-        buck_event::Data::Instant(v) => Ok(UnpackedBuckEvent::Instant(
-            event,
-            v,
-            v.data
-                .as_ref()
-                .ok_or_else(|| VisitorError::MissingField((*event).clone()))?,
-        )),
+        buck_event::Data::SpanStart(v) => Ok({
+            if let Some(data) = v.data.as_ref() {
+                UnpackedBuckEvent::SpanStart(event, v, data)
+            } else {
+                UnpackedBuckEvent::UnrecognizedSpanStart(event, v)
+            }
+        }),
+        buck_event::Data::SpanEnd(v) => Ok({
+            if let Some(data) = v.data.as_ref() {
+                UnpackedBuckEvent::SpanEnd(event, v, data)
+            } else {
+                UnpackedBuckEvent::UnrecognizedSpanEnd(event, v)
+            }
+        }),
+        buck_event::Data::Instant(v) => Ok({
+            if let Some(data) = v.data.as_ref() {
+                UnpackedBuckEvent::Instant(event, v, data)
+            } else {
+                UnpackedBuckEvent::UnrecognizedInstant(event, v)
+            }
+        }),
         buck_event::Data::Record(_) => Err(VisitorError::UnexpectedRecord(event.clone()).into()),
     }
 }

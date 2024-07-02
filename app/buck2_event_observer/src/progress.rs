@@ -250,9 +250,7 @@ impl BuildProgressStateTracker {
                     self.action_finished(v);
                 }
             }
-            UnpackedBuckEvent::SpanStart(..)
-            | UnpackedBuckEvent::SpanEnd(..)
-            | UnpackedBuckEvent::Instant(..) => {
+            _ => {
                 // ignored
             }
         }
