@@ -41,6 +41,7 @@ impl HelpEnvCommand {
             })
             .collect();
         env_info.sort();
+        env_info.dedup();
 
         let longest_name = env_info
             .iter()
