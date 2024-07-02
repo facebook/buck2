@@ -206,7 +206,13 @@ system_cxx_toolchain = rule(
         "cxx_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "link_style": attrs.string(default = "shared"),
+        "link_style": attrs.enum(
+            LinkStyle.values(),
+            default = "shared",
+            doc = """
+            The default value of the `link_style` attribute for rules that use this toolchain.
+            """,
+        ),
         "linker": attrs.string(default = "link.exe" if host_info().os.is_windows else "clang++"),
         "linker_wrapper": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
         "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
