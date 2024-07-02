@@ -8,7 +8,6 @@
  */
 
 #![feature(once_cell_try)]
-#![deny(warnings)]
 
 mod producer;
 
