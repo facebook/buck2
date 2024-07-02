@@ -84,13 +84,8 @@ python_binary(
     visibility = ["PUBLIC"],
 )
 
-command_alias(
+python_bootstrap_binary(
     name = "swift_exec",
-    exe = ":swift_exec.sh",
+    main = "swift_exec.py",
     visibility = ["PUBLIC"],
-)
-
-export_file(
-    name = "swift_exec.sh",
-    src = "swift_exec.sh",
 )
