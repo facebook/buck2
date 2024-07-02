@@ -12,7 +12,6 @@ pub mod process_group;
 pub mod status_decoder;
 
 use std::borrow::Cow;
-use std::fs;
 use std::path::Path;
 use std::pin::Pin;
 use std::process::Command;
@@ -353,8 +352,8 @@ pub fn maybe_absolutize_exe<'a>(
     let exe = exe.as_ref();
 
     let abs = spawned_process_cwd.join(exe);
-    if fs_util::try_exists(&abs).context("Error absolute-izing executable")? {
-        let metadata = fs::metadata(&abs).context("Error getting metadata for path")?;
+
+    if let Some(metadata) = fs_util::metadata_if_exists(&abs).context("Error getting metadata for path")? {
         if metadata.is_file() {
             #[cfg(unix)]
             {
