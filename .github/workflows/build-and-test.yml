@@ -37,11 +37,14 @@ jobs:
     - uses: ./.github/actions/setup_macos_env
     - uses: ./.github/actions/init_opam
     - uses: ./.github/actions/build_release
-    - name: Build example/prelude directory
+    - name: Setup the 'example/with_prelude' project
       run: |-
         cd examples/with_prelude
         ./haskell-setup.sh
         ./ocaml-setup.sh
+    - name: Build the 'example/with_prelude' project
+      run: |-
+        cd examples/with_prelude
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_no_prelude
