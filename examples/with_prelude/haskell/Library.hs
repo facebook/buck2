@@ -9,5 +9,5 @@
 
 module Library(helloWorld) where
 
-helloWorld :: IO ()
-helloWorld = putStrLn "Hello World!"
+helloWorld :: String
+helloWorld = "Hello World!"
