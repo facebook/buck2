@@ -40,6 +40,7 @@ jobs:
     - name: Build example/prelude directory
       run: |-
         cd examples/with_prelude
+        ./haskell-setup.sh
         ./ocaml-setup.sh
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
@@ -52,17 +53,15 @@ jobs:
     - uses: actions/checkout@v4.1.0
     - uses: ./.github/actions/setup_linux_env
     - uses: ./.github/actions/init_opam
+    - uses: ./.github/actions/build_release
     - name: Setup the 'example/with_prelude' project
       run: |-
-        # Do this before building buck so we can fail fast.
         cd examples/with_prelude
         ./haskell-setup.sh
         ./ocaml-setup.sh
-    - uses: ./.github/actions/build_release # Ok to build buck now.
     - name: Build the 'example/with_prelude' project
       run: |-
         cd examples/with_prelude
-        $RUNNER_TEMP/artifacts/buck2 init
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_conan
