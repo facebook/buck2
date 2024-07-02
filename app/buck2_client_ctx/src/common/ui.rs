@@ -13,6 +13,7 @@ use termwiz::istty::IsTty;
 
 use crate::final_console::FinalConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
+use crate::subscribers::superconsole::BUCK_NO_INTERACTIVE_CONSOLE;
 
 #[derive(
     Debug,
@@ -87,7 +88,7 @@ pub struct CommonConsoleOptions {
     #[clap(
         long,
         help = "Disable console interactions",
-        env = "BUCK_NO_INTERACTIVE_CONSOLE",
+        env = BUCK_NO_INTERACTIVE_CONSOLE,
         value_parser = FalseyValueParser::new(),
     )]
     pub no_interactive_console: bool,

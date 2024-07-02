@@ -397,6 +397,8 @@ impl StatefulSuperConsole {
     }
 }
 
+pub(crate) const BUCK_NO_INTERACTIVE_CONSOLE: &str = "BUCK_NO_INTERACTIVE_CONSOLE";
+
 // TODO(brasselsprouts): after deprecating filetailers, simplify these code paths
 #[async_trait]
 impl UnpackingEventSubscriber for StatefulSuperConsole {
@@ -544,7 +546,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         } else if c == '-' {
             self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1);
         } else if c == '?' || c == 'h' {
-            self.handle_stderr(
+            self.handle_stderr(&format!(
                 "Help:\n\
                 `c` = toggle commands (shown by default)\n\
                 `d` = toggle DICE\n\
@@ -555,8 +557,9 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 `p` = display target configurations\n\
                 `+` = show more lines\n\
                 `-` = show fewer lines\n\
-                `h` = show this help",
-            )
+                `h` = show this help\n\
+                env var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console",
+            ))
             .await?;
         }
 
