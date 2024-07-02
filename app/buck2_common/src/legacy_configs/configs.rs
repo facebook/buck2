@@ -525,14 +525,12 @@ impl LegacyBuckConfig {
     ) -> anyhow::Result<AbsNormPathBuf> {
         if let Some(cell_alias) = &file_arg.cell {
             if let Some(cell_resolver) = cell_resolution_state.cell_resolver.get() {
-                return cell_resolver.resolve_cell_relative_path(
+                let proj_path = cell_resolver.resolve_cell_relative_path(
                     cell_alias,
                     &file_arg.path,
-                    cell_resolution_state.project_filesystem,
-                    &cell_resolution_state
-                        .project_filesystem
-                        .resolve(cell_resolution_state.cwd),
-                );
+                    cell_resolution_state.cwd,
+                )?;
+                return Ok(cell_resolution_state.project_filesystem.resolve(&proj_path));
             } else {
                 // Reading an immediate cell mapping is extremely fast as we just read a single
                 // config file (which would already be in memory). There is another alternative,
@@ -544,17 +542,15 @@ impl LegacyBuckConfig {
                     cell_resolution_state.project_filesystem,
                     file_ops,
                 )?;
-                let resolved_path = cell_resolver.resolve_cell_relative_path(
+                let proj_path = cell_resolver.resolve_cell_relative_path(
                     cell_alias,
                     &file_arg.path,
-                    cell_resolution_state.project_filesystem,
-                    &cell_resolution_state
-                        .project_filesystem
-                        .resolve(cell_resolution_state.cwd),
-                );
+                    cell_resolution_state.cwd,
+                )?;
+                let resolved_path = cell_resolution_state.project_filesystem.resolve(&proj_path);
                 let set_result = cell_resolution_state.cell_resolver.set(cell_resolver);
                 assert!(set_result.is_ok());
-                return resolved_path;
+                return Ok(resolved_path);
             }
         }
 

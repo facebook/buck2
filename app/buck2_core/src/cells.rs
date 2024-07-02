@@ -162,8 +162,6 @@ use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
-use crate::fs::paths::abs_norm_path::AbsNormPath;
-use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::abs_path::AbsPath;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::project::ProjectRoot;
@@ -421,15 +419,9 @@ impl CellResolver {
         &self,
         cell_alias: &str,
         cell_relative_path: &str,
-        project_filesystem: &ProjectRoot,
-        cwd: &AbsNormPath,
-    ) -> anyhow::Result<AbsNormPathBuf> {
-        // We expect this to always succeed as long as the client connects to the
-        // appropriate daemon.
-        let proj_relative_path = project_filesystem
-            .relativize(cwd)
-            .with_context(|| format!("Error relativizing cwd (`{}`)", cwd))?;
-        let context_cell_name = self.find(&proj_relative_path)?;
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<ProjectRelativePathBuf> {
+        let context_cell_name = self.find(cwd)?;
         let context_cell = self.get(context_cell_name)?;
 
         // cwd is always non-external
@@ -437,8 +429,9 @@ impl CellResolver {
             .non_external_cell_alias_resolver()
             .resolve(cell_alias)?;
         let cell = self.get(resolved_cell_name)?;
-        let cell_absolute_path = project_filesystem.resolve(cell.path().as_project_relative_path());
-        cell_absolute_path.join_normalized(cell_relative_path)
+        cell.path()
+            .as_project_relative_path()
+            .join_normalized(cell_relative_path)
     }
 
     /// Resolves a given 'Package' to the 'ProjectRelativePath' that points to

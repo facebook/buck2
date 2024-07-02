@@ -117,12 +117,14 @@ impl<'a> ImmediateConfigContext<'a> {
     ) -> anyhow::Result<AbsNormPathBuf> {
         let data = self.data()?;
 
-        data.cell_resolver.resolve_cell_relative_path(
+        let proj_relative = data.cell_resolver.resolve_cell_relative_path(
             cell_alias,
             cell_relative_path,
-            &data.project_filesystem,
-            self.cwd.path(),
-        )
+            data.project_filesystem
+                .relativize(self.cwd.path())?
+                .as_ref(),
+        )?;
+        Ok(data.project_filesystem.resolve(&proj_relative))
     }
 
     fn data(&self) -> anyhow::Result<&ImmediateConfigContextData> {
