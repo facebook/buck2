@@ -23,6 +23,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -216,7 +217,7 @@ pub enum ResolvedLegacyConfigArg {
 /// State required to perform resolution of cell-relative paths.
 pub(crate) struct CellResolutionState<'a> {
     pub(crate) project_filesystem: &'a ProjectRoot,
-    pub(crate) cwd: &'a AbsNormPath,
+    pub(crate) cwd: &'a ProjectRelativePath,
     pub(crate) cell_resolver: OnceCell<CellResolver>,
 }
 
@@ -528,7 +529,9 @@ impl LegacyBuckConfig {
                     cell_alias,
                     &file_arg.path,
                     cell_resolution_state.project_filesystem,
-                    cell_resolution_state.cwd,
+                    &cell_resolution_state
+                        .project_filesystem
+                        .resolve(cell_resolution_state.cwd),
                 );
             } else {
                 // Reading an immediate cell mapping is extremely fast as we just read a single
@@ -545,7 +548,9 @@ impl LegacyBuckConfig {
                     cell_alias,
                     &file_arg.path,
                     cell_resolution_state.project_filesystem,
-                    cell_resolution_state.cwd,
+                    &cell_resolution_state
+                        .project_filesystem
+                        .resolve(cell_resolution_state.cwd),
                 );
                 let set_result = cell_resolution_state.cell_resolver.set(cell_resolver);
                 assert!(set_result.is_ok());
@@ -701,7 +706,7 @@ pub mod testing {
         // As long as people don't pass config files, making up values here is ok
         let cell_resolution = CellResolutionState {
             project_filesystem: &project_fs,
-            cwd: path,
+            cwd: ProjectRelativePath::empty(),
             cell_resolver: OnceCell::new(),
         };
         let processed_config_args =

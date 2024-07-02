@@ -219,7 +219,7 @@ impl BuckConfigBasedCells {
         let cell_resolution = CellResolutionState {
             project_filesystem: project_fs,
             cell_resolver: OnceCell::new(),
-            cwd: &project_fs.resolve(cwd),
+            cwd,
         };
         // NOTE: This will _not_ perform IO unless it needs to.
         let processed_config_args =
