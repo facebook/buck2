@@ -15,12 +15,13 @@ use std::process::Command;
 use std::str;
 
 use anyhow::Context as _;
-use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::is_open_source;
 use buck2_util::process::background_command;
 use termwiz::istty::IsTty;
+
+use crate::immediate_config::ImmediateConfigContext;
 
 #[derive(buck2_error::Error, Debug)]
 enum ArgExpansionError {
@@ -52,13 +53,13 @@ pub fn log_relative_path_from_cell_root(requested_path: &str) -> anyhow::Result<
     } else {
         ("WARNING: ", "")
     };
-    buck2_client_ctx::eprintln!(
+    crate::eprintln!(
         "{}`@{}` was specified, but not found. Using file at `//{}`.",
         prefix,
         requested_path,
         requested_path
     )?;
-    buck2_client_ctx::eprintln!(
+    crate::eprintln!(
         "This behavior is being deprecated. Please use `\"@//{}\"` instead{}",
         requested_path,
         reset

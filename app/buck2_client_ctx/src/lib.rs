@@ -17,6 +17,7 @@
 #![feature(used_with_arg)]
 #![feature(round_char_boundary)]
 
+pub mod argfiles;
 pub mod build_count;
 pub mod client_cpu_tracker;
 pub mod client_ctx;

@@ -13,6 +13,5 @@
 #![feature(exit_status_error)]
 #![feature(used_with_arg)]
 
-pub mod args;
 pub mod commands;
 pub mod print;

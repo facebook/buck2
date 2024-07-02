@@ -14,7 +14,6 @@
 
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
-use buck2_client::args::expand_argfiles_with_context;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
@@ -42,6 +41,7 @@ use buck2_client::commands::status::StatusCommand;
 use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
+use buck2_client_ctx::argfiles::expand_argfiles_with_context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
 use buck2_client_ctx::exit_result::ExitResult;
