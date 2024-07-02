@@ -416,9 +416,9 @@ def _fix_dep(x: str) -> [
     elif x.startswith("//buck2/facebook/"):
         return None
     elif x.startswith("//buck2/"):
-        return "root//" + x.removeprefix("//buck2/")
+        return "buck2//" + x.removeprefix("//buck2/")
     elif x.startswith("fbcode//common/ocaml/interop/"):
-        return "root//" + x.removeprefix("fbcode//common/ocaml/interop/")
+        return "buck2//" + x.removeprefix("fbcode//common/ocaml/interop/")
     elif x.startswith("fbcode//third-party-buck/platform010/build/supercaml"):
         return "shim//third-party/ocaml" + x.removeprefix("fbcode//third-party-buck/platform010/build/supercaml")
     elif x.startswith("fbcode//third-party-buck/platform010/build"):
@@ -430,12 +430,12 @@ def _fix_dep(x: str) -> [
     elif x.startswith("//folly"):
         oss_depends_on_folly = read_config("oss_depends_on", "folly", False)
         if oss_depends_on_folly:
-            return "root//folly/" + x.removeprefix("//")
-        return "root//" + x.removeprefix("//")
-    elif x.startswith("root//folly"):
+            return "buck2//folly/" + x.removeprefix("//")
+        return "buck2//" + x.removeprefix("//")
+    elif x.startswith("buck2//folly"):
         return x
     elif x.startswith("//fizz"):
-        return "root//" + x.removeprefix("//")
+        return "buck2//" + x.removeprefix("//")
     elif x.startswith("shim//"):
         return x
     else:
@@ -445,7 +445,7 @@ def _fix_dep(x: str) -> [
 def _fix_dep_in_string(x: str) -> str:
     """Replace internal labels in string values such as env-vars."""
     return (x
-        .replace("//buck2/", "root//"))
+        .replace("//buck2/", "buck2//"))
 
 # Do a nasty conversion of e.g. ("supercaml", None, "ocaml-dev") to
 # 'fbcode//third-party-buck/platform010/build/supercaml:ocaml-dev'
