@@ -388,5 +388,12 @@ toolchain_utilities = rule(
 )
 
 # temporary for migration
-def toolchain_resources(*_args, **_kwargs):
-    pass
+toolchain_resources = rule(
+    impl = lambda _ctx: [
+        DefaultInfo(),
+    ],
+    attrs = {
+        "jsone": attrs.dep(),
+    },
+    is_toolchain_rule = True,
+)
