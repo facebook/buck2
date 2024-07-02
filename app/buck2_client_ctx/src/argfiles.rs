@@ -217,37 +217,40 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
         None => (path, None),
     };
 
-    let resolved_path = if let Some(cell_resolved_path) = context.resolve_cell_path_arg(path_part) {
-        cell_resolved_path.context("Error resolving cell path")?
-    } else {
-        let p = Path::new(path_part);
-        if !p.is_absolute() {
-            match context.canonicalize(p) {
-                Ok(abs_path) => abs_path,
-                Err(original_error) => {
-                    let cell_relative_path = context.resolve_cell_path("", path_part)?;
-                    // If the relative path does not exist relative to the cwd,
-                    // attempt to make it relative to the cell root. If *that*
-                    // doesn't exist, just report the original error back, and
-                    // don't tip users off that they can use relative-to-cell paths.
-                    // We want to deprecate that.
-                    match fs_util::try_exists(&cell_relative_path) {
-                        Ok(true) => {
-                            log_relative_path_from_cell_root(path_part)?;
-                            cell_relative_path
-                        }
-                        _ => {
-                            return Err(ArgExpansionError::MissingFlagFileOnDisk {
-                                source: original_error,
-                                path: p.to_string_lossy().into_owned(),
+    let resolved_path = match path_part.split_once("//") {
+        Some((cell_alias, cell_relative_path)) => context
+            .resolve_cell_path(cell_alias, cell_relative_path)
+            .context("Error resolving cell path")?,
+        None => {
+            let p = Path::new(path_part);
+            if !p.is_absolute() {
+                match context.canonicalize(p) {
+                    Ok(abs_path) => abs_path,
+                    Err(original_error) => {
+                        let cell_relative_path = context.resolve_cell_path("", path_part)?;
+                        // If the relative path does not exist relative to the cwd,
+                        // attempt to make it relative to the cell root. If *that*
+                        // doesn't exist, just report the original error back, and
+                        // don't tip users off that they can use relative-to-cell paths.
+                        // We want to deprecate that.
+                        match fs_util::try_exists(&cell_relative_path) {
+                            Ok(true) => {
+                                log_relative_path_from_cell_root(path_part)?;
+                                cell_relative_path
                             }
-                            .into());
+                            _ => {
+                                return Err(ArgExpansionError::MissingFlagFileOnDisk {
+                                    source: original_error,
+                                    path: p.to_string_lossy().into_owned(),
+                                }
+                                .into());
+                            }
                         }
                     }
                 }
+            } else {
+                AbsNormPathBuf::try_from(p.to_owned())?
             }
-        } else {
-            AbsNormPathBuf::try_from(p.to_owned())?
         }
     };
 

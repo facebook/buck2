@@ -91,19 +91,6 @@ impl<'a> ImmediateConfigContext<'a> {
         Ok(&self.data()?.daemon_startup_config)
     }
 
-    /// Resolves an argument which can possibly be a cell-relative path.
-    /// If the argument is not a cell-relative path, it returns `None`.
-    /// Otherwise, it tries to resolve the cell and returns a `Result`.
-    pub(crate) fn resolve_cell_path_arg(
-        &self,
-        path: &str,
-    ) -> Option<anyhow::Result<AbsNormPathBuf>> {
-        path.split_once("//")
-            .map(|(cell_alias, cell_relative_path)| {
-                self.resolve_cell_path(cell_alias, cell_relative_path)
-            })
-    }
-
     pub(crate) fn canonicalize(&self, path: &Path) -> anyhow::Result<AbsNormPathBuf> {
         fs_util::canonicalize(self.cwd.path().as_path().join(path))
     }
