@@ -266,6 +266,10 @@ pub struct Buck2OssReConfiguration {
     pub instance_name: Option<String>,
     /// Use the Meta version of the request metadata
     pub use_fbcode_metadata: bool,
+    /// The max size for a GRPC message to be decoded.
+    pub max_decoding_message_size: Option<usize>,
+    /// The max cumulative blob size for `Read` and `BatchReadBlobs` methods.
+    pub max_total_batch_size: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -354,6 +358,14 @@ impl Buck2OssReConfiguration {
                     property: "use_fbcode_metadata",
                 })?
                 .unwrap_or(true),
+            max_decoding_message_size: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_decoding_message_size",
+            })?,
+            max_total_batch_size: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_total_batch_size",
+            })?,
         })
     }
 }

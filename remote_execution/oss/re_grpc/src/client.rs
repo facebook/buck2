@@ -86,7 +86,7 @@ use crate::response::*;
 // in the Capabilities message query.
 const CONCURRENT_UPLOAD_LIMIT: usize = 64;
 
-const DEFAULT_MAX_MSG_SIZE: usize = 4 * 1000 * 1000;
+const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
@@ -209,7 +209,7 @@ fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
 pub struct RECapabilities {
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
-    max_msg_size: usize,
+    max_total_batch_size: usize,
     /// Does the remote server support execution.
     exec_enabled: bool,
 }
@@ -279,11 +279,52 @@ impl REClientBuilder {
 
         let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
 
-        let mut grpc_clients = GRPCClients {
+        let mut capabilities_client = CapabilitiesClient::with_interceptor(
+            capabilities.context("Error creating Capabilities client")?,
+            interceptor.dupe(),
+        );
+
+        if let Some(max_decoding_message_size) = opts.max_decoding_message_size {
+            capabilities_client =
+                capabilities_client.max_decoding_message_size(max_decoding_message_size);
+        }
+
+        let instance_name = InstanceName(opts.instance_name.clone());
+
+        let capabilities = if opts.capabilities.unwrap_or(true) {
+            Self::fetch_rbe_capabilities(
+                &mut capabilities_client,
+                &instance_name,
+                opts.max_total_batch_size,
+            )
+            .await?
+        } else {
+            RECapabilities {
+                exec_enabled: true,
+                max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
+            }
+        };
+
+        if !capabilities.exec_enabled {
+            return Err(anyhow::anyhow!("Server has remote execution disabled."));
+        }
+
+        let max_decoding_msg_size = opts
+            .max_decoding_message_size
+            .unwrap_or(capabilities.max_total_batch_size * 2);
+
+        if max_decoding_msg_size < capabilities.max_total_batch_size {
+            return Err(anyhow::anyhow!(
+                "Attribute `max_decoding_message_size` must always be equal or higher to `max_total_batch_size`"
+            ));
+        }
+
+        let grpc_clients = GRPCClients {
             cas_client: ContentAddressableStorageClient::with_interceptor(
                 cas.context("Error creating CAS client")?,
                 interceptor.dupe(),
-            ),
+            )
+            .max_decoding_message_size(max_decoding_msg_size),
             execution_client: ExecutionClient::with_interceptor(
                 execution.context("Error creating Execution client")?,
                 interceptor.dupe(),
@@ -295,27 +336,9 @@ impl REClientBuilder {
             bytestream_client: ByteStreamClient::with_interceptor(
                 bytestream.context("Error creating Bytestream client")?,
                 interceptor.dupe(),
-            ),
-            capabilities_client: CapabilitiesClient::with_interceptor(
-                capabilities.context("Error creating Capabilities client")?,
-                interceptor.dupe(),
-            ),
+            )
+            .max_decoding_message_size(max_decoding_msg_size),
         };
-
-        let instance_name = InstanceName(opts.instance_name.clone());
-
-        let capabilities = if opts.capabilities.unwrap_or(true) {
-            Self::fetch_rbe_capabilities(&mut grpc_clients, &instance_name).await?
-        } else {
-            RECapabilities {
-                exec_enabled: true,
-                max_msg_size: DEFAULT_MAX_MSG_SIZE,
-            }
-        };
-
-        if !capabilities.exec_enabled {
-            return Err(anyhow::anyhow!("Server has remote execution disabled."));
-        }
 
         Ok(REClient::new(
             RERuntimeOpts {
@@ -328,38 +351,45 @@ impl REClientBuilder {
     }
 
     async fn fetch_rbe_capabilities(
-        clients: &mut GRPCClients,
+        client: &mut CapabilitiesClient<GrpcService>,
         instance_name: &InstanceName,
+        max_total_batch_size: Option<usize>,
     ) -> anyhow::Result<RECapabilities> {
         // TODO use more of the capabilities of the remote build executor
 
-        let resp = clients
-            .capabilities_client
+        let resp = client
             .get_capabilities(GetCapabilitiesRequest {
                 instance_name: instance_name.as_str().to_owned(),
             })
             .await
             .context("Failed to query capabilities of remote")?
             .into_inner();
-        // Default is a reasonable size for the gRPC transport
-        // with enough room for headers.
-        let mut max_msg_size = DEFAULT_MAX_MSG_SIZE;
+
         let mut exec_enabled = true;
 
-        if let Some(cache_cap) = resp.cache_capabilities {
-            let size = cache_cap.max_batch_total_size_bytes as usize;
-            // A value of 0 means no limit is set
-            if size != 0 {
-                max_msg_size = size;
-            }
-        }
+        let max_total_batch_size_from_capabilities: Option<usize> =
+            if let Some(cache_cap) = resp.cache_capabilities {
+                let size = cache_cap.max_batch_total_size_bytes as usize;
+                // A value of 0 means no limit is set
+                if size != 0 { Some(size) } else { None }
+            } else {
+                None
+            };
+
+        let max_total_batch_size =
+            match (max_total_batch_size_from_capabilities, max_total_batch_size) {
+                (Some(cap), Some(config)) => std::cmp::min(cap, config),
+                (Some(cap), None) => cap,
+                (None, Some(config)) => config,
+                (None, None) => DEFAULT_MAX_TOTAL_BATCH_SIZE,
+            };
 
         if let Some(exec_cap) = resp.execution_capabilities {
             exec_enabled = exec_cap.exec_enabled;
         }
 
         Ok(RECapabilities {
-            max_msg_size,
+            max_total_batch_size,
             exec_enabled,
         })
     }
@@ -410,13 +440,13 @@ impl Interceptor for InjectHeadersInterceptor {
     }
 }
 
+type GrpcService = InterceptedService<Channel, InjectHeadersInterceptor>;
+
 pub struct GRPCClients {
-    cas_client:
-        ContentAddressableStorageClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    execution_client: ExecutionClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    action_cache_client: ActionCacheClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    bytestream_client: ByteStreamClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
-    capabilities_client: CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    cas_client: ContentAddressableStorageClient<GrpcService>,
+    execution_client: ExecutionClient<GrpcService>,
+    action_cache_client: ActionCacheClient<GrpcService>,
+    bytestream_client: ByteStreamClient<GrpcService>,
 }
 
 enum DigestRemoteState {
@@ -696,7 +726,7 @@ impl REClient {
         upload_impl(
             &self.instance_name,
             request,
-            self.capabilities.max_msg_size,
+            self.capabilities.max_total_batch_size,
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut cas_client = self.grpc_clients.cas_client.clone();
@@ -744,7 +774,7 @@ impl REClient {
         download_impl(
             &self.instance_name,
             request,
-            self.capabilities.max_msg_size,
+            self.capabilities.max_total_batch_size,
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut client = self.grpc_clients.cas_client.clone();
@@ -982,7 +1012,7 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
 async fn download_impl<Byt, BytRet, Cas>(
     instance_name: &InstanceName,
     request: DownloadRequest,
-    max_msg_size: usize,
+    max_total_batch_size: usize,
     cas_f: impl Fn(BatchReadBlobsRequest) -> Cas,
     bystream_fut: impl Fn(ReadRequest) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<DownloadResponse>
@@ -1024,13 +1054,13 @@ where
         .map(|d| tdigest_to(d.clone()))
         .filter(|d| d.size_bytes > 0)
     {
-        if digest.size_bytes as usize >= max_msg_size {
+        if digest.size_bytes as usize >= max_total_batch_size {
             // digest is too big to download in a BatchReadBlobsRequest
             // need to use the bytstream api
             continue;
         }
         curr_size += digest.size_bytes;
-        if curr_size >= max_msg_size as i64 {
+        if curr_size >= max_total_batch_size as i64 {
             let read_blob_req = BatchReadBlobsRequest {
                 instance_name: instance_name.as_str().to_owned(),
                 digests: std::mem::take(&mut curr_digests),
@@ -1076,7 +1106,7 @@ where
 
     let mut inlined_blobs = vec![];
     for digest in inlined_digests {
-        let data = if digest.size_in_bytes as usize >= max_msg_size {
+        let data = if digest.size_in_bytes as usize >= max_total_batch_size {
             let mut accum = vec![];
             let mut responses = bystream_fut(digest.clone()).await?;
             while let Some(resp) = responses.next().await {
@@ -1117,7 +1147,7 @@ where
             // If the data is small enough to be transferred in a batch
             // blob update, write it all at once to the file. Otherwise, it'll
             // be streamed in chunks as the remote responds.
-            if req.named_digest.digest.size_in_bytes < max_msg_size as i64 {
+            if req.named_digest.digest.size_in_bytes < max_total_batch_size as i64 {
                 let data = get(&req.named_digest.digest)?;
                 file.write_all(&data)
                     .await
@@ -1155,7 +1185,7 @@ where
 async fn upload_impl<Byt, Cas>(
     instance_name: &InstanceName,
     request: UploadRequest,
-    max_msg_size: usize,
+    max_total_batch_size: usize,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
     bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<UploadResponse>
@@ -1168,14 +1198,14 @@ where
 
     // For small file uploads the client should group them together and call `BatchUpdateBlobs`
     // https://github.com/bazelbuild/remote-apis/blob/main/build/bazel/remote/execution/v2/remote_execution.proto#L205
-    let mut batched_blob_updates = BatchUploadReqAggregator::new(max_msg_size);
+    let mut batched_blob_updates = BatchUploadReqAggregator::new(max_total_batch_size);
 
     // Create futures for any blobs that need uploading.
     for blob in request.inlined_blobs_with_digest.unwrap_or_default() {
         let hash = blob.digest.hash.clone();
         let size = blob.digest.size_in_bytes;
 
-        if size < max_msg_size as i64 {
+        if size < max_total_batch_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::Blob(blob));
             continue;
         }
@@ -1192,10 +1222,10 @@ where
         let fut = async move {
             // Number of complete (non-partial) messages
             let mut upload_segments = vec![];
-            for (i, chunk) in data.chunks(max_msg_size).enumerate() {
+            for (i, chunk) in data.chunks(max_total_batch_size).enumerate() {
                 upload_segments.push(WriteRequest {
                     resource_name: resource_name.to_owned(),
-                    write_offset: (i * max_msg_size) as i64,
+                    write_offset: (i * max_total_batch_size) as i64,
                     finish_write: false,
                     data: chunk.to_owned(),
                 });
@@ -1219,7 +1249,7 @@ where
         let hash = file.digest.hash.clone();
         let size = file.digest.size_in_bytes;
         let name = file.name.clone();
-        if size < max_msg_size as i64 {
+        if size < max_total_batch_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::File(file));
             continue;
         }
@@ -1235,7 +1265,7 @@ where
             let mut file = tokio::fs::File::open(&name)
                 .await
                 .with_context(|| format!("Opening `{name}` for reading failed"))?;
-            let mut data = vec![0; max_msg_size];
+            let mut data = vec![0; max_total_batch_size];
 
             let mut write_offset = 0;
             let mut upload_segments = Vec::new();
