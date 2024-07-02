@@ -47,7 +47,7 @@ def create_resource_db(
     """
 
     db = {
-        name: cmd_args(resource.default_output, delimiter = "").relative_to(binary, parent = 1)
+        name: cmd_args(resource.default_output, delimiter = "", relative_to = (binary, 1))
         for (name, resource) in resources.items()
     }
     return ctx.actions.write_json(name, db)
