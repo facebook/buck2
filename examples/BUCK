@@ -1,0 +1,4 @@
+# These files aren't part of the normal build graph,
+# just examples for our open source project.
+
+oncall("build_infra")
