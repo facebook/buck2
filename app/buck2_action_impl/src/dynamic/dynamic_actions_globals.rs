@@ -9,16 +9,12 @@
 
 use std::cell::OnceCell;
 
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::FrozenValue;
-use starlark_map::small_map::SmallMap;
+use starlark::values::typing::StarlarkCallableParamAny;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions_callable::DynamicActionsCallable;
@@ -31,12 +27,7 @@ pub(crate) fn register_dynamic_action(globals: &mut GlobalsBuilder) {
     fn dynamic_actions<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<
             'v,
-            (
-                FrozenValue,
-                SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-                SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
-                FrozenValue,
-            ),
+            StarlarkCallableParamAny,
             NoneType,
         >,
     ) -> anyhow::Result<DynamicActionsCallable<'v>> {

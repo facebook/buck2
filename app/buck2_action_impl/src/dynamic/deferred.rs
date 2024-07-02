@@ -134,11 +134,23 @@ impl DynamicLambda {
         outputs: Value<'v>,
         arg: Option<Value<'v>>,
     ) -> anyhow::Result<()> {
-        let mut call_args = Vec::with_capacity(3 + arg.is_some() as usize);
-        call_args.extend(&[ctx, artifacts, outputs]);
-        call_args.extend(arg);
+        let pos;
+        let named;
+        let (pos, named): (&[_], &[(&str, _)]) = if let Some(arg) = arg {
+            named = [
+                ("ctx", ctx),
+                ("artifacts", artifacts),
+                ("outputs", outputs),
+                ("arg", arg),
+            ];
+            (&[], &named)
+        } else {
+            // Old API.
+            pos = [ctx, artifacts, outputs];
+            (&pos, &[])
+        };
         let return_value = eval
-            .eval_function(lambda, &call_args, &[])
+            .eval_function(lambda, pos, named)
             .map_err(BuckStarlarkError::new)?;
 
         if !return_value.is_none() {

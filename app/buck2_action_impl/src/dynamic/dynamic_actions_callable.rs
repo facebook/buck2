@@ -12,9 +12,6 @@ use std::cell::RefCell;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_error::BuckErrorContext;
@@ -27,6 +24,7 @@ use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
+use starlark::values::typing::StarlarkCallableParamAny;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -37,7 +35,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
@@ -64,16 +61,7 @@ enum DynamicActionCallableError {
     "self.name.get().map(|s| s.as_str()).unwrap_or(\"(unbound)\")"
 )]
 pub(crate) struct DynamicActionsCallable<'v> {
-    pub(crate) implementation: StarlarkCallable<
-        'v,
-        (
-            FrozenValue,
-            SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-            SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
-            FrozenValue,
-        ),
-        NoneType,
-    >,
+    pub(crate) implementation: StarlarkCallable<'v, StarlarkCallableParamAny, NoneType>,
     pub(crate) name: OnceCell<String>,
 }
 
@@ -86,15 +74,7 @@ pub(crate) struct DynamicActionsCallable<'v> {
 )]
 #[display(fmt = "DynamicActionsCallable[{}]", "name")]
 pub(crate) struct FrozenStarlarkDynamicActionsCallable {
-    pub(crate) implementation: FrozenStarlarkCallable<
-        (
-            FrozenValue,
-            SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-            SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
-            FrozenValue,
-        ),
-        NoneType,
-    >,
+    pub(crate) implementation: FrozenStarlarkCallable<StarlarkCallableParamAny, NoneType>,
     name: String,
     signature: ParametersSpec<FrozenValue>,
 }
