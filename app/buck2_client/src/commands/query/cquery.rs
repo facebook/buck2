@@ -83,13 +83,6 @@ pub struct CqueryCommand {
     )]
     show_providers: bool,
 
-    #[allow(rustdoc::bare_urls)]
-    /// Enable correct `owner()` function behavior.
-    ///
-    /// See this post https://fburl.com/1mf2d2xj for details.
-    #[clap(long)]
-    correct_owner: bool,
-
     #[clap(flatten)]
     target_cfg: TargetCfgWithUniverseOptions,
 
