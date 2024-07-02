@@ -53,12 +53,6 @@ def _generate_script(
         script_content = cmd_args(
             "#!/usr/bin/env bash",
             "set -e",
-            # This is awkward for two reasons: args doesn't support format strings
-            # and will insert a newline between items and so __RESOURCES_ROOT
-            # is put in a bash array.
-            "__RESOURCES_ROOT=(",
-            resources_dir,
-            ")",
             # If we access this sh_binary via a unhashed symlink we need to
             # update the relative source.
             '__SRC="${BASH_SOURCE[0]}"',
@@ -69,7 +63,7 @@ def _generate_script(
             # identify what the right format is. For now, this variable lets
             # callees disambiguate (see D28960177 for more context).
             "export BUCK_SH_BINARY_VERSION_UNSTABLE=2",
-            "export BUCK_PROJECT_ROOT=$__SCRIPT_DIR/\"${__RESOURCES_ROOT}\"",
+            cmd_args("export BUCK_PROJECT_ROOT=\"$__SCRIPT_DIR/", resources_dir, "\"", delimiter = ""),
             # In buck1, the paths for resources that are outputs of rules have
             # different paths in BUCK_PROJECT_ROOT and
             # BUCK_DEFAULT_RUNTIME_RESOURCES, but we use the same paths. buck1's
@@ -85,8 +79,6 @@ def _generate_script(
         script_content = cmd_args(
             "@echo off",
             "setlocal EnableDelayedExpansion",
-            "set __RESOURCES_ROOT=^",
-            resources_dir,
             # Fully qualified script path.
             "set __SRC=%~f0",
             # This is essentially a realpath.
@@ -94,7 +86,7 @@ def _generate_script(
             # Get parent folder.
             'for %%a in ("%__SRC%") do set "__SCRIPT_DIR=%%~dpa"',
             "set BUCK_SH_BINARY_VERSION_UNSTABLE=2",
-            "set BUCK_PROJECT_ROOT=%__SCRIPT_DIR%\\%__RESOURCES_ROOT%",
+            cmd_args("set BUCK_PROJECT_ROOT=%__SCRIPT_DIR%\\", resources_dir, delimiter = ""),
             "set BUCK_DEFAULT_RUNTIME_RESOURCES=%BUCK_PROJECT_ROOT%",
             "%BUCK_PROJECT_ROOT%\\{} %*".format(main_link),
             relative_to = (script, 1),
