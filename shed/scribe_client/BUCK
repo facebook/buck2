@@ -1,0 +1,37 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("build_infra")
+
+# @oss-disable: _is_oss = False 
+_is_oss = True # @oss-enable
+
+# buildifier: disable=no-effect
+rust_library(
+    name = "scribe_client",
+    srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:assert_matches",
+        "//common/rust/shed/fbinit:fbinit-tokio",
+        "//scribe/api/producer/thrift:producer_service-rust-mocks",
+    ],
+    visibility = [
+        "//buck2/...",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:crossbeam",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-retry",
+        "fbsource//third-party/rust:tracing",
+        "//common/rust/shed/fbinit:fbinit",
+        "//common/rust/thrift/bareclient:thriftclient",
+        "//scribe/api/producer/thrift:producer_service-rust",
+        "//scribe/api/producer/thrift:producer_service-rust-clients",
+        "//scribe/api/producer/thrift:producer_service-rust-thriftclients",
+        "//scribe/api/producer/thrift:use_case-rust",
+        "//scribe/api/thrift:message_metadata-rust",
+        "//thrift/lib/rust:fbthrift",
+    ],
+) if not _is_oss else None
