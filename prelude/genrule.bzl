@@ -310,7 +310,8 @@ def process_genrule(
         )
 
         # Relative all paths in the env to the sandbox dir.
-        env_vars = {key: val.relative_to(srcs_artifact) for key, val in env_vars.items()}
+        for value in env_vars.values():
+            value.relative_to(srcs_artifact)
 
     if is_windows:
         # Should be in the beginning.
