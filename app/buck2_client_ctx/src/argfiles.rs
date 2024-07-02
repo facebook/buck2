@@ -223,7 +223,7 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
         let p = Path::new(path_part);
         if !p.is_absolute() {
             match context.canonicalize(p) {
-                Ok(abs_path) => Ok(abs_path),
+                Ok(abs_path) => abs_path,
                 Err(original_error) => {
                     let cell_relative_path = context.resolve_cell_path("", path_part)?;
                     // If the relative path does not exist relative to the cwd,
@@ -234,15 +234,18 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
                     match fs_util::try_exists(&cell_relative_path) {
                         Ok(true) => {
                             log_relative_path_from_cell_root(path_part)?;
-                            Ok(cell_relative_path)
+                            cell_relative_path
                         }
-                        _ => Err(ArgExpansionError::MissingFlagFileOnDisk {
-                            source: original_error,
-                            path: p.to_string_lossy().into_owned(),
-                        }),
+                        _ => {
+                            return Err(ArgExpansionError::MissingFlagFileOnDisk {
+                                source: original_error,
+                                path: p.to_string_lossy().into_owned(),
+                            }
+                            .into());
+                        }
                     }
                 }
-            }?
+            }
         } else {
             AbsNormPathBuf::try_from(p.to_owned())?
         }
