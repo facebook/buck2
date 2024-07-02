@@ -79,11 +79,11 @@ impl<'a> ImmediateConfigContext<'a> {
         }
     }
 
-    pub fn push_trace(&mut self, path: &AbsNormPath) {
+    pub(crate) fn push_trace(&mut self, path: &AbsNormPath) {
         self.trace.push(path.to_buf());
     }
 
-    pub fn trace(&self) -> &[AbsNormPathBuf] {
+    pub(crate) fn trace(&self) -> &[AbsNormPathBuf] {
         &self.trace
     }
 
@@ -94,14 +94,17 @@ impl<'a> ImmediateConfigContext<'a> {
     /// Resolves an argument which can possibly be a cell-relative path.
     /// If the argument is not a cell-relative path, it returns `None`.
     /// Otherwise, it tries to resolve the cell and returns a `Result`.
-    pub fn resolve_cell_path_arg(&self, path: &str) -> Option<anyhow::Result<AbsNormPathBuf>> {
+    pub(crate) fn resolve_cell_path_arg(
+        &self,
+        path: &str,
+    ) -> Option<anyhow::Result<AbsNormPathBuf>> {
         path.split_once("//")
             .map(|(cell_alias, cell_relative_path)| {
                 self.resolve_cell_path(cell_alias, cell_relative_path)
             })
     }
 
-    pub fn canonicalize(&self, path: &Path) -> anyhow::Result<AbsNormPathBuf> {
+    pub(crate) fn canonicalize(&self, path: &Path) -> anyhow::Result<AbsNormPathBuf> {
         fs_util::canonicalize(self.cwd.path().as_path().join(path))
     }
 
@@ -110,7 +113,7 @@ impl<'a> ImmediateConfigContext<'a> {
     /// is `cell//path/to/file`, then:
     ///   - `cell_alias` would be `cell`
     ///   - `cell_relative_path` would be `path/to/file`
-    pub fn resolve_cell_path(
+    pub(crate) fn resolve_cell_path(
         &self,
         cell_alias: &str,
         cell_relative_path: &str,
