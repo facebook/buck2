@@ -117,7 +117,6 @@ impl StreamingCommand for CqueryCommand {
                     target_cfg: Some(self.target_cfg.target_cfg.target_cfg()),
                     show_providers: self.show_providers,
                     unstable_output_format,
-                    correct_owner: true,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),

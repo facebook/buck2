@@ -155,7 +155,6 @@ async fn cquery(
         target_universe,
         context,
         show_providers,
-        correct_owner,
         target_cfg,
         ..
     } = request;
@@ -178,17 +177,12 @@ async fn cquery(
     )
     .await?;
 
-    let owner_behavior = match correct_owner {
-        true => CqueryOwnerBehavior::Correct,
-        false => CqueryOwnerBehavior::Deprecated,
-    };
-
     let query_result = QUERY_FRONTEND
         .get()?
         .eval_cquery(
             &mut ctx,
             server_ctx.working_dir(),
-            owner_behavior,
+            CqueryOwnerBehavior::Correct,
             query,
             query_args,
             global_cfg_options,
