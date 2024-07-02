@@ -270,7 +270,7 @@ def _make_py_package_impl(
         output_suffix,
     )
 
-    output = ctx.actions.declare_output("{}{}".format(name, python_toolchain.pex_extension))
+    output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension))
 
     bootstrap_args = _pex_bootstrap_args(
         python_toolchain,
