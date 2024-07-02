@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -70,7 +69,6 @@ pub(crate) struct CqueryEnvironment<'c> {
     //   buck2 cquery 'deps(//foo:bar)'
     //   ```
     universe: Option<Arc<CqueryUniverse>>,
-    owner_behavior: CqueryOwnerBehavior,
 }
 
 impl<'c> CqueryEnvironment<'c> {
@@ -78,13 +76,11 @@ impl<'c> CqueryEnvironment<'c> {
         delegate: &'c dyn CqueryDelegate,
         literals: Arc<dyn QueryLiterals<ConfiguredTargetNode> + 'c>,
         universe: Option<Arc<CqueryUniverse>>,
-        owner_behavior: CqueryOwnerBehavior,
     ) -> Self {
         Self {
             delegate,
             literals,
             universe,
-            owner_behavior,
         }
     }
 
@@ -192,9 +188,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         let mut result = TargetSet::new();
 
         for path in paths.iter() {
-            let owners = match &self.owner_behavior {
-                CqueryOwnerBehavior::Correct => self.owner_correct(path)?,
-            };
+            let owners = self.owner_correct(path)?;
             if owners.is_empty() {
                 warn!("No owner was found for {}", path);
             }

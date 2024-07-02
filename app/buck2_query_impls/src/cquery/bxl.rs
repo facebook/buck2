@@ -12,7 +12,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_build_api::query::bxl::BxlCqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_CQUERY_FUNCTIONS;
-use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
@@ -81,7 +80,6 @@ impl BxlCqueryFunctionsImpl {
             dice_query_delegate,
             literals,
             universe,
-            CqueryOwnerBehavior::Correct,
         ))
     }
 }

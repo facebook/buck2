@@ -11,7 +11,6 @@
 
 use std::sync::Arc;
 
-use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_common::events::HasEvents;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
@@ -34,7 +33,6 @@ use crate::uquery::environment::UqueryDelegate;
 
 pub(crate) async fn eval_cquery(
     dice_query_delegate: DiceQueryDelegate<'_, '_>,
-    owner_behavior: CqueryOwnerBehavior,
     query: &str,
     query_args: &[String],
     target_universe: Option<&[String]>,
@@ -102,7 +100,6 @@ pub(crate) async fn eval_cquery(
                 dice_query_delegate,
                 Arc::new(resolved_literals),
                 Some(universe),
-                owner_behavior,
             ))
         },
     )

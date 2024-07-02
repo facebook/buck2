@@ -12,7 +12,6 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::CqueryRequest;
 use buck2_cli_proto::CqueryResponse;
@@ -182,7 +181,6 @@ async fn cquery(
         .eval_cquery(
             &mut ctx,
             server_ctx.working_dir(),
-            CqueryOwnerBehavior::Correct,
             query,
             query_args,
             global_cfg_options,

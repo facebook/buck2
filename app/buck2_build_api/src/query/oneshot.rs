@@ -15,15 +15,8 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
-use dupe::Dupe;
 
 use crate::actions::query::ActionQueryNode;
-
-/// [Context](https://fburl.com/adiagq2f).
-#[derive(Copy, Clone, Dupe)]
-pub enum CqueryOwnerBehavior {
-    Correct,
-}
 
 #[async_trait]
 pub trait QueryFrontend: Send + Sync + 'static {
@@ -39,7 +32,6 @@ pub trait QueryFrontend: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
-        owner_behavior: CqueryOwnerBehavior,
         query: &str,
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,

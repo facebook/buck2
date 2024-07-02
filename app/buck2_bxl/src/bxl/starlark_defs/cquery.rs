@@ -10,7 +10,6 @@
 use allocative::Allocative;
 use buck2_build_api::query::bxl::BxlCqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_CQUERY_FUNCTIONS;
-use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -505,7 +504,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             .eval_cquery(
                                 dice,
                                 &ctx.working_dir()?,
-                                CqueryOwnerBehavior::Correct,
                                 query,
                                 &query_args,
                                 this.global_cfg_options_override.clone(),

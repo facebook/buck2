@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use buck2_build_api::actions::query::ActionQueryNode;
-use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_build_api::query::oneshot::QueryFrontend;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
@@ -53,7 +52,6 @@ impl QueryFrontend for QueryFrontendImpl {
         &self,
         ctx: &mut DiceComputations<'_>,
         working_dir: &ProjectRelativePath,
-        owner_behavior: CqueryOwnerBehavior,
         query: &str,
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
@@ -71,7 +69,6 @@ impl QueryFrontend for QueryFrontendImpl {
             //   ```
             eval_cquery(
                 dice_query_delegate,
-                owner_behavior,
                 query,
                 query_args,
                 target_universe.as_ref().map(|v| &v[..]),
