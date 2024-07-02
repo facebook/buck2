@@ -884,6 +884,22 @@ class Buck(Executable):
             encoding=self.encoding,
         )
 
+    def run_buck_command(
+        self,
+        *argv: str,
+        input: Optional[bytes] = None,
+        rel_cwd: Optional[Path] = None,
+        env: Optional[Dict[str, str]] = None,
+    ) -> Process[BuckResult, BuckException]:
+        return self._run_buck_command(
+            *argv,
+            input=input,
+            rel_cwd=rel_cwd,
+            env=env,
+            result_type=BuckResult,
+            exception_type=BuckException,
+        )
+
     def _create_xml_file(self, *argv: str) -> Tuple[Iterable[str], str]:
         """
         Creates a xml file used for the test output. Ensures an xml file

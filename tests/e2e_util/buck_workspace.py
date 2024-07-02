@@ -39,7 +39,14 @@ from buck2.tests.e2e_util.api.executable_type import ExecutableType
 from decorator import decorator
 
 BuckTestMarker = namedtuple(
-    "BuckTestMarker", ["inplace", "data_dir", "allow_soft_errors", "extra_buck_config"]
+    "BuckTestMarker",
+    [
+        "inplace",
+        "data_dir",
+        "allow_soft_errors",
+        "extra_buck_config",
+        "skip_final_kill",
+    ],
 )
 
 
@@ -169,7 +176,10 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
         yield buck
 
-        if buck.executable_type != ExecutableType.buck2_build_api_binary:
+        if (
+            not marker.skip_final_kill
+            and buck.executable_type != ExecutableType.buck2_build_api_binary
+        ):
             if keep_temp:
                 await buck.kill()
             else:
@@ -290,6 +300,8 @@ def buck_test(
     skip_for_os: List[str] = [],  # noqa: B006 value is read-only
     allow_soft_errors=False,
     extra_buck_config: Optional[Dict[str, Dict[str, str]]] = None,
+    # Don't run a `buck2 kill` or `buck2 clean` at the end of the test
+    skip_final_kill=False,
 ) -> Callable:
     """
     Defines a buck test. This is a must have decorator on all test case functions.
@@ -339,6 +351,7 @@ def buck_test(
             data_dir=data_dir,
             allow_soft_errors=allow_soft_errors,
             extra_buck_config=extra_buck_config or {},
+            skip_final_kill=skip_final_kill,
         )
     )
 
