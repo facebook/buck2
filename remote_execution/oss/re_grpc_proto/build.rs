@@ -24,5 +24,9 @@ fn main() -> io::Result<()> {
 
     buck2_protoc_dev::configure()
         .setup_protoc()
+        .type_attribute(".", "#[derive(serde::Serialize,serde::Deserialize)]")
+        .extern_path(".google.protobuf.Any", "::prost_wkt_types::Any")
+        .extern_path(".google.protobuf.Duration", "::prost_wkt_types::Duration")
+        .extern_path(".google.protobuf.Timestamp", "::prost_wkt_types::Timestamp")
         .compile(proto_files, &["./proto/"])
 }

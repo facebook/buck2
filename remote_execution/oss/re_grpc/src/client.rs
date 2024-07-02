@@ -122,7 +122,7 @@ fn check_status(status: Status) -> Result<(), REClientError> {
     })
 }
 
-fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
+fn ttimestamp_from(ts: Option<::prost_wkt_types::Timestamp>) -> TTimestamp {
     match ts {
         Some(timestamp) => TTimestamp {
             seconds: timestamp.seconds,

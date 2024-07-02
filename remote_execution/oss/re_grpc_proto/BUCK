@@ -9,7 +9,10 @@ rust_protobuf_library(
     build_script = "build.rs",
     protos = glob(["proto/**/*.proto"]),
     deps = [
+        "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:prost-wkt",
+        "fbsource//third-party/rust:prost-wkt-types",
         "fbsource//third-party/rust:tonic",
     ],
 )

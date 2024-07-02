@@ -9,6 +9,9 @@ version = "0.1.0"
 [dependencies]
 prost = { workspace = true }
 prost-types = { workspace = true }
+prost-wkt = { workspace = true }
+prost-wkt-types = { workspace = true }
+serde= { workspace = true, features = ["derive"] }
 tonic = { workspace = true }
 
 [build-dependencies]
