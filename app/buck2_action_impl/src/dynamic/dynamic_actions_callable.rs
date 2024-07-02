@@ -12,6 +12,9 @@ use std::cell::RefCell;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_error::BuckErrorContext;
@@ -19,12 +22,16 @@ use starlark::any::ProvidesStaticType;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
+use starlark::typing::Param;
+use starlark::typing::ParamSpec;
+use starlark::typing::Ty;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::typing::StarlarkCallableParamAny;
+use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -35,9 +42,29 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
+
+pub(crate) struct DynamicActionsCallbackParamSpec;
+
+impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
+    fn params() -> ParamSpec {
+        ParamSpec::new(vec![
+            Param::name_only("ctx", Ty::any()),
+            Param::name_only(
+                "artifacts",
+                SmallMap::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
+            ),
+            Param::name_only(
+                "outputs",
+                SmallMap::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr(),
+            ),
+            Param::name_only("arg", Ty::any()),
+        ])
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 enum DynamicActionCallableError {
@@ -61,7 +88,7 @@ enum DynamicActionCallableError {
     "self.name.get().map(|s| s.as_str()).unwrap_or(\"(unbound)\")"
 )]
 pub(crate) struct DynamicActionsCallable<'v> {
-    pub(crate) implementation: StarlarkCallable<'v, StarlarkCallableParamAny, NoneType>,
+    pub(crate) implementation: StarlarkCallable<'v, DynamicActionsCallbackParamSpec, NoneType>,
     pub(crate) name: OnceCell<String>,
 }
 
@@ -74,7 +101,7 @@ pub(crate) struct DynamicActionsCallable<'v> {
 )]
 #[display(fmt = "DynamicActionsCallable[{}]", "name")]
 pub(crate) struct FrozenStarlarkDynamicActionsCallable {
-    pub(crate) implementation: FrozenStarlarkCallable<StarlarkCallableParamAny, NoneType>,
+    pub(crate) implementation: FrozenStarlarkCallable<DynamicActionsCallbackParamSpec, NoneType>,
     name: String,
     signature: ParametersSpec<FrozenValue>,
 }

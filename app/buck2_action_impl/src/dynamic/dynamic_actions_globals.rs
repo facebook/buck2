@@ -14,10 +14,10 @@ use starlark::starlark_module;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::typing::StarlarkCallableParamAny;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions_callable::DynamicActionsCallable;
+use crate::dynamic::dynamic_actions_callable::DynamicActionsCallbackParamSpec;
 use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
 
 #[starlark_module]
@@ -27,7 +27,7 @@ pub(crate) fn register_dynamic_action(globals: &mut GlobalsBuilder) {
     fn dynamic_actions<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<
             'v,
-            StarlarkCallableParamAny,
+            DynamicActionsCallbackParamSpec,
             NoneType,
         >,
     ) -> anyhow::Result<DynamicActionsCallable<'v>> {
