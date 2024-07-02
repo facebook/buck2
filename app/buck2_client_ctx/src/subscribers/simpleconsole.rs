@@ -478,8 +478,8 @@ where
     }
 
     async fn handle_tags(&mut self, tags: &TagEvent) -> anyhow::Result<()> {
-        if tags.tags.contains(&"which-dice:Modern".to_owned()) {
-            self.handle_stderr("Note: using experimental modern dice.")
+        if tags.tags.contains(&"which-dice:Legacy".to_owned()) {
+            self.handle_stderr("Note: using deprecated legacy dice.")
                 .await?;
         }
 

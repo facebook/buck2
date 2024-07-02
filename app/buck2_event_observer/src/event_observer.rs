@@ -53,7 +53,7 @@ where
             session_info: SessionInfo {
                 trace_id,
                 test_session: None,
-                modern_dice: false,
+                legacy_dice: false,
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
@@ -117,8 +117,8 @@ where
                                 .update(event.timestamp(), snapshot)?;
                         }
                         TagEvent(tags) => {
-                            if tags.tags.contains(&"which-dice:Modern".to_owned()) {
-                                self.session_info.modern_dice = true;
+                            if tags.tags.contains(&"which-dice:Legacy".to_owned()) {
+                                self.session_info.legacy_dice = true;
                             }
                         }
                         SystemInfo(system_info) => {

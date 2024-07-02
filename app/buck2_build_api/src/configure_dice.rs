@@ -101,7 +101,7 @@ fn determine_which_dice(
         }
     }
 
-    Ok(WhichDice::Legacy)
+    Ok(WhichDice::Modern)
 }
 
 #[cfg(test)]
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_determine_which_dice() -> anyhow::Result<()> {
         assert_eq!(
-            WhichDice::Legacy,
+            WhichDice::Modern,
             determine_which_dice(
                 Some(
                     &Cfg {
@@ -214,7 +214,7 @@ mod tests {
         );
 
         assert_eq!(
-            WhichDice::Legacy,
+            WhichDice::Modern,
             determine_which_dice(
                 Some(
                     &Cfg {
