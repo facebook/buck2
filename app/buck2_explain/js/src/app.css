@@ -83,3 +83,8 @@ input {
 .no-underline {
   text-decoration-line: none;
 }
+
+.checkbox input[type='checkbox'] {
+  margin-right: 10px;
+  max-width: min-content;
+}
