@@ -84,9 +84,7 @@ pub fn get_console_with_root(
                 )),
             }
         }
-        ConsoleType::None => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            ErrorConsole,
-        ))),
+        ConsoleType::None => Ok(Box::new(ErrorConsole)),
     }
 }
 

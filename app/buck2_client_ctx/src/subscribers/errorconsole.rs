@@ -9,7 +9,7 @@
 
 use async_trait::async_trait;
 
-use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
+use crate::subscribers::subscriber::EventSubscriber;
 
 /// This console is what is used for `--console none` and only prints errors.
 ///
@@ -17,7 +17,7 @@ use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 pub struct ErrorConsole;
 
 #[async_trait]
-impl UnpackingEventSubscriber for ErrorConsole {
+impl EventSubscriber for ErrorConsole {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
@@ -31,101 +31,7 @@ impl UnpackingEventSubscriber for ErrorConsole {
                 crate::eprintln!("{}", e.message)?;
             }
         }
-        Ok(())
-    }
 
-    async fn handle_command_start(
-        &mut self,
-        _command: &buck2_data::CommandStart,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_command_end(
-        &mut self,
-        _command: &buck2_data::CommandEnd,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_action_execution_end(
-        &mut self,
-        _action: &buck2_data::ActionExecutionEnd,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_file_watcher_end(
-        &mut self,
-        _watchman: &buck2_data::FileWatcherEnd,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_console_message(
-        &mut self,
-        _message: &buck2_data::ConsoleMessage,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_structured_error(
-        &mut self,
-        _err: &buck2_data::StructuredError,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_test_discovery(
-        &mut self,
-        _test_info: &buck2_data::TestDiscovery,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_test_result(
-        &mut self,
-        _result: &buck2_data::TestResult,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_console_preferences(
-        &mut self,
-        _prefs: &buck2_data::ConsolePreferences,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn tick(&mut self, _tick: &super::subscriber::Tick) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_action_error(
-        &mut self,
-        _error: &buck2_data::ActionError,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn handle_console_warning(
-        &mut self,
-        _message: &buck2_data::ConsoleWarning,
-        _event: &buck2_events::BuckEvent,
-    ) -> anyhow::Result<()> {
         Ok(())
     }
 }

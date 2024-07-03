@@ -41,7 +41,6 @@ use superconsole::SuperConsole;
 
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
-use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
