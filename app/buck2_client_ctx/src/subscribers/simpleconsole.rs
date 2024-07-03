@@ -24,6 +24,8 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized::HumanizedBytes;
+use buck2_event_observer::unpack_event::unpack_event;
+use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
@@ -37,6 +39,7 @@ use dupe::Dupe;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
 
+use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
@@ -218,43 +221,8 @@ where
         self.notify_printed();
         Ok(())
     }
-}
 
-#[async_trait]
-impl<E> UnpackingEventSubscriber for SimpleConsole<E>
-where
-    E: EventObserverExtra,
-{
-    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
-        // We expect output that gets here to already have been buffered if possible (because it
-        // primarily gets to us through a GRPC layer that already needs buffering), so we
-        // unconditionally flush it.
-        crate::stdio::print_bytes(raw_output)?;
-        crate::stdio::flush()?;
-        self.notify_printed();
-        Ok(())
-    }
-
-    async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
-        echo!("{}", stderr)?;
-        self.notify_printed();
-        Ok(())
-    }
-
-    async fn handle_structured_error(
-        &mut self,
-        err: &buck2_data::StructuredError,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        if err.quiet {
-            return Ok(());
-        }
-        echo!("{}", err.payload)?;
-        self.notify_printed();
-        Ok(())
-    }
-
-    async fn handle_file_watcher_end(
+    pub(crate) async fn handle_file_watcher_end(
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,
         _event: &BuckEvent,
@@ -268,11 +236,10 @@ where
         Ok(())
     }
 
-    async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub(crate) async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         self.update_event_observer(event)?;
-        self.handle_inner_event(event)
-            .await
-            .with_context(|| display::InvalidBuckEvent(event.dupe()))?;
+
+        self.handle_event_inner(event).await?;
 
         if self.verbosity.print_all_commands() {
             let options = WhatRanOptions::default();
@@ -286,6 +253,78 @@ where
             )?;
         }
 
+        Ok(())
+    }
+
+    async fn handle_event_inner(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+        match unpack_event(event)? {
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanStart(_, _, data) => {
+                match data {
+                    buck2_data::span_start_event::Data::Command(command) => {
+                        self.handle_command_start(command, event).await
+                    }
+                    _ => Ok(()),
+                }
+            }
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanEnd(_, _, data) => {
+                match data {
+                    buck2_data::span_end_event::Data::Command(command) => {
+                        self.handle_command_end(command, event).await
+                    }
+                    buck2_data::span_end_event::Data::ActionExecution(action) => {
+                        self.handle_action_execution_end(action, event).await
+                    }
+                    buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
+                        self.handle_file_watcher_end(file_watcher, event).await
+                    }
+                    _ => Ok(()),
+                }
+            }
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::Instant(_, _, data) => {
+                match data {
+                    buck2_data::instant_event::Data::ConsoleMessage(message) => {
+                        self.handle_console_message(message, event).await
+                    }
+                    buck2_data::instant_event::Data::ConsoleWarning(message) => {
+                        self.handle_console_warning(message, event).await
+                    }
+                    buck2_data::instant_event::Data::ReSession(session) => {
+                        self.handle_re_session_created(session, event).await
+                    }
+                    buck2_data::instant_event::Data::StructuredError(err) => {
+                        self.handle_structured_error(err, event).await
+                    }
+                    buck2_data::instant_event::Data::TestDiscovery(discovery) => {
+                        self.handle_test_discovery(discovery, event).await
+                    }
+                    buck2_data::instant_event::Data::TestResult(result) => {
+                        self.handle_test_result(result, event).await
+                    }
+                    buck2_data::instant_event::Data::TagEvent(tags) => self.handle_tags(tags).await,
+                    buck2_data::instant_event::Data::ActionError(error) => {
+                        self.handle_action_error(error).await
+                    }
+                    _ => Ok(()),
+                }
+            }
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::UnrecognizedSpanStart(_, _)
+            | buck2_event_observer::unpack_event::UnpackedBuckEvent::UnrecognizedSpanEnd(_, _)
+            | buck2_event_observer::unpack_event::UnpackedBuckEvent::UnrecognizedInstant(_, _) => {
+                Err(VisitorError::MissingField(event.clone()).into())
+            }
+        }
+    }
+
+    pub(crate) async fn handle_structured_error(
+        &mut self,
+        err: &buck2_data::StructuredError,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        if err.quiet {
+            return Ok(());
+        }
+        echo!("{}", err.payload)?;
+        self.notify_printed();
         Ok(())
     }
 
@@ -304,28 +343,6 @@ where
         }
         self.notify_printed();
         Ok(())
-    }
-
-    async fn handle_command_result(
-        &mut self,
-        result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
-        let errors = std::mem::take(&mut self.action_errors);
-
-        if !errors.is_empty() {
-            echo!()?;
-            echo!("BUILD ERRORS ({})", errors.len())?;
-            echo!("The following actions failed during the execution of this command:")?;
-            for error in errors.iter() {
-                self.print_action_error(error)?;
-            }
-            echo!()?;
-            self.notify_printed();
-        }
-
-        crate::subscribers::errorconsole::ErrorConsole
-            .handle_command_result(result)
-            .await
     }
 
     async fn handle_command_end(
@@ -371,7 +388,7 @@ where
         Ok(())
     }
 
-    async fn handle_console_message(
+    pub(crate) async fn handle_console_message(
         &mut self,
         message: &buck2_data::ConsoleMessage,
         _event: &BuckEvent,
@@ -379,7 +396,7 @@ where
         self.handle_stderr(&message.message).await
     }
 
-    async fn handle_console_warning(
+    pub(crate) async fn handle_console_warning(
         &mut self,
         message: &buck2_data::ConsoleWarning,
         _event: &BuckEvent,
@@ -396,7 +413,7 @@ where
         self.handle_stderr(&message).await
     }
 
-    async fn handle_action_execution_end(
+    pub(crate) async fn handle_action_execution_end(
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
@@ -435,7 +452,10 @@ where
         Ok(())
     }
 
-    async fn handle_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
+    pub(crate) async fn handle_action_error(
+        &mut self,
+        error: &buck2_data::ActionError,
+    ) -> anyhow::Result<()> {
         self.print_action_error(error)?;
         self.action_errors.push(error.clone());
         Ok(())
@@ -484,6 +504,61 @@ where
         }
 
         Ok(())
+    }
+
+    pub(crate) async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+        echo!("{}", stderr)?;
+        self.notify_printed();
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<E> EventSubscriber for SimpleConsole<E>
+where
+    E: EventObserverExtra,
+{
+    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+        // We expect output that gets here to already have been buffered if possible (because it
+        // primarily gets to us through a GRPC layer that already needs buffering), so we
+        // unconditionally flush it.
+        crate::stdio::print_bytes(raw_output)?;
+        crate::stdio::flush()?;
+        self.notify_printed();
+        Ok(())
+    }
+
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+        for ev in events {
+            self.handle_event(ev).await?;
+        }
+        Ok(())
+    }
+
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+        self.handle_stderr(stderr).await
+    }
+
+    async fn handle_command_result(
+        &mut self,
+        result: &buck2_cli_proto::CommandResult,
+    ) -> anyhow::Result<()> {
+        let errors = std::mem::take(&mut self.action_errors);
+
+        if !errors.is_empty() {
+            echo!()?;
+            echo!("BUILD ERRORS ({})", errors.len())?;
+            echo!("The following actions failed during the execution of this command:")?;
+            for error in errors.iter() {
+                self.print_action_error(error)?;
+            }
+            echo!()?;
+            self.notify_printed();
+        }
+
+        crate::subscribers::errorconsole::ErrorConsole
+            .handle_command_result(result)
+            .await
     }
 
     async fn tick(&mut self, _: &Tick) -> anyhow::Result<()> {
@@ -552,15 +627,6 @@ where
 
     async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
         // We don't need to do any cleanup to exit.
-        Ok(())
-    }
-
-    async fn handle_console_preferences(
-        &mut self,
-        _prefs: &buck2_data::ConsolePreferences,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        // Those are only used by the Superconsole at the moment.
         Ok(())
     }
 }

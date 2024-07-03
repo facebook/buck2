@@ -46,6 +46,7 @@ use superconsole::Span;
 pub(crate) use superconsole::SuperConsole;
 
 use crate::subscribers::simpleconsole::SimpleConsole;
+use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::superconsole::commands::CommandsComponent;

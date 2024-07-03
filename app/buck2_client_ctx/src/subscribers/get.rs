@@ -41,14 +41,16 @@ pub fn get_console_with_root(
     config: SuperConsoleConfig,
 ) -> anyhow::Result<Box<dyn EventSubscriber>> {
     match console_type {
-        ConsoleType::Simple => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        ConsoleType::Simple => Ok(Box::new(
             SimpleConsole::<NoopEventObserverExtra>::autodetect(trace_id, verbosity, expect_spans),
-        ))),
-        ConsoleType::SimpleNoTty => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+        )),
+        ConsoleType::SimpleNoTty => Ok(Box::new(
             SimpleConsole::<NoopEventObserverExtra>::without_tty(trace_id, verbosity, expect_spans),
-        ))),
-        ConsoleType::SimpleTty => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            SimpleConsole::<NoopEventObserverExtra>::with_tty(trace_id, verbosity, expect_spans),
+        )),
+        ConsoleType::SimpleTty => Ok(Box::new(SimpleConsole::<NoopEventObserverExtra>::with_tty(
+            trace_id,
+            verbosity,
+            expect_spans,
         ))),
         ConsoleType::Super => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
@@ -73,13 +75,13 @@ pub fn get_console_with_root(
                 Some(super_console) => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
                     super_console,
                 ))),
-                None => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
+                None => Ok(Box::new(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
                         trace_id,
                         verbosity,
                         expect_spans,
                     ),
-                ))),
+                )),
             }
         }
         ConsoleType::None => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
