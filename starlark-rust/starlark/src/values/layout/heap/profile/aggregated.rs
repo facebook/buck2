@@ -331,7 +331,7 @@ impl UnusedCapacity {
 /// * written as CSV or flamegraph
 /// * merged with another data
 #[derive(Clone, Allocative)]
-pub struct AggregateHeapProfileInfo {
+pub(crate) struct AggregateHeapProfileInfo {
     pub(crate) strings: StringIndex,
     pub(crate) root: StackFrame,
     /// Memory allocated in bump, but unused.

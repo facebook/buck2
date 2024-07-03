@@ -37,7 +37,7 @@ use crate::eval::runtime::profile::stmt::StmtProfilerType;
 use crate::eval::runtime::profile::time_flame::TimeFlameProfilerType;
 use crate::eval::runtime::profile::typecheck::TypecheckProfileData;
 use crate::eval::runtime::profile::typecheck::TypecheckProfilerType;
-use crate::values::AggregateHeapProfileInfo;
+use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]
 enum ProfileDataError {

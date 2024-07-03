@@ -244,14 +244,6 @@ impl FrozenModule {
     }
 
     /// Retained memory info, or error if not enabled.
-    pub fn aggregated_heap_profile_info(&self) -> anyhow::Result<&AggregateHeapProfileInfo> {
-        match &self.module.heap_profile {
-            None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
-            Some(p) => Ok(&p.info),
-        }
-    }
-
-    /// Retained memory info, or error if not enabled.
     pub fn heap_profile(&self) -> anyhow::Result<ProfileData> {
         match &self.module.heap_profile {
             None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
@@ -612,8 +604,7 @@ x = f(1)
             .unwrap();
         }
         let module = module.freeze().unwrap();
-        let profile_info = module.aggregated_heap_profile_info().unwrap();
-        let heap_summary = profile_info.gen_summary_csv();
+        let heap_summary = module.heap_profile().unwrap().gen().unwrap();
         // Smoke test.
         assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
     }
