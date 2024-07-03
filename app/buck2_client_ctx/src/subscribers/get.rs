@@ -26,7 +26,6 @@ use crate::subscribers::event_log::EventLog;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscriber_unpack::UnpackingEventSubscriberAsEventSubscriber;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
@@ -52,17 +51,15 @@ pub fn get_console_with_root(
             verbosity,
             expect_spans,
         ))),
-        ConsoleType::Super => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-            StatefulSuperConsole::new_with_root_forced(
-                trace_id,
-                command_name,
-                verbosity,
-                expect_spans,
-                replay_speed,
-                None,
-                config,
-            )?,
-        ))),
+        ConsoleType::Super => Ok(Box::new(StatefulSuperConsole::new_with_root_forced(
+            trace_id,
+            command_name,
+            verbosity,
+            expect_spans,
+            replay_speed,
+            None,
+            config,
+        )?)),
         ConsoleType::Auto => {
             match StatefulSuperConsole::new_with_root(
                 trace_id.dupe(),
@@ -72,9 +69,7 @@ pub fn get_console_with_root(
                 replay_speed,
                 config,
             )? {
-                Some(super_console) => Ok(Box::new(UnpackingEventSubscriberAsEventSubscriber(
-                    super_console,
-                ))),
+                Some(super_console) => Ok(Box::new(super_console)),
                 None => Ok(Box::new(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
                         trace_id,

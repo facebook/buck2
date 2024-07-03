@@ -21,6 +21,8 @@ use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::DebugEventObserverExtra;
 use buck2_event_observer::session_info::SessionInfo;
+use buck2_event_observer::unpack_event::unpack_event;
+use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::command_to_string;
@@ -48,7 +50,6 @@ pub(crate) use superconsole::SuperConsole;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
-use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::superconsole::commands::CommandsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
@@ -380,6 +381,8 @@ impl SuperConsoleState {
     }
 }
 
+pub(crate) const BUCK_NO_INTERACTIVE_CONSOLE: &str = "BUCK_NO_INTERACTIVE_CONSOLE";
+
 impl StatefulSuperConsole {
     async fn toggle(
         &mut self,
@@ -396,13 +399,7 @@ impl StatefulSuperConsole {
         self.handle_stderr(&format!("{what}: {on_off}, press `{key}` to revert"))
             .await
     }
-}
 
-pub(crate) const BUCK_NO_INTERACTIVE_CONSOLE: &str = "BUCK_NO_INTERACTIVE_CONSOLE";
-
-// TODO(brasselsprouts): after deprecating filetailers, simplify these code paths
-#[async_trait]
-impl UnpackingEventSubscriber for StatefulSuperConsole {
     async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         match &mut self.super_console {
             Some(_) => {
@@ -434,6 +431,51 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             }
         }
         Ok(())
+    }
+
+    async fn handle_inner_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+        match unpack_event(event)? {
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanStart(_, _, _) => Ok(()),
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanEnd(_, _, data) => {
+                match data {
+                    buck2_data::span_end_event::Data::ActionExecution(action) => {
+                        self.handle_action_execution_end(action, event).await
+                    }
+                    buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
+                        self.handle_file_watcher_end(file_watcher, event).await
+                    }
+                    _ => Ok(()),
+                }
+            }
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::Instant(_, _, data) => {
+                match data {
+                    buck2_data::instant_event::Data::ConsoleMessage(message) => {
+                        self.handle_console_message(message, event).await
+                    }
+                    buck2_data::instant_event::Data::ConsoleWarning(message) => {
+                        self.handle_console_warning(message, event).await
+                    }
+                    buck2_data::instant_event::Data::StructuredError(err) => {
+                        self.handle_structured_error(err, event).await
+                    }
+                    buck2_data::instant_event::Data::TestResult(result) => {
+                        self.handle_test_result(result, event).await
+                    }
+                    buck2_data::instant_event::Data::ConsolePreferences(preferences) => {
+                        self.handle_console_preferences(preferences, event).await
+                    }
+                    buck2_data::instant_event::Data::ActionError(error) => {
+                        self.handle_action_error(error).await
+                    }
+                    _ => Ok(()),
+                }
+            }
+            buck2_event_observer::unpack_event::UnpackedBuckEvent::UnrecognizedSpanStart(_, _)
+            | buck2_event_observer::unpack_event::UnpackedBuckEvent::UnrecognizedSpanEnd(_, _)
+            | buck2_event_observer::unpack_event::UnpackedBuckEvent::UnrecognizedInstant(_, _) => {
+                Err(VisitorError::MissingField(event.clone()).into())
+            }
+        }
     }
 
     async fn handle_stderr(&mut self, msg: &str) -> anyhow::Result<()> {
@@ -495,120 +537,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                     .handle_file_watcher_end(file_watcher, event)
                     .await
             }
-        }
-    }
-
-    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
-        if let Some(super_console) = self.super_console.take() {
-            super_console.finalize(&BuckRootComponent {
-                header: &self.header,
-                state: &self.state,
-            })?;
-        }
-
-        self.state.simple_console.handle_output(raw_output).await
-    }
-
-    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
-        if c == 'd' {
-            self.toggle("DICE component", 'd', |s| &mut s.state.config.enable_dice)
-                .await?;
-        } else if c == 'e' {
-            self.toggle("Debug events component", 'e', |s| {
-                &mut s.state.config.enable_debug_events
-            })
-            .await?;
-        } else if c == '2' {
-            self.toggle("Two lines mode", '2', |s| &mut s.state.config.two_lines)
-                .await?;
-        } else if c == 'r' {
-            self.toggle("Detailed RE", 'r', |s| {
-                &mut s.state.config.enable_detailed_re
-            })
-            .await?;
-        } else if c == 'i' {
-            self.toggle("I/O counters", 'i', |s| &mut s.state.config.enable_io)
-                .await?;
-        } else if c == 'p' {
-            self.toggle("Display target configurations", 'p', |s| {
-                &mut s.state.config.display_platform
-            })
-            .await?;
-        } else if c == 'x' {
-            self.toggle("Display expanded progress", 'x', |s| {
-                &mut s.state.config.expanded_progress
-            })
-            .await?;
-        } else if c == 'c' {
-            self.toggle("Commands", 'c', |s| &mut s.state.config.enable_commands)
-                .await?;
-        } else if c == '+' {
-            self.state.config.max_lines = self.state.config.max_lines.saturating_add(1);
-        } else if c == '-' {
-            self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1);
-        } else if c == '?' || c == 'h' {
-            self.handle_stderr(&format!(
-                "Help:\n\
-                `c` = toggle commands (shown by default)\n\
-                `d` = toggle DICE\n\
-                `e` = toggle debug events\n\
-                `2` = toggle two lines mode\n\
-                `r` = toggle detailed RE\n\
-                `i` = toggle I/O counters\n\
-                `p` = display target configurations\n\
-                `+` = show more lines\n\
-                `-` = show fewer lines\n\
-                `h` = show this help\n\
-                env var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console",
-            ))
-            .await?;
-        }
-
-        Ok(())
-    }
-
-    async fn handle_command_result(
-        &mut self,
-        result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
-        match self.super_console.take() {
-            Some(mut super_console) => {
-                let lines = Self::render_result_errors(result);
-                super_console.emit(lines);
-                super_console.finalize(&BuckRootComponent {
-                    header: &self.header,
-                    state: &self.state,
-                })
-            }
-            None => {
-                self.state
-                    .simple_console
-                    .handle_command_result(result)
-                    .await
-            }
-        }
-    }
-
-    async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
-        match &mut self.super_console {
-            Some(super_console) => {
-                self.state.current_tick = tick.dupe();
-                super_console.render(&BuckRootComponent {
-                    header: &self.header,
-                    state: &self.state,
-                })
-            }
-            None => Ok(()),
-        }
-    }
-
-    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
-        match self.super_console.take() {
-            Some(super_console) => super_console.finalize(&BuckRootComponent {
-                header: &self.header,
-                state: &self.state,
-            }),
-            None => Ok(()),
         }
     }
 
@@ -776,31 +704,130 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
         Ok(())
     }
+}
 
-    // Our state snapshot handles those for us.
-
-    async fn handle_command_start(
-        &mut self,
-        _command: &buck2_data::CommandStart,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+// TODO(brasselsprouts): after deprecating filetailers, simplify these code paths
+#[async_trait]
+impl EventSubscriber for StatefulSuperConsole {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+        for ev in events {
+            self.handle_event(ev).await?;
+        }
         Ok(())
     }
 
-    async fn handle_command_end(
-        &mut self,
-        _command: &buck2_data::CommandEnd,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+        if let Some(super_console) = self.super_console.take() {
+            super_console.finalize(&BuckRootComponent {
+                header: &self.header,
+                state: &self.state,
+            })?;
+        }
+
+        self.state.simple_console.handle_output(raw_output).await
+    }
+
+    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
+        if c == 'd' {
+            self.toggle("DICE component", 'd', |s| &mut s.state.config.enable_dice)
+                .await?;
+        } else if c == 'e' {
+            self.toggle("Debug events component", 'e', |s| {
+                &mut s.state.config.enable_debug_events
+            })
+            .await?;
+        } else if c == '2' {
+            self.toggle("Two lines mode", '2', |s| &mut s.state.config.two_lines)
+                .await?;
+        } else if c == 'r' {
+            self.toggle("Detailed RE", 'r', |s| {
+                &mut s.state.config.enable_detailed_re
+            })
+            .await?;
+        } else if c == 'i' {
+            self.toggle("I/O counters", 'i', |s| &mut s.state.config.enable_io)
+                .await?;
+        } else if c == 'p' {
+            self.toggle("Display target configurations", 'p', |s| {
+                &mut s.state.config.display_platform
+            })
+            .await?;
+        } else if c == 'x' {
+            self.toggle("Display expanded progress", 'x', |s| {
+                &mut s.state.config.expanded_progress
+            })
+            .await?;
+        } else if c == 'c' {
+            self.toggle("Commands", 'c', |s| &mut s.state.config.enable_commands)
+                .await?;
+        } else if c == '+' {
+            self.state.config.max_lines = self.state.config.max_lines.saturating_add(1);
+        } else if c == '-' {
+            self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1);
+        } else if c == '?' || c == 'h' {
+            self.handle_stderr(
+                "Help:\n\
+                `c` = toggle commands (shown by default)\n\
+                `d` = toggle DICE\n\
+                `e` = toggle debug events\n\
+                `2` = toggle two lines mode\n\
+                `r` = toggle detailed RE\n\
+                `i` = toggle I/O counters\n\
+                `p` = display target configurations\n\
+                `+` = show more lines\n\
+                `-` = show fewer lines\n\
+                `h` = show this help\n\
+                env var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console",
+            )
+            .await?;
+        }
+
         Ok(())
     }
 
-    async fn handle_test_discovery(
+    async fn handle_command_result(
         &mut self,
-        _test_info: &buck2_data::TestDiscovery,
-        _event: &BuckEvent,
+        result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
-        Ok(())
+        match self.super_console.take() {
+            Some(mut super_console) => {
+                let lines = Self::render_result_errors(result);
+                super_console.emit(lines);
+                super_console.finalize(&BuckRootComponent {
+                    header: &self.header,
+                    state: &self.state,
+                })
+            }
+            None => {
+                self.state
+                    .simple_console
+                    .handle_command_result(result)
+                    .await
+            }
+        }
+    }
+
+    async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
+        match &mut self.super_console {
+            Some(super_console) => {
+                self.state.current_tick = tick.dupe();
+                super_console.render(&BuckRootComponent {
+                    header: &self.header,
+                    state: &self.state,
+                })
+            }
+            None => Ok(()),
+        }
+    }
+
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
+        match self.super_console.take() {
+            Some(super_console) => super_console.finalize(&BuckRootComponent {
+                header: &self.header,
+                state: &self.state,
+            }),
+            None => Ok(()),
+        }
     }
 }
 
