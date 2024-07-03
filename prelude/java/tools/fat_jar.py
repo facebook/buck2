@@ -31,6 +31,12 @@ def _parse_args():
         help="tool for building jars",
     )
     parser.add_argument(
+        "--zip_scrubber_tool",
+        type=str,
+        required=True,
+        help="tool for scrubbing jars",
+    )
+    parser.add_argument(
         "--output", type=pathlib.Path, required=True, help="a path to an output result"
     )
     parser.add_argument(
@@ -138,6 +144,7 @@ def main():
     args = _parse_args()
 
     jar_builder_tool = args.jar_builder_tool
+    zip_scrubber_tool = args.zip_scrubber_tool
     output_path = args.output
     jars_file = args.jars_file
     main_class = args.main_class
@@ -368,6 +375,11 @@ def main():
                         content,
                         content.relative_to(fat_jar_content_dir),
                     )
+
+            zip_scrubber_cmd = []
+            zip_scrubber_cmd.extend(utils.shlex_split(zip_scrubber_tool))
+            zip_scrubber_cmd.extend([contents_zip_path])
+            utils.execute_command(zip_scrubber_cmd)
 
             entries_to_jar_file = os.path.join(temp_dir, "entries_to_jar.txt")
             with open(entries_to_jar_file, "w") as f:

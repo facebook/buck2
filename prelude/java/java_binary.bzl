@@ -41,6 +41,8 @@ def _create_fat_jar(
         java_toolchain.fat_jar[RunInfo],
         "--jar_builder_tool",
         cmd_args(java_toolchain.jar_builder, delimiter = " "),
+        "--zip_scrubber_tool",
+        cmd_args(java_toolchain.zip_scrubber, delimiter = " "),
         "--output",
         output.as_output(),
         "--jars_file",
