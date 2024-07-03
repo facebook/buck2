@@ -17,7 +17,6 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_data::TagEvent;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -282,13 +281,14 @@ where
             buck2_event_observer::unpack_event::UnpackedBuckEvent::Instant(_, _, data) => {
                 match data {
                     buck2_data::instant_event::Data::ConsoleMessage(message) => {
-                        self.handle_console_message(message, event).await
+                        self.handle_stderr(&message.message).await
                     }
                     buck2_data::instant_event::Data::ConsoleWarning(message) => {
-                        self.handle_console_warning(message, event).await
+                        self.handle_stderr(&message.message).await
                     }
                     buck2_data::instant_event::Data::ReSession(session) => {
-                        self.handle_re_session_created(session, event).await
+                        let message = format!("RE Session: {}", session.session_id);
+                        self.handle_stderr(&message).await
                     }
                     buck2_data::instant_event::Data::StructuredError(err) => {
                         self.handle_structured_error(err, event).await
@@ -299,7 +299,14 @@ where
                     buck2_data::instant_event::Data::TestResult(result) => {
                         self.handle_test_result(result, event).await
                     }
-                    buck2_data::instant_event::Data::TagEvent(tags) => self.handle_tags(tags).await,
+                    buck2_data::instant_event::Data::TagEvent(tags) => {
+                        if tags.tags.contains(&"which-dice:Legacy".to_owned()) {
+                            self.handle_stderr("Note: using deprecated legacy dice.")
+                                .await?;
+                        }
+
+                        Ok(())
+                    }
                     buck2_data::instant_event::Data::ActionError(error) => {
                         self.handle_action_error(error).await
                     }
@@ -387,31 +394,6 @@ where
         Ok(())
     }
 
-    pub(crate) async fn handle_console_message(
-        &mut self,
-        message: &buck2_data::ConsoleMessage,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        self.handle_stderr(&message.message).await
-    }
-
-    pub(crate) async fn handle_console_warning(
-        &mut self,
-        message: &buck2_data::ConsoleWarning,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        self.handle_stderr(&message.message).await
-    }
-
-    async fn handle_re_session_created(
-        &mut self,
-        session: &buck2_data::RemoteExecutionSessionCreated,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
-        let message = format!("RE Session: {}", session.session_id);
-        self.handle_stderr(&message).await
-    }
-
     pub(crate) async fn handle_action_execution_end(
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
@@ -491,15 +473,6 @@ where
             }
             //Printing the test output in multiple lines. It makes easier for the user to read.
             echo!("{}", buffer)?;
-        }
-
-        Ok(())
-    }
-
-    async fn handle_tags(&mut self, tags: &TagEvent) -> anyhow::Result<()> {
-        if tags.tags.contains(&"which-dice:Legacy".to_owned()) {
-            self.handle_stderr("Note: using deprecated legacy dice.")
-                .await?;
         }
 
         Ok(())
