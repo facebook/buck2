@@ -439,10 +439,10 @@ impl StatefulSuperConsole {
             buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanEnd(_, _, data) => {
                 match data {
                     buck2_data::span_end_event::Data::ActionExecution(action) => {
-                        self.handle_action_execution_end(action, event).await
+                        self.handle_action_execution_end(action).await
                     }
                     buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
-                        self.handle_file_watcher_end(file_watcher, event).await
+                        self.handle_file_watcher_end(file_watcher).await
                     }
                     _ => Ok(()),
                 }
@@ -450,19 +450,19 @@ impl StatefulSuperConsole {
             buck2_event_observer::unpack_event::UnpackedBuckEvent::Instant(_, _, data) => {
                 match data {
                     buck2_data::instant_event::Data::ConsoleMessage(message) => {
-                        self.handle_console_message(message, event).await
+                        self.handle_console_message(message).await
                     }
                     buck2_data::instant_event::Data::ConsoleWarning(message) => {
-                        self.handle_console_warning(message, event).await
+                        self.handle_console_warning(message).await
                     }
                     buck2_data::instant_event::Data::StructuredError(err) => {
-                        self.handle_structured_error(err, event).await
+                        self.handle_structured_error(err).await
                     }
                     buck2_data::instant_event::Data::TestResult(result) => {
-                        self.handle_test_result(result, event).await
+                        self.handle_test_result(result).await
                     }
                     buck2_data::instant_event::Data::ConsolePreferences(preferences) => {
-                        self.handle_console_preferences(preferences, event).await
+                        self.handle_console_preferences(preferences).await
                     }
                     buck2_data::instant_event::Data::ActionError(error) => {
                         self.handle_action_error(error).await
@@ -491,59 +491,38 @@ impl StatefulSuperConsole {
     async fn handle_structured_error(
         &mut self,
         err: &buck2_data::StructuredError,
-        event: &BuckEvent,
     ) -> anyhow::Result<()> {
         if err.quiet {
             return Ok(());
         }
-        match &mut self.super_console {
-            Some(super_console) => {
-                super_console.emit(
-                    err.payload
-                        .lines()
-                        .map(|line| {
-                            Line::from_iter([Span::new_colored_lossy(line, Color::DarkYellow)])
-                        })
-                        .collect(),
-                );
-                Ok(())
-            }
-            None => {
-                self.state
-                    .simple_console
-                    .handle_structured_error(err, event)
-                    .await
-            }
+        if let Some(super_console) = &mut self.super_console {
+            super_console.emit(
+                err.payload
+                    .lines()
+                    .map(|line| Line::from_iter([Span::new_colored_lossy(line, Color::DarkYellow)]))
+                    .collect(),
+            );
         }
+        Ok(())
     }
 
     async fn handle_file_watcher_end(
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,
-        event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        match &mut self.super_console {
-            Some(super_console) => {
-                if self.verbosity.print_status() {
-                    super_console.emit(Lines(
-                        display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
-                    ));
-                }
-                Ok(())
-            }
-            None => {
-                self.state
-                    .simple_console
-                    .handle_file_watcher_end(file_watcher, event)
-                    .await
+        if let Some(super_console) = &mut self.super_console {
+            if self.verbosity.print_status() {
+                super_console.emit(Lines(
+                    display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
+                ));
             }
         }
+        Ok(())
     }
 
     async fn handle_console_message(
         &mut self,
         message: &buck2_data::ConsoleMessage,
-        event: &BuckEvent,
     ) -> anyhow::Result<()> {
         // TODO(nmj): Maybe better handling of messages that have color data in them. Right now
         //            they're just stripped
@@ -555,51 +534,32 @@ impl StatefulSuperConsole {
                 ));
                 Ok(())
             }
-            None => {
-                self.state
-                    .simple_console
-                    .handle_console_message(message, event)
-                    .await
-            }
+            None => Ok(()),
         }
     }
 
     async fn handle_console_warning(
         &mut self,
         message: &buck2_data::ConsoleWarning,
-        event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        match &mut self.super_console {
-            Some(super_console) => {
-                let style = ContentStyle {
-                    foreground_color: Some(Color::Yellow),
-                    ..Default::default()
-                };
-                super_console.emit(Lines::from_multiline_string(&message.message, style));
-                Ok(())
-            }
-            None => {
-                self.state
-                    .simple_console
-                    .handle_console_warning(message, event)
-                    .await
-            }
+        if let Some(super_console) = &mut self.super_console {
+            let style = ContentStyle {
+                foreground_color: Some(Color::Yellow),
+                ..Default::default()
+            };
+            super_console.emit(Lines::from_multiline_string(&message.message, style));
         }
+        Ok(())
     }
 
     async fn handle_action_execution_end(
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
-        event: &BuckEvent,
     ) -> anyhow::Result<()> {
         let super_console = match &mut self.super_console {
             Some(super_console) => super_console,
             None => {
-                return self
-                    .state
-                    .simple_console
-                    .handle_action_execution_end(action, event)
-                    .await;
+                return Ok(());
             }
         };
 
@@ -640,7 +600,7 @@ impl StatefulSuperConsole {
         let super_console = match &mut self.super_console {
             Some(super_console) => super_console,
             None => {
-                return self.state.simple_console.handle_action_error(error).await;
+                return Ok(());
             }
         };
 
@@ -681,11 +641,7 @@ impl StatefulSuperConsole {
         Ok(())
     }
 
-    async fn handle_test_result(
-        &mut self,
-        result: &buck2_data::TestResult,
-        _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    async fn handle_test_result(&mut self, result: &buck2_data::TestResult) -> anyhow::Result<()> {
         if let Some(super_console) = &mut self.super_console {
             if let Some(msg) = display::format_test_result(result)? {
                 super_console.emit(msg);
@@ -698,7 +654,6 @@ impl StatefulSuperConsole {
     async fn handle_console_preferences(
         &mut self,
         prefs: &buck2_data::ConsolePreferences,
-        _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.state.config.max_lines = prefs.max_lines.try_into()?;
 
