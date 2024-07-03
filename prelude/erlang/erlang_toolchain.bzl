@@ -386,14 +386,3 @@ toolchain_utilities = rule(
         "utility_modules": attrs.list(attrs.source()),
     },
 )
-
-# temporary for migration
-toolchain_resources = rule(
-    impl = lambda _ctx: [
-        DefaultInfo(),
-    ],
-    attrs = {
-        "jsone": attrs.dep(),
-    },
-    is_toolchain_rule = True,
-)
