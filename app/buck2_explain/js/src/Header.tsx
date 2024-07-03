@@ -30,9 +30,10 @@ function SearchBox() {
     setParams(params.toString())
   }
   return (
-    <div className="search-box">
+    <div className="is-flex is-flex-direction-row">
       <input
         type="text"
+        className="input is-one-fifth column mr-2 is-small"
         value={searchTerm}
         onChange={event => setSearchTerm(event.target.value)}
         placeholder="Search targets"
@@ -40,7 +41,7 @@ function SearchBox() {
           event.key == 'Enter' ? goSearch() : null
         }}
       />
-      <button type="submit" onPointerDown={goSearch}>
+      <button type="submit" onPointerDown={goSearch} className="button is-dark is-small">
         Go
       </button>
     </div>

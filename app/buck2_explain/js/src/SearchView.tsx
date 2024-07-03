@@ -19,7 +19,7 @@ function Checkbox(props: {
   const {checked, onChange} = props
   return (
     <div className="checkbox">
-      <input type="checkbox" checked={checked} onChange={onChange} />
+      <input type="checkbox" checked={checked} onChange={onChange} className="mr-2" />
       <label>
         Search everywhere (this may make the page unresponsive for a while, but eventually it
         finishes)
@@ -79,10 +79,10 @@ export function SearchView(props: {view: string}) {
   return (
     <>
       <Checkbox checked={universalSearch} onChange={handleChange} />
-      <h2>Showing targets labels containing "{search}"</h2>
+      <h5 className="title is-5 mt-4">Showing targets labels containing "{search}"</h5>
       <ul>
         {deduped.map(label => (
-          <li key={label}>
+          <li key={label} className="mt-3">
             <Link to={new Map().set(TARGET_VIEW, label)}>{label}</Link>
           </li>
         ))}

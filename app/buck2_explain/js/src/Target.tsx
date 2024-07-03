@@ -141,49 +141,51 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   const tab = props.tab ?? TARGET_ATTRS
 
   return (
-    <>
-      <h3>{target.configuredTargetLabel()}</h3>
+    <div className="mt-4">
+      <h4 className="title is-4">{target.configuredTargetLabel()}</h4>
 
-      <div className="target-tabs">
-        <div className={'target-tab' + (tab === TARGET_ATTRS ? ' active' : '')}>
-          <Link
-            className="no-underline"
-            to={new Map()
-              .set(TARGET_VIEW, target.configuredTargetLabel())
-              .set(TARGET_TAB, TARGET_ATTRS)}>
-            Attributes
-          </Link>
-        </div>
-        <div className={'target-tab' + (tab === TARGET_DEPS ? ' active' : '')}>
-          <Link
-            className="no-underline"
-            to={new Map()
-              .set(TARGET_VIEW, target.configuredTargetLabel())
-              .set(TARGET_TAB, TARGET_DEPS)}>
-            Dependencies
-          </Link>
-        </div>
-        <div className={'target-tab' + (tab === TARGET_RDEPS ? ' active' : '')}>
-          <Link
-            className="no-underline"
-            to={new Map()
-              .set(TARGET_VIEW, target.configuredTargetLabel())
-              .set(TARGET_TAB, TARGET_RDEPS)}>
-            Reverse dependencies
-          </Link>
-        </div>
+      <div className="tabs">
+        <ul>
+          <li className={tab === TARGET_ATTRS ? 'is-active' : ''}>
+            <Link
+              className="no-underline"
+              to={new Map()
+                .set(TARGET_VIEW, target.configuredTargetLabel())
+                .set(TARGET_TAB, TARGET_ATTRS)}>
+              Attributes
+            </Link>
+          </li>
+          <li className={tab === TARGET_DEPS ? 'is-active' : ''}>
+            <Link
+              className="no-underline"
+              to={new Map()
+                .set(TARGET_VIEW, target.configuredTargetLabel())
+                .set(TARGET_TAB, TARGET_DEPS)}>
+              Dependencies
+            </Link>
+          </li>
+          <li className={tab === TARGET_RDEPS ? 'is-active' : ''}>
+            <Link
+              className="no-underline"
+              to={new Map()
+                .set(TARGET_VIEW, target.configuredTargetLabel())
+                .set(TARGET_TAB, TARGET_RDEPS)}>
+              Reverse dependencies
+            </Link>
+          </li>
+        </ul>
       </div>
       {tab === TARGET_ATTRS ? <TargetAttrs target={target} /> : null}
       {tab === TARGET_DEPS ? <TargetDeps target={target} /> : null}
       {tab === TARGET_RDEPS ? <TargetRdeps target={target} /> : null}
-    </>
+    </div>
   )
 }
 
 function TargetDeps(props: {target: ConfiguredTargetNode}) {
   const {target} = props
   return (
-    <div className="target-deps-content">
+    <div className="is-family-monospace">
       deps = [<List attr={i => target.deps(i)} length={target.depsLength()} />]
     </div>
   )
@@ -213,7 +215,7 @@ function TargetRdeps(props: {target: ConfiguredTargetNode}) {
   })
 
   return (
-    <div className="target-deps-content">
+    <div className="is-family-monospace">
       rdeps = [
       <List attr={i => rdeps[i]} length={rdeps.length} />]
     </div>
@@ -223,7 +225,7 @@ function TargetRdeps(props: {target: ConfiguredTargetNode}) {
 function TargetAttrs(props: {target: ConfiguredTargetNode}) {
   const {target} = props
   return (
-    <ul>
+    <ul className="is-family-monospace ml-4">
       <li>name = "{target.name()}",</li>
       <li>type = "{target.type()}",</li>
       <li>package = "{target.package_()}",</li>
