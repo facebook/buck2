@@ -91,7 +91,7 @@ enum TtyMode {
 }
 
 /// Just repeats stdout and stderr to client process.
-pub(crate) struct SimpleConsole<E> {
+pub struct SimpleConsole<E> {
     tty_mode: TtyMode,
     verbosity: Verbosity,
     // Whether to show "Waiting for daemon..." when no root spans are received

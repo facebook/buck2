@@ -98,3 +98,14 @@ pub fn frame_contains(frame: &[u8], needle: impl AsRef<[u8]>) -> bool {
     }
     false
 }
+
+#[track_caller]
+pub fn assert_frame_contains(frame: &[u8], needle: impl AsRef<[u8]>) {
+    if !frame_contains(frame, needle.as_ref()) {
+        panic!(
+            "Expected frame to contain `{}`, but was:\n{}",
+            String::from_utf8_lossy(needle.as_ref()),
+            String::from_utf8_lossy(frame)
+        );
+    }
+}
