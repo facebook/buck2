@@ -213,6 +213,27 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         })
     }
 
+    /// The nattrfilter query for rule attribute filtering.
+    /// It is the opposite of `attrfilter`, i.e. it filters targets by attribute but excludes those that match.
+    fn nattrfilter<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        attr: &str,
+        value: &str,
+        targets: ConfiguredTargetListExprArg<'v>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        this.ctx.via_dice(|dice, _| {
+            dice.via(|dice| {
+                async {
+                    unpack_targets(this, dice, targets)
+                        .await?
+                        .nattrfilter(attr, &|v| Ok(v == value))
+                        .map(StarlarkTargetSet::from)
+                }
+                .boxed_local()
+            })
+        })
+    }
+
     /// The kind query for filtering targets by rule type.
     ///
     /// Sample usage:

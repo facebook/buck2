@@ -182,7 +182,7 @@ impl<T: QueryTarget> TargetSet<T> {
         })
     }
 
-    pub(crate) fn nattrfilter(
+    pub fn nattrfilter(
         &self,
         attribute: &str,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
