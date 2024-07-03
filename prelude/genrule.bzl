@@ -298,6 +298,10 @@ def process_genrule(
                 format = "export BUCK_SCRATCH_PATH={}/$BUCK_SCRATCH_PATH",
             )
 
+        # Relativize all paths in the command to the sandbox dir.
+        for script_cmd in script:
+            script_cmd.relative_to(srcs_artifact)
+
         script = (
             [
                 # Rewrite BUCK_SCRATCH_PATH
@@ -305,8 +309,7 @@ def process_genrule(
                 # Change to the directory that genrules expect.
                 cmd_args(srcs_dir, format = "cd {}"),
             ] +
-            # Relativize all paths in the command to the sandbox dir.
-            [cmd.relative_to(srcs_artifact) for cmd in script]
+            script
         )
 
         # Relative all paths in the env to the sandbox dir.
