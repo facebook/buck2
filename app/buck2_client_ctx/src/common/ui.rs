@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::buck2_env_name;
 use clap::builder::FalseyValueParser;
 use dupe::Dupe;
 use termwiz::istty::IsTty;
@@ -62,7 +63,7 @@ pub struct CommonConsoleOptions {
         help = "Which console to use for this command",
         default_value = "auto",
         ignore_case = true,
-        env = "BUCK_CONSOLE",
+        env = buck2_env_name!("BUCK_CONSOLE"),
         value_name = "super|simple|...",
         value_enum
     )]
@@ -88,7 +89,7 @@ pub struct CommonConsoleOptions {
     #[clap(
         long,
         help = "Disable console interactions",
-        env = BUCK_NO_INTERACTIVE_CONSOLE,
+        env = buck2_env_name!(BUCK_NO_INTERACTIVE_CONSOLE),
         value_parser = FalseyValueParser::new(),
     )]
     pub no_interactive_console: bool,

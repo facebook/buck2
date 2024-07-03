@@ -98,6 +98,18 @@ pub macro buck2_env {
     }},
 }
 
+/// Register env name to be shown in `buck2 help-env`.
+pub macro buck2_env_name($var:expr) {{
+    $crate::env::__macro_refs::register!(
+        $var,
+        ty = std::string::String,
+        default = std::option::Option::None,
+        applicability = $crate::env::registry::Applicability::All
+    );
+
+    $var
+}}
+
 macro parse2 {
     (
         $already_parsed:tt,
@@ -145,7 +157,7 @@ macro expand(
     v
 }}
 
-macro register($var:literal, ty=$ty:ty, default=$default:expr, applicability=$applicability:expr) {{
+macro register($var:expr, ty=$ty:ty, default=$default:expr, applicability=$applicability:expr) {{
     use $crate::env::__macro_refs::linkme;
     #[linkme::distributed_slice($crate::env::registry::ENV_INFO)]
     #[linkme(crate = $crate::env::__macro_refs::linkme)]

@@ -10,6 +10,7 @@
 use std::str::FromStr;
 
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
+use buck2_core::buck2_env_name;
 use clap::builder::FalseyValueParser;
 use clap::ArgGroup;
 use tracing::warn;
@@ -80,7 +81,7 @@ pub struct CommonBuildOptions {
     pub num_threads: Option<u32>,
 
     /// Enable only local execution. Will reject actions that cannot execute locally.
-    #[clap(long, group = "build_strategy", env = "BUCK_OFFLINE_BUILD", value_parser = FalseyValueParser::new())]
+    #[clap(long, group = "build_strategy", env = buck2_env_name!("BUCK_OFFLINE_BUILD"), value_parser = FalseyValueParser::new())]
     local_only: bool,
 
     /// Enable only remote execution. Will reject actions that cannot execute remotely.
@@ -103,7 +104,7 @@ pub struct CommonBuildOptions {
     /// Do not perform remote cache queries or cache writes. If remote execution is enabled, the RE
     /// service might still deduplicate actions, so for e.g. benchmarking, using a random isolation
     /// dir is preferred.
-    #[clap(long, env = "BUCK_OFFLINE_BUILD", value_parser = FalseyValueParser::new())]
+    #[clap(long, env = buck2_env_name!("BUCK_OFFLINE_BUILD"), value_parser = FalseyValueParser::new())]
     no_remote_cache: bool,
 
     /// Could be used to enable the action cache writes on the RE worker when no_remote_cache is specified
