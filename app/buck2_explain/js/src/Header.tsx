@@ -42,7 +42,10 @@ function SearchBox() {
         }}
       />
       <button type="submit" onPointerDown={goSearch} className="button is-dark is-small">
-        Go
+        <span>Search</span>
+        <span className="icon">
+          <i className="fa fa-search"></i>
+        </span>
       </button>
     </div>
   )
@@ -58,6 +61,9 @@ export function Header() {
     <>
       {rootTarget ? (
         <Link className="bold no-underline" to={new Map()}>
+          <span className="icon">
+            <i className="fa fa-bullseye"></i>
+          </span>
           {rootTarget.configuredTargetLabel()}
         </Link>
       ) : null}

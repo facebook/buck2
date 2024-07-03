@@ -148,11 +148,14 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
         <ul>
           <li className={tab === TARGET_ATTRS ? 'is-active' : ''}>
             <Link
-              className="no-underline"
+              className="no-underline icon-text"
               to={new Map()
                 .set(TARGET_VIEW, target.configuredTargetLabel())
                 .set(TARGET_TAB, TARGET_ATTRS)}>
               Attributes
+              <span className="icon">
+                <i className="fa fa-list"></i>
+              </span>
             </Link>
           </li>
           <li className={tab === TARGET_DEPS ? 'is-active' : ''}>
@@ -162,6 +165,9 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
                 .set(TARGET_VIEW, target.configuredTargetLabel())
                 .set(TARGET_TAB, TARGET_DEPS)}>
               Dependencies
+              <span className="icon">
+                <i className="fa fa-arrow-down"></i>
+              </span>
             </Link>
           </li>
           <li className={tab === TARGET_RDEPS ? 'is-active' : ''}>
@@ -171,6 +177,9 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
                 .set(TARGET_VIEW, target.configuredTargetLabel())
                 .set(TARGET_TAB, TARGET_RDEPS)}>
               Reverse dependencies
+              <span className="icon">
+                <i className="fa fa-arrow-up"></i>
+              </span>
             </Link>
           </li>
         </ul>
