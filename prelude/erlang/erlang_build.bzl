@@ -454,27 +454,15 @@ def _build_erl(
 
     final_dep_file = ctx.actions.declare_output(_dep_final_name(toolchain, src))
     finalize_deps_cmd = cmd_args(
-        toolchain.otp_binaries.erl,
-        "+A0",
-        "+S1:1",
-        "+sbtu",
-        "-mode",
-        "minimal",
-        "-noinput",
-        "-noshell",
-        "-pa",
-        toolchain.utility_modules,
-        "-run",
-        "escript",
-        "start",
-        "--",
-        toolchain.dependency_finalizer,
         src,
         dep_info_file,
         final_dep_file.as_output(),
         hidden = build_environment.deps_files.values(),
     )
-    ctx.actions.run(
+    _run_escript(
+        ctx,
+        toolchain,
+        toolchain.dependency_finalizer,
         finalize_deps_cmd,
         category = "dependency_finalizer",
         identifier = action_identifier(toolchain, src.basename),
@@ -835,6 +823,28 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, *args, **kwargs):
     kwargs["env"] = env
     ctx.actions.run(*args, **kwargs)
 
+def _run_escript(ctx: AnalysisContext, toolchain: Toolchain, script: Artifact, args: cmd_args, **kwargs) -> None:
+    """ run escript with env and providing toolchain-configured utility modules"""
+    cmd = cmd_args([
+        toolchain.otp_binaries.erl,
+        "+A0",
+        "+S1:1",
+        "+sbtu",
+        "-mode",
+        "minimal",
+        "-noinput",
+        "-noshell",
+        "-pa",
+        toolchain.utility_modules,
+        "-run",
+        "escript",
+        "start",
+        "--",
+        script,
+        args,
+    ])
+    _run_with_env(ctx, toolchain, cmd, **kwargs)
+
 def _peek_private_includes(
         ctx: AnalysisContext,
         toolchain: Toolchain,
@@ -892,6 +902,7 @@ erlang_build = struct(
         make_dir_anchor = _make_dir_anchor,
         build_dir = _build_dir,
         run_with_env = _run_with_env,
+        run_escript = _run_escript,
         peek_private_includes = _peek_private_includes,
     ),
 )
