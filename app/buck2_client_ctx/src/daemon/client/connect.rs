@@ -15,6 +15,7 @@ use std::net::Ipv4Addr;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_certs::validate::validate_certs;
 use buck2_cli_proto::daemon_api_client::DaemonApiClient;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_common::buckd_connection::ConnectionType;
@@ -630,12 +631,14 @@ impl<'a> BuckdConnectOptions<'a> {
         mut self,
         paths: &InvocationPaths,
     ) -> anyhow::Result<BuckdClientConnector<'a>> {
+        let handle = tokio::spawn(validate_certs());
         match BootstrapBuckdClient::connect(paths, self.constraints, &mut self.subscribers)
             .await
             .map_err(buck2_error::Error::from)
         {
             Ok(client) => Ok(client.with_subscribers(self.subscribers)),
             Err(e) => {
+                handle.await.unwrap()?;
                 self.subscribers.handle_daemon_connection_failure(&e);
                 Err(e.into())
             }
