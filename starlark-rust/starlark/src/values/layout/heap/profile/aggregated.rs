@@ -420,7 +420,9 @@ impl AggregateHeapProfileInfo {
     pub(crate) fn normalize_for_golden_tests(&mut self) {
         self.root.normalize_for_golden_tests();
         // Value sizes depend on compiler version.
-        self.unused_capacity.set(2222);
+        if self.unused_capacity.get() != 0 {
+            self.unused_capacity.set(2222);
+        }
     }
 }
 
