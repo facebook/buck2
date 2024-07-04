@@ -33,11 +33,8 @@ load(
     ":erlang_utils.bzl",
     "action_identifier",
     "build_paths",
-    "convert",
     "multidict_projection",
     "multidict_projection_key",
-    "normalise_metadata",
-    "to_term_args",
 )
 
 StartDependencySet = transitive_set()
@@ -240,8 +237,6 @@ def _generate_app_file(
     NOTE: We are using the .erl files as input to avoid dependencies on
           beams.
     """
-    tools = toolchain.otp_binaries
-
     _check_application_dependencies(ctx)
 
     app_file_name = build_paths.app_file(ctx)
@@ -251,19 +246,15 @@ def _generate_app_file(
             app_file_name,
         ),
     )
-    script = toolchain.app_file_script
     app_info_file = _app_info_content(ctx, toolchain, name, srcs, output)
     app_build_cmd = cmd_args(
-        [
-            tools.escript,
-            script,
-            app_info_file,
-        ],
+        app_info_file,
         hidden = [output.as_output(), srcs] + ([ctx.attrs.app_src] if ctx.attrs.app_src else []),
     )
-    erlang_build.utils.run_with_env(
+    erlang_build.utils.run_escript(
         ctx,
         toolchain,
+        toolchain.app_file_script,
         app_build_cmd,
         category = "app_resource",
         identifier = action_identifier(toolchain, paths.basename(app_file_name)),
@@ -294,8 +285,7 @@ def _app_info_content(
         name: str,
         srcs: list[Artifact],
         output: Artifact) -> Artifact:
-    """build an app_info.term file that contains the meta information for building the .app file"""
-    sources_args = convert(srcs, ignore_artifacts = True)
+    """build an app_info.json file that contains the meta information for building the .app file"""
     data = {
         "applications": [
             app[ErlangAppInfo].name
@@ -307,7 +297,7 @@ def _app_info_content(
         ],
         "name": name,
         "output": output,
-        "sources": sources_args,
+        "sources": srcs,
     }
     if ctx.attrs.version:
         data["version"] = ctx.attrs.version
@@ -316,14 +306,13 @@ def _app_info_content(
     if ctx.attrs.mod:
         data["mod"] = ctx.attrs.mod
     if ctx.attrs.env:
-        data["env"] = {k: cmd_args(v) for k, v in ctx.attrs.env.items()}
+        data["env"] = ctx.attrs.env
     if ctx.attrs.extra_properties:
-        data["metadata"] = {k: normalise_metadata(v) for k, v in ctx.attrs.extra_properties.items()}
+        data["metadata"] = ctx.attrs.extra_properties
 
-    app_info_content = to_term_args(data)
-    return ctx.actions.write(
-        paths.join(erlang_build.utils.build_dir(toolchain), "app_info.term"),
-        app_info_content,
+    return ctx.actions.write_json(
+        paths.join(erlang_build.utils.build_dir(toolchain), "app_info.json"),
+        data,
     )
 
 def link_output(

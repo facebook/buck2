@@ -16,23 +16,22 @@
 %%%  .app.src file.
 %%%
 %%%  usage:
-%%%    app_src_builder.escript app_info.term
+%%%    app_src_builder.escript app_info.json
 %%%
-%%%  app_info.term format:
+%%%  app_info.json format:
 %%%
-%%%    The file must contain only a single term which is a map
-%%%    with the following spec:
+%%%    The file must contain only a single JSON map with the following spec:
 %%%
 %%%   #{
-%%%       "name"                   := <application_name>,
-%%%       "output"                 := <path to output .app file>,
-%%%       "sources"                := [<path to .erl source file>],
-%%%       "applications"           := [<entry to applications field>],
-%%%       "included_applications"  := I[<entry to included_applications field>],
-%%%       "template"               => <path to an .app.src file>,
-%%%       "version"                => <version string>,
-%%%       "env"                    => [application env variable],
-%%%       "metadata"               => map of metadata
+%%%       <<"name">>                   := <application_name>,
+%%%       <<"output">>                 := <path to output .app file>,
+%%%       <<"sources">>                := [<path to .erl source file>],
+%%%       <<"applications">>           := [<entry to applications field>],
+%%%       <<"included_applications">>  := I[<entry to included_applications field>],
+%%%       <<"template">>               => <path to an .app.src file>,
+%%%       <<"version">>                => <version string>,
+%%%       <<"env">>                    => [application env variable],
+%%%       <<"metadata">>               => map of metadata
 %%%   }
 %%%
 %%% @end
@@ -58,7 +57,7 @@ main(_) ->
 
 -spec usage() -> ok.
 usage() ->
-    io:format("app_src_builder.escript app_info.term~n").
+    io:format("app_src_builder.escript app_info.json~n").
 
 -spec do(file:filename()) -> ok.
 do(AppInfoFile) ->
@@ -73,7 +72,7 @@ do(AppInfoFile) ->
         mod := Mod,
         env := Env,
         metadata := Metadata
-    } = do_parse_app_info_file(AppInfoFile),
+    } = AppInfo = do_parse_app_info_file(AppInfoFile),
     VerifiedTerms = check_and_normalize_template(
         Name,
         Version,
@@ -94,36 +93,37 @@ do(AppInfoFile) ->
         output := file:filename()
     }.
 do_parse_app_info_file(AppInfoFile) ->
-    case file:consult(AppInfoFile) of
-        {ok, [
-            #{
-                "name" := Name,
-                "output" := Output,
-                "sources" := Sources,
-                "applications" := Applications,
-                "included_applications" := IncludedApplications
-            } = Terms
-        ]} ->
-            Template = get_template(maps:get("template", Terms, undefined)),
-            Mod = get_mod(Name, maps:get("mod", Terms, undefined)),
-            Env = get_env(maps:get("env", Terms, undefined)),
-            Metadata = get_metadata(maps:get("metadata", Terms, undefined)),
-            #{
-                name => Name,
-                sources => Sources,
-                vsn => maps:get("version", Terms, undefined),
-                output => Output,
-                template => Template,
-                applications =>
-                    normalize_application([list_to_atom(App) || App <- Applications]),
-                included_applications =>
-                    [list_to_atom(App) || App <- IncludedApplications],
-                mod => Mod,
-                env => Env,
-                metadata => Metadata
-            };
-        {ok, Terms} ->
-            file_corrupt_error(AppInfoFile, Terms);
+    case file:read_file(AppInfoFile) of
+        {ok, Content} ->
+            case json:decode(Content) of
+                #{
+                    <<"name">> := Name,
+                    <<"output">> := Output,
+                    <<"sources">> := Sources,
+                    <<"applications">> := Applications,
+                    <<"included_applications">> := IncludedApplications
+                } = Terms ->
+                    Template = get_template(maps:get(<<"template">>, Terms, undefined)),
+                    Mod = get_mod(Name, maps:get(<<"mod">>, Terms, undefined)),
+                    Env = get_env(Name, maps:get(<<"env">>, Terms, undefined)),
+                    Metadata = get_metadata(Name, maps:get(<<"metadata">>, Terms, undefined)),
+                    #{
+                        name => Name,
+                        sources => Sources,
+                        vsn => maps:get(<<"version">>, Terms, undefined),
+                        output => Output,
+                        template => Template,
+                        applications =>
+                            normalize_application([binary_to_atom(App) || App <- Applications]),
+                        included_applications =>
+                            [binary_to_atom(App) || App <- IncludedApplications],
+                        mod => Mod,
+                        env => Env,
+                        metadata => Metadata
+                    };
+                Terms ->
+                    file_corrupt_error(AppInfoFile, Terms)
+            end;
         Error ->
             open_file_error(AppInfoFile, Error)
     end.
@@ -138,34 +138,50 @@ get_template(TemplateFile) ->
         Error -> open_file_error(TemplateFile, Error)
     end.
 
--spec get_mod(string(), {string(), [string()]} | undefined) -> mod().
+-spec get_mod(binary(), [binary() | [binary()]] | undefined) -> mod().
 get_mod(_, undefined) ->
     undefined;
-get_mod(AppName, {ModuleName, StringArgs}) ->
-    ModString = unicode:characters_to_list([
-        "{", ModuleName, ",[", lists:join(",", StringArgs), "]}."
-    ]),
+get_mod(AppName, [ModuleName, StringArgs]) ->
+    parse_term(
+        AppName,
+        ["{", ModuleName, ",[", lists:join(",", StringArgs), "]}"],
+        "mod field"
+    ).
+
+-spec parse_term(binary(), iolist(), string()) -> term().
+parse_term(AppName, RawString, ErrorDescription) ->
+    String = unicode:characters_to_list([RawString | "."]),
     try
-        {ok, Tokens, _EndLine} = erl_scan:string(ModString),
+        {ok, Tokens, _EndLine} = erl_scan:string(String),
         {ok, Term} = erl_parse:parse_term(Tokens),
         Term
     catch
-        _:_ -> module_filed_error(AppName, ModString)
+        _:_ -> parse_error(AppName, String, ErrorDescription)
     end.
 
--spec get_env(map() | undefined) -> [tuple()] | undefined.
-get_env(undefined) -> undefined;
-get_env(Env) ->
-    [{list_to_atom(K), V} || {K, V} <- maps:to_list(Env)].
+-spec get_env(binary(), map() | undefined) -> [tuple()] | undefined.
+get_env(_Name, undefined) ->
+    undefined;
+get_env(Name, Env) ->
+    [
+        {binary_to_atom(K), parse_term(Name, V, io_lib:format("env value for ~ts", [K]))}
+     || K := V <- maps:iterator(Env, ordered)
+    ].
 
--spec get_metadata(map() | undefined) -> map().
-get_metadata(undefined) -> #{};
-get_metadata(Metadata) ->
-    maps:from_list([{list_to_atom(K), V} || {K, V} <- maps:to_list(Metadata)]).
+-spec get_metadata(binary(), map() | undefined) -> map().
+get_metadata(_Name, undefined) -> #{};
+get_metadata(Name, Metadata) -> #{binary_to_atom(K) => normalize_metadata_value(Name, K, V) || K := V <- Metadata}.
+
+-spec normalize_metadata_value(binary(), binary(), binary() | [binary()]) -> atom() | [atom()].
+normalize_metadata_value(AppName, Key, Value) when is_binary(Value) ->
+    parse_term(AppName, Value, io_lib:format("metadata value for ~ts", [Key]));
+normalize_metadata_value(AppName, Key, Values) when is_list(Values) ->
+    Value = ["[", lists:join(",", Values), "]"],
+    parse_term(AppName, Value, io_lib:format("metadata value for ~ts", [Key])).
 
 -spec check_and_normalize_template(
-    string(),
-    string() | undefined,
+    binary(),
+    binary() | undefined,
     term(),
     [atom()],
     [atom()],
@@ -184,7 +200,7 @@ check_and_normalize_template(
     Env,
     Metadata
 ) ->
-    App = erlang:list_to_atom(AppName),
+    App = binary_to_atom(AppName),
     Props =
         case Terms of
             {application, App, P} when erlang:is_list(P) ->
@@ -226,20 +242,19 @@ add_optional_fields(Props, [{K, V0} | Fields]) ->
         _ ->
             case V0 =:= V1 of
                 true -> add_optional_fields(Props, Fields);
-                false ->
-                    erlang:error(app_props_not_compatible, [{K, V0}, {K, V1}])
+                false -> erlang:error(app_props_not_compatible, [{K, V0}, {K, V1}])
             end
     end;
 add_optional_fields(Props, [Field | Fields]) ->
     add_optional_fields([Field | Props], Fields).
 
--spec verify_app_props(string(), string(), [atom()], [atom()], proplists:proplist()) -> ok.
+-spec verify_app_props(binary(), binary(), [atom()], [atom()], proplists:proplist()) -> ok.
 verify_app_props(AppName, Version, Applications, IncludedApplications, Props0) ->
     Props1 = verify_applications(AppName, Props0),
     %% ensure defaults
     ensure_fields(AppName, Version, Applications, IncludedApplications, Props1).
 
--spec verify_applications(string(), proplists:proplist()) -> ok.
+-spec verify_applications(binary(), proplists:proplist()) -> ok.
 verify_applications(AppName, AppDetail) ->
     case proplists:get_value(applications, AppDetail) of
         AppList when is_list(AppList) ->
@@ -269,14 +284,14 @@ normalize_application(Applications) ->
         end,
     Kernel ++ StdLib ++ Applications.
 
--spec ensure_fields(string(), string(), [atom()], [atom()], proplists:proplist()) ->
+-spec ensure_fields(binary(), binary(), [atom()], [atom()], proplists:proplist()) ->
     proplists:proplist().
 ensure_fields(AppName, Version, Applications, IncludedApplications, Props) ->
     %% default means to add the value if not existing
     %% match meand to overwrite if not existing and check otherwise for
     Defaults = [
         {{registered, []}, default},
-        {{vsn, Version}, match},
+        {{vsn, binary_to_list(Version)}, match},
         {{description, "missing description"}, default},
         {{applications, Applications}, match},
         {{included_applications, IncludedApplications}, match}
@@ -310,7 +325,7 @@ ensure_fields(AppName, Version, Applications, IncludedApplications, Props) ->
 -spec render_app_file(string(), application_resource(), file:filename(), [file:filename()]) ->
     ok.
 render_app_file(AppName, Terms, Output, Srcs) ->
-    App = erlang:list_to_atom(AppName),
+    App = binary_to_atom(AppName),
     Modules = generate_modules(Srcs),
     {application, App, Props0} = Terms,
     %% remove modules key
@@ -318,7 +333,7 @@ render_app_file(AppName, Terms, Output, Srcs) ->
     %% construct new terms
     Spec =
         {application, App, [{modules, Modules} | Props1]},
-    ToWrite = io_lib:format("~p.\n", [Spec]),
+    ToWrite = io_lib:format("~kp.\n", [Spec]),
     file:write_file(Output, ToWrite, [raw]).
 
 -spec generate_modules([file:filename()]) -> [atom()].
@@ -326,11 +341,11 @@ generate_modules(Sources) ->
     Modules = lists:foldl(
         fun(Source, Acc) ->
             case filename:extension(Source) of
-                ".hrl" ->
+                <<".hrl">> ->
                     Acc;
-                Ext when Ext == ".erl" orelse Ext == ".xrl" orelse Ext == ".yrl" ->
+                Ext when Ext == <<".erl">> orelse Ext == <<".xrl">> orelse Ext == <<".yrl">> ->
                     ModuleName = filename:basename(Source, Ext),
-                    Module = erlang:list_to_atom(ModuleName),
+                    Module = erlang:binary_to_atom(ModuleName),
                     [Module | Acc];
                 _ ->
                     unknown_extension_error(Source)
@@ -362,7 +377,7 @@ file_corrupt_error(File, Contents) ->
         {abort, Msg}
     ).
 
--spec value_match_error(string(), {atom(), term()}, {atom(), term()}) -> no_return().
+-spec value_match_error(binary(), {atom(), term()}, {atom(), term()}) -> no_return().
 value_match_error(AppName, Wrong = {_, Value1}, Default = {_, Value2}) when
     is_list(Value1) andalso is_list(Value2)
 ->
@@ -410,12 +425,12 @@ applications_type_error(AppName, Applications) ->
         {abort, Msg}
     ).
 
--spec module_filed_error(string(), string()) -> no_return().
-module_filed_error(AppName, ModString) ->
+-spec parse_error(string(), string(), string()) -> no_return().
+parse_error(AppName, String, Description) ->
     Msg = io_lib:format(
-        "error when building ~s.app for application ~s: could not parse value for module field: `~p`",
+        "error when building ~s.app for application ~s: could not parse value for ~ts: `~p`",
         [
-            AppName, AppName, ModString
+            AppName, AppName, Description, String
         ]
     ),
     erlang:error(
@@ -534,10 +549,11 @@ lcs([_SH | ST] = S, [_TH | TT] = T, Cache, Acc) ->
 -spec add_metadata(proplists:proplist(), map()) -> proplists:proplist().
 add_metadata(Props, Metadata) ->
     ok = verify_metadata(Props, Metadata),
-    Props ++ maps:to_list(Metadata).
+    Props ++ maps:to_list(maps:iterator(Metadata, ordered)).
 
 -spec verify_metadata(proplists:proplist(), map()) -> ok.
-verify_metadata([], _) -> ok;
+verify_metadata([], _) ->
+    ok;
 verify_metadata([{K, V0} | T], Metadata) ->
     case maps:get(K, Metadata, undefined) of
         undefined ->

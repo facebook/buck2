@@ -11,12 +11,6 @@ load(
     "Toolchain",  # @unused Used as type
 )
 
-def normalise_metadata(data: [str, list[str]]) -> [cmd_args, list[cmd_args]]:
-    if type(data) == type([]):
-        return [cmd_args(item) for item in data]
-    else:
-        return cmd_args(data)
-
 def to_term_args(data: typing.Any) -> cmd_args:
     """ convert nested lists/tuple/map data structure to Erlang Term cmd_args
     """
