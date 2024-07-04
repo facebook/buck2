@@ -443,14 +443,6 @@ impl Module {
         // but can now be dropped
         mem::drop(heap);
 
-        if let Some(stacks) = &frozen_module_ref.heap_profile {
-            assert_eq!(stacks.info.unused_capacity.get(), 0, "sanity check");
-            stacks
-                .info
-                .unused_capacity
-                .set(freezer.heap.unused_capacity());
-        }
-
         Ok(FrozenModule {
             heap: freezer.into_ref(),
             module: frozen_module_ref,

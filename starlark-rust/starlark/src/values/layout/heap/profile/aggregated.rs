@@ -22,8 +22,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::rc::Rc;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -301,30 +299,6 @@ impl<'c> StackFrameWithContext<'c> {
     }
 }
 
-/// `Clone` wrapper.
-#[derive(Default, Allocative)]
-pub(crate) struct UnusedCapacity(AtomicUsize);
-
-impl Clone for UnusedCapacity {
-    fn clone(&self) -> Self {
-        UnusedCapacity(AtomicUsize::new(self.0.load(Ordering::Relaxed)))
-    }
-}
-
-impl UnusedCapacity {
-    pub(crate) fn new(value: usize) -> UnusedCapacity {
-        UnusedCapacity(AtomicUsize::new(value))
-    }
-
-    pub(crate) fn get(&self) -> usize {
-        self.0.load(Ordering::Relaxed)
-    }
-
-    pub(crate) fn set(&self, value: usize) {
-        self.0.store(value, Ordering::Relaxed);
-    }
-}
-
 /// Aggregated heap profiling data when heap profiling is enabled.
 ///
 /// Can be:
@@ -334,8 +308,6 @@ impl UnusedCapacity {
 pub(crate) struct AggregateHeapProfileInfo {
     pub(crate) strings: StringIndex,
     pub(crate) root: StackFrame,
-    /// Memory allocated in bump, but unused.
-    pub(crate) unused_capacity: UnusedCapacity,
 }
 
 impl Debug for AggregateHeapProfileInfo {
@@ -351,7 +323,6 @@ impl Default for AggregateHeapProfileInfo {
         AggregateHeapProfileInfo {
             root: StackFrame::default(),
             strings,
-            unused_capacity: UnusedCapacity::default(),
         }
     }
 }
@@ -363,16 +334,9 @@ impl AggregateHeapProfileInfo {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);
         }
         assert_eq!(1, collector.current.len());
-        let unused_capacity = if retained.is_some() {
-            // Filled later.
-            UnusedCapacity::default()
-        } else {
-            UnusedCapacity::new(heap.unused_capacity())
-        };
         AggregateHeapProfileInfo {
             strings: collector.ids.strings,
             root: collector.current.pop().unwrap().build(),
-            unused_capacity,
         }
     }
 
@@ -390,24 +354,15 @@ impl AggregateHeapProfileInfo {
         let profiles: Vec<_> = Vec::from_iter(profiles);
 
         let mut strings = StringIndex::default();
-        let unused_capacity =
-            UnusedCapacity::new(profiles.iter().map(|p| p.unused_capacity.get()).sum());
         let roots = profiles.into_iter().map(|p| p.root());
         let root = StackFrame::merge(roots, &mut strings);
-        AggregateHeapProfileInfo {
-            strings,
-            root,
-            unused_capacity,
-        }
+        AggregateHeapProfileInfo { strings, root }
     }
 
     /// Write this out recursively to a file.
     pub fn gen_flame_graph(&self) -> String {
         let mut data = FlameGraphData::default();
         self.root().write_flame_graph(data.root());
-        data.root()
-            .child(ArcStr::new_static("unused_capacity"))
-            .add(self.unused_capacity.get() as u64);
         data.write()
     }
 
@@ -419,10 +374,6 @@ impl AggregateHeapProfileInfo {
     #[cfg(test)]
     pub(crate) fn normalize_for_golden_tests(&mut self) {
         self.root.normalize_for_golden_tests();
-        // Value sizes depend on compiler version.
-        if self.unused_capacity.get() != 0 {
-            self.unused_capacity.set(2222);
-        }
     }
 }
 

@@ -469,11 +469,6 @@ impl<A: ArenaAllocator> Arena<A> {
         }
         HeapSummary { summary }
     }
-
-    /// Memory allocated in the arena but not used for allocation in starlark.
-    pub(crate) fn unused_capacity(&self) -> usize {
-        self.drop.remaining_capacity() + self.non_drop.remaining_capacity()
-    }
 }
 
 impl<A: ArenaAllocator> Drop for Arena<A> {
