@@ -15,7 +15,7 @@ use crate::certs::supports_vpnless;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input, tag = NoValidCerts)]
-#[error("ERROR - COULD NOT FIND VALID CERTS")]
+#[error("Could not find any valid certs. Please refresh your internal or SKS certs and try again.")]
 struct InvalidCertsError;
 
 /// Use SKS Agent to check the status of the VPNless cert in the scenario that VPNless is supported.
