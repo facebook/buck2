@@ -22,6 +22,7 @@ use anyhow::Context;
 use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_action_impl::dynamic::deferred::DynamicLambda;
+use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -624,13 +625,24 @@ impl BxlEvalContext<'_> {
 
             let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))?;
 
+            let args = match dynamic_lambda_ctx_data.lambda.arg() {
+                None => DynamicLambdaArgs::OldPositional {
+                    ctx: ctx.to_value(),
+                    artifacts: dynamic_lambda_ctx_data.artifacts,
+                    outputs: dynamic_lambda_ctx_data.outputs,
+                },
+                Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
+                    ctx: ctx.to_value(),
+                    artifacts: dynamic_lambda_ctx_data.artifacts,
+                    outputs: dynamic_lambda_ctx_data.outputs,
+                    arg,
+                },
+            };
+
             DynamicLambda::invoke_dynamic_output_lambda(
                 &mut eval,
                 dynamic_lambda_ctx_data.lambda.lambda(),
-                ctx.to_value(),
-                dynamic_lambda_ctx_data.artifacts,
-                dynamic_lambda_ctx_data.outputs,
-                dynamic_lambda_ctx_data.lambda.arg(),
+                args,
             )?;
 
             (

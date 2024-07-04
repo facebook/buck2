@@ -75,6 +75,20 @@ impl DynamicAction {
     }
 }
 
+pub enum DynamicLambdaArgs<'v> {
+    OldPositional {
+        ctx: Value<'v>,
+        artifacts: Value<'v>,
+        outputs: Value<'v>,
+    },
+    DynamicActionsNamed {
+        ctx: Value<'v>,
+        artifacts: Value<'v>,
+        outputs: Value<'v>,
+        arg: Value<'v>,
+    },
+}
+
 /// The lambda captured by `dynamic_output`, alongside the other required data.
 #[derive(Clone, Debug, Allocative)]
 pub struct DynamicLambda {
@@ -129,25 +143,33 @@ impl DynamicLambda {
     pub fn invoke_dynamic_output_lambda<'v>(
         eval: &mut Evaluator<'v, '_, '_>,
         lambda: Value<'v>,
-        ctx: Value<'v>,
-        artifacts: Value<'v>,
-        outputs: Value<'v>,
-        arg: Option<Value<'v>>,
+        args: DynamicLambdaArgs<'v>,
     ) -> anyhow::Result<()> {
         let pos;
         let named;
-        let (pos, named): (&[_], &[(&str, _)]) = if let Some(arg) = arg {
-            named = [
-                ("ctx", ctx),
-                ("artifacts", artifacts),
-                ("outputs", outputs),
-                ("arg", arg),
-            ];
-            (&[], &named)
-        } else {
-            // Old API.
-            pos = [ctx, artifacts, outputs];
-            (&pos, &[])
+        let (pos, named): (&[_], &[(_, _)]) = match args {
+            DynamicLambdaArgs::OldPositional {
+                ctx,
+                artifacts,
+                outputs,
+            } => {
+                pos = [ctx, artifacts, outputs];
+                (&pos, &[])
+            }
+            DynamicLambdaArgs::DynamicActionsNamed {
+                ctx,
+                artifacts,
+                outputs,
+                arg,
+            } => {
+                named = [
+                    ("ctx", ctx),
+                    ("artifacts", artifacts),
+                    ("outputs", outputs),
+                    ("arg", arg),
+                ];
+                (&[], &named)
+            }
         };
         let return_value = eval
             .eval_function(lambda, pos, named)
@@ -270,13 +292,24 @@ impl Deferred for DynamicLambda {
                             dynamic_lambda_ctx_data.digest_config,
                         );
 
+                        let args = match dynamic_lambda_ctx_data.lambda.arg() {
+                            None => DynamicLambdaArgs::OldPositional {
+                                ctx: ctx.to_value(),
+                                artifacts: dynamic_lambda_ctx_data.artifacts,
+                                outputs: dynamic_lambda_ctx_data.outputs,
+                            },
+                            Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
+                                ctx: ctx.to_value(),
+                                artifacts: dynamic_lambda_ctx_data.artifacts,
+                                outputs: dynamic_lambda_ctx_data.outputs,
+                                arg,
+                            },
+                        };
+
                         DynamicLambda::invoke_dynamic_output_lambda(
                             &mut eval,
                             dynamic_lambda_ctx_data.lambda.lambda(),
-                            ctx.to_value(),
-                            dynamic_lambda_ctx_data.artifacts,
-                            dynamic_lambda_ctx_data.outputs,
-                            dynamic_lambda_ctx_data.lambda.arg(),
+                            args,
                         )?;
 
                         ctx.assert_no_promises()?;
