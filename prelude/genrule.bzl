@@ -41,6 +41,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "windows_long_path_issue",  # Windows: relative path length exceeds PATH_MAX, program cannot access file
     "flowtype_ota_safety_target",  # produces JSON containing file paths that are project-relative
     "ctrlr_setting_paths",
+    "llvm_buck_genrule",
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
