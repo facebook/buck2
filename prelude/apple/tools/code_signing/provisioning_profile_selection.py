@@ -198,7 +198,6 @@ def select_best_provisioning_profile(
     maybe_team_id_constraint = _parse_team_id_from_entitlements(entitlements)
 
     best_match_length = -1
-    result = None
 
     # Used for error messages
     diagnostics: List[IProvisioningProfileDiagnostics] = []
@@ -289,10 +288,9 @@ def select_best_provisioning_profile(
 
         if current_match_length > best_match_length:
             best_match_length = current_match_length
-            result = selected_profile_info
 
-    all_matching_selected_profile_infos = (
-        selected_profile_infos_for_match_length[best_match_length] if result else []
+    all_matching_selected_profile_infos = selected_profile_infos_for_match_length.get(
+        best_match_length, []
     )
     if len(all_matching_selected_profile_infos) > 1:
         all_matching_profiles = [
@@ -306,6 +304,13 @@ def select_best_provisioning_profile(
         _LOGGER.info(multiple_profiles_message)
         if strict_search:
             raise CodeSignProvisioningError(multiple_profiles_message)
+
+    result = (
+        # By definition, we always pick the _last_ matching prov profile
+        all_matching_selected_profile_infos[-1]
+        if all_matching_selected_profile_infos
+        else None
+    )
 
     if result:
         _LOGGER.info(
