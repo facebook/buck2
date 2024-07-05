@@ -21,7 +21,7 @@ use crate::dynamic::dynamic_actions_callable::DynamicActionsCallbackParamSpec;
 use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
 
 #[starlark_module]
-pub(crate) fn register_dynamic_action(globals: &mut GlobalsBuilder) {
+pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     /// Create new dynamic action callable. Returned object will be callable,
     /// and the result of calling it can be passed to `ctx.actions.dynamic_output_new`.
     fn dynamic_actions<'v>(

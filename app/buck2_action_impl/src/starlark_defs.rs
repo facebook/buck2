@@ -9,10 +9,10 @@
 
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ACTION_IMPL_GLOBALS;
 
-use crate::dynamic::dynamic_actions_globals::register_dynamic_action;
+use crate::dynamic::dynamic_actions_globals::register_dynamic_actions;
 
 pub(crate) fn init_register_buck2_action_impl_globals() {
     REGISTER_BUCK2_ACTION_IMPL_GLOBALS.init(|globals| {
-        register_dynamic_action(globals);
+        register_dynamic_actions(globals);
     });
 }
