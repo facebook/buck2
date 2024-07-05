@@ -82,7 +82,7 @@ pub enum DynamicLambdaArgs<'v> {
         outputs: Value<'v>,
     },
     DynamicActionsNamed {
-        ctx: Value<'v>,
+        actions: Value<'v>,
         artifacts: Value<'v>,
         outputs: Value<'v>,
         arg: Value<'v>,
@@ -157,13 +157,13 @@ impl DynamicLambda {
                 (&pos, &[])
             }
             DynamicLambdaArgs::DynamicActionsNamed {
-                ctx,
+                actions,
                 artifacts,
                 outputs,
                 arg,
             } => {
                 named = [
-                    ("ctx", ctx),
+                    ("actions", actions),
                     ("artifacts", artifacts),
                     ("outputs", outputs),
                     ("arg", arg),
@@ -299,7 +299,9 @@ impl Deferred for DynamicLambda {
                                 outputs: dynamic_lambda_ctx_data.outputs,
                             },
                             Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
-                                ctx: ctx.to_value(),
+                                // TODO(nga): no need to create `ctx`
+                                //   because we only need `actions` here.
+                                actions: ctx.actions.to_value(),
                                 artifacts: dynamic_lambda_ctx_data.artifacts,
                                 outputs: dynamic_lambda_ctx_data.outputs,
                                 arg,

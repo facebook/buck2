@@ -17,6 +17,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::eval::Arguments;
@@ -52,7 +53,7 @@ pub(crate) struct DynamicActionsCallbackParamSpec;
 impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
     fn params() -> ParamSpec {
         ParamSpec::new(vec![
-            Param::name_only("ctx", Ty::any()),
+            Param::name_only("actions", AnalysisActions::starlark_type_repr()),
             Param::name_only(
                 "artifacts",
                 SmallMap::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),

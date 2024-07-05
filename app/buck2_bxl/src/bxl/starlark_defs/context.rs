@@ -631,12 +631,11 @@ impl BxlEvalContext<'_> {
                     artifacts: dynamic_lambda_ctx_data.artifacts,
                     outputs: dynamic_lambda_ctx_data.outputs,
                 },
-                Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
-                    ctx: ctx.to_value(),
-                    artifacts: dynamic_lambda_ctx_data.artifacts,
-                    outputs: dynamic_lambda_ctx_data.outputs,
-                    arg,
-                },
+                Some(_arg) => {
+                    return Err(anyhow::anyhow!(
+                        "New `dynamic_actions` API is not implemented for BXL"
+                    ));
+                }
             };
 
             DynamicLambda::invoke_dynamic_output_lambda(
