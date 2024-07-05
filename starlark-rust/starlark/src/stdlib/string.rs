@@ -29,14 +29,13 @@ use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::typing::Ty;
 use crate::values::list::ListOf;
 use crate::values::none::NoneOr;
 use crate::values::string::dot_format;
+use crate::values::tuple::UnpackTuple;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::string::iter::iterate_chars;
 use crate::values::types::string::iter::iterate_codepoints;
-use crate::values::types::tuple::value::Tuple;
 use crate::values::typing::iter::StarlarkIter;
 use crate::values::Heap;
 use crate::values::StringValue;
@@ -99,34 +98,10 @@ fn rsplitn_whitespace(s: &str, maxsplit: usize) -> Vec<String> {
     v
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
 enum StringOrTuple<'v> {
     String(&'v str),
-    Tuple(Vec<&'v str>),
-}
-
-impl<'v> StarlarkTypeRepr for StringOrTuple<'v> {
-    fn starlark_type_repr() -> Ty {
-        Ty::union2(String::starlark_type_repr(), Tuple::starlark_type_repr())
-    }
-}
-
-impl<'v> UnpackValue<'v> for StringOrTuple<'v> {
-    fn expected() -> String {
-        "str or tuple".to_owned()
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(s) = value.unpack_str() {
-            Some(Self::String(s))
-        } else {
-            Some(Self::Tuple(
-                Tuple::from_value(value)?
-                    .iter()
-                    .map(|x| x.unpack_str())
-                    .collect::<Option<_>>()?,
-            ))
-        }
-    }
+    Tuple(UnpackTuple<&'v str>),
 }
 
 #[starlark_module]
@@ -261,7 +236,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<bool> {
         match suffix {
             StringOrTuple::String(x) => Ok(this.ends_with(x)),
-            StringOrTuple::Tuple(xs) => Ok(xs.iter().any(|x| this.ends_with(x))),
+            StringOrTuple::Tuple(xs) => Ok(xs.items.iter().any(|x| this.ends_with(x))),
         }
     }
 
@@ -1163,7 +1138,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<bool> {
         match prefix {
             StringOrTuple::String(x) => Ok(this.starts_with(x)),
-            StringOrTuple::Tuple(xs) => Ok(xs.iter().any(|x| this.starts_with(x))),
+            StringOrTuple::Tuple(xs) => Ok(xs.items.iter().any(|x| this.starts_with(x))),
         }
     }
 
