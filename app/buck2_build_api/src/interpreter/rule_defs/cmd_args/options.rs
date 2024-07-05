@@ -31,7 +31,6 @@ use gazebo::prelude::*;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::typing::Ty;
 use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
@@ -43,11 +42,9 @@ use starlark::values::StringValueLike;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
@@ -434,40 +431,12 @@ where
 
 // NOTE: This is an enum as opposed to a trait because of the `C` parameter on (which is required
 // because upcasting is not stable).
-#[derive(Display)]
+#[derive(Display, StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum RelativeOrigin<'v> {
     Artifact(&'v dyn StarlarkArtifactLike),
     CellRoot(&'v CellRoot),
     /// Bit of a useless variant since this is simply the default, but we allow it for consistency.
-    ProjectRoot,
-}
-
-impl<'v> StarlarkTypeRepr for RelativeOrigin<'v> {
-    fn starlark_type_repr() -> Ty {
-        Ty::unions(vec![
-            ValueAsArtifactLike::starlark_type_repr(),
-            CellRoot::starlark_type_repr(),
-            StarlarkProjectRoot::starlark_type_repr(),
-        ])
-    }
-}
-
-impl<'v> UnpackValue<'v> for RelativeOrigin<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(v) = ValueAsArtifactLike::unpack_value(value) {
-            return Some(RelativeOrigin::Artifact(v.0));
-        }
-
-        if let Some(v) = value.downcast_ref::<CellRoot>() {
-            return Some(RelativeOrigin::CellRoot(v));
-        }
-
-        if value.downcast_ref::<StarlarkProjectRoot>().is_some() {
-            return Some(RelativeOrigin::ProjectRoot);
-        }
-
-        None
-    }
+    ProjectRoot(&'v StarlarkProjectRoot),
 }
 
 impl<'v> RelativeOrigin<'v> {
@@ -483,7 +452,7 @@ impl<'v> RelativeOrigin<'v> {
                 ctx.resolve_artifact(&artifact)?
             }
             Self::CellRoot(cell_root) => ctx.resolve_cell_path(cell_root.cell_path())?,
-            Self::ProjectRoot => {
+            Self::ProjectRoot(_) => {
                 ctx.resolve_project_path(ProjectRelativePath::empty().to_owned())?
             }
         };
