@@ -90,7 +90,7 @@ pub enum DynamicLambdaArgs<'v> {
 }
 
 /// The lambda captured by `dynamic_output`, alongside the other required data.
-#[derive(Clone, Debug, Allocative)]
+#[derive(Debug, Allocative)]
 pub struct DynamicLambda {
     /// the owner that defined this lambda
     owner: BaseDeferredKey,
