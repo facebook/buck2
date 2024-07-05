@@ -156,6 +156,12 @@ def assemble_bundle(
         ] if info_plist_part else []
         codesign_args.extend(info_plist_args)
 
+        if ctx.attrs.provisioning_profile_filter:
+            codesign_args.extend([
+                "--provisioning-profile-filter",
+                ctx.attrs.provisioning_profile_filter,
+            ])
+
         strict_provisioning_profile_search = value_or(ctx.attrs.strict_provisioning_profile_search, ctx.attrs._strict_provisioning_profile_search_default)
         if strict_provisioning_profile_search:
             codesign_args.append("--strict-provisioning-profile-search")

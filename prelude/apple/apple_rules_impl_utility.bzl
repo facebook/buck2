@@ -75,6 +75,7 @@ def _apple_bundle_like_common_attrs():
     attribs = {
         "codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "fast_adhoc_signing_enabled": attrs.option(attrs.bool(), default = None),
+        "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
         "versioned_macos_bundle": attrs.bool(default = False),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
