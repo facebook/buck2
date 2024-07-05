@@ -209,7 +209,7 @@ def select_best_provisioning_profile(
             f"Skipping provisioning profile `{mismatch.profile.file_path.name}`: {mismatch.log_message()}"
         )
 
-    profiles_for_match_length = defaultdict(list)
+    selected_profile_infos_for_match_length = defaultdict(list)
 
     for profile in provisioning_profiles:
         app_id = profile.get_app_id()
@@ -282,16 +282,23 @@ def select_best_provisioning_profile(
             f"Matching provisioning profile `{profile.file_path.name}` with score {current_match_length}"
         )
 
-        profiles_for_match_length[current_match_length] += [profile]
+        selected_profile_info = SelectedProvisioningProfileInfo(profile, certificate)
+        selected_profile_infos_for_match_length[current_match_length] += [
+            selected_profile_info
+        ]
 
         if current_match_length > best_match_length:
             best_match_length = current_match_length
-            result = SelectedProvisioningProfileInfo(profile, certificate)
+            result = selected_profile_info
 
-    all_matching_profiles = (
-        profiles_for_match_length[best_match_length] if result else []
+    all_matching_selected_profile_infos = (
+        selected_profile_infos_for_match_length[best_match_length] if result else []
     )
-    if len(all_matching_profiles) > 1:
+    if len(all_matching_selected_profile_infos) > 1:
+        all_matching_profiles = [
+            selected_profile_info.profile
+            for selected_profile_info in all_matching_selected_profile_infos
+        ]
         multiple_profiles_message = _make_multiple_matching_profiles_message(
             all_matching_profiles,
             strict_search,
