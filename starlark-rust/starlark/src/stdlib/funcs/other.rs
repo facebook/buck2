@@ -557,7 +557,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         match num_or_bool {
             Either::Left(NumRef::Int(_)) => Ok(ValueOfUnchecked::new(a.value)),
             Either::Left(NumRef::Float(f)) => Ok(ValueOfUnchecked::new(
-                heap.alloc(StarlarkInt::from_f64_exact(f.trunc())?),
+                heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?),
             )),
             Either::Right(b) => Ok(ValueOfUnchecked::new(heap.alloc(b as i32))),
         }

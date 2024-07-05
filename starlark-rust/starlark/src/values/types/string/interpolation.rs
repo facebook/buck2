@@ -25,6 +25,7 @@ use num_traits::Signed;
 use thiserror::Error;
 
 use crate::values::float;
+use crate::values::float::StarlarkFloat;
 use crate::values::num::value::NumRef;
 use crate::values::string::dot_format::format_one;
 use crate::values::types::int_or_big::StarlarkIntRef;
@@ -233,10 +234,12 @@ pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
                         write!(res, "{}", v.get()).unwrap()
                     }
-                    Some(NumRef::Float(v)) => match NumRef::Float(v.trunc()).as_int() {
-                        Some(v) => write!(res, "{}", v).unwrap(),
-                        None => ValueError::unsupported_type(value, "format(%d)")?,
-                    },
+                    Some(NumRef::Float(v)) => {
+                        match NumRef::Float(StarlarkFloat(v.0.trunc())).as_int() {
+                            Some(v) => write!(res, "{}", v).unwrap(),
+                            None => ValueError::unsupported_type(value, "format(%d)")?,
+                        }
+                    }
                     None => ValueError::unsupported_type(value, "format(%d)")?,
                 }
             }
@@ -519,15 +522,15 @@ mod tests {
 
         assert::fail(
             "'%e' % (True,)",
-            "Type of parameters mismatch, expected `int or float`, actual `bool`",
+            "Type of parameters mismatch, expected `float | int`, actual `bool`",
         );
         assert::fail(
             "'%e' % ('abc',)",
-            "Type of parameters mismatch, expected `int or float`, actual `string`",
+            "Type of parameters mismatch, expected `float | int`, actual `string`",
         );
         assert::fail(
             "'%e' % ([],)",
-            "Type of parameters mismatch, expected `int or float`, actual `list`",
+            "Type of parameters mismatch, expected `float | int`, actual `list`",
         );
     }
 
