@@ -87,6 +87,13 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Fail code signing if more than one matching profile found.",
     )
     parser.add_argument(
+        "--provisioning-profile-filter",
+        metavar="<regex>",
+        type=str,
+        required=False,
+        help="Regex to disambiguate multiple matching profiles, evaluated against provisioning profile filename.",
+    )
+    parser.add_argument(
         "--codesign-args",
         type=str,
         default=[],
@@ -327,6 +334,7 @@ def _main() -> None:
                     log_file_path=args.log_file,
                     should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
                     strict_provisioning_profile_search=args.strict_provisioning_profile_search,
+                    provisioning_profile_filter=args.provisioning_profile_filter,
                 )
             else:
                 profile_selection_context = None
@@ -350,6 +358,7 @@ def _main() -> None:
                 log_file_path=args.log_file,
                 should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
                 strict_provisioning_profile_search=args.strict_provisioning_profile_search,
+                provisioning_profile_filter=args.provisioning_profile_filter,
             )
             selected_identity_argument = (
                 signing_context.selected_profile_info.identity.fingerprint

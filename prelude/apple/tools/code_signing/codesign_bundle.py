@@ -94,6 +94,7 @@ def _select_provisioning_profile(
     list_codesign_identities: IListCodesignIdentities,
     should_use_fast_provisioning_profile_parsing: bool,
     strict_provisioning_profile_search: bool,
+    provisioning_profile_filter: Optional[str],
     log_file_path: Optional[Path] = None,
 ) -> SelectedProvisioningProfileInfo:
     read_provisioning_profile_command_factory = (
@@ -134,6 +135,7 @@ def _select_provisioning_profile(
         entitlements,
         platform,
         strict_provisioning_profile_search,
+        provisioning_profile_filter,
     )
     if selected_profile_info is None:
         if not mismatches:
@@ -184,6 +186,7 @@ def signing_context_with_profile_selection(
     log_file_path: Optional[Path] = None,
     should_use_fast_provisioning_profile_parsing: bool = False,
     strict_provisioning_profile_search: bool = False,
+    provisioning_profile_filter: Optional[str] = None,
 ) -> SigningContextWithProfileSelection:
     with open(info_plist_source, mode="rb") as info_plist_file:
         info_plist_metadata = InfoPlistMetadata.from_file(info_plist_file)
@@ -196,6 +199,7 @@ def signing_context_with_profile_selection(
         log_file_path=log_file_path,
         should_use_fast_provisioning_profile_parsing=should_use_fast_provisioning_profile_parsing,
         strict_provisioning_profile_search=strict_provisioning_profile_search,
+        provisioning_profile_filter=provisioning_profile_filter,
     )
 
     return SigningContextWithProfileSelection(

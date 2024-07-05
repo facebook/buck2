@@ -39,6 +39,7 @@ class Arguments(Tap):  # pyre-ignore[13] ignore uninitialized attributes for typ
     codesign_on_copy: Optional[List[pathlib.Path]] = None
     fast_provisioning_profile_parsing: bool = False
     strict_provisioning_profile_search: bool = False
+    provisioning_profile_filter: Optional[str] = None
 
     def configure(self) -> None:
         """
@@ -112,6 +113,13 @@ class Arguments(Tap):  # pyre-ignore[13] ignore uninitialized attributes for typ
             required=False,
             help="Fail code signing if more than one matching profile found.",
         )
+        self.add_argument(
+            "--provisioning-profile-filter",
+            metavar="<regex>",
+            type=str,
+            required=False,
+            help="Regex to disambiguate multiple matching profiles, evaluated against provisioning profile filename.",
+        )
 
 
 # Add emoji to beginning of actionable error message so it stands out more.
@@ -140,6 +148,7 @@ def _main() -> None:
                 platform=args.platform,
                 should_use_fast_provisioning_profile_parsing=args.fast_provisioning_profile_parsing,
                 strict_provisioning_profile_search=args.strict_provisioning_profile_search,
+                provisioning_profile_filter=args.provisioning_profile_filter,
             )
 
         bundle_path = CodesignedPath(
