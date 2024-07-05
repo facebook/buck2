@@ -50,7 +50,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::any_complex::StarlarkAnyComplex;
-use starlark::values::dict::Dict;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 
@@ -423,11 +422,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         };
         let k = heap.alloc(StarlarkArtifact::new(x.dupe()));
         let path = deferred_ctx.get_materialized_artifact(x).unwrap();
-        let v = heap.alloc(StarlarkArtifactValue::new(
-            x.dupe(),
-            path.to_owned(),
-            fs.dupe(),
-        ));
+        let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());
         artifacts.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
     }
 
@@ -435,21 +430,17 @@ pub fn dynamic_lambda_ctx_data<'v>(
         let k = heap.alloc(StarlarkArtifact::new(Artifact::from(x.dupe())));
         let declared = registry.declare_dynamic_output(x.get_path().dupe(), x.output_type());
         declared_outputs.insert(declared.dupe());
-        let v = heap.alloc(StarlarkDeclaredArtifact::new(
-            None,
-            declared,
-            AssociatedArtifacts::new(),
-        ));
+        let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
         outputs.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
     }
 
-    let artifacts = Dict::new(artifacts);
-    let outputs = Dict::new(outputs);
+    let artifacts = heap.alloc(artifacts);
+    let outputs = heap.alloc(outputs);
 
     Ok(DynamicLambdaCtxData {
         lambda: attributes_lambda,
-        outputs: heap.alloc(outputs),
-        artifacts: heap.alloc(artifacts),
+        outputs,
+        artifacts,
         key: &dynamic_lambda.owner,
         digest_config: deferred_ctx.digest_config(),
         declared_outputs,
