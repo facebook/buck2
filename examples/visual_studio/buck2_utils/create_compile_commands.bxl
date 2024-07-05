@@ -85,7 +85,7 @@ def gen_compilation_database_impl(ctx):
 
         if not "write" in actions_by_category:
             continue
-        if not "cxx_compile" in actions_by_category:
+        if not "cxx_compile" in actions_by_category and not "c_compile" in actions_by_category:
             continue
 
         argsfiles = {}
@@ -111,7 +111,7 @@ def gen_compilation_database_impl(ctx):
                 argsfiles[identifier] = arguments
 
         # Now walk each compilation action and generate a compilation database entry for it.
-        for action in actions_by_category["cxx_compile"]:
+        for action in actions_by_category.get("cxx_compile", []) + actions_by_category.get("c_compile", []):
             entry = create_compilation_database_entry(ctx.cli_args.directory, buildfile_folder, argsfiles, action)
             is_pic = entry["file"].endswith(" (pic)")
             file_name = entry["file"].removesuffix(" (pic)")

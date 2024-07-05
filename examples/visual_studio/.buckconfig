@@ -15,7 +15,14 @@ buck = none
 
 
 [parser]
-target_platform_detector_spec = target:root//...->toolchains//:default
+target_platform_detector_spec = target:root//...->root//buck2_utils/platforms:windows_debug
 
 [build]
-execution_platforms = prelude//platforms:default
+execution_platforms = root//buck2_utils/platforms:default
+
+[buck2_re_client]
+action_cache_address = grpc://localhost:8980
+engine_address = grpc://localhost:8980
+cas_address = grpc://localhost:8980
+tls = false
+instance_name = fuse

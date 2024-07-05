@@ -5,25 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//toolchains:cxx.bzl", "CxxToolsInfo")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
-
-VisualStudio = provider(
-    # @unsorted-dict-items
-    fields = {
-        # cl.exe
-        "cl_exe": provider_field(typing.Any, default = None),
-        # cvtres.exe
-        "cvtres_exe": provider_field(typing.Any, default = None),
-        # lib.exe
-        "lib_exe": provider_field(typing.Any, default = None),
-        # ml64.exe
-        "ml64_exe": provider_field(typing.Any, default = None),
-        # link.exe
-        "link_exe": provider_field(typing.Any, default = None),
-        # rc.exe
-        "rc_exe": provider_field(typing.Any, default = None),
-    },
-)
 
 def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     cl_exe_json = ctx.actions.declare_output("cl.exe.json")
@@ -50,42 +33,53 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     run_msvc_tool = ctx.attrs.run_msvc_tool[RunInfo]
-    cl_exe_script = cmd_script(
-        ctx = ctx,
-        name = "cl",
-        cmd = cmd_args(run_msvc_tool, cl_exe_json),
-        os = ScriptOs("windows"),
-    )
-    cvtres_exe_script = cmd_script(
-        ctx = ctx,
-        name = "cvtres",
-        cmd = cmd_args(run_msvc_tool, cvtres_exe_json),
-        os = ScriptOs("windows"),
-    )
-    lib_exe_script = cmd_script(
-        ctx = ctx,
-        name = "lib",
-        cmd = cmd_args(run_msvc_tool, lib_exe_json),
-        os = ScriptOs("windows"),
-    )
-    ml64_exe_script = cmd_script(
-        ctx = ctx,
-        name = "ml64",
-        cmd = cmd_args(run_msvc_tool, ml64_exe_json),
-        os = ScriptOs("windows"),
-    )
-    link_exe_script = cmd_script(
-        ctx = ctx,
-        name = "link",
-        cmd = cmd_args(run_msvc_tool, link_exe_json),
-        os = ScriptOs("windows"),
-    )
-    rc_exe_script = cmd_script(
-        ctx = ctx,
-        name = "rc",
-        cmd = cmd_args(run_msvc_tool, rc_exe_json),
-        os = ScriptOs("windows"),
-    )
+    if ctx.attrs.use_path_compilers:
+        cl_exe_script = "cl.exe"
+        ml64_exe_script = "ml64.exe"
+        rc_exe_script = "rc.exe"
+        cvtres_exe_script = "cvtres.exe"
+    else:
+        cl_exe_script = cmd_script(
+            ctx = ctx,
+            name = "cl",
+            cmd = cmd_args(run_msvc_tool, cl_exe_json),
+            os = ScriptOs("windows"),
+        )
+        cvtres_exe_script = cmd_script(
+            ctx = ctx,
+            name = "cvtres",
+            cmd = cmd_args(run_msvc_tool, cvtres_exe_json),
+            os = ScriptOs("windows"),
+        )
+        ml64_exe_script = cmd_script(
+            ctx = ctx,
+            name = "ml64",
+            cmd = cmd_args(run_msvc_tool, ml64_exe_json),
+            os = ScriptOs("windows"),
+        )
+        rc_exe_script = cmd_script(
+            ctx = ctx,
+            name = "rc",
+            cmd = cmd_args(run_msvc_tool, rc_exe_json),
+            os = ScriptOs("windows"),
+        )
+
+    if ctx.attrs.use_path_linkers:
+        lib_exe_script = "lib.exe"
+        link_exe_script = "link.exe"
+    else:
+        lib_exe_script = cmd_script(
+            ctx = ctx,
+            name = "lib",
+            cmd = cmd_args(run_msvc_tool, lib_exe_json),
+            os = ScriptOs("windows"),
+        )
+        link_exe_script = cmd_script(
+            ctx = ctx,
+            name = "link",
+            cmd = cmd_args(run_msvc_tool, link_exe_json),
+            os = ScriptOs("windows"),
+        )
 
     return [
         # Supports `buck2 run prelude//toolchains/msvc:msvc_tools[cl.exe]`
@@ -128,20 +122,51 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
                 }),
             ],
         }),
-        VisualStudio(
-            cl_exe = cl_exe_script,
-            cvtres_exe = cvtres_exe_script,
-            lib_exe = lib_exe_script,
-            ml64_exe = ml64_exe_script,
-            link_exe = link_exe_script,
-            rc_exe = rc_exe_script,
+        CxxToolsInfo(
+            compiler = cl_exe_script,
+            compiler_type = "windows",
+            cxx_compiler = cl_exe_script,
+            asm_compiler = ml64_exe_script,
+            asm_compiler_type = "windows_ml64",
+            rc_compiler = rc_exe_script,
+            cvtres_compiler = cvtres_exe_script,
+            archiver = lib_exe_script,
+            archiver_type = "windows",
+            linker = _windows_linker_wrapper(ctx, link_exe_script),
+            linker_type = "windows",
         ),
     ]
+
+def _windows_linker_wrapper(ctx: AnalysisContext, linker: [cmd_args, str]) -> cmd_args:
+    # Linkers pretty much all support @file.txt argument syntax to insert
+    # arguments from the given text file, usually formatted one argument per
+    # line.
+    #
+    # - GNU ld: https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html
+    # - lld is command line compatible with GNU ld
+    # - MSVC link.exe: https://learn.microsoft.com/en-us/cpp/build/reference/linking?view=msvc-170#link-command-files
+    #
+    # However, there is inconsistency in whether they support nesting of @file
+    # arguments inside of another @file.
+    #
+    # We wrap the linker to flatten @file arguments down to 1 level of nesting.
+    return cmd_script(
+        ctx = ctx,
+        name = "windows_linker",
+        cmd = cmd_args(
+            ctx.attrs.linker_wrapper[RunInfo],
+            linker,
+        ),
+        os = ScriptOs("windows"),
+    )
 
 find_msvc_tools = rule(
     impl = _find_msvc_tools_impl,
     attrs = {
+        "linker_wrapper": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
         "run_msvc_tool": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//toolchains/msvc:run_msvc_tool")),
+        "use_path_compilers": attrs.bool(default = False),
+        "use_path_linkers": attrs.bool(default = False),
         "vswhere": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//toolchains/msvc:vswhere")),
     },
 )

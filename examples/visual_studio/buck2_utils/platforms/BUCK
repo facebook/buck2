@@ -1,0 +1,40 @@
+load(":defs.bzl", "execution_platforms")
+
+oncall("build_infra")
+
+execution_platforms(
+    name = "default",
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "windows_debug",
+    constraint_values = [
+        "config//os/constraints:windows",
+        "root//buck2_utils/configuration:debug",
+    ],
+)
+
+platform(
+    name = "windows_release",
+    constraint_values = [
+        "config//os/constraints:windows",
+        "root//buck2_utils/configuration:release",
+    ],
+)
+
+platform(
+    name = "linux_debug",
+    constraint_values = [
+        "config//os/constraints:linux",
+        "root//buck2_utils/configuration:debug",
+    ],
+)
+
+platform(
+    name = "linux_release",
+    constraint_values = [
+        "config//os/constraints:linux",
+        "root//buck2_utils/configuration:release",
+    ],
+)

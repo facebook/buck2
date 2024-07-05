@@ -22,52 +22,74 @@ load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
-load("@prelude//toolchains/msvc:tools.bzl", "VisualStudio")
-load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//decls/common.bzl", "buck")
+
+CxxToolsInfo = provider(
+    fields = {
+        "archiver": provider_field(typing.Any, default = None),
+        "archiver_type": provider_field(typing.Any, default = None),
+        "asm_compiler": provider_field(typing.Any, default = None),
+        "asm_compiler_type": provider_field(typing.Any, default = None),
+        "compiler": provider_field(typing.Any, default = None),
+        "compiler_type": provider_field(typing.Any, default = None),
+        "cvtres_compiler": provider_field(typing.Any, default = None),
+        "cxx_compiler": provider_field(typing.Any, default = None),
+        "linker": provider_field(typing.Any, default = None),
+        "linker_type": provider_field(typing.Any, default = None),
+        "rc_compiler": provider_field(typing.Any, default = None),
+    },
+)
+
+def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_toolchain: CxxToolsInfo) -> CxxToolsInfo:
+    return CxxToolsInfo(
+        compiler = default_toolchain.compiler if ctx.attrs.compiler == None or ctx.attrs.compiler == "cl.exe" else ctx.attrs.compiler,
+        compiler_type = default_toolchain.compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
+        cxx_compiler = default_toolchain.cxx_compiler if ctx.attrs.compiler == None or ctx.attrs.compiler == "cl.exe" else ctx.attrs.compiler,
+        asm_compiler = default_toolchain.asm_compiler,
+        asm_compiler_type = default_toolchain.asm_compiler_type,
+        rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None or ctx.attrs.rc_compiler == "rc.exe" else ctx.attrs.rc_compiler,
+        cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None or ctx.attrs.cvtres_compiler == "cvtres.exe" else ctx.attrs.cvtres_compiler,
+        archiver = default_toolchain.archiver,
+        archiver_type = default_toolchain.archiver_type,
+        linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
+        linker_type = default_toolchain.linker_type,
+    )
+
+def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_toolchain: CxxToolsInfo) -> CxxToolsInfo:
+    return CxxToolsInfo(
+        compiler = default_toolchain.compiler if ctx.attrs.compiler == None else ctx.attrs.compiler,
+        compiler_type = default_toolchain.compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
+        cxx_compiler = default_toolchain.cxx_compiler if ctx.attrs.cxx_compiler == None else ctx.attrs.cxx_compiler,
+        asm_compiler = default_toolchain.asm_compiler if ctx.attrs.compiler == None else ctx.attrs.compiler,
+        asm_compiler_type = default_toolchain.asm_compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
+        rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None else ctx.attrs.rc_compiler,
+        cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None else ctx.attrs.cvtres_compiler,
+        archiver = default_toolchain.archiver,
+        archiver_type = default_toolchain.archiver_type,
+        linker = default_toolchain.linker if ctx.attrs.linker == None else ctx.attrs.linker,
+        linker_type = default_toolchain.linker_type,
+    )
 
 def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
-    archiver_args = ["ar"]
-    archiver_type = "gnu"
-    archiver_supports_argfiles = True
-    asm_compiler = ctx.attrs.compiler
-    asm_compiler_type = ctx.attrs.compiler_type
-    compiler = ctx.attrs.compiler
-    cxx_compiler = ctx.attrs.cxx_compiler
-    cvtres_compiler = ctx.attrs.cvtres_compiler
-    rc_compiler = ctx.attrs.rc_compiler
-    linker = ctx.attrs.linker
-    linker_type = "gnu"
-    pic_behavior = PicBehavior("supported")
-    binary_extension = ""
-    object_file_extension = "o"
-    static_library_extension = "a"
-    shared_library_name_default_prefix = "lib"
-    shared_library_name_format = "{}.so"
-    shared_library_versioned_name_format = "{}.so.{}"
-    additional_linker_flags = []
-    if host_info().os.is_macos:
-        archiver_supports_argfiles = False
-        linker_type = "darwin"
-        pic_behavior = PicBehavior("always_enabled")
-    elif host_info().os.is_windows:
-        msvc_tools = ctx.attrs.msvc_tools[VisualStudio]
-        archiver_args = [msvc_tools.lib_exe]
-        archiver_type = "windows"
-        asm_compiler = msvc_tools.ml64_exe
-        asm_compiler_type = "windows_ml64"
-        if compiler == "cl.exe":
-            compiler = msvc_tools.cl_exe
-        cxx_compiler = compiler
-        if cvtres_compiler == "cvtres.exe":
-            cvtres_compiler = msvc_tools.cvtres_exe
-        if rc_compiler == "rc.exe":
-            rc_compiler = msvc_tools.rc_exe
-        if linker == "link.exe":
-            linker = msvc_tools.link_exe
-        linker = _windows_linker_wrapper(ctx, linker)
+
+    os = ctx.attrs._target_os_type[OsLookup].platform
+    cxx_tools_info = ctx.attrs._cxx_tools_info[CxxToolsInfo]
+    cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
+    return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info)
+
+def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
+    return _cxx_toolchain_from_cxx_tools_info(ctx, ctx.attrs.cxx_tools_info[CxxToolsInfo])
+
+def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo):
+    os = ctx.attrs._target_os_type[OsLookup].platform
+    archiver_supports_argfiles = os != "macos"
+    additional_linker_flags = ["-fuse-ld=lld"] if os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
+
+    if os == "windows":
         linker_type = "windows"
         binary_extension = "exe"
         object_file_extension = "obj"
@@ -76,12 +98,22 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         shared_library_name_format = "{}.dll"
         shared_library_versioned_name_format = "{}.dll"
         pic_behavior = PicBehavior("not_supported")
-    elif ctx.attrs.linker == "g++" or ctx.attrs.cxx_compiler == "g++":
-        pass
     else:
-        additional_linker_flags = ["-fuse-ld=lld"]
+        binary_extension = ""
+        object_file_extension = "o"
+        static_library_extension = "a"
+        shared_library_name_default_prefix = "lib"
+        shared_library_name_format = "{}.so"
+        shared_library_versioned_name_format = "{}.so.{}"
 
-    if ctx.attrs.compiler_type == "clang":
+        if os == "macos":
+            linker_type = "darwin"
+            pic_behavior = PicBehavior("always_enabled")
+        else:
+            linker_type = "gnu"
+            pic_behavior = PicBehavior("supported")
+
+    if cxx_tools_info.compiler_type == "clang":
         llvm_link = RunInfo(args = ["llvm-link"])
     else:
         llvm_link = None
@@ -91,16 +123,17 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         CxxToolchainInfo(
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
-                linker = RunInfo(args = linker),
+                linker = _run_info(cxx_tools_info.linker),
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
                 post_linker_flags = ctx.attrs.post_link_flags,
-                archiver = RunInfo(args = archiver_args),
-                archiver_type = archiver_type,
+                archiver = _run_info(cxx_tools_info.archiver),
+                archiver_type = cxx_tools_info.archiver_type,
                 archiver_supports_argfiles = archiver_supports_argfiles,
                 generate_linker_maps = False,
                 lto_mode = LtoMode("none"),
                 type = linker_type,
                 link_binaries_locally = True,
+                link_libraries_locally = True,
                 archive_objects_locally = True,
                 use_archiver_flags = True,
                 static_dep_runtime_ld_flags = [],
@@ -131,36 +164,36 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
                 bolt_msdk = None,
             ),
             cxx_compiler_info = CxxCompilerInfo(
-                compiler = RunInfo(args = [cxx_compiler]),
+                compiler = _run_info(cxx_tools_info.cxx_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
-                compiler_type = ctx.attrs.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             c_compiler_info = CCompilerInfo(
-                compiler = RunInfo(args = [compiler]),
+                compiler = _run_info(cxx_tools_info.compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
-                compiler_type = ctx.attrs.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             as_compiler_info = CCompilerInfo(
-                compiler = RunInfo(args = [compiler]),
-                compiler_type = ctx.attrs.compiler_type,
+                compiler = _run_info(cxx_tools_info.compiler),
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             asm_compiler_info = CCompilerInfo(
-                compiler = RunInfo(args = [asm_compiler]),
-                compiler_type = asm_compiler_type,
+                compiler = _run_info(cxx_tools_info.asm_compiler),
+                compiler_type = cxx_tools_info.asm_compiler_type,
             ),
             cvtres_compiler_info = CvtresCompilerInfo(
-                compiler = RunInfo(args = [cvtres_compiler]),
+                compiler = _run_info(cxx_tools_info.cvtres_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cvtres_flags,
-                compiler_type = ctx.attrs.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             rc_compiler_info = RcCompilerInfo(
-                compiler = RunInfo(args = [rc_compiler]),
+                compiler = _run_info(cxx_tools_info.rc_compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.rc_flags,
-                compiler_type = ctx.attrs.compiler_type,
+                compiler_type = cxx_tools_info.compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
             cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
@@ -170,50 +203,52 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
         CxxPlatformInfo(name = "x86_64"),
     ]
 
-def _windows_linker_wrapper(ctx: AnalysisContext, linker: cmd_args) -> cmd_args:
-    # Linkers pretty much all support @file.txt argument syntax to insert
-    # arguments from the given text file, usually formatted one argument per
-    # line.
-    #
-    # - GNU ld: https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html
-    # - lld is command line compatible with GNU ld
-    # - MSVC link.exe: https://learn.microsoft.com/en-us/cpp/build/reference/linking?view=msvc-170#link-command-files
-    #
-    # However, there is inconsistency in whether they support nesting of @file
-    # arguments inside of another @file.
-    #
-    # We wrap the linker to flatten @file arguments down to 1 level of nesting.
-    return cmd_script(
-        ctx = ctx,
-        name = "windows_linker",
-        cmd = cmd_args(
-            ctx.attrs.linker_wrapper[RunInfo],
-            linker,
-        ),
-        os = ScriptOs("windows"),
-    )
+def _run_info(args):
+    return None if args == None else RunInfo(args = [args])
 
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
         "c_flags": attrs.list(attrs.string(), default = []),
-        "compiler": attrs.string(default = "cl.exe" if host_info().os.is_windows else "clang"),
-        "compiler_type": attrs.string(default = "windows" if host_info().os.is_windows else "clang"),  # one of CxxToolProviderType
+        "compiler": attrs.option(attrs.string(), default = None),
+        "compiler_type": attrs.option(attrs.string(), default = None),  # one of CxxToolProviderType
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
-        "cvtres_compiler": attrs.string(default = "cvtres.exe"),
+        "cvtres_compiler": attrs.option(attrs.string(), default = None),
         "cvtres_flags": attrs.list(attrs.string(), default = []),
-        "cxx_compiler": attrs.string(default = "cl.exe" if host_info().os.is_windows else "clang++"),
+        "cxx_compiler": attrs.option(attrs.string(), default = None),
         "cxx_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.string(default = "shared"),
-        "linker": attrs.string(default = "link.exe" if host_info().os.is_windows else "clang++"),
-        "linker_wrapper": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
+        "linker": attrs.option(attrs.string(), default = None),
         "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
-        "msvc_tools": attrs.default_only(attrs.exec_dep(providers = [VisualStudio], default = "prelude//toolchains/msvc:msvc_tools")),
         "post_link_flags": attrs.list(attrs.string(), default = []),
-        "rc_compiler": attrs.string(default = "rc.exe"),
+        "rc_compiler": attrs.option(attrs.string(), default = None),
         "rc_flags": attrs.list(attrs.string(), default = []),
+        "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools"),
+        "_target_os_type": buck.target_os_type_arg(),
+    },
+    is_toolchain_rule = True,
+)
+
+cxx_tools_info_toolchain = rule(
+    impl = _cxx_tools_info_toolchain_impl,
+    attrs = {
+        "c_flags": attrs.list(attrs.string(), default = []),
+        "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
+        "cvtres_flags": attrs.list(attrs.string(), default = []),
+        "cxx_flags": attrs.list(attrs.string(), default = []),
+        "cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = select({
+            "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
+            "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
+        })),
+        "link_flags": attrs.list(attrs.string(), default = []),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "link_style": attrs.string(default = "shared"),
+        "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
+        "post_link_flags": attrs.list(attrs.string(), default = []),
+        "rc_flags": attrs.list(attrs.string(), default = []),
+        "_target_os_type": buck.target_os_type_arg(),
     },
     is_toolchain_rule = True,
 )

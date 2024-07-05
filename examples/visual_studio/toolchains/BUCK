@@ -1,7 +1,26 @@
-load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains:cxx.bzl", "cxx_tools_info_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
+load("@prelude//toolchains/cxx/clang:tools.bzl", "path_clang_tools")
+load("@prelude//toolchains/msvc:tools.bzl", "find_msvc_tools")
+load("@root//buck2_utils/platforms:defs.bzl", "is_remote_enabled")
 
-system_cxx_toolchain(
+oncall("build_infra")
+
+find_msvc_tools(
+    name = "msvc_tools",
+    target_compatible_with = ["config//os:windows"],
+    use_path_compilers = is_remote_enabled(),
+    use_path_linkers = is_remote_enabled() and not host_info().os.is_windows,
+    visibility = ["PUBLIC"],
+)
+
+path_clang_tools(
+    name = "clang_tools",
+    target_compatible_with = ["config//os:linux"],
+    visibility = ["PUBLIC"],
+)
+
+cxx_tools_info_toolchain(
     name = "cxx",
     #The flags in the below attributes' Windows config are copied from Visual Studio's project "Console App", with some changes listed in each attribute
     c_flags = select({
@@ -83,6 +102,10 @@ system_cxx_toolchain(
             ],
         }),
     }),
+    cxx_tools_info = select({
+        "config//os:linux": ":clang_tools",
+        "config//os:windows": ":msvc_tools",
+    }),
     link_flags = select({
         "config//os:linux": [],
         #Removed flags that are already the default: /TLBID:1 /DYNAMICBASE /NXCOMPAT /ERRORREPORT:PROMPT /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /SUBSYSTEM:CONSOLE
@@ -110,12 +133,4 @@ system_cxx_toolchain(
 system_python_bootstrap_toolchain(
     name = "python_bootstrap",
     visibility = ["PUBLIC"],
-)
-
-configuration = read_config("cxx", "configuration", "debug")
-
-platform(
-    name = "default",
-    constraint_values = ["root//buck2_utils/configuration:release"] if configuration == "release" else ["root//buck2_utils/configuration:debug"],
-    deps = ["prelude//platforms:default"],
 )
