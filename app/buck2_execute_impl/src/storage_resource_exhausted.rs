@@ -8,8 +8,8 @@
  */
 
 use remote_execution::REClientError;
-use remote_execution::REError;
 use remote_execution::TCode;
+use remote_execution::TStatus;
 
 #[cfg_attr(not(fbcode_build), allow(dead_code))]
 pub(crate) trait REErrorWithCodeAndMessage {
@@ -27,7 +27,7 @@ impl REErrorWithCodeAndMessage for REClientError {
     }
 }
 
-impl REErrorWithCodeAndMessage for REError {
+impl REErrorWithCodeAndMessage for TStatus {
     fn message(&self) -> &str {
         &self.message
     }

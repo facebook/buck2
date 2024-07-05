@@ -191,8 +191,8 @@ impl ReExecutor {
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());
-        if response.error.code != TCode::OK {
-            let res = if let Some(out) = as_missing_outputs_error(&response.error) {
+        if response.status.code != TCode::OK {
+            let res = if let Some(out) = as_missing_outputs_error(&response.status) {
                 // TODO: Add a dedicated report variant for this.
                 // NOTE: We don't get stdout / stderr from RE when this happens, so the best we can
                 // do here is just pass on the error.
@@ -207,7 +207,7 @@ impl ReExecutor {
                     None,
                     Default::default(),
                 )
-            } else if is_timeout_error(&response.error) && request.timeout().is_some() {
+            } else if is_timeout_error(&response.status) && request.timeout().is_some() {
                 manager.timeout(
                     execution_kind,
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
@@ -221,7 +221,7 @@ impl ReExecutor {
                     response.timing(),
                 )
             } else {
-                let error_type = if is_storage_resource_exhausted(&response.error) {
+                let error_type = if is_storage_resource_exhausted(&response.status) {
                     CommandExecutionErrorType::StorageResourceExhausted
                 } else {
                     CommandExecutionErrorType::Other
@@ -230,7 +230,7 @@ impl ReExecutor {
                     "remote_exec_error",
                     ReErrorWrapper {
                         action_digest: action_digest.dupe(),
-                        inner: response.error,
+                        inner: response.status,
                     },
                     error_type,
                 )
@@ -375,10 +375,10 @@ impl PreparedCommandExecutor for ReExecutor {
 )]
 pub struct ReErrorWrapper {
     action_digest: ActionDigest,
-    inner: remote_execution::REError,
+    inner: remote_execution::TStatus,
 }
 
-fn as_missing_outputs_error(err: &remote_execution::REError) -> Option<&str> {
+fn as_missing_outputs_error(err: &remote_execution::TStatus) -> Option<&str> {
     // A dedicated error code would be better for this :(
     if err.message.contains("OUTMISS") {
         Some(&err.message)
@@ -387,7 +387,7 @@ fn as_missing_outputs_error(err: &remote_execution::REError) -> Option<&str> {
     }
 }
 
-fn is_timeout_error(err: &remote_execution::REError) -> bool {
+fn is_timeout_error(err: &remote_execution::TStatus) -> bool {
     #[cfg(fbcode_build)]
     {
         // Not ideal, but DEADLINE_EXCEEDED will show up if you e.g. timeout connecting to RE, so we

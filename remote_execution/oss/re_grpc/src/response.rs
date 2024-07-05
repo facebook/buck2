@@ -144,7 +144,7 @@ pub struct DigestWithStatus {
     pub _dot_dot_default: (),
 }
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct TStatus {
     pub code: TCode,
     pub message: String,
@@ -171,7 +171,7 @@ pub struct GetDigestsTtlResponse {
 #[derive(Clone, Default)]
 pub struct ExecuteResponse {
     pub action_result: TActionResult2,
-    pub error: REError,
+    pub status: TStatus,
     pub cached_result: bool,
     pub action_digest: TDigest,
     pub action_result_digest: TDigest,

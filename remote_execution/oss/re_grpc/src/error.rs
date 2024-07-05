@@ -20,13 +20,6 @@ pub struct REClientError {
     pub code: TCode,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct REError {
-    pub code: TCode,
-    pub message: String,
-    pub error_location: ErrorLocation,
-}
-
 #[derive(Debug, Clone, Dupe, Default)]
 pub struct ErrorLocation(pub ::std::primitive::i32);
 

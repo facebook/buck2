@@ -660,7 +660,7 @@ impl REClient {
                             action_result,
                             action_result_digest: TDigest::default(),
                             action_result_ttl: 0,
-                            error: REError {
+                            status: TStatus {
                                 code: TCode::OK,
                                 ..Default::default()
                             },
