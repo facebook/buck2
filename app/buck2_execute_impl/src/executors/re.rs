@@ -368,10 +368,9 @@ impl PreparedCommandExecutor for ReExecutor {
 
 #[derive(buck2_error::Error, Debug)]
 #[error(
-    "action_digest={}, re_code={}, re_location={}, re_message={}",
+    "action_digest={}, re_code={}, re_message={}",
     .action_digest,
     .inner.code,
-    .inner.error_location,
     .inner.message
 )]
 pub struct ReErrorWrapper {
