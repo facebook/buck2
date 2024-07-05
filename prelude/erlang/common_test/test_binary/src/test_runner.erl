@@ -22,7 +22,7 @@
 -spec run_tests([string()], #test_info{}, string(), [#test_spec_test_case{}]) -> ok.
 run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
     check_ct_opts(TestInfo#test_info.ct_opts),
-    Suite = list_to_atom(filename:basename(TestInfo#test_info.test_suite, ".beam")),
+    Suite = binary_to_atom(filename:basename(TestInfo#test_info.test_suite, ".beam")),
     StructuredTests = lists:map(fun(Test) -> parse_test_name(Test, Suite) end, Tests),
     case StructuredTests of
         [] ->
@@ -62,10 +62,8 @@ execute_test_suite(
         Suite, Tests, filename:absname(filename:dirname(SuitePath)), OutputDir, CtOpts
     ),
     TestSpecFile = filename:join(OutputDir, "test_spec.spec"),
-    lists:foreach(
-        fun(Spec) -> file:write_file(TestSpecFile, io_lib:format("~tp.~n", [Spec]), [append]) end,
-        TestSpec
-    ),
+    FormattedSpec = [io_lib:format("~tp.~n", [Entry]) || Entry <- TestSpec],
+    file:write_file(TestSpecFile, FormattedSpec),
     NewTestEnv = TestEnv#test_env{test_spec_file = TestSpecFile, ct_opts = CtOpts},
     try run_test(NewTestEnv) of
         ok -> ok
@@ -335,7 +333,8 @@ add_or_append(List, {Key, Value}) ->
 %% @doc Built the test_spec selecting the requested tests and
 %% specifying the result output.
 -spec build_test_spec(atom(), [atom()], string(), string(), [term()]) -> [term()].
-build_test_spec(Suite, Tests, TestDir, OutputDir, CtOpts) ->
+build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
+    TestDir = unicode:characters_to_list(TestDir0),
     ListGroupTest = get_requested_tests(Tests),
     SpecTests = lists:map(
         fun

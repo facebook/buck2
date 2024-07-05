@@ -31,7 +31,6 @@ load(
     "file_mapping",
     "list_dedupe",
     "preserve_structure",
-    "to_term_args",
 )
 
 def erlang_tests_macro(
@@ -270,13 +269,15 @@ def _write_test_info_file(
         test_dir: Artifact,
         config_files: list[Artifact],
         erl_cmd: [cmd_args, Artifact]) -> Artifact:
+    dependency_paths = _list_code_paths(dependencies)
+    dependency_paths.extend(extra_code_paths)
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
         "common_app_env": ctx.attrs.common_app_env,
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
-        "dependencies": _list_code_paths(extra_code_paths, dependencies),
-        "erl_cmd": cmd_args(['"', cmd_args(erl_cmd, delimiter = " "), '"'], delimiter = ""),
+        "dependencies": dependency_paths,
+        "erl_cmd": erl_cmd,
         "extra_ct_hooks": ctx.attrs.extra_ct_hooks,
         "extra_flags": ctx.attrs.extra_erl_flags,
         "providers": ctx.attrs._providers,
@@ -284,29 +285,20 @@ def _write_test_info_file(
         "test_suite": test_suite,
     }
     test_info_file = ctx.actions.declare_output("tests_info")
-    ctx.actions.write(
-        test_info_file,
-        to_term_args(tests_info),
-    )
+    ctx.actions.write_json(test_info_file, tests_info)
     return test_info_file
 
-def _list_code_paths(extra_code_paths: list[Artifact], dependencies: ErlAppDependencies) -> list[cmd_args]:
+def _list_code_paths(dependencies: ErlAppDependencies) -> list[[Artifact, cmd_args]]:
     """lists all ebin/ dirs from the test targets dependencies"""
     folders = []
-    for path in extra_code_paths:
-        folders.append(cmd_args(path, format = '"{}"'))
     for dependency in dependencies.values():
         if ErlangAppInfo in dependency:
             dep_info = dependency[ErlangAppInfo]
-            if dep_info.virtual:
-                continue
-            folders.append(cmd_args(
-                dep_info.app_folder,
-                format = '"{}/ebin"',
-            ))
+            if not dep_info.virtual:
+                folders.append(cmd_args(dep_info.app_folder, format = "{}/ebin", delimiter = ""))
         elif ErlangTestInfo in dependency:
             dep_info = dependency[ErlangTestInfo]
-            folders.append(cmd_args(dep_info.output_dir, format = '"{}"'))
+            folders.append(dep_info.output_dir)
     return folders
 
 def _build_resource_dir(ctx, resources: list, target_dir: str) -> Artifact:

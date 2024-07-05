@@ -210,7 +210,7 @@ common_app_env_args(Env) ->
     lists:append([["-common", Key, Value] || {Key, Value} <- maps:to_list(Env)]).
 
 -spec start_test_node(
-    Erl :: string(),
+    Erl :: [binary()],
     ExtraFlags :: [string()],
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
@@ -236,7 +236,7 @@ start_test_node(
     ).
 
 -spec start_test_node(
-    Erl :: string(),
+    Erl :: [binary()],
     ExtraFlags :: [string()],
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
@@ -254,7 +254,7 @@ start_test_node(
     ReplayIo
 ) ->
     % split of args from Erl which can contain emulator flags
-    [_Executable | Flags] = string:split(ErlCmd, " ", all),
+    [_Executable | Flags] = ErlCmd,
     % we ignore the executable we got, and use the erl command from the
     % toolchain that executes this code
     ErlExecutable = os:find_executable("erl"),

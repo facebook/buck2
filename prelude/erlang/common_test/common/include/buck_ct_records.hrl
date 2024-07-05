@@ -8,12 +8,12 @@
 %% % @format
 
 -record(test_info, {
-    dependencies :: [string()],
-    test_suite :: string(),
-    config_files :: [string()],
+    dependencies :: [file:filename()],
+    test_suite :: binary(),
+    config_files :: [binary()],
     providers :: [{atom(), [term()]}],
     ct_opts :: [term()],
-    erl_cmd :: string(),
+    erl_cmd :: [binary()],
     extra_flags :: [string()],
     common_app_env :: #{string() => string()},
     artifact_annotation_mfa :: artifact_annotations:annotation_function()
@@ -31,7 +31,7 @@
     providers :: [{module(), [term()]}],
     ct_opts :: [term()],
     common_app_env :: #{string() => string()},
-    erl_cmd :: string(),
+    erl_cmd :: [binary()],
     extra_flags :: [string()],
     artifact_annotation_mfa :: artifact_annotations:annotation_function()
 }).

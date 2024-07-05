@@ -93,8 +93,7 @@ test_exported_test(Suite, Test) ->
 
 -spec load_hooks([module()]) -> ok.
 load_hooks(Hooks) ->
-    lists:map(fun code:ensure_loaded/1, Hooks),
-    ok.
+    ok = code:ensure_modules_loaded(Hooks).
 
 %% We extract the call to the groups() method so that we can type it.
 -spec suite_groups(suite(), [module()]) -> groups_output().

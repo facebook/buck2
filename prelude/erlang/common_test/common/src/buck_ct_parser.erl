@@ -18,12 +18,12 @@
 %% Public API
 -export([parse_str/1]).
 
--spec parse_str(string()) -> term().
-parse_str("") ->
+-spec parse_str(binary()) -> term().
+parse_str(<<"">>) ->
     [];
 parse_str(StrArgs) ->
     try
-        {ok, Tokens, _} = erl_scan:string(StrArgs ++ "."),
+        {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list([StrArgs, "."])),
         erl_parse:parse_term(Tokens)
     of
         {ok, Term} ->
@@ -34,7 +34,7 @@ parse_str(StrArgs) ->
         E:R:S ->
             error(
                 lists:flatten(
-                    io_lib:format("Error parsing StrArgs ~p, error ~p", [StrArgs, erl_error:format_exception(E, R, S)])
+                    io_lib:format("Error parsing StrArgs ~p, error ~ts", [StrArgs, erl_error:format_exception(E, R, S)])
                 )
             )
     end.

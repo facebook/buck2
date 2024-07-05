@@ -77,28 +77,27 @@ main(Other) ->
 
 -spec load_test_info(string()) -> #test_info{}.
 load_test_info(TestInfoFile) ->
-    {ok, [
-        #{
-            "dependencies" := Dependencies,
-            "test_suite" := SuiteName,
-            "test_dir" := TestDir,
-            "config_files" := ConfigFiles,
-            "providers" := Providers,
-            "ct_opts" := CtOpts,
-            "extra_ct_hooks" := ExtraCtHooks,
-            "erl_cmd" := ErlCmd,
-            "extra_flags" := ExtraFlags,
-            "artifact_annotation_mfa" := ArtifactAnnotationMFA,
-            "common_app_env" := CommonAppEnv
-        }
-    ]} = file:consult(TestInfoFile),
+    {ok, Content} = file:read_file(TestInfoFile),
+    #{
+        <<"dependencies">> := Dependencies,
+        <<"test_suite">> := SuiteName,
+        <<"test_dir">> := TestDir,
+        <<"config_files">> := ConfigFiles,
+        <<"providers">> := Providers,
+        <<"ct_opts">> := CtOpts,
+        <<"extra_ct_hooks">> := ExtraCtHooks,
+        <<"erl_cmd">> := ErlCmd,
+        <<"extra_flags">> := ExtraFlags,
+        <<"artifact_annotation_mfa">> := ArtifactAnnotationMFA,
+        <<"common_app_env">> := CommonAppEnv
+    } = json:decode(Content),
     Providers1 = buck_ct_parser:parse_str(Providers),
     CtOpts1 = make_ct_opts(
         buck_ct_parser:parse_str(CtOpts),
         [buck_ct_parser:parse_str(CTH) || CTH <- ExtraCtHooks]
     ),
     #test_info{
-        dependencies = [filename:absname(Dep) || Dep <- Dependencies],
+        dependencies = [unicode:characters_to_list(filename:absname(Dep)) || Dep <- Dependencies],
         test_suite = filename:join(filename:absname(TestDir), [SuiteName, ".beam"]),
         config_files = lists:map(fun(ConfigFile) -> filename:absname(ConfigFile) end, ConfigFiles),
         providers = Providers1,
@@ -109,9 +108,9 @@ load_test_info(TestInfoFile) ->
         common_app_env = CommonAppEnv
     }.
 
--spec parse_mfa(string()) -> artifact_annotations:annotation_function() | {error, term()}.
+-spec parse_mfa(binary()) -> artifact_annotations:annotation_function() | {error, term()}.
 parse_mfa(MFA) ->
-    case erl_scan:string(MFA) of
+    case erl_scan:string(unicode:characters_to_list(MFA)) of
         {ok,
             [
                 {'fun', _},
@@ -144,10 +143,11 @@ parse_mfa(MFA) ->
 make_ct_opts(CtOpts, []) -> CtOpts;
 make_ct_opts(CtOpts, ExtraCtHooks) -> [{ct_hooks, ExtraCtHooks} | CtOpts].
 
--spec load_suite(string()) -> [{atom(), string()}].
+-spec load_suite(binary()) -> atom().
 load_suite(SuitePath) ->
-    {module, Module} = code:load_abs(filename:rootname(filename:absname(SuitePath))),
-    {Module, filename:absname(SuitePath)}.
+    Path = unicode:characters_to_list(filename:rootname(filename:absname(SuitePath))),
+    {module, Module} = code:load_abs(Path),
+    Module.
 
 -spec get_hooks(#test_info{}) -> [module()].
 get_hooks(TestInfo) ->
@@ -176,7 +176,7 @@ running(TestInfoFile, OutputDir, Tests) ->
 
 get_listing(TestInfo, OutputDir) ->
     code:add_paths(TestInfo#test_info.dependencies),
-    {Suite, _Path} = load_suite(TestInfo#test_info.test_suite),
+    Suite = load_suite(TestInfo#test_info.test_suite),
 
     {ok, ProjectRoot} = file:get_cwd(),
     true = os:putenv("PROJECT_ROOT", ProjectRoot),
