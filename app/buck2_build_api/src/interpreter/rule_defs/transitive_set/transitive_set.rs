@@ -52,8 +52,9 @@ use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::transitive_set_definition_from_value;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetDefinitionLike;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetProjectionKind;
-use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 use crate::interpreter::rule_defs::transitive_set::BfsTransitiveSetIteratorGen;
@@ -176,8 +177,11 @@ impl<'v> NodeGen<Value<'v>> {
 }
 
 impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
-    fn matches_definition(&self, definition: Value<'v>) -> bool {
-        definition.ptr_eq(self.definition.to_value())
+    fn matches_definition(
+        &self,
+        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
+    ) -> bool {
+        definition.to_value().ptr_eq(self.definition.to_value())
     }
 
     pub fn projection_name(&'v self, projection: usize) -> anyhow::Result<&'v str> {
@@ -371,20 +375,18 @@ impl<'v> Freeze for TransitiveSet<'v> {
 impl<'v> TransitiveSet<'v> {
     pub fn new(
         key: TransitiveSetKey,
-        definition: Value<'v>,
+        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: impl IntoIterator<Item = Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Self> {
-        let def = match transitive_set_definition_from_value(definition.to_value()) {
-            Some(def) if def.has_id() => def,
-            Some(..) => {
-                return Err(TransitiveSetError::TransitiveSetUsedBeforeAssignment.into());
-            }
-            None => {
-                return Err(TransitiveSetError::TransitiveSetDefinitionWasInvalid.into());
-            }
+        let def: &dyn TransitiveSetDefinitionLike = match definition.unpack() {
+            Either::Left(def) => def,
+            Either::Right(def) => def,
         };
+        if !def.has_id() {
+            return Err(TransitiveSetError::TransitiveSetUsedBeforeAssignment.into());
+        }
 
         let children = children.into_iter().collect::<Box<[_]>>();
         let children_sets = children.try_map(|v| match TransitiveSet::from_value(*v) {
@@ -397,7 +399,7 @@ impl<'v> TransitiveSet<'v> {
                     }
                 }
                 Err(TransitiveSetError::TransitiveValueIsOfWrongType {
-                    expected: format_def(definition),
+                    expected: format_def(definition.to_value()),
                     got: format_def(set.definition),
                 })
             }
@@ -462,7 +464,7 @@ impl<'v> TransitiveSet<'v> {
 
         Ok(Self {
             key,
-            definition,
+            definition: definition.to_value(),
             node,
             reductions,
             children,
@@ -471,7 +473,7 @@ impl<'v> TransitiveSet<'v> {
 
     pub fn new_from_values(
         key: TransitiveSetKey,
-        definition: Value<'v>,
+        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,

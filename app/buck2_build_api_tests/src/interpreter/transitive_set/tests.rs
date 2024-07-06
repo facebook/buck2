@@ -207,19 +207,6 @@ fn test_transitive_sets_validation() -> anyhow::Result<()> {
         "used before being assigned",
     );
 
-    let contents = indoc!(
-        r#"
-        def test():
-            make_tset(123, value = None)
-        "#
-    );
-
-    expect_error(
-        tester.run_starlark_bzl_test(contents),
-        contents,
-        "not the output of transitive_set",
-    );
-
     Ok(())
 }
 

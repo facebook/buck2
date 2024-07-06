@@ -12,6 +12,7 @@ use anyhow::Context as _;
 use dupe::Dupe;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
+use starlark::values::ValueTypedComplex;
 
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
@@ -19,6 +20,7 @@ use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::ReservedTrivialDeferredData;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 
 #[derive(Allocative)]
 pub struct ArtifactGroupRegistry {
@@ -34,7 +36,7 @@ impl ArtifactGroupRegistry {
 
     pub fn create_transitive_set<'v>(
         &mut self,
-        definition: Value<'v>,
+        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         deferred: &mut DeferredRegistry,

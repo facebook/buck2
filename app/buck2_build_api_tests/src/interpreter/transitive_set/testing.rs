@@ -17,6 +17,7 @@ use buck2_artifact::deferred::key::DeferredKey;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
+use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::configuration::data::ConfigurationData;
@@ -28,13 +29,14 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
+use starlark::values::ValueTypedComplex;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
 #[starlark_module]
 pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
     fn make_tset<'v>(
-        definition: Value<'v>,
+        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_, '_>,

@@ -21,7 +21,6 @@ use self::transitive_set::TransitiveSetGen;
 pub use self::transitive_set::TransitiveSetLike;
 pub use self::transitive_set_args_projection::FrozenTransitiveSetArgsProjection;
 pub use self::transitive_set_args_projection::TransitiveSetArgsProjection;
-pub use self::transitive_set_definition::transitive_set_definition_from_value;
 pub use self::transitive_set_definition::FrozenTransitiveSetDefinition;
 pub use self::transitive_set_definition::TransitiveSetDefinition;
 pub use self::transitive_set_definition::TransitiveSetOperations;
@@ -42,11 +41,6 @@ pub(crate) enum TransitiveSetError {
         "Transitive set type must be assigned to a top-level variable, e.g. `MySet = transitive_set()`"
     )]
     TransitiveSetNotAssigned,
-
-    #[error(
-        "Transitive set was provided with a definition that is not the output of transitive_set()"
-    )]
-    TransitiveSetDefinitionWasInvalid,
 
     #[error(
         "Transitive set was used before being assigned to a top-level variable, e.g. `MySet = transitive_set()`"

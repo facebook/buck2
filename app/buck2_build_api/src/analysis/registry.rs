@@ -49,6 +49,7 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
 
 use crate::actions::registry::ActionsRegistry;
@@ -70,6 +71,7 @@ use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
@@ -240,7 +242,7 @@ impl<'v> AnalysisRegistry<'v> {
 
     pub fn create_transitive_set(
         &mut self,
-        definition: Value<'v>,
+        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,

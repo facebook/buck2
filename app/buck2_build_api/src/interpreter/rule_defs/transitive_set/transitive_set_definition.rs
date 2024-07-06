@@ -373,7 +373,7 @@ impl<'v> Freeze for TransitiveSetDefinition<'v> {
     }
 }
 
-pub fn transitive_set_definition_from_value<'v>(
+pub(crate) fn transitive_set_definition_from_value<'v>(
     x: Value<'v>,
 ) -> Option<&dyn TransitiveSetDefinitionLike<'v>> {
     if let Some(x) = x.downcast_ref::<TransitiveSetDefinition>() {

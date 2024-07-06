@@ -88,12 +88,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let mut this = this.state();
-        this.create_transitive_set(
-            definition.to_value(),
-            value,
-            children.map(|v| v.get()),
-            eval,
-        )
+        this.create_transitive_set(definition, value, children.map(|v| v.get()), eval)
     }
 
     /// Allocate a new input tag. Used with the `dep_files` argument to `run`.
