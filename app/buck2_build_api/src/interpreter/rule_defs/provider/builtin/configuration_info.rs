@@ -26,8 +26,8 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::Dict;
-use starlark::values::dict::DictOf;
 use starlark::values::dict::DictRef;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -135,16 +135,15 @@ enum ConfigurationInfoError {
 fn configuration_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenConfigurationInfo)]
     fn ConfigurationInfo<'v>(
-        #[starlark(require = named)] constraints: DictOf<
-            'v,
+        #[starlark(require = named)] constraints: UnpackDictEntries<
             ValueOf<'v, &'v StarlarkTargetLabel>,
             ValueOf<'v, &'v ConstraintValueInfo<'v>>,
         >,
-        #[starlark(require = named)] values: DictOf<'v, &'v str, &'v str>,
+        #[starlark(require = named)] values: ValueOf<'v, UnpackDictEntries<&'v str, &'v str>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ConfigurationInfo<'v>> {
         let mut new_constraints = SmallMap::new();
-        for (constraint_setting, constraint_value) in constraints.collect_entries() {
+        for (constraint_setting, constraint_value) in constraints.entries {
             let constraint_setting_hashed = constraint_setting
                 .value
                 .get_hashed()
@@ -162,13 +161,13 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
                 new_constraints.insert_hashed(constraint_setting_hashed, constraint_value.value);
             assert!(prev.is_none());
         }
-        for (k, _) in values.collect_entries() {
+        for (k, _) in values.typed.entries {
             // Validate the config section and key can be parsed correctly
             parse_config_section_and_key(k, None)?;
         }
         Ok(ConfigurationInfo {
             constraints: eval.heap().alloc(Dict::new(new_constraints)),
-            values: *values,
+            values: values.value,
         })
     }
 }
