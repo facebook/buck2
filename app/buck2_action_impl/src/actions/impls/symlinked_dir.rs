@@ -38,7 +38,7 @@ use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueError;
 use starlark_map::small_set::SmallSet;
@@ -94,14 +94,15 @@ impl UnregisteredSymlinkedDirAction {
     // Map each artifact into an optional tuple of (artifact, path) and associated_artifacts, then collect
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args<'v>(
-        srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
+        srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
     ) -> anyhow::Result<(
         Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
         SmallSet<ArtifactGroup>,
     )> {
         // This assignment doesn't look like it should be necessary, but we get an error if we
         // don't do it.
-        srcs.collect_entries()
+        let len = srcs.entries.len();
+        srcs.entries
             .into_iter()
             .map(|(k, as_artifact)| {
                 let associates = as_artifact.0.get_associated_artifacts();
@@ -116,7 +117,7 @@ impl UnregisteredSymlinkedDirAction {
                 ))
             })
             .fold_ok(
-                (Vec::with_capacity(srcs.len()), SmallSet::new()),
+                (Vec::with_capacity(len), SmallSet::new()),
                 |(mut aps, mut assocs), (ap, assoc)| {
                     aps.push(ap);
                     assoc.iter().flat_map(|v| v.iter()).for_each(|a| {
@@ -129,7 +130,7 @@ impl UnregisteredSymlinkedDirAction {
 
     pub(crate) fn new<'v>(
         copy: bool,
-        srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
+        srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
     ) -> anyhow::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.

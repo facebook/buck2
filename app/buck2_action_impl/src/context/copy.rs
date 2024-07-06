@@ -18,7 +18,7 @@ use indexmap::indexset;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::ValueTyped;
 
 use crate::actions::impls::copy::CopyMode;
@@ -29,7 +29,7 @@ fn create_dir_tree<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
     this: &AnalysisActions<'v>,
     output: OutputArtifactArg<'v>,
-    srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
+    srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
     copy: bool,
 ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     // validate that the moves are valid, and move them into inputs
@@ -151,7 +151,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
+        #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, false)
@@ -162,7 +162,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] srcs: DictOf<'v, &'v str, ValueAsArtifactLike<'v>>,
+        #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         create_dir_tree(eval, this, output, srcs, true)
