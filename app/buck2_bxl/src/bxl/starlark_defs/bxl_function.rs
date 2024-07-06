@@ -26,7 +26,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
@@ -50,7 +50,7 @@ use crate::bxl::starlark_defs::cli_args::CliArgValue;
 pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
     fn bxl_main<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
-        #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
+        #[starlark(require = named)] cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -60,7 +60,7 @@ pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
 
 fn bxl_impl<'v>(
     r#impl: StarlarkCallable<'v>,
-    cli_args: DictOf<'v, &'v str, &'v CliArgs>,
+    cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
     doc: &str,
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> anyhow::Result<Value<'v>> {
@@ -74,7 +74,7 @@ fn bxl_impl<'v>(
     let mut unresolved_cli_args = SmallMap::new();
     let mut short_args = SmallSet::new();
 
-    for (arg, def) in cli_args.to_dict().into_iter() {
+    for (arg, def) in cli_args.entries {
         if let Some(short) = def.short {
             if short_args.contains(&short) {
                 return Err(CliArgError::DuplicateShort(short.to_owned()).into());
