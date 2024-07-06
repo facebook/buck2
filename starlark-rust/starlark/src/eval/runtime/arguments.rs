@@ -561,16 +561,7 @@ impl Arguments<'_, '_> {
     ) -> anyhow::Result<Option<T>> {
         match x {
             None => Ok(None),
-            Some(x) => Ok(Some(T::unpack_value(x).ok_or_else::<anyhow::Error, _>(
-                || {
-                    ValueError::IncorrectParameterTypeNamedWithExpected(
-                        name.to_owned(),
-                        T::expected(),
-                        x.get_type().to_owned(),
-                    )
-                    .into()
-                },
-            )?)),
+            Some(x) => Ok(Some(T::unpack_named_param(x, name)?)),
         }
     }
 }
