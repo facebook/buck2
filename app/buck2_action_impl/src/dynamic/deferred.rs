@@ -46,12 +46,14 @@ use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexSet;
-use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::any_complex::StarlarkAnyComplex;
+use starlark::values::dict::AllocDict;
+use starlark::values::type_repr::DictType;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
+use starlark::values::ValueOfUnchecked;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
 use crate::dynamic::dynamic_lambda_params::FrozenDynamicLambdaParams;
@@ -77,13 +79,13 @@ impl DynamicAction {
 pub enum DynamicLambdaArgs<'v> {
     OldPositional {
         ctx: Value<'v>,
-        artifacts: Value<'v>,
-        outputs: Value<'v>,
+        artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
+        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
     },
     DynamicActionsNamed {
         actions: Value<'v>,
-        artifacts: Value<'v>,
-        outputs: Value<'v>,
+        artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
+        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
         arg: Value<'v>,
     },
 }
@@ -152,7 +154,7 @@ impl DynamicLambda {
                 artifacts,
                 outputs,
             } => {
-                pos = [ctx, artifacts, outputs];
+                pos = [ctx, artifacts.get(), outputs.get()];
                 (&pos, &[])
             }
             DynamicLambdaArgs::DynamicActionsNamed {
@@ -163,8 +165,8 @@ impl DynamicLambda {
             } => {
                 named = [
                     ("actions", actions),
-                    ("artifacts", artifacts),
-                    ("outputs", outputs),
+                    ("artifacts", artifacts.get()),
+                    ("outputs", outputs.get()),
                     ("arg", arg),
                 ];
                 (&[], &named)
@@ -358,8 +360,8 @@ impl Deferred for DynamicLambda {
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
     pub lambda: &'v FrozenDynamicLambdaParams,
-    pub outputs: Value<'v>,
-    pub artifacts: Value<'v>,
+    pub outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
+    pub artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
     pub key: &'v BaseDeferredKey,
     pub digest_config: DigestConfig,
     pub declared_outputs: IndexSet<DeclaredArtifact>,
@@ -373,7 +375,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     env: &'v Module,
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
     let heap = env.heap();
-    let mut outputs = SmallMap::with_capacity(dynamic_lambda.outputs.len());
+    let mut outputs = Vec::with_capacity(dynamic_lambda.outputs.len());
     let mut declared_outputs = IndexSet::with_capacity(dynamic_lambda.outputs.len());
 
     let attributes_lambda = &dynamic_lambda
@@ -412,7 +414,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     )?;
     registry.set_action_key(Arc::from(deferred_ctx.get_action_key()));
 
-    let mut artifacts = SmallMap::with_capacity(dynamic_lambda.dynamic.len());
+    let mut artifacts = Vec::with_capacity(dynamic_lambda.dynamic.len());
     let fs = deferred_ctx.project_filesystem();
     for x in &dynamic_lambda.dynamic {
         let x = match x {
@@ -420,22 +422,22 @@ pub fn dynamic_lambda_ctx_data<'v>(
             DeferredInput::ConfiguredTarget(_) => continue,
             _ => unreachable!("DynamicLambda only depends on artifact and target"),
         };
-        let k = heap.alloc(StarlarkArtifact::new(x.dupe()));
+        let k = StarlarkArtifact::new(x.dupe());
         let path = deferred_ctx.get_materialized_artifact(x).unwrap();
         let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());
-        artifacts.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
+        artifacts.push((k, v));
     }
 
     for x in &*dynamic_lambda.outputs {
-        let k = heap.alloc(StarlarkArtifact::new(Artifact::from(x.dupe())));
+        let k = StarlarkArtifact::new(Artifact::from(x.dupe()));
         let declared = registry.declare_dynamic_output(x.get_path().dupe(), x.output_type());
         declared_outputs.insert(declared.dupe());
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
-        outputs.insert_hashed(k.get_hashed().map_err(BuckStarlarkError::new)?, v);
+        outputs.push((k, v));
     }
 
-    let artifacts = heap.alloc(artifacts);
-    let outputs = heap.alloc(outputs);
+    let artifacts = heap.alloc_typed_unchecked(AllocDict(artifacts)).cast();
+    let outputs = heap.alloc_typed_unchecked(AllocDict(outputs)).cast();
 
     Ok(DynamicLambdaCtxData {
         lambda: attributes_lambda,
