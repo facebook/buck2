@@ -67,6 +67,11 @@ impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
         Ok(Self::new(value))
     }
 
+    /// Cast to a different Rust type for the same Starlark type.
+    pub fn cast<U: StarlarkTypeRepr<Canonical = T::Canonical>>(self) -> ValueOfUnchecked<'v, U> {
+        ValueOfUnchecked::new(self.0)
+    }
+
     /// Get the value.
     #[inline]
     pub fn get(self) -> Value<'v> {
@@ -102,5 +107,18 @@ unsafe impl<'v, T: StarlarkTypeRepr> Trace<'v> for ValueOfUnchecked<'v, T> {
         let ValueOfUnchecked(value, phantom) = self;
         value.trace(tracer);
         phantom.trace(tracer);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::const_frozen_string;
+    use crate::values::ValueOfUnchecked;
+
+    #[test]
+    fn test_cast_example() {
+        let a =
+            ValueOfUnchecked::<String>::new_checked(const_frozen_string!("a").to_value()).unwrap();
+        let _b: ValueOfUnchecked<&str> = a.cast();
     }
 }
