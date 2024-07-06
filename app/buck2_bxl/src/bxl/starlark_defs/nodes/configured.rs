@@ -93,10 +93,6 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkConfiguredTargetNode {
-    fn expected() -> String {
-        "target node".to_owned()
-    }
-
     fn unpack_value(value: starlark::values::Value<'a>) -> Option<Self> {
         value
             .downcast_ref::<Self>()

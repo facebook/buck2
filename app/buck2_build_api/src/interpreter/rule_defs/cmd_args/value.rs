@@ -71,10 +71,6 @@ impl<'v> StarlarkTypeRepr for CommandLineArg<'v> {
 }
 
 impl<'v> UnpackValue<'v> for CommandLineArg<'v> {
-    fn expected() -> String {
-        ValueAsCommandLineLike::expected()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         ValueAsCommandLineLike::unpack_value(value)?;
         Some(CommandLineArg(value))

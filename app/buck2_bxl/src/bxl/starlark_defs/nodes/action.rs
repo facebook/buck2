@@ -56,10 +56,6 @@ impl<'v> StarlarkValue<'v> for StarlarkAction {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkAction {
-    fn expected() -> String {
-        "action".to_owned()
-    }
-
     fn unpack_value(value: starlark::values::Value<'a>) -> Option<Self> {
         value
             .downcast_ref::<Self>()
@@ -105,10 +101,6 @@ impl<'v> StarlarkValue<'v> for StarlarkActionQueryNode {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkActionQueryNode {
-    fn expected() -> String {
-        "action query node".to_owned()
-    }
-
     fn unpack_value(value: starlark::values::Value<'a>) -> Option<Self> {
         value
             .downcast_ref::<Self>()

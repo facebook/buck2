@@ -615,10 +615,6 @@ impl<'v> StarlarkTypeRepr for StarlarkCommandLineMut<'v> {
 }
 
 impl<'v> UnpackValue<'v> for StarlarkCommandLineMut<'v> {
-    fn expected() -> String {
-        "command line builder; frozen command line cannot be mutated".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         value.downcast_ref::<StarlarkCmdArgs>().map(|v| Self {
             value,

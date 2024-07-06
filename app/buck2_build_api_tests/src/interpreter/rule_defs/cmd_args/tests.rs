@@ -95,7 +95,7 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
     expect_error(
         tester.run_starlark_bzl_test(contents),
         contents,
-        "value implementing CommandLineArgLike",
+        "Expected `artifact |",
     );
 
     Ok(())

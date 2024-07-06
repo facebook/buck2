@@ -35,10 +35,6 @@ impl<'v> StarlarkTypeRepr for ValueAsCommandLineLike<'v> {
 }
 
 impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
-    fn expected() -> String {
-        "a value implementing CommandLineArgLike (str, Artifact, RunInfo, etc)".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if let Some(x) = value.unpack_starlark_str() {
             return Some(ValueAsCommandLineLike(x as &dyn CommandLineArgLike));
