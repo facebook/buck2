@@ -75,7 +75,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -137,12 +137,12 @@ impl AnonTargetKey {
     pub(crate) fn new<'v>(
         execution_platform: &ExecutionPlatformResolution,
         rule: ValueTyped<'v, FrozenRuleCallable>,
-        attributes: DictOf<'v, &'v str, Value<'v>>,
+        attributes: UnpackDictEntries<&'v str, Value<'v>>,
     ) -> anyhow::Result<Self> {
         let mut name = None;
         let internal_attrs = internal_attrs();
 
-        let entries = attributes.collect_entries();
+        let entries = attributes.entries;
         let attrs_spec = rule.attributes();
         let mut attrs = OrderedMap::with_capacity(attrs_spec.len());
 
@@ -546,7 +546,7 @@ impl<'v> AnonTargetsRegistry<'v> {
     pub(crate) fn anon_target_key(
         &self,
         rule: ValueTyped<'v, FrozenRuleCallable>,
-        attributes: DictOf<'v, &'v str, Value<'v>>,
+        attributes: UnpackDictEntries<&'v str, Value<'v>>,
     ) -> anyhow::Result<AnonTargetKey> {
         AnonTargetKey::new(&self.execution_platform, rule, attributes)
     }

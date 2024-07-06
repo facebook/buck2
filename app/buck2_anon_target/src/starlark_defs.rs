@@ -32,7 +32,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
@@ -267,7 +267,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         // TODO(nga): this should be either positional or named, not both.
         rule: ValueTyped<'v, FrozenRuleCallable>,
-        attrs: DictOf<'v, &'v str, Value<'v>>,
+        attrs: UnpackDictEntries<&'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
         let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
@@ -291,7 +291,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         // TODO(nga): this should be either positional or named, not both.
         rules: UnpackListOrTuple<(
             ValueTyped<'v, FrozenRuleCallable>,
-            DictOf<'v, &'v str, Value<'v>>,
+            UnpackDictEntries<&'v str, Value<'v>>,
         )>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAnonTargets<'v>> {
