@@ -29,7 +29,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_values;
 use starlark::starlark_module;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
@@ -189,7 +189,7 @@ impl TransitionValue for FrozenTransition {
 fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
-        #[starlark(require = named)] refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
+        #[starlark(require = named)] refs: UnpackDictEntries<StringValue<'v>, StringValue<'v>>,
         #[starlark(require = named)] attrs: Option<UnpackListOrTuple<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -197,7 +197,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
         let implementation = r#impl.0;
 
         let refs = refs
-            .collect_entries()
+            .entries
             .into_iter()
             .map(|(n, r)| {
                 Ok((
