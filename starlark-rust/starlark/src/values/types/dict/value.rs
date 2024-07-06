@@ -47,7 +47,6 @@ use crate::hint::unlikely;
 use crate::typing::Ty;
 use crate::values::comparison::equals_small_map;
 use crate::values::dict::refcell::unleak_borrow;
-use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::alloc_static;
@@ -107,7 +106,7 @@ impl<'v> StarlarkTypeRepr for Dict<'v> {
     type Canonical = <DictType<FrozenValue, FrozenValue> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        DictOf::<Value<'v>, Value<'v>>::starlark_type_repr()
+        Self::Canonical::starlark_type_repr()
     }
 }
 

@@ -31,11 +31,6 @@ use crate::values::Value;
 /// the correct type. Has an [`UnpackValue`] instance, so often used as
 /// an argument to [`#[starlark_module]`](macro@crate::starlark_module) defined
 /// functions.
-///
-/// Two container specializations of this are [`ListOf`](crate::values::list::ListOf)
-/// and [`DictOf`](crate::values::dict::DictOf), which
-/// validate the types of their containers on unpack, but do not store the
-/// resulting Vec/Map
 #[derive(Debug, Copy, Clone, Dupe)]
 pub struct ValueOf<'v, T: UnpackValue<'v>> {
     /// The original [`Value`] on the same heap.
