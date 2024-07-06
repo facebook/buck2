@@ -94,6 +94,7 @@ use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::ValueOf;
+use crate::values::ValueOfUnchecked;
 use crate::values::ValueTyped;
 
 #[derive(Copy, Clone, Dupe)]
@@ -837,6 +838,11 @@ impl Heap {
         x: T,
     ) -> ValueTyped<'v, T> {
         ValueTyped::new(self.alloc(x)).expect("just allocated value must have the right type")
+    }
+
+    /// Allocate a value and return [`ValueOfUnchecked`] of it.
+    pub fn alloc_typed_unchecked<'v, T: AllocValue<'v>>(&'v self, x: T) -> ValueOfUnchecked<'v, T> {
+        ValueOfUnchecked::new(self.alloc(x))
     }
 
     /// Allocate a value and return [`ValueOf`] of it.
