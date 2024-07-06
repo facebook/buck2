@@ -20,11 +20,14 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 pub(crate) fn node_to_attrs_struct<'v>(
     node: ConfiguredTargetNodeRef,
     ctx: &dyn AttrResolutionContext<'v>,
-) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
+) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
     let attrs_iter = node.attrs(AttrInspectOptions::All);
     let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
     for a in attrs_iter {
         resolved_attrs.push((a.name, a.value.resolve_single(node.label().pkg(), ctx)?));
     }
-    ValueOfUnchecked::new_checked(ctx.heap().alloc(AllocStruct(resolved_attrs)))
+    Ok(ctx
+        .heap()
+        .alloc_typed_unchecked(AllocStruct(resolved_attrs))
+        .cast())
 }

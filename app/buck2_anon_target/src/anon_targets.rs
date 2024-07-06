@@ -80,7 +80,6 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
@@ -342,9 +341,10 @@ impl AnonTargetKey {
                                 attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
                             ));
                         }
-                        let attributes = ValueOfUnchecked::new_checked(
-                            env.heap().alloc(AllocStruct(resolved_attrs)),
-                        )?;
+                        let attributes = env
+                            .heap()
+                            .alloc_typed_unchecked(AllocStruct(resolved_attrs))
+                            .cast();
 
                         let registry = AnalysisRegistry::new_from_owner(
                             BaseDeferredKey::AnonTarget(self.0.dupe()),

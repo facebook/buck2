@@ -19,6 +19,7 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -27,7 +28,7 @@ use starlark::values::ValueTypedComplex;
 
 #[derive(Allocative, Trace, Debug, ProvidesStaticType)]
 pub(crate) struct DynamicLambdaParams<'v> {
-    pub(crate) attributes: Option<ValueOfUnchecked<'v, StructRef<'v>>>,
+    pub(crate) attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
     pub(crate) plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
     pub(crate) lambda: StarlarkCallable<'v>,
     pub(crate) arg: Option<Value<'v>>,
@@ -35,7 +36,7 @@ pub(crate) struct DynamicLambdaParams<'v> {
 
 #[derive(Allocative, Debug, ProvidesStaticType)]
 pub struct FrozenDynamicLambdaParams {
-    pub(crate) attributes: Option<FrozenValue>,
+    pub(crate) attributes: Option<FrozenValueOfUnchecked<'static, StructRef<'static>>>,
     pub(crate) plugins: Option<FrozenValueTyped<'static, FrozenAnalysisPlugins>>,
     pub lambda: FrozenStarlarkCallable,
     pub arg: Option<FrozenValue>,
@@ -44,14 +45,11 @@ pub struct FrozenDynamicLambdaParams {
 impl FrozenDynamicLambdaParams {
     pub(crate) fn attributes<'v>(
         &'v self,
-    ) -> anyhow::Result<Option<ValueOfUnchecked<'v, StructRef<'v>>>> {
+    ) -> anyhow::Result<Option<ValueOfUnchecked<'v, StructRef<'static>>>> {
         let Some(attributes) = self.attributes else {
             return Ok(None);
         };
-        Ok(Some(
-            ValueOfUnchecked::new_checked(attributes.to_value())
-                .internal_error("attributes must be struct")?,
-        ))
+        Ok(Some(attributes.to_value().cast()))
     }
 
     pub(crate) fn plugins<'v>(
@@ -80,7 +78,9 @@ impl<'v> Freeze for DynamicLambdaParams<'v> {
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(FrozenDynamicLambdaParams {
-            attributes: self.attributes.try_map(|a| a.get().freeze(freezer))?,
+            attributes: self
+                .attributes
+                .try_map(|a| anyhow::Ok(a.freeze(freezer)?.cast()))?,
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
             arg: self.arg.freeze(freezer)?,
