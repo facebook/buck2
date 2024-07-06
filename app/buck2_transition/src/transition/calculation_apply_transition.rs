@@ -42,7 +42,7 @@ use dupe::OptionDupedExt;
 use itertools::Itertools;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -93,10 +93,10 @@ fn call_transition_function<'v>(
         .eval_function(transition.implementation.to_value(), &[], &args)
         .map_err(BuckStarlarkError::new)?;
     if transition.split {
-        match DictOf::<&str, &PlatformInfo>::unpack_value(new_platforms) {
+        match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms) {
             Some(dict) => {
                 let mut split = OrderedMap::new();
-                for (k, v) in dict.to_dict() {
+                for (k, v) in dict.entries {
                     let prev = split.insert(k.to_owned(), v.to_configuration()?);
                     assert!(prev.is_none());
                 }
