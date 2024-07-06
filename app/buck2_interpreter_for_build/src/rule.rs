@@ -43,7 +43,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Param;
 use starlark::typing::Ty;
-use starlark::values::dict::DictOf;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
@@ -152,7 +152,7 @@ impl<'v> AllocValue<'v> for RuleCallable<'v> {
 impl<'v> RuleCallable<'v> {
     fn new(
         implementation: StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
-        attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
+        attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         cfg: Option<Value>,
         doc: &str,
         is_configuration_rule: bool,
@@ -171,7 +171,7 @@ impl<'v> RuleCallable<'v> {
             _ => return Err(RuleError::RuleNonInBzl.into()),
         };
         let sorted_validated_attrs = attrs
-            .to_dict()
+            .entries
             .into_iter()
             .sorted_by(|(k1, _), (k2, _)| Ord::cmp(k1, k2))
             .map(|(name, value)| {
@@ -449,7 +449,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             (FrozenValue,),
             UnpackList<FrozenValue>,
         >,
-        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
+        #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
@@ -480,7 +480,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             (FrozenValue,),
             UnpackList<FrozenValue>,
         >,
-        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v StarlarkAttribute>,
+        #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named)] artifact_promise_mappings: SmallMap<
             StringValue<'v>,
