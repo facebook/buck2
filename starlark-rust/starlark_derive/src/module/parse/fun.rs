@@ -460,7 +460,7 @@ fn check_lifetimes_in_type(ty: &Type, has_v: bool) -> syn::Result<()> {
         #[allow(clippy::collapsible_if)]
         fn visit_lifetime(&mut self, lifetime: &'ast Lifetime) {
             if self.result.is_ok() {
-                if lifetime.ident != "_" {
+                if lifetime.ident != "_" && lifetime.ident != "static" {
                     if lifetime.ident != "v" {
                         self.result = Err(syn::Error::new(
                             lifetime.span(),

@@ -25,6 +25,7 @@ use crate::values::list_or_tuple::UnpackListOrTuple;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 // The examples from the starlark_module documentation.
 #[test]
@@ -60,4 +61,16 @@ fn test_starlark_methods() {
     }
 
     MethodsBuilder::new().with(methods).build();
+}
+
+#[test]
+fn test_static_allowed() {
+    #[starlark_module]
+    fn globals(globals: &mut GlobalsBuilder) {
+        fn test<'v>() -> anyhow::Result<ValueOfUnchecked<'v, &'static str>> {
+            panic!()
+        }
+    }
+
+    GlobalsBuilder::standard().with(globals).build();
 }
