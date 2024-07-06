@@ -33,6 +33,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArt
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
@@ -54,6 +55,7 @@ use starlark::values::type_repr::DictType;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
 use crate::dynamic::dynamic_lambda_params::FrozenDynamicLambdaParams;
@@ -83,7 +85,7 @@ pub enum DynamicLambdaArgs<'v> {
         outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
     },
     DynamicActionsNamed {
-        actions: Value<'v>,
+        actions: ValueTyped<'v, AnalysisActions<'v>>,
         artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
         outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
         arg: Value<'v>,
@@ -164,7 +166,7 @@ impl DynamicLambda {
                 arg,
             } => {
                 named = [
-                    ("actions", actions),
+                    ("actions", actions.to_value()),
                     ("artifacts", artifacts.get()),
                     ("outputs", outputs.get()),
                     ("arg", arg),
@@ -302,7 +304,7 @@ impl Deferred for DynamicLambda {
                             Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
                                 // TODO(nga): no need to create `ctx`
                                 //   because we only need `actions` here.
-                                actions: ctx.actions.to_value(),
+                                actions: ctx.actions,
                                 artifacts: dynamic_lambda_ctx_data.artifacts,
                                 outputs: dynamic_lambda_ctx_data.outputs,
                                 arg,
