@@ -24,7 +24,6 @@ use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
 use crate::values::dict::UnpackDictEntries;
 use crate::values::list::UnpackList;
-use crate::values::structs::StructOf;
 use crate::values::Value;
 use crate::values::ValueOf;
 
@@ -105,14 +104,6 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .join(" + ");
         Ok((v.value, repr))
     }
-    fn with_struct_int<'v>(v: StructOf<'v, i32>) -> anyhow::Result<(Value<'v>, String)> {
-        let repr = v
-            .to_map()
-            .iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .join(" + ");
-        Ok((v.to_value(), repr))
-    }
     fn with_either<'v>(
         v: Either<i32, Either<String, ValueOf<'v, UnpackList<i32>>>>,
     ) -> anyhow::Result<String> {
@@ -172,14 +163,6 @@ fn test_dict_of() {
     let expected = r#"({1: {2: 3, 4: 5}, 6: {7: 8}}, "1: 2:3, 4:5 + 6: 7:8")"#;
     let test = r#"with_dict_dict({1: {2: 3, 4: 5}, 6: {7: 8}})"#;
     a.eq(expected, test);
-}
-
-#[test]
-fn test_struct_of() {
-    let mut a = Assert::new();
-    a.globals_add(validate_module);
-    a.eq("(struct(a=1), '\"a\"=1')", "with_struct_int(struct(a=1))");
-    a.fail("with_struct_int(struct(a=True))", BAD);
 }
 
 #[test]
