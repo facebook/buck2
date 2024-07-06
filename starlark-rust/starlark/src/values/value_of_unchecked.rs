@@ -75,6 +75,8 @@ impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
 }
 
 impl<'v, T: StarlarkTypeRepr> StarlarkTypeRepr for ValueOfUnchecked<'v, T> {
+    type Canonical = T::Canonical;
+
     fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }

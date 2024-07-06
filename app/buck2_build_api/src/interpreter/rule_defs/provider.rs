@@ -105,6 +105,8 @@ unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderLike<'v> {
 pub struct ValueAsProviderLike<'v>(pub(crate) &'v dyn ProviderLike<'v>);
 
 impl<'v> StarlarkTypeRepr for ValueAsProviderLike<'v> {
+    type Canonical = <AbstractProvider as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         AbstractProvider::starlark_type_repr()
     }

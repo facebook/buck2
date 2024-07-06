@@ -127,6 +127,8 @@ impl<T: StarlarkTypeRepr> Default for StarlarkValueAsType<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
+    type Canonical = <AbstractType as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         AbstractType::starlark_type_repr()
     }

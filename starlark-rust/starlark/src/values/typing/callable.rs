@@ -180,6 +180,8 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkCallable<'v,
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
     for StarlarkCallable<'v, P, R>
 {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         // TODO(nga): implement the same machinery for `typing.Callable`.
         Ty::callable(P::params(), R::starlark_type_repr())
@@ -263,6 +265,8 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P
 impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
     for FrozenStarlarkCallable<P, R>
 {
+    type Canonical = <StarlarkCallable<'static, P, R> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         StarlarkCallable::<P, R>::starlark_type_repr()
     }

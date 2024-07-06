@@ -607,6 +607,8 @@ struct StarlarkCommandLineMut<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for StarlarkCommandLineMut<'v> {
+    type Canonical = <StarlarkCmdArgs<'v> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         StarlarkCmdArgs::starlark_type_repr()
     }

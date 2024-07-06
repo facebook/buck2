@@ -148,6 +148,8 @@ impl<'v> AllocValue<'v> for AnalysisActions<'v> {
 struct RefAnalysisAction<'v>(&'v AnalysisActions<'v>);
 
 impl<'v> StarlarkTypeRepr for RefAnalysisAction<'v> {
+    type Canonical = <AnalysisActions<'v> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         AnalysisActions::starlark_type_repr()
     }
@@ -262,6 +264,8 @@ impl<'v> AllocValue<'v> for AnalysisContext<'v> {
 struct RefAnalysisContext<'v>(&'v AnalysisContext<'v>);
 
 impl<'v> StarlarkTypeRepr for RefAnalysisContext<'v> {
+    type Canonical = <AnalysisContext<'v> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         AnalysisContext::starlark_type_repr()
     }

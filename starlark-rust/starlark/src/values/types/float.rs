@@ -213,6 +213,8 @@ impl StarlarkFloat {
 }
 
 impl StarlarkTypeRepr for f64 {
+    type Canonical = <StarlarkFloat as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         StarlarkFloat::starlark_type_repr()
     }

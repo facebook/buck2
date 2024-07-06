@@ -80,6 +80,8 @@ impl AllocFrozenValue for TypingNever {
 pub enum StarlarkNever {}
 
 impl StarlarkTypeRepr for StarlarkNever {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         Ty::never()
     }

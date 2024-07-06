@@ -76,6 +76,8 @@ pub const FUNCTION_TYPE: &str = "function";
 pub(crate) enum StarlarkFunction {}
 
 impl StarlarkTypeRepr for StarlarkFunction {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         Ty::any_callable()
     }

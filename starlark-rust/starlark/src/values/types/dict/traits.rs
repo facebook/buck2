@@ -68,12 +68,16 @@ where
 }
 
 impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a SmallMap<K, V> {
+    type Canonical = <SmallMap<K, V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, V> {
+    type Canonical = <DictType<K, V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
@@ -131,12 +135,16 @@ where
 }
 
 impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a BTreeMap<K, V> {
+    type Canonical = <BTreeMap<K, V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for BTreeMap<K, V> {
+    type Canonical = <DictType<K, V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }

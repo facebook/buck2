@@ -24,6 +24,7 @@ use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
+use crate::values::structs::StructRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -62,6 +63,8 @@ where
     S: IntoIterator<Item = (K, V)>,
     V: StarlarkTypeRepr,
 {
+    type Canonical = <StructRef<'static> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Struct::starlark_type_repr()
     }

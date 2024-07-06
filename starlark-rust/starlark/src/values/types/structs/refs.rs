@@ -54,6 +54,8 @@ impl<'v> StructRef<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for StructRef<'v> {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         FrozenStruct::starlark_type_repr()
     }

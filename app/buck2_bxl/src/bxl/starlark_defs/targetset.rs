@@ -62,6 +62,8 @@ impl<Node: QueryTarget> Freeze for StarlarkTargetSet<Node> {
 }
 
 impl<'v, Node: NodeLike> StarlarkTypeRepr for &'v StarlarkTargetSet<Node> {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         StarlarkTargetSet::<Node>::starlark_type_repr()
     }

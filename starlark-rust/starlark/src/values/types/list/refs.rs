@@ -139,12 +139,16 @@ impl Display for FrozenListRef {
 }
 
 impl<'v> StarlarkTypeRepr for &'v ListRef<'v> {
+    type Canonical = <Vec<Value<'v>> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Vec::<Value<'v>>::starlark_type_repr()
     }
 }
 
 impl<'v> StarlarkTypeRepr for &'v FrozenListRef {
+    type Canonical = <Vec<FrozenValue> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Vec::<FrozenValue>::starlark_type_repr()
     }

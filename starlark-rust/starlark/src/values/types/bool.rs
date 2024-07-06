@@ -54,11 +54,11 @@ use crate::values::ValueError;
 /// The result of calling `type()` on booleans.
 pub const BOOL_TYPE: &str = "bool";
 
-// We have to alias bool so we can have a Display that uses True/False.
+/// `bool` value.
 #[derive(ProvidesStaticType, Debug, Serialize, StarlarkDocs, Allocative)]
 #[starlark_docs(builtin = "standard")]
 #[serde(transparent)]
-pub(crate) struct StarlarkBool(pub(crate) bool);
+pub struct StarlarkBool(pub(crate) bool);
 
 impl Display for StarlarkBool {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -88,6 +88,8 @@ impl AllocFrozenValue for bool {
 }
 
 impl StarlarkTypeRepr for bool {
+    type Canonical = <StarlarkBool as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         StarlarkBool::get_type_starlark_repr()
     }

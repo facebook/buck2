@@ -147,6 +147,8 @@ impl ImplStarlarkValue {
             impl<#params> starlark::values::type_repr::StarlarkTypeRepr for &#lt #self_ty
             #where_clause
             {
+                type Canonical = #self_ty;
+
                 fn starlark_type_repr() -> starlark::typing::Ty {
                     <#self_ty as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
                 }

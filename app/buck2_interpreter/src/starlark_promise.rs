@@ -285,6 +285,8 @@ impl<'v> AllocValue<'v> for StarlarkPromise<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v StarlarkPromise<'v> {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         StarlarkPromise::get_type_starlark_repr()
     }

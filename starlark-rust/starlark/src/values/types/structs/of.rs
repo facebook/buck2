@@ -38,6 +38,8 @@ pub struct StructOf<'v, V: UnpackValue<'v>> {
 }
 
 impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for StructOf<'v, V> {
+    type Canonical = <StructRef<'v> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Struct::starlark_type_repr()
     }

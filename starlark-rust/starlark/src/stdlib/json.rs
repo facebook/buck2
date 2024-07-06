@@ -39,12 +39,16 @@ use crate::values::Heap;
 use crate::values::Value;
 
 impl StarlarkTypeRepr for serde_json::Number {
+    type Canonical = Either<i32, f64>;
+
     fn starlark_type_repr() -> Ty {
         Either::<i32, f64>::starlark_type_repr()
     }
 }
 
 impl<'a> StarlarkTypeRepr for &'a serde_json::Number {
+    type Canonical = serde_json::Number;
+
     fn starlark_type_repr() -> Ty {
         serde_json::Number::starlark_type_repr()
     }
@@ -99,12 +103,16 @@ impl AllocFrozenValue for serde_json::Number {
 }
 
 impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a serde_json::Map<K, V> {
+    type Canonical = <serde_json::Map<K, V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         AllocDict::<SmallMap<K, V>>::starlark_type_repr()
     }
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for serde_json::Map<K, V> {
+    type Canonical = <SmallMap<K, V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         AllocDict::<SmallMap<K, V>>::starlark_type_repr()
     }
@@ -141,6 +149,8 @@ impl AllocFrozenValue for serde_json::Map<String, serde_json::Value> {
 }
 
 impl<'a> StarlarkTypeRepr for &'a serde_json::Value {
+    type Canonical = <serde_json::Value as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         // Any.
         Value::starlark_type_repr()
@@ -148,6 +158,8 @@ impl<'a> StarlarkTypeRepr for &'a serde_json::Value {
 }
 
 impl StarlarkTypeRepr for serde_json::Value {
+    type Canonical = <FrozenValue as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         // Any.
         Value::starlark_type_repr()

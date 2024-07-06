@@ -29,6 +29,7 @@ use crate::typing::Ty;
 use crate::values::dict::value::DictGen;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;
+use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
@@ -153,8 +154,10 @@ impl<'v> DerefMut for DictMut<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for DictRef<'v> {
+    type Canonical = <DictType<FrozenValue, FrozenValue> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
-        Dict::<'v>::starlark_type_repr()
+        DictType::<FrozenValue, FrozenValue>::starlark_type_repr()
     }
 }
 

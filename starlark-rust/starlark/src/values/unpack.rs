@@ -58,6 +58,8 @@ use crate::values::ValueError;
 /// struct BoolOrInt(i32);
 ///
 /// impl StarlarkTypeRepr for BoolOrInt {
+///     type Canonical = <Either<bool, i32> as StarlarkTypeRepr>::Canonical;
+///
 ///     fn starlark_type_repr() -> Ty {
 ///         Either::<bool, i32>::starlark_type_repr()
 ///     }

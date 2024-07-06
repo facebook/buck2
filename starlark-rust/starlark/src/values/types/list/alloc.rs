@@ -51,6 +51,8 @@ where
     L: IntoIterator,
     L::Item: StarlarkTypeRepr,
 {
+    type Canonical = <Vec<L::Item> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Vec::<L::Item>::starlark_type_repr()
     }

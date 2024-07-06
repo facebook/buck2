@@ -65,6 +65,8 @@ where
     K: StarlarkTypeRepr,
     V: StarlarkTypeRepr,
 {
+    type Canonical = DictType<K::Canonical, V::Canonical>;
+
     fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }

@@ -80,12 +80,16 @@ impl<T1: AllocFrozenValue, T2: AllocFrozenValue, T3: AllocFrozenValue> AllocFroz
 }
 
 impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr> StarlarkTypeRepr for (T1, T2) {
+    type Canonical = (T1::Canonical, T2::Canonical);
+
     fn starlark_type_repr() -> Ty {
         Ty::tuple2(T1::starlark_type_repr(), T2::starlark_type_repr())
     }
 }
 
 impl<T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
+    type Canonical = (T1::Canonical,);
+
     fn starlark_type_repr() -> Ty {
         Ty::tuple(vec![T1::starlark_type_repr()])
     }
@@ -94,6 +98,8 @@ impl<T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
 impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkTypeRepr
     for (T1, T2, T3)
 {
+    type Canonical = (T1::Canonical, T2::Canonical, T3::Canonical);
+
     fn starlark_type_repr() -> Ty {
         Ty::tuple(vec![
             T1::starlark_type_repr(),

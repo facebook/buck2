@@ -50,6 +50,8 @@ impl<'v, V: UnpackValue<'v>> ListOf<'v, V> {
 }
 
 impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for ListOf<'v, V> {
+    type Canonical = <Vec<V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Vec::<V>::starlark_type_repr()
     }

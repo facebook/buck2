@@ -71,6 +71,8 @@ impl Display for OwnedFrozenValue {
 }
 
 impl StarlarkTypeRepr for OwnedFrozenValue {
+    type Canonical = <FrozenValue as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         FrozenValue::starlark_type_repr()
     }

@@ -343,6 +343,8 @@ impl<'v, T: StarlarkValue<'v>> Deref for ValueTyped<'v, T> {
 }
 
 impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for ValueTyped<'v, T> {
+    type Canonical = <T as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }
@@ -377,6 +379,8 @@ impl<'v> AllocStringValue<'v> for StringValue<'v> {
 }
 
 impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for FrozenValueTyped<'v, T> {
+    type Canonical = <T as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }

@@ -63,6 +63,8 @@ impl<'v> Freeze for CommandLineArg<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for CommandLineArg<'v> {
+    type Canonical = <ValueAsCommandLineLike<'v> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         ValueAsCommandLineLike::starlark_type_repr()
     }

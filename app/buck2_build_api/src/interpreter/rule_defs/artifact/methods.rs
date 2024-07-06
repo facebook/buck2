@@ -27,13 +27,15 @@ use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkO
 use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum EitherArtifactRef<'v> {
+pub enum EitherArtifactRef<'v> {
     Artifact(&'v StarlarkArtifact),
     DeclaredArtifact(&'v StarlarkDeclaredArtifact),
     PromiseArtifact(&'v StarlarkPromiseArtifact),
 }
 
 impl<'v> StarlarkTypeRepr for &'v dyn StarlarkArtifactLike {
+    type Canonical = <EitherArtifactRef<'v> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         EitherArtifactRef::starlark_type_repr()
     }

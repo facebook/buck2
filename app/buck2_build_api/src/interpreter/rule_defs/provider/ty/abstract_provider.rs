@@ -51,9 +51,11 @@ fn mk_ty_provider() -> anyhow::Result<Ty> {
 }
 
 /// Type of any provider instance. In Starlark it is available as `Provider`.
-pub(crate) struct AbstractProvider;
+pub struct AbstractProvider;
 
 impl StarlarkTypeRepr for AbstractProvider {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         static TY: OnceLock<Ty> = OnceLock::new();
         TY.get_or_init(|| mk_ty_provider().unwrap()).dupe()

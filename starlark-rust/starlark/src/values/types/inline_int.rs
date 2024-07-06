@@ -56,7 +56,8 @@ use crate::values::Value;
     Serialize
 )]
 #[serde(transparent)]
-pub(crate) struct InlineInt(i32);
+#[doc(hidden)]
+pub struct InlineInt(i32);
 
 impl Debug for InlineInt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -203,7 +204,8 @@ impl InlineInt {
     }
 }
 
-pub(crate) struct InlineIntOverflow;
+#[doc(hidden)]
+pub struct InlineIntOverflow;
 
 impl TryFrom<u32> for InlineInt {
     type Error = InlineIntOverflow;
@@ -338,6 +340,8 @@ impl Rem for InlineInt {
 }
 
 impl StarlarkTypeRepr for InlineInt {
+    type Canonical = <StarlarkInt as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         PointerI32::starlark_type_repr()
     }

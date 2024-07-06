@@ -68,6 +68,8 @@ impl<'v> AllocStringValue<'v> for String {
 }
 
 impl StarlarkTypeRepr for char {
+    type Canonical = <String as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         String::starlark_type_repr()
     }
@@ -86,6 +88,8 @@ impl<'v> AllocStringValue<'v> for char {
 }
 
 impl StarlarkTypeRepr for &'_ String {
+    type Canonical = <String as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         String::starlark_type_repr()
     }

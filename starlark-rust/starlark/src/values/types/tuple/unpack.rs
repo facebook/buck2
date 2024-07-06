@@ -38,6 +38,8 @@ impl<T: Default> Default for UnpackTuple<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackTuple<T> {
+    type Canonical = UnpackTuple<T::Canonical>;
+
     fn starlark_type_repr() -> Ty {
         Ty::tuple_of(T::starlark_type_repr())
     }

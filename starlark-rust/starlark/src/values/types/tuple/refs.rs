@@ -19,6 +19,7 @@ use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 
 use crate::typing::Ty;
+use crate::values::tuple::UnpackTuple;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
@@ -103,12 +104,16 @@ impl FrozenTupleRef {
 }
 
 impl<'v> StarlarkTypeRepr for &'v TupleRef<'v> {
+    type Canonical = <UnpackTuple<FrozenValue> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Ty::any_tuple()
     }
 }
 
 impl<'a> StarlarkTypeRepr for &'a FrozenTupleRef {
+    type Canonical = <UnpackTuple<FrozenValue> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Ty::any_tuple()
     }

@@ -30,6 +30,8 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 
 impl StarlarkTypeRepr for u32 {
+    type Canonical = <i32 as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
@@ -50,6 +52,8 @@ impl AllocFrozenValue for u32 {
 }
 
 impl StarlarkTypeRepr for u64 {
+    type Canonical = <i32 as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
@@ -70,6 +74,8 @@ impl AllocFrozenValue for u64 {
 }
 
 impl StarlarkTypeRepr for i64 {
+    type Canonical = <i32 as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
@@ -90,6 +96,8 @@ impl AllocFrozenValue for i64 {
 }
 
 impl StarlarkTypeRepr for usize {
+    type Canonical = <i32 as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
@@ -110,6 +118,8 @@ impl AllocFrozenValue for usize {
 }
 
 impl StarlarkTypeRepr for isize {
+    type Canonical = <i32 as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }
@@ -130,6 +140,8 @@ impl AllocFrozenValue for isize {
 }
 
 impl StarlarkTypeRepr for BigInt {
+    type Canonical = <i32 as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         i32::starlark_type_repr()
     }

@@ -80,6 +80,8 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> DictOf<'v, K, V> {
 }
 
 impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> StarlarkTypeRepr for DictOf<'v, K, V> {
+    type Canonical = <DictType<K, V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         DictType::<K, V>::starlark_type_repr()
     }

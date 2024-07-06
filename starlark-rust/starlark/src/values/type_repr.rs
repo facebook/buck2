@@ -50,6 +50,17 @@ use crate::values::Value;
 ///
 /// This derive is useful in combination with derive of [`UnpackValue`](crate::values::UnpackValue).
 pub trait StarlarkTypeRepr {
+    /// Different Rust type representing the same Starlark Type.
+    ///
+    /// For example, `bool` and `StarlarkBool` Rust types represent the same Starlark type `bool`.
+    ///
+    /// Formal requirement: `Self::starlark_type_repr() == Self::Canonical::starlark_type_repr()`.
+    ///
+    /// If unsure, it is safe to put `= Self` here.
+    /// When [`associated_type_defaults`](https://github.com/rust-lang/rust/issues/29661)
+    /// is stabilized, this will be the default.
+    type Canonical: StarlarkTypeRepr;
+
     /// The representation of a type that a user would use verbatim in starlark type annotations
     fn starlark_type_repr() -> Ty;
 }
@@ -64,42 +75,56 @@ pub struct DictType<K: StarlarkTypeRepr, V: StarlarkTypeRepr> {
 }
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for DictType<K, V> {
+    type Canonical = DictType<K::Canonical, V::Canonical>;
+
     fn starlark_type_repr() -> Ty {
         Ty::dict(K::starlark_type_repr(), V::starlark_type_repr())
     }
 }
 
 impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         Self::get_type_starlark_repr()
     }
 }
 
 impl StarlarkTypeRepr for String {
+    type Canonical = StarlarkStr;
+
     fn starlark_type_repr() -> Ty {
         StarlarkStr::starlark_type_repr()
     }
 }
 
 impl StarlarkTypeRepr for &str {
+    type Canonical = StarlarkStr;
+
     fn starlark_type_repr() -> Ty {
         StarlarkStr::starlark_type_repr()
     }
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Option<T> {
+    type Canonical = <Either<NoneType, T> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Either::<NoneType, T>::starlark_type_repr()
     }
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Vec<T> {
+    type Canonical = Vec<T::Canonical>;
+
     fn starlark_type_repr() -> Ty {
         Ty::list(T::starlark_type_repr())
     }
 }
 
 impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Either<TLeft, TRight> {
+    type Canonical = Either<TLeft::Canonical, TRight::Canonical>;
+
     fn starlark_type_repr() -> Ty {
         Ty::union2(TLeft::starlark_type_repr(), TRight::starlark_type_repr())
     }

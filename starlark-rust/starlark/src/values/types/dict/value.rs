@@ -55,6 +55,7 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::AValueSimple;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::string::str_type::hash_string_value;
+use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -103,6 +104,8 @@ pub struct Dict<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for Dict<'v> {
+    type Canonical = <DictType<FrozenValue, FrozenValue> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         DictOf::<Value<'v>, Value<'v>>::starlark_type_repr()
     }
@@ -135,6 +138,8 @@ impl<'v> AllocValue<'v> for Dict<'v> {
 }
 
 impl StarlarkTypeRepr for FrozenDictData {
+    type Canonical = <DictType<FrozenValue, FrozenValue> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Ty::dict(Ty::any(), Ty::any())
     }

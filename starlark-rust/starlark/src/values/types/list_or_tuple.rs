@@ -43,6 +43,8 @@ impl<T> Default for UnpackListOrTuple<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackListOrTuple<T> {
+    type Canonical = <Either<UnpackList<T>, UnpackTuple<T>> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Either::<UnpackList<T>, UnpackTuple<T>>::starlark_type_repr()
     }

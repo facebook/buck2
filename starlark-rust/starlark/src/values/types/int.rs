@@ -86,6 +86,8 @@ impl AllocFrozenValue for i32 {
 }
 
 impl StarlarkTypeRepr for i32 {
+    type Canonical = <StarlarkInt as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         PointerI32::starlark_type_repr()
     }

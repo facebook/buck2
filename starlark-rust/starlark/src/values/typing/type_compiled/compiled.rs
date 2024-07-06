@@ -258,6 +258,8 @@ impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
 }
 
 impl<V: ValueLifetimeless> StarlarkTypeRepr for TypeCompiled<V> {
+    type Canonical = TypeCompiledImplAsStarlarkValue<DummyTypeMatcher>;
+
     fn starlark_type_repr() -> Ty {
         TypeCompiledImplAsStarlarkValue::<DummyTypeMatcher>::starlark_type_repr()
     }

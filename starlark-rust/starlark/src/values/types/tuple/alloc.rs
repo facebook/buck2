@@ -18,6 +18,7 @@
 use std::iter;
 
 use crate::typing::Ty;
+use crate::values::tuple::UnpackTuple;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -52,6 +53,8 @@ where
     T: IntoIterator,
     T::Item: StarlarkTypeRepr,
 {
+    type Canonical = <UnpackTuple<T::Item> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Ty::tuple_of(T::Item::starlark_type_repr())
     }

@@ -40,6 +40,8 @@ enum NonInstantiable {}
 pub struct StarlarkIter<T: StarlarkTypeRepr>(PhantomData<T>, NonInstantiable);
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkIter<T> {
+    type Canonical = StarlarkIter<T::Canonical>;
+
     fn starlark_type_repr() -> Ty {
         Ty::iter(T::starlark_type_repr())
     }

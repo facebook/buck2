@@ -111,6 +111,8 @@ fn derive_starlark_type_repr_impl(
 
     let trait_impl: syn::ItemImpl = syn::parse_quote_spanned! { span =>
         impl #impl_generics starlark::values::type_repr::StarlarkTypeRepr for #ident #type_generics #where_clause {
+            type Canonical = <#helper_type as starlark::values::type_repr::StarlarkTypeRepr>::Canonical;
+
             fn starlark_type_repr() -> starlark::typing::Ty {
                 <#helper_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
             }

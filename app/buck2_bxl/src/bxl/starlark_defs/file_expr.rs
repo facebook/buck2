@@ -38,6 +38,8 @@ pub(crate) struct SourceArtifactUnpack {
 }
 
 impl StarlarkTypeRepr for SourceArtifactUnpack {
+    type Canonical = <StarlarkArtifact as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         StarlarkArtifact::starlark_type_repr()
     }

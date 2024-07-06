@@ -53,6 +53,8 @@ impl<'v, T: UnpackValue<'v>> Deref for ValueOf<'v, T> {
 }
 
 impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for ValueOf<'v, T> {
+    type Canonical = T::Canonical;
+
     fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }

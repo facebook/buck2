@@ -38,6 +38,8 @@ impl<T> Default for UnpackList<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackList<T> {
+    type Canonical = <Vec<T> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Vec::<T>::starlark_type_repr()
     }

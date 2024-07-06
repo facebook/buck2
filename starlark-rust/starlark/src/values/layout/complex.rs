@@ -92,6 +92,8 @@ where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>,
 {
+    type Canonical = <T as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         T::starlark_type_repr()
     }

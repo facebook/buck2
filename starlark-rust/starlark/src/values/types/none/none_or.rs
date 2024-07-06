@@ -57,6 +57,8 @@ impl<T> NoneOr<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for NoneOr<T> {
+    type Canonical = <Either<NoneType, T> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Either::<NoneType, T>::starlark_type_repr()
     }

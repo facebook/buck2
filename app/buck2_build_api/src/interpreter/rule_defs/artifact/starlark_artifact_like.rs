@@ -130,6 +130,8 @@ pub enum ValueAsArtifactLikeUnpack<'v> {
 pub struct ValueAsArtifactLike<'v>(pub &'v dyn StarlarkArtifactLike);
 
 impl<'v> StarlarkTypeRepr for ValueAsArtifactLike<'v> {
+    type Canonical = <ValueAsArtifactLikeUnpack<'v> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         ValueAsArtifactLikeUnpack::starlark_type_repr()
     }

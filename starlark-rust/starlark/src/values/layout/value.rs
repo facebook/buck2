@@ -1137,12 +1137,16 @@ impl Serialize for FrozenValue {
 }
 
 impl<'v> StarlarkTypeRepr for Value<'v> {
+    type Canonical = <FrozenValue as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         FrozenValue::starlark_type_repr()
     }
 }
 
 impl StarlarkTypeRepr for FrozenValue {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         Ty::any()
     }

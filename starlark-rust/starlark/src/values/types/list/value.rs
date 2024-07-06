@@ -252,6 +252,8 @@ impl<'a, V: 'a> StarlarkTypeRepr for &'a [V]
 where
     &'a V: StarlarkTypeRepr,
 {
+    type Canonical = <Vec<&'a V> as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         Vec::<&'a V>::starlark_type_repr()
     }

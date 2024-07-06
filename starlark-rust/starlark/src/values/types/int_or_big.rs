@@ -70,13 +70,21 @@ enum StarlarkIntError {
     PartialEq,
     derive_more::Display,
     Hash,
-    StarlarkTypeRepr,
     AllocValue,
     AllocFrozenValue
 )]
-pub(crate) enum StarlarkInt {
+#[doc(hidden)]
+pub enum StarlarkInt {
     Small(InlineInt),
     Big(StarlarkBigInt),
+}
+
+impl StarlarkTypeRepr for StarlarkInt {
+    type Canonical = Self;
+
+    fn starlark_type_repr() -> Ty {
+        Ty::int()
+    }
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug)]
@@ -385,6 +393,8 @@ impl<'v> StarlarkIntRef<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for StarlarkIntRef<'v> {
+    type Canonical = <StarlarkInt as StarlarkTypeRepr>::Canonical;
+
     fn starlark_type_repr() -> Ty {
         StarlarkInt::starlark_type_repr()
     }

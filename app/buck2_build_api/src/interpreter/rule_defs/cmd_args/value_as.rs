@@ -27,6 +27,8 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 pub struct ValueAsCommandLineLike<'v>(pub &'v dyn CommandLineArgLike);
 
 impl<'v> StarlarkTypeRepr for ValueAsCommandLineLike<'v> {
+    type Canonical = Self;
+
     fn starlark_type_repr() -> Ty {
         command_line_arg_like_ty().dupe()
     }
