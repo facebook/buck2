@@ -55,6 +55,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueOfUnchecked;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -64,6 +65,7 @@ use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::ValueOfUnchecked;
 
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
@@ -208,6 +210,12 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         };
         Ok(Hashed::new_unchecked(hash, self))
     }
+
+    /// Convert to another `Value` wrapper.
+    #[inline]
+    pub fn to_value_of_unchecked(self) -> ValueOfUnchecked<'v, T> {
+        ValueOfUnchecked::new(self.to_value())
+    }
 }
 
 impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
@@ -297,6 +305,12 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     #[inline]
     pub(crate) fn as_frozen_ref(self) -> FrozenRef<'v, T> {
         FrozenRef::new(self.as_ref())
+    }
+
+    /// Convert to another `FrozenValue` wrapper.
+    #[inline]
+    pub fn to_value_of_unchecked(self) -> FrozenValueOfUnchecked<'v, T> {
+        FrozenValueOfUnchecked::new(self.to_frozen_value())
     }
 }
 
