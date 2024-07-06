@@ -22,7 +22,7 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
-use crate::values::dict::DictOf;
+use crate::values::dict::UnpackDictEntries;
 use crate::values::list::ListOf;
 use crate::values::structs::StructOf;
 use crate::values::Value;
@@ -47,13 +47,13 @@ fn validate_module(builder: &mut GlobalsBuilder) {
         Ok((*v, repr))
     }
     fn with_dict_list<'v>(
-        v: ListOf<'v, DictOf<'v, i32, i32>>,
+        v: ListOf<'v, UnpackDictEntries<i32, i32>>,
     ) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
             .to_vec()
             .iter()
             .map(|l| {
-                l.to_dict()
+                l.entries
                     .iter()
                     .map(|(k, v)| format!("{}: {}", k, v))
                     .join(", ")
@@ -61,40 +61,45 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .join(" + ");
         Ok((*v, repr))
     }
-    fn with_int_dict<'v>(v: DictOf<'v, i32, i32>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_int_dict<'v>(
+        v: ValueOf<'v, UnpackDictEntries<i32, i32>>,
+    ) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
-            .to_dict()
+            .typed
+            .entries
             .iter()
             .map(|(k, v)| format!("{}: {}", k, v))
             .join(" + ");
-        Ok((*v, repr))
+        Ok((v.value, repr))
     }
     fn with_list_dict<'v>(
-        v: DictOf<'v, i32, ListOf<'v, i32>>,
+        v: ValueOf<'v, UnpackDictEntries<i32, ListOf<'v, i32>>>,
     ) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
-            .to_dict()
+            .typed
+            .entries
             .iter()
             .map(|(k, v)| format!("{}: {}", k, v.to_vec().iter().join(", ")))
             .join(" + ");
-        Ok((*v, repr))
+        Ok((v.value, repr))
     }
     fn with_dict_dict<'v>(
-        v: DictOf<'v, i32, DictOf<'v, i32, i32>>,
+        v: ValueOf<'v, UnpackDictEntries<i32, UnpackDictEntries<i32, i32>>>,
     ) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
-            .to_dict()
+            .typed
+            .entries
             .iter()
             .map(|(k, v)| {
                 let inner_repr = v
-                    .to_dict()
+                    .entries
                     .iter()
                     .map(|(k2, v2)| format!("{}:{}", k2, v2))
                     .join(", ");
                 format!("{}: {}", k, inner_repr)
             })
             .join(" + ");
-        Ok((*v, repr))
+        Ok((v.value, repr))
     }
     fn with_struct_int<'v>(v: StructOf<'v, i32>) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
