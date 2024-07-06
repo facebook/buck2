@@ -27,6 +27,8 @@ use dupe::Dupe_;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
+use crate::values::Freeze;
+use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Trace;
@@ -169,6 +171,14 @@ unsafe impl<'v, T: StarlarkTypeRepr> Trace<'v> for ValueOfUnchecked<'v, T> {
         let ValueOfUnchecked(value, phantom) = self;
         value.trace(tracer);
         phantom.trace(tracer);
+    }
+}
+
+impl<'v, T: StarlarkTypeRepr> Freeze for ValueOfUnchecked<'v, T> {
+    type Frozen = FrozenValueOfUnchecked<'static, T>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        Ok(FrozenValueOfUnchecked::new(self.0.freeze(freezer)?))
     }
 }
 
