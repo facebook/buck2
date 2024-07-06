@@ -19,6 +19,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
@@ -129,7 +130,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     /// When actions run locally, the scratch path is also used as the `TMPDIR`.
     fn run<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] arguments: Value<'v>,
+        #[starlark(require = pos)] arguments: StarlarkCommandLineValueUnpack<'v>,
         #[starlark(require = named)] category: String,
         #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
         #[starlark(require = named)] env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
@@ -209,7 +210,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
 
         let mut artifact_visitor = RunCommandArtifactVisitor::new();
 
-        let starlark_args = StarlarkCmdArgs::try_from_value(arguments)?;
+        let starlark_args = StarlarkCmdArgs::try_from_value_typed(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
 
         let (starlark_exe, starlark_worker) = match exe {
