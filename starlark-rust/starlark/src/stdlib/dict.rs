@@ -27,8 +27,8 @@ use crate::hint::unlikely;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::list::AllocList;
-use crate::values::list::ListOf;
 use crate::values::list::ListRef;
+use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
 use crate::values::Heap;
 use crate::values::Value;
@@ -107,10 +107,8 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     fn items<'v>(
         this: DictRef<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, ListOf<'v, (Value<'v>, Value<'v>)>>> {
-        Ok(ValueOfUnchecked::new(heap.alloc_list_iter(
-            this.iter().map(|(k, v)| heap.alloc((k, v))),
-        )))
+    ) -> anyhow::Result<ValueOfUnchecked<'v, UnpackList<(Value<'v>, Value<'v>)>>> {
+        Ok(heap.alloc_typed_unchecked(AllocList(this.iter())).cast())
     }
 
     /// [dict.keys](
