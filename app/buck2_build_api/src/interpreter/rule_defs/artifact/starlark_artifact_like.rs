@@ -16,7 +16,7 @@ use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::collections::StarlarkHasher;
 use starlark::typing::Ty;
-use starlark::values::list::ListOf;
+use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Heap;
 use starlark::values::StringValue;
@@ -115,7 +115,7 @@ pub trait StarlarkArtifactLike: Display {
 
     fn with_associated_artifacts<'v>(
         &'v self,
-        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+        artifacts: UnpackList<ValueAsArtifactLike<'v>>,
     ) -> anyhow::Result<EitherStarlarkArtifact>;
 }
 

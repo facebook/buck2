@@ -24,7 +24,7 @@ use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
-use starlark::values::list::ListOf;
+use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
@@ -240,7 +240,7 @@ impl StarlarkArtifactLike for StarlarkPromiseArtifact {
 
     fn with_associated_artifacts<'v>(
         &'v self,
-        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+        artifacts: UnpackList<ValueAsArtifactLike<'v>>,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
         let _unused = artifacts;
         Err(PromiseArtifactError::CannotAddAssociatedArtifacts.into())

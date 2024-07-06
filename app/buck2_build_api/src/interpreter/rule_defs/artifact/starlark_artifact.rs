@@ -25,7 +25,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
-use starlark::values::list::ListOf;
+use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
@@ -220,10 +220,10 @@ impl StarlarkArtifactLike for StarlarkArtifact {
 
     fn with_associated_artifacts<'v>(
         &'v self,
-        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+        artifacts: UnpackList<ValueAsArtifactLike<'v>>,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
         let artifacts = artifacts
-            .to_vec()
+            .items
             .iter()
             .map(|a| a.0.get_artifact_group())
             .collect::<Result<Vec<_>, _>>()?;

@@ -10,7 +10,7 @@
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
-use starlark::values::list::ListOf;
+use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -143,7 +143,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     /// potentially additional artifacts. The artifacts must be bound.
     fn with_associated_artifacts<'v>(
         this: &'v dyn StarlarkArtifactLike,
-        artifacts: ListOf<'v, ValueAsArtifactLike<'v>>,
+        artifacts: UnpackList<ValueAsArtifactLike<'v>>,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
         this.with_associated_artifacts(artifacts)
     }
