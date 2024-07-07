@@ -339,10 +339,9 @@ impl<'v> Value<'v> {
         I: TryFrom<i32>,
         I: TryFrom<&'v BigInt>,
     {
-        match self.unpack_num()? {
-            NumRef::Float(_) => None,
-            NumRef::Int(StarlarkIntRef::Small(x)) => I::try_from(x.to_i32()).ok(),
-            NumRef::Int(StarlarkIntRef::Big(x)) => x.unpack_integer(),
+        match StarlarkIntRef::unpack_value(self)? {
+            StarlarkIntRef::Small(x) => I::try_from(x.to_i32()).ok(),
+            StarlarkIntRef::Big(x) => x.unpack_integer(),
         }
     }
 
