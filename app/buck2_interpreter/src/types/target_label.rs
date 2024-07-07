@@ -273,7 +273,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<ProvidersName> {
+fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<ProvidersName> {
     let subtarget = if let Some(list) = ListRef::from_value(subtarget_name) {
         list.iter()
             .map(|name| {
