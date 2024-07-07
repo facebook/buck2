@@ -31,14 +31,15 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
@@ -140,7 +141,9 @@ fn label_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn with_sub_target<'v>(
         this: &StarlarkTargetLabel,
-        #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
+        // TODO(nga): must be either positional or named.
+        #[starlark(default = SubtargetNameArg::List(ListRef::empty()))]
+        subtarget_name: SubtargetNameArg<'v>,
     ) -> anyhow::Result<StarlarkProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 
@@ -263,7 +266,9 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn with_sub_target<'v>(
         this: &'v StarlarkConfiguredTargetLabel,
-        #[starlark(default = AllocList::EMPTY)] subtarget_name: Value<'v>,
+        // TODO(nga): must be either positional or named.
+        #[starlark(default = SubtargetNameArg::List(ListRef::empty()))]
+        subtarget_name: SubtargetNameArg<'v>,
     ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 
@@ -273,9 +278,16 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<ProvidersName> {
-    let subtarget = if let Some(list) = ListRef::from_value(subtarget_name) {
-        list.iter()
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum SubtargetNameArg<'v> {
+    List(&'v ListRef<'v>),
+    Str(&'v str),
+}
+
+fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> anyhow::Result<ProvidersName> {
+    let subtarget = match subtarget_name {
+        SubtargetNameArg::List(list) => list
+            .iter()
             .map(|name| {
                 name.unpack_str()
                     .ok_or_else(|| {
@@ -291,17 +303,10 @@ fn value_to_providers_name<'v>(subtarget_name: Value<'v>) -> anyhow::Result<Prov
                             .map_err(|e| anyhow::anyhow!(e))
                     })
             })
-            .collect::<anyhow::Result<Vec<_>>>()?
-    } else if let Some(str) = subtarget_name.unpack_str() {
-        vec![ProviderName::new(str.to_owned()).context("for parameter `subtarget_name`")?]
-    } else {
-        return Err(anyhow::anyhow!(
-            ValueError::IncorrectParameterTypeNamedWithExpected(
-                "subtarget_name".to_owned(),
-                "list of str or str".to_owned(),
-                subtarget_name.get_type().to_owned()
-            )
-        ));
+            .collect::<anyhow::Result<Vec<_>>>()?,
+        SubtargetNameArg::Str(str) => {
+            vec![ProviderName::new(str.to_owned()).context("for parameter `subtarget_name`")?]
+        }
     };
 
     Ok(if subtarget.is_empty() {
