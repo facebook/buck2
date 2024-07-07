@@ -89,11 +89,11 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             #[error("Expected `{0}`, but got `{1}`")]
             struct IncorrectType(Ty, String);
 
-            IncorrectType(
+            crate::Error::new_value(IncorrectType(
                 U::starlark_type_repr(),
                 value.display_for_type_error().to_string(),
-            )
-            .into()
+            ))
+            .into_anyhow()
         }
 
         Self::unpack_value(value).ok_or_else(|| error::<Self>(value))

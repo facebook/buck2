@@ -54,6 +54,14 @@ impl Error {
         )))
     }
 
+    /// Create a new error with no diagnostic and of kind [`ErrorKind::Value`]
+    #[cold]
+    pub fn new_value(e: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self(WithDiagnostic::new_empty(ErrorKind::Value(
+            anyhow::Error::new(e),
+        )))
+    }
+
     /// The kind of this error
     pub fn kind(&self) -> &ErrorKind {
         self.0.inner()
