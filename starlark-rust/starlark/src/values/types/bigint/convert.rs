@@ -198,3 +198,39 @@ impl<'v> UnpackValue<'v> for BigInt {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use starlark_derive::starlark_module;
+
+    use crate as starlark;
+    use crate::assert::Assert;
+    use crate::environment::GlobalsBuilder;
+    use crate::values::none::NoneType;
+
+    #[test]
+    fn test_unpack_int_error() {
+        #[starlark_module]
+        fn module(globals: &mut GlobalsBuilder) {
+            fn takes_i32(#[starlark(require=pos)] _i: i32) -> starlark::Result<NoneType> {
+                Ok(NoneType)
+            }
+
+            fn takes_i64(#[starlark(require=pos)] _i: i64) -> starlark::Result<NoneType> {
+                Ok(NoneType)
+            }
+        }
+
+        let mut a = Assert::new();
+        a.globals_add(module);
+        // TODO(nga): error is correct, but error message is not helpful.
+        a.fail(
+            "takes_i32(1 << 100)",
+            "Type of parameter `_i` doesn't match, expected `int`, actual `int`",
+        );
+        a.fail(
+            "takes_i64(1 << 100)",
+            "Type of parameter `_i` doesn't match, expected `int`, actual `int`",
+        );
+    }
+}
