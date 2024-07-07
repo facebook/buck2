@@ -881,6 +881,12 @@ xs[xs] = xs
 }
 
 #[test]
+fn test_list_slice_does_not_accept_bool() {
+    // TODO(nga): this should fail.
+    assert::pass("[1][False]");
+}
+
+#[test]
 fn test_self_mutate_dict() {
     // Check functions that mutate and access self on dicts
     assert::is_true(
