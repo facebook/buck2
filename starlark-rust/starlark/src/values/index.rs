@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 
@@ -30,22 +31,14 @@ fn convert_index_aux(
         if v.is_none() {
             Ok(default)
         } else {
-            match v.to_int() {
-                Ok(x) => {
-                    let i = if x < 0 { len + x } else { x };
-                    if i < min {
-                        Ok(min)
-                    } else if i > max {
-                        Ok(max)
-                    } else {
-                        Ok(i)
-                    }
-                }
-                Err(..) => Err(ValueError::IncorrectParameterTypeWithExpected(
-                    "none or int".to_owned(),
-                    v.get_type().to_owned(),
-                )
-                .into()),
+            let x = i32::unpack_value_err(v)?;
+            let i = if x < 0 { len + x } else { x };
+            if i < min {
+                Ok(min)
+            } else if i > max {
+                Ok(max)
+            } else {
+                Ok(i)
             }
         }
     } else {
@@ -59,24 +52,16 @@ fn convert_index_aux(
 /// and len. Raise the correct errors if the value is not numeric or the
 /// index is out of bound.
 pub(crate) fn convert_index(v: Value, len: i32) -> anyhow::Result<i32> {
-    match v.to_int() {
-        Ok(x) => {
-            let i = if x < 0 {
-                len.checked_add(x).ok_or(ValueError::IntegerOverflow)?
-            } else {
-                x
-            };
-            if i < 0 || i >= len {
-                Err(ValueError::IndexOutOfBound(i).into())
-            } else {
-                Ok(i)
-            }
-        }
-        Err(..) => Err(ValueError::IncorrectParameterTypeWithExpected(
-            "int".to_owned(),
-            v.get_type().to_owned(),
-        )
-        .into()),
+    let x = i32::unpack_value_err(v)?;
+    let i = if x < 0 {
+        len.checked_add(x).ok_or(ValueError::IntegerOverflow)?
+    } else {
+        x
+    };
+    if i < 0 || i >= len {
+        Err(ValueError::IndexOutOfBound(i).into())
+    } else {
+        Ok(i)
     }
 }
 
@@ -95,12 +80,7 @@ pub(crate) fn convert_slice_indices(
     let stride = match stride {
         None => 1,
         Some(v) if v.is_none() => 1,
-        Some(v) => v.to_int().map_err(|_| {
-            ValueError::IncorrectParameterTypeWithExpected(
-                "int or None".to_owned(),
-                v.get_type().to_owned(),
-            )
-        })?,
+        Some(v) => i32::unpack_value_err(v)?,
     };
     match stride {
         0 => Err(ValueError::IndexOutOfBound(0).into()),

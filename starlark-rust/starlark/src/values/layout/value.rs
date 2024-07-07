@@ -513,20 +513,6 @@ impl<'v> Value<'v> {
         }
     }
 
-    /// Conversion to an int that sees through `bool` and `int`.
-    pub(crate) fn to_int(self) -> crate::Result<i32> {
-        // Fast path for the common case
-        if let Some(x) = self.unpack_i32() {
-            Ok(x)
-        } else if let Some(x) = self.unpack_bool() {
-            Ok(x as i32)
-        } else if let Some(NumRef::Int(_)) = self.unpack_num() {
-            Err(ValueError::IntegerOverflow.into())
-        } else {
-            ValueError::unsupported_owned(self.get_type(), "int()", None)
-        }
-    }
-
     /// `x[index]`.
     pub fn at(self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         self.get_ref().at(index, heap)

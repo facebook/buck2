@@ -869,21 +869,21 @@ xs == [1, 2, 3, 1, 2, 3]
 xs = []
 xs[xs]
 "#,
-        "Type of parameter",
+        "Expected `int`, but got",
     );
     a.fail(
         r#"
 xs = []
 xs[xs] = xs
 "#,
-        "Type of parameter",
+        "Expected `int`, but got",
     );
 }
 
 #[test]
 fn test_list_slice_does_not_accept_bool() {
     // TODO(nga): this should fail.
-    assert::pass("[1][False]");
+    assert::fail("[1][False]", "Expected `int`, but got `bool");
 }
 
 #[test]
