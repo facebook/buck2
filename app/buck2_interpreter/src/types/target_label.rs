@@ -31,7 +31,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -142,7 +142,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     fn with_sub_target<'v>(
         this: &StarlarkTargetLabel,
         // TODO(nga): must be either positional or named.
-        #[starlark(default = SubtargetNameArg::List(ListRef::empty()))]
+        #[starlark(default = SubtargetNameArg::List(UnpackList { items: Vec::new() }))]
         subtarget_name: SubtargetNameArg<'v>,
     ) -> anyhow::Result<StarlarkProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
@@ -267,7 +267,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     fn with_sub_target<'v>(
         this: &'v StarlarkConfiguredTargetLabel,
         // TODO(nga): must be either positional or named.
-        #[starlark(default = SubtargetNameArg::List(ListRef::empty()))]
+        #[starlark(default = SubtargetNameArg::List(UnpackList { items: Vec::new() }))]
         subtarget_name: SubtargetNameArg<'v>,
     ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
@@ -280,28 +280,19 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
 enum SubtargetNameArg<'v> {
-    List(&'v ListRef<'v>),
+    List(UnpackList<String>),
     Str(&'v str),
 }
 
 fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> anyhow::Result<ProvidersName> {
     let subtarget = match subtarget_name {
         SubtargetNameArg::List(list) => list
-            .iter()
+            .items
+            .into_iter()
             .map(|name| {
-                name.unpack_str()
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(ValueError::IncorrectParameterTypeNamedWithExpected(
-                            "subtarget_name".to_owned(),
-                            "list of str or str".to_owned(),
-                            name.get_type().to_owned(),
-                        ))
-                    })
-                    .and_then(|name| {
-                        ProviderName::new(name.to_owned())
-                            .context("for parameter `subtarget_name`")
-                            .map_err(|e| anyhow::anyhow!(e))
-                    })
+                ProviderName::new(name)
+                    .context("for parameter `subtarget_name`")
+                    .map_err(|e| anyhow::anyhow!(e))
             })
             .collect::<anyhow::Result<Vec<_>>>()?,
         SubtargetNameArg::Str(str) => {
