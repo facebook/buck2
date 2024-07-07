@@ -404,19 +404,14 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 build_result_dict
                     .iter()
                     .map(|(label, value)| {
-                        if let Some(bxl_build_result) =
-                            <&StarlarkBxlBuildResult>::unpack_value(value)
-                        {
-                            Ok((
-                                label.get_hashed().map_err(BuckStarlarkError::new)?,
-                                heap.alloc(get_artifacts_from_bxl_build_result(
-                                    bxl_build_result,
-                                    this,
-                                )?),
-                            ))
-                        } else {
-                            Err(anyhow::anyhow!(incorrect_parameter_type_error(artifacts)))
-                        }
+                        let bxl_build_result = <&StarlarkBxlBuildResult>::unpack_value_err(value)?;
+                        Ok((
+                            label.get_hashed().map_err(BuckStarlarkError::new)?,
+                            heap.alloc(get_artifacts_from_bxl_build_result(
+                                bxl_build_result,
+                                this,
+                            )?),
+                        ))
                     })
                     .collect::<anyhow::Result<_>>()?,
             )))
