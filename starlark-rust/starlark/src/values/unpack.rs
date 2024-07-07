@@ -22,7 +22,6 @@ use either::Either;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Value;
-use crate::values::ValueError;
 
 /// How to convert a [`Value`] to a Rust type. Required for all arguments in
 /// a [`#[starlark_module]`](macro@crate::starlark_module) definition.
@@ -104,11 +103,15 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     fn unpack_param(value: Value<'v>) -> anyhow::Result<Self> {
         #[cold]
         fn error<'v, U: UnpackValue<'v>>(value: Value<'v>) -> anyhow::Error {
-            ValueError::IncorrectParameterTypeWithExpected(
-                U::starlark_type_repr().to_string(),
+            #[derive(thiserror::Error, Debug)]
+            #[error("Type of parameters mismatch, expected `{0}`, actual `{1}`")]
+            struct IncorrectParameterTypeWithExpected(Ty, String);
+
+            crate::Error::new_value(IncorrectParameterTypeWithExpected(
+                U::starlark_type_repr(),
                 value.get_type().to_owned(),
-            )
-            .into()
+            ))
+            .into_anyhow()
         }
 
         Self::unpack_value(value).ok_or_else(|| error::<Self>(value))
@@ -119,12 +122,16 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     fn unpack_named_param(value: Value<'v>, param_name: &str) -> anyhow::Result<Self> {
         #[cold]
         fn error<'v, U: UnpackValue<'v>>(value: Value<'v>, param_name: &str) -> anyhow::Error {
-            ValueError::IncorrectParameterTypeNamedWithExpected(
+            #[derive(thiserror::Error, Debug)]
+            #[error("Type of parameter `{0}` doesn't match, expected `{1}`, actual `{2}`")]
+            struct IncorrectParameterTypeNamedWithExpected(String, Ty, String);
+
+            crate::Error::new_value(IncorrectParameterTypeNamedWithExpected(
                 param_name.to_owned(),
-                U::starlark_type_repr().to_string(),
+                U::starlark_type_repr(),
                 value.get_type().to_owned(),
-            )
-            .into()
+            ))
+            .into_anyhow()
         }
 
         Self::unpack_value(value).ok_or_else(|| error::<Self>(value, param_name))
