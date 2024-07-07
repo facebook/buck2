@@ -84,10 +84,6 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, 
 }
 
 impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for SmallMap<K, V> {
-    fn expected() -> String {
-        format!("dict mapping {} to {}", K::expected(), V::expected())
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         let dict = DictRef::from_value(value)?;
         let it = dict.iter();
@@ -151,10 +147,6 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for BTreeMap<K, 
 }
 
 impl<'v, K: UnpackValue<'v> + Ord, V: UnpackValue<'v>> UnpackValue<'v> for BTreeMap<K, V> {
-    fn expected() -> String {
-        format!("dict mapping {} to {}", K::expected(), V::expected())
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         let dict = DictRef::from_value(value)?;
         let mut r = BTreeMap::new();

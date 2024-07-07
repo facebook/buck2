@@ -56,10 +56,6 @@ impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for ValueOf<'v, T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for ValueOf<'v, T> {
-    fn expected() -> String {
-        T::expected()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         let typed = T::unpack_value(value)?;
         Some(Self { value, typed })

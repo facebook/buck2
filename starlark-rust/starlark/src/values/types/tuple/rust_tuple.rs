@@ -110,10 +110,6 @@ impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkT
 }
 
 impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) {
-    fn expected() -> String {
-        format!("tuple ({}, {})", T1::expected(), T2::expected())
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         let t = Tuple::from_value(value)?;
         if t.len() != 2 {
@@ -129,15 +125,6 @@ impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) 
 impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>, T3: UnpackValue<'v>> UnpackValue<'v>
     for (T1, T2, T3)
 {
-    fn expected() -> String {
-        format!(
-            "tuple ({}, {}, {})",
-            T1::expected(),
-            T2::expected(),
-            T3::expected()
-        )
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         let t = Tuple::from_value(value)?;
         if t.len() != 3 {

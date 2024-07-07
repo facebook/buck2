@@ -155,20 +155,12 @@ impl<'v> StarlarkTypeRepr for &'v FrozenListRef {
 }
 
 impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
-    fn expected() -> String {
-        "list".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         ListRef::from_value(value)
     }
 }
 
 impl<'v> UnpackValue<'v> for &'v FrozenListRef {
-    fn expected() -> String {
-        "frozen list".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         FrozenListRef::from_value(value)
     }

@@ -19,6 +19,7 @@
 
 use either::Either;
 
+use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Value;
 use crate::values::ValueError;
@@ -76,11 +77,6 @@ use crate::values::ValueError;
 /// }
 /// ```
 pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
-    /// Description of values acceptable by `unpack_value`, e. g. `list or str`.
-    fn expected() -> String {
-        Self::starlark_type_repr().to_string()
-    }
-
     /// Given a [`Value`], try and unpack it into the given type, which may involve some element of conversion.
     fn unpack_value(value: Value<'v>) -> Option<Self>;
 
@@ -88,10 +84,14 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     fn unpack_value_err(value: Value<'v>) -> anyhow::Result<Self> {
         #[derive(thiserror::Error, Debug)]
         #[error("Expected `{0}`, but got `{1}`")]
-        struct Error(String, String);
+        struct Error(Ty, String);
 
         Self::unpack_value(value).ok_or_else(|| {
-            Error(Self::expected(), value.display_for_type_error().to_string()).into()
+            Error(
+                Self::starlark_type_repr(),
+                value.display_for_type_error().to_string(),
+            )
+            .into()
         })
     }
 
@@ -101,7 +101,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
         #[cold]
         fn error<'v, U: UnpackValue<'v>>(value: Value<'v>) -> anyhow::Error {
             ValueError::IncorrectParameterTypeWithExpected(
-                U::expected(),
+                U::starlark_type_repr().to_string(),
                 value.get_type().to_owned(),
             )
             .into()
@@ -117,7 +117,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
         fn error<'v, U: UnpackValue<'v>>(value: Value<'v>, param_name: &str) -> anyhow::Error {
             ValueError::IncorrectParameterTypeNamedWithExpected(
                 param_name.to_owned(),
-                U::expected(),
+                U::starlark_type_repr().to_string(),
                 value.get_type().to_owned(),
             )
             .into()
@@ -128,10 +128,6 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
 }
 
 impl<'v> UnpackValue<'v> for Value<'v> {
-    fn expected() -> String {
-        "Value".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         Some(value)
     }
@@ -140,10 +136,6 @@ impl<'v> UnpackValue<'v> for Value<'v> {
 impl<'v, TLeft: UnpackValue<'v>, TRight: UnpackValue<'v>> UnpackValue<'v>
     for Either<TLeft, TRight>
 {
-    fn expected() -> String {
-        format!("either {} or {}", TLeft::expected(), TRight::expected())
-    }
-
     // Only implemented for types that implement [`UnpackValue`]. Nonsensical for other types.
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if let Some(left) = TLeft::unpack_value(value) {

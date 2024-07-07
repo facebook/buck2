@@ -207,10 +207,6 @@ macro_rules! starlark_simple_value {
             }
 
             impl<'v> $crate::values::UnpackValue<'v> for &'v $x {
-                fn expected() -> String {
-                    <$x as $crate::values::StarlarkValue>::get_type_value_static().as_str().to_owned()
-                }
-
                 #[inline]
                 fn unpack_value(x: $crate::values::Value<'v>) -> Option<&'v $x> {
                     $x::from_value(x)

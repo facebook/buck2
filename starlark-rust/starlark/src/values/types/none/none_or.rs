@@ -65,10 +65,6 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for NoneOr<T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for NoneOr<T> {
-    fn expected() -> String {
-        format!("None or {}", T::expected())
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         if value.is_none() {
             Some(NoneOr::None)

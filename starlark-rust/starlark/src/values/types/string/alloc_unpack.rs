@@ -120,20 +120,12 @@ impl<'v> AllocStringValue<'v> for &'_ str {
 }
 
 impl<'v> UnpackValue<'v> for &'v str {
-    fn expected() -> String {
-        "str".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         value.unpack_str()
     }
 }
 
 impl<'v> UnpackValue<'v> for String {
-    fn expected() -> String {
-        "str".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         value.unpack_str().map(ToOwned::to_owned)
     }

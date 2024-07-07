@@ -162,10 +162,6 @@ impl<'v> StarlarkTypeRepr for DictRef<'v> {
 }
 
 impl<'v> UnpackValue<'v> for DictRef<'v> {
-    fn expected() -> String {
-        "dict".to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<DictRef<'v>> {
         DictRef::from_value(value)
     }
