@@ -42,6 +42,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
@@ -147,7 +148,7 @@ enum EnsureMultipleArtifactsArg<'v> {
     EnsuredArtifactArgs(UnpackList<EnsuredArtifactArg<'v>>),
     ProvidersArtifactIterable(&'v StarlarkProvidersArtifactIterable<'v>),
     BxlBuildResult(&'v StarlarkBxlBuildResult),
-    Dict(DictRef<'v>),
+    Dict(UnpackDictEntries<Value<'v>, &'v StarlarkBxlBuildResult>),
     CmdLine(ValueAsCommandLineLike<'v>),
 }
 
@@ -413,9 +414,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             }
             EnsureMultipleArtifactsArg::Dict(build_result_dict) => Ok(heap.alloc(Dict::new(
                 build_result_dict
-                    .iter()
-                    .map(|(label, value)| {
-                        let bxl_build_result = <&StarlarkBxlBuildResult>::unpack_value_err(value)?;
+                    .entries
+                    .into_iter()
+                    .map(|(label, bxl_build_result)| {
                         Ok((
                             label.get_hashed().map_err(BuckStarlarkError::new)?,
                             heap.alloc(get_artifacts_from_bxl_build_result(
