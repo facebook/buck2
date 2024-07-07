@@ -55,6 +55,11 @@ impl<'v> ListRef<'v> {
     #[ref_cast_custom]
     pub(crate) fn new<'a>(slice: &'a [Value<'v>]) -> &'a ListRef<'v>;
 
+    /// Empty list reference.
+    pub fn empty() -> &'v ListRef<'v> {
+        ListRef::new(&[])
+    }
+
     /// List elements.
     pub fn content(&self) -> &[Value<'v>] {
         &self.content
