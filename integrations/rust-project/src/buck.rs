@@ -344,6 +344,7 @@ fn resolve_aliases(
     aliases: &FxHashMap<Target, AliasedTargetInfo>,
     proc_macros: &FxHashMap<Target, MacroOutput>,
 ) -> Vec<Target> {
+    let mut seen = FxHashSet::default();
     let mut resolved_targets = vec![];
 
     for target in targets {
@@ -359,7 +360,10 @@ fn resolve_aliases(
             }
         };
 
-        resolved_targets.push(destination_target.to_owned());
+        if !seen.contains(destination_target) {
+            resolved_targets.push(destination_target.to_owned());
+            seen.insert(destination_target);
+        }
     }
 
     resolved_targets
@@ -1042,5 +1046,29 @@ fn named_deps_underscores() {
             crate_index: 0,
             name: "bar_baz".to_owned()
         }]
+    );
+}
+
+#[test]
+fn alias_of_existing_target() {
+    let targets = vec![
+        Target::new("//foo"),
+        Target::new("//foo-alias"),
+        Target::new("//bar"),
+    ];
+
+    let mut aliases = FxHashMap::default();
+    aliases.insert(
+        Target::new("//foo-alias"),
+        AliasedTargetInfo {
+            actual: Target::new("//foo"),
+        },
+    );
+
+    let dep_targets = resolve_aliases(&targets, &aliases, &FxHashMap::default());
+
+    assert_eq!(
+        dep_targets,
+        vec![Target::new("//foo"), Target::new("//bar"),]
     );
 }
